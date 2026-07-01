@@ -1,20 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim } from 'fhir/r4b';
-import { ProvenanceAgent } from 'fhir/r4b';
+import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import {
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimStatusValues,
   claimStatusValuesToTags,
   getClaimStatusValues,
-  getPatchBinary,
   INVALID_INPUT_ERROR,
   isValidClaimStatusValue,
   withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { claimProvenanceRequest, commitWithProvenance, resolveClaimActor, versionedReference } from '../provenance';
+import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -57,31 +55,7 @@ export async function performEffect(
     ...claimStatusValuesToTags(updatedValues),
   ];
 
-  const versionId = claim.meta?.versionId;
-  const afterClaim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
-
-  // Patch and Provenance commit atomically. The status change is read from the claim's meta tags, so
-  // the diff surfaces exactly which status field changed.
-  const provenance = claimProvenanceRequest({
-    resourceType: 'Claim',
-    targetReference: `Claim/${params.claimId}`,
-    before: claim,
-    after: afterClaim,
-    agent,
-    activity: 'statusChange',
-    recorded: new Date().toISOString(),
-    priorVersionReference: versionedReference(claim),
-  });
-  await commitWithProvenance(
-    oystehr,
-    getPatchBinary({
-      resourceType: 'Claim',
-      resourceId: params.claimId,
-      patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
-      ifMatch: versionId ? `W/"${versionId}"` : undefined,
-    }),
-    provenance
-  );
+  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
 
   return { ok: true };
 }

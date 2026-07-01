@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import {
   Claim,
+  Coding,
   Coverage,
   Device,
   FhirResource,
@@ -22,27 +23,33 @@ import {
   CLAIM_STATUS_FIELDS,
   ClaimFieldChange,
   ClaimProvenanceActivityKey,
-  ClaimProvenanceDiff,
   convertFhirNameToDisplayName,
   formatClaimStatusValue,
   getClaimStatusValues,
   getNPI,
+  getPatchBinary,
   getTaxID,
+  makeOptimisticLockIfMatchHeader,
+  removePrefix,
   Secrets,
+  userMe,
 } from 'utils';
-import { getMyPractitionerId } from '../shared/practitioners';
 import { CLAIM_TAG_SYSTEM, fhirName, formatAddress, getClaimType, getTaxonomy, sortClaimInsurance } from './shared';
 
 // ---------------------------------------------------------------------------
-// Claim history (Provenance) helpers
+// Claim history (Provenance) — design overview
 //
 // Every create/mutation of a Claim or one of its working-copy resources writes a Provenance in the
-// same FHIR transaction as the change. This module builds those Provenances: a projection-based diff
-// of the business fields (before vs after), the acting agent (human Practitioner or the rules-engine
-// Device), and the activity coding.
+// same FHIR transaction as the change. Each Provenance targets BOTH the changed resource and the
+// claim, so `Provenance?target=Claim/{id}` returns the claim's complete history even for working
+// copies that were later replaced or removed. The field-level before/after diff is stored inline as
+// an extension, with display names captured at write time; FHIR _history remains the source of truth.
 // ---------------------------------------------------------------------------
 
-type FieldProjection = { field: string; label: string; value: string };
+// `ref` is set for reference-typed fields: it drives change detection (display-only differences are
+// not changes) and lets the read API attach screen links / resolve names for values written without
+// a display.
+type FieldProjection = { field: string; label: string; value: string; ref?: string };
 
 function refValue(ref?: { reference?: string; display?: string }): string {
   if (!ref) return '';
@@ -81,18 +88,28 @@ function projectClaim(claim: Claim): FieldProjection[] {
       value: formatClaimStatusValue(field, values[field.key]),
     });
   }
+  const rendering = claim.careTeam?.[0]?.provider;
   out.push(
     { field: 'diagnoses', label: 'Diagnoses', value: joinDiagnoses(claim) },
     { field: 'serviceLines', label: 'Service Lines', value: joinServiceLines(claim) },
     { field: 'totalCharges', label: 'Total Charges', value: claim.total?.value != null ? `$${claim.total.value}` : '' },
-    { field: 'billingProvider', label: 'Billing Provider', value: refValue(claim.provider) },
-    { field: 'renderingProvider', label: 'Rendering Provider', value: refValue(claim.careTeam?.[0]?.provider) },
-    { field: 'facility', label: 'Service Facility', value: refValue(claim.facility) },
-    { field: 'payer', label: 'Payer', value: refValue(claim.insurer) },
+    {
+      field: 'billingProvider',
+      label: 'Billing Provider',
+      value: refValue(claim.provider),
+      ref: claim.provider?.reference,
+    },
+    { field: 'renderingProvider', label: 'Rendering Provider', value: refValue(rendering), ref: rendering?.reference },
+    { field: 'facility', label: 'Service Facility', value: refValue(claim.facility), ref: claim.facility?.reference },
+    { field: 'payer', label: 'Payer', value: refValue(claim.insurer), ref: claim.insurer?.reference },
     {
       field: 'coverage',
       label: 'Coverage',
       value: sortClaimInsurance(claim)
+        .map((i) => refValue(i.coverage))
+        .filter(Boolean)
+        .join(', '),
+      ref: sortClaimInsurance(claim)
         .map((i) => i.coverage?.reference)
         .filter(Boolean)
         .join(', '),
@@ -113,7 +130,7 @@ function projectClaim(claim: Claim): FieldProjection[] {
 function projectCoverage(c: Coverage): FieldProjection[] {
   return [
     { field: 'memberId', label: 'Member ID', value: c.subscriberId ?? '' },
-    { field: 'payer', label: 'Payer', value: c.payor?.[0]?.reference ?? '' },
+    { field: 'payer', label: 'Payer', value: refValue(c.payor?.[0]), ref: c.payor?.[0]?.reference },
     {
       field: 'relationship',
       label: 'Relationship',
@@ -191,27 +208,36 @@ function projectResource(resource: Resource): FieldProjection[] {
 /**
  * Field-level diff between two snapshots of the same resource, using business-field projections.
  * `before`/`after` undefined model creation/deletion respectively. Empty values are normalized to
- * null, so a field that is absent or blank on one side reads as a clean set/clear.
+ * null. Reference-typed fields compare by reference, so a display-only difference is not a change.
  */
 export function diffResources(before: Resource | undefined, after: Resource | undefined): ClaimFieldChange[] {
-  const merged = new Map<string, { label: string; previous: string | null; next: string | null }>();
+  type Merged = { label: string; previous: string | null; next: string | null; previousRef?: string; newRef?: string };
+  const merged = new Map<string, Merged>();
   for (const p of before ? projectResource(before) : []) {
-    merged.set(p.field, { label: p.label, previous: p.value, next: null });
+    merged.set(p.field, { label: p.label, previous: p.value, next: null, previousRef: p.ref });
   }
   for (const p of after ? projectResource(after) : []) {
     const existing = merged.get(p.field);
-    if (existing) existing.next = p.value;
-    else merged.set(p.field, { label: p.label, previous: null, next: p.value });
+    if (existing) {
+      existing.next = p.value;
+      existing.newRef = p.ref;
+    } else {
+      merged.set(p.field, { label: p.label, previous: null, next: p.value, newRef: p.ref });
+    }
   }
 
   const changes: ClaimFieldChange[] = [];
-  for (const [field, { label, previous, next }] of merged) {
-    if ((previous ?? '') === (next ?? '')) continue;
+  for (const [field, { label, previous, next, previousRef, newRef }] of merged) {
+    const unchanged =
+      previousRef || newRef ? (previousRef ?? '') === (newRef ?? '') : (previous ?? '') === (next ?? '');
+    if (unchanged) continue;
     changes.push({
       field,
       label,
       previousValue: previous && previous !== '' ? previous : null,
       newValue: next && next !== '' ? next : null,
+      ...(previousRef ? { previousRef } : {}),
+      ...(newRef ? { newRef } : {}),
     });
   }
   return changes;
@@ -224,41 +250,48 @@ let rulesEngineDeviceId: string | undefined;
 
 /**
  * Resolve (and lazily provision) the singleton Device representing the automated billing rules engine.
+ * Uses a FHIR conditional create so concurrent cold starts cannot create duplicates.
  */
 export async function ensureRulesEngineDevice(oystehr: Oystehr): Promise<string> {
   if (rulesEngineDeviceId) return rulesEngineDeviceId;
 
-  const existing = (
-    await oystehr.fhir.search<Device>({
-      resourceType: 'Device',
-      params: [
-        {
-          name: 'identifier',
-          value: `${CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER.system}|${CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER.value}`,
+  const identifierToken = `${CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER.system}|${CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER.value}`;
+  const tx = await oystehr.fhir.transaction<Device>({
+    requests: [
+      {
+        method: 'POST',
+        url: '/Device',
+        resource: {
+          resourceType: 'Device',
+          identifier: [CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER],
+          deviceName: [{ name: CLAIM_RULES_ENGINE_DEVICE_NAME, type: 'user-friendly-name' }],
+          status: 'active',
         },
-      ],
-    })
-  ).unbundle()[0];
-
-  if (existing?.id) {
-    rulesEngineDeviceId = existing.id;
-    return existing.id;
-  }
-
-  const created = await oystehr.fhir.create<Device>({
-    resourceType: 'Device',
-    identifier: [CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER],
-    deviceName: [{ name: CLAIM_RULES_ENGINE_DEVICE_NAME, type: 'user-friendly-name' }],
-    status: 'active',
+        ifNoneExist: [{ name: 'identifier', value: identifierToken }],
+      },
+    ],
   });
-  rulesEngineDeviceId = created.id!;
+  let device = tx.entry?.[0]?.resource;
+  if (!device?.id) {
+    // Some servers return no body when the conditional create matched an existing resource.
+    device = (
+      await oystehr.fhir.search<Device>({
+        resourceType: 'Device',
+        params: [{ name: 'identifier', value: identifierToken }],
+      })
+    ).unbundle()[0];
+  }
+  if (!device?.id) throw new Error('Failed to resolve the rules-engine Device');
+  rulesEngineDeviceId = device.id;
   return rulesEngineDeviceId;
 }
 
 /**
- * Resolve the acting agent for a billing mutation. A request carrying a user token is attributed to
- * that user's Practitioner; anything else (automated / no user token) is attributed to the rules-engine
- * Device. FHIR operations themselves still run on the M2M client — the header is identity-only.
+ * Resolve the acting agent for a billing mutation. FHIR operations run on the M2M client — the
+ * Authorization header is identity-only. A caller with a Practitioner profile is the human actor;
+ * an authenticated caller without one (M2M automation) is the rules-engine Device. A failure to
+ * resolve the caller's identity throws: an audit record with a guessed actor is worse than a
+ * retryable error.
  */
 export async function resolveClaimActor(
   oystehr: Oystehr,
@@ -267,14 +300,13 @@ export async function resolveClaimActor(
 ): Promise<ProvenanceAgent> {
   const token = authorizationHeader?.replace('Bearer ', '');
   if (token) {
-    try {
-      const practitionerId = await getMyPractitionerId(token, secrets);
+    const user = await userMe(token, secrets);
+    const practitionerId = user.profile ? removePrefix('Practitioner/', user.profile) : undefined;
+    if (practitionerId) {
       return {
         type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] },
         who: { reference: `Practitioner/${practitionerId}` },
       };
-    } catch (err) {
-      console.error('Could not resolve acting practitioner from token; attributing to rules engine', err);
     }
   }
   const deviceId = await ensureRulesEngineDevice(oystehr);
@@ -287,10 +319,11 @@ export async function resolveClaimActor(
 // --- Provenance request building --------------------------------------------
 
 export interface ClaimProvenanceArgs {
-  resourceType: string;
-  // Reference to the changed resource. During a creating transaction this is the urn:uuid fullUrl,
+  // Reference to the changed resource. During a creating transaction this may be a urn:uuid fullUrl,
   // which the server resolves to a literal reference.
   targetReference: string;
+  // Reference to the claim this change belongs to (may equal targetReference).
+  claimReference: string;
   before?: Resource;
   after?: Resource;
   agent: ProvenanceAgent;
@@ -298,29 +331,33 @@ export interface ClaimProvenanceArgs {
   recorded: string;
   // Versioned reference of the prior version (e.g. Coverage/abc/_history/3), when known.
   priorVersionReference?: string;
+  // Additional change entries the projection diff can't see (e.g. policy-holder edits folded into
+  // the owning Coverage's record).
+  extraChanges?: ClaimFieldChange[];
 }
 
 /**
- * Build the POST request for a Provenance describing a single change. Returns null for an update whose
- * diff is empty (a no-op mutation gets no history entry). Creates/deletes always produce a record.
+ * Build the POST request for a Provenance describing a single change. Returns null for an update
+ * whose diff is empty (a no-op mutation gets no history entry); creates/deletes always produce a
+ * record. target[0] is the changed resource; the claim is appended as a second target.
  */
 export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPostRequest<Provenance> | null {
-  const changes = diffResources(args.before, args.after);
-  // Creates/deletes are always worth recording; any other activity with no field change is a no-op
-  // mutation and gets no history entry.
+  const changes = [...diffResources(args.before, args.after), ...(args.extraChanges ?? [])];
   if (args.activity !== 'create' && args.activity !== 'delete' && changes.length === 0) return null;
 
-  const diff: ClaimProvenanceDiff = { resourceType: args.resourceType, changes };
+  const target = [{ reference: args.targetReference }];
+  if (args.claimReference !== args.targetReference) target.push({ reference: args.claimReference });
+
   const provenance: Provenance = {
     resourceType: 'Provenance',
-    target: [{ reference: args.targetReference }],
+    target,
     recorded: args.recorded,
     activity: { coding: [CLAIM_PROVENANCE_ACTIVITY[args.activity]] },
     agent: [args.agent],
     ...(args.priorVersionReference
       ? { entity: [{ role: 'revision', what: { reference: args.priorVersionReference } }] }
       : {}),
-    extension: [{ url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL, valueString: JSON.stringify(diff) }],
+    extension: [{ url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL, valueString: JSON.stringify(changes) }],
   };
   return { method: 'POST', url: '/Provenance', resource: provenance };
 }
@@ -335,9 +372,8 @@ export function versionedReference(resource: Resource | undefined): string | und
 }
 
 /**
- * Commit a single-resource mutation together with its Provenance in one atomic transaction. Used by
- * endpoints that would otherwise issue a bare update/patch. When the Provenance is null (no-op update)
- * the mutation is still applied.
+ * Commit a single-resource mutation together with its Provenance in one atomic transaction. When the
+ * Provenance is null (no-op update) the mutation is still applied.
  */
 export async function commitWithProvenance(
   oystehr: Oystehr,
@@ -348,4 +384,39 @@ export async function commitWithProvenance(
     ? [mutation, provenance as BatchInputRequest<FhirResource>]
     : [mutation];
   await oystehr.fhir.transaction<FhirResource>({ requests });
+}
+
+/**
+ * Patch a claim's full meta.tag array (with optimistic locking) and record the change as a
+ * Provenance, atomically. Shared by set-billing-claim-status and tag-billing-claim.
+ */
+export async function commitClaimMetaTagsWithProvenance(
+  oystehr: Oystehr,
+  claim: Claim,
+  updatedTags: Coding[],
+  activity: Extract<ClaimProvenanceActivityKey, 'statusChange' | 'tagChange'>,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const claimReference = `Claim/${claim.id}`;
+  const afterClaim: Claim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
+  const provenance = claimProvenanceRequest({
+    targetReference: claimReference,
+    claimReference,
+    before: claim,
+    after: afterClaim,
+    agent,
+    activity,
+    recorded: new Date().toISOString(),
+    priorVersionReference: versionedReference(claim),
+  });
+  await commitWithProvenance(
+    oystehr,
+    getPatchBinary({
+      resourceType: 'Claim',
+      resourceId: claim.id!,
+      patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
+      ifMatch: makeOptimisticLockIfMatchHeader(claim),
+    }),
+    provenance
+  );
 }

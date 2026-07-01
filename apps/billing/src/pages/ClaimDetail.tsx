@@ -99,16 +99,21 @@ export default function ClaimDetail(): ReactElement {
 
   const updateResource = useCallback(
     async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
-      if (!oystehrZambda) return 'Client not ready';
+      if (!oystehrZambda || !id) return 'Client not ready';
       try {
-        await updateBillingResource(oystehrZambda, { resourceType, resourceId, fields } as UpdateBillingResourceInput);
+        await updateBillingResource(oystehrZambda, {
+          resourceType,
+          resourceId,
+          claimId: id,
+          fields,
+        } as UpdateBillingResourceInput);
       } catch (err) {
         return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
       await fetchDetail();
       return null;
     },
-    [oystehrZambda, fetchDetail]
+    [oystehrZambda, fetchDetail, id]
   );
 
   const handleTagAction = useCallback(

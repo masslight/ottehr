@@ -142,6 +142,15 @@ export async function resolvePayersByRef(
   return byRef;
 }
 
+// Payer display string used across billing: "Name (Payer ID)".
+export function payerDisplay(org: Organization | undefined): string | undefined {
+  if (!org) return undefined;
+  const name = org.name ?? '';
+  const payerId = getPayerId(org) ?? '';
+  if (name && payerId) return `${name} (${payerId})`;
+  return name || payerId || undefined;
+}
+
 // Provider role: one tag system  (a provider can bill and/or render).
 export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role';
 export const PROVIDER_ROLE_BILLING = 'billing';
@@ -319,6 +328,17 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
 export function fhirName(resource?: Patient | Practitioner): string {
   const name = resource?.name?.[0];
   return name ? convertFhirNameToDisplayName(name) : '';
+}
+
+// Friendly display name for any resource that can be referenced from a claim (undefined when the
+// resource has no usable name, so callers can set Reference.display without empty strings).
+export function resourceDisplayName(resource: Resource | undefined): string | undefined {
+  if (!resource) return undefined;
+  const name =
+    resource.resourceType === 'Practitioner' || resource.resourceType === 'Patient'
+      ? fhirName(resource as Practitioner | Patient)
+      : (resource as Organization | Location).name;
+  return name || undefined;
 }
 
 /**

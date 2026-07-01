@@ -1,23 +1,9 @@
 import { Coding } from 'fhir/r4b';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from '../../../fhir/systemUrls';
+import { PROVENANCE_ACTIVITY_TYPE_SYSTEM } from '../labs/labs.constants';
 
-// ---------------------------------------------------------------------------
-// Claim change-history (Provenance) model
-//
-// Every create/mutation of a Claim or one of its working-copy resources writes
-// a Provenance in the same FHIR transaction as the change. The Provenance is the
-// attribution record (who, when, what activity); the field-level before/after is
-// carried inline as a diff extension (see CLAIM_PROVENANCE_DIFF_EXTENSION_URL),
-// backed by FHIR _history as the source of truth.
-//
-// Linkage: each Provenance simply targets the changed resource. Because billing
-// working copies are created per-claim, the read side reconstructs a claim's full
-// resource graph and queries Provenance?target=<id1>,<id2>,... to assemble history.
-// ---------------------------------------------------------------------------
-
-// Reuse the same activity-type system the lab / nursing-order Provenances use. Kept local
-// (not exported) to avoid colliding with the labs constants' identically-named export.
-const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'https://identifiers.fhir.oystehr.com/provenance-activity-type';
+// Types and codings for billing-claim change history. The design overview (how Provenances are
+// written and queried) lives in packages/zambdas/src/billing/provenance.ts.
 
 export const CLAIM_PROVENANCE_ACTIVITY_CODES = {
   create: 'CREATE',
@@ -52,7 +38,7 @@ export const CLAIM_PROVENANCE_AGENT_TYPE: Record<'human' | 'system', Coding> = {
   system: { system: CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM, code: 'system', display: 'System' },
 };
 
-// Extension on the Provenance whose valueString holds a JSON-serialized ClaimProvenanceDiff.
+// Extension on the Provenance whose valueString holds a JSON-serialized ClaimFieldChange[].
 export const CLAIM_PROVENANCE_DIFF_EXTENSION_URL = ottehrExtensionUrl('claim-history-change-set');
 
 // Singleton Device representing the automated billing rules engine. The actor abstraction
@@ -64,9 +50,10 @@ export const CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER = {
 };
 export const CLAIM_RULES_ENGINE_DEVICE_NAME = 'Ottehr Rules Engine';
 
-// A single changed field, with the value before and after the change. Values are pre-formatted
-// display strings (null = absent before/after, i.e. a set or a clear). Reference-typed fields
-// (providers, facility) additionally carry a link to the resource's screen.
+// A single changed field, with the value before and after the change. Values are display strings
+// captured at write time (null = absent, i.e. a set or a clear). For reference-typed fields
+// (providers, facility, payer) the raw FHIR reference is kept alongside in previousRef/newRef;
+// change detection compares refs when present, so display-only differences are not changes.
 export interface ClaimFieldChange {
   // Machine-readable field key/path (e.g. 'memberId', 'diagnoses').
   field: string;
@@ -74,7 +61,10 @@ export interface ClaimFieldChange {
   label: string;
   previousValue: string | null;
   newValue: string | null;
-  // Deep-links for reference-typed values, set by the read API. Absent for plain-value fields.
+  previousRef?: string;
+  newRef?: string;
+  // Deep-links to the screens managing referenced resources — populated by the read API only,
+  // never stored.
   previousLink?: ClaimHistoryLink | null;
   newLink?: ClaimHistoryLink | null;
 }
@@ -86,15 +76,7 @@ export interface ClaimHistoryLink {
   id: string;
 }
 
-// Payload serialized into the Provenance diff extension. The changed resource's id is read from the
-// Provenance.target reference (resolved server-side), so it is not duplicated here.
-export interface ClaimProvenanceDiff {
-  resourceType: string;
-  changes: ClaimFieldChange[];
-}
-
 export interface ClaimHistoryActor {
-  reference: string;
   display: string;
   type: 'user' | 'system';
 }
@@ -105,9 +87,6 @@ export interface ClaimHistoryEntry {
   recorded: string;
   // Human-readable activity label, e.g. 'Update Coverage'.
   activity: string;
-  activityCode: string;
-  resourceType: string;
-  resourceId: string;
   actor: ClaimHistoryActor;
   changes: ClaimFieldChange[];
 }
@@ -122,7 +101,6 @@ export const CLAIM_HISTORY_RESOURCE_LABELS: Record<string, string> = {
   Claim: 'Claim',
   Patient: 'Patient',
   Coverage: 'Coverage',
-  RelatedPerson: 'Policy Holder',
   Practitioner: 'Provider',
   Organization: 'Provider',
   Location: 'Service Facility',

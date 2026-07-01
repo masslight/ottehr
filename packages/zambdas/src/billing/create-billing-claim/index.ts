@@ -37,7 +37,10 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   ensureClaimInsurance,
   findRef,
+  payerDisplay,
   prepareWorkingCopy,
+  resolvePayersByRef,
+  resourceDisplayName,
 } from '../shared';
 import { CreateClaimParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -81,14 +84,18 @@ async function performEffect(
     await linkPatientCopyViaPerson(oystehr, params.patientId, copies.patient.id);
   }
 
-  const claim = buildClaim(copies, params);
+  // Resolve the payer's display up front so the claim's references (and therefore its history
+  // records) carry friendly names.
+  const payerRef = copies.coverage?.payor?.[0]?.reference;
+  const payerName = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
+  const claim = buildClaim(copies, params, payerName);
 
   // Create the claim and its creation Provenance atomically; the Provenance targets the claim's
   // urn:uuid, which the transaction resolves to the real Claim reference.
   const claimUrn = `urn:uuid:${randomUUID()}`;
   const provenance = claimProvenanceRequest({
-    resourceType: 'Claim',
     targetReference: claimUrn,
+    claimReference: claimUrn,
     after: claim,
     agent,
     activity: 'create',
@@ -200,7 +207,7 @@ async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResource
   return { patient: originals.patient, ...copies } as OriginalResources;
 }
 
-function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {
+function buildClaim(copies: OriginalResources, params: CreateClaimParams, payerName?: string): Claim {
   const serviceDate = params.serviceLines?.[0]?.serviceDate ?? new Date().toISOString().slice(0, 10);
 
   // Status indicators chosen at creation, with the AR stage's progress status auto-initialized.
@@ -217,7 +224,10 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
     created: serviceDate,
     patient: { reference: `Patient/${copies.patient.id}` },
     provider: copies.billingProvider?.id
-      ? { reference: `${copies.billingProvider.resourceType}/${copies.billingProvider.id}` }
+      ? {
+          reference: `${copies.billingProvider.resourceType}/${copies.billingProvider.id}`,
+          display: resourceDisplayName(copies.billingProvider),
+        }
       : { display: 'Unknown' },
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
     insurance: [],
@@ -228,18 +238,23 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
   // A purely self-pay claim has no coverage; ensureClaimInsurance inserts the no-coverage stub so the
   // Claim stays valid (insurance is 1..*). Only set insurer when there's a real coverage to bill.
   const realInsurance = copies.coverage?.id
-    ? [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}` } }]
+    ? [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}`, display: payerName } }]
     : [];
   claim.insurance = ensureClaimInsurance(realInsurance);
   const payerRef = copies.coverage?.payor?.[0]?.reference;
-  if (payerRef && copies.coverage?.id) claim.insurer = { reference: payerRef };
-  if (copies.facility?.id) claim.facility = { reference: `Location/${copies.facility.id}` };
+  if (payerRef && copies.coverage?.id) claim.insurer = { reference: payerRef, display: payerName };
+  if (copies.facility?.id) {
+    claim.facility = { reference: `Location/${copies.facility.id}`, display: resourceDisplayName(copies.facility) };
+  }
 
   if (copies.renderingProvider?.id) {
     claim.careTeam = [
       {
         sequence: 1,
-        provider: { reference: `${copies.renderingProvider.resourceType}/${copies.renderingProvider.id}` },
+        provider: {
+          reference: `${copies.renderingProvider.resourceType}/${copies.renderingProvider.id}`,
+          display: resourceDisplayName(copies.renderingProvider),
+        },
         role: {
           coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }],
         },

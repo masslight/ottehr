@@ -25,7 +25,7 @@ import {
   getPayerUrl,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { claimProvenanceRequest, commitWithProvenance, resolveClaimActor, versionedReference } from '../provenance';
+import { claimProvenanceRequest, diffResources, resolveClaimActor, versionedReference } from '../provenance';
 import {
   buildAddress,
   buildDiagnosisSequence,
@@ -35,7 +35,10 @@ import {
   ensureClaimInsurance,
   fetchById,
   getClaimTypeCoding,
+  payerDisplay,
   prepareWorkingCopy,
+  resolvePayersByRef,
+  resourceDisplayName,
   setCoverageRelationship,
   setNpi,
   setTaxId,
@@ -64,6 +67,7 @@ async function performEffect(
   params: UpdateBillingClaimParams,
   agent: ProvenanceAgent
 ): Promise<{ id: string | undefined }> {
+  const claimReference = `Claim/${params.claimId}`;
   switch (params.resourceType) {
     case 'Claim':
       return attachClaimResources(oystehr, params, agent);
@@ -75,7 +79,7 @@ async function performEffect(
       if (fields.dob !== undefined) patient.birthDate = fields.dob;
       if (fields.gender !== undefined) patient.gender = fields.gender as Patient['gender'];
       if (fields.address !== undefined) patient.address = [buildAddress(fields.address)];
-      return save(oystehr, patient, before, agent);
+      return save(oystehr, patient, before, agent, claimReference);
     }
     case 'Practitioner': {
       const practitioner = await fetchById<Practitioner>(oystehr, 'Practitioner', params.resourceId);
@@ -85,7 +89,7 @@ async function performEffect(
       if (fields.npi !== undefined) setNpi(practitioner, fields.npi);
       if (fields.taxId !== undefined) setTaxId(practitioner, fields.taxId);
       if (fields.taxonomyCode !== undefined) setTaxonomy(practitioner, fields.taxonomyCode);
-      return save(oystehr, practitioner, before, agent);
+      return save(oystehr, practitioner, before, agent, claimReference);
     }
     case 'Coverage': {
       const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.resourceId);
@@ -93,7 +97,7 @@ async function performEffect(
       const { fields } = params;
       if (fields.subscriberId !== undefined) coverage.subscriberId = fields.subscriberId;
       if (fields.status !== undefined) coverage.status = fields.status;
-      if (fields.relationship === undefined) return save(oystehr, coverage, before, agent);
+      if (fields.relationship === undefined) return save(oystehr, coverage, before, agent, claimReference);
       return saveCoverageSubscriber(
         oystehr,
         coverage,
@@ -101,6 +105,7 @@ async function performEffect(
         fields.relationship,
         before,
         agent,
+        claimReference,
         fields.policyHolder
       );
     }
@@ -111,7 +116,7 @@ async function performEffect(
       if (fields.name !== undefined) location.name = fields.name;
       if (fields.npi !== undefined) setNpi(location, fields.npi);
       if (fields.address !== undefined) location.address = buildAddress(fields.address);
-      return save(oystehr, location, before, agent);
+      return save(oystehr, location, before, agent, claimReference);
     }
     case 'Organization': {
       const organization = await fetchById<Organization>(oystehr, 'Organization', params.resourceId);
@@ -121,13 +126,14 @@ async function performEffect(
       if (fields.npi !== undefined) setNpi(organization, fields.npi);
       if (fields.taxId !== undefined) setTaxId(organization, fields.taxId);
       if (fields.taxonomyCode !== undefined) setTaxonomy(organization, fields.taxonomyCode);
-      return save(oystehr, organization, before, agent);
+      return save(oystehr, organization, before, agent, claimReference);
     }
   }
 }
 
 // Mirror update-billing-coverage: relationship/policy-holder edits also create/update/delete the
 // working-copy subscriber RelatedPerson, so the coverage and the person are written in one transaction.
+// Policy-holder edits are recorded as `policyHolder.*` change entries on the Coverage's Provenance.
 async function saveCoverageSubscriber(
   oystehr: Oystehr,
   coverage: Coverage,
@@ -135,6 +141,7 @@ async function saveCoverageSubscriber(
   relationship: BillingSubscriberRelationship,
   before: Coverage,
   agent: ProvenanceAgent,
+  claimReference: string,
   policyHolder?: BillingPolicyHolderInput
 ): Promise<{ id: string | undefined }> {
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
@@ -143,34 +150,45 @@ async function saveCoverageSubscriber(
   setCoverageRelationship(coverage, relationship);
   const currentRef = coverage.subscriber?.reference;
   const currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
+  const currentSubscriber = currentSubscriberId
+    ? await fetchById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId)
+    : undefined;
 
   const pre: BatchInputRequest<FhirResource>[] = [];
   const post: BatchInputRequest<FhirResource>[] = [];
+  let newSubscriber: RelatedPerson | undefined;
   if (relationship === 'Self' || !policyHolder) {
     coverage.subscriber = { reference: `Patient/${patientId}` };
     if (currentSubscriberId) post.push({ method: 'DELETE', url: `RelatedPerson/${currentSubscriberId}` });
   } else {
-    const subscriber = buildSubscriberRelatedPerson(patientId, relationship, policyHolder);
+    newSubscriber = buildSubscriberRelatedPerson(patientId, relationship, policyHolder);
     if (currentSubscriberId) {
-      subscriber.id = currentSubscriberId;
-      pre.push({ method: 'PUT', url: `RelatedPerson/${currentSubscriberId}`, resource: subscriber });
+      newSubscriber.id = currentSubscriberId;
+      pre.push({ method: 'PUT', url: `RelatedPerson/${currentSubscriberId}`, resource: newSubscriber });
       coverage.subscriber = { reference: `RelatedPerson/${currentSubscriberId}` };
     } else {
       const urn = `urn:uuid:${randomUUID()}`;
-      pre.push({ method: 'POST', url: '/RelatedPerson', resource: subscriber, fullUrl: urn });
+      pre.push({ method: 'POST', url: '/RelatedPerson', resource: newSubscriber, fullUrl: urn });
       coverage.subscriber = { reference: urn };
     }
   }
 
+  const policyHolderChanges = diffResources(currentSubscriber, newSubscriber).map((change) => ({
+    ...change,
+    field: `policyHolder.${change.field}`,
+    label: `Policy Holder ${change.label}`,
+  }));
+
   const provenance = claimProvenanceRequest({
-    resourceType: 'Coverage',
     targetReference: `Coverage/${coverageId}`,
+    claimReference,
     before,
     after: coverage,
     agent,
     activity: 'update',
     recorded: new Date().toISOString(),
     priorVersionReference: versionedReference(before),
+    extraChanges: policyHolderChanges,
   });
 
   const requests: BatchInputRequest<FhirResource>[] = [
@@ -192,6 +210,10 @@ async function attachClaimResources(
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.resourceId);
   const before = structuredClone(claim);
   const { fields } = params;
+  const claimReference = `Claim/${params.resourceId}`;
+  // Side-effect writes (e.g. re-pointing the attached coverage's payer) and their Provenances commit
+  // in the same transaction as the claim update.
+  const extraRequests: BatchInputRequest<FhirResource>[] = [];
 
   if (fields.type) {
     claim.type = getClaimTypeCoding(fields.type);
@@ -205,7 +227,7 @@ async function attachClaimResources(
 
   if (fields.billingProvider) {
     const copy = await createCopy(oystehr, fields.billingProvider.type, fields.billingProvider.id);
-    claim.provider = { reference: `${fields.billingProvider.type}/${copy.id}` };
+    claim.provider = { reference: `${fields.billingProvider.type}/${copy.id}`, display: resourceDisplayName(copy) };
   }
 
   if (fields.renderingProvider) {
@@ -213,7 +235,7 @@ async function attachClaimResources(
     claim.careTeam = [
       {
         sequence: 1,
-        provider: { reference: `${fields.renderingProvider.type}/${copy.id}` },
+        provider: { reference: `${fields.renderingProvider.type}/${copy.id}`, display: resourceDisplayName(copy) },
         role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }] },
       },
       ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
@@ -226,7 +248,7 @@ async function attachClaimResources(
 
   if (fields.facilityId) {
     const copy = await createCopy(oystehr, 'Location', fields.facilityId);
-    claim.facility = { reference: `Location/${copy.id}` };
+    claim.facility = { reference: `Location/${copy.id}`, display: resourceDisplayName(copy) };
   }
 
   if (fields.coverageId) {
@@ -250,13 +272,14 @@ async function attachClaimResources(
       }
     }
     const created = await oystehr.fhir.create(copy);
+    const payerRef = created.payor?.[0]?.reference;
+    const display = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
     // ensureClaimInsurance drops any no-coverage stub now that a real focal coverage is attached.
     claim.insurance = ensureClaimInsurance([
-      { sequence: 1, focal: true, coverage: { reference: `Coverage/${created.id}` } },
+      { sequence: 1, focal: true, coverage: { reference: `Coverage/${created.id}`, display } },
       ...(claim.insurance ?? []).filter((i) => i.sequence !== 1),
     ]);
-    const payerRef = created.payor?.[0]?.reference;
-    if (payerRef) claim.insurer = { reference: payerRef };
+    if (payerRef) claim.insurer = { reference: payerRef, display };
   }
 
   if (fields.removeCoverage) {
@@ -267,13 +290,28 @@ async function attachClaimResources(
 
   if (fields.payerId) {
     const payerUrl = getPayerUrl(fields.payerId);
+    const display = payerDisplay(await oystehr.rcm.getPayer({ id: fields.payerId }));
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
-    if (claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
-    const coverageRef = sortClaimInsurance(claim)[0]?.coverage?.reference;
+    if (claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl, display };
+    const firstInsurance = sortClaimInsurance(claim)[0];
+    const coverageRef = firstInsurance?.coverage?.reference;
     if (coverageRef?.startsWith('Coverage/')) {
       const coverage = await fetchById<Coverage>(oystehr, 'Coverage', coverageRef.replace('Coverage/', ''));
-      coverage.payor = [{ reference: payerUrl }];
-      await oystehr.fhir.update(coverage);
+      const coverageBefore = structuredClone(coverage);
+      coverage.payor = [{ reference: payerUrl, display }];
+      if (firstInsurance.coverage) firstInsurance.coverage.display = display;
+      extraRequests.push({ method: 'PUT', url: `Coverage/${coverage.id}`, resource: coverage });
+      const coverageProvenance = claimProvenanceRequest({
+        targetReference: `Coverage/${coverage.id}`,
+        claimReference,
+        before: coverageBefore,
+        after: coverage,
+        agent,
+        activity: 'update',
+        recorded: new Date().toISOString(),
+        priorVersionReference: versionedReference(coverageBefore),
+      });
+      if (coverageProvenance) extraRequests.push(coverageProvenance as BatchInputRequest<FhirResource>);
     }
   }
 
@@ -325,7 +363,7 @@ async function attachClaimResources(
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
 
-  return save(oystehr, claim, before, agent);
+  return save(oystehr, claim, before, agent, claimReference, extraRequests);
 }
 
 async function createCopy(
@@ -341,11 +379,13 @@ async function save(
   oystehr: Oystehr,
   resource: FhirResource,
   before: FhirResource,
-  agent: ProvenanceAgent
+  agent: ProvenanceAgent,
+  claimReference: string,
+  extraRequests: BatchInputRequest<FhirResource>[] = []
 ): Promise<{ id: string | undefined }> {
   const provenance = claimProvenanceRequest({
-    resourceType: resource.resourceType,
     targetReference: `${resource.resourceType}/${resource.id}`,
+    claimReference,
     before,
     after: resource,
     agent,
@@ -353,12 +393,12 @@ async function save(
     recorded: new Date().toISOString(),
     priorVersionReference: versionedReference(before),
   });
-  // The mutation and its Provenance (when there is a real change) commit atomically.
-  await commitWithProvenance(
-    oystehr,
+  const requests: BatchInputRequest<FhirResource>[] = [
     { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource },
-    provenance
-  );
+    ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
+    ...extraRequests,
+  ];
+  await oystehr.fhir.transaction<FhirResource>({ requests });
   return { id: resource.id };
 }
 

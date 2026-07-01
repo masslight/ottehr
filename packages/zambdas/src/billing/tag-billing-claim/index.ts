@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coding, ProvenanceAgent } from 'fhir/r4b';
-import { getPatchBinary } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { claimProvenanceRequest, commitWithProvenance, resolveClaimActor, versionedReference } from '../provenance';
+import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
 import { CLAIM_TAG_SYSTEM, createBillingClient, fetchById } from '../shared';
 import { TagBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -30,8 +29,6 @@ async function performEffect(
   const existingTags = claim.meta?.tag ?? [];
   const hasTag = existingTags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === params.tagName);
 
-  const versionId = claim.meta?.versionId;
-
   let updatedTags: Coding[] | undefined;
   if (params.action === 'add' && !hasTag) {
     updatedTags = [...existingTags, { system: CLAIM_TAG_SYSTEM, code: params.tagName }];
@@ -40,28 +37,7 @@ async function performEffect(
   }
   if (!updatedTags) return { ok: true };
 
-  // Patch and Provenance commit atomically.
-  const afterClaim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
-  const provenance = claimProvenanceRequest({
-    resourceType: 'Claim',
-    targetReference: `Claim/${params.claimId}`,
-    before: claim,
-    after: afterClaim,
-    agent,
-    activity: 'tagChange',
-    recorded: new Date().toISOString(),
-    priorVersionReference: versionedReference(claim),
-  });
-  await commitWithProvenance(
-    oystehr,
-    getPatchBinary({
-      resourceType: 'Claim',
-      resourceId: params.claimId,
-      patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
-      ifMatch: versionId ? `W/"${versionId}"` : undefined,
-    }),
-    provenance
-  );
+  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'tagChange', agent);
 
   return { ok: true };
 }

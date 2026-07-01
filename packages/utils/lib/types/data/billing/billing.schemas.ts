@@ -433,6 +433,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Patient'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString,
     fields: z.object({
       firstName: z.string().optional(),
       lastName: z.string().optional(),
@@ -444,6 +445,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Practitioner'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString,
     fields: z.object({
       firstName: z.string().optional(),
       lastName: z.string().optional(),
@@ -455,6 +457,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Coverage'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString,
     fields: z.object({
       subscriberId: z.string().optional(),
       status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
@@ -465,6 +468,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Location'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString,
     fields: z.object({
       name: z.string().optional(),
       npi: z.string().optional(),
@@ -474,6 +478,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Organization'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString,
     fields: z.object({
       name: z.string().optional(),
       npi: z.string().optional(),
@@ -486,6 +491,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Claim'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString,
     fields: z.object({
       type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
       billingProvider: claimProviderRefSchema.optional(),
