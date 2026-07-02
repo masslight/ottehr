@@ -22,9 +22,11 @@ export const useAiSuggestionsPolling = (): void => {
 
   useEffect(() => {
     if (!wasMeetingEnded || hasAiSuggestions) {
+      attemptsRef.current = 0;
       return;
     }
 
+    attemptsRef.current = 0;
     const intervalId = setInterval(() => {
       attemptsRef.current += 1;
       if (attemptsRef.current > MAX_POLL_ATTEMPTS) {

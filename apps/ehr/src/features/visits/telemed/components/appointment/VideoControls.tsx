@@ -43,13 +43,18 @@ export const VideoControls: FC = () => {
   };
 
   const disconnect = async (): Promise<void> => {
-    if (oystehr && encounter.id) {
-      // Immediately end the meeting for all participants. This also triggers the recording pipeline
-      // right away instead of waiting for the room to time out.
-      await oystehr.telemed.endMeeting({ encounterId: encounter.id });
-      useVideoCallStore.setState({ wasMeetingEnded: true });
+    try {
+      if (oystehr && encounter.id) {
+        // Immediately end the meeting for all participants. This also triggers the recording pipeline
+        // right away instead of waiting for the room to time out.
+        await oystehr.telemed.endMeeting({ encounterId: encounter.id });
+        useVideoCallStore.setState({ wasMeetingEnded: true });
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      await cleanup();
     }
-    await cleanup();
   };
 
   return (

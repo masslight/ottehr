@@ -212,6 +212,11 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
 ): Promise<string> {
   const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, args.z3URL, 'download');
   const file = await fetch(presignedFileDownloadUrl);
+  if (!file.ok) {
+    throw new Error(
+      `[transcribeAndCreateResourcesFromZ3Audio] Failed to download audio from Z3: ${file.status} ${file.statusText}`
+    );
+  }
   const bytes = await file.arrayBuffer();
   const fileBase64 = Buffer.from(bytes).toString('base64');
   const rawMimeType = file.headers.get('Content-Type') || 'unknown';
