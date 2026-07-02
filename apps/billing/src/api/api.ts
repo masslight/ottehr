@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import {
   apiErrorToThrow,
+  BillingChargeItemDefinition,
   BillingCodeOption,
   chooseJson,
   ClaimDetailResponse,
@@ -8,14 +9,19 @@ import {
   CreateBillingCoverageInputSchema,
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
+  CreateChargeItemDefinitionInputSchema,
   CreatedClaimResponse,
   CreatedResourceResponse,
   DeleteBillingCoverageInputSchema,
   DeleteBillingProviderInputSchema,
   DeleteBillingTagInputSchema,
+  DeleteChargeItemDefinitionInputSchema,
   DeletedResponse,
   DeleteServiceFacilityInputSchema,
   EraDetailResponse,
+  ExportClaimX12InputSchema,
+  ExportClaimX12Response,
+  GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
   GetClaimHistoryResponse,
@@ -39,7 +45,11 @@ import {
   SearchBillingProcedureCodesResponse,
   SearchBillingProvidersInputSchema,
   SearchBillingProvidersResponse,
+  SearchBillingServicesInputSchema,
+  SearchBillingServicesResponse,
   SearchBillingTagsResponse,
+  SearchChargeItemDefinitionsInputSchema,
+  SearchChargeItemDefinitionsResponse,
   SearchErasInputSchema,
   SearchServiceFacilitiesInputSchema,
   SearchServiceFacilitiesResponse,
@@ -49,6 +59,7 @@ import {
   UpdateBillingPatientInputSchema,
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
+  UpdateChargeItemDefinitionInputSchema,
 } from 'utils';
 import z from 'zod';
 
@@ -108,6 +119,11 @@ export const getBillingClaimHistory = (
   parameters: z.input<typeof GetClaimHistoryInputSchema>
 ): Promise<GetClaimHistoryResponse> => executeBillingZambda(oystehr, 'get-billing-claim-history', parameters);
 
+export const exportClaimX12 = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ExportClaimX12InputSchema>
+): Promise<ExportClaimX12Response> => executeBillingZambda(oystehr, 'export-billing-claim-x12', parameters);
+
 export const updateBillingResource = (
   oystehr: Oystehr,
   parameters: z.input<typeof UpdateBillingResourceInputSchema>
@@ -141,6 +157,11 @@ export const deleteBillingProvider = (
 ): Promise<DeletedResponse> => executeBillingZambda(oystehr, 'delete-billing-provider', parameters);
 
 // --- Lookups (payers, locations, coverages) ---
+
+export const searchBillingServices = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingServicesInputSchema>
+): Promise<SearchBillingServicesResponse> => executeBillingZambda(oystehr, 'search-billing-services', parameters);
 
 export const searchBillingPayers = (
   oystehr: Oystehr,
@@ -242,3 +263,31 @@ export const getBillingEraDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetEraDetailInputSchema>
 ): Promise<EraDetailResponse> => executeBillingZambda(oystehr, 'get-billing-era-detail', parameters);
+
+// --- ChargeItemDefinitions --
+
+export const searchChargeItemDefinitions = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchChargeItemDefinitionsInputSchema>
+): Promise<SearchChargeItemDefinitionsResponse> =>
+  executeBillingZambda(oystehr, 'search-charge-item-definitions', parameters);
+
+export const createChargeItemDefinition = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateChargeItemDefinitionInputSchema>
+): Promise<BillingChargeItemDefinition> => executeBillingZambda(oystehr, 'create-charge-item-definition', parameters);
+
+export const getChargeItemDefinition = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetChargeItemDefinitionInputSchema>
+): Promise<BillingChargeItemDefinition> => executeBillingZambda(oystehr, 'get-charge-item-definition', parameters);
+
+export const updateChargeItemDefinition = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UpdateChargeItemDefinitionInputSchema>
+): Promise<BillingChargeItemDefinition> => executeBillingZambda(oystehr, 'update-charge-item-definition', parameters);
+
+export const deleteChargeItemDefinition = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof DeleteChargeItemDefinitionInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'delete-charge-item-definition', parameters);

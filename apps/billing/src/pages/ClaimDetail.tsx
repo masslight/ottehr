@@ -1,4 +1,8 @@
-import { ArrowBack as ArrowBackIcon, DeleteOutline as DeleteOutlineIcon } from '@mui/icons-material';
+import {
+  ArrowBack as ArrowBackIcon,
+  DeleteOutline as DeleteOutlineIcon,
+  FileDownloadOutlined as FileDownloadIcon,
+} from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -52,6 +56,7 @@ import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
+import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { Field } from '../components/Field';
 import {
   PolicyHolderFields,
@@ -78,6 +83,7 @@ export default function ClaimDetail(): ReactElement {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -187,11 +193,27 @@ export default function ClaimDetail(): ReactElement {
             <Meta label="Date of Service" value={dos} />
             <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
             <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
-            <Meta label="Appointment Type" value={formatAntCaseString(claim.appointmentType)} />
+            <Meta label="Service" value={formatAntCaseString(claim.service)} />
             <Meta label="Patient DOB" value={claim.patientDob} />
           </Box>
         </Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<FileDownloadIcon />}
+          onClick={() => setExportOpen(true)}
+          sx={{ mt: 0.5 }}
+        >
+          Export X12
+        </Button>
       </Box>
+
+      <ExportX12Dialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        claimId={claim.id}
+        claimType={claim.type}
+      />
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <Chip
@@ -597,7 +619,7 @@ function InsuranceSection({
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
-          No insurance — this claim is self-pay. Use Edit to add coverage.
+          No insurance
         </Typography>
       )}
       {hasCoverage && (
@@ -610,7 +632,7 @@ function InsuranceSection({
           {confirmingRemove ? (
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Typography variant="body2" color="text.secondary">
-                Remove insurance and make this claim self-pay?
+                Remove coverage?
               </Typography>
               <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
                 Cancel
@@ -632,7 +654,7 @@ function InsuranceSection({
               startIcon={<DeleteOutlineIcon fontSize="small" />}
               onClick={() => setConfirmingRemove(true)}
             >
-              Remove coverage (self-pay)
+              Remove coverage
             </Button>
           )}
         </Box>

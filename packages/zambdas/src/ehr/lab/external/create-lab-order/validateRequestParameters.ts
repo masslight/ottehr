@@ -1,4 +1,5 @@
 import { CreateLabOrderParameters, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
+import { safeJsonParse } from '../../../../shared';
 import { ZambdaInput } from '../../../../shared/types';
 
 export function validateRequestParameters(input: ZambdaInput): CreateLabOrderParameters & { secrets: any } {
@@ -7,7 +8,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
   }
 
   const { dx, encounter, orderableItems, psc, orderingLocation, selectedPaymentMethod, clinicalInfoNoteByUser } =
-    JSON.parse(input.body);
+    safeJsonParse(input.body);
 
   const missingResources = [];
   if (!dx) missingResources.push('dx (diagnosis)');

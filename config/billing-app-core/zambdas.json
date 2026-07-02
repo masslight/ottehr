@@ -22,6 +22,13 @@
       "src": "src/billing/search-billing-payers/index",
       "zip": ".dist/zips/search-billing-payers.zip"
     },
+    "SEARCH-BILLING-SERVICES": {
+      "name": "search-billing-services",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-services/index",
+      "zip": ".dist/zips/search-billing-services.zip"
+    },
     "GET-PATIENT-COVERAGES": {
       "name": "get-patient-coverages",
       "type": "http_auth",
@@ -126,6 +133,13 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/get-billing-claim-history/index",
       "zip": ".dist/zips/get-billing-claim-history.zip"
+    },
+    "EXPORT-BILLING-CLAIM-X12": {
+      "name": "export-billing-claim-x12",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/export-billing-claim-x12/index",
+      "zip": ".dist/zips/export-billing-claim-x12.zip"
     },
     "GET-BILLING-PATIENT-DETAIL": {
       "name": "get-billing-patient-detail",

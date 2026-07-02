@@ -27,6 +27,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listServiceCategories } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { formatLocationLabel } from 'src/components/schedule/locationLabel';
 import {
   BOOKING_CONFIG,
   getAllFhirSearchPages,
@@ -266,7 +267,6 @@ function GroupPageContent(): ReactElement {
   const locationProviderRollup = useMemo(() => {
     if (!allLocations && selectedLocationIds.length === 0) return [];
     const relevantHsIdSet = new Set(supportedCategoryHsIds);
-    const locationById = new Map((locations || []).filter((l) => l.id).map((l) => [l.id!, l] as const));
     const targetLocationIds = allLocations
       ? (locations || []).map((l) => l.id).filter((id): id is string => !!id)
       : selectedLocationIds;
@@ -310,7 +310,6 @@ function GroupPageContent(): ReactElement {
       }
     }
     const rows = targetLocationIds.map((locId) => {
-      const loc = locationById.get(locId);
       const byPrac = byLocation.get(locId) ?? new Map();
       const providers = Array.from(byPrac.entries())
         .filter(([, entry]) => entry.services.size > 0)
@@ -326,7 +325,7 @@ function GroupPageContent(): ReactElement {
         // Suffix inactive Locations so the rollup matches the chip in the
         // picker — slot generation skips them, and the admin should see why
         // a previously-listed Location now contributes nothing.
-        locationName: loc?.status === 'inactive' ? `${loc?.name || locId} (inactive)` : loc?.name || locId,
+        locationName: formatLocationLabel(locations || [], locId),
         providers,
       };
     });
@@ -800,15 +799,11 @@ function GroupPageContent(): ReactElement {
                 value={selectedLocationIds}
                 onChange={(_e, v) => setSelectedLocationIds(v)}
                 isOptionEqualToValue={(option, v) => option === v}
-                getOptionLabel={(id) => {
-                  const loc = (locations || []).find((l) => l.id === id);
-                  const base = loc?.name || id;
-                  // Saved selection may include Locations whose status has
-                  // since flipped to inactive — slot generation now skips
-                  // them automatically, but mark them in the chip so the
-                  // admin can spot and remove the stale ref if desired.
-                  return loc?.status === 'inactive' ? `${base} (inactive)` : base;
-                }}
+                // Saved selection may include Locations whose status has since
+                // flipped to inactive — slot generation now skips them
+                // automatically, but the helper marks them in the chip so the
+                // admin can spot and remove the stale ref if desired.
+                getOptionLabel={(id) => formatLocationLabel(locations || [], id)}
                 renderOption={(props, id) => {
                   const loc = (locations || []).find((l) => l.id === id);
                   const selected = selectedLocationIds.includes(id);

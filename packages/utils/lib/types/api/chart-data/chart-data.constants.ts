@@ -30,7 +30,8 @@ export type ProviderChartDataFieldsNames =
   | 'birth-history'
   | 'procedure'
   | typeof ERX_MEDICATION_META_TAG_CODE
-  | 'accident';
+  | 'accident'
+  | 'radiology';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 

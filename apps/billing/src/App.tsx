@@ -9,9 +9,11 @@ import { Layout } from './components/Layout';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UnauthorizedPage } from './components/UnauthorizedPage';
+import { ChargeItemDefinitionLabels } from './constants/chargeItemDefinition';
 import { useApiClients } from './hooks/useAppClients';
 import { useEvolveUser } from './hooks/useEvolveUser';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
+import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/ChargeItemDefinitionsList';
 import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
@@ -75,6 +77,14 @@ export default function App(): ReactElement {
               <Route path="/rendering-providers/:id" element={<RenderingProviderDetail />} />
               <Route path="/service-facilities" element={<ServiceFacilitiesList />} />
               <Route path="/service-facilities/:id" element={<ServiceFacilityDetail />} />
+              <Route
+                path={`/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`}
+                element={<ChargeItemDefinitionList type="charge-master" />}
+              />
+              <Route
+                path={`/${ChargeItemDefinitionLabels['charge-master'].pathComponent}/:id`}
+                element={<ChargeItemDefinitionDetail type="charge-master" />}
+              />
               <Route path="/eras" element={<ERAList />} />
               <Route path="/eras/:id" element={<ERADetail />} />
               <Route path="/tags" element={<Tags />} />
