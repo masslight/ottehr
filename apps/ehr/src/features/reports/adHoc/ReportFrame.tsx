@@ -48,6 +48,21 @@ const BOOTSTRAP = `
     function send(m) { try { parent.postMessage(m, '*'); } catch (e) {} }
     function measure() { return Math.max(document.body.scrollHeight, document.documentElement.scrollHeight); }
 
+    // Only an app-internal, single-slash relative href may navigate. Browsers STRIP tab/newline/CR
+    // from URLs before parsing, so "/\\t/evil.com" becomes "//evil.com" (protocol-relative) — strip
+    // them first, then reject a second char of '/' or backslash (a leading "/\\" normalizes to "//").
+    // Closes the "external link carrying computed data in the query string" exfil channel.
+    function isInternalHref(raw) {
+      if (typeof raw !== 'string') return false;
+      var h = raw.replace(/[\\t\\n\\r]/g, '');
+      return h.charAt(0) === '/' && h.charAt(1) !== '/' && h.charAt(1) !== '\\\\';
+    }
+
+    // Structural egress lockdown: the frame may NOT open windows itself. Legitimate app-page links
+    // are relayed to the PARENT (which opens them same-origin); everything else is dead. The sandbox
+    // no longer grants allow-popups, so this is belt-and-braces against window.open exfiltration.
+    try { window.open = function () { return null; }; } catch (e) {}
+
     // --- Lift tables out to the parent ----------------------------------------------------------
     // Tables the report renders are serialized, HIDDEN in the frame (along with their heading), and
     // posted to the parent, which re-renders them as full DataGrids. The list is rebuilt from the
@@ -60,9 +75,9 @@ const BOOTSTRAP = `
       var cell = { text: ((td && td.textContent) || '').trim().replace(/\\s+/g, ' ') };
       var a = td.querySelector ? td.querySelector('a') : null;
       if (a) {
+        // Only app-internal links survive into a lifted-grid cell (same rule the egress guard uses).
         var href = a.getAttribute('href') || '';
-        // Only app-internal single-slash links survive (same rule the egress guard enforces).
-        if (href.charAt(0) === '/' && href.charAt(1) !== '/') cell.href = href;
+        if (isInternalHref(href)) cell.href = href;
       }
       // Carry an inline cell background (heatmap shading) so the lifted grid can re-apply it.
       var bg = td && td.style ? td.style.backgroundColor : '';
@@ -139,18 +154,18 @@ const BOOTSTRAP = `
       );
     } catch (e) {}
 
-    // Egress guard: only app-internal links may navigate. Anchors must use a single-slash relative
-    // href (resolved against the <base> to the EHR origin); anything else — absolute URLs,
-    // protocol-relative, javascript:, etc. — is cancelled. This closes the "render an external
-    // link carrying computed data in the URL" channel.
+    // Egress guard: the frame never navigates itself. EVERY anchor click is cancelled here; an
+    // app-internal href is RELAYED to the parent, which opens it same-origin in a new tab. Anything
+    // else — absolute, protocol-relative, "/\\evil", javascript:, etc. — is simply dropped. Routing
+    // navigation through the parent (instead of letting the frame open it) is what lets the sandbox
+    // drop allow-popups/allow-popups-to-escape-sandbox, closing the window.open exfil channel too.
     document.addEventListener('click', function (ev) {
       var a = ev.target && ev.target.closest ? ev.target.closest('a') : null;
       if (!a) return;
+      ev.preventDefault();
+      ev.stopPropagation();
       var href = a.getAttribute('href') || '';
-      if (!(href.charAt(0) === '/' && href.charAt(1) !== '/')) {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
+      if (isInternalHref(href)) send({ type: 'navigate', href: href });
     }, true);
 
     window.addEventListener('message', function (ev) {
@@ -218,6 +233,16 @@ const SRC_DOC = [
 
 const TIMEOUT_MS = 8000;
 
+// Parent-side twin of the frame's isInternalHref: only an app-internal, single-slash relative href
+// may be opened. Browsers strip tab/newline/CR from URLs before parsing (so "/\t/x" → "//x"), so we
+// strip those first, then reject a second char of '/' or backslash (a leading "/\" normalizes to
+// "//"). Never trust an href the frame relays — re-validate here before window.open.
+function isInternalHref(raw: string | undefined): raw is string {
+  if (typeof raw !== 'string') return false;
+  const h = raw.replace(/[\t\n\r]/g, '');
+  return h.charAt(0) === '/' && h.charAt(1) !== '/' && h.charAt(1) !== '\\';
+}
+
 interface ReportFrameProps {
   code: string;
   data: AdHocRow[];
@@ -283,9 +308,16 @@ export function ReportFrame({
         type?: string;
         height?: number;
         message?: string;
+        href?: string;
         tables?: ExtractedTable[];
         hasNonTableContent?: boolean;
       };
+      if (msg?.type === 'navigate') {
+        // The frame relays app-internal link clicks here (it can no longer open windows itself).
+        // Re-validate the href before opening — never trust the frame — then open it same-origin.
+        if (isInternalHref(msg.href)) window.open(msg.href, '_blank', 'noopener');
+        return;
+      }
       if (msg?.type === 'ready') {
         readyRef.current = true;
         postRender();
@@ -325,13 +357,15 @@ export function ReportFrame({
   return (
     <Box>
       {/* The frame stays mounted (it computes the tables), but collapses when there's nothing but
-          tables to show. allow-popups (+ escape-sandbox) lets report links open app pages in a new
-          tab via native anchor clicks; still no allow-same-origin. */}
+          tables to show. sandbox="allow-scripts" ONLY — no allow-same-origin, and deliberately no
+          allow-popups/allow-popups-to-escape-sandbox: the frame can't open any window, so a report's
+          window.open can't exfiltrate. App-page links are relayed to the parent (the 'navigate'
+          message), which opens them same-origin in a new tab. */}
       <Box sx={{ display: hasNonTableContent ? 'block' : 'none' }}>
         <iframe
           ref={ref}
           title="Ad-hoc report"
-          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+          sandbox="allow-scripts"
           srcDoc={SRC_DOC}
           onLoad={handleLoad}
           style={{ width: '100%', height, border: '1px solid #e0e0e0', borderRadius: 4, background: '#fff' }}

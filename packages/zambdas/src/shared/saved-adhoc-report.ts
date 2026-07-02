@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL, SavedAdHocReport, SavedAdHocReportDefinition } from 'utils';
 
@@ -14,6 +15,21 @@ export function makeSavedAdHocReportBasic(definition: SavedAdHocReportDefinition
     code: { coding: [{ system: SAVED_ADHOC_REPORT_SYSTEM, code: SAVED_ADHOC_REPORT_CODE }] },
     extension: [{ url: DEFINITION_EXTENSION_URL, valueString: JSON.stringify(definition) }],
   };
+}
+
+// Confirm a Basic id actually belongs to a saved ad-hoc report BEFORE updating or deleting it.
+// The id comes from the client; without this an update/delete could overwrite or destroy an
+// unrelated Basic (billing tag, support-dialog config, progress-note config). Searches by id
+// scoped to the saved-report code, so a non-matching id returns no result.
+export async function savedAdHocReportExists(oystehr: Oystehr, reportId: string): Promise<boolean> {
+  const bundle = await oystehr.fhir.search<Basic>({
+    resourceType: 'Basic',
+    params: [
+      { name: '_id', value: reportId },
+      { name: 'code', value: `${SAVED_ADHOC_REPORT_SYSTEM}|${SAVED_ADHOC_REPORT_CODE}` },
+    ],
+  });
+  return bundle.unbundle().length > 0;
 }
 
 // null when the resource isn't a well-formed saved report (missing id or unparseable blob) so

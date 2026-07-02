@@ -1,8 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
-import { SaveAdHocReportOutput } from 'utils';
+import { FHIR_RESOURCE_NOT_FOUND, SaveAdHocReportOutput } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { makeSavedAdHocReportBasic, parseSavedAdHocReportBasic } from '../../shared/saved-adhoc-report';
+import {
+  makeSavedAdHocReportBasic,
+  parseSavedAdHocReportBasic,
+  savedAdHocReportExists,
+} from '../../shared/saved-adhoc-report';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'save-adhoc-report';
@@ -16,8 +20,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
+  // reportId present → PUT (update the existing saved report); absent → POST (new one). Before an
+  // update, confirm the id really is a saved ad-hoc report — a raw client-supplied id must not be
+  // allowed to overwrite an unrelated Basic (billing tag, support-dialog / progress-note config).
+  if (reportId && !(await savedAdHocReportExists(oystehr, reportId))) {
+    throw FHIR_RESOURCE_NOT_FOUND('Basic');
+  }
+
   const resource = makeSavedAdHocReportBasic(definition);
-  // reportId present → PUT (update the existing saved report); absent → POST (new one).
   const saved = reportId
     ? await oystehr.fhir.update<Basic>({ ...resource, id: reportId })
     : await oystehr.fhir.create<Basic>(resource);
