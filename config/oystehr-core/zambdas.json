@@ -2141,7 +2141,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "Telemed audio recording ready - generate Ambient Scribe AI chart recommendations",
-        "criteria": "DocumentReference?type=http://loinc.org|56444-3",
+        "criteria": "DocumentReference?type=http://loinc.org|56444-3&contenttype=audio/mp4",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/PROCESS-TELEMED-RECORDING/id}"

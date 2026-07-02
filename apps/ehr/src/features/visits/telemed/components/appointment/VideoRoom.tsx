@@ -8,7 +8,7 @@ import {
 } from 'amazon-chime-sdk-component-library-react';
 import { RosterAttendeeType } from 'amazon-chime-sdk-component-library-react/lib/types';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { getSelectors } from 'utils';
+import { getSelectors, isRecordingBotParticipant } from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VideoControls } from './VideoControls';
 import { VideoTimer } from './VideoTimer';
@@ -31,7 +31,7 @@ export const VideoRoom: FC = () => {
       .filter(
         (participantId) =>
           (videoCallState.meetingData?.Attendee as { AttendeeId: string }).AttendeeId !== participantId &&
-          !roster[participantId].externalUserId?.includes('MediaPipeline') // Oystehr uses the AWS Chime SDK media capture pipeline to record audio. In order to record audio, this pipeline adds a bot to the meeting
+          !isRecordingBotParticipant(roster[participantId].externalUserId)
       )
       .map((participantId) => ({
         ...roster[participantId],

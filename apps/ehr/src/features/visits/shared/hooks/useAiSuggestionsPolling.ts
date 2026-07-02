@@ -22,7 +22,6 @@ export const useAiSuggestionsPolling = (): void => {
 
   useEffect(() => {
     if (!wasMeetingEnded || hasAiSuggestions) {
-      attemptsRef.current = 0;
       return;
     }
 

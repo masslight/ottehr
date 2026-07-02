@@ -43,18 +43,18 @@ export const VideoControls: FC = () => {
   };
 
   const disconnect = async (): Promise<void> => {
-    try {
-      if (oystehr && encounter.id) {
-        // Immediately end the meeting for all participants. This also triggers the recording pipeline
-        // right away instead of waiting for the room to time out.
-        await oystehr.telemed.endMeeting({ encounterId: encounter.id });
-        useVideoCallStore.setState({ wasMeetingEnded: true });
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      await cleanup();
+    if (!oystehr || !encounter.id) {
+      // Throw so ConfirmationDialog surfaces an error and keeps the dialog open, rather than silently
+      // tearing down only the provider's side while the patient stays in the meeting.
+      throw new Error('Unable to end the video call: the session is not ready yet. Please try again in a moment.');
     }
+    // Immediately end the meeting for all participants. This also triggers the recording pipeline right away
+    // instead of waiting for the room to time out. If endMeeting throws, we intentionally do NOT run cleanup():
+    // the provider stays connected and can retry, instead of being told the call ended for everyone while the
+    // patient is in fact still in the room.
+    await oystehr.telemed.endMeeting({ encounterId: encounter.id });
+    useVideoCallStore.setState({ wasMeetingEnded: true });
+    await cleanup();
   };
 
   return (

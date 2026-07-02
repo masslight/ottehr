@@ -65,7 +65,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // generated resources as source 'audio-recording' (ambient scribe) rather than 'chat' in createResourcesFromAiInterview.
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
   if (!attendingPractitionerId) {
-    console.log(
+    // Log at error level: this is an unexpected end state where a real recording exists but never becomes
+    // AI suggestions, and there is no retry — surface it in monitoring rather than burying it in info logs.
+    console.error(
       `Encounter/${encounterID} has no attending practitioner; skipping telemed recording processing for DocumentReference/${documentReference.id}.`
     );
     return { statusCode: 200, body: JSON.stringify('No attending practitioner; skipped') };
