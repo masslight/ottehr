@@ -49,7 +49,7 @@ export const VirtualAppointmentFooter: FC = () => {
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { appointment, encounter, mappedData, questionnaireResponse, appointmentRefetch } = useAppointmentData();
-  const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
+  const { meetingData, wasMeetingEnded } = getSelectors(useVideoCallStore, ['meetingData', 'wasMeetingEnded']);
   const appointmentStatus = (appointment && getInPersonVisitStatus(appointment, encounter)) ?? 'unknown';
   const statusHistory = getVisitStatusHistory(encounter);
   const arrivedStart = statusHistory.find((status) => status.status === 'arrived')?.period?.start;
@@ -172,7 +172,8 @@ export const VirtualAppointmentFooter: FC = () => {
           divider={<Divider variant="middle" orientation="vertical" sx={{ borderColor: '#FFFFFF4D' }} flexItem />}
         >
           {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
-            !meetingData && (
+            !meetingData &&
+            !wasMeetingEnded && (
               <Box>
                 <Typography variant="body1" style={{ fontWeight: 500 }}>
                   {mappedData.firstName} {mappedData.lastName} is waiting
@@ -201,7 +202,8 @@ export const VirtualAppointmentFooter: FC = () => {
         </Stack>
         <Stack direction="row" spacing={2} alignItems="center">
           {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
-            providerAllowedToConnect && (
+            providerAllowedToConnect &&
+            !wasMeetingEnded && (
               <FooterButton
                 onClick={() => setIsInviteParticipantOpen(true)}
                 variant="contained"
@@ -211,8 +213,13 @@ export const VirtualAppointmentFooter: FC = () => {
               </FooterButton>
             )}
           {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
+            wasMeetingEnded && (
+              <Typography variant="body1">Video call ended. The call cannot be started again.</Typography>
+            )}
+          {['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(appointmentStatus) &&
             providerAllowedToConnect &&
-            !meetingData && (
+            !meetingData &&
+            !wasMeetingEnded && (
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <ConfirmationDialog
                   title="Do you want to connect to the patient?"
