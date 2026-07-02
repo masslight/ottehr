@@ -374,6 +374,7 @@ export const CreateBillingCoverageInputSchema = z
     payerId: nonEmptyString,
     memberId: nonEmptyString,
     insuranceType: insuranceTypeSchema,
+    planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
     policyHolder: billingPolicyHolderSchema.optional(),
   })
@@ -393,6 +394,7 @@ export const UpdateBillingCoverageInputSchema = z
     payerId: nonEmptyString.optional(),
     memberId: nonEmptyString.optional(),
     insuranceType: insuranceTypeSchema.optional(),
+    planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema.optional(),
     policyHolder: billingPolicyHolderSchema.optional(),
   })

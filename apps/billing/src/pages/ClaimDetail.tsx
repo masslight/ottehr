@@ -625,9 +625,9 @@ function PatientSection({
   );
 }
 
-const INSURANCE_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
+const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
 const planTypeLabel = (candidCode: string): string =>
-  INSURANCE_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
+  PLAN_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
 
 export function InsuranceSection({
   claim,
@@ -795,12 +795,12 @@ export function InsuranceSection({
                   <MenuItem value="entered-in-error">Entered in error</MenuItem>
                 </Select>
               </Field>
-              <Field label="Insurance type">
+              <Field label="Plan type">
                 <Select
                   size="small"
                   fullWidth
                   displayEmpty
-                  SelectDisplayProps={{ 'aria-label': 'Insurance type' }}
+                  SelectDisplayProps={{ 'aria-label': 'Plan type' }}
                   value={planType}
                   onChange={(e) => setPlanType(e.target.value)}
                   renderValue={
@@ -813,7 +813,7 @@ export function InsuranceSection({
                         )
                   }
                 >
-                  {INSURANCE_TYPE_OPTIONS.map((option) => (
+                  {PLAN_TYPE_OPTIONS.map((option) => (
                     <MenuItem key={option.candidCode} value={option.candidCode}>
                       {option.label}
                     </MenuItem>
@@ -839,7 +839,7 @@ export function InsuranceSection({
             />
           )}
           <Row label="Coverage Status" value={claim.coverageStatus} />
-          <Row label="Insurance type" value={planTypeLabel(claim.planType)} />
+          <Row label="Plan type" value={planTypeLabel(claim.planType)} />
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
