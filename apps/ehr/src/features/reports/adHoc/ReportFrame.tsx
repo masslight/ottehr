@@ -3,9 +3,10 @@
 // Relative file path (not the bare "chart.js/…" specifier) so the package `exports` map — which
 // doesn't expose dist/* — can't block it. chart.js is hoisted to the workspace root node_modules.
 import { Box, Typography } from '@mui/material';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import chartJsSource from '../../../../../../node_modules/chart.js/dist/chart.umd.js?raw';
 import { AdHocTableGrid } from './AdHocTableGrid';
+import { repairGeneratedReportCode } from './repairReportCode';
 import { AdHocRow, DatasetSchema, ExtractedTable } from './types';
 
 // The generated report code runs inside a SANDBOXED iframe:
@@ -307,6 +308,11 @@ export function ReportFrame({
     }
   }, [onError]);
 
+  // Heal a known-bad generated pattern (`el.innerHTML +=` blanks already-drawn chart canvases)
+  // right before the code runs — this is the single choke point through which BOTH freshly
+  // generated and previously saved reports pass, so persisted broken code is repaired too.
+  const repairedCode = useMemo(() => repairGeneratedReportCode(code), [code]);
+
   const postRender = useCallback(() => {
     const win = ref.current?.contentWindow;
     if (!readyRef.current || !win) return;
@@ -315,8 +321,8 @@ export function ReportFrame({
       () => onError('Report timed out — the generated code may be too slow or stuck.'),
       TIMEOUT_MS
     );
-    win.postMessage({ type: 'render', code, data, schema }, '*');
-  }, [code, data, schema, onError]);
+    win.postMessage({ type: 'render', code: repairedCode, data, schema }, '*');
+  }, [repairedCode, data, schema, onError]);
 
   useEffect(() => {
     const handler = (ev: MessageEvent): void => {

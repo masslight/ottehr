@@ -72,6 +72,12 @@ RULES:
   gives the report those features; put a heading (<h2>/<h3>) immediately before a table to title it.
   Render charts with Chart.js: create a <canvas>, append it to a sized container, then
   new Chart(canvas, {...}). For a single metric, show a large number with a caption.
+- NEVER use \`element.innerHTML +=\`, and never reassign innerHTML on an element that already
+  contains rendered content (especially a chart <canvas>): it re-parses and re-creates every
+  existing child, silently wiping already-drawn charts to blank canvases. To add content next to
+  existing content, use element.insertAdjacentHTML('beforeend', html) or
+  document.createElement + appendChild. (Overwriting the innerHTML of a dedicated, otherwise-empty
+  drill-down container is fine.)
 - CHART LIBRARY LIMITS — only the bundled Chart.js v4 CORE is available; NO external Chart.js plugins
   are loaded (chartjs-plugin-annotation, datalabels, zoom, etc. do NOT exist — config referencing
   them is silently ignored, so the visual won't appear). To draw a threshold / benchmark / median /
@@ -533,6 +539,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         'Generated code attempted to fabricate values (Math.random). Please retry — if you asked for a ' +
           'metric not present in the dataset, the report cannot compute it.'
       );
+    }
+
+    // Retryable backstop: `innerHTML +=` re-serializes and re-parses every existing child, so an
+    // already-painted chart <canvas> comes back blank — the report silently loses its charts. The
+    // vm validation can't catch this (its fake-DOM innerHTML setter doesn't model the re-parse).
+    // Unlike the Math.random guard above (a content problem, terminal), this is a code-shape
+    // problem the model can fix, so feed it back and regenerate.
+    if (/\.innerHTML\s*\+=/.test(parsed.code)) {
+      lastError =
+        'the code used `innerHTML +=`, which destroys previously-rendered chart canvases — build ' +
+        'content with insertAdjacentHTML("beforeend", …) or appendChild instead';
+      continue;
     }
 
     const syntaxError = jsSyntaxError(parsed.code);
