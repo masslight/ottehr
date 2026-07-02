@@ -181,7 +181,7 @@ export function sanitizeOverrides(overrides?: Record<string, unknown>): Record<s
 
 // Working copy visibility convention:
 // List pages (default view): exclude working copies (only show billing originals)
-// List pages (active search): include working copies via includeWorkingCopies param
+// List pages (active search): also exclude working copies
 // Autocomplete dropdowns (Create Claim, etc.): never include working copies
 export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
