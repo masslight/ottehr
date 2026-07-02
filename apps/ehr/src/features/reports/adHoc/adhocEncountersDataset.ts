@@ -95,7 +95,14 @@ export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = [
 
 // Always-present columns.
 const BASE_FIELDS: FieldDef[] = [
-  { name: 'date', type: 'date', description: 'Visit date (yyyy-MM-dd).' },
+  {
+    name: 'date',
+    type: 'date',
+    description:
+      "Visit date (yyyy-MM-dd). Rows are selected into the report by their PARENT appointment's date, " +
+      "but follow-up rows carry their OWN (later) date — so a follow-up row's date can fall outside " +
+      'the requested range.',
+  },
   { name: 'visitType', type: 'string', description: '"In-Person" or "Telemed".' },
   {
     name: 'appointmentType',
@@ -123,7 +130,9 @@ const BASE_FIELDS: FieldDef[] = [
     type: 'string',
     description:
       '"main" for a regular visit; "follow-up" / "scheduled-follow-up" for follow-up rows (separate ' +
-      "rows with their own date, sharing the parent visit's appointmentId). To link to a follow-up " +
+      "rows with their own date, sharing the parent visit's appointmentId). Follow-up rows are " +
+      "selected by the PARENT appointment's date but report their own, so their date can fall " +
+      'outside the requested range. To link to a follow-up ' +
       'row\'s note, href="/in-person/" + appointmentId + "/follow-up-note" instead of the review-and-sign route.',
   },
   // Free text authored at booking — can embed patient names/PHI, so the value domain is withheld.
@@ -200,7 +209,14 @@ const CODE_FIELDS: FieldDef[] = [
       'Human-readable diagnosis descriptions, parallel to icdCodes (same order). Use these for axis/bar/legend ' +
       'LABELS instead of (or alongside) the raw code, e.g. `${primaryIcd} ${primaryIcdDisplay}`.',
   },
-  { name: 'primaryIcd', type: 'string', description: 'The primary (rank-1) ICD-10 diagnosis code, if one was marked.' },
+  {
+    name: 'primaryIcd',
+    type: 'string',
+    description:
+      'The primary diagnosis code: the rank-1 diagnosis when one is explicitly marked primary, ' +
+      'otherwise the FIRST charted diagnosis. Usually ICD-10, but falls back to another coding ' +
+      '(e.g. SNOMED) when the diagnosis carries no ICD-10 coding.',
+  },
   {
     name: 'primaryIcdDisplay',
     type: 'string',

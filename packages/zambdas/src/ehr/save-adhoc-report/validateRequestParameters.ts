@@ -8,6 +8,12 @@ import {
 } from 'utils';
 import { ZambdaInput } from '../../shared';
 
+// The whole definition is persisted into a single FHIR Basic resource. Generated report code runs a
+// few KB (request/name/description are smaller still), so 256 KB is far above any legitimate report
+// while still rejecting a runaway payload here with a clear message instead of an opaque FHIR write
+// error. Measured over the serialized definition so no single large field can slip past.
+const MAX_DEFINITION_LENGTH = 256 * 1024;
+
 export function validateRequestParameters(input: ZambdaInput): SaveAdHocReportInput & { secrets: Secrets } {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
@@ -36,6 +42,11 @@ export function validateRequestParameters(input: ZambdaInput): SaveAdHocReportIn
   }
   if (reportId !== undefined && typeof reportId !== 'string') {
     throw INVALID_INPUT_ERROR('reportId must be a string');
+  }
+  if (JSON.stringify(definition).length > MAX_DEFINITION_LENGTH) {
+    throw INVALID_INPUT_ERROR(
+      `report definition is too large to save (over ${Math.floor(MAX_DEFINITION_LENGTH / 1024)} KB)`
+    );
   }
 
   if (!input.secrets) {

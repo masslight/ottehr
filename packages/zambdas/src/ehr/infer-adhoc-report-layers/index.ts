@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { AdHocReportTurn, fixAndParseJsonObjectFromString, InferAdHocLayersOutput } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
@@ -72,7 +73,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       layerIds = parsed.layerIds.filter((id): id is string => typeof id === 'string' && validIds.has(id));
     }
   } catch (e) {
+    // Designed degradation (the report proceeds with no pre-selected layers), but the failure must
+    // still surface so a persistent classifier problem doesn't go unnoticed.
     console.warn('infer-adhoc-report-layers: inference failed, returning no layers', e);
+    captureException(e);
   }
 
   const output: InferAdHocLayersOutput = { layerIds: Array.from(new Set(layerIds)) };

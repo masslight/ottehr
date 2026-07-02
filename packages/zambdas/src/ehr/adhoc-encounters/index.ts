@@ -679,7 +679,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           rosFindings.push(`${state} ${name}`.trim());
           continue;
         }
-        if (tagOf(o, 'exam-observation-field')) {
+        // Mirror the ROS guard: a negated top-level exam statement (valueBoolean: false) is not a
+        // charted finding and must not count. Observations without a top-level valueBoolean (the
+        // component-carrying ones — makeExamObservationResource only sets it when the DTO value is
+        // a boolean) still pass; their components are already filtered to positives at write time.
+        if (tagOf(o, 'exam-observation-field') && o.valueBoolean !== false) {
           if (o.code?.text) examSystems.push(o.code.text);
           for (const c of o.component ?? []) {
             const code = c.code?.coding?.[0]?.code || c.code?.text;

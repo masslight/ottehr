@@ -533,19 +533,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // Hard backstop for the no-fabrication rule: randomness in a report means invented numbers.
-    // Terminal (not retried) — it's a content problem, not a malformed-output problem.
+    // Retryable — the use may be innocuous (jitter, colors, ids), so feed the rule back and let the
+    // model regenerate without it; if every attempt reaches for randomness, the exhaustion error
+    // after the loop still surfaces.
     if (/Math\.random/.test(parsed.code)) {
-      throw INVALID_INPUT_ERROR(
-        'Generated code attempted to fabricate values (Math.random). Please retry — if you asked for a ' +
-          'metric not present in the dataset, the report cannot compute it.'
-      );
+      lastError =
+        'the code used Math.random — reports must NEVER use randomness (random numbers read as ' +
+        'fabricated data). Derive every value from the data rows; if a requested metric is not in ' +
+        'the dataset, omit it and state that in the rendered report instead of inventing it';
+      continue;
     }
 
     // Retryable backstop: `innerHTML +=` re-serializes and re-parses every existing child, so an
     // already-painted chart <canvas> comes back blank — the report silently loses its charts. The
     // vm validation can't catch this (its fake-DOM innerHTML setter doesn't model the re-parse).
-    // Unlike the Math.random guard above (a content problem, terminal), this is a code-shape
-    // problem the model can fix, so feed it back and regenerate.
+    // Like the Math.random guard above, it's a problem the model can fix, so feed it back and
+    // regenerate.
     if (/\.innerHTML\s*\+=/.test(parsed.code)) {
       lastError =
         'the code used `innerHTML +=`, which destroys previously-rendered chart canvases — build ' +

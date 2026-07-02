@@ -65,7 +65,10 @@ const BASE_FIELDS: FieldDef[] = [
   {
     name: 'totalVisits',
     type: 'number',
-    description: 'Number of visits this patient had WITHIN the selected date range. Sum for total visit volume.',
+    description:
+      'Number of visits this patient had WITHIN the selected date range, EXCLUDING cancelled and ' +
+      'no-show appointments (unlike the Encounters dataset, which includes them — sums here will ' +
+      'not equal Encounters row counts). Sum for total visit volume.',
   },
   { name: 'firstVisitDate', type: 'date', description: 'Earliest visit date in range (yyyy-MM-dd).' },
   { name: 'lastVisitDate', type: 'date', description: 'Most recent visit date in range (yyyy-MM-dd).' },

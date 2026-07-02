@@ -16,7 +16,9 @@ import {
   AdHocPatientRow,
   AdHocPatientsOutput,
   getAddressForIndividual,
+  getAttendingPractitionerId,
   getEmailForIndividual,
+  getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
@@ -163,8 +165,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   }
   const providerNameForEncounter = (encounter: Encounter): string | undefined => {
-    const ref = encounter.participant?.map((p) => p.individual?.reference).find((x) => x?.startsWith('Practitioner/'));
-    const id = ref?.replace('Practitioner/', '');
+    // The attending (ATND participant), not the first Practitioner participant (which can be intake
+    // staff) — matches the Encounters dataset's attendingProvider so provider rollups agree.
+    const id = getAttendingPractitionerId(encounter);
     return id ? practitionerNameById.get(id) : undefined;
   };
 
@@ -198,7 +201,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const serviceCategory = svcCoding?.display || svcCoding?.code || '';
     const encounter = appointment.id ? encounterByApptRef.get(`Appointment/${appointment.id}`) : undefined;
     const provider = encounter ? providerNameForEncounter(encounter) : undefined;
-    const status = encounter?.status || appointment.status || '';
+    // Same Ottehr status vocabulary as the Encounters/Billing datasets (completed/pending/…), not
+    // the raw FHIR statuses (finished/booked/…) — cross-dataset filters and rollups must agree.
+    // When the appointment has no encounter riding along, map through the helper with a stub so
+    // the appointment-only statuses (booked → pending, arrived, checked-in → ready) still land in
+    // the shared vocabulary.
+    const status = getInPersonVisitStatus(
+      appointment,
+      encounter ?? { resourceType: 'Encounter', status: 'planned', class: { code: 'AMB' } },
+      true
+    );
 
     let agg = aggByPatient.get(patientRef);
     if (!agg) {

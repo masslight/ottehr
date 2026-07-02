@@ -337,15 +337,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let expectedCharge: number | null = null;
     if (includeCharges) {
       const charges = chargesByEncId.get(encId) ?? [];
-      const cpts = Array.from(
-        new Set(
-          charges
-            .map((c) => c.code?.coding?.find((cd) => cd.system === CPT_SYSTEM)?.code)
-            .filter((c): c is string => Boolean(c))
-        )
-      );
-      const priced = cpts.map((c) => cptPriceMap.get(c)).filter((v): v is number => typeof v === 'number');
-      expectedCharge = charges.length ? round2(priced.reduce((a, b) => a + b, 0)) : null;
+      const lineCpts = charges
+        .map((c) => c.code?.coding?.find((cd) => cd.system === CPT_SYSTEM)?.code)
+        .filter((c): c is string => Boolean(c));
+      const cpts = Array.from(new Set(lineCpts));
+      // Price PER line item (two charges with the same CPT bill twice — chargeCount already counts
+      // them both). When none of the line items could be priced (CPT absent from the charge
+      // master), expectedCharge is null, not 0 — a 0 here would make outstandingBalance read as a
+      // negative payment.
+      const priced = lineCpts.map((c) => cptPriceMap.get(c)).filter((v): v is number => typeof v === 'number');
+      expectedCharge = priced.length ? round2(priced.reduce((a, b) => a + b, 0)) : null;
       row.chargeCpts = cpts;
       row.chargeCount = charges.length;
       row.expectedCharge = expectedCharge;
@@ -385,8 +386,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const claims = [...(claimsByEncId.get(encId) ?? [])].sort((a, b) =>
         (b.created ?? '').localeCompare(a.created ?? '')
       );
-      const billed = claims.reduce((acc, c) => acc + (c.total?.value ?? 0), 0);
-      const hasBilled = claims.some((c) => typeof c.total?.value === 'number');
+      // Cancelled claims are dead paper — their totals must not count toward what was billed.
+      const billableClaims = claims.filter((c) => c.status !== 'cancelled');
+      const billed = billableClaims.reduce((acc, c) => acc + (c.total?.value ?? 0), 0);
+      const hasBilled = billableClaims.some((c) => typeof c.total?.value === 'number');
       // ClaimResponse adjudication (forward-compatible — none exist until the billing tool posts them).
       const PATIENT_OWED = new Set(['copay', 'deductible', 'coins', 'coinsurance', 'patientresp']);
       let paid = 0;
