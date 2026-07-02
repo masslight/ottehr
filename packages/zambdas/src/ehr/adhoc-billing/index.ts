@@ -20,21 +20,21 @@ import { DateTime } from 'luxon';
 import {
   AdHocBillingOutput,
   AdHocBillingRow,
-  getAddressForIndividual,
-  getAttendingPractitionerId,
-  getEncounterVisitType,
-  getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
-  isInPersonAppointment,
-  isTelemedAppointment,
   mapGenderToLabel,
   PAYMENT_METHOD_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  fetchAllPages,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
+import {
+  buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
   resolveEncounterAppointment,
@@ -106,16 +106,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     extraParams: { name: string; value: string }[] = []
   ): Promise<T[]> {
     const out: T[] = [];
-    let pageOffset = 0;
-    for (;;) {
+    await fetchAllPages(async (offset, count) => {
       const bundle = await oystehr.fhir.search<T>({
         resourceType,
-        params: [{ name: '_count', value: '1000' }, { name: '_offset', value: pageOffset.toString() }, ...extraParams],
+        params: [
+          { name: '_count', value: count.toString() },
+          { name: '_offset', value: offset.toString() },
+          ...extraParams,
+        ],
       });
       out.push(...(bundle.unbundle() as T[]));
-      if (!bundle.link?.find((l) => l.relation === 'next')) break;
-      pageOffset += 1000;
-    }
+      return bundle;
+    }, 1000);
     return out;
   }
 
@@ -219,43 +221,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const appointment = resolveAppointment(encounter);
     if (!appointment) continue;
 
-    const encounterType = getEncounterVisitType(encounter) ?? 'main';
-    const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
-    const parentEncounter = encounter.partOf?.reference
-      ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
-      : undefined;
-    const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
-    const patient = patientRef ? patientMap.get(patientRef) : undefined;
-
-    const locationRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
-      ?.reference;
-    const location = locationRef ? locationMap.get(locationRef) : undefined;
-
-    const attendingId = getAttendingPractitionerId(encounter);
-    const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
-    const attendingProvider = attendingPractitioner
-      ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
-      : 'Unknown';
-
-    const visitType = isTelemedAppointment(appointment)
-      ? 'Telemed'
-      : isInPersonAppointment(appointment)
-      ? 'In-Person'
-      : 'Unknown';
-
-    const visitStatus = isFollowUpRow
-      ? encounter.status === 'finished'
-        ? 'completed'
-        : encounter.status
-      : getInPersonVisitStatus(appointment, encounter, true);
-
-    const svcCoding = (appointment.serviceCategory ?? [])
-      .flatMap((sc) => sc.coding ?? [])
-      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
-    const serviceCategory = svcCoding?.display || svcCoding?.code || '';
-
-    const address = patient ? getAddressForIndividual(patient) : undefined;
-    const start = (isFollowUpRow ? encounter.period?.start : appointment.start) || '';
+    const {
+      encounterType,
+      patient,
+      location,
+      attendingProvider,
+      visitType,
+      visitStatus,
+      serviceCategory,
+      address,
+      start,
+    } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
     const encId = encounter.id ?? '';
 
     const row: AdHocBillingRow = {
@@ -301,9 +277,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     if (includeCoverage) {
-      const coverages = [...(patient?.id ? coveragesByPatId.get(patient.id) ?? [] : [])].sort(
-        (a, b) => (a.order ?? 99) - (b.order ?? 99)
-      );
+      // Only active coverage participates in primary/secondary selection — a cancelled/draft/
+      // entered-in-error plan must not be reported as the payer.
+      const coverages = (patient?.id ? coveragesByPatId.get(patient.id) ?? [] : [])
+        .filter((c) => c.status === 'active')
+        .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
       const primary = coverages[0];
       const secondary = coverages[1];
       const primaryTypeCode = primary?.type?.coding?.[0]?.code;

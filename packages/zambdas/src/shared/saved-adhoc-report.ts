@@ -32,14 +32,16 @@ export async function savedAdHocReportExists(oystehr: Oystehr, reportId: string)
   return bundle.unbundle().length > 0;
 }
 
-// null when the resource isn't a well-formed saved report (missing id or unparseable blob) so
-// callers can filter it out rather than surface a broken tile.
+// null when the resource isn't a well-formed saved report (missing id, unparseable blob, or a blob
+// without the required code/name strings) so callers can filter it out rather than surface a broken
+// tile — or crash the whole list when e.g. a name-less report hits a name sort.
 export function parseSavedAdHocReportBasic(basic: Basic): SavedAdHocReport | null {
   const raw = basic.extension?.find((e) => e.url === DEFINITION_EXTENSION_URL)?.valueString;
   if (!raw || !basic.id) return null;
   try {
     const definition = JSON.parse(raw) as SavedAdHocReportDefinition;
     if (!definition || typeof definition.code !== 'string') return null;
+    if (typeof definition.name !== 'string' || definition.name === '') return null;
     return { ...definition, id: basic.id, updatedAt: basic.meta?.lastUpdated };
   } catch {
     return null;

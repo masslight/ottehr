@@ -28,6 +28,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { captureException } from '@sentry/react';
 import { useSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -278,6 +279,7 @@ export default function Reports(): React.ReactElement {
   // Saved ad-hoc reports — same access gate as the Ad-Hoc Report tile (admin only).
   const [savedReports, setSavedReports] = useState<SavedAdHocReport[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [savedError, setSavedError] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SavedAdHocReport | null>(null);
   const [renameTarget, setRenameTarget] = useState<SavedAdHocReport | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -287,11 +289,14 @@ export default function Reports(): React.ReactElement {
   const refreshSaved = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !isAdmin) return;
     setLoadingSaved(true);
+    setSavedError(false);
     try {
       const { reports } = await listAdHocReports(oystehrZambda);
       setSavedReports(reports);
     } catch (e) {
       console.error('Failed to load saved reports', e);
+      captureException(e);
+      setSavedError(true);
     } finally {
       setLoadingSaved(false);
     }
@@ -368,7 +373,7 @@ export default function Reports(): React.ReactElement {
           </Grid>
 
           {/* Saved ad-hoc reports — practice-wide, admin-gated like the Ad-Hoc Report tile. */}
-          {isAdmin && (loadingSaved || savedReports.length > 0) && (
+          {isAdmin && (loadingSaved || savedReports.length > 0 || savedError) && (
             <Box sx={{ mt: 5 }}>
               <Typography variant="h5" component="h2" gutterBottom color="primary.dark" fontWeight={600}>
                 Saved reports
@@ -376,6 +381,11 @@ export default function Reports(): React.ReactElement {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 Saved ad-hoc reports re-fetch fresh data for their criteria each time you open them.
               </Typography>
+              {savedError && (
+                <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+                  Saved reports could not be loaded. Refresh the page to try again.
+                </Typography>
+              )}
               {loadingSaved && savedReports.length === 0 ? (
                 <CircularProgress size={24} />
               ) : (

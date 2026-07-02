@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -27,27 +28,21 @@ import {
   CREATED_BY_SYSTEM,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
-  getAddressForIndividual,
-  getAttendingPractitionerId,
   getEmailForIndividual,
-  getEncounterVisitType,
-  getInPersonVisitStatus,
   getMedicationFromMA,
   getMedicationName,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
   getVisitStatusHistory,
-  isInPersonAppointment,
-  isTelemedAppointment,
   mapGenderToLabel,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   PATIENT_POINT_OF_DISCOVERY_URL,
-  SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
   resolveEncounterAppointment,
@@ -101,7 +96,10 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
     // to raw emails until a cold start) — leaving it uncached lets the next call retry.
     staffNameByEmail = map;
   } catch (e) {
+    // Designed degradation (rows fall back to the raw registrar email), but the failure itself is
+    // still worth surfacing so a persistent IAM/Practitioner problem doesn't go unnoticed.
     console.warn('adhoc-encounters: registrar name resolution failed, falling back to email', e);
+    captureException(e);
   }
   return map;
 }
@@ -322,43 +320,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const appointment = resolveAppointment(encounter);
     if (!appointment) continue;
 
-    const encounterType = getEncounterVisitType(encounter) ?? 'main';
-    const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
-    const parentEncounter = encounter.partOf?.reference
-      ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
-      : undefined;
-    const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
-    const patient = patientRef ? patientMap.get(patientRef) : undefined;
-
-    const locationRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
-      ?.reference;
-    const location = locationRef ? locationMap.get(locationRef) : undefined;
-
-    const attendingId = getAttendingPractitionerId(encounter);
-    const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
-    const attendingProvider = attendingPractitioner
-      ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
-      : 'Unknown';
-
-    const visitType = isTelemedAppointment(appointment)
-      ? 'Telemed'
-      : isInPersonAppointment(appointment)
-      ? 'In-Person'
-      : 'Unknown';
-
-    const visitStatus = isFollowUpRow
-      ? encounter.status === 'finished'
-        ? 'completed'
-        : encounter.status
-      : getInPersonVisitStatus(appointment, encounter, true);
-
-    const svcCoding = (appointment.serviceCategory ?? [])
-      .flatMap((sc) => sc.coding ?? [])
-      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
-    const serviceCategory = svcCoding?.display || svcCoding?.code || '';
-
-    const address = patient ? getAddressForIndividual(patient) : undefined;
-    const start = (isFollowUpRow ? encounter.period?.start : appointment.start) || '';
+    const {
+      encounterType,
+      patient,
+      locationRef,
+      location,
+      attendingId,
+      attendingProvider,
+      visitType,
+      visitStatus,
+      serviceCategory,
+      address,
+      start,
+    } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
 
     // Hours the clinic is open on this visit's weekday (Location.hoursOfOperation).
     let clinicOpenHours: number | null = null;

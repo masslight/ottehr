@@ -27,7 +27,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchAppointmentReportResources } from '../../shared/adhoc-report';
+import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../../shared/adhoc-report';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -90,10 +90,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (includeSurgicalHistory) layerRevincludes.push({ name: '_revinclude:iterate', value: 'Procedure:patient' });
   if (includeHospitalizations) layerRevincludes.push({ name: '_revinclude:iterate', value: 'EpisodeOfCare:patient' });
 
+  // Attended visits only (no cancelled / no-show): unlike the Encounters/Billing datasets, the
+  // per-patient rollups (totalVisits, first/lastVisitDate, locations, providers) carry no per-visit
+  // status a report could filter on, so cancelled/no-show visits would silently inflate the counts
+  // and disagree with the Recent Patients report.
   const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
     dateRange,
     pageSize: heavy ? 400 : 1000,
     extraParams: layerRevincludes,
+    statuses: REPORT_ATTENDED_APPOINTMENT_STATUSES,
   });
 
   const appointmentMap = new Map<string, Appointment>();

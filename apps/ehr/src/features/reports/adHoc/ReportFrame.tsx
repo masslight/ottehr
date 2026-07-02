@@ -108,10 +108,27 @@ const BOOTSTRAP = `
       if (prev && /^H[1-4]$/.test(prev.tagName)) return prev;
       return table.querySelector('caption');
     }
+    // innerText is NOT reliable here: once the PARENT collapses the iframe (display:none for a
+    // table-only report), innerText falls back to textContent and would count the HIDDEN tables'
+    // text — so a drill-down in a table-only report would wrongly expand a blank frame. Instead,
+    // walk the DOM ourselves, skipping anything we hid with an inline display:none (the extracted
+    // tables and their headings).
+    function hasVisibleText(node) {
+      if (!node) return false;
+      if (node.nodeType === 3) return ((node.nodeValue || '').trim().length > 0);
+      if (node.nodeType !== 1) return false;
+      if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return false;
+      if (node.style && node.style.display === 'none') return false;
+      for (var child = node.firstChild; child; child = child.nextSibling) {
+        if (hasVisibleText(child)) return true;
+      }
+      return false;
+    }
     function hasNonTableContent() {
-      if (document.querySelector('canvas')) return true;
-      // innerText excludes display:none elements, so hidden tables/headings don't count.
-      return document.body.innerText.trim().length > 0;
+      try {
+        if (document.querySelector('canvas')) return true;
+        return hasVisibleText(document.body);
+      } catch (e) { return true; } // fail open — never let this check break rendering
     }
     // Rebuild the lifted-table list from the CURRENT DOM and publish it. A table seen for the first
     // time gets a stable id + its heading hidden + itself hidden; on later rebuilds we just re-read

@@ -152,7 +152,6 @@ RULES:
     range/category match by numeric range (e.g. E&M 99202–99499), guarding non-numeric HCPCS codes.
   - When the user names specific codes, match them exactly.
   Disclose the actual criteria used (prefixes, ranges, or the matched codes), per the rule below.
-- DISCLOSE SELECTION CRITERIA: when a report includes/excludes or groups rows by a criterion the
 - INTERACTIVE TABLES (drill-down): a TABLE can also be made clickable. Tables you render are lifted
   out of the frame and shown as interactive grids in the parent; a row click is posted back to your
   code. To use it, assign a handler: window.reportRowClick = function(row, tableLabel) { ... }.

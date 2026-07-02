@@ -1,7 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
 import { ListAdHocReportsOutput, SavedAdHocReport } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  fetchAllPages,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import {
   parseSavedAdHocReportBasic,
   SAVED_ADHOC_REPORT_CODE,
@@ -25,27 +31,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const pageSize = 200;
   const codeParam = { name: 'code', value: `${SAVED_ADHOC_REPORT_SYSTEM}|${SAVED_ADHOC_REPORT_CODE}` };
   const basics: Basic[] = [];
-  let offset = 0;
-  let pageCount = 0;
-  for (;;) {
+  await fetchAllPages(async (offset, count) => {
     const bundle = await oystehr.fhir.search<Basic>({
       resourceType: 'Basic',
-      params: [
-        codeParam,
-        { name: '_count', value: pageSize.toString() },
-        { name: '_offset', value: offset.toString() },
-      ],
+      params: [codeParam, { name: '_count', value: count.toString() }, { name: '_offset', value: offset.toString() }],
     });
     basics.push(...bundle.unbundle());
-    pageCount += 1;
-    if (!bundle.link?.find((link) => link.relation === 'next') || pageCount >= 100) break;
-    offset += pageSize;
-  }
+    return bundle;
+  }, pageSize);
 
   const reports = basics
     .map(parseSavedAdHocReportBasic)
     .filter((r): r is SavedAdHocReport => r !== null)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
 
   const output: ListAdHocReportsOutput = { reports };
   return { statusCode: 200, body: JSON.stringify(output) };
