@@ -31,6 +31,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdHocReportTurn, SavedAdHocReportDefinition } from 'utils';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../api/api';
+import { getBatchWindowFailures } from '../../features/reports/adHoc/datasetHelpers';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../../features/reports/adHoc/datasets';
 import { ReportFrame } from '../../features/reports/adHoc/ReportFrame';
 import { clearAdHocCriteria, peekAdHocCriteria } from '../../features/reports/adHoc/seed';
@@ -79,6 +80,15 @@ function rangeFromControls(
   }
 }
 
+// The partial-results warning for a fetched row set: some (but not all) batched date windows failed,
+// so the report is computed over incomplete data. Null when the fetch was complete.
+function partialWarningFor(rows: AdHocRow[]): string | null {
+  const failures = getBatchWindowFailures(rows);
+  return failures && failures.failedWindows > 0
+    ? `${failures.failedWindows} of ${failures.totalWindows} date windows failed to load — results are partial.`
+    : null;
+}
+
 // The checkbox state a dataset starts with — each option's `default`, keyed by option id.
 function defaultOptionsFor(datasetId: string): Record<string, boolean> {
   const out: Record<string, boolean> = {};
@@ -125,6 +135,9 @@ export default function AdHocReport(): React.ReactElement {
   const [schema, setSchema] = useState<DatasetSchema | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Some (not all) batched date windows failed to load — the data is usable but incomplete. Kept
+  // separate from `error`, which is reserved for hard failures.
+  const [partialWarning, setPartialWarning] = useState<string | null>(null);
 
   const [request, setRequest] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -174,9 +187,11 @@ export default function AdHocReport(): React.ReactElement {
       if (!dataset) return null;
       setLoading(true);
       setError(null);
+      setPartialWarning(null);
       try {
         const range = getDateRangeIso(dateRange);
         const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: opts });
+        setPartialWarning(partialWarningFor(fetched));
         const builtSchema: DatasetSchema = {
           ...dataset.buildSchema(fetched, opts),
           otherDatasets: otherDatasetsFor(datasetId),
@@ -332,6 +347,22 @@ export default function AdHocReport(): React.ReactElement {
     void orchestrate(message, conversation, false);
   }, [refineText, renderError, conversation, orchestrate]);
 
+  // Reset the generated report (and the refinement conversation) so the user can start a new one.
+  // Keeps the fetched rows/schema and the request text, so they can tweak and regenerate without
+  // re-fetching; only the report artifacts are cleared.
+  const handleReset = useCallback((): void => {
+    setGeneratedCode(null);
+    setGeneratedTitle(undefined);
+    setGenerateError(null);
+    setRenderError(null);
+    setConversation([]);
+    setRefineText('');
+    setLoadedSavedId(null);
+    conversationRef.current = [];
+    autoRetryRef.current = 0;
+    autoFixedRef.current = false;
+  }, []);
+
   // When the generated code throws at runtime, transparently feed the error back and regenerate once
   // (e.g. a missing null-guard). This self-corrects the common runtime bugs instead of dead-ending on
   // the user; after the budget is spent, surface the error and the manual refine bar.
@@ -362,6 +393,7 @@ export default function AdHocReport(): React.ReactElement {
     void (async () => {
       setLoading(true);
       setError(null);
+      setPartialWarning(null);
       try {
         const { reports } = await listAdHocReports(oystehrZambda);
         const saved = reports.find((r) => r.id === savedId);
@@ -394,6 +426,7 @@ export default function AdHocReport(): React.ReactElement {
           saved.criteria.customEndDate ?? customEndDate
         );
         const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: savedOptions });
+        setPartialWarning(partialWarningFor(fetched));
         setRows(fetched);
         setSchema({ ...dataset.buildSchema(fetched, savedOptions), otherDatasets: otherDatasetsFor(saved.datasetId) });
         setGeneratedCode(saved.code);
@@ -597,6 +630,14 @@ export default function AdHocReport(): React.ReactElement {
             </Box>
           )}
 
+          {/* Partial-data warning: some batched date windows failed but the rest loaded, so the report
+              below is computed over incomplete data. Distinct from the red `error` box above. */}
+          {partialWarning && (
+            <Box sx={{ mb: 2, p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
+              <Typography variant="body2">{partialWarning}</Typography>
+            </Box>
+          )}
+
           {/* Describe → generate. The right data layers are inferred from the request and fetched
               automatically — there are no data-layer checkboxes to manage. The model only ever sees
               the schema (column metadata), never the rows. */}
@@ -614,12 +655,47 @@ export default function AdHocReport(): React.ReactElement {
           />
           <Button
             variant="contained"
-            onClick={handleGenerate}
-            disabled={generating || loading || !request.trim() || !oystehrZambda}
+            onClick={generatedCode ? handleReset : handleGenerate}
+            disabled={generating || loading || (!generatedCode && (!request.trim() || !oystehrZambda))}
             sx={{ mb: 2 }}
           >
-            {generating || loading ? <CircularProgress size={20} /> : 'Generate report'}
+            {generating || loading ? (
+              <CircularProgress size={20} />
+            ) : generatedCode ? (
+              'Reset Report'
+            ) : (
+              'Generate report'
+            )}
           </Button>
+
+          {/* Refine: follow-up requests continue the conversation so the model modifies the current
+              report ("now group by month", "make it a pie chart"). Sits directly below the
+              Generate/Reset button; only shown once a report exists to refine. */}
+          {generatedCode && (
+            <Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <TextField
+                size="small"
+                fullWidth
+                placeholder={
+                  renderError
+                    ? 'Describe a change, or just say "fix it" — the error is sent along automatically'
+                    : 'Refine this report — e.g. "now break it down by month" or "make it a pie chart"'
+                }
+                value={refineText}
+                onChange={(e) => setRefineText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleRefine();
+                  }
+                }}
+                disabled={generating}
+              />
+              <Button variant="outlined" onClick={handleRefine} disabled={generating || !refineText.trim()}>
+                {generating ? <CircularProgress size={20} /> : 'Refine'}
+              </Button>
+            </Box>
+          )}
 
           {generateError && (
             <Box sx={{ mb: 2, p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
@@ -708,32 +784,6 @@ export default function AdHocReport(): React.ReactElement {
                     onRendered={handleRendered}
                     reportTitle={generatedTitle}
                   />
-
-                  {/* Refine: follow-up requests continue the conversation so the model modifies the
-                    current report ("now group by month", "make it a pie chart"). */}
-                  <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      placeholder={
-                        renderError
-                          ? 'Describe a change, or just say "fix it" — the error is sent along automatically'
-                          : 'Refine this report — e.g. "now break it down by month" or "make it a pie chart"'
-                      }
-                      value={refineText}
-                      onChange={(e) => setRefineText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleRefine();
-                        }
-                      }}
-                      disabled={generating}
-                    />
-                    <Button variant="outlined" onClick={handleRefine} disabled={generating || !refineText.trim()}>
-                      {generating ? <CircularProgress size={20} /> : 'Refine'}
-                    </Button>
-                  </Box>
 
                   <Button size="small" sx={{ mt: 1 }} onClick={() => setShowCode((v) => !v)}>
                     {showCode ? 'Hide generated code' : 'View generated code'}

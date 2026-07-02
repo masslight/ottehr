@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Address, Appointment, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
 import {
   getAddressForIndividual,
@@ -99,7 +100,10 @@ async function searchChunk<T extends FhirResource>(
 
 // Fetch a resource type scoped to a list of values (e.g. encounter references) by splitting the values
 // into FHIR OR-list chunks, paginating each chunk, with bounded concurrency. Shared by the ad-hoc
-// Encounters and Billing datasets, which both pull per-encounter layer resources this way.
+// Encounters and Billing datasets, which both pull per-encounter OPT-IN layer resources this way (the
+// base appointment/encounter rows come from fetchAppointmentReportResources, which still hard-fails).
+// Because every caller is an optional layer, a failed chunk search degrades to missing layer data for
+// that chunk's encounters — captured to Sentry and dropped — instead of 500ing the whole dataset.
 export async function fetchScopedResources<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
@@ -110,13 +114,34 @@ export async function fetchScopedResources<T extends FhirResource>(
   const chunks: string[] = [];
   for (let i = 0; i < values.length; i += ENC_CHUNK) chunks.push(values.slice(i, i + ENC_CHUNK).join(','));
   const out: T[] = [];
+  let failedChunks = 0;
+  let firstError: unknown;
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-    const wave = await Promise.all(
+    const wave = await Promise.allSettled(
       chunks
         .slice(i, i + CONCURRENCY)
         .map((valueList) => searchChunk<T>(oystehr, resourceType, paramName, valueList, extraParams))
     );
-    for (const part of wave) out.push(...part);
+    for (const result of wave) {
+      if (result.status === 'fulfilled') {
+        out.push(...result.value);
+      } else {
+        failedChunks += 1;
+        firstError ??= result.reason;
+      }
+    }
+  }
+  if (failedChunks > 0) {
+    // Designed degradation (the layer's columns go empty for the affected encounters), but the
+    // failure itself must still surface so a persistent search problem doesn't go unnoticed.
+    console.warn(
+      `fetchScopedResources: ${failedChunks} of ${chunks.length} ${resourceType} chunk searches failed; ` +
+        'continuing with partial layer data',
+      firstError
+    );
+    captureException(firstError, {
+      extra: { resourceType, paramName, failedChunks, totalChunks: chunks.length },
+    });
   }
   return out;
 }

@@ -220,7 +220,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const SELF_PAY_TYPE_CODES = new Set(['pay', 'PAY', 'SELF', 'self', '81']);
 
   const rows: AdHocBillingRow[] = [];
-  for (const encounter of encounters) {
+  // Iterate the deduped map, not the raw filter array — a follow-up encounter revincluded via both
+  // Encounter:appointment and Encounter:part-of appears twice in `encounters` and would emit two rows.
+  for (const encounter of encounterById.values()) {
     const appointment = resolveAppointment(encounter);
     if (!appointment) continue;
 

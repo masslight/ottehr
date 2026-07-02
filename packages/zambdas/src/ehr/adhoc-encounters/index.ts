@@ -26,6 +26,7 @@ import {
   AdHocEncountersOutput,
   appointmentTypeForAppointment,
   CREATED_BY_SYSTEM,
+  dispositionCheckboxOptions,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
   getEmailForIndividual,
@@ -41,7 +42,13 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   PATIENT_POINT_OF_DISCOVERY_URL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  followUpTypeFromPerformerType,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
@@ -323,7 +330,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const staffNames = await getStaffNameByEmail(oystehr);
   const rows: AdHocEncounterRow[] = [];
-  for (const encounter of encounters) {
+  // Iterate the id-deduped map, not the raw filter array: an encounter revincluded via both
+  // Encounter:appointment and Encounter:part-of appears twice in `encounters` and would emit
+  // duplicate rows.
+  for (const encounter of encounterById.values()) {
     const appointment = resolveAppointment(encounter);
     if (!appointment) continue;
 
@@ -534,9 +544,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     if (includeVitals) {
       const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
-      // Last charted value wins per vital field.
+      // Last charted value wins per vital field. FHIR search order is not chronological, so sort by
+      // effectiveDateTime (set to the charting instant by makeObservationResource) before taking the last.
       const fieldCode = (o: Observation): string => o.meta?.tag?.find((t) => t.code?.startsWith('vital-'))?.code ?? '';
-      const latest = (field: string): Observation | undefined => obs.filter((o) => fieldCode(o) === field).at(-1);
+      const effectiveMillis = (o: Observation): number => {
+        const ms = o.effectiveDateTime ? DateTime.fromISO(o.effectiveDateTime).toMillis() : NaN;
+        return Number.isFinite(ms) ? ms : 0;
+      };
+      const latest = (field: string): Observation | undefined =>
+        obs
+          .filter((o) => fieldCode(o) === field)
+          .sort((a, b) => effectiveMillis(a) - effectiveMillis(b))
+          .at(-1);
       const qty = (o?: Observation): number | null =>
         typeof o?.valueQuantity?.value === 'number' ? o.valueQuantity.value : null;
 
@@ -595,9 +614,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         row.nursingOrderCount = nursingOrders.length;
       }
       if (includeDisposition) {
+        // The 'disposition-follow-up' SR only carries the generic "Follow-up visit (procedure)" code.
+        // The actual follow-up items are separate SRs tagged 'sub-follow-up' whose type is encoded in
+        // performerType (see save-chart-data): a SNOMED coding for the coded types, text-only for
+        // 'other'/'lurie-ct'. Reverse-map via followUpTypeFromPerformerType, then render the same human
+        // label the disposition UI uses (dispositionCheckboxOptions).
         const followUpTypes = srs
-          .filter((sr) => hasChartTag(sr, 'disposition-follow-up'))
-          .map(orderDisplay)
+          .filter((sr) => hasChartTag(sr, 'sub-follow-up'))
+          .map((sr) => {
+            const type = followUpTypeFromPerformerType(sr.performerType);
+            if (!type) return '';
+            return dispositionCheckboxOptions.find((o) => o.name === type)?.label ?? type;
+          })
           .filter(Boolean);
         row.followUpTypes = followUpTypes;
         row.followUpCount = followUpTypes.length;
@@ -611,7 +639,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (includeImmunizations) {
       const immunizations: string[] = [];
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
-        if (ma.status === 'entered-in-error' || !hasChartTag(ma, 'immunization')) continue;
+        // Only vaccines actually given. Per mapFhirToOrderStatus (utils/lib/fhir/medication-administration.ts):
+        // completed=administered, on-hold=partially administered (still given), while in-progress=pending order,
+        // not-done=refused/not administered, stopped=cancelled — none of those belong in "vaccines given".
+        if ((ma.status !== 'completed' && ma.status !== 'on-hold') || !hasChartTag(ma, 'immunization')) continue;
         const name =
           getMedicationName(getMedicationFromMA(ma)) ||
           ma.medicationCodeableConcept?.coding?.[0]?.display ||

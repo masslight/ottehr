@@ -196,7 +196,24 @@ export async function invokeChatbotVertexAI(
   const response = await (await Promise.any(requests))?.json();
 
   console.log(JSON.stringify(response));
-  return response.candidates[0].content.parts[0].text;
+  // Guard the response shape before drilling into it: a "skipped" request resolves to null (so
+  // `response` is undefined), and a safety-filter / recitation block returns a body with empty
+  // candidates or a candidate with no content.parts. Reading candidates[0].content.parts[0].text
+  // unguarded throws an opaque "Cannot read properties of undefined" — throw a descriptive error
+  // instead so callers can see (and retry on) the actual failure mode.
+  if (response == null) {
+    throw new Error('Vertex AI returned no response body (the winning request resolved without a response)');
+  }
+  const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== 'string') {
+    const candidateCount = Array.isArray(response.candidates) ? response.candidates.length : 'missing';
+    const finishReason = response?.candidates?.[0]?.finishReason ?? 'unknown';
+    const blockReason = response?.promptFeedback?.blockReason ?? 'none';
+    throw new Error(
+      `Vertex AI response contained no candidate text (candidates: ${candidateCount}, finishReason: ${finishReason}, promptFeedback.blockReason: ${blockReason})`
+    );
+  }
+  return text;
 }
 
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {

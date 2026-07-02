@@ -126,7 +126,8 @@ const BASE_FIELDS: FieldDef[] = [
       "rows with their own date, sharing the parent visit's appointmentId). To link to a follow-up " +
       'row\'s note, href="/in-person/" + appointmentId + "/follow-up-note" instead of the review-and-sign route.',
   },
-  { name: 'reason', type: 'string', description: 'Reason for visit (free text).' },
+  // Free text authored at booking — can embed patient names/PHI, so the value domain is withheld.
+  { name: 'reason', type: 'string', description: 'Reason for visit (free text).', sensitive: true },
   { name: 'scheduledSlotMinutes', type: 'number', description: 'Booked appointment slot length in minutes.' },
   {
     name: 'patientId',
@@ -170,6 +171,9 @@ const BASE_FIELDS: FieldDef[] = [
   {
     name: 'registeredBy',
     type: 'string',
+    // Staff login emails are workforce PII (a stronger identifier than a display name); withhold the
+    // value domain from the model. registeredByName is already withheld via the name heuristic.
+    sensitive: true,
     description: 'Staff login EMAIL that registered the visit, or "Patient" for patient-initiated registrations.',
   },
   {
@@ -381,6 +385,9 @@ const DISPOSITION_FIELDS: FieldDef[] = [
     name: 'dischargeDisposition',
     type: 'string',
     description: 'Discharge disposition recorded on the encounter (e.g. home, transferred). "" when not recorded.',
+    // In practice this surfaces the provider's free-text disposition NOTE (the FHIR coding carries
+    // no display, so the `.text` note is what comes back) — staff prose, domain withheld.
+    sensitive: true,
   },
   {
     name: 'followUpTypes',
@@ -432,7 +439,14 @@ const RESULTS_FIELDS: FieldDef[] = [
 ];
 
 const NURSING_FIELDS: FieldDef[] = [
-  { name: 'nursingOrders', type: 'string[]', description: 'Nursing orders placed on the visit (names).' },
+  // Nursing orders are authored as free-text instructions (no controlled catalog) — staff prose
+  // that can embed patient details, so the value domain is withheld.
+  {
+    name: 'nursingOrders',
+    type: 'string[]',
+    description: 'Nursing orders placed on the visit (names).',
+    sensitive: true,
+  },
   { name: 'nursingOrderCount', type: 'number', description: 'Number of nursing orders on the visit. 0 when none.' },
 ];
 

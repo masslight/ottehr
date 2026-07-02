@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { adhocEncountersDataset } from '../../src/features/reports/adHoc/adhocEncountersDataset';
 import { buildSchema, FieldDef } from '../../src/features/reports/adHoc/schema';
 
 // Privacy invariant: identifier / contact / sub-state-geography columns must NEVER have their
@@ -85,5 +86,31 @@ describe('buildSchema value-domain withholding', () => {
   it('keeps numeric ranges (age, insurancePaid)', () => {
     expect(field('age').min).toBe(36);
     expect(field('insurancePaid').max).toBe(42);
+  });
+});
+
+// Free-text clinical columns (patient/staff-authored prose) can embed names and other PHI even
+// though their column NAMES don't match the identifier heuristic — they must be flagged
+// `sensitive` in the dataset field defs so their distinct values never reach the LLM.
+describe('Encounters dataset withholds free-text clinical columns', () => {
+  const rows = [
+    {
+      reason: 'f/u for Jane Doe rash',
+      dischargeDisposition: 'Return to clinic if fever persists',
+      nursingOrders: ['Apply ice pack to left ankle, elevate'],
+      visitType: 'In-Person',
+    },
+  ] as unknown as Parameters<typeof buildSchema>[0];
+
+  const schema = adhocEncountersDataset.buildSchema(rows, { disposition: true, nursing: true });
+  const field = (name: string): { values?: unknown } | undefined => schema.fields.find((f) => f.name === name);
+
+  it.each(['reason', 'dischargeDisposition', 'nursingOrders'])('withholds the value domain for %s', (name) => {
+    expect(field(name)).toBeDefined();
+    expect(field(name)!.values).toBeUndefined();
+  });
+
+  it('still keeps operational categoricals (visitType)', () => {
+    expect(field('visitType')!.values).toEqual(['In-Person']);
   });
 });

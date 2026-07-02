@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   AdHocReportTurn,
@@ -217,6 +218,14 @@ const jsSyntaxError = (code: string): string | null => {
 // (not just compiled) during validation. Values only need to be varied enough to exercise
 // grouping/charting; correctness vs the real data is not the goal. A few patientIds repeat across
 // near dates so visit-pairing reports (e.g. 72-hour returns) have something to find.
+//
+// NULL HOLES: the prompt's null-safety rule says "ANY field value may be null", so the synthetic
+// rows must actually contain nulls — otherwise code with an unguarded null access
+// (r.reason.toLowerCase()) sails through validation and only crashes on real data. After building
+// the rows, every field gets one null/undefined hole plus one type-shaped empty ([] / null; never
+// '', which the prompt's contract excludes from the value domain and would false-reject null-guarded code)
+// punched into rows 2..11: rows 0-1 stay fully populated so grouping/charting still has data, and
+// each field keeps at least 10 of its 12 values so the patientId-repeat pairing guarantee survives.
 export const synthSampleRows = (schema: {
   fields?: Array<{ name?: string; type?: string; values?: unknown[]; min?: number }>;
 }): unknown[] => {
@@ -237,6 +246,14 @@ export const synthSampleRows = (schema: {
     if (fields.some((f) => f?.name === 'patientId')) row.patientId = `p${i % 4}`;
     rows.push(row);
   }
+  // Punch the null holes (rows 2..11 only). The null/undefined hole is the one that makes an
+  // unguarded method call throw; the second hole is a plausible "empty" for the field's type.
+  // (j % 10) and ((j + 5) % 10) never coincide, so the two holes land in different rows.
+  const named = fields.filter((f): f is { name: string; type?: string } => typeof f?.name === 'string');
+  named.forEach((f, j) => {
+    rows[2 + (j % 10)][f.name] = j % 2 === 0 ? null : undefined;
+    rows[2 + ((j + 5) % 10)][f.name] = f.type === 'string[]' ? [] : null;
+  });
   return rows;
 };
 
@@ -485,7 +502,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           `RUN without throwing (watch for variables used outside their scope) and must render into ` +
           `document.body.`;
 
-    const raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA, REPORT_MODEL);
+    // The model call itself can throw (transport failure, or a malformed/safety-filtered response
+    // with no candidate text). That must consume ONE attempt and retry — not escape the loop as a
+    // generic 500 with the rest of the retry budget unused.
+    let raw: string;
+    try {
+      raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA, REPORT_MODEL);
+    } catch (error) {
+      captureException(error);
+      lastError = `the model call failed (${error instanceof Error ? error.message : String(error)})`;
+      continue;
+    }
 
     let parsed: { code?: unknown; title?: unknown; needsLayers?: unknown };
     try {
