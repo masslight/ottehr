@@ -11,7 +11,7 @@ import {
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
@@ -183,7 +183,7 @@ async function attachClaimResources(
       {
         sequence: 1,
         provider: { reference: `${fields.renderingProvider.type}/${copy.id}` },
-        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }] },
+        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
       },
       ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
     ];

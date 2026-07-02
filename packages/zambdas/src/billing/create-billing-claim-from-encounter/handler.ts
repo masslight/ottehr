@@ -43,7 +43,7 @@ import {
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
@@ -1171,7 +1171,7 @@ function buildClaim(resources: ClaimResources): Claim {
           {
             sequence: 1,
             provider: { reference: `Practitioner/${resources.renderingProvider.id}` },
-            role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }] },
+            role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
           },
         ]
       : undefined,
