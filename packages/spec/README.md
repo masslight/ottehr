@@ -154,6 +154,30 @@ When deploying to `local`, both `config/oystehr/zambdas.json` AND `config/oysteh
 
 When deploying to `production`, only `config/oystehr/zambdas.json` is used (no env-specific folder).
 
+## Bucket Configuration
+
+Example bucket spec:
+
+```json
+{
+  "schema-version": "2025-09-25",
+  "buckets": {
+    "MY_BUCKET": {
+      "name": "#{var/PROJECT_ID}-my-bucket",
+      "retainInEnvironments": ["production", "staging", "demo"]
+    }
+  }
+}
+```
+
+`retainInEnvironments` controls the generated `removal_policy` per environment: the bucket is
+`retain`ed when the current `ENVIRONMENT` is in the list, and `delete`d everywhere else. This
+protects buckets in production-like environments while letting lower/ephemeral environments
+freely destroy and recreate buckets (e.g. across branch switches). An empty list or a missing
+field means `delete` in every environment. Generation throws if buckets are defined but
+`ENVIRONMENT` is not set, so a misconfigured environment can never silently mark buckets
+deletable.
+
 ## Zambda Configuration
 
 Example zambda spec:

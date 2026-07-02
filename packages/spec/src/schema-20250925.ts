@@ -202,10 +202,14 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const bucketResources: { resource: { oystehr_z3_bucket: { [key: string]: any } } } = {
       resource: { oystehr_z3_bucket: {} },
     };
+    if (Object.keys(this.resources.buckets).length && !this.vars.ENVIRONMENT) {
+      throw new Error('ENVIRONMENT must be set to resolve bucket removal policies');
+    }
     for (const [bucketName, bucket] of Object.entries(this.resources.buckets)) {
+      const retainInEnvironments: string[] = bucket.retainInEnvironments ?? [];
       bucketResources.resource.oystehr_z3_bucket[bucketName] = {
         name: this.getValue(bucket.name, this.resources),
-        removal_policy: this.getValue(bucket.removalPolicy, this.resources),
+        removal_policy: retainInEnvironments.includes(this.vars.ENVIRONMENT) ? 'retain' : 'delete',
       };
     }
     if (Object.keys(bucketResources.resource.oystehr_z3_bucket).length) {

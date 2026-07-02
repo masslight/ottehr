@@ -215,4 +215,94 @@ describe('Schema20250925 generate()', () => {
       expect(value).toContain('local.zambda_secrets_for_local_server');
     });
   });
+
+  describe('buckets', () => {
+    const bucketSpecRetainingIn = (
+      retainInEnvironments: string[]
+    ): {
+      path: string;
+      spec: {
+        [key: string]: unknown;
+      };
+    } => ({
+      path: 'buckets.json',
+      spec: {
+        'schema-version': '2025-09-25',
+        buckets: {
+          MY_BUCKET: {
+            name: '#{var/PROJECT_ID}-my-bucket',
+            retainInEnvironments,
+          },
+        },
+      },
+    });
+
+    const readBucket = async (): Promise<{ name: string; removal_policy: string }> => {
+      const content = await fs.readFile(path.join(tmpDir, 'buckets.tf.json'), 'utf8');
+      return JSON.parse(content).resource.oystehr_z3_bucket.MY_BUCKET;
+    };
+
+    it('retains the bucket when the current environment is in retainInEnvironments', async () => {
+      const schema = new Schema20250925(
+        [bucketSpecRetainingIn(['production'])],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      expect((await readBucket()).removal_policy).toBe('retain');
+    });
+
+    it('deletes the bucket when the current environment is not in retainInEnvironments', async () => {
+      const schema = new Schema20250925(
+        [bucketSpecRetainingIn(['production'])],
+        {
+          ENVIRONMENT: 'local',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      expect((await readBucket()).removal_policy).toBe('delete');
+    });
+
+    it('deletes in every environment when retainInEnvironments is empty', async () => {
+      const schema = new Schema20250925(
+        [bucketSpecRetainingIn([])],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      expect((await readBucket()).removal_policy).toBe('delete');
+    });
+
+    it('resolves #{var/...} references in the bucket name', async () => {
+      const schema = new Schema20250925(
+        [bucketSpecRetainingIn(['production'])],
+        {
+          ENVIRONMENT: 'production',
+          PROJECT_ID: 'proj-123',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      expect((await readBucket()).name).toBe('proj-123-my-bucket');
+    });
+
+    it('throws when buckets are defined but ENVIRONMENT is not set', async () => {
+      const schema = new Schema20250925([bucketSpecRetainingIn(['production'])], {}, tmpDir, '/zambdas');
+
+      await expect(schema.generate()).rejects.toThrow('ENVIRONMENT must be set to resolve bucket removal policies');
+    });
+  });
 });
