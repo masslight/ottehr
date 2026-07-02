@@ -1,3 +1,4 @@
+import { useAuth0 } from '@auth0/auth0-react';
 import {
   Apartment as ApartmentIcon,
   Business as BusinessIcon,
@@ -5,6 +6,7 @@ import {
   Home as HomeIcon,
   Label as LabelIcon,
   List as ListIcon,
+  Logout as LogoutIcon,
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
   Receipt as ReceiptIcon,
@@ -36,6 +38,7 @@ const navItems = [
 export const Sidebar: FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth0();
 
   return (
     <Drawer
@@ -49,6 +52,9 @@ export const Sidebar: FC = () => {
           borderRight: `1px solid ${otherColors.lightDivider}`,
           bgcolor: 'background.paper',
           position: 'relative',
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
     >
@@ -73,7 +79,7 @@ export const Sidebar: FC = () => {
         </Typography>
       </Box>
 
-      <List sx={{ px: 1.25, flex: 1 }}>
+      <List sx={{ px: 1.25, flex: 1, overflow: 'auto', minHeight: 0 }}>
         {navItems.map(({ label, path, icon }) => {
           const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
           return (
@@ -109,6 +115,26 @@ export const Sidebar: FC = () => {
             </ListItemButton>
           );
         })}
+      </List>
+
+      <List sx={{ px: 1.25, pb: 1 }}>
+        <ListItemButton
+          onClick={() => void logout({ logoutParams: { returnTo: window.location.origin, federated: true } })}
+          sx={{
+            borderRadius: 1,
+            py: 0.75,
+            px: 1.25,
+            '&:hover': { bgcolor: otherColors.apptHover },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: 'action.disabled' }}>
+            <LogoutIcon sx={{ fontSize: 18 }} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Log out"
+            primaryTypographyProps={{ fontSize: 13.5, fontWeight: 450, color: 'text.primary' }}
+          />
+        </ListItemButton>
       </List>
       <Box sx={{ px: 1 }}>
         <Typography variant="caption">Environment: {import.meta.env.VITE_APP_ENV}</Typography>

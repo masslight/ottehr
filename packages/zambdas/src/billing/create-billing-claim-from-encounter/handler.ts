@@ -40,8 +40,10 @@ import {
   claimStatusValuesToTags,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
+  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
@@ -49,7 +51,9 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  getCandidPlanTypeCodeFromCoverage,
   getCoding,
+  getDefaultClaimSubmissionExtensions,
   getNPIIdentifier,
   getPayerId,
   getPaymentVariantFromEncounter,
@@ -64,6 +68,7 @@ import {
   Secrets,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
+  setCoveragePlanType,
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
@@ -547,7 +552,12 @@ export function getClaimCoveragesForEncounter(
       });
       return [
         ...(primaryCoverage
-          ? [{ coverageRef: uuidOrUrnReference('Coverage', primaryCoverage.id!), payorRef: primaryCoverage.payor[0] }]
+          ? [
+              {
+                coverageRef: uuidOrUrnReference('Coverage', primaryCoverage.id!),
+                payorRef: primaryCoverage.payor[0],
+              },
+            ]
           : []),
         ...(secondaryCoverage
           ? [
@@ -576,7 +586,12 @@ export function getClaimCoveragesForEncounter(
       });
       return [
         ...(wcCoverage
-          ? [{ coverageRef: uuidOrUrnReference('Coverage', wcCoverage.id!), payorRef: wcCoverage.payor[0] }]
+          ? [
+              {
+                coverageRef: uuidOrUrnReference('Coverage', wcCoverage.id!),
+                payorRef: wcCoverage.payor[0],
+              },
+            ]
           : []),
       ];
     }
@@ -654,7 +669,7 @@ export function copyCoverageAndSubscriber(
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
   const cleanedCoverageId = coverage.id?.replace('urn:uuid:', '');
-  const copy = workingCopy
+  let copy = workingCopy
     ? prepareWorkingCopy<Coverage>(coverage, coverage.id!)
     : prepareCopy<Coverage>(coverage, coverage.id!);
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
@@ -707,6 +722,8 @@ export function copyCoverageAndSubscriber(
       copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
     }
   }
+  const planTypeCode = getCandidPlanTypeCodeFromCoverage(coverage);
+  if (planTypeCode) copy = setCoveragePlanType(copy, planTypeCode);
   copy.id = `urn:uuid:${workingCopy ? 'claim' : 'billing'}-coverage-${cleanedCoverageId}`;
   requests.push({
     method: 'POST',
@@ -1111,6 +1128,12 @@ function buildClaim(resources: ClaimResources): Claim {
   let total = 0;
   const claim: Claim = {
     resourceType: 'Claim',
+    identifier: [
+      // Backlink to the source clinical encounter; also the key complexValidation() dedups on.
+      { system: ottehrIdentifierSystem('claim-encounter-id'), value: resources.encounter.id! },
+      // Backlink to the source clinical appointment — the EHR /visit/<id> route key for jumping to clinical.
+      { system: ottehrIdentifierSystem('claim-appointment-id'), value: resources.appointment.id! },
+    ],
     status: 'draft',
     meta: {
       tag: [
@@ -1124,6 +1147,7 @@ function buildClaim(resources: ClaimResources): Claim {
     type: { coding: [getClaimTypeCoding()] },
     use: 'claim',
     created: now,
+    extension: getDefaultClaimSubmissionExtensions(),
     patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
       ? { reference: `Organization/${resources.billingProvider.id}` }
@@ -1146,7 +1170,7 @@ function buildClaim(resources: ClaimResources): Claim {
           {
             sequence: 1,
             provider: { reference: `Practitioner/${resources.renderingProvider.id}` },
-            role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }] },
+            role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
           },
         ]
       : undefined,
@@ -1159,13 +1183,24 @@ function buildClaim(resources: ClaimResources): Claim {
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
     item: resources.procedures
       ? resources.procedures.map<ClaimItem>((p, i) => {
+          const procedureCode = assertDefined(p.code, 'Procedure code');
+          // Swap Ottehr's custom HCPCS code system for HL7's
+          procedureCode.coding = [
+            ...(procedureCode.coding ?? [])
+              .filter((coding) => coding.system === CODE_SYSTEM_HCPCS)
+              .map((coding) => ({
+                ...coding,
+                system: CODE_SYSTEM_HL7_HCPCS,
+              })),
+            ...(procedureCode.coding ?? []).filter((coding) => coding.system !== CODE_SYSTEM_HCPCS),
+          ];
           const amount = getPriceForProcedure(p, resources.chargeMaster);
           total += amount;
           return {
             sequence: i + 1,
             careTeamSequence: resources.renderingProvider ? [1] : undefined,
             diagnosisSequence: resources.diagnoses ? [1] : undefined,
-            productOrService: assertDefined(p.code, 'Procedure code'),
+            productOrService: procedureCode,
             modifier: p.code?.coding?.[0].extension
               ?.flatMap<CodeableConcept | undefined>((ext) =>
                 ext.url === EXTENSION_URL_CPT_MODIFIER

@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { BIRTH_SEXES, SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
+import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
+import {
+  CMS_PLACE_OF_SERVICE_CODE_SET,
+  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
+} from '../../../helpers/rcm/constants';
 import { taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import {
@@ -25,7 +30,7 @@ export const ALLOWED_BILLING_RESOURCE_TYPES = [
 // --- Input schemas ---
 
 export const GetClaimDetailInputSchema = z.object({
-  claimId: nonEmptyString,
+  claimId: z.string().uuid(),
 });
 
 export const ExportClaimX12InputSchema = z.object({
@@ -66,7 +71,7 @@ export const DeleteBillingTagInputSchema = z.object({
 });
 
 export const TagBillingClaimInputSchema = z.object({
-  claimId: nonEmptyString,
+  claimId: z.string().uuid(),
   action: z.enum(['add', 'remove']),
   tagName: nonEmptyString,
 });
@@ -74,7 +79,7 @@ export const TagBillingClaimInputSchema = z.object({
 // Set (or clear, when value is null/empty) one claim-status meta.tag.
 export const SetClaimStatusInputSchema = z
   .object({
-    claimId: nonEmptyString,
+    claimId: z.string().uuid(),
     field: z.enum(CLAIM_STATUS_FIELD_KEYS),
     value: z.string().nullable().optional(),
   })
@@ -88,6 +93,12 @@ export const SetClaimStatusInputSchema = z
       });
     }
   });
+
+export const MAX_SUBMIT_BILLING_CLAIMS = 20;
+
+export const SubmitBillingClaimsInputSchema = z.object({
+  claimIds: z.array(z.string().uuid()).min(1).max(MAX_SUBMIT_BILLING_CLAIMS),
+});
 
 // Status indicators keyed by ClaimStatusFieldKey; unknown keys are rejected and each provided value
 // must be a valid option for its field.
@@ -485,12 +496,19 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     resourceId: nonEmptyString,
     fields: z.object({
       type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
+      service: z.enum(CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES).optional(),
+      // Claim-level date of service; written to every service line by update-billing-claim.
+      serviceDate: nonEmptyString.optional(),
       billingProvider: claimProviderRefSchema.optional(),
       renderingProvider: claimProviderRefSchema.optional(),
       facilityId: nonEmptyString.optional(),
       coverageId: nonEmptyString.optional(),
       removeCoverage: z.boolean().optional(),
       payerId: nonEmptyString.optional(),
+      planType: z
+        .string()
+        .refine((code) => INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code), 'Invalid plan type')
+        .optional(),
       diagnoses: z.array(claimDiagnosisSchema).optional(),
       serviceLines: z.array(claimServiceLineSchema).optional(),
     }),
@@ -558,6 +576,10 @@ export const DeleteChargeItemDefinitionInputSchema = z.object({
   chargeItemDefinitionId: nonEmptyString.uuid(),
 });
 
+export const ImportEraInputSchema = z.object({
+  era: nonEmptyString,
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
@@ -566,6 +588,7 @@ export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;
 export type TagBillingClaimInput = z.output<typeof TagBillingClaimInputSchema>;
 export type SetClaimStatusInput = z.output<typeof SetClaimStatusInputSchema>;
+export type SubmitBillingClaimsInput = z.output<typeof SubmitBillingClaimsInputSchema>;
 export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
@@ -598,3 +621,4 @@ export type DeleteChargeItemDefinitionInput = z.output<typeof DeleteChargeItemDe
 export type SearchServiceFacilitiesInput = z.output<typeof SearchServiceFacilitiesInputSchema>;
 export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputSchema>;
 export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;
+export type ImportEraInput = z.output<typeof ImportEraInputSchema>;

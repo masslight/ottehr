@@ -6,7 +6,6 @@ import {
   Encounter,
   FhirResource,
   List,
-  ListEntry,
   Medication,
   MedicationAdministration,
   MedicationRequest,
@@ -447,94 +446,26 @@ const performEffect = async (
   // At apply time, apply-template re-runs the medication create flow using the
   // plan data, binding the fresh patient and encounter.
   // Note: we effectively skip all medications if any medication has detected interactions
-  const medicationPlanTagSystem = chartDataTagSystem('in-house-medication-administration-template');
-  let medicationInteractionDetected = false;
-  const medAdminsForContained: MedicationAdministration[] = [];
-  const medicationEntries: ListEntry[] = [];
-
-  for (const medAdmin of medicationAdministrations) {
-    // the interactions are stored on the MR.detectedIssue. See createMedicationRequest
-    const mrForMedAmin = medicationRequestByIdMap.get(
-      medAdmin.request?.reference?.replace('MedicationRequest/', '') ?? ''
-    );
-    if (!mrForMedAmin) {
-      console.warn(
-        `Skipping MedicationAdministration/${medAdmin.id} when saving template — no MedicationRequest found`
-      );
-      continue;
-    }
-
-    medicationInteractionDetected = medicationRequestHasInteraction(mrForMedAmin);
-    if (medicationInteractionDetected) break;
-
-    const originalMedication = medAdmin.contained?.find((r) => r.resourceType === 'Medication');
-    if (!originalMedication) {
-      console.warn(
-        `Skipping MedicationAdministration/${medAdmin.id} when saving template — no contained Medication found`
-      );
-      continue;
-    }
-
-    // Lift ICD-10 codings from reasonReference Conditions into reasonCode so
-    // the plan can carry Dx without referencing patient-specific Conditions.
-    const reasonCode = (medAdmin.reasonReference ?? []).flatMap((ref) => {
-      const condId = ref.reference?.replace('Condition/', '');
-      if (!condId) return [];
-      const cond = diagnosisConditionById.get(condId);
-      if (!cond) return [];
-      const icdCoding = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM);
-      if (!icdCoding) return [];
-      return [{ coding: [icdCoding], text: icdCoding.display }];
-    });
-
-    // FHIR doesn't allow multiple nested contained resources so we need to store Medication not in MA.contained but in List.contained instead
-    const medicationAdminMedication = medAdmin.contained?.find((cont) => cont.resourceType === 'Medication');
-    const medicationId = uuidV4();
-    if (medicationAdminMedication) {
-      const templateMedication: Medication = {
-        ...medicationAdminMedication,
-        id: medicationId,
-      };
-      listToCreate.contained!.push(templateMedication);
-    }
-
-    const medAdminId = uuidV4();
-    oldIdToNewIdMap.set(medAdmin.id!, medAdminId);
-    const templateMedAdministration: MedicationAdministration = {
-      resourceType: 'MedicationAdministration',
-      id: medAdminId,
-      status: 'in-progress',
-      subject: { reference: `#${stubPatient.id}` },
-      // this is a required field but we will overwrite it when the template is actually applied
-      effectiveDateTime: DateTime.now().toISO(),
-      // NO context (encounter ref) — patient-specific
-      // NO performer — patient-specific
-      // NO reasonReference — Condition IDs are patient-specific; Dx lifted to reasonCode above
-      // NO request — MR is patient-specific (carries interaction data for that patient)
-      // No notes - only used to capture reasons the med was not administered
-      ...(medAdmin.dosage ? { dosage: medAdmin.dosage } : {}),
-      ...(medAdmin.extension && medAdmin.extension.length > 0 ? { extension: medAdmin.extension } : {}),
-      ...(reasonCode.length > 0 ? { reasonCode } : {}),
-      // details of the medication itself are contained on the medicationAdministration
-      ...(medicationAdminMedication
-        ? {
-            medicationReference: { reference: `#${medicationId}` },
-          }
-        : {}),
-
-      meta: {
-        tag: [{ system: medicationPlanTagSystem, code: 'in-house-medication-administration-template' }],
-      },
-    };
-
-    medAdminsForContained.push(templateMedAdministration);
-    medicationEntries.push({ item: { reference: `#${medAdminId}` } });
-  }
+  const { templateResources, medAdminIdMap, medicationInteractionDetected } = collectMedicationsForTemplate({
+    medicationAdministrations,
+    medicationRequestByIdMap,
+    diagnosisConditionById,
+    stubPatientId: stubPatient.id!,
+  });
 
   if (!medicationInteractionDetected) {
     console.log('No medication interaction detected, adding medications to template');
-    listToCreate.contained!.push(...medAdminsForContained);
-    listToCreate.entry!.push(...medicationEntries);
+    for (const [oldId, newId] of medAdminIdMap) {
+      oldIdToNewIdMap.set(oldId, newId);
+    }
+    for (const res of templateResources) {
+      if (res.resourceType === 'MedicationAdministration') {
+        listToCreate.entry!.push({
+          item: { reference: `#${res.id}` },
+        });
+      }
+      listToCreate.contained!.push(res);
+    }
   } else {
     console.warn('Medication interactions detected, no medications added to template');
     warnings.push({
@@ -756,4 +687,107 @@ export const isValidMedicationAdministrationForTemplate = (resource: TemplateEnc
 export const medicationRequestHasInteraction = (mr: MedicationRequest): boolean => {
   if (!mr.detectedIssue?.length) return false;
   return mr.detectedIssue.length > 1 || !mr.detectedIssue[0].reference?.includes(INTERACTIONS_UNAVAILABLE);
+};
+
+export type CollectMedicationsResult = {
+  templateResources: (Medication | MedicationAdministration)[];
+  medAdminIdMap: Map<string, string>;
+  medicationInteractionDetected: boolean;
+};
+
+// Loops over chart MedicationAdministrations and builds the resources that
+// get flushed into the template List. Resources array is empty if any
+// MedicationRequest carries a real drug interaction — this is intentional: if
+// any medication in the set has an interaction we omit all of them so the
+// template never captures a partially-safe set.
+export const collectMedicationsForTemplate = (params: {
+  medicationAdministrations: MedicationAdministration[];
+  medicationRequestByIdMap: Map<string, MedicationRequest>;
+  diagnosisConditionById: Map<string, Condition>;
+  stubPatientId: string;
+}): CollectMedicationsResult => {
+  const medicationPlanSystemKey = 'in-house-medication-administration-template';
+  const medicationPlanTagSystem = chartDataTagSystem(medicationPlanSystemKey);
+  let medicationInteractionDetected = false;
+  const templateResources: (Medication | MedicationAdministration)[] = [];
+  const medAdminIdMap = new Map<string, string>();
+
+  for (const medAdmin of params.medicationAdministrations) {
+    const mrForMedAdmin = params.medicationRequestByIdMap.get(
+      medAdmin.request?.reference?.replace('MedicationRequest/', '') ?? ''
+    );
+    if (!mrForMedAdmin) {
+      console.warn(
+        `Skipping MedicationAdministration/${medAdmin.id} when saving template — no MedicationRequest found`
+      );
+      continue;
+    }
+
+    medicationInteractionDetected = medicationRequestHasInteraction(mrForMedAdmin);
+    if (medicationInteractionDetected) break;
+
+    const originalMedication = medAdmin.contained?.find((r) => r.resourceType === 'Medication');
+    if (!originalMedication) {
+      console.warn(
+        `Skipping MedicationAdministration/${medAdmin.id} when saving template — no contained Medication found`
+      );
+      continue;
+    }
+
+    // Lift ICD-10 codings from reasonReference Conditions into reasonCode so
+    // the plan can carry Dx without referencing patient-specific Conditions.
+    const reasonCode = (medAdmin.reasonReference ?? []).flatMap((ref) => {
+      const condId = ref.reference?.replace('Condition/', '');
+      if (!condId) return [];
+      const cond = params.diagnosisConditionById.get(condId);
+      if (!cond) return [];
+      const icdCoding = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM);
+      if (!icdCoding) return [];
+      return [{ coding: [icdCoding], text: icdCoding.display }];
+    });
+
+    // FHIR doesn't allow multiple nested contained resources so we need to store
+    // Medication not in MA.contained but in List.contained instead. Both are
+    // buffered together so a later interaction check discards both atomically.
+    const medicationId = uuidV4();
+    const templateMedication: Medication = {
+      ...originalMedication,
+      id: medicationId,
+    };
+
+    const newMedAdminId = uuidV4();
+    medAdminIdMap.set(medAdmin.id!, newMedAdminId);
+    const templateMedAdministration: MedicationAdministration = {
+      resourceType: 'MedicationAdministration',
+      id: newMedAdminId,
+      status: 'in-progress',
+      subject: { reference: `#${params.stubPatientId}` },
+      // this is a required field but we will overwrite it when the template is actually applied
+      effectiveDateTime: DateTime.now().toISO(),
+      // NO context (encounter ref) — patient-specific
+      // NO performer — patient-specific
+      // NO reasonReference — Condition IDs are patient-specific; Dx lifted to reasonCode above
+      // NO request — MR is patient-specific (carries interaction data for that patient)
+      // No notes - only used to capture reasons the med was not administered
+      ...(medAdmin.dosage ? { dosage: medAdmin.dosage } : {}),
+      ...(medAdmin.extension && medAdmin.extension.length > 0 ? { extension: medAdmin.extension } : {}),
+      ...(reasonCode.length > 0 ? { reasonCode } : {}),
+      // details of the medication itself are contained on the medicationAdministration
+      medicationReference: { reference: `#${medicationId}` },
+      meta: {
+        tag: [{ system: medicationPlanTagSystem, code: medicationPlanSystemKey }],
+      },
+    };
+
+    templateResources.push(...[templateMedAdministration, templateMedication]);
+  }
+
+  if (medicationInteractionDetected) {
+    return {
+      medicationInteractionDetected: true,
+      templateResources: [],
+      medAdminIdMap: new Map(),
+    };
+  }
+  return { templateResources, medAdminIdMap, medicationInteractionDetected: false };
 };
