@@ -34,6 +34,10 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'adhoc-patients';
 
+// Format visit dates in the practice's zone (matches AdHocReport.tsx on the client); the process
+// zone is UTC in prod, which would shift evening visits to the next calendar day.
+const REPORT_TIME_ZONE = 'America/New_York';
+
 const hasTag = (resource: { meta?: { tag?: { code?: string }[] } }, code: string): boolean =>
   Boolean(resource.meta?.tag?.some((t) => t.code === code));
 
@@ -221,7 +225,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (serviceCategory) agg.serviceCategories.add(serviceCategory);
   }
 
-  const ymd = (iso: string): string => (iso ? DateTime.fromISO(iso).toFormat('yyyy-MM-dd') : '');
+  const ymd = (iso: string): string =>
+    iso ? DateTime.fromISO(iso).setZone(REPORT_TIME_ZONE).toFormat('yyyy-MM-dd') : '';
 
   const rows: AdHocPatientRow[] = [];
   for (const agg of aggByPatient.values()) {

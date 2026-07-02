@@ -1,4 +1,4 @@
-import vm from 'node:vm';
+import { spawnSync } from 'node:child_process';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   AdHocReportTurn,
@@ -240,12 +240,21 @@ export const synthSampleRows = (schema: {
   return rows;
 };
 
-// EXECUTE the generated code headlessly (vm + a permissive DOM/Chart stub), exactly as the iframe
-// runner does — including the renderReport()-declaration fallback. Compile-checking alone misses
-// runtime faults (e.g. a ReferenceError from a loop var used out of scope) and no-op output (e.g. a
-// `function renderReport(){}` that's never called). Returns the error string, or null if it ran and
-// rendered something. Kept permissive (unknown DOM calls no-op) to avoid rejecting valid reports.
-export const runtimeError = (code: string, schema: object): string | null => {
+const VM_TIMEOUT_MS = 4000;
+
+// The vm-based validation run, as a SELF-CONTAINED function (no captured module scope) so it can be
+// serialized via .toString() and executed inside an isolated child process — see runtimeError below.
+// node:vm is NOT a security boundary: model-emitted code like Math.constructor.constructor('return
+// process')() reaches the host realm's Function constructor and from there process.env. Everything
+// this function needs (the vm module, the code, the schema, the synthetic rows, the timeout) comes
+// in as parameters; it must never reference anything defined outside its own body.
+const sandboxRunner = (
+  vmMod: typeof import('node:vm'),
+  code: string,
+  schema: object,
+  rows: unknown[],
+  timeoutMs: number
+): string | null => {
   const makeNode = (): unknown => {
     const real: Record<string, unknown> = {
       style: {},
@@ -352,7 +361,7 @@ export const runtimeError = (code: string, schema: object): string | null => {
     return 0;
   };
   const sandbox: Record<string, unknown> = {
-    data: synthSampleRows(schema as { fields?: [] }),
+    data: rows,
     schema,
     Chart: ChartStub,
     document: documentStub,
@@ -388,14 +397,72 @@ export const runtimeError = (code: string, schema: object): string | null => {
     '\n;if (typeof renderReport === "function" && !document.body.firstChild) { renderReport(data, schema, Chart); }\n' +
     '})(data, schema, Chart);';
   try {
-    vm.createContext(sandbox);
-    vm.runInContext(wrapped, sandbox, { timeout: 4000 });
+    vmMod.createContext(sandbox);
+    vmMod.runInContext(wrapped, sandbox, { timeout: timeoutMs });
   } catch (e) {
     return e instanceof Error ? e.message : String(e);
   }
   return body.children.length > 0 || (body.innerHTML && body.innerHTML.length > 0)
     ? null
     : 'the code ran without error but rendered nothing into document.body';
+};
+
+// EXECUTE the generated code headlessly (vm + a permissive DOM/Chart stub), exactly as the iframe
+// runner does — including the renderReport()-declaration fallback. Compile-checking alone misses
+// runtime faults (e.g. a ReferenceError from a loop var used out of scope) and no-op output (e.g. a
+// `function renderReport(){}` that's never called). Returns the error string, or null if it ran and
+// rendered something. Kept permissive (unknown DOM calls no-op) to avoid rejecting valid reports.
+//
+// SECURITY: the code under validation is untrusted model output (and the user's free-text request is
+// an indirect prompt-injection surface). node:vm alone is NOT a security boundary — sandboxed code
+// can climb intrinsic prototype chains (e.g. Math.constructor.constructor('return process')()) into
+// the host realm and read process.env, i.e. the Lambda's Vertex API key and other secrets. So the vm
+// run happens in a THROWAWAY CHILD PROCESS spawned with a scrubbed environment (env: {}): even a
+// full vm escape lands in a process whose env holds no secrets and whose memory holds nothing but
+// the code, the schema, and synthetic rows. The child is hard-killed (SIGKILL) shortly after the
+// vm's own timeout as a backstop against escapes that outlive the script (e.g. real timers).
+// {code, schema, rows} travel via stdin as JSON — never interpolated into the child program source.
+export const runtimeError = (code: string, schema: object): string | null => {
+  const childProgram =
+    // Shim esbuild's keepNames helper: some TS runners (tsx, vitest) transpile with keepNames, which
+    // injects __name(...) calls into function bodies — the serialized sandboxRunner must not crash
+    // on them when it runs outside its defining module.
+    'var __name = globalThis.__name || function (fn) { return fn; };\n' +
+    "var __fs = require('node:fs');\n" +
+    "var __input = JSON.parse(__fs.readFileSync(0, 'utf8'));\n" +
+    'var __run = (' +
+    sandboxRunner.toString() +
+    ');\n' +
+    'var __result;\n' +
+    "try { __result = __run(require('node:vm'), __input.code, __input.schema, __input.rows, __input.timeoutMs); }\n" +
+    'catch (e) { __result = e && e.message ? e.message : String(e); }\n' +
+    // writeSync + immediate exit: exit before any escaped code's real timers/handles can keep the
+    // child alive (which would otherwise turn every successful validation into a spawn timeout).
+    '__fs.writeSync(1, JSON.stringify({ error: __result === undefined ? null : __result }));\n' +
+    'process.exit(0);';
+
+  const child = spawnSync(process.execPath, ['-e', childProgram], {
+    input: JSON.stringify({ code, schema, rows: synthSampleRows(schema as { fields?: [] }), timeoutMs: VM_TIMEOUT_MS }),
+    env: {}, // scrubbed: no secrets reachable even if the vm realm is escaped
+    timeout: VM_TIMEOUT_MS + 2000, // backstop over the vm's own timeout (spawn + parse overhead)
+    killSignal: 'SIGKILL',
+    encoding: 'utf8',
+    maxBuffer: 4 * 1024 * 1024,
+  });
+
+  if (child.error) {
+    return (child.error as NodeJS.ErrnoException).code === 'ETIMEDOUT'
+      ? `Script execution timed out after ${VM_TIMEOUT_MS}ms`
+      : `the validation runner failed to start (${child.error.message})`;
+  }
+  try {
+    const parsed = JSON.parse(child.stdout) as { error?: unknown };
+    return typeof parsed.error === 'string' ? parsed.error : null;
+  } catch {
+    return `the validation runner exited without a result (status ${child.status}${
+      child.stderr ? `: ${child.stderr.slice(0, 300)}` : ''
+    })`;
+  }
 };
 
 const MAX_ATTEMPTS = 3;

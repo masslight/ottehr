@@ -35,6 +35,7 @@ import {
   getPatientLastName,
   getPhoneNumberForIndividual,
   getVisitStatusHistory,
+  isInHouseLabServiceRequest,
   mapGenderToLabel,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -104,6 +105,11 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
   return map;
 }
 
+// Zone for rendering appointment instants as calendar dates/weekdays. Must match the client
+// (AdHocReport uses America/New_York) — the server's zone is UTC in prod, which would shift
+// evening visits onto the next day.
+const REPORT_TIME_ZONE = 'America/New_York';
+
 const minutesBetween = (start?: string, end?: string): number | null => {
   if (!start || !end) return null;
   const m = Math.round(DateTime.fromISO(end).diff(DateTime.fromISO(start), 'minutes').minutes);
@@ -127,9 +133,10 @@ const SYSTOLIC_CODES = ['271649006', '8480-6'];
 const DIASTOLIC_CODES = ['271650006', '8462-4'];
 
 const isActiveOrder = (sr: ServiceRequest): boolean => sr.status !== 'revoked' && sr.status !== 'entered-in-error';
-// A lab order: carries an Oystehr lab local code, or a lab order-type tag.
+// A lab order: carries an Oystehr lab local code, an in-house lab test code, or a lab order-type tag.
 const isLabOrder = (sr: ServiceRequest): boolean =>
   Boolean(sr.code?.coding?.some((c) => c.system?.includes('oystehr-lab-local-codes'))) ||
+  isInHouseLabServiceRequest(sr) ||
   Boolean(sr.meta?.tag?.some((t) => t.code === 'generic-lab-order' || t.code === 'in-house-lab' || t.code === 'lab'));
 // A radiology/imaging order: tagged radiology.
 const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.some((t) => t.code === 'radiology'));
@@ -336,7 +343,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Hours the clinic is open on this visit's weekday (Location.hoursOfOperation).
     let clinicOpenHours: number | null = null;
-    const weekday = start ? DateTime.fromISO(start).toFormat('ccc').toLowerCase() : '';
+    const weekday = start ? DateTime.fromISO(start).setZone(REPORT_TIME_ZONE).toFormat('ccc').toLowerCase() : '';
     for (const h of location?.hoursOfOperation ?? []) {
       if (!weekday || !h.daysOfWeek?.includes(weekday as never) || !h.openingTime || !h.closingTime) continue;
       const hrs = DateTime.fromFormat(h.closingTime, 'HH:mm:ss').diff(
@@ -368,7 +375,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const row: AdHocEncounterRow = {
       appointmentId: appointment.id || '',
       encounterId: encounter.id,
-      date: start ? DateTime.fromISO(start).toFormat('yyyy-MM-dd') : '',
+      date: start ? DateTime.fromISO(start).setZone(REPORT_TIME_ZONE).toFormat('yyyy-MM-dd') : '',
       visitType,
       appointmentType: appointmentTypeForAppointment(appointment),
       serviceCategory,

@@ -26,6 +26,7 @@ import {
   PAYMENT_METHOD_EXTENSION_URL,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { CURRENT_STATUS_TAG_SYSTEM } from '../../billing/shared';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -49,7 +50,9 @@ const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
 // A Claim carries the source clinical encounter id as an identifier (set by Ottehr's own claim
 // creation, not Candid) — this is how a claim joins back to its encounter.
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
-const CLAIM_STATUS_TAG_SYSTEM = 'current-status'; // workflow status tag (e.g. "open"), distinct from FHIR Claim.status
+// Dates are reported in the practice's zone (matches the client's AdHocReport formatting), not the
+// server's zone — in prod the lambda runs in UTC, which would shift evening visits to the next day.
+const REPORT_TIME_ZONE = 'America/New_York';
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -237,7 +240,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const row: AdHocBillingRow = {
       appointmentId: appointment.id || '',
       encounterId: encounter.id,
-      date: start ? DateTime.fromISO(start).toFormat('yyyy-MM-dd') : '',
+      date: start ? DateTime.fromISO(start).setZone(REPORT_TIME_ZONE).toFormat('yyyy-MM-dd') : '',
       visitType,
       serviceCategory,
       visitStatus,
@@ -273,7 +276,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       row.paymentsCollected = paymentsCollected;
       row.paymentCount = notices.length;
       row.paymentMethods = methods;
-      row.lastPaymentDate = dates.length ? DateTime.fromISO(dates[dates.length - 1]).toFormat('yyyy-MM-dd') : null;
+      row.lastPaymentDate = dates.length
+        ? DateTime.fromISO(dates[dates.length - 1])
+            .setZone(REPORT_TIME_ZONE)
+            .toFormat('yyyy-MM-dd')
+        : null;
     }
 
     if (includeCoverage) {
@@ -372,7 +379,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       const mostRecent = claims[0];
       const claimStatus = mostRecent
-        ? mostRecent.meta?.tag?.find((t) => t.system === CLAIM_STATUS_TAG_SYSTEM)?.code ?? mostRecent.status ?? ''
+        ? mostRecent.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? mostRecent.status ?? ''
         : '';
       const billedAmount = hasBilled ? round2(billed) : null;
       const insurancePaid = sawResponse ? round2(paid) : null;
