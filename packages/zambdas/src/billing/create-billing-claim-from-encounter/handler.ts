@@ -40,6 +40,8 @@ import {
   claimStatusValuesToTags,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
+  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
@@ -1182,13 +1184,24 @@ function buildClaim(resources: ClaimResources): Claim {
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
     item: resources.procedures
       ? resources.procedures.map<ClaimItem>((p, i) => {
+          const procedureCode = assertDefined(p.code, 'Procedure code');
+          // Swap Ottehr's custom HCPCS code system for HL7's
+          procedureCode.coding = [
+            ...(procedureCode.coding ?? [])
+              .filter((coding) => coding.system === CODE_SYSTEM_HCPCS)
+              .map((coding) => ({
+                ...coding,
+                system: CODE_SYSTEM_HL7_HCPCS,
+              })),
+            ...(procedureCode.coding ?? []).filter((coding) => coding.system !== CODE_SYSTEM_HCPCS),
+          ];
           const amount = getPriceForProcedure(p, resources.chargeMaster);
           total += amount;
           return {
             sequence: i + 1,
             careTeamSequence: resources.renderingProvider ? [1] : undefined,
             diagnosisSequence: resources.diagnoses ? [1] : undefined,
-            productOrService: assertDefined(p.code, 'Procedure code'),
+            productOrService: procedureCode,
             modifier: p.code?.coding?.[0].extension
               ?.flatMap<CodeableConcept | undefined>((ext) =>
                 ext.url === EXTENSION_URL_CPT_MODIFIER
