@@ -176,7 +176,8 @@ protects buckets in production-like environments while letting lower/ephemeral e
 freely destroy and recreate buckets (e.g. across branch switches). An empty list or a missing
 field means `delete` in every environment. Generation throws if buckets are defined but
 `ENVIRONMENT` is not set, so a misconfigured environment can never silently mark buckets
-deletable.
+deletable. The legacy single-value `removalPolicy` field is no longer supported — generation
+throws if a bucket still uses it, forcing migration to `retainInEnvironments`.
 
 ## Zambda Configuration
 

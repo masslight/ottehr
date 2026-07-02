@@ -329,5 +329,32 @@ describe('Schema20250925 generate()', () => {
 
       expect((await readBucket()).removal_policy).toBe('delete');
     });
+
+    it('throws when a bucket uses the removed removalPolicy field', async () => {
+      const spec = {
+        path: 'buckets.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          buckets: {
+            MY_BUCKET: {
+              name: '#{var/PROJECT_ID}-my-bucket',
+              removalPolicy: 'retain',
+            },
+          },
+        },
+      };
+      const schema = new Schema20250925(
+        [spec],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+
+      await expect(schema.generate()).rejects.toThrow(
+        'Bucket "MY_BUCKET" uses the removed "removalPolicy" field; use "retainInEnvironments" instead'
+      );
+    });
   });
 });

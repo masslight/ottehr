@@ -206,6 +206,11 @@ export class Schema20250925 implements Schema<Spec20250925> {
       throw new Error('ENVIRONMENT must be set to resolve bucket removal policies');
     }
     for (const [bucketName, bucket] of Object.entries(this.resources.buckets)) {
+      if ('removalPolicy' in bucket) {
+        throw new Error(
+          `Bucket "${bucketName}" uses the removed "removalPolicy" field; use "retainInEnvironments" instead`
+        );
+      }
       const retainInEnvironments: string[] = bucket.retainInEnvironments ?? [];
       bucketResources.resource.oystehr_z3_bucket[bucketName] = {
         name: this.getValue(bucket.name, this.resources),
