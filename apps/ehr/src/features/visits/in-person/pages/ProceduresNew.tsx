@@ -33,7 +33,7 @@ import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tan
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -564,6 +564,65 @@ export default function ProceduresNew(): ReactElement {
         state.cptCodes = [...(state.cptCodes ?? []), { code: suggestion.code, display: suggestion.description }];
       }
     });
+
+  const renderRecommendedCptActions = (value: ProcedureSuggestion): ReactElement => (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+      <Tooltip title={value.useWhen}>
+        <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
+          <InfoOutlined sx={{ fontSize: '17px' }} />
+        </IconButton>
+      </Tooltip>
+      {existingCptCodeSet.has(value.code) ? (
+        <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
+          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+        </IconButton>
+      ) : (
+        <Tooltip title="Add CPT code">
+          <IconButton
+            size="small"
+            aria-label={`Add CPT code ${value.code}`}
+            onClick={() => addRecommendedCptCode(value)}
+            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
+          >
+            <AddCircleOutline sx={{ fontSize: '17px' }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+
+  const recommendedCptCodesContent = (): ReactNode => {
+    if (loadingSuggestions) {
+      return null;
+    }
+
+    if (!formValues.procedureType) {
+      return <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>;
+    }
+
+    // Suggestions not fetched yet.
+    if (!recommendedBillingCodes) {
+      return null;
+    }
+
+    if (recommendedBillingCodes.length === 0) {
+      return <Typography color="secondary.light">No suggestions</Typography>;
+    }
+
+    return (
+      <ActionsList
+        data={recommendedBillingCodes}
+        getKey={(value) => value.code}
+        renderItem={(value) => (
+          <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
+            <strong>{value.code}</strong> &ndash; {value.description}
+          </Typography>
+        )}
+        renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
+        divider
+      />
+    );
+  };
 
   const cptWidget = (): ReactElement => {
     return (
@@ -1139,54 +1198,7 @@ export default function ProceduresNew(): ReactElement {
             <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
-            <AiSectionContainer isLoading={loadingSuggestions}>
-              {!loadingSuggestions &&
-                (!formValues.procedureType ? (
-                  <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>
-                ) : recommendedBillingCodes && recommendedBillingCodes.length > 0 ? (
-                  <ActionsList
-                    data={recommendedBillingCodes}
-                    getKey={(value) => value.code}
-                    renderItem={(value) => (
-                      <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
-                        <strong>{value.code}</strong> &ndash; {value.description}
-                      </Typography>
-                    )}
-                    renderActions={
-                      isReadOnly
-                        ? undefined
-                        : (value) => (
-                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                              <Tooltip title={value.useWhen}>
-                                <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
-                                  <InfoOutlined sx={{ fontSize: '17px' }} />
-                                </IconButton>
-                              </Tooltip>
-                              {existingCptCodeSet.has(value.code) ? (
-                                <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
-                                  <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
-                                </IconButton>
-                              ) : (
-                                <Tooltip title="Add CPT code">
-                                  <IconButton
-                                    size="small"
-                                    aria-label={`Add CPT code ${value.code}`}
-                                    onClick={() => addRecommendedCptCode(value)}
-                                    data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
-                                  >
-                                    <AddCircleOutline sx={{ fontSize: '17px' }} />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                            </Box>
-                          )
-                    }
-                    divider
-                  />
-                ) : recommendedBillingCodes ? (
-                  <Typography color="secondary.light">No suggestions</Typography>
-                ) : null)}
-            </AiSectionContainer>
+            <AiSectionContainer isLoading={loadingSuggestions}>{recommendedCptCodesContent()}</AiSectionContainer>
             {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
               <Container
                 style={{
