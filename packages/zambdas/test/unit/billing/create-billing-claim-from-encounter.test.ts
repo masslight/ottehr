@@ -1863,7 +1863,10 @@ describe('create-billing-claim-from-encounter', () => {
                   provider: { reference: 'Practitioner/billing-practitioner-123' },
                   role: {
                     coding: [
-                      { code: '82', system: 'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type' },
+                      {
+                        code: '82',
+                        system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type',
+                      },
                     ],
                   },
                   sequence: 1,
@@ -2600,7 +2603,10 @@ describe('create-billing-claim-from-encounter', () => {
                   provider: { reference: 'Practitioner/billing-practitioner-123' },
                   role: {
                     coding: [
-                      { code: '82', system: 'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type' },
+                      {
+                        code: '82',
+                        system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type',
+                      },
                     ],
                   },
                   sequence: 1,
@@ -2705,7 +2711,10 @@ describe('create-billing-claim-from-encounter', () => {
                   provider: { reference: 'Practitioner/billing-practitioner-123' },
                   role: {
                     coding: [
-                      { code: '82', system: 'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type' },
+                      {
+                        code: '82',
+                        system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type',
+                      },
                     ],
                   },
                   sequence: 1,
