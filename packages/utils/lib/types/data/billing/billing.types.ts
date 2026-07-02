@@ -89,7 +89,6 @@ export interface ServiceFacilityItem {
   city: string;
   state: string;
   zip: string;
-  zipPlus4: string;
   npi: string;
   clia: string;
   posCode: string;
