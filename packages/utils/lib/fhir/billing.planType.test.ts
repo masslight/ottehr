@@ -104,6 +104,44 @@ describe('coverage plan type', () => {
     expect(getCoveragePlanType(undefined)).toBeUndefined();
     expect(getCoveragePlanType(baseCoverage)).toBeUndefined();
   });
+
+  it('ignores a coding code that is not in the candid value set', () => {
+    const coverage: Coverage = {
+      ...baseCoverage,
+      type: {
+        coding: [
+          {
+            system: CANDID_PLAN_TYPE_SYSTEM,
+            code: 'BOGUS',
+          },
+        ],
+      },
+    };
+
+    expect(getCoveragePlanType(coverage)).toBeUndefined();
+  });
+
+  it('treats an empty or invalid extension value as missing and falls back to a valid coding', () => {
+    const coverage: Coverage = {
+      ...baseCoverage,
+      extension: [
+        {
+          url: EXTENSION_CLAIM_INSURANCE_TYPE,
+          valueString: '',
+        },
+      ],
+      type: {
+        coding: [
+          {
+            system: CANDID_PLAN_TYPE_SYSTEM,
+            code: '12',
+          },
+        ],
+      },
+    };
+
+    expect(getCoveragePlanType(coverage)).toBe('12');
+  });
 });
 
 describe('default claim submission extensions', () => {
