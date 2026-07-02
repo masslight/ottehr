@@ -27,6 +27,11 @@ import {
   buildCoverageSubscriberRelatedPerson,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
@@ -40,16 +45,19 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getClaimStatusValues,
   getPayerId,
   getPayerUrl,
   getSecret,
   getSubscriberRelationshipCodeableConcept,
   INVALID_INPUT_ERROR,
   isPayerUrl,
+  isValidClaimStatusValue,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
   SecretsKeys,
+  withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 
@@ -76,6 +84,45 @@ export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/curren
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
+}
+
+export function assertValidClaimStatusField(field: ClaimStatusFieldKey, value: string | null): string {
+  const resolved = value ?? '';
+  if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[field], resolved)) {
+    throw INVALID_INPUT_ERROR(`Invalid value "${resolved}" for claim status field "${field}"`);
+  }
+  return resolved;
+}
+
+export async function applyClaimStatusField(
+  oystehr: Oystehr,
+  claim: Claim,
+  field: ClaimStatusFieldKey,
+  value: string
+): Promise<void> {
+  const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: value };
+  const updatedValues = field === 'arStage' ? withArStageInitialization(values) : values;
+
+  const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
+  const updatedTags = [
+    ...(claim.meta?.tag ?? []).filter((t) => !t.system || !statusSystems.has(t.system)),
+    ...claimStatusValuesToTags(updatedValues),
+  ];
+
+  await oystehr.fhir.patch(
+    {
+      resourceType: 'Claim',
+      id: claim.id!,
+      operations: [
+        {
+          op: 'add',
+          path: '/meta/tag',
+          value: updatedTags,
+        },
+      ],
+    },
+    claim.meta?.versionId ? { optimisticLockingVersionId: claim.meta.versionId } : undefined
+  );
 }
 
 export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable<Claim['insurance']> {
