@@ -23,9 +23,11 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   FHIR_RESOURCE_NOT_FOUND,
+  getCandidPlanTypeCodeFromCoverage,
   getDefaultClaimSubmissionExtensions,
   getResourcesFromBatchInlineRequests,
   InternalError,
+  setCoveragePlanType,
   withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -116,7 +118,9 @@ async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResource
   order.push('patient');
 
   if (originals.coverage) {
-    const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
+    let copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
+    const planTypeCode = getCandidPlanTypeCodeFromCoverage(originals.coverage);
+    if (planTypeCode) copy = setCoveragePlanType(copy, planTypeCode);
     copy.beneficiary = { reference: patientUrn };
     // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved on
     // the working copy. Self coverages have no separate subscriber and stay pointed at the patient.

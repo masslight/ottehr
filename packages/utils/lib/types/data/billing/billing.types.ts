@@ -67,6 +67,7 @@ export interface BillingCoverageOption {
   payorId: string;
   payorFhirId: string;
   insuranceType?: BillingInsuranceType;
+  planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
