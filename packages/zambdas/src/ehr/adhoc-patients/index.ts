@@ -23,11 +23,11 @@ import {
   isInPersonAppointment,
   isTelemedAppointment,
   mapGenderToLabel,
-  OTTEHR_MODULE,
   PATIENT_POINT_OF_DISCOVERY_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { fetchAppointmentReportResources } from '../../shared/adhoc-report';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -76,63 +76,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | MedicationStatement
     | Procedure
     | EpisodeOfCare;
-  let allResources: ReportResource[] = [];
-  let offset = 0;
   // Shrink the page when patient-bound clinical layers are on (each adds resources per patient and
   // the FHIR server caps response size). Pagination + client-side date batching make up the rest.
   const heavy =
     includeAllergies || includeProblems || includeMedications || includeSurgicalHistory || includeHospitalizations;
-  const pageSize = heavy ? 400 : 1000;
 
   // Anchored on Appointment in the date range (like the Encounters dataset), but folded to one row
   // per patient. Patient-bound clinical layers ride along via patient-scoped revincludes.
-  const baseSearchParams = [
-    { name: 'date', value: `ge${dateRange.start}` },
-    { name: 'date', value: `le${dateRange.end}` },
-    { name: 'status', value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow' },
-    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-    { name: '_include', value: 'Appointment:patient' },
-    { name: '_include', value: 'Appointment:location' },
-    { name: '_revinclude', value: 'Encounter:appointment' },
-    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-    { name: '_sort', value: 'date' },
-    { name: '_count', value: pageSize.toString() },
-  ];
-  if (includeAllergies) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'AllergyIntolerance:patient' });
-  }
-  if (includeProblems) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Condition:patient' });
-  }
-  if (includeMedications) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationStatement:patient' });
-  }
-  if (includeSurgicalHistory) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Procedure:patient' });
-  }
-  if (includeHospitalizations) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'EpisodeOfCare:patient' });
-  }
+  const layerRevincludes: { name: string; value: string }[] = [];
+  if (includeAllergies) layerRevincludes.push({ name: '_revinclude:iterate', value: 'AllergyIntolerance:patient' });
+  if (includeProblems) layerRevincludes.push({ name: '_revinclude:iterate', value: 'Condition:patient' });
+  if (includeMedications) layerRevincludes.push({ name: '_revinclude:iterate', value: 'MedicationStatement:patient' });
+  if (includeSurgicalHistory) layerRevincludes.push({ name: '_revinclude:iterate', value: 'Procedure:patient' });
+  if (includeHospitalizations) layerRevincludes.push({ name: '_revinclude:iterate', value: 'EpisodeOfCare:patient' });
 
-  let searchBundle = await oystehr.fhir.search<ReportResource>({
-    resourceType: 'Appointment',
-    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
+    dateRange,
+    pageSize: heavy ? 400 : 1000,
+    extraParams: layerRevincludes,
   });
-  allResources = allResources.concat(searchBundle.unbundle());
-  let pageCount = 1;
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-      break;
-    }
-    searchBundle = await oystehr.fhir.search<ReportResource>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-    allResources = allResources.concat(searchBundle.unbundle());
-  }
 
   const appointmentMap = new Map<string, Appointment>();
   const patientMap = new Map<string, Patient>();

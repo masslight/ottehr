@@ -324,9 +324,34 @@ export const runtimeError = (code: string, schema: object): string | null => {
     querySelectorAll: () => [] as unknown[],
     addEventListener() {},
   };
-  function ChartStub(): void {
-    /* headless no-op chart */
+  // A Chart instance in the iframe exposes update()/resize()/destroy()/etc. and Chart has static
+  // register()/defaults; a bare no-op function makes `chart.update()` a TypeError and falsely fails
+  // valid reports. Return a stub carrying the common instance methods, and attach the static surface.
+  function ChartStub(this: Record<string, unknown>): void {
+    this.update = (): void => {};
+    this.resize = (): void => {};
+    this.destroy = (): void => {};
+    this.render = (): void => {};
+    this.reset = (): void => {};
+    this.stop = (): void => {};
+    this.data = {};
+    this.options = {};
   }
+  (ChartStub as unknown as Record<string, unknown>).register = (): void => {};
+  (ChartStub as unknown as Record<string, unknown>).defaults = {};
+  // Deferred-render idioms (requestAnimationFrame(() => new Chart(...)), setTimeout(fn, 0)) are
+  // valid in the iframe; the vm must provide these globals or code using them fails with a
+  // ReferenceError and burns the whole retry budget. Run the callback SYNCHRONOUSLY so the render
+  // actually happens within this run (otherwise body stays empty → false "rendered nothing"), with
+  // a shared budget so a self-rescheduling animation loop can't spin until the 4s vm timeout.
+  let deferredBudget = 200;
+  const runDeferred = (fn: unknown): number => {
+    if (typeof fn === 'function' && deferredBudget > 0) {
+      deferredBudget -= 1;
+      (fn as () => void)();
+    }
+    return 0;
+  };
   const sandbox: Record<string, unknown> = {
     data: synthSampleRows(schema as { fields?: [] }),
     schema,
@@ -344,6 +369,12 @@ export const runtimeError = (code: string, schema: object): string | null => {
     parseFloat,
     isNaN,
     isFinite,
+    setTimeout: (fn: unknown) => runDeferred(fn),
+    setInterval: (fn: unknown) => runDeferred(fn),
+    requestAnimationFrame: (fn: unknown) => runDeferred(fn),
+    clearTimeout: (): void => {},
+    clearInterval: (): void => {},
+    cancelAnimationFrame: (): void => {},
     console: { log() {}, warn() {}, error() {} },
   };
   sandbox.window = sandbox; // window.X resolves to the sandbox global, as in the iframe

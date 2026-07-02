@@ -29,13 +29,16 @@ import {
   isInPersonAppointment,
   isTelemedAppointment,
   mapGenderToLabel,
-  OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchScopedResources, resolveEncounterAppointment } from '../../shared/adhoc-report';
+import {
+  fetchAppointmentReportResources,
+  fetchScopedResources,
+  resolveEncounterAppointment,
+} from '../../shared/adhoc-report';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -59,44 +62,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // The main search stays LIGHT — only the bounded per-appointment resources ride along; each opt-in
   // billing layer's resources are pulled afterward, scoped to the encounter/patient ids (below).
   type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
-  let allResources: ReportResource[] = [];
-  let offset = 0;
-  const pageSize = 1000;
-
-  const baseSearchParams = [
-    { name: 'date', value: `ge${dateRange.start}` },
-    { name: 'date', value: `le${dateRange.end}` },
-    { name: 'status', value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow' },
-    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-    { name: '_include', value: 'Appointment:patient' },
-    { name: '_include', value: 'Appointment:location' },
-    { name: '_revinclude', value: 'Encounter:appointment' },
-    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-    { name: '_revinclude:iterate', value: 'Encounter:part-of' },
-    { name: '_sort', value: 'date' },
-    { name: '_count', value: pageSize.toString() },
-  ];
-
-  let searchBundle = await oystehr.fhir.search<ReportResource>({
-    resourceType: 'Appointment',
-    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
+    dateRange,
+    extraParams: [{ name: '_revinclude:iterate', value: 'Encounter:part-of' }],
   });
-  allResources = allResources.concat(searchBundle.unbundle());
-
-  let pageCount = 1;
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-      break;
-    }
-    searchBundle = await oystehr.fhir.search<ReportResource>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-    allResources = allResources.concat(searchBundle.unbundle());
-  }
 
   const encounters = allResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
   const appointmentMap = new Map<string, Appointment>();
@@ -175,13 +144,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   if (encRefs.length) {
     if (includePayments) {
-      const notices = await fetchAll<PaymentNotice>('PaymentNotice');
+      // Scope to THIS batch's encounters (PaymentNotice.request → Encounter) rather than scanning
+      // every PaymentNotice project-wide on each of the ~52 concurrent 7-day batch calls — that
+      // whole-table scan grows unbounded as billing history accumulates.
+      const notices = await fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs);
       for (const n of notices) pushTo(paymentsByEncId, stripRef(n.request?.reference, 'Encounter'), n);
     }
     if (includeCharges) {
-      const charges = await fetchAll<ChargeItem>('ChargeItem');
+      // Scope to this batch's encounters (ChargeItem.context → Encounter) instead of a full-table scan.
+      const charges = await fetchScoped<ChargeItem>('ChargeItem', 'context', encRefs);
       for (const c of charges) pushTo(chargesByEncId, stripRef(c.context?.reference, 'Encounter'), c);
-      // Build a CPT -> price map from the charge masters (ChargeItemDefinition fee schedules).
+      // The CPT price map comes from the charge masters (ChargeItemDefinition fee schedules), which
+      // are a bounded, encounter-independent fee schedule — legitimately global, so fetchAll stays.
       const defs = await fetchAll<ChargeItemDefinition>('ChargeItemDefinition');
       for (const def of defs) {
         for (const group of def.propertyGroup ?? []) {

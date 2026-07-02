@@ -19,16 +19,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  const bundle = await oystehr.fhir.search<Basic>({
-    resourceType: 'Basic',
-    params: [
-      { name: 'code', value: `${SAVED_ADHOC_REPORT_SYSTEM}|${SAVED_ADHOC_REPORT_CODE}` },
-      { name: '_count', value: '200' },
-    ],
-  });
+  // Saved reports are practice-wide and never expire, so the list can exceed one page — paginate
+  // (as the dataset zambdas do) rather than silently truncating at the first 200, which would drop
+  // reports from the tiles AND make "open saved report" fail for reports that do exist.
+  const pageSize = 200;
+  const codeParam = { name: 'code', value: `${SAVED_ADHOC_REPORT_SYSTEM}|${SAVED_ADHOC_REPORT_CODE}` };
+  const basics: Basic[] = [];
+  let offset = 0;
+  let pageCount = 0;
+  for (;;) {
+    const bundle = await oystehr.fhir.search<Basic>({
+      resourceType: 'Basic',
+      params: [
+        codeParam,
+        { name: '_count', value: pageSize.toString() },
+        { name: '_offset', value: offset.toString() },
+      ],
+    });
+    basics.push(...bundle.unbundle());
+    pageCount += 1;
+    if (!bundle.link?.find((link) => link.relation === 'next') || pageCount >= 100) break;
+    offset += pageSize;
+  }
 
-  const reports = bundle
-    .unbundle()
+  const reports = basics
     .map(parseSavedAdHocReportBasic)
     .filter((r): r is SavedAdHocReport => r !== null)
     .sort((a, b) => a.name.localeCompare(b.name));

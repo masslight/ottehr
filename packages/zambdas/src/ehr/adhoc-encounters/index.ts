@@ -43,12 +43,15 @@ import {
   mapGenderToLabel,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
-  OTTEHR_MODULE,
   PATIENT_POINT_OF_DISCOVERY_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchScopedResources, resolveEncounterAppointment } from '../../shared/adhoc-report';
+import {
+  fetchAppointmentReportResources,
+  fetchScopedResources,
+  resolveEncounterAppointment,
+} from '../../shared/adhoc-report';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -93,10 +96,13 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
       const nm = nameById.get(pid);
       if (nm) map.set(email, nm);
     }
+    // Cache ONLY on success. A transient user.list/Practitioner failure must not poison every
+    // subsequent warm invocation with an empty map (which would silently fall registrar names back
+    // to raw emails until a cold start) — leaving it uncached lets the next call retry.
+    staffNameByEmail = map;
   } catch (e) {
     console.warn('adhoc-encounters: registrar name resolution failed, falling back to email', e);
   }
-  staffNameByEmail = map;
   return map;
 }
 
@@ -155,52 +161,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  // The main search returns only this bounded set; opt-in layer resources come from fetchScoped below.
-  type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
-  let allResources: ReportResource[] = [];
-  let offset = 0;
-  const pageSize = 1000;
-
   // The main search stays LIGHT — only the bounded per-appointment resources (patient, location,
-  // encounter, practitioner) ride along, so a 1000-row page never approaches the FHIR response-size
-  // cap (~6MB). Every opt-in layer's heavier resources (Observations above all) are pulled afterward
-  // in separate, chunked queries keyed by encounter id (fetchScoped below) — the same approach the
-  // codebase uses elsewhere for large Observation pulls.
-  const baseSearchParams = [
-    { name: 'date', value: `ge${dateRange.start}` },
-    { name: 'date', value: `le${dateRange.end}` },
-    // Full set (incl. cancelled / no-show) so a report can include or exclude them explicitly.
-    { name: 'status', value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow' },
-    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-    { name: '_include', value: 'Appointment:patient' },
-    { name: '_include', value: 'Appointment:location' },
-    { name: '_revinclude', value: 'Encounter:appointment' },
-    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-    { name: '_revinclude:iterate', value: 'Encounter:part-of' },
-    { name: '_sort', value: 'date' },
-    { name: '_count', value: pageSize.toString() },
-  ];
-
-  let searchBundle = await oystehr.fhir.search<ReportResource>({
-    resourceType: 'Appointment',
-    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  // encounter, practitioner) ride along, so a page never approaches the FHIR response-size cap
+  // (~6MB). Every opt-in layer's heavier resources (Observations above all) are pulled afterward in
+  // separate, chunked queries keyed by encounter id (fetchScoped below). The Encounters dataset also
+  // walks Encounter:part-of so a follow-up encounter resolves to its parent's appointment.
+  type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
+  const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
+    dateRange,
+    extraParams: [{ name: '_revinclude:iterate', value: 'Encounter:part-of' }],
   });
-  allResources = allResources.concat(searchBundle.unbundle());
-
-  let pageCount = 1;
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-      break;
-    }
-    searchBundle = await oystehr.fhir.search<ReportResource>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-    allResources = allResources.concat(searchBundle.unbundle());
-  }
 
   const encounters = allResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
   const appointmentMap = new Map<string, Appointment>();
