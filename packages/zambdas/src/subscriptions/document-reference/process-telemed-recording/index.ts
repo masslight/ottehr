@@ -7,9 +7,11 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'process-telemed-recording';
 
-// Marks the Z3 bucket Oystehr writes telemed audio recordings to. The triggering LOINC code (56444-3) is shared
-// with lab HL7 result documents, so we additionally require an audio attachment from this bucket before processing.
-const TELEMED_RECORDINGS_BUCKET_SEGMENT = '/TelemedRecordings/';
+// Marks the Z3 bucket Oystehr writes telemed audio recordings to, e.g. z3/{projectId}-TelemedRecordings/....
+// The triggering LOINC code (56444-3) is shared with lab HL7 result documents, so we additionally require an
+// audio attachment from this bucket before processing.
+const getTelemedRecordingsBucketSegment = (secrets: Secrets | null): string =>
+  `/${getSecret(SecretsKeys.PROJECT_ID, secrets)}-TelemedRecordings/`;
 
 export interface ProcessTelemedRecordingSubscriptionInput {
   documentReference: DocumentReference;
@@ -24,9 +26,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // The DocumentReference?type=...|56444-3 subscription also matches lab HL7 result documents, which reuse the
   // same LOINC code. Only telemed recordings carry an audio attachment from the TelemedRecordings bucket; bail
   // on anything else so we don't try to transcribe non-audio documents.
+  const telemedRecordingsBucketSegment = getTelemedRecordingsBucketSegment(secrets);
   const attachment = documentReference.content?.find(
-    (c) =>
-      c.attachment.contentType?.startsWith('audio/') && c.attachment.url?.includes(TELEMED_RECORDINGS_BUCKET_SEGMENT)
+    (c) => c.attachment.contentType?.startsWith('audio/') && c.attachment.url?.includes(telemedRecordingsBucketSegment)
   )?.attachment;
 
   if (!attachment?.url) {

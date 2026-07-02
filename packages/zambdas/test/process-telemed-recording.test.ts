@@ -13,29 +13,35 @@ vi.mock('../src/shared/ai', () => ({
   transcribeAndCreateResourcesFromZ3Audio,
 }));
 
-// Mock encounter lookup + auth so the handler runs offline.
+// Mock auth so the handler runs offline.
 vi.mock('../src/shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/shared')>();
   return {
     ...actual,
     getAuth0Token: vi.fn(async () => 'mock-token'),
-    createOystehrClient: vi.fn(() => ({ fhir: { get: fhirGet } })),
   };
 });
 
-// getAttendingPractitionerId is the source of the provider attribution.
+// createOystehrClient/getAttendingPractitionerId are imported from 'utils' by the handler, so mock the encounter
+// lookup and provider attribution here instead of '../src/shared'.
 vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('utils')>();
   return {
     ...actual,
+    createOystehrClient: vi.fn(() => ({ fhir: { get: fhirGet } })),
     getAttendingPractitionerId,
   };
 });
 
 import { index } from '../src/subscriptions/document-reference/process-telemed-recording/index';
 
-const RECORDING_URL = 'https://project-api.zapehr.com/v1/z3/TelemedRecordings/meeting-uuid/audio.mp4';
-const secrets = { ENVIRONMENT: 'local' } as any;
+const RECORDING_URL = 'https://project-api.zapehr.com/v1/z3/myproject-TelemedRecordings/meeting-uuid/audio.mp4';
+const secrets = {
+  ENVIRONMENT: 'local',
+  PROJECT_ID: 'myproject',
+  FHIR_API: 'https://fhir-api.zapehr.com',
+  PROJECT_API: 'https://project-api.zapehr.com',
+} as any;
 
 const telemedRecordingDocRef = (overrides: Partial<DocumentReference> = {}): DocumentReference => ({
   resourceType: 'DocumentReference',
