@@ -8,7 +8,6 @@ interface ZipInputProps {
 }
 
 export function ZipInput({ value, onChange }: ZipInputProps): ReactElement {
-  // commit
   return (
     <PatternFormat
       customInput={TextField}
