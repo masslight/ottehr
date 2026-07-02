@@ -42,6 +42,7 @@ import {
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_HL7_HCPCS,
+  CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
@@ -1177,7 +1178,10 @@ function buildClaim(resources: ClaimResources): Claim {
     diagnosis: resources.diagnoses
       ? resources.diagnoses.map<ClaimDiagnosis>((dx, i) => ({
           sequence: i + 1,
-          diagnosisCodeableConcept: dx.code,
+          diagnosisCodeableConcept: {
+            ...dx.code,
+            coding: (dx.code?.coding ?? []).map((coding) => ({ ...coding, system: CODE_SYSTEM_ICD_10 })),
+          },
         }))
       : [],
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
