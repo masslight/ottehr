@@ -74,6 +74,11 @@ export const APPOINTMENT_SEARCH_ELEMENTS = [
   'Location.telecom',
 ].join(',');
 
+export const isResponseSizeExceededError = (error: unknown): boolean => {
+  const message = (error as { message?: unknown })?.message;
+  return typeof message === 'string' && message.includes('exceeds the maximum allowed size');
+};
+
 export const parseEncounterParticipants = (
   encounter: Encounter,
   participantIdToResourceMap: Record<string, Practitioner>

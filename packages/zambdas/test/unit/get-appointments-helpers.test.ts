@@ -6,6 +6,7 @@ import {
   APPOINTMENT_SEARCH_ELEMENTS,
   APPOINTMENT_SEARCH_PAGE_SIZE,
   getAppointmentQueryInput,
+  isResponseSizeExceededError,
 } from '../../src/ehr/get-appointments/helpers';
 
 describe('get-appointments helpers', () => {
@@ -65,5 +66,19 @@ describe('get-appointments helpers', () => {
     // list) is misclassified as non-paperwork — this is the failure mode the element entry guards.
     const strippedQR: QuestionnaireResponse = { resourceType: 'QuestionnaireResponse', status: 'completed' };
     expect(isNonPaperworkQuestionnaireResponse(strippedQR)).toBe(true);
+  });
+
+  test('recognizes the Oystehr response-size-exceeded error', () => {
+    expect(
+      isResponseSizeExceededError(
+        new Error(
+          'An internal response size (8,388,981) exceeds the maximum allowed size (6,291,456).  Please refine your search.'
+        )
+      )
+    ).toBe(true);
+
+    expect(isResponseSizeExceededError(new Error('Some other FHIR error'))).toBe(false);
+    expect(isResponseSizeExceededError(undefined)).toBe(false);
+    expect(isResponseSizeExceededError('string error')).toBe(false);
   });
 });
