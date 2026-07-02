@@ -21,7 +21,9 @@ export function getPlaceOfServiceCode(location: Location): string | undefined {
 // FHIR Location -> the flat shape the billing UI consumes.
 export function mapServiceFacility(location: Location): ServiceFacilityItem {
   const address = location.address;
-  const [zip, zipPlus4 = ''] = (address?.postalCode ?? '').split('-');
+  const digits = (address?.postalCode ?? '').replace(/\D/g, '');
+  const zip = digits.slice(0, 5);
+  const zipPlus4 = digits.slice(5, 9);
   return {
     id: location.id ?? '',
     name: location.name ?? '',
@@ -29,7 +31,7 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
     addressLine2: address?.line?.[1] ?? '',
     city: address?.city ?? '',
     state: address?.state ?? '',
-    zip: zip ?? '',
+    zip,
     zipPlus4,
     npi: getNPI(location) ?? '',
     clia: getCLIA(location) ?? '',
@@ -57,7 +59,7 @@ export function applyServiceFacilityInput(params: SaveServiceFacilityInput, exis
   if (params.city !== undefined) address.city = params.city;
   if (params.state !== undefined) address.state = params.state;
   if (params.zip !== undefined) {
-    address.postalCode = params.zipPlus4 ? `${params.zip}-${params.zipPlus4}` : params.zip;
+    address.postalCode = params.zipPlus4 ? `${params.zip}${params.zipPlus4}` : params.zip;
   }
   if (Object.keys(address).length > 0) location.address = address;
 

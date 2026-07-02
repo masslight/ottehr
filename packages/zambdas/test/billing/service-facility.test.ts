@@ -158,7 +158,7 @@ describe('applyServiceFacilityInput', () => {
     expect(location.status).toBe('active');
     expect(location.name).toBe('Main Street Clinic');
     expect(location.address?.line).toEqual(['123 Main St', 'Suite 200']);
-    expect(location.address?.postalCode).toBe('02118-1234');
+    expect(location.address?.postalCode).toBe('021181234');
     expect(location.identifier).toContainEqual({
       system: FHIR_IDENTIFIER_NPI,
       value: '1234567893',
@@ -437,7 +437,21 @@ describe('applyServiceFacilityInput', () => {
 });
 
 describe('mapServiceFacility', () => {
-  it('flattens a Location into the UI shape and splits the ZIP', () => {
+  it('splits a stored 9-digit ZIP into zip and zipPlus4', () => {
+    const location: Location = {
+      resourceType: 'Location',
+      id: 'loc-9',
+      status: 'active',
+      address: {
+        postalCode: '021181234',
+      },
+    };
+    const mapped = mapServiceFacility(location);
+    expect(mapped.zip).toBe('02118');
+    expect(mapped.zipPlus4).toBe('1234');
+  });
+
+  it('flattens a Location into the UI shape and splits a legacy hyphenated ZIP', () => {
     const location: Location = {
       resourceType: 'Location',
       id: 'loc-1',
