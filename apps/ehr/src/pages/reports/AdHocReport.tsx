@@ -34,7 +34,6 @@ import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHo
 import { getBatchWindowFailures } from '../../features/reports/adHoc/datasetHelpers';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../../features/reports/adHoc/datasets';
 import { ReportFrame } from '../../features/reports/adHoc/ReportFrame';
-import { clearAdHocCriteria, peekAdHocCriteria } from '../../features/reports/adHoc/seed';
 import { AdHocRow, DatasetSchema } from '../../features/reports/adHoc/types';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -102,33 +101,17 @@ export default function AdHocReport(): React.ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  // "Customize" hand-off: a report stashed its dataset + date-range CRITERIA (not data). Capture it
-  // once (peek is pure, StrictMode-safe), then clear it in an effect so a later plain visit is blank.
-  const [criteria] = useState(() => peekAdHocCriteria());
-  useEffect(() => {
-    clearAdHocCriteria();
-  }, []);
-
-  const [datasetId, setDatasetId] = useState<string>(
-    criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive'
-  );
-  const [dateRange, setDateRange] = useState<DateRangeFilter>(
-    (criteria?.dateRange as DateRangeFilter) ?? 'last-30-days'
-  );
-  const [customDate, setCustomDate] = useState<string>(criteria?.customDate ?? DateTime.now().toFormat('yyyy-MM-dd'));
+  const [datasetId, setDatasetId] = useState<string>(AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive');
+  const [dateRange, setDateRange] = useState<DateRangeFilter>('last-30-days');
+  const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customStartDate, setCustomStartDate] = useState<string>(
-    criteria?.customStartDate ?? DateTime.now().minus({ days: 30 }).toFormat('yyyy-MM-dd')
+    DateTime.now().minus({ days: 30 }).toFormat('yyyy-MM-dd')
   );
-  const [customEndDate, setCustomEndDate] = useState<string>(
-    criteria?.customEndDate ?? DateTime.now().toFormat('yyyy-MM-dd')
-  );
+  const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
 
-  // Dataset opt-in layers (checkboxes). Seeded from the criteria's saved options, else the dataset's
-  // defaults. Reset whenever the dataset changes.
-  const [datasetOptions, setDatasetOptions] = useState<Record<string, boolean>>(
-    () =>
-      criteria?.options ??
-      defaultOptionsFor(criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive')
+  // Dataset opt-in layers (checkboxes), defaulted per dataset. Reset whenever the dataset changes.
+  const [datasetOptions, setDatasetOptions] = useState<Record<string, boolean>>(() =>
+    defaultOptionsFor(AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive')
   );
 
   const [rows, setRows] = useState<AdHocRow[] | null>(null);
@@ -215,17 +198,6 @@ export default function AdHocReport(): React.ReactElement {
   const handleFetch = useCallback((): void => {
     void fetchWithOptions(datasetOptions);
   }, [fetchWithOptions, datasetOptions]);
-
-  // "Customize" hand-off: dataset + range are pre-set from the criteria, so fetch immediately. The
-  // controls stay visible, so the user can change the range and re-fetch. Skipped when opening a
-  // saved report (?saved=), which has its own load path below.
-  const criteriaFetchedRef = useRef(false);
-  useEffect(() => {
-    if (!criteria || criteriaFetchedRef.current || !oystehrZambda || searchParams.get('saved')) return;
-    criteriaFetchedRef.current = true;
-    void fetchWithOptions(criteria?.options ?? defaultOptionsFor(datasetId));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oystehrZambda]);
 
   // Ask the inference zambda which opt-in layers this request needs, and return the option map to
   // fetch. Falls back to the dataset defaults on any failure — the generate step's `needsLayers` is
@@ -388,7 +360,7 @@ export default function AdHocReport(): React.ReactElement {
   // path — saved reports always re-fetch, so relative ranges (e.g. "last 30 days") stay live.
   useEffect(() => {
     const savedId = searchParams.get('saved');
-    if (!savedId || !oystehrZambda || criteria || loadAttemptedRef.current) return;
+    if (!savedId || !oystehrZambda || loadAttemptedRef.current) return;
     loadAttemptedRef.current = true;
     void (async () => {
       setLoading(true);
@@ -529,26 +501,6 @@ export default function AdHocReport(): React.ReactElement {
               Ad-Hoc Report
             </Typography>
           </Box>
-
-          {/* "Customize" provenance — informational only; the dataset/date controls below stay visible
-              and adjustable, so the range can be changed and re-fetched. */}
-          {criteria?.sourceLabel && (
-            <Box
-              sx={{
-                mb: 3,
-                p: 2,
-                bgcolor: '#eef4ff',
-                border: '1px solid',
-                borderColor: 'primary.light',
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="body2">
-                Customized from <strong>{criteria.sourceLabel}</strong>. Adjust the dataset or date range below and
-                re-fetch, or describe the report you want.
-              </Typography>
-            </Box>
-          )}
 
           {/* Dataset + date range + fetch */}
           <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
