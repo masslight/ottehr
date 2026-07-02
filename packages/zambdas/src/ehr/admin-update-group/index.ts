@@ -1,6 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CodeableConcept, HealthcareService } from 'fhir/r4b';
 import {
+  getGroupAllLocations,
+  getGroupAssignmentMode,
   GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
   groupCharacteristics,
   INVALID_INPUT_ERROR,
@@ -262,27 +264,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const touchingCharacteristics = parsed.assignmentMode !== undefined || parsed.allLocations !== undefined;
   if (touchingCharacteristics) {
     // Compute the effective assignmentMode + allLocations values. Caller
-    // provides one xor both; the OTHER is read off the existing resource so
-    // groupCharacteristics gets a consistent pair.
-    let effectiveAssignmentMode: 'anonymous' | 'provider';
-    if (parsed.assignmentMode !== undefined) {
-      effectiveAssignmentMode = parsed.assignmentMode;
-    } else {
-      // Read current assignmentMode off the existing characteristics.
-      const existing = (currentGroup.characteristic ?? [])
-        .flatMap((cc) => cc.coding ?? [])
-        .find((c) => c.system?.endsWith('/group-assignment-mode'));
-      effectiveAssignmentMode = existing?.code === 'provider' ? 'provider' : 'anonymous';
-    }
-    let effectiveAllLocations: boolean;
-    if (parsed.allLocations !== undefined) {
-      effectiveAllLocations = parsed.allLocations;
-    } else {
-      const existing = (currentGroup.characteristic ?? [])
-        .flatMap((cc) => cc.coding ?? [])
-        .find((c) => c.system?.endsWith('/group-all-locations'));
-      effectiveAllLocations = existing?.code === 'true';
-    }
+    // provides one xor both; the OTHER is read off the existing resource
+    // via the shared getGroup* helpers so groupCharacteristics gets a
+    // consistent pair AND the read stays coupled to the canonical
+    // GROUP_ASSIGNMENT_MODE_SYSTEM / GROUP_ALL_LOCATIONS_SYSTEM constants
+    // (no hand-rolled suffix matching that could false-positive on a
+    // foreign system that happens to share the trailing path segment).
+    const effectiveAssignmentMode: 'anonymous' | 'provider' =
+      parsed.assignmentMode ?? getGroupAssignmentMode(currentGroup) ?? 'anonymous';
+    const effectiveAllLocations: boolean = parsed.allLocations ?? getGroupAllLocations(currentGroup) === true;
 
     const ownedSystems = [...GROUP_OWNED_CHARACTERISTIC_SYSTEMS, SCHEDULE_STRATEGY_SYSTEM];
     const newCharacteristics = mergeOwnedCharacteristics(currentGroup.characteristic, ownedSystems, [

@@ -126,6 +126,32 @@ describe('admin-set-schedule-owner-active', () => {
     expect(fetched.active).toBe(false);
   });
 
+  it('flips a Practitioner-owned schedule back to active and returns active=true even if FHIR omits the field from the response', async () => {
+    // Regression pin for the "some FHIR servers strip active: true from
+    // responses" case. The zambda used to re-derive the response bool from
+    // the patched resource — on those servers this would return false even
+    // though the patch had just set active=true. Fix returns the requested
+    // value, which is authoritative because the patch either applied or
+    // threw. Whichever way the underlying FHIR server behaves on the
+    // response body, our contract stays honest.
+    const practitioner = await makePractitioner({ active: false });
+    const schedule = await makeSchedule({ resourceType: 'Practitioner', id: practitioner.id! });
+
+    const response = await invoke({ scheduleId: schedule.id, active: true });
+    expect(response.output.active).toBe(true);
+    expect(response.output.owner).toEqual({ resourceType: 'Practitioner', id: practitioner.id });
+
+    // Post-conditions on FHIR itself: `.active` must be true (or missing —
+    // FHIR's default is true, so omission reads as true) so a subsequent
+    // GET behaves the same as if the field were explicitly set. Assert on
+    // both shapes so the test doesn't get brittle across server variants.
+    const fetched = await oystehrAdmin.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitioner.id!,
+    });
+    expect(fetched.active === true || fetched.active === undefined).toBe(true);
+  });
+
   it('rejects a PractitionerRole-owned schedule with a clear "use the other endpoint" message', async () => {
     // Set up a PR + Schedule directly; we don't want the actual
     // admin-create-practitioner-role side effects — this test is about the

@@ -96,9 +96,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const value: string | boolean = ownerType === 'Location' ? (parsed.active ? 'active' : 'inactive') : parsed.active;
   const path = ownerType === 'Location' ? '/status' : '/active';
 
-  let updated: Location | Practitioner;
   try {
-    updated = await oystehr.fhir.patch<Location | Practitioner>({
+    await oystehr.fhir.patch<Location | Practitioner>({
       resourceType: ownerType,
       id: ownerId,
       operations: [{ op: 'add', path, value }],
@@ -113,15 +112,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw err;
   }
 
-  const newActiveStatus =
-    updated.resourceType === 'Location'
-      ? (updated as Location).status === 'active'
-      : (updated as Practitioner).active === true;
-
+  // The patch either applied cleanly or threw — no third state. Reflect the
+  // requested value rather than parsing it back out of the patched
+  // resource. Practitioner is the load-bearing case: some FHIR servers
+  // strip `active: true` from response bodies (`active` defaults to true,
+  // so it's semantically redundant), which would cause a naive
+  // `updated.active === true` read to return `false` on the reactivation
+  // path. Location has the same shape argument in reverse — we just wrote
+  // 'active' or 'inactive', there's no ambiguity to re-derive.
   return {
     statusCode: 200,
     body: JSON.stringify({
-      active: newActiveStatus,
+      active: parsed.active,
       owner: { resourceType: ownerType, id: ownerId },
     }),
   };
