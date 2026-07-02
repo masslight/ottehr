@@ -212,9 +212,6 @@ function App(): ReactElement {
                 <Route path="/reports/daily-payments" element={<DailyPayments />} />
                 <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 <Route path="/reports/recent-patients" element={<RecentPatients />} />
-                {/* Registered for the same roles as Recent Patients — its "Customize" button opens
-                    the ad-hoc report on the same dataset those roles already see. */}
-                <Route path="/reports/ad-hoc" element={<AdHocReport />} />
               </>
             )}
             {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
@@ -222,6 +219,7 @@ function App(): ReactElement {
             )}
             {currentUser?.hasRole([RoleType.Administrator]) && (
               <>
+                <Route path="/reports/ad-hoc" element={<AdHocReport />} />
                 <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                 <Route path="/reports/data-exports" element={<DataExports />} />
