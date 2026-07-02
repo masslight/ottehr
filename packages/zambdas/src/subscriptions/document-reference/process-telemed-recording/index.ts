@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Encounter } from 'fhir/r4b';
-import { getAttendingPractitionerId, Secrets } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient, getAttendingPractitionerId, getSecret, Secrets, SecretsKeys } from 'utils';
+import { getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { transcribeAndCreateResourcesFromZ3Audio } from '../../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -51,7 +51,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } else {
     console.log('already have token');
   }
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createOystehrClient(
+    oystehrToken,
+    getSecret(SecretsKeys.FHIR_API, secrets),
+    getSecret(SecretsKeys.PROJECT_API, secrets)
+  );
 
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterID });
 
