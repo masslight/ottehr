@@ -1,5 +1,7 @@
-import { Box, Button, MenuItem, Select, TextField } from '@mui/material';
+import { Autocomplete, Box, Button, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
+import { CMS_PLACE_OF_SERVICE_CODES } from 'utils';
+import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 
 export interface ServiceLineRow {
   cptCode: string;
@@ -67,13 +69,7 @@ export function ServiceLinesEditor({
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {value.map((row, i) => (
         <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            label="CPT"
-            value={row.cptCode}
-            onChange={(e) => setRow(i, 'cptCode', e.target.value)}
-            sx={{ width: 100 }}
-          />
+          <ProcedureCodeAutocomplete value={row.cptCode} onChange={(code) => setRow(i, 'cptCode', code)} width={150} />
           <TextField
             size="small"
             label="Mod"
@@ -95,7 +91,7 @@ export function ServiceLinesEditor({
             type="number"
             value={row.charges}
             onChange={(e) => setRow(i, 'charges', e.target.value)}
-            sx={{ width: 110 }}
+            sx={{ width: 150 }}
           />
           <TextField
             size="small"
@@ -106,12 +102,20 @@ export function ServiceLinesEditor({
             sx={{ width: 160 }}
             InputLabelProps={{ shrink: true }}
           />
-          <TextField
+          <Autocomplete
             size="small"
-            label="POS"
-            value={row.placeOfService}
-            onChange={(e) => setRow(i, 'placeOfService', e.target.value)}
-            sx={{ width: 80 }}
+            options={CMS_PLACE_OF_SERVICE_CODES}
+            value={CMS_PLACE_OF_SERVICE_CODES.find((o) => o.code === row.placeOfService) ?? null}
+            onChange={(_, v) => setRow(i, 'placeOfService', v?.code ?? '')}
+            getOptionLabel={(o) => o.code}
+            renderOption={(props, o) => (
+              <Box component="li" {...props} key={o.code}>
+                {o.code} - {o.display}
+              </Box>
+            )}
+            isOptionEqualToValue={(o, v) => o.code === v.code}
+            renderInput={(p) => <TextField {...p} label="Place of Service" />}
+            sx={{ width: 170 }}
           />
           <Select
             multiple

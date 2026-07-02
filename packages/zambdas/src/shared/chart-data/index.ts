@@ -7,6 +7,7 @@ import {
   CodeableConcept,
   Communication,
   Condition,
+  DiagnosticReport,
   DocumentReference,
   DomainResource,
   Encounter,
@@ -42,6 +43,7 @@ import {
   BooleanValueDTO,
   ClinicalImpressionDTO,
   CommunicationDTO,
+  CPT_CODE_SYSTEM,
   CPTCodeDTO,
   createCodeableConcept,
   createFilesDocumentReferences,
@@ -103,6 +105,7 @@ import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
+import { makeRadiologyDTO, takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
 const hasValue = (data: unknown): boolean => {
@@ -366,7 +369,7 @@ export function makeProcedureResource(
     result.note = [{ text: text }];
   } else if ('code' in data && 'display' in data) {
     result.code = {
-      coding: [{ code: data.code, display: data.display }],
+      coding: [{ system: CPT_CODE_SYSTEM, code: data.code, display: data.display }],
     };
   }
   if (partOf) {
@@ -1663,6 +1666,39 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
 
   // 7. Accident
   data.accident = makeAccidentDTOFromFhirResources(resources);
+
+  // 8. Radiology orders
+  if (data.radiologyOrders) {
+    const diagnosticReportBySrId = resources.reduce((acc: Record<string, DiagnosticReport[]>, r) => {
+      if (r.resourceType === 'DiagnosticReport') {
+        const srId = r.basedOn
+          ?.find((basedOn) => basedOn.reference?.startsWith('ServiceRequest/'))
+          ?.reference?.replace('ServiceRequest/', '');
+        if (!srId) return acc;
+
+        if (acc[srId]) {
+          acc[srId].push(r);
+        } else {
+          acc[srId] = [r];
+        }
+      }
+      return acc;
+    }, {});
+
+    serviceRequests.forEach((sr) => {
+      if (!chartDataResourceHasMetaTagByCode(sr, 'radiology')) return;
+      if (sr.status === 'revoked') return; // don't pull in soft deletes
+
+      const { id } = sr;
+      if (!id) return;
+
+      const relatedDiagnosticReports = diagnosticReportBySrId[id] ?? [];
+      const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
+      const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
+      const radiologyDTO = makeRadiologyDTO(sr, preliminaryDiagnosticReport, bestFinalReport);
+      data.radiologyOrders?.push(radiologyDTO);
+    });
+  }
 
   return data;
 }

@@ -176,6 +176,53 @@
         }
       ]
     },
+    "BILLING_ADMIN": {
+      "name": "BillingAdmin",
+      "description": "Billing Admin Role",
+      "accessPolicy": [
+        {
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow",
+          "resource": [
+            "Zambda:Function:create-billing-claim-from-encounter",
+            "Zambda:Function:search-billing-providers",
+            "Zambda:Function:get-charge-item-definition",
+            "Zambda:Function:update-billing-claim",
+            "Zambda:Function:search-billing-payers",
+            "Zambda:Function:create-charge-item-definition",
+            "Zambda:Function:update-billing-patient",
+            "Zambda:Function:save-billing-tag",
+            "Zambda:Function:get-billing-claim-detail",
+            "Zambda:Function:search-billing-service-facilities",
+            "Zambda:Function:search-billing-tags",
+            "Zambda:Function:search-billing-eras",
+            "Zambda:Function:create-billing-coverage",
+            "Zambda:Function:tag-billing-claim",
+            "Zambda:Function:delete-billing-coverage",
+            "Zambda:Function:save-billing-service-facility",
+            "Zambda:Function:update-billing-provider",
+            "Zambda:Function:create-billing-claim",
+            "Zambda:Function:search-billing-claims",
+            "Zambda:Function:get-patient-coverages",
+            "Zambda:Function:search-billing-locations",
+            "Zambda:Function:create-billing-patient",
+            "Zambda:Function:create-billing-working-copy",
+            "Zambda:Function:search-billing-patients",
+            "Zambda:Function:set-billing-claim-status",
+            "Zambda:Function:delete-billing-provider",
+            "Zambda:Function:update-billing-coverage",
+            "Zambda:Function:delete-billing-service-facility",
+            "Zambda:Function:search-charge-item-definitions",
+            "Zambda:Function:delete-charge-item-definition",
+            "Zambda:Function:update-charge-item-definition",
+            "Zambda:Function:get-billing-era-detail",
+            "Zambda:Function:create-billing-provider",
+            "Zambda:Function:get-billing-patient-detail",
+            "Zambda:Function:delete-billing-tag"
+          ]
+        }
+      ]
+    },
     "CUSTOMER_SUPPORT": {
       "name": "Customer Support",
       "accessPolicy": [
@@ -486,7 +533,14 @@
           "effect": "Allow"
         },
         {
-          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag", "FHIR:Task", "FHIR:DocumentReference"],
+          "resource": [
+            "FHIR:Appointment",
+            "FHIR:Encounter",
+            "FHIR:Patient",
+            "FHIR:Flag",
+            "FHIR:Task",
+            "FHIR:DocumentReference"
+          ],
           "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
           "effect": "Allow"
         },

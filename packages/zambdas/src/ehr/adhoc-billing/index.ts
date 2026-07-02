@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -26,10 +27,10 @@ import {
   PAYMENT_METHOD_EXTENSION_URL,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { CURRENT_STATUS_TAG_SYSTEM } from '../../billing/shared';
+import { createBillingClient, CURRENT_STATUS_TAG_SYSTEM } from '../../billing/shared';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fetchAllPages,
   wrapHandler,
   ZambdaInput,
@@ -60,12 +61,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  // Two clients, one per workspace: the clinical client (_tag:not billing) sees everything the
+  // clinical side writes (encounters, chart data, intake coverage, patient payments, charge
+  // masters); the billing client (_tag billing) sees ONLY billing-workspace resources
+  // (Claim/ClaimResponse created by the billing tool). Each fetch below must use the client for
+  // the workspace its resources are actually written to, or its columns come back silently empty.
+  const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
+  const billingOystehr = createBillingClient(m2mToken, secrets);
 
   // The main search stays LIGHT — only the bounded per-appointment resources ride along; each opt-in
   // billing layer's resources are pulled afterward, scoped to the encounter/patient ids (below).
   type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
-  const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
+  const allResources = await fetchAppointmentReportResources<ReportResource>(clinicalOystehr, {
     dateRange,
     extraParams: [{ name: '_revinclude:iterate', value: 'Encounter:part-of' }],
   });
@@ -105,6 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // which number in the hundreds project-wide, so fetching all and indexing locally is cheaper and more
   // robust than a per-encounter OR-list search.
   async function fetchAll<T extends FhirResource>(
+    oystehr: Oystehr,
     resourceType: T['resourceType'],
     extraParams: { name: string; value: string }[] = []
   ): Promise<T[]> {
@@ -126,6 +134,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Per-encounter layer resources are fetched via the shared scoped/paginated/chunked helper.
   const fetchScoped = <T extends FhirResource>(
+    oystehr: Oystehr,
     resourceType: T['resourceType'],
     paramName: string,
     values: string[],
@@ -152,16 +161,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Scope to THIS batch's encounters (PaymentNotice.request → Encounter) rather than scanning
       // every PaymentNotice project-wide on each of the ~52 concurrent 7-day batch calls — that
       // whole-table scan grows unbounded as billing history accumulates.
-      const notices = await fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs);
+      // CLINICAL client: PaymentNotices are written untagged by ehr/patient-payments (which itself
+      // uses the clinical client), so the billing-workspace client cannot see them.
+      const notices = await fetchScoped<PaymentNotice>(clinicalOystehr, 'PaymentNotice', 'request', encRefs);
       for (const n of notices) pushTo(paymentsByEncId, stripRef(n.request?.reference, 'Encounter'), n);
     }
     if (includeCharges) {
       // Scope to this batch's encounters (ChargeItem.context → Encounter) instead of a full-table scan.
-      const charges = await fetchScoped<ChargeItem>('ChargeItem', 'context', encRefs);
+      // CLINICAL client: ChargeItems are clinical-side resources (no billing-workspace code writes
+      // them; e.g. merge-patients reads them with the clinical client).
+      const charges = await fetchScoped<ChargeItem>(clinicalOystehr, 'ChargeItem', 'context', encRefs);
       for (const c of charges) pushTo(chargesByEncId, stripRef(c.context?.reference, 'Encounter'), c);
       // The CPT price map comes from the charge masters (ChargeItemDefinition fee schedules), which
       // are a bounded, encounter-independent fee schedule — legitimately global, so fetchAll stays.
-      const defs = await fetchAll<ChargeItemDefinition>('ChargeItemDefinition');
+      // CLINICAL client: the charge masters are managed by rcm/charge-masters, which uses the
+      // clinical client (the billing workspace keeps its own, separate fee-schedule CIDs).
+      const defs = await fetchAll<ChargeItemDefinition>(clinicalOystehr, 'ChargeItemDefinition');
       for (const def of defs) {
         for (const group of def.propertyGroup ?? []) {
           for (const pc of group.priceComponent ?? []) {
@@ -176,7 +191,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const patRefs = Array.from(
         new Set(encounters.map((e) => e.subject?.reference).filter((r): r is string => Boolean(r)))
       );
-      const coverages = await fetchScoped<Coverage>('Coverage', 'patient', patRefs, [
+      // CLINICAL client: this layer reports the patient's insurance as captured at intake — those
+      // Coverages are written untagged by the paperwork harvest and carry the `order` and `class`
+      // (plan name) fields the row logic reads. The billing workspace holds separate Coverage
+      // copies (created per-claim / via create-billing-coverage) that lack order/class and exist
+      // only for patients already enrolled in the billing tool; develop's own billing code reads
+      // intake coverage with the clinical client (create-billing-claim-from-encounter's
+      // getClinicalResources) and only its billing-side copies with the billing client.
+      const coverages = await fetchScoped<Coverage>(clinicalOystehr, 'Coverage', 'patient', patRefs, [
         { name: '_elements', value: 'status,type,payor,beneficiary,subscriberId,relationship,order,class' },
       ]);
       for (const c of coverages) pushTo(coveragesByPatId, stripRef(c.beneficiary?.reference), c);
@@ -189,21 +211,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           )
         )
       ) as string[];
-      const dxConditions = dxIds.length ? await fetchScoped<Condition>('Condition', '_id', dxIds) : [];
+      // CLINICAL client: Conditions/Procedures are chart data written by the clinical side.
+      const dxConditions = dxIds.length ? await fetchScoped<Condition>(clinicalOystehr, 'Condition', '_id', dxIds) : [];
       for (const c of dxConditions) if (c.id) conditionById.set(c.id, c);
-      const procedures = await fetchScoped<Procedure>('Procedure', 'encounter', encRefs);
+      const procedures = await fetchScoped<Procedure>(clinicalOystehr, 'Procedure', 'encounter', encRefs);
       for (const p of procedures) pushTo(proceduresByEncId, stripRef(p.encounter?.reference, 'Encounter'), p);
     }
     if (includeClaims) {
       // Claims are few project-wide; fetch all and join to encounters by the claim-encounter-id
       // identifier the practice's claim creation stamps on each Claim.
-      const claims = await fetchAll<Claim>('Claim');
+      // BILLING client: Claims/ClaimResponses live in the billing workspace — they are created
+      // billing-tagged by create-billing-claim(-from-encounter), which searches them back by the
+      // same claim-encounter-id identifier with its billing client.
+      const claims = await fetchAll<Claim>(billingOystehr, 'Claim');
       const inScope = new Set(encIds);
       for (const claim of claims) {
         const encId = claim.identifier?.find((i) => i.system === CLAIM_ENCOUNTER_ID_SYSTEM)?.value;
         if (encId && inScope.has(encId)) pushTo(claimsByEncId, encId, claim);
       }
-      const responses = await fetchAll<ClaimResponse>('ClaimResponse');
+      const responses = await fetchAll<ClaimResponse>(billingOystehr, 'ClaimResponse');
       for (const cr of responses) pushTo(responsesByClaimId, stripRef(cr.request?.reference, 'Claim'), cr);
     }
   }

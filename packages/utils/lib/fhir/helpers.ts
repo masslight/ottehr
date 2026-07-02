@@ -81,6 +81,8 @@ import {
   APPOINTMENT_LOCKED_META_TAG_SYSTEM,
   BirthSex,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
+  ENCOUNTER_LOCKED_META_TAG,
+  ENCOUNTER_LOCKED_META_TAG_SYSTEM,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -633,6 +635,28 @@ export const getAppointmentLockMetaTagOperations = (appointment: Appointment, is
   } else {
     // Remove the locked tag if it exists
     return [getPatchOperationToRemoveMetaTags(appointment, [lockedTag])];
+  }
+};
+
+// Helper functions for encounter locking meta tags. Used for annotation follow-ups, which have no own
+// Appointment to carry the APPOINTMENT_LOCKED tag, so the lock is stored on the Encounter instead.
+export const isEncounterLocked = (encounter: Encounter): boolean => {
+  return (
+    encounter.meta?.tag?.some(
+      (tag) => tag.system === ENCOUNTER_LOCKED_META_TAG_SYSTEM && tag.code === ENCOUNTER_LOCKED_META_TAG.code
+    ) ?? false
+  );
+};
+
+export const getEncounterLockMetaTagOperations = (encounter: Encounter, isLocked: boolean): Operation[] => {
+  const lockedTag = ENCOUNTER_LOCKED_META_TAG;
+
+  if (isLocked) {
+    // Add the locked tag if it doesn't exist
+    return getPatchOperationsForNewMetaTags(encounter, [lockedTag]);
+  } else {
+    // Remove the locked tag if it exists
+    return [getPatchOperationToRemoveMetaTags(encounter, [lockedTag])];
   }
 };
 

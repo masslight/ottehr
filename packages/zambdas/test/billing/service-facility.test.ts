@@ -3,9 +3,10 @@ import { Location } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
   SaveServiceFacilityInput,
-  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';
@@ -57,7 +58,6 @@ const validPayload: SaveServiceFacilityInput = {
   npi: '1234567893',
   clia: '05D1234567',
   posCode: '11',
-  timezone: 'America/New_York',
 };
 
 describe('save-billing-service-facility validateRequestParameters', () => {
@@ -135,17 +135,6 @@ describe('save-billing-service-facility validateRequestParameters', () => {
     ).toThrow(/state/i);
   });
 
-  it('rejects an unknown timezone', () => {
-    expect(() =>
-      validateRequestParameters(
-        makeInput({
-          ...validPayload,
-          timezone: 'Mars/Olympus_Mons',
-        })
-      )
-    ).toThrow(/timezone/i);
-  });
-
   it('rejects a missing name', () => {
     const { name: _name, ...rest } = validPayload;
     expect(() => validateRequestParameters(makeInput(rest))).toThrow();
@@ -175,16 +164,23 @@ describe('applyServiceFacilityInput', () => {
       value: '1234567893',
     });
     expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
+      value: '1234567893',
+    });
+    expect(location.identifier).toContainEqual({
       system: FHIR_IDENTIFIER_CLIA,
       value: '05D1234567',
     });
     expect(location.extension).toContainEqual({
       url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
       valueString: '11',
-    });
-    expect(location.extension).toContainEqual({
-      url: TIMEZONE_EXTENSION_URL,
-      valueString: 'America/New_York',
     });
   });
 
@@ -204,6 +200,17 @@ describe('applyServiceFacilityInput', () => {
       identifier: [
         {
           system: FHIR_IDENTIFIER_NPI,
+          value: '1234567893',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
           value: '1234567893',
         },
         {
@@ -235,6 +242,17 @@ describe('applyServiceFacilityInput', () => {
       value: '1234567893',
     });
     expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
+      value: '1234567893',
+    });
+    expect(location.identifier).toContainEqual({
       system: FHIR_IDENTIFIER_CLIA,
       value: '05D1234567',
     });
@@ -252,6 +270,17 @@ describe('applyServiceFacilityInput', () => {
       identifier: [
         {
           system: FHIR_IDENTIFIER_NPI,
+          value: '1234567893',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
           value: '1234567893',
         },
         {
@@ -276,7 +305,6 @@ describe('applyServiceFacilityInput', () => {
         npi: null,
         clia: null,
         posCode: null,
-        timezone: null,
       },
       existing
     );
@@ -313,6 +341,17 @@ describe('applyServiceFacilityInput', () => {
           system: FHIR_IDENTIFIER_NPI,
           value: '1234567893',
         },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
+          value: '1234567893',
+        },
       ],
     };
     const location = applyServiceFacilityInput(
@@ -327,6 +366,24 @@ describe('applyServiceFacilityInput', () => {
     expect(updatedNpi).toEqual([
       {
         system: FHIR_IDENTIFIER_NPI,
+        value: '1245319599',
+      },
+    ]);
+    const updatedCodedNpi = (location.identifier ?? []).filter(
+      (identifier) =>
+        identifier.type?.coding?.[0].system === FHIR_IDENTIFIER_SYSTEM &&
+        identifier.type?.coding?.[0].code === FHIR_IDENTIFIER_CODE_NPI
+    );
+    expect(updatedCodedNpi).toEqual([
+      {
+        type: {
+          coding: [
+            {
+              system: FHIR_IDENTIFIER_SYSTEM,
+              code: FHIR_IDENTIFIER_CODE_NPI,
+            },
+          ],
+        },
         value: '1245319599',
       },
     ]);
@@ -365,6 +422,17 @@ describe('applyServiceFacilityInput', () => {
       system: FHIR_IDENTIFIER_NPI,
       value: '1234567893',
     });
+    expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
+      value: '1234567893',
+    });
   });
 });
 
@@ -387,6 +455,17 @@ describe('mapServiceFacility', () => {
           value: '1234567893',
         },
         {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
+          value: '1234567893',
+        },
+        {
           system: FHIR_IDENTIFIER_CLIA,
           value: '05D1234567',
         },
@@ -395,10 +474,6 @@ describe('mapServiceFacility', () => {
         {
           url: CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
           valueString: '11',
-        },
-        {
-          url: TIMEZONE_EXTENSION_URL,
-          valueString: 'America/New_York',
         },
       ],
     };
@@ -414,7 +489,6 @@ describe('mapServiceFacility', () => {
       npi: '1234567893',
       clia: '05D1234567',
       posCode: '11',
-      timezone: 'America/New_York',
       status: 'active',
     });
   });

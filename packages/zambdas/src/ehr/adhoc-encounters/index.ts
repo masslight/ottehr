@@ -44,7 +44,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   followUpTypeFromPerformerType,
   wrapHandler,
   ZambdaInput,
@@ -171,7 +171,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   // The main search stays LIGHT — only the bounded per-appointment resources (patient, location,
   // encounter, practitioner) ride along, so a page never approaches the FHIR response-size cap

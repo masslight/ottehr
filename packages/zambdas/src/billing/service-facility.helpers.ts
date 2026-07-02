@@ -1,12 +1,13 @@
-import { Location } from 'fhir/r4b';
+import { Coding, Location } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
   getNPI,
   SaveServiceFacilityInput,
   ServiceFacilityItem,
-  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 
 export function getCLIA(location: Location): string | undefined {
@@ -15,10 +16,6 @@ export function getCLIA(location: Location): string | undefined {
 
 export function getPlaceOfServiceCode(location: Location): string | undefined {
   return location.extension?.find((ext) => ext.url === CODE_SYSTEM_CMS_PLACE_OF_SERVICE)?.valueString;
-}
-
-export function getServiceFacilityTimezone(location: Location): string | undefined {
-  return location.extension?.find((ext) => ext.url === TIMEZONE_EXTENSION_URL)?.valueString;
 }
 
 // FHIR Location -> the flat shape the billing UI consumes.
@@ -37,7 +34,6 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
     npi: getNPI(location) ?? '',
     clia: getCLIA(location) ?? '',
     posCode: getPlaceOfServiceCode(location) ?? '',
-    timezone: getServiceFacilityTimezone(location) ?? '',
     status: location.status === 'active' ? 'active' : 'inactive',
   };
 }
@@ -67,15 +63,17 @@ export function applyServiceFacilityInput(params: SaveServiceFacilityInput, exis
 
   if (params.npi !== undefined) {
     location.identifier = setIdentifier(location.identifier, FHIR_IDENTIFIER_NPI, params.npi);
+    location.identifier = setIdentifier(
+      location.identifier,
+      { system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI },
+      params.npi
+    );
   }
   if (params.clia !== undefined) {
     location.identifier = setIdentifier(location.identifier, FHIR_IDENTIFIER_CLIA, params.clia);
   }
   if (params.posCode !== undefined) {
     location.extension = setExtension(location.extension, CODE_SYSTEM_CMS_PLACE_OF_SERVICE, params.posCode);
-  }
-  if (params.timezone !== undefined) {
-    location.extension = setExtension(location.extension, TIMEZONE_EXTENSION_URL, params.timezone);
   }
 
   return location;
@@ -84,17 +82,29 @@ export function applyServiceFacilityInput(params: SaveServiceFacilityInput, exis
 // Replace the entry for `system` with `value`, or remove it when `value` is null.
 function setIdentifier(
   identifiers: Location['identifier'],
-  system: string,
+  systemOrTypeCoding: string | Coding,
   value: string | null
 ): Location['identifier'] {
-  const others = (identifiers ?? []).filter((identifier) => identifier.system !== system);
+  const others = (identifiers ?? []).filter((identifier) => {
+    if (typeof systemOrTypeCoding === 'string') {
+      return identifier.system !== systemOrTypeCoding;
+    }
+    if (!identifier.type || !identifier.type.coding) {
+      return true;
+    }
+    return !identifier.type.coding.some(
+      (coding) => coding.system === systemOrTypeCoding.system && coding.code === systemOrTypeCoding.code
+    );
+  });
   if (value === null) {
     return others.length > 0 ? others : undefined;
   }
   return [
     ...others,
     {
-      system,
+      ...(typeof systemOrTypeCoding === 'string'
+        ? { system: systemOrTypeCoding }
+        : { type: { coding: [systemOrTypeCoding] } }),
       value,
     },
   ];

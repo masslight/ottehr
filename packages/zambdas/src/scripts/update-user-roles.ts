@@ -1,7 +1,6 @@
-import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
 import { RoleType } from 'utils';
-import { getAuth0Token, updateUserRoles } from '../shared/';
+import { createClinicalOystehrClient, getAuth0Token, updateUserRoles } from '../shared/';
 
 const updateUserRolesScript = async (config: any): Promise<void> => {
   const auth0Token = await getAuth0Token(config);
@@ -9,14 +8,17 @@ const updateUserRolesScript = async (config: any): Promise<void> => {
     throw new Error('could not get Auth0 token');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: auth0Token,
-    projectId: config.PROJECT_ID,
-    services: {
-      fhirApiUrl: config.FHIR_API,
-      projectApiUrl: config.PROJECT_API,
-    },
-  });
+  const oystehr = createClinicalOystehrClient(
+    auth0Token,
+    {},
+    {
+      projectId: config.PROJECT_ID,
+      services: {
+        fhirApiUrl: config.FHIR_API,
+        projectApiUrl: config.PROJECT_API,
+      },
+    }
+  );
 
   const allRoleIds = await updateUserRoles(oystehr);
   const staffUserRoleID = allRoleIds[RoleType.Staff];

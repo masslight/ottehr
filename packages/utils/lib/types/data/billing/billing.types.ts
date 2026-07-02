@@ -1,5 +1,5 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 
@@ -77,6 +77,7 @@ export interface BillingLocationOption {
   name: string;
   npi: string;
   address: string;
+  posCode: string;
 }
 
 // Service facility (FHIR Location) managed by the billing app's Service Facilities screens.
@@ -92,7 +93,6 @@ export interface ServiceFacilityItem {
   npi: string;
   clia: string;
   posCode: string;
-  timezone: string;
   status: 'active' | 'inactive';
 }
 
@@ -133,6 +133,12 @@ export interface BillingPayerOption {
   id: string;
   name: string;
   payerId: string;
+}
+
+// A diagnosis (ICD-10) or procedure (CPT/HCPCS) code option from terminology search.
+export interface BillingCodeOption {
+  code: string;
+  display: string;
 }
 
 export interface EraListItem {
@@ -185,7 +191,7 @@ export interface BillingClaimItem {
   payerName: string;
   payerId: string;
   memberId: string;
-  appointmentType: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined;
+  service: string | undefined;
   serviceDate: string;
   facility: string;
   renderingProvider: string;
@@ -246,7 +252,7 @@ export interface ClaimDetailResponse {
   created: string;
   billingType: string;
   billableStatus: string;
-  appointmentType?: string;
+  service?: string;
   patientName: string;
   patientDob: string;
   patientGender: string;
@@ -268,6 +274,8 @@ export interface ClaimDetailResponse {
   memberId: string;
   subscriberId: string;
   coverageStatus: string;
+  relationship: string;
+  policyHolder: BillingPolicyHolderSummary | null;
   responsibleParty: string;
   secondaryCoverageFhirId: string;
   secondaryPayerName: string;
@@ -279,11 +287,13 @@ export interface ClaimDetailResponse {
   renderingProviderType: string;
   renderingProvider: string;
   renderingNpi: string;
+  renderingTaxonomy: string;
   billingProviderFhirId: string;
   billingProviderType: string;
   billingProvider: string;
   billingNpi: string;
   billingTin: string;
+  billingTaxonomy: string;
   facilityFhirId: string;
   serviceFacility: string;
   serviceFacilityAddress: string;
@@ -351,8 +361,16 @@ export interface SearchBillingLocationsResponse {
   locations: BillingLocationOption[];
 }
 
+export interface SearchBillingServicesResponse {
+  services: BillingService[];
+}
+
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
+}
+
+export interface SearchBillingProcedureCodesResponse {
+  codes: BillingCodeOption[];
 }
 
 export interface SearchBillingTagsResponse {
@@ -379,6 +397,53 @@ export interface TaggedClaimResponse {
   ok: true;
 }
 
+export interface ExportClaimX12Response {
+  x12: string;
+}
+
 export interface CreatedClaimResponse {
   claimId: string;
+}
+
+export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';
+
+export type ChargeItemDefinitionDefault = 'insurance' | 'self-pay';
+
+export interface SearchChargeItemDefinitionItem {
+  id: string;
+  type: ChargeItemDefinitionType;
+  name: string;
+  status: 'active' | 'retired';
+  description?: string;
+  default?: ChargeItemDefinitionDefault;
+  effectiveDate?: string;
+}
+
+export interface SearchChargeItemDefinitionsResponse {
+  items: SearchChargeItemDefinitionItem[];
+  total: number;
+  offset: number;
+  pageSize: number;
+}
+
+export interface BillingChargeItemDefinitionProcedureCode {
+  code: string;
+  description?: string;
+  modifier?: string;
+  amount: number;
+}
+
+export interface BillingChargeItemDefinition {
+  id: string;
+  type: ChargeItemDefinitionType;
+  name: string;
+  status: 'active' | 'retired';
+  description?: string;
+  default?: ChargeItemDefinitionDefault;
+  effectiveDate?: string;
+  procedureCodes: BillingChargeItemDefinitionProcedureCode[];
+}
+
+export interface BillingService {
+  name: string;
 }

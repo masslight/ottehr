@@ -1,5 +1,4 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PeopleIcon from '@mui/icons-material/People';
 import {
   Alert,
@@ -25,18 +24,8 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import type { RecentPatientsReportZambdaOutput } from 'utils';
 import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getRecentPatientsReport } from '../../api/api';
-import { setAdHocCriteria } from '../../features/reports/adHoc/seed';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
-
-// Map this report's date-filter slugs to the ad-hoc page's DateRangeFilter slugs.
-const AD_HOC_RANGE_SLUG: Record<string, string> = {
-  today: 'today',
-  yesterday: 'yesterday',
-  last7days: 'last-7-days',
-  last30days: 'last-30-days',
-  customRange: 'customRange',
-};
 
 // Custom toolbar for DataGrid with export functionality
 function CustomToolbar(): React.ReactElement {
@@ -392,21 +381,6 @@ export default function RecentPatients(): React.ReactElement {
     });
   }, [reportData]);
 
-  // "Customize" → open the ad-hoc report on the Recent Patients dataset for the SAME date range. We
-  // pass the criteria, not data — the ad-hoc page fetches live and keeps its dataset/date controls
-  // visible so the range can be adjusted and re-fetched. Mirrors Practice KPIs' Customize button.
-  const handleCustomize = useCallback((): void => {
-    const rangeLabel = getDateRangeLabel(dateFilter);
-    setAdHocCriteria({
-      datasetId: 'patients',
-      dateRange: AD_HOC_RANGE_SLUG[dateFilter] ?? 'last-30-days',
-      customStartDate,
-      customEndDate,
-      sourceLabel: `Recent Patients${rangeLabel ? ` · ${rangeLabel}` : ''}`,
-    });
-    navigate('/reports/ad-hoc');
-  }, [dateFilter, customStartDate, customEndDate, getDateRangeLabel, navigate]);
-
   return (
     <PageContainer>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
@@ -484,16 +458,6 @@ export default function RecentPatients(): React.ReactElement {
 
           <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
             Refresh
-          </Button>
-
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={<AutoAwesomeIcon />}
-            onClick={() => handleCustomize()}
-            disabled={loading || !reportData}
-          >
-            Customize
           </Button>
         </Box>
 

@@ -1,44 +1,49 @@
-import { emailRegex, VideoChatCreateInviteInput } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { emailRegex, INVALID_INPUT_ERROR, VideoChatCreateInviteInput } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+
+const CreateInviteBodySchema = z
+  .object({
+    appointmentId: z.string().min(1),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    phoneNumber: z.string().optional(),
+    emailAddress: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.phoneNumber && !data.emailAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'emailAddress or phoneNumber is not defined. At least one must be provided.',
+      });
+      return;
+    }
+    // TODO: Temporary disable phone validation. Currently front-end sends in (xxx) xxxx-xxx format. Fix front-end.
+    if (data.emailAddress && !emailRegex.test(data.emailAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'emailAddress is not valid',
+        path: ['emailAddress'],
+      });
+    }
+  });
 
 export function validateRequestParameters(input: ZambdaInput): VideoChatCreateInviteInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { appointmentId, firstName, lastName, phoneNumber, emailAddress } = JSON.parse(input.body);
-
-  if (!appointmentId) {
-    throw new Error('appointmentId is not defined');
-  }
-
-  if (!firstName) {
-    throw new Error('firstName is not defined');
-  }
-
-  if (!lastName) {
-    throw new Error('lastName is not defined');
-  }
-
-  if (!phoneNumber && !emailAddress) {
-    throw new Error('emailAddress or phoneNumber is not defined. At least one must be provided.');
-  }
-
-  // TODO: Temporary disable it. Currently front-end sends in (xxx) xxxx-xxx format. Fix front-end.
-  //if (phoneNumber && !phoneRegex.test(phoneNumber)) {
-  //  throw new Error('phoneNumber is not valid');
-  //}
-
-  if (emailAddress && !emailRegex.test(emailAddress)) {
-    throw new Error('emailAddress is not valid');
-  }
+  const { appointmentId, firstName, lastName, phoneNumber, emailAddress } = safeValidate(
+    CreateInviteBodySchema,
+    safeJsonParse(input.body)
+  );
 
   return {
     appointmentId,
     firstName,
     lastName,
-    phoneNumber,
-    emailAddress,
+    phoneNumber: phoneNumber as string,
+    emailAddress: emailAddress as string,
     secrets: input.secrets,
   };
 }

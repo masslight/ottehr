@@ -1,4 +1,8 @@
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import {
+  ArrowBack as ArrowBackIcon,
+  DeleteOutline as DeleteOutlineIcon,
+  FileDownloadOutlined as FileDownloadIcon,
+} from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -51,7 +55,15 @@ import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
+import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { Field } from '../components/Field';
+import {
+  PolicyHolderFields,
+  policyHolderPayload,
+  PolicyHolderState,
+  policyHolderStateFromSummary,
+  validatePolicyHolder,
+} from '../components/PolicyHolderFields';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -70,6 +82,7 @@ export default function ClaimDetail(): ReactElement {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -174,11 +187,27 @@ export default function ClaimDetail(): ReactElement {
             <Meta label="Date of Service" value={dos} />
             <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
             <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
-            <Meta label="Appointment Type" value={formatAntCaseString(claim.appointmentType)} />
+            <Meta label="Service" value={formatAntCaseString(claim.service)} />
             <Meta label="Patient DOB" value={claim.patientDob} />
           </Box>
         </Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<FileDownloadIcon />}
+          onClick={() => setExportOpen(true)}
+          sx={{ mt: 0.5 }}
+        >
+          Export X12
+        </Button>
       </Box>
+
+      <ExportX12Dialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        claimId={claim.id}
+        claimType={claim.type}
+      />
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <Chip
@@ -409,16 +438,23 @@ function InsuranceSection({
   const [payer, setPayer] = useState<BillingPayerOption | null>(null);
   const [memberId, setMemberId] = useState(claim.memberId);
   const [status, setStatus] = useState(claim.coverageStatus);
+  const [policyHolder, setPolicyHolder] = useState<PolicyHolderState>(() =>
+    policyHolderStateFromSummary(claim.relationship, claim.policyHolder)
+  );
 
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [coverageOptions, setCoverageOptions] = useState<BillingCoverageOption[]>([]);
   const [selectedCoverage, setSelectedCoverage] = useState<BillingCoverageOption | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const resetFields = useCallback((): void => {
     setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
     setMemberId(claim.memberId);
     setStatus(claim.coverageStatus);
+    setPolicyHolder(policyHolderStateFromSummary(claim.relationship, claim.policyHolder));
     setSelectedCoverage(null);
   }, [claim]);
 
@@ -451,11 +487,28 @@ function InsuranceSection({
       return updateResource('Claim', claim.id, { coverageId: selectedCoverage.id });
     }
     if (!hasCoverage) return 'Choose a coverage';
+    const policyHolderError = validatePolicyHolder(policyHolder);
+    if (policyHolderError) return policyHolderError;
     if (payer?.id && payer.id !== claim.payorFhirId) {
       const err = await updateResource('Claim', claim.id, { payerId: payer.id });
       if (err) return err;
     }
-    return updateResource('Coverage', claim.coverageFhirId, { subscriberId: memberId, status });
+    const policyHolderInput = policyHolderPayload(policyHolder);
+    return updateResource('Coverage', claim.coverageFhirId, {
+      subscriberId: memberId,
+      status,
+      relationship: policyHolder.relationship,
+      ...(policyHolderInput ? { policyHolder: policyHolderInput } : {}),
+    });
+  };
+
+  const handleRemove = async (): Promise<void> => {
+    setRemoving(true);
+    setRemoveError(null);
+    const err = await updateResource('Claim', claim.id, { removeCoverage: true });
+    setConfirmingRemove(false);
+    setRemoving(false);
+    if (err) setRemoveError(err);
   };
 
   return (
@@ -535,13 +588,66 @@ function InsuranceSection({
               </Field>
             </Box>
           )}
+          {hasCoverage && !selectedCoverage && <PolicyHolderFields value={policyHolder} onChange={setPolicyHolder} />}
         </Box>
       }
     >
-      <Row label="Payer" value={claim.payerName} />
-      <Row label="Payer ID" value={claim.payerId} />
-      <Row label="Member ID" value={claim.memberId} />
-      <Row label="Coverage Status" value={claim.coverageStatus} />
+      {hasCoverage ? (
+        <>
+          <Row label="Payer" value={claim.payerName} />
+          <Row label="Payer ID" value={claim.payerId} />
+          <Row label="Member ID" value={claim.memberId} />
+          <Row label="Relationship to insured" value={claim.relationship} />
+          {claim.policyHolder && (
+            <Row
+              label="Policy holder"
+              value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()}
+            />
+          )}
+          <Row label="Coverage Status" value={claim.coverageStatus} />
+        </>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
+          No insurance
+        </Typography>
+      )}
+      {hasCoverage && (
+        <Box sx={{ mt: 1.5 }}>
+          {removeError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {removeError}
+            </Alert>
+          )}
+          {confirmingRemove ? (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Remove coverage?
+              </Typography>
+              <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="contained"
+                onClick={() => void handleRemove()}
+                disabled={removing}
+              >
+                {removing ? 'Removing...' : 'Confirm'}
+              </Button>
+            </Box>
+          ) : (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteOutlineIcon fontSize="small" />}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove coverage
+            </Button>
+          )}
+        </Box>
+      )}
     </EditableSection>
   );
 }
@@ -562,6 +668,7 @@ function RenderingProviderSection({
   const [firstName, setFirstName] = useState(initialName.firstName);
   const [lastName, setLastName] = useState(initialName.lastName);
   const [npi, setNpi] = useState(claim.renderingNpi);
+  const [taxonomy, setTaxonomy] = useState(claim.renderingTaxonomy);
 
   const [options, setOptions] = useState<BillingProviderOption[]>([]);
   const [selected, setSelected] = useState<BillingProviderOption | null>(null);
@@ -573,6 +680,7 @@ function RenderingProviderSection({
     setFirstName(parsed.firstName);
     setLastName(parsed.lastName);
     setNpi(claim.renderingNpi);
+    setTaxonomy(claim.renderingTaxonomy);
     setSelected(null);
   }, [claim]);
 
@@ -606,13 +714,18 @@ function RenderingProviderSection({
     }
     if (!hasProvider) return 'Choose a rendering provider';
     if (isOrganization) {
-      return updateResource('Organization', claim.renderingProviderId, { name, npi: npi.trim() });
+      return updateResource('Organization', claim.renderingProviderId, {
+        name,
+        npi: npi.trim(),
+        taxonomyCode: taxonomy.trim(),
+      });
     }
     if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
     return updateResource('Practitioner', claim.renderingProviderId, {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       npi: npi.trim(),
+      taxonomyCode: taxonomy.trim(),
     });
   };
 
@@ -682,6 +795,9 @@ function RenderingProviderSection({
               <Field label="NPI">
                 <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
               </Field>
+              <Field label="Taxonomy Code">
+                <TextField size="small" fullWidth value={taxonomy} onChange={(e) => setTaxonomy(e.target.value)} />
+              </Field>
             </Box>
           )}
         </Box>
@@ -689,6 +805,7 @@ function RenderingProviderSection({
     >
       <Row label="Provider" value={claim.renderingProvider} />
       <Row label="NPI" value={claim.renderingNpi} />
+      <Row label="Taxonomy Code" value={claim.renderingTaxonomy} />
     </EditableSection>
   );
 }
@@ -853,6 +970,7 @@ function BillingProviderSection({
   const [lastName, setLastName] = useState(initialName.lastName);
   const [npi, setNpi] = useState(claim.billingNpi);
   const [tin, setTin] = useState(claim.billingTin);
+  const [taxonomy, setTaxonomy] = useState(claim.billingTaxonomy);
 
   const [options, setOptions] = useState<BillingProviderOption[]>([]);
   const [selected, setSelected] = useState<BillingProviderOption | null>(null);
@@ -865,6 +983,7 @@ function BillingProviderSection({
     setLastName(parsed.lastName);
     setNpi(claim.billingNpi);
     setTin(claim.billingTin);
+    setTaxonomy(claim.billingTaxonomy);
     setSelected(null);
   }, [claim]);
 
@@ -904,12 +1023,14 @@ function BillingProviderSection({
         lastName: lastName.trim(),
         npi: npi.trim(),
         taxId: tin.trim(),
+        taxonomyCode: taxonomy.trim(),
       });
     }
     return updateResource('Organization', claim.billingProviderFhirId, {
       name,
       npi: npi.trim(),
       taxId: tin.trim(),
+      taxonomyCode: taxonomy.trim(),
     });
   };
 
@@ -978,6 +1099,9 @@ function BillingProviderSection({
               <Field label="Tax ID">
                 <TextField size="small" fullWidth value={tin} onChange={(e) => setTin(e.target.value)} />
               </Field>
+              <Field label="Taxonomy Code">
+                <TextField size="small" fullWidth value={taxonomy} onChange={(e) => setTaxonomy(e.target.value)} />
+              </Field>
             </Box>
           )}
         </Box>
@@ -986,6 +1110,7 @@ function BillingProviderSection({
       <Row label="Provider" value={claim.billingProvider} />
       <Row label="NPI" value={claim.billingNpi} />
       <Row label="Tax ID" value={claim.billingTin} />
+      <Row label="Taxonomy Code" value={claim.billingTaxonomy} />
     </EditableSection>
   );
 }

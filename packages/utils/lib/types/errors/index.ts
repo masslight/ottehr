@@ -50,6 +50,7 @@ export enum APIErrorCode {
   // 434x
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
+  PRACTITIONER_SCHEDULE_CONFLICT = 4342,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -235,6 +236,17 @@ export const SCHEDULE_NOT_FOUND_CUSTOM_ERROR = (message: string): APIError => ({
   message,
 });
 
+// Raised when a create/update/reactivate would leave more than one active
+// PractitionerRole covering the same (practitioner, location, category) tuple.
+// `categoryNames` is the list of overlapping category display names, used
+// verbatim in the message so the admin knows which schedule to reconcile.
+export const PRACTITIONER_SCHEDULE_CONFLICT_ERROR = (categoryNames: string[]): APIError => ({
+  code: APIErrorCode.PRACTITIONER_SCHEDULE_CONFLICT,
+  message: `This provider already has an active schedule at this location offering ${categoryNames.join(
+    ', '
+  )}. Remove ${categoryNames.length === 1 ? 'it' : 'them'} from that schedule first, or pick a different location.`,
+});
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -275,6 +287,13 @@ export const FHIR_RESOURCE_IS_GONE = (): APIError => ({
   statusCode: 410,
   message: `The requested resource is gone`,
 });
+
+export const CLAIM_NOT_READY_FOR_X12_EXPORT: APIError = {
+  code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+  statusCode: 400,
+  message:
+    "This claim isn't ready to export as X12. It may be missing required information or contain invalid references. Complete the claim and try again.",
+};
 
 export const MISSING_REQUIRED_PARAMETERS = (params: string[]): APIError => {
   return {

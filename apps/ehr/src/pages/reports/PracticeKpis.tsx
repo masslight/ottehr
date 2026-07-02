@@ -1,5 +1,4 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InsightsIcon from '@mui/icons-material/Insights';
 import {
   Alert,
@@ -23,26 +22,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PracticeKpisReportZambdaOutput } from 'utils';
 import { getPracticeKpisReport } from '../../api/api';
-import { setAdHocCriteria } from '../../features/reports/adHoc/seed';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
-
-const DATE_FILTER_LABELS: Record<string, string> = {
-  today: 'Today',
-  yesterday: 'Yesterday',
-  last7days: 'Last 7 days',
-  last30days: 'Last 30 days',
-};
-
-// Map this report's date-filter slugs to the ad-hoc page's DateRangeFilter slugs.
-const AD_HOC_RANGE_SLUG: Record<string, string> = {
-  today: 'today',
-  yesterday: 'yesterday',
-  last7days: 'last-7-days',
-  last30days: 'last-30-days',
-  custom: 'custom',
-  customRange: 'customRange',
-};
 
 export default function PracticeKpis(): React.ReactElement {
   const navigate = useNavigate();
@@ -470,22 +451,6 @@ export default function PracticeKpis(): React.ReactElement {
     }));
   }, [reportData]);
 
-  // Open the visit data behind these KPIs in the ad-hoc report. We hand off the CRITERIA (the
-  // Encounters dataset + the current date range), not data — the ad-hoc page fetches live and leaves
-  // its dataset/date controls visible so the range can be adjusted and re-fetched.
-  const handleOpenAsAdHoc = useCallback((): void => {
-    const rangeLabel = DATE_FILTER_LABELS[dateFilter] ?? '';
-    setAdHocCriteria({
-      datasetId: 'encounters-comprehensive',
-      dateRange: AD_HOC_RANGE_SLUG[dateFilter] ?? 'last-30-days',
-      customDate,
-      customStartDate,
-      customEndDate,
-      sourceLabel: `Practice KPIs${rangeLabel ? ` · ${rangeLabel}` : ''}`,
-    });
-    navigate('/reports/ad-hoc');
-  }, [dateFilter, customDate, customStartDate, customEndDate, navigate]);
-
   // Custom toolbar with CSV export only
   const CustomToolbar = (): React.ReactElement => {
     return (
@@ -576,16 +541,6 @@ export default function PracticeKpis(): React.ReactElement {
 
               <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
                 Refresh
-              </Button>
-
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<AutoAwesomeIcon />}
-                onClick={() => handleOpenAsAdHoc()}
-                disabled={loading || !reportData}
-              >
-                Customize
               </Button>
 
               <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>

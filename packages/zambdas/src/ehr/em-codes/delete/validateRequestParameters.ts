@@ -1,5 +1,5 @@
 import { DeleteEmCodeInput, DeleteEmCodeInputSchema, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): DeleteEmCodeInput {
   if (!input.body) {
@@ -8,7 +8,7 @@ export function validateRequestParameters(input: ZambdaInput): DeleteEmCodeInput
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(input.body);
+    parsed = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }

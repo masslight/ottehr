@@ -677,12 +677,46 @@
         "type": "string",
         "text": "Patient email",
         "required": true,
+        "enableWhen": [
+          {
+            "question": "patient-no-email",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
             "valueString": "Email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "patient-no-email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
+      },
+      {
+        "linkId": "patient-no-email",
+        "type": "boolean",
+        "text": "Don't have email",
+        "required": false
       },
       {
         "linkId": "patient-number",
@@ -2087,6 +2121,29 @@
             "valueString": "hidden"
           }
         ]
+      },
+      {
+        "linkId": "pcp-fax",
+        "type": "string",
+        "text": "Fax",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-active",
+            "operator": "=",
+            "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Phone Number"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
+        ]
       }
     ]
   },
@@ -2276,6 +2333,46 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
             "valueString": "patient-email"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "responsible-party-no-email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "responsible-party-no-email",
+        "type": "boolean",
+        "text": "Don't have email",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "responsible-party-relationship",
+            "operator": "!=",
+            "answerString": "Self"
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "protected"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+            "valueString": "patient-no-email"
           }
         ]
       },

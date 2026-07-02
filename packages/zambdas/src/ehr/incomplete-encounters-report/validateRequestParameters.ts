@@ -1,56 +1,43 @@
-import {
-  IncompleteEncountersReportZambdaInput,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  MISSING_REQUIRED_PARAMETERS,
-  Secrets,
-} from 'utils';
-import { ZambdaInput } from '../../shared';
+import { IncompleteEncountersReportZambdaInput, Secrets } from 'utils';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): IncompleteEncountersReportZambdaInput & { secrets: Secrets } {
   if (!input.body) {
-    throw MISSING_REQUEST_BODY;
+    throw new Error('Missing request body');
   }
 
-  const { dateRange, encounterStatus, includeCodes } = JSON.parse(input.body);
+  const { dateRange, encounterStatus } = safeJsonParse(input.body);
 
   if (!dateRange) {
-    throw MISSING_REQUIRED_PARAMETERS(['dateRange']);
+    throw new Error('Missing dateRange parameter');
   }
 
   if (!dateRange.start || !dateRange.end) {
-    throw INVALID_INPUT_ERROR('dateRange must include both start and end dates');
+    throw new Error('dateRange must include both start and end dates');
   }
 
   // Validate that start and end are valid ISO date strings
   if (isNaN(Date.parse(dateRange.start))) {
-    throw INVALID_INPUT_ERROR('dateRange.start must be a valid ISO date string');
+    throw new Error('dateRange.start must be a valid ISO date string');
   }
 
   if (isNaN(Date.parse(dateRange.end))) {
-    throw INVALID_INPUT_ERROR('dateRange.end must be a valid ISO date string');
+    throw new Error('dateRange.end must be a valid ISO date string');
   }
 
-  if (
-    encounterStatus &&
-    encounterStatus !== 'incomplete' &&
-    encounterStatus !== 'complete' &&
-    encounterStatus !== 'all'
-  ) {
-    throw INVALID_INPUT_ERROR("encounterStatus must be 'incomplete', 'complete', or 'all'");
+  if (encounterStatus && encounterStatus !== 'incomplete' && encounterStatus !== 'complete') {
+    throw new Error("encounterStatus must be 'incomplete' or 'complete'");
   }
 
   if (!input.secrets) {
-    throw MISSING_REQUEST_SECRETS;
+    throw new Error('Input did not have any secrets');
   }
 
   return {
     dateRange,
     encounterStatus,
-    includeCodes: includeCodes === true,
     secrets: input.secrets,
   };
 }

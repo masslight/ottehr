@@ -3,7 +3,7 @@ import { Basic } from 'fhir/r4b';
 import { ListAdHocReportsOutput, SavedAdHocReport } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fetchAllPages,
   wrapHandler,
   ZambdaInput,
@@ -23,7 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   // Saved reports are practice-wide and never expire, so the list can exceed one page — paginate
   // (as the dataset zambdas do) rather than silently truncating at the first 200, which would drop

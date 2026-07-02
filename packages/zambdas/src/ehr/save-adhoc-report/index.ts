@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, SaveAdHocReportOutput } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import {
   makeSavedAdHocReportBasic,
   parseSavedAdHocReportBasic,
@@ -18,7 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { reportId, definition, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   // reportId present → PUT (update the existing saved report); absent → POST (new one). Before an
   // update, confirm the id really is a saved ad-hoc report — a raw client-supplied id must not be

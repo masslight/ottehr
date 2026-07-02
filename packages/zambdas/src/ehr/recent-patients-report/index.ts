@@ -1,8 +1,7 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Bundle, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Bundle, Encounter, FhirResource, Location, Patient } from 'fhir/r4b';
 import {
-  getAttendingPractitionerId,
   getEmailForIndividual,
   getInPersonVisitStatus,
   getPhoneNumberForIndividual,
@@ -12,7 +11,7 @@ import {
   RecentPatientRecord,
   RecentPatientsReportZambdaOutput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -25,7 +24,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Get M2M token for FHIR access
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
 
   // TODO: Once billable follow-up visits are available (with their own Appointment and full visit workflow),
   // ensure this report includes them as independent visits on their follow-up date.
@@ -34,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('Searching for appointments in date range:', dateRange, 'location:', locationId);
 
   // Search for appointments within the date range
-  let allResources: (Appointment | Location | Encounter | Patient | Practitioner)[] = [];
+  let allResources: (Appointment | Location | Encounter | Patient)[] = [];
   let offset = 0;
   const pageSize = 1000;
 
@@ -64,10 +63,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       value: 'Encounter:appointment',
     },
     {
-      name: '_include:iterate',
-      value: 'Encounter:participant:Practitioner',
-    },
-    {
       name: '_count',
       value: pageSize.toString(),
     },
@@ -81,7 +76,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   }
 
-  let searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Patient | Practitioner>({
+  let searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Patient>({
     resourceType: 'Appointment',
     params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
   });
@@ -105,7 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     pageCount++;
     console.log(`Fetching page ${pageCount} of appointments, patients, encounters, and locations...`);
 
-    searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Patient | Practitioner>({
+    searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Patient>({
       resourceType: 'Appointment',
       params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
     });
@@ -161,16 +156,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   locations.forEach((location) => {
     if (location.id) {
       locationMap.set(location.id, location);
-    }
-  });
-
-  const practitioners = allResources.filter(
-    (resource): resource is Practitioner => resource.resourceType === 'Practitioner'
-  );
-  const practitionerMap = new Map<string, Practitioner>();
-  practitioners.forEach((practitioner) => {
-    if (practitioner.id) {
-      practitionerMap.set(practitioner.id, practitioner);
     }
   });
 
@@ -352,20 +337,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Get "How did you hear about us?" value
     const pointOfDiscovery = patient.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString;
 
-    // Location of the most recent visit (Appointment participant → Location).
-    const locationRef = mostRecentAppointment.participant
-      ?.find((p) => p.actor?.reference?.startsWith('Location/'))
-      ?.actor?.reference?.replace('Location/', '');
-    const location = locationRef ? locationMap.get(locationRef)?.name : undefined;
-
-    // Attending provider on the most recent visit's encounter.
-    const mostRecentEncounter = encounterMap.get(`Appointment/${mostRecentAppointment.id}`);
-    const attendingId = mostRecentEncounter ? getAttendingPractitionerId(mostRecentEncounter) : undefined;
-    const provider = attendingId ? practitionerMap.get(attendingId) : undefined;
-    const attendingProvider = provider
-      ? `${provider.name?.[0]?.given?.[0] || ''} ${provider.name?.[0]?.family || ''}`.trim() || undefined
-      : undefined;
-
     patientRecords.push({
       patientId,
       firstName,
@@ -376,8 +347,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         appointmentId: mostRecentAppointment.id,
         date: mostRecentAppointment.start,
         serviceCategory,
-        location,
-        attendingProvider,
       },
       patientStatus,
       pointOfDiscovery,

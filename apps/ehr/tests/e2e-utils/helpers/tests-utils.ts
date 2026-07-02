@@ -1,5 +1,7 @@
+import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { expect, Locator, Page } from '@playwright/test';
 import { DocumentReference } from 'fhir/r4b';
+import { BILLING_RESOURCE_TAG } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../resource-handler';
 
@@ -62,4 +64,16 @@ export function verifyVisitNotePdfDocumentReference(
   expect(visitNoteDocRef.context?.encounter?.[0]?.reference).toBe(`Encounter/${resourceHandler.encounter.id}`);
   expect(visitNoteDocRef.context?.related?.[0]?.reference).toBe(`Appointment/${resourceHandler.appointment.id}`);
   expect(visitNoteDocRef.content?.[0]?.attachment?.url).toBeDefined();
+}
+
+export function createE2eTestOystehrClient(token: string, overrides?: Partial<OystehrConfig>): Oystehr {
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: process.env.FHIR_API,
+      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
+    },
+    ...overrides,
+    ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
+  });
 }

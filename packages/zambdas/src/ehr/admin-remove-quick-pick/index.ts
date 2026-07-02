@@ -4,7 +4,7 @@ import { ActivityDefinition } from 'fhir/r4b';
 import { QuickPickRemoveInput, Secrets, validateDefined } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   validateJsonBody,
   validateString,
   wrapHandler,
@@ -23,7 +23,7 @@ export const index = wrapHandler(
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, quickPickId } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     await removeQuickPick(quickPickId, oystehr);
     return {
       statusCode: 200,

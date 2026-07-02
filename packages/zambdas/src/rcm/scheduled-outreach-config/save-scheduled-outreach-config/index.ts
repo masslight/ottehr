@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PlanDefinition, Task } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { reconcileDraftTasksWithConfig } from '../../scheduled-outreach/producers/shared/produce-outreach-tasks';
 import {
   buildPlanDefinitionFromActions,
@@ -18,7 +18,7 @@ export const index = wrapHandler(
     const validated = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validated.secrets);
-    const oystehr = createOystehrClient(m2mToken, validated.secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, validated.secrets);
 
     // Get or create the singleton PlanDefinition
     const existing = await getOrCreateOutreachConfig(oystehr);
