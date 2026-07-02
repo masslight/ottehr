@@ -1,16 +1,19 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  EASY_CHART_NOTE_TEXT_FIELD_LABELS as LABELS,
+  EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
   EasyChartAgentIntent,
   EasyChartNoteContext,
   EasyChartReviewOutput,
   EasyChartSuggestion,
   EasyChartTokenUsage,
-  INVALID_INPUT_ERROR,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotStructured } from '../../shared/ai';
-import { resolveCptHcpcs, resolveIcd } from '../../shared/easy-chart/codes';
+import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
+import { validateIntentCode } from '../../shared/easy-chart/codes';
+import { fetchPatientContext } from '../../shared/easy-chart/patient-context';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -48,8 +51,6 @@ const ACTION_KINDS = [
   'add-medication',
   'remove-medication',
 ] as const;
-
-const NOTE_TEXT_FIELDS = ['chiefComplaint', 'historyOfPresentIllness', 'mechanismOfInjury', 'ros', 'medicalDecision'];
 
 const RESPONSE_SCHEMA = {
   type: 'object',
@@ -92,25 +93,28 @@ const RESPONSE_SCHEMA = {
   required: ['suggestions'],
 };
 
-const buildPrompt = (narrative: string, chartState?: string, noteContext?: EasyChartNoteContext): string => {
-  const labels: Record<string, string> = {
-    chiefComplaint: 'Chief Complaint',
-    historyOfPresentIllness: 'History of Present Illness (HPI)',
-    mechanismOfInjury: 'Mechanism of Injury',
-    ros: 'Review of Systems',
-    medicalDecision: 'Medical Decision Making (MDM)',
-  };
+const buildPrompt = (
+  narrative: string,
+  chartState?: string,
+  noteContext?: EasyChartNoteContext,
+  patientContext?: string
+): string => {
   const noteLines: string[] = [];
   if (noteContext) {
     for (const field of NOTE_TEXT_FIELDS) {
       const v = (noteContext as Record<string, string | undefined>)[field];
       noteLines.push(
-        v && v.trim() ? `- ${labels[field]} (field="${field}"): """${v}"""` : `- ${labels[field]}: <empty>`
+        v && v.trim() ? `- ${LABELS[field]} (field="${field}"): """${v}"""` : `- ${LABELS[field]}: <empty>`
       );
     }
   }
   const noteBlock = noteLines.length ? `\nCURRENT NOTE FREE-TEXT:\n${noteLines.join('\n')}\n` : '';
   const chartBlock = chartState ? `\nALREADY ON THE CHART (do NOT re-suggest any of this):\n${chartState}\n` : '';
+  // Same anchor as the planner: suggestions must concern THIS patient only — ambient narratives
+  // carry cross-talk about other people, and demographics come from the chart, not the transcript.
+  const patientBlock = patientContext
+    ? `\nPATIENT (authoritative — from the chart, not the narrative): ${patientContext}.\nSuggest ONLY items concerning this patient; ignore narrative mentions of other people.\n`
+    : '';
 
   return `You are a clinical documentation reviewer. A provider just charted a visit note from the
 NARRATIVE below; the structured items now on the chart are in ALREADY ON THE CHART. Your job is to
@@ -195,34 +199,19 @@ RULES:
   marginal ones.
 
 ═══ END OF FIXED INSTRUCTIONS — review the note + narrative below ═══
-${chartBlock}${noteBlock}
+${patientBlock}${chartBlock}${noteBlock}
 NARRATIVE:
 """${narrative}"""
 `;
 };
 
-// Validate the code(s) inside a suggestion's actions exactly as the planner validates its steps, so
-// no hallucinated code can reach the chart. Returns false when the suggestion should be dropped
-// entirely (e.g. an E&M suggestion whose only point is a code the terminology service rejects).
+// Validate the code(s) inside a suggestion's actions exactly as the planner validates its steps
+// (same shared validateIntentCode), so no hallucinated code can reach the chart. Returns false
+// when the suggestion should be dropped entirely (e.g. an E&M suggestion whose only point is a
+// code the terminology service rejects).
 async function validateActionCodes(actions: Record<string, unknown>[], oystehr: Oystehr | undefined): Promise<boolean> {
-  for (const a of actions) {
-    if (a.kind === 'add-diagnosis' || a.kind === 'add-condition') {
-      const display = typeof a.display === 'string' ? a.display : '';
-      const searchTerms = Array.isArray(a.searchTerms)
-        ? (a.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
-        : [];
-      const resolved = await resolveIcd(typeof a.code === 'string' ? a.code : undefined, display, searchTerms);
-      if (resolved) a.code = resolved.code;
-      else delete a.code; // nothing valid → client picker resolves by display
-    } else if ((a.kind === 'set-em-code' || a.kind === 'add-cpt') && typeof a.code === 'string' && a.code.trim()) {
-      if (!oystehr) continue; // degraded: can't validate, keep as-is
-      const resolved = await resolveCptHcpcs(oystehr, a.code, typeof a.display === 'string' ? a.display : '');
-      if (resolved === null) return false; // a billing suggestion with a bogus code is not worth showing
-      a.code = resolved.code;
-      if (resolved.display) a.display = resolved.display;
-    }
-  }
-  return true;
+  const results = await Promise.all(actions.map((a) => validateIntentCode(a, oystehr)));
+  return !results.includes('invalid-billing');
 }
 
 // A single action is well-formed enough for the client to replay.
@@ -233,7 +222,7 @@ function isValidAction(a: unknown): a is Record<string, unknown> {
   if (r.kind === 'edit-note-text') {
     return (
       typeof r.field === 'string' &&
-      NOTE_TEXT_FIELDS.includes(r.field) &&
+      (NOTE_TEXT_FIELDS as readonly string[]).includes(r.field) &&
       typeof r.newText === 'string' &&
       !!r.newText.trim()
     );
@@ -246,16 +235,30 @@ function isValidAction(a: unknown): a is Record<string, unknown> {
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { narrative, noteContext, chartState, secrets } = validateRequestParameters(input);
+  const { narrative, noteContext, chartState, encounterId, secrets } = validateRequestParameters(input);
 
-  // Oystehr client is best-effort — only needed to validate CPT/HCPCS codes against the terminology
-  // service. If it fails we proceed and leave billing codes as-is (degraded), same as the planner.
+  // Oystehr client is best-effort — needed to validate CPT/HCPCS codes against the terminology
+  // service and to fetch the patient anchor. If it fails we proceed degraded, same as the planner —
+  // but captured, so a broken M2M path doesn't silently skip CPT validation for days.
   let oystehr: Oystehr | undefined;
   try {
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     oystehr = createOystehrClient(m2mToken, secrets);
   } catch (e) {
     console.warn('Review: Oystehr client init failed, proceeding without CPT validation:', e);
+    captureException(e);
+  }
+
+  // Patient anchor (best-effort): keeps suggestions about THIS patient when the narrative carries
+  // cross-talk, and demographics from the chart rather than the transcript.
+  let patientContext: string | undefined;
+  if (oystehr && encounterId) {
+    try {
+      patientContext = await fetchPatientContext(oystehr, encounterId);
+    } catch (e) {
+      console.warn('Review: patient-context fetch failed, proceeding without:', e);
+      captureException(e);
+    }
   }
 
   // Use the same backend as the planner (sonnet by default). flash-lite over-suggested pertinent
@@ -263,7 +266,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // the prompt requiring a near-verbatim quote.
   let usage: EasyChartTokenUsage | undefined;
   const raw = await invokeChatbotStructured(
-    [{ text: buildPrompt(narrative, chartState, noteContext) }],
+    [{ text: buildPrompt(narrative, chartState, noteContext, patientContext) }],
     secrets,
     RESPONSE_SCHEMA,
     undefined,
@@ -272,37 +275,75 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   );
 
-  let parsed: { suggestions?: unknown };
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw INVALID_INPUT_ERROR('Model returned non-JSON output');
-  }
+  // Unparseable/malformed model output is an upstream failure, not a user-input problem — raw
+  // throws (they page). INVALID_INPUT_ERROR here blamed the provider and hid model outages.
+  const parsed = parseStructuredModelOutput(raw, 'note review') as { suggestions?: unknown };
   if (!parsed || !Array.isArray(parsed.suggestions)) {
-    throw INVALID_INPUT_ERROR('Model returned a malformed review');
+    throw new Error('Model returned a malformed review');
   }
 
-  const suggestions: EasyChartSuggestion[] = [];
-  for (const item of parsed.suggestions) {
-    if (!item || typeof item !== 'object') continue;
+  // Shape-check first, then validate every surviving suggestion's action codes CONCURRENTLY —
+  // terminology round-trips dominate a multi-suggestion review's latency, and each suggestion is
+  // independent. Assembly stays in model order with stable ids.
+  // Verbatim guard for suggested ROS negatives: the prompt demands near-verbatim quotes, but the
+  // model (flash-lite especially) still fabricates classics ("denies sinus pain" on an eye visit).
+  // Enforce it deterministically: every meaningful word of the suggested symptom must appear in
+  // the narrative, or the action is dropped server-side.
+  const narrativeLower = narrative.toLowerCase();
+  const rosActionIsVerbatim = (a: Record<string, unknown>): boolean => {
+    if (a.kind !== 'add-ros-finding' || typeof a.display !== 'string') return true;
+    const symptom = a.display.replace(/^(denies|reports)\b[:\s-]*/i, '').trim();
+    const words = symptom
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 3 && !['the', 'any', 'and', 'her', 'his'].includes(w));
+    return words.length > 0 && words.every((w) => narrativeLower.includes(w));
+  };
+  const candidates = (parsed.suggestions as unknown[]).flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
     const s = item as Record<string, unknown>;
-    if (typeof s.category !== 'string' || !(CATEGORY_VALUES as readonly string[]).includes(s.category)) continue;
-    if (typeof s.question !== 'string' || !s.question.trim()) continue;
-    const actions = Array.isArray(s.actions) ? s.actions.filter(isValidAction) : [];
-    if (actions.length === 0) continue;
-    const keep = await validateActionCodes(actions, oystehr);
-    if (!keep) continue;
+    if (typeof s.category !== 'string' || !(CATEGORY_VALUES as readonly string[]).includes(s.category)) return [];
+    if (typeof s.question !== 'string' || !s.question.trim()) return [];
+    const actions = Array.isArray(s.actions) ? s.actions.filter(isValidAction).filter(rosActionIsVerbatim) : [];
+    if (actions.length === 0) return [];
+    return [{ s, actions, question: s.question }];
+  });
+  const keepFlags = await Promise.all(candidates.map((c) => validateActionCodes(c.actions, oystehr)));
+  const suggestions: EasyChartSuggestion[] = [];
+  candidates.forEach(({ s, actions, question }, i) => {
+    if (!keepFlags[i]) return;
+    // Self-defeating diagnosis swap: after code validation, the ADD may have resolved to the very
+    // code the card REMOVES (e.g. "replace M65.051" whose replacement re-resolved to M65.051 —
+    // the ICD search itself was the reason for the bad code). Applying it would churn the chart
+    // and change nothing; drop the card.
+    const removedCodes = new Set(
+      actions
+        .filter((a) => a.kind === 'remove-diagnosis' && typeof a.display === 'string')
+        .map((a) => {
+          const codeInDisplay = /\(([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\)/.exec(String(a.display));
+          return (typeof a.code === 'string' ? a.code : codeInDisplay?.[1] ?? '').toUpperCase();
+        })
+        .filter(Boolean)
+    );
+    if (
+      removedCodes.size > 0 &&
+      actions.some(
+        (a) => a.kind === 'add-diagnosis' && typeof a.code === 'string' && removedCodes.has(a.code.toUpperCase())
+      )
+    ) {
+      return;
+    }
     suggestions.push({
       id: `s${suggestions.length}`,
       category: s.category as EasyChartSuggestion['category'],
-      question: s.question.trim(),
+      question: question.trim(),
       ...(typeof s.rationale === 'string' && s.rationale.trim() ? { rationale: s.rationale.trim() } : {}),
       ...(typeof s.highlight === 'string' && s.highlight.trim() ? { highlight: s.highlight.trim() } : {}),
       ...(s.partial === true ? { partial: true } : {}),
       ...(typeof s.partialNote === 'string' && s.partialNote.trim() ? { partialNote: s.partialNote.trim() } : {}),
       actions: actions as unknown as EasyChartAgentIntent[],
     });
-  }
+  });
 
   const output: EasyChartReviewOutput = { suggestions, usage };
   return { statusCode: 200, body: JSON.stringify(output) };

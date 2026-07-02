@@ -1,121 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EasyChartAgentIntent, EasyChartAgentOutput, EasyChartTokenUsage, INVALID_INPUT_ERROR } from 'utils';
+import {
+  EASY_CHART_INTENT_KINDS as KIND_VALUES,
+  EASY_CHART_NOTE_TEXT_FIELD_LABELS as LABELS,
+  EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
+  EasyChartAgentIntent,
+  EasyChartAgentOutput,
+  EasyChartNoteTextField as NoteTextField,
+  EasyChartTokenUsage,
+} from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotStructured } from '../../shared/ai';
+import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
+import { detectSpeakerLabels, sniffDoseFormScoped, sniffIcdCodeScoped } from '../../shared/easy-chart/sniffers';
 import { normalizeVitalIntent, VITAL_FIELDS } from '../../shared/easy-chart/vitals';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-agent';
-
-// Dosage-form keywords ordered most-specific first so "Oral Suspension" wins over "Suspension".
-const DOSE_FORM_KEYWORDS = [
-  'oral suspension',
-  'oral solution',
-  'oral tablet',
-  'extended release tablet',
-  'chewable tablet',
-  'suspension',
-  'solution',
-  'tablet',
-  'capsule',
-  'liquid',
-  'cream',
-  'ointment',
-  'drops',
-  'spray',
-  'injection',
-  'patch',
-  'inhaler',
-];
-
-function sniffDoseForm(text: string): string | undefined {
-  const lower = text.toLowerCase();
-  for (const kw of DOSE_FORM_KEYWORDS) {
-    if (lower.includes(kw)) {
-      // Capitalize first letter for downstream display ("Suspension" not "suspension").
-      return kw.charAt(0).toUpperCase() + kw.slice(1);
-    }
-  }
-  return undefined;
-}
-
-// Scope the sniff to the RIGHT side of the medication name so a form mentioned for
-// one drug doesn't contaminate another's intent in multi-med messages. Dose forms
-// in clinical prose conventionally follow the ingredient ("amoxicillin SUSPENSION").
-function sniffDoseFormScoped(text: string, display: string, searchTerms: string[]): string | undefined {
-  const needles = [...searchTerms, display].map((s) => s.trim()).filter(Boolean);
-  const lower = text.toLowerCase();
-  for (const needle of needles) {
-    const idx = lower.indexOf(needle.toLowerCase());
-    if (idx === -1) continue;
-    const start = idx + needle.length;
-    const end = Math.min(text.length, start + 40);
-    return sniffDoseForm(text.slice(start, end));
-  }
-  return undefined;
-}
-
-// ICD-10 code pattern — see planner for full notes. Used as a fallback when Gemini omits the
-// `code` field but the provider clearly dictated one.
-const ICD10_REGEX = /\b([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\b/g;
-function sniffIcdCodeScoped(text: string, display: string, searchTerms: string[]): string | undefined {
-  const needles = [display, ...searchTerms].map((s) => s.trim()).filter(Boolean);
-  const lower = text.toLowerCase();
-  for (const needle of needles) {
-    const idx = lower.indexOf(needle.toLowerCase());
-    if (idx === -1) continue;
-    const start = Math.max(0, idx - 20);
-    const end = Math.min(text.length, idx + needle.length + 60);
-    const matches = text.slice(start, end).match(ICD10_REGEX);
-    if (matches && matches.length > 0) return matches[0];
-    return undefined;
-  }
-  return undefined;
-}
-
-const KIND_VALUES = [
-  'unknown',
-  'add-allergy',
-  'add-condition',
-  'add-medication',
-  'add-surgical-history',
-  'add-hospitalization',
-  'add-diagnosis',
-  'remove-allergy',
-  'remove-condition',
-  'remove-medication',
-  'remove-surgical-history',
-  'remove-hospitalization',
-  'remove-diagnosis',
-  'set-em-code',
-  'add-cpt',
-  'remove-em-code',
-  'remove-cpt',
-  'apply-template',
-  'add-procedure',
-  'update-procedure',
-  'edit-note-text',
-  'add-exam-finding',
-  'remove-exam-finding',
-  'add-ros-finding',
-  'remove-ros-finding',
-  'add-in-house-lab',
-  'add-external-lab',
-  'add-patient-instruction',
-  'set-disposition',
-  'add-nursing-order',
-  'add-radiology',
-  'set-vital',
-] as const;
-
-const NOTE_TEXT_FIELDS = [
-  'chiefComplaint',
-  'historyOfPresentIllness',
-  'mechanismOfInjury',
-  'ros',
-  'medicalDecision',
-] as const;
-type NoteTextField = (typeof NOTE_TEXT_FIELDS)[number];
 
 const RESPONSE_SCHEMA = {
   type: 'object',
@@ -163,13 +62,6 @@ const RESPONSE_SCHEMA = {
 };
 
 const buildPrompt = (message: string, noteContext?: Partial<Record<NoteTextField, string>>): string => {
-  const noteFieldLabels: Record<NoteTextField, string> = {
-    chiefComplaint: 'Chief Complaint',
-    historyOfPresentIllness: 'History of Present Illness (HPI)',
-    mechanismOfInjury: 'Mechanism of Injury',
-    ros: 'Review of Systems',
-    medicalDecision: 'Medical Decision Making (MDM)',
-  };
   // Note: in this codebase the in-person Chief Complaint textarea is backed by the
   // historyOfPresentIllness chart-data key, and vice versa (CC <-> HPI swap). The labels
   // above describe what the provider sees, so the LLM should reason about "HPI" / "CC" by
@@ -179,10 +71,10 @@ const buildPrompt = (message: string, noteContext?: Partial<Record<NoteTextField
     for (const field of NOTE_TEXT_FIELDS) {
       const v = noteContext[field];
       if (v && v.trim()) {
-        const label = noteFieldLabels[field];
+        const label = LABELS[field];
         contextLines.push(`- ${label} (field="${field}"): """${v}"""`);
       } else {
-        contextLines.push(`- ${noteFieldLabels[field]} (field="${field}"): <empty>`);
+        contextLines.push(`- ${LABELS[field]} (field="${field}"): <empty>`);
       }
     }
   }
@@ -435,16 +327,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     4096
   );
 
-  let parsed: { intent?: unknown };
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw INVALID_INPUT_ERROR('Model returned non-JSON output');
-  }
+  // Unparseable/malformed model output is an upstream failure, not a user-input problem — raw
+  // throws (they page). INVALID_INPUT_ERROR here blamed the provider's command and hid outages.
+  const parsed = parseStructuredModelOutput(raw, 'chart intent') as { intent?: unknown };
 
   const i = parsed.intent as Record<string, unknown> | undefined;
   if (!i || typeof i !== 'object' || typeof i.kind !== 'string') {
-    throw INVALID_INPUT_ERROR('Model returned a malformed intent');
+    throw new Error('Model returned a malformed intent');
   }
 
   let intent: EasyChartAgentIntent;
@@ -573,11 +462,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       intent = { kind: 'unknown', message: "I couldn't extract what to add. Try rephrasing." };
     } else if (i.kind === 'add-diagnosis') {
       const llmCode = typeof i.code === 'string' && i.code.trim() ? i.code.trim() : undefined;
-      const code = llmCode ?? sniffIcdCodeScoped(message, display, searchTerms);
+      const code = llmCode ?? sniffIcdCodeScoped(message, display, searchTerms, detectSpeakerLabels(message));
       intent = { kind: 'add-diagnosis', display, searchTerms, isPrimary: i.isPrimary === true, code };
     } else if (i.kind === 'add-condition') {
       const llmCode = typeof i.code === 'string' && i.code.trim() ? i.code.trim() : undefined;
-      const code = llmCode ?? sniffIcdCodeScoped(message, display, searchTerms);
+      const code = llmCode ?? sniffIcdCodeScoped(message, display, searchTerms, detectSpeakerLabels(message));
       intent = { kind: 'add-condition', display, searchTerms, code };
     } else if (i.kind === 'add-medication') {
       const strength = typeof i.strength === 'string' && i.strength.trim() ? i.strength.trim() : undefined;

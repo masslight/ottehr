@@ -5,7 +5,10 @@
  *
  * Usage:
  *   npx env-cmd -f packages/zambdas/.env/local.json \
- *     npx tsx scripts/easy-chart-eval/run-planner.ts <transcriptFile>
+ *     npx tsx scripts/easy-chart-eval/run-planner.ts <transcriptFile> [chartStateFile]
+ *
+ * With a chartStateFile the planner runs in INCREMENTAL mode (the "addendum dictation" flow:
+ * chart already has content, the narrative describes what to add/change).
  */
 import { readFileSync } from 'fs';
 
@@ -16,12 +19,13 @@ function need(n: string): string {
 }
 
 async function main(): Promise<void> {
-  const file = process.argv[2];
+  const [file, chartStateFile] = process.argv.slice(2);
   if (!file) {
-    console.error('Usage: tsx run-planner.ts <transcriptFile>');
+    console.error('Usage: tsx run-planner.ts <transcriptFile> [chartStateFile]');
     process.exit(1);
   }
   const narrative = readFileSync(file, 'utf-8');
+  const chartState = chartStateFile ? readFileSync(chartStateFile, 'utf-8') : undefined;
 
   const tokenRes = await fetch(need('AUTH0_ENDPOINT'), {
     method: 'POST',
@@ -43,7 +47,7 @@ async function main(): Promise<void> {
       authorization: `Bearer ${access_token}`,
       'x-zapehr-project-id': need('PROJECT_ID'),
     },
-    body: JSON.stringify({ narrative, noteContext: {} }),
+    body: JSON.stringify({ narrative, noteContext: {}, ...(chartState ? { chartState, incremental: true } : {}) }),
   });
   console.log('HTTP', res.status);
   const j: any = await res.json();

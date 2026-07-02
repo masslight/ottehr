@@ -132,10 +132,13 @@ export async function invokeChatbotVertexAI(
   responseSchema?: object,
   model: string = DEFAULT_VERTEX_MODEL,
   onUsage?: (usage: EasyChartTokenUsage) => void,
-  // Output ceiling. Large (32k) for the planner/review whose JSON can be several thousand tokens;
-  // callers that emit a small fixed payload (e.g. the single-shot agent's one intent) should pass a
-  // SMALL value so a flash-lite runaway loop fails fast and cheap instead of burning the full ceiling.
-  maxOutputTokens = 32768
+  // OPT-IN output ceiling (the easy-chart paths pass it via invokeChatbotStructured). Large (32k)
+  // for the planner/review whose JSON can be several thousand tokens; callers that emit a small
+  // fixed payload (e.g. the single-shot agent's one intent) should pass a SMALL value so a
+  // flash-lite runaway loop fails fast and cheap. When omitted, the model defaults apply (no output
+  // cap, dynamic thinking) — long-output callers like transcription must not be truncated at an
+  // arbitrary ceiling.
+  maxOutputTokens?: number
 ): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
@@ -150,20 +153,20 @@ export async function invokeChatbotVertexAI(
     return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
   };
 
-  const backoffTimes = Array.from({ length: RETRY_COUNT }, (_, i) =>
-    // This ends up with an array of exponential backoff times with small perturbations like [ 0, 3002, 5964, 12077, 24109 ]
-    // for more information about this approach see https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
-    i === 0 ? 0 : 2 ** (i - 1) * FIRST_DELAY_MS * (1 - JITTER + Math.random() * JITTER * 2)
-  );
-
-  let resolved = false;
-  const requests = backoffTimes.map(async (backoffTime) => {
-    await new Promise((resolve) => setTimeout(resolve, backoffTime));
-
-    if (resolved) return null; // Skip if already resolved
-
+  // Sequential retry with exponential backoff (delays like ~3s, ~6s; see
+  // https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/). This used to be a
+  // timer-staggered hedge that fired the 2nd/3rd request while the first was still generating — but
+  // a planner-sized generation takes longer than the first stagger, so nearly every call ran 2-3
+  // concurrent full generations and billed all of them. Retrying only after a retryable FAILURE
+  // does the same job at 1x cost.
+  let httpResponse: Response | undefined;
+  for (let attempt = 0; attempt < RETRY_COUNT; attempt++) {
+    if (attempt > 0) {
+      const backoff = 2 ** (attempt - 1) * FIRST_DELAY_MS * (1 - JITTER + Math.random() * JITTER * 2);
+      await new Promise((resolve) => setTimeout(resolve, backoff));
+    }
     try {
-      const response = await fetch(
+      httpResponse = await fetch(
         `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${model}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
@@ -176,14 +179,16 @@ export async function invokeChatbotVertexAI(
             contents: [{ role: 'user', parts: [input] }],
             generationConfig: {
               temperature: 0,
-              // Bound thinking (these are reasoning models; uncapped, the heavier ones burn 50k+
-              // tokens "thinking" and never emit the plan — the unbounded hang we hit early on). Output
-              // itself needs real headroom: the planner now emits per-step `sourceText` provenance and
-              // a full note's plan on a large incremental can run several thousand tokens, so the old
-              // 8k cap truncated the JSON (finishReason MAX_TOKENS) and failed the whole chart. The cap
-              // only bills tokens actually generated, so a high ceiling is free unless used.
-              maxOutputTokens,
-              thinkingConfig: { thinkingBudget: 2048 },
+              // Opt-in caps (see the maxOutputTokens param note). Thinking is bounded alongside the
+              // output cap: these are reasoning models, and uncapped the heavier ones burn 50k+
+              // tokens "thinking" and never emit the plan — the unbounded hang we hit early on.
+              // Output itself needs real headroom: the planner emits per-step `sourceText`
+              // provenance and a full note's plan can run several thousand tokens, so the old 8k
+              // cap truncated the JSON (finishReason MAX_TOKENS) and failed the whole chart.
+              ...(maxOutputTokens != null && {
+                maxOutputTokens,
+                thinkingConfig: { thinkingBudget: 2048 },
+              }),
               ...(responseSchema && {
                 responseMimeType: 'application/json',
                 responseSchema,
@@ -192,23 +197,21 @@ export async function invokeChatbotVertexAI(
           }),
         }
       );
-
-      if (!response.ok && shouldRetry(response.status)) {
-        throw new Error(`Retryable error: ${response.status}`);
-      }
-
-      if (response.ok) {
-        resolved = true;
-      }
-      return response;
     } catch (error) {
+      // Network-level failure — retryable, like a 5xx.
       console.error('Error invoking Vertex AI:', error);
       captureException(error);
-      throw error;
+      if (attempt === RETRY_COUNT - 1) throw error;
+      continue;
     }
-  });
+    if (!httpResponse.ok && shouldRetry(httpResponse.status) && attempt < RETRY_COUNT - 1) {
+      console.error(`Vertex AI returned ${httpResponse.status}; retrying.`);
+      continue;
+    }
+    break;
+  }
 
-  const response = await (await Promise.any(requests))?.json();
+  const response = await httpResponse?.json();
 
   console.log(JSON.stringify(response));
   // Vertex can return a 200 with NO candidate text — finishReason MAX_TOKENS/SAFETY, a blocked
@@ -219,6 +222,12 @@ export async function invokeChatbotVertexAI(
   if (typeof text !== 'string') {
     const reason = response?.candidates?.[0]?.finishReason ?? response?.promptFeedback?.blockReason ?? 'no candidates';
     throw new Error(`Vertex AI returned no usable text (${reason})`);
+  }
+  if (response?.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+    // Partial text is NOT usable output. Returning it hands truncated JSON to the caller, which
+    // fails to parse only after invokeChatbotStructured has already returned — silently defeating
+    // the backup-model escalation that exists precisely for this failure. Throw so it fires.
+    throw new Error(`Vertex AI output truncated (MAX_TOKENS, ${model})`);
   }
   if (onUsage) {
     const u = response?.usageMetadata ?? {};
@@ -243,7 +252,8 @@ export async function invokeClaudeStructured(
   secrets: Secrets | null,
   responseSchema: object,
   model = 'claude-haiku-4-5-20251001',
-  onUsage?: (usage: EasyChartTokenUsage) => void
+  onUsage?: (usage: EasyChartTokenUsage) => void,
+  maxTokens = 8192
 ): Promise<string> {
   const ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   // Prompt caching: the easy-chart prompts lead with a fixed instruction block and place a
@@ -282,7 +292,7 @@ export async function invokeClaudeStructured(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 8192,
+      max_tokens: maxTokens,
       // claude-opus-4-8 rejects an explicit temperature ("temperature is deprecated"); other tiers
       // accept temperature: 0. Omit it for opus so the call doesn't 400.
       ...(model.includes('opus') ? {} : { temperature: 0 }),
@@ -309,6 +319,11 @@ export async function invokeClaudeStructured(
       cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
     });
   }
+  if (json.stop_reason === 'max_tokens') {
+    // A tool_use input cut mid-generation is truncated JSON — not usable output. Throw so
+    // invokeChatbotStructured's backup escalation (with a larger ceiling) fires.
+    throw new Error(`Anthropic output truncated (max_tokens, ${model})`);
+  }
   const toolUse = (json.content ?? []).find((b: { type?: string }) => b.type === 'tool_use');
   if (!toolUse) throw new Error('Anthropic returned no tool_use block');
   return JSON.stringify(toolUse.input);
@@ -316,7 +331,7 @@ export async function invokeClaudeStructured(
 
 // Backend-agnostic structured-output entry point used by the easy-chart planner. The backend is
 // chosen by the EASY_CHART_PLANNER_MODEL env/secret, formatted "<provider>:<model>" where provider
-// is `vertex` or `anthropic`. Defaults to anthropic:claude-sonnet-4-6 — a model eval across 10 urgent-
+// is `anthropic`, or `vertex` / `gemini` (aliases — both route to the Vertex path). Defaults to anthropic:claude-sonnet-4-6 — a model eval across 10 urgent-
 // care transcripts found it the most reliable at region/laterality-correct ICD-10 (8-9/10 vs flash-
 // lite's text-search failures), which let us delete the spinal-strain region hardcode in
 // easy-chart/codes.ts. Set the secret to override per-environment. Examples:
@@ -337,8 +352,11 @@ export async function invokeChatbotStructured(
     const sep = backend.indexOf(':');
     const provider = sep >= 0 ? backend.slice(0, sep) : backend;
     const model = sep >= 0 ? backend.slice(sep + 1) : '';
+    // Providers: 'anthropic' → Claude; anything else → Vertex. In practice configs use both
+    // 'vertex:' and 'gemini:' prefixes (the synth secret and easy-chart-agent say 'gemini:') —
+    // both intentionally route to the Vertex path.
     if (provider === 'anthropic') {
-      return invokeClaudeStructured(input, secrets, responseSchema, model || undefined, onUsage);
+      return invokeClaudeStructured(input, secrets, responseSchema, model || undefined, onUsage, maxTokens);
     }
     return invokeChatbotVertexAI(input, secrets, responseSchema, model || undefined, onUsage, maxTokens);
   };
@@ -353,17 +371,33 @@ export async function invokeChatbotStructured(
     return await dispatch(primary, maxOutputTokens);
   } catch (err) {
     // Primary failed (a flash-lite runaway hitting the cap, a truncated/blocked response, or a
-    // terminal API error). Escalate ONCE to the reliable backup model — it runs only on these rare
-    // failures, so its higher per-token cost stays bounded. The backup gets generous output room.
-    if (backup && backup !== primary) {
-      console.error(
-        `invokeChatbotStructured: primary "${primary}" failed (${
-          (err as Error)?.message ?? err
-        }); falling back to "${backup}".`
-      );
-      return await dispatch(backup, 32768);
+    // terminal API error). Capture it — a silent fallback masks a degrading/outaging primary model
+    // from on-call — then escalate ONCE to the backup model with generous output room. When backup
+    // === primary this is still worth one retry: truncation failures succeed at the larger ceiling.
+    console.error(
+      `invokeChatbotStructured: primary "${primary}" failed (${
+        (err as Error)?.message ?? err
+      }); falling back to "${backup}".`
+    );
+    captureException(err);
+    return await dispatch(backup, 32768);
+  }
+}
+
+// Parse a model's JSON output, recovering fenced/noisy-but-fixable output (```json fences, trailing
+// prose) via fixAndParseJsonObjectFromString before giving up. Throws a RAW Error on unparseable
+// output: that is an upstream model failure, not a user-input problem — wrapping it in an APIError
+// would blame the provider's input and hide a model outage from Sentry/on-call.
+export function parseStructuredModelOutput(raw: string, what: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    try {
+      return fixAndParseJsonObjectFromString(raw);
+    } catch {
+      console.error(`Model returned non-JSON ${what}:`, raw.slice(0, 500));
+      throw new Error(`Model returned non-JSON output for ${what}`);
     }
-    throw err;
   }
 }
 

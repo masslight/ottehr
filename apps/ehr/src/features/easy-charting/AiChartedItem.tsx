@@ -6,6 +6,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Autocomplete,
   Box,
+  Button,
   Checkbox,
   ClickAwayListener,
   FormControlLabel,
@@ -15,6 +16,8 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { captureException } from '@sentry/react';
+import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 
 /** One alternative offered when correcting an item. `key` round-trips back to the caller. */
@@ -42,6 +45,9 @@ interface AiChartedItemProps {
   /** Reasoning when this item was added by the post-chart REVIEW pass (not the original dictation).
    * Shown on hover + a "· review" tag, so the provider reviews the suggestion in place. */
   reviewNote?: string;
+  /** A caution the provider must weigh before confirming — e.g. the dictation called this
+   * diagnosis SUSPECTED / pending confirmation. Prepended to the hover. */
+  caution?: string;
   /** Name of the chart template this item came from (a default for that presentation, not the
    * dictation), shown on hover so the provider verifies it fits this visit. */
   templateName?: string;
@@ -61,6 +67,10 @@ interface AiChartedItemProps {
   // "Patient denies"). Toggling it updates the CURRENT item in place via onChange; its state is also
   // passed to onReplace so a chosen replacement inherits it.
   checkboxOption?: { label: string; checked: boolean; onChange: (checked: boolean) => void };
+  // FREE-TEXT rows (exam section notes): clicking edits the text itself in a multiline field
+  // instead of opening the search-and-replace picker. `value` is the raw stored text; `label`
+  // captions the editor so it's obvious WHAT is being edited ("Extremities — exam note").
+  editText?: { value: string; label: string; onSave: (newText: string) => void | Promise<void> };
 }
 
 /**
@@ -77,6 +87,7 @@ export function AiChartedItem({
   inferred,
   sourceText,
   reviewNote,
+  caution,
   templateName,
   onConfirm,
   initialQuery,
@@ -86,6 +97,7 @@ export function AiChartedItem({
   onDiscuss,
   hideDiscuss,
   checkboxOption,
+  editText,
 }: AiChartedItemProps): JSX.Element {
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState(initialQuery);
@@ -109,7 +121,15 @@ export function AiChartedItem({
       onSearchRef
         .current(q)
         .then((r) => !cancelled && setOptions(r))
-        .catch(() => !cancelled && setOptions([]))
+        .catch((e) => {
+          // A failed search must not masquerade as "no matches" — say so and report it.
+          console.error('AI item search failed:', e);
+          captureException(e);
+          if (!cancelled) {
+            setOptions([]);
+            enqueueSnackbar('Search failed — please try again.', { variant: 'error' });
+          }
+        })
         .finally(() => !cancelled && setLoading(false));
     }, 250);
     return () => {
@@ -119,12 +139,55 @@ export function AiChartedItem({
   }, [query, editing]);
 
   const startEditing = (): void => {
-    setQuery(initialQuery);
+    setQuery(editText ? editText.value : initialQuery);
     setOptChecked(!!checkboxOption?.checked);
     setOptions([]);
     setEditing(true);
   };
   const stopEditing = (): void => setEditing(false);
+
+  if (editing && editText) {
+    // Free-text mode: this row IS prose (an exam section note), so editing means editing the
+    // text — no checkbox search involved. Saving empty text is the same as removing the note.
+    return (
+      <ClickAwayListener onClickAway={stopEditing}>
+        <Stack spacing={0.75} sx={{ width: '100%', py: 0.25 }}>
+          <Typography variant="caption" color="text.secondary">
+            {editText.label} — free-text note
+          </Typography>
+          <TextField
+            size="small"
+            multiline
+            minRows={2}
+            fullWidth
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => {
+                const next = query.trim();
+                stopEditing();
+                if (next === editText.value.trim()) return;
+                void (next ? editText.onSave(next) : onRemove());
+              }}
+            >
+              Save
+            </Button>
+            <Button size="small" onClick={stopEditing}>
+              Cancel
+            </Button>
+            <Button size="small" color="error" startIcon={<CloseIcon />} onClick={() => void onRemove()}>
+              Remove
+            </Button>
+          </Stack>
+        </Stack>
+      </ClickAwayListener>
+    );
+  }
 
   if (editing) {
     return (
@@ -242,7 +305,7 @@ export function AiChartedItem({
 
   // Hover hint: the review-pass reasoning, the source phrase for a traceable item, or an explicit
   // "inferred" note for one the planner couldn't tie to the dictation. Provider-entered items: none.
-  const provenanceHint = reviewNote
+  const baseHint = reviewNote
     ? `Suggested by note review: ${reviewNote}`
     : sourceText
     ? `Charted from the dictation: “${sourceText}”`
@@ -255,6 +318,7 @@ export function AiChartedItem({
       // highlighted so a flagged item is never hover-less.
       'Added by the assistant — review it, then confirm (✓) or correct it.'
     : undefined;
+  const provenanceHint = caution ? [`⚠ ${caution}`, baseHint].filter(Boolean).join(' ') : baseHint;
 
   return (
     <Box

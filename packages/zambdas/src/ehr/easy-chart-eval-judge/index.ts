@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotVertexAI } from '../../shared/ai';
+import { invokeChatbotVertexAI, parseStructuredModelOutput } from '../../shared/ai';
+import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-eval-judge';
 
@@ -153,26 +153,15 @@ ${plannerSteps}
 `;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  if (!input.body) {
-    throw new Error('No request body provided');
-  }
-  const parsed = JSON.parse(input.body) as Record<string, unknown>;
-  const { transcript, goldNote, plannerSteps } = parsed;
-  if (typeof transcript !== 'string' || !transcript.trim()) throw MISSING_REQUIRED_PARAMETERS(['transcript']);
-  if (typeof goldNote !== 'string' || !goldNote.trim()) throw MISSING_REQUIRED_PARAMETERS(['goldNote']);
-  const stepsStr = typeof plannerSteps === 'string' ? plannerSteps : JSON.stringify(plannerSteps ?? [], null, 2);
+  const { transcript, goldNote, plannerSteps } = validateRequestParameters(input);
 
   const raw = await invokeChatbotVertexAI(
-    [{ text: buildPrompt(transcript, goldNote, stepsStr) }],
+    [{ text: buildPrompt(transcript, goldNote, plannerSteps) }],
     input.secrets,
     RESPONSE_SCHEMA
   );
 
-  let scorecard: unknown;
-  try {
-    scorecard = JSON.parse(raw);
-  } catch {
-    throw INVALID_INPUT_ERROR('Judge returned non-JSON output');
-  }
+  // Non-JSON judge output is an upstream model failure, not a caller mistake — raw throw (pages).
+  const scorecard = parseStructuredModelOutput(raw, 'eval-judge scorecard');
   return { statusCode: 200, body: JSON.stringify(scorecard) };
 });

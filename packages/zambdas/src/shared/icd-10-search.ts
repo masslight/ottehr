@@ -28,13 +28,22 @@ interface Icd10Code {
   display: string;
 }
 
-let cachedCodes: Icd10Code[] | null = null;
+// Cache the IN-FLIGHT promise, not just the finished result: concurrent first callers on a cold
+// start (a plan validating several diagnoses at once) must share one XML parse instead of each
+// paying the full multi-second load. A failed load clears the cache so the next call retries.
+let cachedCodesPromise: Promise<Icd10Code[]> | null = null;
 
-export async function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
-  if (cachedCodes) {
-    return cachedCodes;
+export function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
+  if (!cachedCodesPromise) {
+    cachedCodesPromise = doLoadAndParseIcd10Data().catch((e) => {
+      cachedCodesPromise = null;
+      throw e;
+    });
   }
+  return cachedCodesPromise;
+}
 
+async function doLoadAndParseIcd10Data(): Promise<Icd10Code[]> {
   console.log('Loading and parsing ICD-10-CM data...');
 
   const xmlFilePath = './icd-10-cm-tabular/icd10cm_tabular_2026.xml';
@@ -118,8 +127,47 @@ export async function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
   }
 
   console.log(`Loaded ${codes.length} billable ICD-10-CM codes`);
-  cachedCodes = codes;
   return codes;
+}
+
+// Latin/anatomical ↔ common-name synonyms for the fuzzy word match. Providers dictate region
+// qualifiers in whichever register comes to mind ("cervical strain", "lumbar strain") while the
+// ICD-10 displays often use the other ("… at neck level", "… of lower back") — without this the
+// region word silently fails to match and the ranking falls back to same-disease codes for the
+// WRONG body region. Conservative, unambiguous pairs only; multi-word synonyms are checked
+// against the whole display string.
+const WORD_SYNONYMS: Record<string, string[]> = {
+  cervical: ['neck'],
+  neck: ['cervical'],
+  lumbar: ['lower back', 'lumbosacral'],
+  thoracic: ['chest wall'],
+  renal: ['kidney'],
+  kidney: ['renal'],
+  cardiac: ['heart'],
+  heart: ['cardiac'],
+  hepatic: ['liver'],
+  liver: ['hepatic'],
+  hives: ['urticaria'],
+  thigh: ['lower limb'],
+  paronychia: ['cellulitis'],
+  breast: ['mastitis', 'mammary'],
+  toe: ['foot'],
+  palm: ['hand'],
+  allergic: ['allergy'],
+  allergy: ['allergic'],
+  amoxicillin: ['penicillin', 'penicillins'],
+  augmentin: ['penicillin', 'penicillins'],
+  drug: ['medicament', 'medication'],
+  calf: ['lower limb', 'lower leg'],
+  shin: ['lower leg', 'lower limb'],
+};
+
+function wordMatchesDisplay(searchWord: string, displayWords: string[], normalizedDisplay: string): boolean {
+  if (displayWords.some((w) => w.includes(searchWord))) return true;
+  for (const syn of WORD_SYNONYMS[searchWord] ?? []) {
+    if (syn.includes(' ') ? normalizedDisplay.includes(syn) : displayWords.some((w) => w.includes(syn))) return true;
+  }
+  return false;
 }
 
 export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]> {
@@ -150,7 +198,13 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
     // display. Lets laterality and type words ("left", "atopic") pull the right specific code up.
     let covered = 0;
     for (const t of searchTokens) {
-      if (displaySet.has(t) || displayTokens.some((d) => d.startsWith(t))) covered++;
+      if (
+        displaySet.has(t) ||
+        displayTokens.some((d) => d.startsWith(t)) ||
+        wordMatchesDisplay(t, displayTokens, normalizedDisplay)
+      ) {
+        covered++;
+      }
     }
     const coverage = searchTokens.length ? covered / searchTokens.length : 0;
 
@@ -166,7 +220,19 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
     // not a severe/complicated sibling that ties on the same tier (e.g. "Migraine" → G43.909
     // "not intractable, without status migrainosus", NOT G43.911 "intractable, with status
     // migrainosus"). Only penalize complication qualifiers the provider did NOT ask for.
-    const COMPLICATIONS = ['intractable', 'with status migrainosus', 'with tophus', 'with complication'];
+    const COMPLICATIONS = [
+      'intractable',
+      'with status migrainosus',
+      'with tophus',
+      'with complication',
+      'granulomatous',
+      'gangrenous',
+      'tuberculous',
+      'congenital',
+      'neonatorum',
+      'puerperal',
+      'malignant',
+    ];
     const askedComplication = COMPLICATIONS.some((c) => normalizedSearch.includes(c.split(' ')[0]));
     let complicationPenalty = 0;
     if (!askedComplication) {
@@ -174,6 +240,14 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
       if (/(^|[^t])\bwith\b/.test(normalizedDisplay)) complicationPenalty += 8; // "with <complication>"
       if (/\bintractable\b/.test(normalizedDisplay) && !/\bnot intractable\b/.test(normalizedDisplay))
         complicationPenalty += 8;
+      // Rare-variant qualifiers ("GRANULOMATOUS mastitis", "gangrenous …") the provider did not
+      // dictate: penalize enough to outweigh their laterality-coverage edge over the common base
+      // code ("Mastitis without abscess"), which often lacks the anatomy word entirely.
+      for (const c of COMPLICATIONS) {
+        if (!normalizedSearch.includes(c.split(' ')[0]) && normalizedDisplay.includes(c)) {
+          complicationPenalty += 20;
+        }
+      }
     }
 
     // (e) Encounter-type penalty for injury / external-cause codes (ICD-10 7th character). An
@@ -200,6 +274,11 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
     const normalizedDisplay = code.display.toLowerCase();
 
     let tier = 0;
+    // Headroom available for the within-tier refinement nudge: 100 between the fixed tiers, but
+    // only 100/searchWords between adjacent word-count tiers in the partial-fuzzy band — set there.
+    let tierGap = 100;
+    // Partial-fuzzy head-word preference (see below); zero everywhere else.
+    let headBonus = 0;
 
     // Exact code match (highest priority)
     if (normalizedCode === normalizedSearch) {
@@ -227,30 +306,69 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
     }
     // Fuzzy match: display contains all words from search term
     else {
-      const searchWords = normalizedSearch.split(/\s+/).filter((word) => word.length > 0);
+      const rawWords = normalizedSearch.split(/[\s,]+/).filter((word) => word.length > 0);
+      // Qualifier words (laterality, acuity, glue) must not count toward match strength — they
+      // are how "Fibroadenosis of RIGHT BREAST" outranked "MASTITIS without abscess" for
+      // "mastitis of right breast" (2 shared qualifiers beat 1 shared condition word), and how
+      // "ACUTE lymphangitis" beat cellulitis for "acute paronychia". They still influence the
+      // within-tier refinement (coverage/laterality), just not the tier itself.
+      const QUALIFIER_WORDS = new Set([
+        'right',
+        'left',
+        'bilateral',
+        'acute',
+        'chronic',
+        'unspecified',
+        'of',
+        'the',
+        'and',
+        'with',
+        'without',
+        'to',
+        'in',
+        'due',
+        'on',
+        'at',
+        'mild',
+        'moderate',
+        'severe',
+      ]);
+      const contentWords = rawWords.filter((w) => !QUALIFIER_WORDS.has(w));
+      const searchWords = contentWords.length > 0 ? contentWords : rawWords;
       const displayWords = normalizedDisplay.split(/\s+/);
 
       let matchingWords = 0;
       for (const searchWord of searchWords) {
-        for (const displayWord of displayWords) {
-          if (displayWord.includes(searchWord)) {
-            matchingWords++;
-            break;
-          }
-        }
+        if (wordMatchesDisplay(searchWord, displayWords, normalizedDisplay)) matchingWords++;
       }
 
       if (matchingWords === searchWords.length) {
         tier = 400;
       } else if (matchingWords > 0) {
         tier = 200 + (matchingWords / searchWords.length) * 100;
+        tierGap = 100 / searchWords.length;
+        // Head-word preference for same-word-count ties: the condition noun must outrank
+        // qualifier-only matches. In "[site] [condition]" phrasing ("cervical STRAIN") the head
+        // is the LAST content word; in "[condition] of [site]" phrasing ("MASTITIS of right
+        // breast") it is the FIRST. Half the gap goes to the head match; refinement shrinks to
+        // the remaining half so the word-count invariant still holds.
+        // Condition-first phrasings: "mastitis OF right breast", "paronychia, right index finger"
+        const conditionFirst = / of |,/.test(normalizedSearch);
+        const headWord = conditionFirst ? searchWords[0] : searchWords[searchWords.length - 1];
+        if (wordMatchesDisplay(headWord, displayWords, normalizedDisplay)) {
+          headBonus = tierGap / 2;
+        }
+        tierGap = tierGap / 2;
       }
     }
 
     if (tier > 0) {
       // Exact code match needs no re-ranking; everything else gets the within-tier nudge so the
       // clinically-default code surfaces near the top instead of being buried by document order.
-      const score = tier === 1000 ? tier : tier + refinement(normalizedDisplay);
+      // The nudge is scaled to the tier's actual headroom (tierGap) so it can never cross into the
+      // tier above — a code matching more of the provider's words must ALWAYS outrank one matching
+      // fewer, no matter how "clinically default" the lesser match looks.
+      const score = tier === 1000 ? tier : tier + headBonus + (refinement(normalizedDisplay) * tierGap) / 100;
       matches.push({ code, score });
     }
   }

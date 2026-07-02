@@ -128,3 +128,46 @@ describe('icd-10-search tests', () => {
     });
   });
 });
+
+describe('icd-10-search ranking (clinical-default + region synonyms + head word)', () => {
+  const top = async (q: string): Promise<string> => (await searchIcd10Codes(q))[0]?.code ?? '(none)';
+
+  it('picks the base/unspecified code for bare disease names', async () => {
+    expect(await top('gout')).toBe('M10.9');
+    expect(await top('migraine')).toBe('G43.909');
+    expect(await top('headache')).toBe('R51.9');
+  });
+
+  it('resolves Latin region qualifiers via synonyms (cervical→neck, lumbar→lower back)', async () => {
+    expect(await top('cervical strain')).toBe('S16.1XXA');
+    expect(await top('lumbar strain')).toBe('S39.012A');
+  });
+
+  it('matches common names for Latin-only displays (hives→urticaria)', async () => {
+    expect(await top('hives')).toBe('L50.9');
+  });
+
+  it('prefers the head-word disease over a qualifier-only match', async () => {
+    // "cervical strain" must resolve to a STRAIN, never a same-region different disease
+    // (the old ranking picked M40.202 kyphosis because only "cervical" matched).
+    const results = await searchIcd10Codes('cervical strain');
+    expect(results[0].display.toLowerCase()).toContain('strain');
+  });
+
+  it('ranks initial encounter above subsequent/sequela for acute-visit searches', async () => {
+    const results = await searchIcd10Codes('neck strain');
+    const codes = results.map((c) => c.code);
+    expect(codes.indexOf('S16.1XXA')).toBeLessThan(codes.indexOf('S16.1XXD'));
+    expect(codes.indexOf('S16.1XXA')).toBeLessThan(codes.indexOf('S16.1XXS'));
+  });
+});
+
+// Body-part phrasing: ICD-10 files limb abscesses under "lower limb", never "thigh" — without the
+// synonym the tendon-sheath code (M65.051, literal "thigh") outranked the cutaneous abscess.
+import { searchIcd10Codes as search2 } from '../src/shared/icd-10-search';
+describe('icd-10 body-part phrasing', () => {
+  it('cutaneous abscess of right thigh → L02.415 (cutaneous, right lower limb), not tendon sheath', async () => {
+    const res = await search2('cutaneous abscess of right thigh');
+    expect(res[0].code).toBe('L02.415');
+  });
+});

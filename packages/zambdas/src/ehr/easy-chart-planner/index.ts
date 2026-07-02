@@ -1,18 +1,29 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import {
   chunkThings,
+  EASY_CHART_INTENT_KINDS as KIND_VALUES,
+  EASY_CHART_NOTE_TEXT_FIELD_LABELS as LABELS,
+  EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
+  EasyChartNoteTextField as NoteTextField,
   EasyChartPlannerOutput,
   EasyChartPlannerStep,
   EasyChartTokenUsage,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  INVALID_INPUT_ERROR,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { invokeChatbotStructured } from '../../shared/ai';
-import { resolveCptHcpcs, resolveIcd, STRICT_ICD10 } from '../../shared/easy-chart/codes';
-import { normalizeVitalIntent } from '../../shared/easy-chart/vitals';
+import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
+import { STRICT_ICD10, validateIntentCode } from '../../shared/easy-chart/codes';
+import { fetchPatientContext } from '../../shared/easy-chart/patient-context';
+import {
+  detectSpeakerLabels,
+  recoverSourceText,
+  sniffDoseFormScoped,
+  sniffIcdCodeScoped,
+} from '../../shared/easy-chart/sniffers';
+import { normalizeVitalIntent, sniffVitalsFromNarrative } from '../../shared/easy-chart/vitals';
 import { createOystehrClient } from '../../shared/helpers';
 import { findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -54,121 +65,6 @@ async function fetchTemplateTitles(oystehr: Oystehr): Promise<string[]> {
 }
 
 const ZAMBDA_NAME = 'easy-chart-planner';
-
-// Dosage-form keywords ordered most-specific first so "Oral Suspension" wins over "Suspension".
-// Kept in sync with the equivalent list in easy-chart-agent.
-const DOSE_FORM_KEYWORDS = [
-  'oral suspension',
-  'oral solution',
-  'oral tablet',
-  'extended release tablet',
-  'chewable tablet',
-  'suspension',
-  'solution',
-  'tablet',
-  'capsule',
-  'liquid',
-  'cream',
-  'ointment',
-  'drops',
-  'spray',
-  'injection',
-  'patch',
-  'inhaler',
-];
-
-function sniffDoseForm(text: string): string | undefined {
-  const lower = text.toLowerCase();
-  for (const kw of DOSE_FORM_KEYWORDS) {
-    if (lower.includes(kw)) {
-      return kw.charAt(0).toUpperCase() + kw.slice(1);
-    }
-  }
-  return undefined;
-}
-
-// Scope the sniff to the RIGHT side of the medication name only, since dose forms in clinical
-// prose conventionally follow the ingredient ("amoxicillin SUSPENSION 400 mg/5 mL"). A tight
-// 40-char forward window avoids bleeding into the next medication's form. Looking before the
-// name (e.g. amoxicillin's "suspension" landing in acetaminophen's intent) was the bug.
-function sniffDoseFormScoped(narrative: string, display: string, searchTerms: string[]): string | undefined {
-  const needles = [...searchTerms, display].map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean);
-  const narrativeLower = narrative.toLowerCase();
-  for (const needle of needles) {
-    const idx = narrativeLower.indexOf(needle.toLowerCase());
-    if (idx === -1) continue;
-    const start = idx + needle.length;
-    const end = Math.min(narrative.length, start + 40);
-    const window = narrative.slice(start, end);
-    const sniffed = sniffDoseForm(window);
-    if (sniffed) return sniffed;
-    // First hit decides — don't bleed into the next med's window.
-    return undefined;
-  }
-  return undefined;
-}
-
-// ICD-10 codes follow a strict pattern: letter, 2 digits, optional ".digits", optional trailing
-// alpha. Examples that should match: I10, H66.91, S93.421A, S72.142A, L23.7, M40.12, S13.4XXA.
-// Used as a fallback when the LLM omits the `code` field but the narrative clearly carries one
-// (most synth narratives spell the code in parentheses after the diagnosis name).
-const ICD10_REGEX = /\b([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\b/g;
-
-// Ambient-scribe transcripts tag every line with a speaker label ("DOCTOR X31", "PATIENT X31",
-// "Speaker 1"). When that label happens to match the ICD-10 shape (X31 → [A-TV-Z][0-9][A-Z0-9])
-// the code sniffer grabs it as a diagnosis code — the single most embarrassing class of bug in
-// the planner audit. Any code-shaped token that RECURS across the narrative is structural noise
-// (a speaker tag), never a one-off diagnosis code: a real ICD-10 code is spelled once or twice.
-// Collect those tokens (uppercased) so the sniffer and the post-parse validation both refuse them.
-function detectSpeakerLabels(narrative: string): Set<string> {
-  const labels = new Set<string>();
-  // 1. Token that follows a speaker role at the start of a line ("DOCTOR X31", "PATIENT X31").
-  const roleRe = /^[ \t]*(?:DOCTOR|PATIENT|NURSE|PROVIDER|CLINICIAN|MA|RN|SPEAKER)\b[ \t]*([A-Za-z0-9]+)/gim;
-  let m: RegExpExecArray | null;
-  while ((m = roleRe.exec(narrative)) !== null) {
-    if (m[1]) labels.add(m[1].toUpperCase());
-  }
-  // 2. Any code-shaped token recurring >= 3 times is a label/noise, not a real one-off code.
-  const counts = new Map<string, number>();
-  const all = narrative.match(ICD10_REGEX);
-  if (all) {
-    for (const t of all) {
-      const u = t.toUpperCase();
-      counts.set(u, (counts.get(u) ?? 0) + 1);
-    }
-    for (const [t, n] of counts) {
-      if (n >= 3) labels.add(t);
-    }
-  }
-  return labels;
-}
-
-function sniffIcdCodeScoped(
-  narrative: string,
-  display: string,
-  searchTerms: string[],
-  speakerLabels: Set<string>
-): string | undefined {
-  const needles = [display, ...searchTerms].map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean);
-  const narrativeLower = narrative.toLowerCase();
-  for (const needle of needles) {
-    const idx = narrativeLower.indexOf(needle.toLowerCase());
-    if (idx === -1) continue;
-    // Look in a ~80-char window around the diagnosis name — narrative usually says
-    // "Acute otitis media, right ear (H66.91)" with the code immediately following.
-    const start = Math.max(0, idx - 20);
-    const end = Math.min(narrative.length, idx + needle.length + 60);
-    const window = narrative.slice(start, end);
-    const matches = window.match(ICD10_REGEX);
-    if (matches && matches.length > 0) {
-      // Skip any candidate that is actually a recurring speaker label (e.g. "X31").
-      const good = matches.find((c) => !speakerLabels.has(c.toUpperCase()));
-      if (good) return good;
-    }
-    return undefined;
-  }
-  return undefined;
-}
 
 // Normalize a problem label for cross-step duplicate detection (PMH add-condition vs encounter
 // add-diagnosis). Conservative: case-fold, strip punctuation, collapse whitespace. Only exact
@@ -221,51 +117,6 @@ function parseFollowUpDays(text: string): number | null {
   }
   return null;
 }
-
-// Mirror the agent's intent kinds — the planner emits the same shape, just as a list.
-const KIND_VALUES = [
-  'unknown',
-  'add-allergy',
-  'add-condition',
-  'add-medication',
-  'add-surgical-history',
-  'add-hospitalization',
-  'add-diagnosis',
-  'remove-allergy',
-  'remove-condition',
-  'remove-medication',
-  'remove-surgical-history',
-  'remove-hospitalization',
-  'remove-diagnosis',
-  'set-em-code',
-  'add-cpt',
-  'remove-em-code',
-  'remove-cpt',
-  'apply-template',
-  'add-procedure',
-  'update-procedure',
-  'edit-note-text',
-  'add-exam-finding',
-  'remove-exam-finding',
-  'add-ros-finding',
-  'remove-ros-finding',
-  'set-vital',
-  'add-external-lab',
-  'add-in-house-lab',
-  'add-patient-instruction',
-  'set-disposition',
-  'add-nursing-order',
-  'add-radiology',
-] as const;
-
-const NOTE_TEXT_FIELDS = [
-  'chiefComplaint',
-  'historyOfPresentIllness',
-  'mechanismOfInjury',
-  'ros',
-  'medicalDecision',
-] as const;
-type NoteTextField = (typeof NOTE_TEXT_FIELDS)[number];
 
 export const RESPONSE_SCHEMA = {
   type: 'object',
@@ -323,23 +174,17 @@ export const buildPrompt = (
   noteContext?: Partial<Record<NoteTextField, string>>,
   templateTitles?: string[],
   chartState?: string,
-  patientContext?: string
+  patientContext?: string,
+  incremental?: boolean
 ): string => {
-  const labels: Record<NoteTextField, string> = {
-    chiefComplaint: 'Chief Complaint',
-    historyOfPresentIllness: 'History of Present Illness (HPI)',
-    mechanismOfInjury: 'Mechanism of Injury',
-    ros: 'Review of Systems',
-    medicalDecision: 'Medical Decision Making (MDM)',
-  };
   const contextLines: string[] = [];
   if (noteContext) {
     for (const field of NOTE_TEXT_FIELDS) {
       const v = noteContext[field];
       contextLines.push(
         v && v.trim()
-          ? `- ${labels[field]} (field="${field}"): """${v}"""`
-          : `- ${labels[field]} (field="${field}"): <empty>`
+          ? `- ${LABELS[field]} (field="${field}"): """${v}"""`
+          : `- ${LABELS[field]} (field="${field}"): <empty>`
       );
     }
   }
@@ -362,13 +207,21 @@ export const buildPrompt = (
           .join('\n')}\n`
       : '';
 
-  // When chart state is supplied (a post-template re-plan, or a follow-up message charted onto an
-  // already-written note) the NARRATIVE is an INCREMENTAL addition, NOT a fresh full note — so the
-  // LLM must chart only what's NEW and never re-document what's already there. Without this guard a
-  // short "also send a script for X" snippet gets re-expanded into a whole note (re-editing the
-  // chief complaint, re-setting the E&M, re-deriving symptom diagnoses).
+  // Two flavors of "what's already on the chart":
+  //  - incremental (a post-template re-plan, or a follow-up message charted onto an already-written
+  //    note): the NARRATIVE is an INCREMENTAL addition, NOT a fresh full note — the LLM must chart
+  //    only what's NEW and never re-document what's already there. Without this guard a short "also
+  //    send a script for X" snippet gets re-expanded into a whole note (re-editing the chief
+  //    complaint, re-setting the E&M, re-deriving symptom diagnoses).
+  //  - NOT incremental but chartState present (the FIRST full dictation for a patient whose chart
+  //    already carries intake-harvested history — paperwork allergies/meds/conditions): plan the
+  //    full note as normal, INCLUDING apply-template; just don't duplicate the listed items.
+  //    Treating this case as incremental was a bug — every patient with intake history silently
+  //    lost the template/exam/MDM scaffolding on their first dictation.
   const chartStateBlock = chartState
-    ? `\nALREADY ON THE CHART — the note has already been charted and the NARRATIVE above is an INCREMENTAL addition. Emit steps ONLY for information the narrative NEWLY introduces; do NOT re-document anything already present. Specifically: no add-* step for an item listed below; no set-em-code when an E&M is already listed below; and no edit-note-text for a free-text field (Chief Complaint / HPI / Mechanism of Injury / MDM) that the "Current free-text fields" block shows is already non-empty, UNLESS this narrative supplies new wording for that exact field. Do NOT emit apply-template again.\n${chartState}\n`
+    ? incremental
+      ? `\nALREADY ON THE CHART — the note has already been charted and the NARRATIVE above is an INCREMENTAL addition. Emit steps ONLY for information the narrative NEWLY introduces; do NOT re-document anything already present. Specifically: no add-* step for an item listed below; no set-em-code when an E&M is already listed below; and no edit-note-text for a free-text field (Chief Complaint / HPI / Mechanism of Injury / MDM) that the "Current free-text fields" block shows is already non-empty, UNLESS this narrative supplies new wording for that exact field. Do NOT emit apply-template again.\n${chartState}\n`
+      : `\nALREADY ON THE CHART — the items below already exist (typically history harvested from intake paperwork), but the note itself has NOT been written yet: the NARRATIVE above is the FIRST full dictation for this visit. Plan the full note as normal — apply-template when one fits, exam findings, E&M, and free-text fields. Do NOT emit an add-* step that duplicates an item listed below, and do NOT re-set an E&M code if one is already listed below.\n${chartState}\n`
     : '';
 
   // PROMPT ORDER MATTERS: keep the static instructions (and the per-practice template list) as a
@@ -474,11 +327,17 @@ doesn't mention):
   3b. Vitals (set-vital) — emit ONE set-vital for EACH vital sign the narrative states (temperature,
      heart rate, respiration rate, blood pressure, oxygen saturation, weight, height). Pass the value
      and its unit exactly as stated (e.g. Temp "98.9" unit "F"); the client converts to the stored
-     unit. Do not invent vitals the narrative doesn't give.
+     unit. Do not invent vitals the narrative doesn't give. If the SAME vital was measured more than
+     once (an initial reading and a recheck), emit a separate set-vital for EACH reading in order —
+     serial measurements all belong on the chart. Every set-vital must carry its number in "display".
   4. Exam findings (add-exam-finding / remove-exam-finding). When a template was applied, ONLY
      emit add-exam-finding for ABNORMAL findings (or normal findings the narrative specifically
      calls out that the template doesn't cover by default). Templates already check the default
      normal findings for that section — don't re-add them.
+     WHEN NO TEMPLATE MATCHES the visit, the exam section starts EMPTY: emit an add-exam-finding for
+     EVERY dictated exam finding, including the pertinent NORMALS ("regular rate and rhythm without
+     murmurs", "lungs clear bilaterally", "neuro intact", "5/5 strength", "normal gait") — anything
+     you do not emit is simply absent from the note. Emit each finding as its own step.
      RECONCILE CONTRADICTIONS: an applied template fills in a FULL normal physical exam. When the
      narrative states an ABNORMAL finding, the template's matching NORMAL finding is now wrong and
      must be removed so the note is not self-contradictory. For each normal finding in the
@@ -520,7 +379,9 @@ doesn't mention):
      stated and on ASSOCIATED symptoms in OTHER systems than the chief complaint; you need not
      mechanically re-list every chief-complaint phrase from the HPI as its own ROS finding (a couple
      of the key presenting symptoms is plenty — the HPI already carries the full story). Record each
-     pertinent negative the provider explicitly denied.
+     pertinent negative the provider explicitly denied. ALSO record dictated pertinent POSITIVES in
+     other systems as finding="reports" ("She has a mild headache" → {kind:"add-ros-finding",
+     display:"Reports headache", ...}) — positives outside the chief complaint are easy to lose.
   5. Diagnoses (add-diagnosis — mark isPrimary=true for exactly ONE primary; all other diagnoses
      are secondary with isPrimary=false). Emit a SEPARATE add-diagnosis for EVERY distinct
      diagnosis the provider made this visit — many encounters have 2-3 (e.g. "otitis media AND
@@ -549,6 +410,18 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
 
 - add-external-lab / add-in-house-lab: { kind, display, searchTerms[1-3] } — the test's common name,
   e.g. {kind:"add-external-lab", display:"CBC", searchTerms:["complete blood count","CBC"]}.
+  ONLY for tests the provider is ORDERING (to be performed). When the narrative reports a test that
+  was ALREADY performed with its results ("urinalysis showed positive nitrites"), do NOT order it —
+  emit a provider-note instead (see below) telling the provider to enter the result through the
+  regular labs flow, quoting the dictated result values.
+
+- provider-note: { kind, text } — a message for the PROVIDER (rendered in the chat, never written to
+  the chart) for anything dictated that these actions CANNOT chart. Use it for: results of tests
+  already performed ("Enter the urinalysis result in the In-House Labs flow: positive nitrites, 2+
+  leukocyte esterase, trace blood"), prescriptions to transmit ("Send the Erythromycin prescription
+  by eRx — I charted the medication but cannot transmit prescriptions"), and any other dictated
+  instruction that requires the provider to act in the regular chart. Keep each note to one or two
+  sentences; emit at most a few per plan; never use it to duplicate something another action charts.
 
 - set-vital: { kind, field, display }. field is one of vital-temperature, vital-heartbeat,
   vital-respiration-rate, vital-oxygen-sat, vital-blood-pressure, vital-weight, vital-height.
@@ -846,24 +719,44 @@ ${patientBlock}${contextBlock}${chartStateBlock}`;
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { narrative, noteContext, chartState, secrets } = validateRequestParameters(input);
+  const { narrative, noteContext, chartState, encounterId, incremental, secrets } = validateRequestParameters(input);
 
-  // Fetch available templates so the planner can suggest a real one. Best-effort — if the
-  // lookup fails (network, M2M auth, missing holder list), proceed without templates so the
-  // planner still produces a useful decomposition without apply-template suggestions.
+  // Fetch available templates (so the planner can suggest a real one) and the encounter's Patient
+  // (the authoritative PATIENT block that anchors the note's demographics against transcript
+  // cross-talk). Both best-effort — the planner still produces a useful decomposition without
+  // them — but every failure is captured: these silently degrading for days IS the incident.
   let templateTitles: string[] = [];
+  let patientContext: string | undefined;
   let oystehr: Oystehr | undefined;
   try {
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     oystehr = createOystehrClient(m2mToken, secrets);
-    templateTitles = await fetchTemplateTitles(oystehr);
   } catch (e) {
-    console.warn('Planner: template-list fetch failed, proceeding without:', e);
+    console.warn('Planner: Oystehr client init failed, proceeding without templates/patient:', e);
+    captureException(e);
+  }
+  if (oystehr) {
+    const [titlesRes, patientRes] = await Promise.allSettled([
+      fetchTemplateTitles(oystehr),
+      encounterId ? fetchPatientContext(oystehr, encounterId) : Promise.resolve(undefined),
+    ]);
+    if (titlesRes.status === 'fulfilled') {
+      templateTitles = titlesRes.value;
+    } else {
+      console.warn('Planner: template-list fetch failed, proceeding without:', titlesRes.reason);
+      captureException(titlesRes.reason);
+    }
+    if (patientRes.status === 'fulfilled') {
+      patientContext = patientRes.value;
+    } else {
+      console.warn('Planner: patient-context fetch failed, proceeding without:', patientRes.reason);
+      captureException(patientRes.reason);
+    }
   }
 
   let usage: EasyChartTokenUsage | undefined;
   const raw = await invokeChatbotStructured(
-    [{ text: buildPrompt(narrative, noteContext, templateTitles, chartState) }],
+    [{ text: buildPrompt(narrative, noteContext, templateTitles, chartState, patientContext, incremental) }],
     secrets,
     RESPONSE_SCHEMA,
     undefined,
@@ -872,14 +765,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   );
 
-  let parsed: { steps?: unknown };
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw INVALID_INPUT_ERROR('Model returned non-JSON output');
-  }
+  // Unparseable/malformed model output is an upstream failure, not a user-input problem — raw
+  // throws (they page). Wrapping these in INVALID_INPUT_ERROR blamed the provider's narrative and
+  // hid model outages from Sentry.
+  const parsed = parseStructuredModelOutput(raw, 'chart plan') as { steps?: unknown };
   if (!parsed || !Array.isArray(parsed.steps)) {
-    throw INVALID_INPUT_ERROR('Model returned a malformed plan');
+    throw new Error('Model returned a malformed plan');
   }
 
   // Recurring speaker labels (e.g. "X31") computed once per request — used to keep transcript
@@ -890,7 +781,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // client-side per-intent handlers do the deep validation since they do it for the single-shot
   // path too.
   const records: Record<string, unknown>[] = [];
-  const seenVitalFields = new Set<string>(); // one set-vital per field (a visit has one BP, one HR, …)
+  // Per-field vitals seen so far, keyed by field → set of value signatures. Identical repeats are
+  // model noise and dropped; DISTINCT readings are legitimate serial measurements (an initial BP
+  // and a post-rest recheck both belong on the chart — the vitals record is a time series).
+  const seenVitalValues = new Map<string, Set<string>>();
+  // Medications seen so far (normalized name+strength) — the narrative often mentions the same
+  // drug twice (an in-clinic dose AND the take-home script); charting it twice duplicates the row.
+  const seenMeds = new Set<string>();
   for (const item of parsed.steps) {
     if (!item || typeof item !== 'object') continue;
     const i = item as Record<string, unknown>;
@@ -898,6 +795,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Same fallback as the single-shot agent — sniff the narrative for a dose-form keyword if
     // the LLM omitted it. The narrative is the only place the form might appear since the
     // planner emits searchTerms focused on the ingredient name.
+    // Quote-fidelity guard: the provenance hover presents sourceText as a QUOTE of the dictation,
+    // but the model sometimes paraphrases ("known history of asthma") or stitches list items with
+    // ellipses ("denies any... chills"). If the claimed quote isn't actually in the narrative,
+    // discard it — the recovery below finds the real sentence, or the item stays honestly inferred.
+    let claimedQuote: string | undefined;
+    if (typeof i.sourceText === 'string' && i.sourceText.trim()) {
+      const normText = (t: string): string =>
+        t
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim();
+      if (!normText(narrative).includes(normText(i.sourceText))) {
+        claimedQuote = i.sourceText; // keep its words as recovery needles — they point at the right sentence
+        delete i.sourceText;
+      }
+    }
+    // Missing sourceText → recover the quoting sentence from the narrative (the model omits it
+    // most often on medications; without it the provenance hover downgrades to "inferred").
+    if (typeof i.sourceText !== 'string' || !i.sourceText.trim()) {
+      const recovered = recoverSourceText(narrative, [
+        claimedQuote,
+        typeof i.display === 'string' ? i.display : undefined,
+        typeof i.text === 'string' ? i.text : undefined,
+        ...(Array.isArray(i.searchTerms) ? (i.searchTerms.filter((t) => typeof t === 'string') as string[]) : []),
+      ]);
+      if (recovered) i.sourceText = recovered;
+    }
     if (i.kind === 'add-medication' && (typeof i.doseForm !== 'string' || !i.doseForm.trim())) {
       const display = typeof i.display === 'string' ? i.display : '';
       const searchTerms = Array.isArray(i.searchTerms)
@@ -907,14 +831,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (sniffed) i.doseForm = sniffed;
     }
     if (i.kind === 'set-vital') {
-      // Dedupe: keep only the first set-vital per field (the model sometimes emits a vital twice).
-      if (typeof i.field === 'string') {
-        if (seenVitalFields.has(i.field)) (i as Record<string, unknown>).__drop = true;
-        else seenVitalFields.add(i.field);
-      }
       // flash-lite is inconsistent on vitals (drops a BP number, omits the temp unit, omits display).
       // The narrative is ground truth, so recover the numbers/unit/display via the shared normalizer.
       normalizeVitalIntent(i, narrative);
+      // A vital that STILL has no numeric content after recovery can't be charted — drop it here
+      // rather than erroring the plan step client-side.
+      const hasValue =
+        typeof i.value === 'number' || (typeof i.systolic === 'number' && typeof i.diastolic === 'number');
+      if (!hasValue) {
+        (i as Record<string, unknown>).__drop = true;
+      } else if (typeof i.field === 'string') {
+        // Dedupe IDENTICAL readings only — distinct values per field are serial measurements.
+        const signature = `${i.systolic ?? ''}/${i.diastolic ?? ''}|${i.value ?? ''}`;
+        const seen = seenVitalValues.get(i.field) ?? new Set<string>();
+        if (seen.has(signature)) (i as Record<string, unknown>).__drop = true;
+        else {
+          seen.add(signature);
+          seenVitalValues.set(i.field, seen);
+        }
+      }
+    }
+    if (i.kind === 'add-medication' && typeof i.display === 'string') {
+      const medKey = `${i.display}|${typeof i.strength === 'string' ? i.strength : ''}`
+        .toLowerCase()
+        .replace(/[^a-z0-9|]/g, '');
+      if (seenMeds.has(medKey)) (i as Record<string, unknown>).__drop = true;
+      else seenMeds.add(medKey);
     }
     if (i.kind === 'set-disposition' && (typeof i.followUpInDays !== 'number' || !(i.followUpInDays as number))) {
       // flash-lite frequently omits the interval, especially on a conditional follow-up. Recover it
@@ -950,8 +892,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // (B) Exactly one primary diagnosis. If diagnoses exist but none is marked, the first is
   // primary; if several are marked, keep only the first; force the rest explicitly secondary.
+  // INCREMENTAL guard: when the chart already carries a [PRIMARY] diagnosis, an addendum's new
+  // diagnoses are additions, never usurpers — "allergic reaction to amoxicillin" charted from a
+  // phone-call addendum must not demote the visit's actual primary (strep). The provider can
+  // still change the primary explicitly in the note.
   const dxRecords = records.filter((r) => r.kind === 'add-diagnosis');
-  if (dxRecords.length > 0) {
+  const chartHasPrimary = incremental && typeof chartState === 'string' && /\[PRIMARY\]|\(primary\)/i.test(chartState);
+  if (chartHasPrimary) {
+    for (const r of dxRecords) r.isPrimary = false;
+  }
+  if (dxRecords.length > 0 && !chartHasPrimary) {
     let primarySeen = false;
     for (const r of dxRecords) {
       if (r.isPrimary === true && !primarySeen) {
@@ -983,26 +933,83 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // code can never reach the note.
   await Promise.all(
     deduped.map(async (r) => {
-      if (r.kind === 'add-diagnosis' || r.kind === 'add-condition') {
-        const display = typeof r.display === 'string' ? r.display : '';
-        const searchTerms = Array.isArray(r.searchTerms)
-          ? (r.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
-          : [];
-        const resolved = await resolveIcd(typeof r.code === 'string' ? r.code : undefined, display, searchTerms);
-        if (resolved) r.code = resolved.code;
-        else delete r.code; // nothing valid → let the client picker resolve by display
-      } else if ((r.kind === 'set-em-code' || r.kind === 'add-cpt') && typeof r.code === 'string' && r.code.trim()) {
-        if (!oystehr) return; // no client (template fetch failed) → can't validate; leave as-is (degraded)
-        const resolved = await resolveCptHcpcs(oystehr, r.code, typeof r.display === 'string' ? r.display : '');
-        if (resolved === null) {
-          (r as Record<string, unknown>).__drop = true; // reachable + invalid → drop the step
-        } else {
-          r.code = resolved.code;
-          if (resolved.display) r.display = resolved.display;
-        }
+      if ((await validateIntentCode(r, oystehr)) === 'invalid-billing') {
+        (r as Record<string, unknown>).__drop = true; // reachable + invalid → drop the step
       }
     })
   );
+
+  // (E) Deterministic backstops — chart + flag beats silently missing.
+  // 1) Vitals sweep: append any dictated reading the model failed to emit — most commonly the
+  //    SECOND of two serial BPs ("repeat blood pressure dropped to 176 over 92") or a vital phrased
+  //    indirectly ("slightly tachycardic at 115"). Each appended step carries its quoting sentence,
+  //    so the provider sees exactly where it came from when reviewing the flagged item.
+  for (const sniffed of sniffVitalsFromNarrative(narrative)) {
+    const sig = `${sniffed.systolic ?? ''}/${sniffed.diastolic ?? ''}|${sniffed.value ?? ''}`;
+    const seen = seenVitalValues.get(sniffed.field) ?? new Set<string>();
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    seenVitalValues.set(sniffed.field, seen);
+    const step: Record<string, unknown> = { kind: 'set-vital', ...sniffed };
+    normalizeVitalIntent(step, narrative);
+    deduped.push(step);
+  }
+  // 1b) Performed-lab conversion: the prompt tells the model not to ORDER tests the narrative
+  //     reports as already performed with results, but it re-orders them anyway (~2 of 3 cases:
+  //     rapid strep, rapid flu). Deterministic backstop: if the narrative sentence naming the
+  //     test also carries a result marker, convert the order into a provider-note that quotes it.
+  const RESULT_MARKERS =
+    /\b(?:was performed|were performed|came back|returned|resulted|is positive|is negative|was positive|was negative|positive for|negative for|show(?:s|ed|ing)?|reveal(?:s|ed|ing)?)\b/i;
+  // The sentence must actually be about a TEST being run (not epidemiology like "coworkers have
+  // confirmed influenza", and not a future order like "send the urine out for culture").
+  const TEST_CONTEXT =
+    /\b(?:test|tests|tested|performed|rapid|in[- ]?house|in[- ]?clinic|specimen|swab|urinalysis|x[- ]?ray|ecg|ekg)\b/i;
+  for (const r of deduped) {
+    if (r.kind !== 'add-in-house-lab' && r.kind !== 'add-external-lab') continue;
+    const needles = [
+      typeof r.display === 'string' ? r.display : '',
+      ...(Array.isArray(r.searchTerms) ? (r.searchTerms.filter((t) => typeof t === 'string') as string[]) : []),
+    ]
+      .flatMap((n) => n.toLowerCase().split(/[^a-z0-9]+/))
+      .filter((w) => w.length >= 4);
+    const sentence = narrative
+      .split(/(?<=[.!?])\s+/)
+      .find(
+        (sent) =>
+          RESULT_MARKERS.test(sent) && TEST_CONTEXT.test(sent) && needles.some((n) => sent.toLowerCase().includes(n))
+      );
+    if (sentence) {
+      const label = typeof r.display === 'string' ? r.display : 'test';
+      r.kind = 'provider-note';
+      r.text = `The ${label} was already performed — enter its result through the labs flow. Dictated: ${sentence.trim()}`;
+      r.sourceText = sentence.trim();
+      delete r.display;
+      delete r.searchTerms;
+    }
+  }
+  // 2) eRx reminder: the narrative says a prescription is being SENT but no provider-note says so —
+  //    remind the provider that easy-chart charts medications without transmitting scripts.
+  const mentionsSending =
+    /\b(?:send(?:ing)?|sent)\b[^.;]{0,60}\b(?:pharmacy|prescription|script)\b|\bsend that over\b/i.exec(narrative);
+  const hasMedStep = deduped.some((r) => r.kind === 'add-medication' && !(r as Record<string, unknown>).__drop);
+  const hasErxNote = deduped.some(
+    (r) => r.kind === 'provider-note' && typeof r.text === 'string' && /erx|prescription|pharmacy/i.test(r.text)
+  );
+  if (mentionsSending && hasMedStep && !hasErxNote) {
+    deduped.push({
+      kind: 'provider-note',
+      text: 'Send the prescription via eRx — the medication was charted, but easy-chart does not transmit prescriptions.',
+      sourceText: mentionsSending[0],
+    });
+  }
+  // 3) Strip meaningless numeric junk the model attaches to non-vital, non-medication steps
+  //    (e.g. value=0.0012… on patient instructions) so it never leaks into payloads or logs.
+  for (const r of deduped) {
+    if (r.kind !== 'set-vital' && r.kind !== 'add-medication') {
+      delete (r as Record<string, unknown>).value;
+      delete (r as Record<string, unknown>).unit;
+    }
+  }
 
   const steps = deduped.filter((r) => !(r as Record<string, unknown>).__drop) as unknown as EasyChartPlannerStep[];
 

@@ -1,9 +1,76 @@
+// Every intent kind the agent and planner can emit — the single source for the JSON-schema enums
+// and post-parse kind checks in both zambdas (they share one action vocabulary; the planner just
+// returns an ordered list). Keep in lockstep with the EasyChartAgentIntent union below.
+export const EASY_CHART_INTENT_KINDS = [
+  'unknown',
+  'add-allergy',
+  'add-condition',
+  'add-medication',
+  'add-surgical-history',
+  'add-hospitalization',
+  'add-diagnosis',
+  'remove-allergy',
+  'remove-condition',
+  'remove-medication',
+  'remove-surgical-history',
+  'remove-hospitalization',
+  'remove-diagnosis',
+  'set-em-code',
+  'add-cpt',
+  'remove-em-code',
+  'remove-cpt',
+  'apply-template',
+  'add-procedure',
+  'update-procedure',
+  'edit-note-text',
+  'add-exam-finding',
+  'remove-exam-finding',
+  'add-ros-finding',
+  'remove-ros-finding',
+  'add-in-house-lab',
+  'add-external-lab',
+  'add-patient-instruction',
+  'set-disposition',
+  'add-nursing-order',
+  'add-radiology',
+  'set-vital',
+  'provider-note',
+] as const;
+export type EasyChartIntentKind = (typeof EASY_CHART_INTENT_KINDS)[number];
+
+// The five free-text note fields the client snapshots into noteContext on every call. Single
+// source for the per-zambda validation whitelists and prompt field loops — a new note section
+// added in one place but not the others silently strips the field for the copies that lack it.
+export const EASY_CHART_NOTE_TEXT_FIELDS = [
+  'chiefComplaint',
+  'historyOfPresentIllness',
+  'mechanismOfInjury',
+  'ros',
+  'medicalDecision',
+] as const;
+export type EasyChartNoteTextField = (typeof EASY_CHART_NOTE_TEXT_FIELDS)[number];
+
+// Display labels for those fields as the provider reads them (the CC↔HPI storage swap is applied
+// at the render site, so these are keyed by storage key but label what's on screen). Used by all
+// three zambda prompts so the model always sees the same field naming.
+export const EASY_CHART_NOTE_TEXT_FIELD_LABELS: Record<EasyChartNoteTextField, string> = {
+  chiefComplaint: 'Chief Complaint',
+  historyOfPresentIllness: 'History of Present Illness (HPI)',
+  mechanismOfInjury: 'Mechanism of Injury',
+  ros: 'Review of Systems',
+  medicalDecision: 'Medical Decision Making (MDM)',
+};
+
 // A single-shot classification: given a free-text user message, decide which charting
 // action the user wants (or report that we couldn't tell). The client then runs the
 // appropriate canonical-source search (for adds) or local-chart match (for removes)
 // and presents confirmation or choices in the conversation.
 export type EasyChartAgentIntent =
   | { kind: 'unknown'; message: string }
+  // A note for the PROVIDER, not the chart: information the assistant cannot chart structurally
+  // ("the urinalysis results must be entered via the In-House Labs flow", "send the prescription
+  // by eRx"). The client renders it as a chat message; nothing is written to the encounter.
+  | { kind: 'provider-note'; text: string }
   // Add actions — display + searchTerms get used by the client to search the canonical source
   | { kind: 'add-allergy'; display: string; searchTerms: string[] }
   // `code` is the ICD-10 code from the narrative when explicitly stated ("PMH: hypertension (I10)").
@@ -176,6 +243,12 @@ export interface EasyChartPlannerInput {
   // anchors the note on the REAL age/sex, so it never infers demographics from the transcript
   // (ambient recordings often contain cross-talk about other patients). Strongly recommended.
   encounterId?: string;
+  // True when the note has ALREADY been charted this session (a post-template re-plan, or a
+  // follow-up message onto a written note): the planner then charts only what the narrative newly
+  // introduces and never re-applies a template. Distinct from chartState being non-empty — a FIRST
+  // dictation for a patient with intake-harvested history has chartState but is NOT incremental,
+  // and must still get the full template/exam/E&M pass (it just must not duplicate listed items).
+  incremental?: boolean;
 }
 
 // A planner step is an ordinary intent plus PROVENANCE: the verbatim phrase from the narrative
