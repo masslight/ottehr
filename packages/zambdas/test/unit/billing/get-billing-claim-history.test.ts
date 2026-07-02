@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Organization, Practitioner, Provenance, Resource } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
@@ -7,9 +8,17 @@ import {
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   ClaimFieldChange,
 } from 'utils';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+
+vi.mock('@sentry/aws-serverless', async (importActual) => ({
+  ...(await importActual<typeof import('@sentry/aws-serverless')>()),
+  captureException: vi.fn(),
+}));
+const captureExceptionMock = vi.mocked(captureException);
+
+beforeEach(() => captureExceptionMock.mockClear());
 
 const PAYER_URL = 'https://rcm-api.zapehr.com/v1/payer/123';
 
@@ -167,5 +176,26 @@ describe('get-billing-claim-history performEffect', () => {
     expect(entries).toHaveLength(2);
     expect(entries.find((e) => e.id === 'bad')?.changes).toEqual([]);
     expect(entries.find((e) => e.id === 'good')?.changes).toHaveLength(1);
+    // A malformed change set is skipped gracefully but reported to Sentry for observability.
+    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports to Sentry when a Provenance is missing expected fields but still returns an entry', async () => {
+    const malformed = {
+      resourceType: 'Provenance',
+      id: 'prov1',
+      // recorded, activity, target, and agent are all absent — a real defect in a claim-history record.
+      extension: [diffExtension([{ field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B' }])],
+    } as Provenance;
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([malformed]) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    // Graceful: the entry is still returned (with its changes) rather than crashing the view.
+    expect(entries).toHaveLength(1);
+    expect(entries[0].changes).toHaveLength(1);
+    expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+    const reported = captureExceptionMock.mock.calls[0][0] as Error;
+    expect(reported.message).toContain('missing');
   });
 });

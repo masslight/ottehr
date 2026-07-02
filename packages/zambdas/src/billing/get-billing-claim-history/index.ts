@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
 import {
@@ -77,33 +78,56 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryPar
   return { entries };
 }
 
+// Report a claim-history data anomaly to Sentry. We degrade gracefully (never crash the view) but
+// want observability that a Provenance we wrote isn't shaped as intended.
+function reportAnomaly(message: string, provenanceId: string | undefined, cause?: unknown): void {
+  const error = cause instanceof Error ? cause : new Error(message);
+  captureException(error, { extra: { zambda: ZAMBDA_NAME, provenanceId, message } });
+}
+
 function parseChanges(provenance: Provenance): ClaimFieldChange[] {
   const diffString = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)?.valueString;
   if (!diffString) return [];
   try {
     const parsed = JSON.parse(diffString);
-    return Array.isArray(parsed) ? (parsed as ClaimFieldChange[]) : [];
+    if (!Array.isArray(parsed)) {
+      reportAnomaly(`Claim-history change set is not an array on Provenance/${provenance.id}`, provenance.id);
+      return [];
+    }
+    return parsed as ClaimFieldChange[];
   } catch (err) {
-    // One malformed record shouldn't blank the whole history view.
-    console.error(`Skipping malformed change set on Provenance/${provenance.id}`, err);
+    // One malformed record shouldn't blank the whole history view, but we want to know it happened.
+    reportAnomaly(`Malformed change set on Provenance/${provenance.id}`, provenance.id, err);
     return [];
   }
 }
 
 function toHistoryEntry(provenance: Provenance, agentsByRef: Map<string, Practitioner | Device>): ClaimHistoryEntry {
-  const activityCode = provenance.activity?.coding?.[0]?.code ?? '';
+  const activityCode = provenance.activity?.coding?.[0]?.code;
   // target[0] is the changed resource (the claim itself is appended as a second target).
-  const resourceType = provenance.target?.[0]?.reference?.split('/')[0] ?? '';
-
-  const agentRef = provenance.agent?.[0]?.who?.reference ?? '';
+  const targetRef = provenance.target?.[0]?.reference;
+  const agentRef = provenance.agent?.[0]?.who?.reference;
   const agentTypeCode = provenance.agent?.[0]?.type?.coding?.[0]?.code;
 
+  // Our writer always sets these; a claim-history Provenance missing them is a real defect, not a
+  // routine optional-field case — surface it rather than silently rendering blanks.
+  const missing = [
+    !provenance.recorded && 'recorded',
+    !activityCode && 'activity.coding',
+    !targetRef && 'target.reference',
+    !agentRef && 'agent.who.reference',
+  ].filter((f): f is string => !!f);
+  if (missing.length > 0) {
+    reportAnomaly(`Claim-history Provenance/${provenance.id} is missing: ${missing.join(', ')}`, provenance.id);
+  }
+
+  const resourceType = targetRef?.split('/')[0] ?? '';
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
-    activity: activityDisplay(activityCode, resourceType),
+    activity: activityDisplay(activityCode ?? '', resourceType),
     actor: {
-      display: actorDisplay(agentsByRef.get(agentRef), agentRef),
+      display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
       type: agentTypeCode === 'system' ? 'system' : 'user',
     },
     changes: parseChanges(provenance),
