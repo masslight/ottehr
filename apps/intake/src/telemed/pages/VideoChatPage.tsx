@@ -112,7 +112,7 @@ const VideoChatPage: FC = () => {
 
   useJoinCall(
     apiClient,
-    // Invite URLs carry the appointment id in the query string; the store fallback covers normal patient navigation.
+    // Invite URLs carry appointment_id in the query string; regular patient navigation uses the persisted store.
     urlAppointmentID ?? appointmentID,
     async (response) => {
       if (!response) {
