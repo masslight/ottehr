@@ -25,8 +25,6 @@ import { AddVisitPatientInformationCard } from 'src/features/visits/shared/compo
 import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
 import {
   APIError,
-  APPOINTMENT_PAPERWORK_SUBTYPE,
-  AppointmentPaperworkSubtype,
   BOOKING_CONFIG,
   CopyableFollowupField,
   CreateAppointmentInputParams,
@@ -164,7 +162,6 @@ export default function AddPatient(): JSX.Element {
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
   const [serviceCategory, setServiceCategory] = useState<string>(defaultServiceCategory);
-  const [paperworkSubtype, setPaperworkSubtype] = useState<AppointmentPaperworkSubtype | ''>('');
   const [slot, setSlot] = useState<Slot | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
@@ -428,7 +425,6 @@ export default function AddPatient(): JSX.Element {
         },
         slotId: persistedSlot.id!,
         ...(followUpOptions && { followUpOptions }),
-        paperworkSubtype: paperworkSubtype || undefined,
       };
 
       let response;
@@ -546,23 +542,6 @@ export default function AddPatient(): JSX.Element {
                     ))}
                   </Select>
                   {errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>}
-                </FormControl>
-
-                {/* todo sarah - this field needs to be removed */}
-                <FormControl fullWidth>
-                  <InputLabel id="paperwork-subtype-label">Visit paperwork</InputLabel>
-                  <Select
-                    labelId="paperwork-subtype-label"
-                    id="paperwork-subtype-select"
-                    value={paperworkSubtype}
-                    label="Visit paperwork"
-                    onChange={(event) => setPaperworkSubtype((event.target.value as AppointmentPaperworkSubtype) || '')}
-                  >
-                    <MenuItem value="">Default (full intake)</MenuItem>
-                    <MenuItem value={APPOINTMENT_PAPERWORK_SUBTYPE.CONSENT_FORM_ONLY}>
-                      Consent only (+ practice form)
-                    </MenuItem>
-                  </Select>
                 </FormControl>
 
                 <BookableSelect

@@ -6,7 +6,6 @@ import {
   getServiceCategoryDurationMinutes,
   getServiceCategoryModes,
   getServiceCategoryVisitTypes,
-  parsePaperworkFlowId,
   parseReasonsForVisit,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
@@ -41,8 +40,6 @@ export interface ServiceCategoryRuntimeConfig {
   /** Booking-flow capabilities — 'prebook' vs 'walk-in'. */
   visitTypes: ServiceVisitType[];
   reasonsForVisit?: Array<{ label: string; value: string }>;
-  /** Practice paperwork flow this visit type uses (OTR-2309); undefined = default by mode. */
-  paperworkFlowId?: string;
 }
 
 export interface ServiceCategory {
@@ -100,7 +97,6 @@ export function toRecord(resource: HealthcareService): ServiceCategory {
       serviceModes: modes.length > 0 ? modes : [ServiceMode['in-person']],
       visitTypes: visitTypes.length > 0 ? visitTypes : [ServiceVisitType.prebook],
       reasonsForVisit: parseReasonsForVisit(resource),
-      paperworkFlowId: parsePaperworkFlowId(resource),
     },
     source: 'fhir',
   };
@@ -130,12 +126,6 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
   // to preserve foreign characteristics should use mergeOwnedCharacteristics
   // with SERVICE_CATEGORY_OWNED_CHARACTERISTIC_SYSTEMS before persisting.
   const reasons = record.config.reasonsForVisit ?? [];
-  const paperworkFlowId = record.config.paperworkFlowId;
-  // Free-form fields live in the JSON-blob extension. Only emit the blob when at least one
-  // free-form field is set, so a category with neither stays extension-free.
-  const configBlob: Record<string, unknown> = {};
-  if (reasons.length > 0) configBlob.reasonsForVisit = reasons;
-  if (paperworkFlowId) configBlob.paperworkFlowId = paperworkFlowId;
   return {
     resourceType: 'HealthcareService',
     id: record.id,
@@ -144,9 +134,15 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
     name: record.name,
     type,
     characteristic: ownedCharacteristics,
+    // Free-form fields still live in the JSON-blob extension.
     extension:
-      Object.keys(configBlob).length > 0
-        ? [{ url: SERVICE_CATEGORY_CONFIG_EXTENSION_URL, valueString: JSON.stringify(configBlob) }]
+      reasons.length > 0
+        ? [
+            {
+              url: SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
+              valueString: JSON.stringify({ reasonsForVisit: reasons }),
+            },
+          ]
         : undefined,
   };
 }

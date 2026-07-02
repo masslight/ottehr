@@ -1,11 +1,9 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Appointment, List, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AllStates,
   APPOINTMENT_ALREADY_EXISTS_ERROR,
-  APPOINTMENT_PAPERWORK_SUBTYPE,
-  AppointmentPaperworkSubtype,
   CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   checkSlotAvailable,
@@ -21,7 +19,6 @@ import {
   makeSlotAtLocationExtensionEntry,
   MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
-  PaperworkFlowBase,
   parseQuestionnaireCanonicalExtension,
   PatientInfo,
   PersonSex,
@@ -35,7 +32,6 @@ import {
   SLOT_FALLBACK_REROUTED_TAG,
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
   SLOT_UNAVAILABLE_ERROR,
-  toPaperworkFlowRecord,
   VisitType,
 } from 'utils';
 import {
@@ -64,7 +60,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions, paperworkSubtype } = bodyJSON;
+  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions } = bodyJSON;
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
   if (patient === undefined) {
@@ -157,7 +153,6 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     locationState,
     appointmentMetadata,
     followUpOptions: validatedFollowUpOptions,
-    paperworkSubtype,
   };
 }
 
@@ -195,9 +190,6 @@ export interface CreateAppointmentEffectInput {
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
-  paperworkSubtype?: AppointmentPaperworkSubtype;
-  /** Practice paperwork flow id resolved from the booked service category (OTR-2309); stamped on the encounter. */
-  paperworkFlowId?: string;
   /**
    * Unified booking-location resolution. Populated when the booking should be
    * attributed to a specific Location — either because the scheduleOwner IS
@@ -259,7 +251,7 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient, appointmentMetadata, paperworkSubtype } = input;
+  const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
@@ -413,58 +405,12 @@ export const createAppointmentComplexValidation = async (
   const slotQuestionnaireExtension = slot.extension?.find(
     (ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL
   );
-  // Validate paperworkSubtype if provided — must be a known APPOINTMENT_PAPERWORK_SUBTYPE
-  // value. The router in getCanonicalUrlForPrevisitQuestionnaire uses it to pick the lite
-  // canonical; rejecting unknown values here protects against typos that would silently
-  // fall through to the ServiceMode default.
-  const validatedPaperworkSubtype: AppointmentPaperworkSubtype | undefined =
-    typeof paperworkSubtype === 'string'
-      ? (Object.values(APPOINTMENT_PAPERWORK_SUBTYPE) as string[]).includes(paperworkSubtype)
-        ? (paperworkSubtype as AppointmentPaperworkSubtype)
-        : (() => {
-            throw INVALID_INPUT_ERROR(
-              `Unknown paperworkSubtype "${paperworkSubtype}". Allowed: ${Object.values(
-                APPOINTMENT_PAPERWORK_SUBTYPE
-              ).join(', ')}`
-            );
-          })()
-      : undefined;
-
-  // Practice paperwork flow (OTR-2309): if the booked service category configures a flow, it sets
-  // the base intake and is stamped on the encounter so the intake renderer serves the flow's forms.
-  // A 'consent-only' base behaves like the consent-form-only subtype; 'standard' uses the mode
-  // default. An explicit staff paperworkSubtype still overrides the flow's base.
-  let paperworkFlowId: string | undefined;
-  let flowBase: PaperworkFlowBase | undefined;
-  const slotCategoryCode = (slot.serviceCategory ?? [])
-    .flatMap((cc) => cc.coding ?? [])
-    .find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code;
-  if (slotCategoryCode) {
-    const resolvedCategory = await resolveServiceCategory(slotCategoryCode, oystehrClient);
-    paperworkFlowId = resolvedCategory?.paperworkFlowId;
-    if (paperworkFlowId) {
-      // Booking must not fail over a paperwork-flow lookup, but a transient error here
-      // silently books the patient with the mode-default intake — log so it's visible.
-      const flowList = await oystehrClient.fhir
-        .get<List>({ resourceType: 'List', id: paperworkFlowId })
-        .catch((err) => {
-          console.warn(`create-appointment: failed to fetch paperwork flow List/${paperworkFlowId}:`, err);
-          return undefined;
-        });
-      flowBase = flowList ? toPaperworkFlowRecord(flowList)?.base : undefined;
-    }
-  }
-  const effectivePaperworkSubtype =
-    validatedPaperworkSubtype ??
-    (flowBase === 'consent-only' ? APPOINTMENT_PAPERWORK_SUBTYPE.CONSENT_FORM_ONLY : undefined);
-
   if (slotQuestionnaireExtension?.valueString) {
-    // Slot extension wins over flow, subtype, and ServiceMode — the explicit per-slot override.
     questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
     console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);
   } else {
-    // Flow base / subtype-aware service-mode-based selection.
-    questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, effectivePaperworkSubtype);
+    // Fall back to service-mode-based questionnaire selection
+    questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
   }
 
   let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
@@ -549,8 +495,6 @@ export const createAppointmentComplexValidation = async (
     locationState,
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
-    paperworkSubtype: validatedPaperworkSubtype,
-    paperworkFlowId,
     bookingLocation,
     attendingPractitioner,
   };

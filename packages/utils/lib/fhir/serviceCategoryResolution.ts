@@ -7,7 +7,6 @@ import { getAllFhirSearchPages } from './getAllFhirSearchPages';
 import {
   getServiceCategoryCadenceMinutes,
   getServiceCategoryDurationMinutes,
-  parsePaperworkFlowId,
   parseReasonsForVisit,
 } from './healthcareService';
 
@@ -31,8 +30,6 @@ export interface ResolvedServiceCategory {
   cadenceMinutes: number | undefined;
   /** Configured RFV options; empty array when none. */
   reasonsForVisit: Array<{ value: string; label: string }>;
-  /** Practice paperwork flow this category uses (OTR-2309). Undefined for booking-config entries. */
-  paperworkFlowId: string | undefined;
   source: 'booking-config' | 'fhir';
 }
 
@@ -67,7 +64,6 @@ export async function resolveServiceCategory(
       durationMinutes: undefined,
       cadenceMinutes: undefined,
       reasonsForVisit: getReasonForVisitOptionsForServiceCategory(code),
-      paperworkFlowId: undefined,
       source: 'booking-config',
     };
   }
@@ -98,7 +94,6 @@ export async function resolveServiceCategory(
     durationMinutes: getServiceCategoryDurationMinutes(fhirMatch),
     cadenceMinutes: getServiceCategoryCadenceMinutes(fhirMatch),
     reasonsForVisit: parseReasonsForVisit(fhirMatch),
-    paperworkFlowId: parsePaperworkFlowId(fhirMatch),
     source: 'fhir',
   };
 }

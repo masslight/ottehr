@@ -2075,34 +2075,6 @@
       "src": "src/ehr/admin-delete-service-category/index",
       "zip": ".dist/zips/admin-delete-service-category.zip"
     },
-    "ADMIN_LIST_PAPERWORK_FLOWS": {
-      "name": "admin-list-paperwork-flows",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-list-paperwork-flows/index",
-      "zip": ".dist/zips/admin-list-paperwork-flows.zip"
-    },
-    "ADMIN_CREATE_PAPERWORK_FLOW": {
-      "name": "admin-create-paperwork-flow",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-create-paperwork-flow/index",
-      "zip": ".dist/zips/admin-create-paperwork-flow.zip"
-    },
-    "ADMIN_UPDATE_PAPERWORK_FLOW": {
-      "name": "admin-update-paperwork-flow",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-update-paperwork-flow/index",
-      "zip": ".dist/zips/admin-update-paperwork-flow.zip"
-    },
-    "ADMIN_DELETE_PAPERWORK_FLOW": {
-      "name": "admin-delete-paperwork-flow",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/admin-delete-paperwork-flow/index",
-      "zip": ".dist/zips/admin-delete-paperwork-flow.zip"
-    },
     "ADMIN_CREATE_PRACTITIONER_ROLE": {
       "name": "admin-create-practitioner-role",
       "type": "http_auth",

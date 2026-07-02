@@ -19,7 +19,6 @@ import MyPatients from './pages/MyPatients';
 import { PaperworkHome, PaperworkPage } from './pages/PaperworkPage';
 import PastVisits from './pages/PastVisits';
 import PatientInformation, { PatientInfoCollection } from './pages/PatientInformation';
-import PracticeManagedPaperwork from './pages/PracticeManagedPaperwork';
 import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
@@ -117,10 +116,6 @@ export const intakeFlowPageRoute = {
   PaperworkInformation: {
     path: `${paperworkBasePath}/:slug`,
     getPage: () => <PaperworkPage />,
-  },
-  PracticeManagedPaperwork: {
-    path: `${paperworkBasePath}/custom/:questionnaireId/:returnSlug`,
-    getPage: () => <PracticeManagedPaperwork />,
   },
   StandaloneForm: {
     path: '/forms/:appointmentId/:questionnaireId',
@@ -391,13 +386,6 @@ function App(): JSX.Element {
                   <Route
                     path={intakeFlowPageRoute.Appointments.path}
                     element={intakeFlowPageRoute.Appointments.getPage()}
-                  />
-                  {/* Practice-managed paperwork route is outside PaperworkHome to avoid
-                      inheriting the intake PaperworkContext, which would leak the main
-                      intake QR/validation state into the practice-managed form. */}
-                  <Route
-                    path={intakeFlowPageRoute.PracticeManagedPaperwork.path}
-                    element={intakeFlowPageRoute.PracticeManagedPaperwork.getPage()}
                   />
                   <Route
                     path={intakeFlowPageRoute.StandaloneForm.path}

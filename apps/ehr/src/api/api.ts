@@ -183,7 +183,6 @@ import {
   OnDemandLabelXmlRequestInput,
   OnDemandLabelXmlRequestOutput,
   PaginatedResponse,
-  PaperworkFlow,
   PaperworkToPDFInput,
   PatientInstructionQuickPickData,
   PendingSupervisorApprovalInput,
@@ -335,10 +334,6 @@ const ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID = 'admin-list-service-categories';
 const ADMIN_CREATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-create-service-category';
 const ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-update-service-category';
 const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
-const ADMIN_LIST_PAPERWORK_FLOWS_ZAMBDA_ID = 'admin-list-paperwork-flows';
-const ADMIN_CREATE_PAPERWORK_FLOW_ZAMBDA_ID = 'admin-create-paperwork-flow';
-const ADMIN_UPDATE_PAPERWORK_FLOW_ZAMBDA_ID = 'admin-update-paperwork-flow';
-const ADMIN_DELETE_PAPERWORK_FLOW_ZAMBDA_ID = 'admin-delete-paperwork-flow';
 const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
 const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
 const ADMIN_DELETE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-delete-practitioner-role';
@@ -2989,41 +2984,6 @@ export interface ServiceCategory {
 
 export const listServiceCategories = async (oystehr: Oystehr): Promise<{ serviceCategories: ServiceCategory[] }> => {
   const response = await oystehr.zambda.execute({ id: ADMIN_LIST_SERVICE_CATEGORIES_ZAMBDA_ID });
-  return chooseJson(response);
-};
-
-// ── Practice Paperwork Flows (OTR-2309) ──
-
-/** A paperwork flow plus the ids of the service categories assigned to it. */
-export interface PaperworkFlowWithServices extends PaperworkFlow {
-  serviceIds: string[];
-}
-
-export const listPaperworkFlows = async (
-  oystehr: Oystehr
-): Promise<{ flows: PaperworkFlowWithServices[]; baseFlows: PaperworkFlow[] }> => {
-  const response = await oystehr.zambda.execute({ id: ADMIN_LIST_PAPERWORK_FLOWS_ZAMBDA_ID });
-  return chooseJson(response);
-};
-
-export const createPaperworkFlow = async (
-  oystehr: Oystehr,
-  input: { flow: Omit<PaperworkFlow, 'id'>; serviceIds: string[] }
-): Promise<{ flow: PaperworkFlow; serviceIds: string[] }> => {
-  const response = await oystehr.zambda.execute({ id: ADMIN_CREATE_PAPERWORK_FLOW_ZAMBDA_ID, ...input });
-  return chooseJson(response);
-};
-
-export const updatePaperworkFlow = async (
-  oystehr: Oystehr,
-  input: { flow: PaperworkFlow; serviceIds: string[] }
-): Promise<{ flow: PaperworkFlow; serviceIds: string[] }> => {
-  const response = await oystehr.zambda.execute({ id: ADMIN_UPDATE_PAPERWORK_FLOW_ZAMBDA_ID, ...input });
-  return chooseJson(response);
-};
-
-export const deletePaperworkFlow = async (oystehr: Oystehr, flowId: string): Promise<{ success: boolean }> => {
-  const response = await oystehr.zambda.execute({ id: ADMIN_DELETE_PAPERWORK_FLOW_ZAMBDA_ID, flowId });
   return chooseJson(response);
 };
 

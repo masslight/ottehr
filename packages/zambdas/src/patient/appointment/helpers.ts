@@ -1,12 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Coding, DocumentReference, Extension, Organization, Practitioner, Questionnaire } from 'fhir/r4b';
 import {
-  APPOINTMENT_PAPERWORK_SUBTYPE,
-  AppointmentPaperworkSubtype,
   CanonicalUrl,
   getCanonicalQuestionnaire,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
-  LITE_INTAKE_PAPERWORK_CANONICAL,
   OtherParticipantsExtension,
   PatientAccountResponse,
   ServiceMode,
@@ -16,23 +13,13 @@ import {
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
-  oystehrClient: Oystehr,
-  paperworkSubtype?: AppointmentPaperworkSubtype
+  oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
-  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, paperworkSubtype);
+  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
   return getCanonicalQuestionnaire(canonical, oystehrClient);
 };
 
-export const getCanonicalUrlForPrevisitQuestionnaire = (
-  serviceMode: ServiceMode,
-  paperworkSubtype?: AppointmentPaperworkSubtype
-): CanonicalUrl => {
-  // Subtype takes precedence over the ServiceMode default — used when the appointment is
-  // scheduled with a non-default paperwork flow (e.g. consent-form-only for a return visit
-  // that doesn't need full demographics/insurance reentry).
-  if (paperworkSubtype === APPOINTMENT_PAPERWORK_SUBTYPE.CONSENT_FORM_ONLY) {
-    return LITE_INTAKE_PAPERWORK_CANONICAL;
-  }
+export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
   switch (serviceMode) {
     case ServiceMode['in-person']:
       return IN_PERSON_INTAKE_PAPERWORK_CANONICAL;

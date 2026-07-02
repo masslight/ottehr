@@ -24,8 +24,6 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   ACCIDENT_TYPE_SYSTEM,
-  APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL,
-  APPOINTMENT_PAPERWORK_SUBTYPE_SYSTEM,
   CanonicalUrl,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
@@ -100,8 +98,6 @@ interface CreateAppointmentInput {
   bookingLocation?: ResolvedBookingLocation;
   /** Resolved attending Practitioner (populated for PractitionerRole bookings). */
   attendingPractitioner?: ResolvedAttendingPractitioner;
-  paperworkSubtype?: string;
-  paperworkFlowId?: string;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -140,8 +136,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
     followUpOptions,
     bookingLocation,
     attendingPractitioner,
-    paperworkSubtype,
-    paperworkFlowId,
   } = effectInput;
   console.log('effectInput', effectInput);
   console.timeEnd('performing-complex-validation');
@@ -177,8 +171,6 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
       followUpOptions,
       bookingLocation,
       attendingPractitioner,
-      paperworkSubtype,
-      paperworkFlowId,
     },
     oystehr
   );
@@ -229,8 +221,6 @@ export async function createAppointment(
     appointmentMetadata,
     bookingLocation,
     attendingPractitioner,
-    paperworkSubtype,
-    paperworkFlowId,
   } = input;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
@@ -314,8 +304,6 @@ export async function createAppointment(
     slot,
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
-    paperworkSubtype,
-    paperworkFlowId,
   });
 
   let relatedPersonId = '';
@@ -409,8 +397,6 @@ interface TransactionInput {
   slot?: Slot;
   appointmentMetadata?: Appointment['meta'];
   followUpOptions?: FollowUpOptions;
-  paperworkSubtype?: string;
-  paperworkFlowId?: string;
 }
 interface TransactionOutput {
   appointment: Appointment;
@@ -446,8 +432,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     slot,
     appointmentMetadata,
     followUpOptions,
-    paperworkSubtype,
-    paperworkFlowId,
   } = input;
 
   const parentEncounterId = followUpOptions?.parentEncounterId;
@@ -519,13 +503,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
     apptExtensions.push(...telemedApptExtensions);
     encExtensions.push(...telemedEncExtensions);
-  }
-
-  // Stamp the resolved practice paperwork flow (OTR-2309) on the encounter so the intake renderer
-  // serves this flow's forms. Mirror it onto the appointment so the flow is visible there too.
-  if (paperworkFlowId) {
-    encExtensions.push({ url: APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL, valueString: paperworkFlowId });
-    apptExtensions.push({ url: APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL, valueString: paperworkFlowId });
   }
 
   if (additionalInfo) {
@@ -645,19 +622,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     slot: slotReference ? [slotReference] : undefined,
     appointmentType: {
       text: visitType,
-      // When the appointment uses a non-default paperwork flow (e.g. consent-form-only for
-      // a return visit that skips full demographics), tag the coding so the EHR can surface
-      // a paperwork-type badge / filter without re-reading the encounter's QR canonical.
-      ...(paperworkSubtype
-        ? {
-            coding: [
-              {
-                system: APPOINTMENT_PAPERWORK_SUBTYPE_SYSTEM,
-                code: paperworkSubtype,
-              },
-            ],
-          }
-        : {}),
     },
     serviceCategory: slot?.serviceCategory,
     description: reasonForVisit,

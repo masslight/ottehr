@@ -810,8 +810,7 @@ export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(reso
   return (
     resource.resourceType === 'QuestionnaireResponse' &&
     !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') &&
-    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual') &&
-    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-consent-only')
+    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
   );
 }
 

@@ -9,7 +9,6 @@ import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/la
 import QuestionnaireAdminPage from 'src/features/visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
 import BillingConfiguration from '../features/admin/BillingConfiguration';
-import PaperworkPackagesAdminPage from '../features/admin/PaperworkPackagesAdminPage';
 import EMCodesAdminPage from '../features/visits/telemed/components/admin/EMCodesAdminPage';
 import GlobalTemplatesAdminPage from '../features/visits/telemed/components/admin/GlobalTemplatesAdminPage';
 import QuickPicksAdminPage from '../features/visits/telemed/components/admin/QuickPicksAdminPage';
@@ -39,7 +38,6 @@ enum PageTab {
   'em-codes' = 'em-codes',
   'lab-sets' = 'lab-sets',
   questionnaires = 'questionnaires',
-  'paperwork-packages' = 'paperwork-packages',
   'docs-folders' = 'docs-folders',
   'support-dialog' = 'support-dialog',
   'progress-note' = 'progress-note',
@@ -159,12 +157,6 @@ export function AdminPage(): JSX.Element {
                   onClick={() => navigate(`/admin/${PageTab.questionnaires}`)}
                 />
                 <Tab
-                  label="Paperwork Flows"
-                  value={PageTab['paperwork-packages']}
-                  sx={{ textTransform: 'none', fontWeight: 500 }}
-                  onClick={() => navigate(`/admin/${PageTab['paperwork-packages']}`)}
-                />
-                <Tab
                   label="Label Printing Config"
                   value={PageTab['label-printing-config']}
                   sx={{ textTransform: 'none', fontWeight: 500 }}
@@ -235,9 +227,6 @@ export function AdminPage(): JSX.Element {
           </TabPanel>
           <TabPanel value={PageTab.questionnaires} sx={{ padding: 0 }}>
             <QuestionnaireAdminPage />
-          </TabPanel>
-          <TabPanel value={PageTab['paperwork-packages']} sx={{ padding: 0 }}>
-            <PaperworkPackagesAdminPage />
           </TabPanel>
           <TabPanel value={PageTab['label-printing-config']} sx={{ padding: 0 }}>
             <AdminPrintingConfig />
