@@ -8,9 +8,9 @@ import {
   clearClaimPlanType,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
-  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
@@ -256,10 +256,10 @@ async function attachClaimResources(
       sequence: i + 1,
       careTeamSequence: hasRenderingProvider ? [1] : undefined,
       diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
-      productOrService: { coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }] },
+      productOrService: { coding: [{ system: CODE_SYSTEM_HL7_HCPCS, code: line.cptCode }] },
       modifier: line.modifiers?.length
         ? line.modifiers.map((m) => ({
-            coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER, code: m }],
+            coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER, code: m }],
           }))
         : undefined,
       servicedPeriod: { start: line.serviceDate },
