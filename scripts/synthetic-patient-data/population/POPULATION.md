@@ -43,8 +43,9 @@ npx tsx plan-population.ts --patients 500 --seed 7 --out small-plan.json
 
 How it works (`archetypes.ts` holds the registry + identity pools):
 - **46 archetypes** map to scenarios in `../examples` — 16 rich hand-authored
-  ones plus 30 generated `gen-*.json` scenarios (variants + new complaints) —
-  each annotated with a plausible patient age band + sex constraint + a
+  ones plus 30 generated `gen-*.json` scenarios (variants + new complaints);
+  the committed `examples/*.json` files are the source of truth — each
+  archetype is annotated with a plausible patient age band + sex constraint + a
   frequency weight (bread-and-butter complaints weighted high, acute/unusual
   low).
 - Per patient: pick a seed archetype (weighted) → derive age/sex → generate a

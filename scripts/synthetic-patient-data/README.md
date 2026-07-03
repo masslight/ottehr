@@ -6,45 +6,9 @@ Reference for synthesizing a complete, signed in-person visit in Ottehr by calli
 
 ## How to use it
 
-There's one runner — `synthesize-visit.ts` — and two ways to feed it. Both end with a single CLI invocation that creates a real visit on a target Oystehr project.
+There's one runner — `synthesize-visit.ts` — and it's fed with a structured scenario JSON (validated against the Zod schema in `schema.ts`). A single CLI invocation creates a real visit on a target Oystehr project. For batch or ongoing data, the population planner ([`population/POPULATION.md`](./population/POPULATION.md)) and the daily census ([`DAILY-CENSUS.md`](./DAILY-CENSUS.md)) pick from the committed `examples/*.json` scenarios (46 archetypes, hand-authored + generated) and drive this same runner.
 
-### Path 1 — start with a clinical narrative (LLM-assisted)
-
-Best for: turning real-feeling case write-ups into demo data, batch-generating scenarios, exploratory variation. You hand an LLM the narrative plus the Zod schema (`schema.ts`); the LLM emits a scenario JSON that conforms to it; you run that JSON.
-
-The repo ships a 15-patient narrative file at [`examples/urgent-care-narratives.md`](./examples/urgent-care-narratives.md) covering a range of ages and typical UC presentations (8mo otitis through 82yo dementia + UTI). Each derived scenario JSON lives next to it (`examples/maya-carter-otitis.json`, `examples/aiden-thompson-ankle-sprain.json`, …) — those are exactly the artifacts an LLM produced from the narratives, so they double as a worked example of the conversion.
-
-**What you're asking the LLM to do.** Read the narrative for one patient, read the Zod schema (`scripts/synthetic-patient-data/schema.ts`), and emit a JSON object that (a) conforms to the schema, (b) faithfully captures the clinical content of the narrative, and (c) uses one of the existing `examples/*.json` as a shape reference so subtle conventions (FHIR-flavored field names, ICD-10 in `code` and human label in `display`, the `" - "` separator inside `reasonForVisit`, the `targetStatus` enum, etc.) come out right. The LLM is also expected to **dry-run** the result through `synthesize-visit.ts` so any schema-validation failure surfaces immediately, with the exact field path that's wrong, and gets fixed in-loop instead of at execute time.
-
-**Claude Code prompt that works end-to-end.** From inside the repo, run `claude` and paste:
-
-```
-Convert the [Patient N — <Name>, <age>, <chief complaint>] block in
-scripts/synthetic-patient-data/examples/urgent-care-narratives.md to a
-scenario JSON. Conform to the Zod schema at
-scripts/synthetic-patient-data/schema.ts. Use
-scripts/synthetic-patient-data/examples/jane-doe-urgent-care.json as a
-shape reference for field naming and shape (every field the pipeline reads
-appears there). Save the output to
-scripts/synthetic-patient-data/examples/<firstname>-<lastname>-<short-condition>.json
-matching the existing kebab-case naming. Then dry-run the pipeline against
-it (no --execute) and iterate on any Zod validation errors until it parses
-clean. Report the final filename + dry-run summary. Don't run --execute
-until I say so.
-```
-
-Same prompt shape works with a fresh narrative the user pastes inline (replace the `examples/urgent-care-narratives.md` reference with "Here is the narrative: <paste>"). Once the dry-run is clean, follow up with `--execute` to actually create the visit:
-
-```
-Looks good — go ahead and run it with --execute against the synth project
-(packages/zambdas/.env/synth.json).
-```
-
-**Why this works without hallucination.** The Zod schema enforces strict picklist enums, ICD-10 / CPT shapes, the urgent-care `reasonForVisit` allow-list, the `targetStatus` lifecycle states, the `screenNotes.code` enum, etc. Every validation failure prints the exact JSON path that's wrong (e.g., `disposition.followUp.0.type — Invalid enum value. Expected 'dentistry' | 'ent' | …`), so the LLM can correct in one or two passes. Validation runs *before* any zambda call, so a malformed scenario can't pollute the project.
-
-If you don't have Claude Code, the same conversion works in a regular Claude.ai or ChatGPT session — paste the narrative + the contents of `schema.ts` + a known-good example (e.g., `examples/jane-doe-urgent-care.json`) with the prompt "convert to a scenario JSON conforming to this schema, return JSON only," save the response to a file, and run the CLI yourself.
-
-### Path 2 — start with structured JSON
+### Start with structured JSON
 
 Best for: test fixtures, deterministic CI seed data, hand-tuning a known scenario, copying-and-modifying an existing example. You write (or copy) a scenario JSON directly.
 
@@ -62,7 +26,7 @@ npx env-cmd -f packages/zambdas/.env/<env>.json \
 
 [`examples/jane-doe-urgent-care.json`](./examples/jane-doe-urgent-care.json) is the canonical demo — every field used by the pipeline is present and commented-by-example. Copy it, tweak the patient + visit + history fields, and you have a new scenario.
 
-### Either way, what happens on `--execute`
+### What happens on `--execute`
 
 The script validates the JSON, then walks a fixed pipeline against the target project: prerequisite lookups → create slot + appointment → fill the intake QR (uploads ID + insurance images to Z3 along the way) → assign attending → save chart data → apply a global template for the visit narrative → place orders (in-house meds, in-house labs, immunizations, radiology) → set up a synthetic eligibility check + charge-master entries → walk the visit-status lifecycle → sign-off (locks the visit). Reruns are idempotent on Patient (same scenario reuses the same Jane Doe across visits), and a `--orphan-cleanup` flag on `cleanup-synth-patient.ts` mops up any partially-created visits left by failed runs.
 
