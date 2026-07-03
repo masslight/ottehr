@@ -12,16 +12,13 @@
 import { spawnSync } from 'child_process';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
+import { argDate, flag } from './shared/cli';
+import { SYNTH_CRON_RUN_DATE_SYSTEM as RUN_DATE_SYSTEM } from './shared/constants';
 import { createOystehrFromEnv } from './shared/oystehr-client';
 
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
 const TZ = 'America/New_York';
-const RUN_DATE_SYSTEM = 'https://fhir.ottehr.com/sid/synth-cron-run-date';
-const DATE = arg('--date', DateTime.now().setZone(TZ).toFormat('yyyy-MM-dd'));
-const EXECUTE = process.argv.includes('--execute');
+const DATE = argDate('--date', DateTime.now().setZone(TZ).toFormat('yyyy-MM-dd'));
+const EXECUTE = flag('--execute');
 const CLEANUP = resolve(__dirname, 'cleanup-synth-patient.ts');
 
 (async () => {

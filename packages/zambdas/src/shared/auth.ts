@@ -1,4 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Patient, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
 import {
@@ -81,15 +82,20 @@ export type AuthType = 'regular';
 // token past its TTL and every downstream call starts failing with 401/500s.
 const M2M_TOKEN_EXPIRY_MARGIN_MS = 5 * 60 * 1000;
 
-const isNearExpiry = (token: string): boolean => {
+type M2MTokenExpiryStatus = 'fresh' | 'near-expiry' | 'expired';
+
+const getTokenExpiryStatus = (token: string): M2MTokenExpiryStatus => {
   try {
     const { exp } = decodeJwt(token);
     // No exp claim → treat as non-expiring (preserve warm-invocation reuse).
-    if (typeof exp !== 'number') return false;
-    return exp * 1000 - Date.now() < M2M_TOKEN_EXPIRY_MARGIN_MS;
+    if (typeof exp !== 'number') return 'fresh';
+    const msUntilExpiry = exp * 1000 - Date.now();
+    if (msUntilExpiry <= 0) return 'expired';
+    if (msUntilExpiry < M2M_TOKEN_EXPIRY_MARGIN_MS) return 'near-expiry';
+    return 'fresh';
   } catch {
-    // Undecodable cached token — replace it.
-    return true;
+    // Undecodable cached token — unusable, must be replaced.
+    return 'expired';
   }
 };
 
@@ -98,12 +104,27 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
     console.log('getting token');
     return await getAuth0Token(secrets);
   }
-  if (isNearExpiry(token)) {
-    console.log('cached token expired or near expiry - getting new token');
-    return await getAuth0Token(secrets);
+  const expiryStatus = getTokenExpiryStatus(token);
+  if (expiryStatus === 'fresh') {
+    console.log('already have token');
+    return token;
   }
-  console.log('already have token');
-  return token;
+  if (expiryStatus === 'near-expiry') {
+    // Proactive refresh: the cached token is still valid for a few more minutes, so a failed
+    // re-mint must not fail the request — fall back to the cached token and let a later
+    // invocation retry the refresh.
+    console.log('cached token near expiry - attempting to get new token');
+    try {
+      return await getAuth0Token(secrets);
+    } catch (error) {
+      console.error('failed to refresh near-expiry M2M token, falling back to still-valid cached token', error);
+      captureException(error);
+      return token;
+    }
+  }
+  // Expired (or undecodable) — the cached token is unusable, so a re-mint failure must propagate.
+  console.log('cached token expired - getting new token');
+  return await getAuth0Token(secrets);
 }
 
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {

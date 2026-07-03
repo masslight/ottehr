@@ -7,6 +7,16 @@
  * synth-daily-census.ts (moved here from synthesize-visit.ts, which cannot be
  * imported for its helpers — it runs main() at module load).
  */
+/**
+ * True for connection-level failures worth retrying (fetch failed / ECONNRESET /
+ * ETIMEDOUT) — NOT for 4xx/5xx-style errors that come back via the SDK's typed
+ * error path. Single home for the sniff withRetry and the cleanup scripts share.
+ */
+export function isTransientNetworkError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('fetch failed') || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT');
+}
+
 export async function withRetry<T>(label: string, attempts: number, fn: () => Promise<T>): Promise<T> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
@@ -14,10 +24,8 @@ export async function withRetry<T>(label: string, attempts: number, fn: () => Pr
       return await fn();
     } catch (err) {
       lastErr = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      // Only retry transient network failures, not 4xx/5xx-style errors that
-      // come back via the SDK's typed error path.
-      if (!msg.includes('fetch failed') && !msg.includes('ECONNRESET') && !msg.includes('ETIMEDOUT')) {
+      // Only retry transient network failures.
+      if (!isTransientNetworkError(err)) {
         throw err;
       }
       if (i === attempts - 1) break;

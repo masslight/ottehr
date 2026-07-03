@@ -38,6 +38,7 @@ import {
   IN_PERSON_LOCATIONS,
   LAST_NAMES,
 } from './population/archetypes';
+import { arg, argInt, flag } from './shared/cli';
 import {
   OTTEHR_VISIT_STATUS_EXTENSION_URL as OTT_EXT_URL,
   STATUS_GAP_DISTRIBUTIONS as STATUS_GAP,
@@ -45,22 +46,15 @@ import {
   SYNTH_CRON_SYSTEM as CRON_SYSTEM,
   VISIT_STATUS_ORDER,
 } from './shared/constants';
+import { createOystehrFromToken, mintAccessToken, need, searchAllPages } from './shared/oystehr-client';
 import { withRetry } from './shared/retry';
+import { type ZambdaCtx, zambdaPost } from './shared/zambda';
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
 const ENV = arg('--env', 'demo');
-const COUNT = parseInt(arg('--count', '40'), 10);
+const COUNT = argInt('--count', { default: 40, min: 1 });
 const PHASE = arg('--phase', 'both'); // both | catchup | generate
-const DRY = process.argv.includes('--dry');
-const CONCURRENCY = parseInt(arg('--concurrency', '4'), 10);
+const DRY = flag('--dry');
+const CONCURRENCY = argInt('--concurrency', { default: 4, min: 1 });
 const ZAMBDA_API = arg('--zambda-api', process.env.ZAMBDA_API || 'http://localhost:3000/local');
 const HERE = __dirname;
 const SYNTH = resolve(HERE, 'synthesize-visit.ts');
@@ -105,31 +99,11 @@ interface AuthCtx {
 }
 
 async function tokenAndClient(): Promise<AuthCtx> {
-  const tk = await (
-    await withRetry('mint M2M token', 3, () =>
-      fetch(need('AUTH0_ENDPOINT'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: process.env.AUTH0_CLIENT,
-          client_secret: process.env.AUTH0_SECRET,
-          audience: process.env.AUTH0_AUDIENCE,
-          grant_type: 'client_credentials',
-        }),
-      })
-    )
-  ).json();
-  const at = (tk as any).access_token;
-  if (!at) throw new Error(`M2M token mint failed: ${JSON.stringify(tk).slice(0, 200)}`);
-  return {
-    at,
-    o: new Oystehr({
-      accessToken: at,
-      projectId: need('PROJECT_ID'),
-      services: { projectApiUrl: need('PROJECT_API') },
-    }),
-    projectId: need('PROJECT_ID'),
-  };
+  // withRetry covers transient network failures; a non-2xx or token-less
+  // response throws from mintAccessToken itself (never a client with an
+  // undefined token).
+  const at = await withRetry('mint M2M token', 3, () => mintAccessToken());
+  return { at, o: createOystehrFromToken(at), projectId: need('PROJECT_ID') };
 }
 
 // Milliseconds until the JWT expires (Infinity when there's no decodable exp).
@@ -163,11 +137,8 @@ async function auth(): Promise<AuthCtx> {
   }
   return minting;
 }
-const hdr = (at: string, pid: string): Record<string, string> => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${at}`,
-  'x-zapehr-project-id': pid,
-});
+// Zambda-call context for the shared zambdaPost helper (headers live there).
+const zctx = (at: string, pid: string): ZambdaCtx => ({ zambdaApi: ZAMBDA_API, accessToken: at, projectId: pid });
 
 // Rewrite Encounter.statusHistory with realistic gaps anchored to appointment.start.
 function rebuildStatusHistory(
@@ -211,11 +182,7 @@ function rebuildStatusHistory(
 // employees (get-employees) — portable across projects, no hardcoded names. The
 // harness --practitioner/--intake look these names up, so they must exist.
 async function resolveStaff(at: string, projectId: string): Promise<{ providers: string[]; mas: string[] }> {
-  const res = await fetch(`${ZAMBDA_API}/zambda/get-employees/execute`, {
-    method: 'POST',
-    headers: hdr(at, projectId),
-    body: JSON.stringify({}),
-  });
+  const res = await zambdaPost(zctx(at, projectId), 'get-employees', {});
   if (!res.ok) throw new Error(`get-employees failed: ${res.status}`);
   const j: any = await res.json();
   // Keep only cleanly-splittable names: the harness --practitioner search splits
@@ -330,12 +297,11 @@ async function catchUp(): Promise<void> {
     const fromIdx = Math.max(VISIT_STATUS_ORDER.indexOf(curOtt as any), 0);
     for (const target of ['discharged', 'completed']) {
       if (VISIT_STATUS_ORDER.indexOf(target as any) <= fromIdx) continue;
-      const res = await withRetry(`${appt.id} status→${target}`, 3, () =>
-        fetch(`${ZAMBDA_API}/zambda/change-in-person-visit-status/execute`, {
-          method: 'POST',
-          headers: hdr(at, projectId),
-          body: JSON.stringify({ encounterId: enc.id, updatedStatus: target }),
-        })
+      const res = await zambdaPost(
+        zctx(at, projectId),
+        'change-in-person-visit-status',
+        { encounterId: enc.id, updatedStatus: target },
+        { retry: { label: `${appt.id} status→${target}`, attempts: 3 } }
       );
       if (!res.ok) throw new Error(`status→${target}: ${res.status} ${(await res.text()).slice(0, 100)}`);
     }
@@ -369,12 +335,7 @@ async function catchUp(): Promise<void> {
           : undefined;
         const key = patient ? `${nameKey(patient.name?.[0]?.given?.[0])} ${nameKey(patient.name?.[0]?.family)}` : '';
         const authored = authoredCache.get(runDate)?.get(key) ?? {};
-        const fz = await finalizeInHouseLabs(
-          { zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) },
-          enc.id,
-          authored,
-          true
-        );
+        const fz = await finalizeInHouseLabs(zctx(at, projectId), enc.id, authored, true);
         resulted += fz.finalized;
       }
     } catch (e: any) {
@@ -383,7 +344,7 @@ async function catchUp(): Promise<void> {
     // Finalize radiology orders (preliminary → final) the same way — the visit
     // just reached 'completed', so the final read is now "back".
     try {
-      const fz = await finalizeRadiology({ zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) }, enc.id, true);
+      const fz = await finalizeRadiology(zctx(at, projectId), enc.id, true);
       resulted += fz.finalized;
     } catch (e: any) {
       console.log(`  ⚠ ${appt.id}: radiology finalize: ${e?.message ?? e}`);
@@ -391,27 +352,17 @@ async function catchUp(): Promise<void> {
     // Administer any pending in-house medication + immunization orders left
     // un-administered while the visit was in progress.
     try {
-      const fz = await finalizeMedicationsAndImmunizations(
-        { zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) },
-        enc.id,
-        true
-      );
+      const fz = await finalizeMedicationsAndImmunizations(zctx(at, projectId), enc.id, true);
       administered += fz.medications + fz.immunizations;
     } catch (e: any) {
       console.log(`  ⚠ ${appt.id}: med/imm finalize: ${e?.message ?? e}`);
     }
     // Sign.
-    const sres = await withRetry(`${appt.id} sign`, 3, () =>
-      fetch(`${ZAMBDA_API}/zambda/sign-appointment/execute`, {
-        method: 'POST',
-        headers: hdr(at, projectId),
-        body: JSON.stringify({
-          appointmentId: appt.id,
-          encounterId: enc.id,
-          timezone: TZ,
-          supervisorApprovalEnabled: false,
-        }),
-      })
+    const sres = await zambdaPost(
+      zctx(at, projectId),
+      'sign-appointment',
+      { appointmentId: appt.id, encounterId: enc.id, timezone: TZ, supervisorApprovalEnabled: false },
+      { retry: { label: `${appt.id} sign`, attempts: 3 } }
     );
     if (!sres.ok) throw new Error(`sign: ${sres.status} ${(await sres.text()).slice(0, 100)}`);
     signed++;
@@ -460,12 +411,15 @@ function statusSequence(rng: () => number): string[] {
   const seq: string[] = [];
   const total = STATUS_MIX.reduce((s, m) => s + m.weight, 0);
   for (const m of STATUS_MIX) seq.push(...Array(Math.max(1, Math.round((m.weight / total) * COUNT))).fill(m.status));
-  while (seq.length < COUNT) seq.push('provider');
-  seq.length = COUNT;
+  // Shuffle BEFORE truncating: rounding can overshoot COUNT for a small --count,
+  // and truncating first would deterministically drop the LAST STATUS_MIX
+  // entries (discharged/completed). Shuffling first spreads the drop uniformly.
   for (let i = seq.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [seq[i], seq[j]] = [seq[j], seq[i]];
   }
+  while (seq.length < COUNT) seq.push('provider');
+  seq.length = COUNT;
   return seq;
 }
 function dobForAge(age: number, rng: () => number): string {
@@ -491,8 +445,26 @@ const PAST_MINUTES_AGO: Record<string, [number, number]> = {
   discharged: [90, 180],
   completed: [120, 300],
 };
+// Minimum "minutes ago" for appointment.start given the visit's target status.
+// The harness (phase 13.5) stamps Encounter.statusHistory FORWARD from
+// appointment.start, summing per-status gaps from STATUS_GAP — so the target
+// status's period can begin up to the sum of the max gaps AFTER start (~148 min
+// for 'completed'). If appointment.start is more recent than that, a stamped
+// period.start lands in the future → negative wait times on the tracking board.
+// Clamp the sampled range's lower bound to that worst case (+2 min margin),
+// preserving the distribution shape wherever it's already safe.
+function minMinutesAgoFor(status: string): number {
+  const targetIdx = VISIT_STATUS_ORDER.indexOf(status as (typeof VISIT_STATUS_ORDER)[number]);
+  const arrivedIdx = VISIT_STATUS_ORDER.indexOf('arrived');
+  if (targetIdx < arrivedIdx) return 0; // 'pending' never stamps entries after appointment.start
+  let cum = 0;
+  for (let i = arrivedIdx; i <= targetIdx; i++) cum += Math.max(STATUS_GAP[VISIT_STATUS_ORDER[i]]?.max ?? 5, 0);
+  return cum + 2;
+}
 function appointmentTimeForStatus(status: string, now: DateTime, rng: () => number): { date: string; time: string } {
-  const [lo, hi] = PAST_MINUTES_AGO[status] ?? [10, 60];
+  const [rawLo, rawHi] = PAST_MINUTES_AGO[status] ?? [10, 60];
+  const lo = Math.max(rawLo, minMinutesAgoFor(status));
+  const hi = Math.max(rawHi, lo + 15); // keep a non-degenerate window after clamping
   // The harness parses scenario.visit.{date,time} as UTC (computeSlotStartISO:
   // `${date}T${time}:00.000Z`; intendedHistoricalStart: zone 'utc'). Emit the UTC
   // components of our target instant so the appointment lands at exactly the
@@ -527,6 +499,10 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
   if (already >= COUNT) {
     console.log(`[generate] already ${already} synth-cron visits for ${today} — skipping.`);
     return;
+  }
+  if (already > 0) {
+    // Partial-day rerun: top up to COUNT instead of generating COUNT more.
+    console.log(`[generate] ${already} synth-cron visits already exist for ${today} — topping up to ${COUNT}.`);
   }
 
   const rng = mulberry32(
@@ -581,6 +557,12 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
     // non-completed visit in the waiting room. Final signing is gated separately
     // by targetStatus!=='completed' in phase 14, so only 'completed' visits sign.
     base.signOff = { ...(base.signOff ?? {}), complete: true };
+    // Partial-day rerun: indices < `already` were created by an earlier run
+    // today — skip them so the rerun tops up to COUNT instead of adding COUNT
+    // more. Everything above still executes so the date-seeded rng stream (and
+    // therefore names/archetypes for the remaining indices) is identical to the
+    // run that would have created all COUNT in one go.
+    if (i < already) continue;
     const scenarioFile = resolve(SCEN_DIR, `census-${today}-${String(i).padStart(3, '0')}.json`);
     writeFileSync(scenarioFile, JSON.stringify(base, null, 2));
     visits.push({
@@ -595,15 +577,17 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
     });
   }
 
+  const creating = statuses.slice(already); // statuses of the visits this run will create
   console.log(
-    `[generate] ${COUNT} visits for ${today} (statuses: ${STATUS_MIX.map(
-      (m) => m.status + '×' + statuses.filter((s) => s === m.status).length
+    `[generate] ${visits.length} visits for ${today} (statuses: ${STATUS_MIX.map(
+      (m) => m.status + '×' + creating.filter((s) => s === m.status).length
     ).join(', ')})${DRY ? '  [DRY]' : ''}`
   );
   if (DRY) return;
 
   let idx = 0;
   let done = 0;
+  let untagged = 0; // created but missing the synth-cron/run-date tags → invisible to catch-up AND cleanup
   const worker = async (): Promise<void> => {
     while (idx < visits.length) {
       const v = visits[idx++];
@@ -630,71 +614,116 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
         child.stdout.on('data', (d) => chunks.push(d.toString()));
         child.stderr.on('data', (d) => chunks.push(d.toString()));
         child.on('close', async (code) => {
-          const out = chunks.join('');
-          if (code === 0) {
-            // Tag the created appointment + encounter as synth-cron + run-date.
-            // Re-resolve auth here: on a long generate run the initial token can
-            // lapse mid-phase; auth() re-mints (and rebuilds the client) if so.
-            const { o: oNow } = await auth();
-            const apptId = out.match(/Appointment:\s+([a-f0-9-]+)/)?.[1];
-            const encId = out.match(/Encounter:\s+([a-f0-9-]+)/)?.[1];
-            for (const [rt, id] of [
-              ['Appointment', apptId],
-              ['Encounter', encId],
-            ] as const) {
-              if (!id) continue;
+          // The entire body is guarded: an unexpected throw here (e.g. auth
+          // re-mint failing after retries) must neither strand this worker
+          // (res() lives in `finally`) nor kill the census via an unhandled
+          // rejection.
+          try {
+            const out = chunks.join('');
+            if (code === 0) {
+              done++;
+              const apptId = out.match(/Appointment:\s+([a-f0-9-]+)/)?.[1];
+              const encId = out.match(/Encounter:\s+([a-f0-9-]+)/)?.[1];
+              // A visit whose Appointment/Encounter never gets the synth-cron +
+              // run-date tags is a "zombie": invisible to next-day catch-up AND
+              // to cleanup. Treat scrape misses and tag failures as loud,
+              // counted warnings — never silent.
+              let tagProblem = false;
+              if (!apptId || !encId) {
+                tagProblem = true;
+                const missing = [!apptId && 'Appointment', !encId && 'Encounter'].filter(Boolean).join(' + ');
+                console.log(
+                  `  ⚠ ${v.label}: could not scrape ${missing} id from harness output — ` +
+                    `that resource will stay UNTAGGED (invisible to catch-up/cleanup)`
+                );
+              }
               try {
-                const r: any = await oNow.fhir.get({ resourceType: rt, id });
-                r.meta = {
-                  ...(r.meta || {}),
-                  tag: [
-                    ...(r.meta?.tag || []),
-                    { system: CRON_SYSTEM, code: 'synth-cron' },
-                    { system: RUN_DATE_SYSTEM, code: today },
-                  ],
-                };
-                // Pre-booked: the harness created this as a recent walk-in
-                // (arrived). Flip it to a real pre-booked visit — Appointment
-                // booked at a future start, Encounter back to planned with no
-                // arrival history — leaving the full chart intact for the
-                // next-day catch-up to sign into a complete visit.
-                if (v.prebookStartISO) {
-                  if (rt === 'Appointment') {
-                    r.status = 'booked';
-                    r.start = v.prebookStartISO;
-                    r.end = DateTime.fromISO(v.prebookStartISO).plus({ minutes: 15 }).toUTC().toISO();
-                    // Created as a walk-in (the only path that books); re-label the
-                    // FHIR appointmentType as prebook so the board shows
-                    // "Scheduled" + the scheduled time, not "On Demand". The
-                    // board/parser read appointmentType.text.
-                    r.appointmentType = { ...(r.appointmentType || {}), text: 'prebook' };
-                  } else {
-                    r.status = 'planned';
-                    delete r.statusHistory;
+                // Tag the created appointment + encounter as synth-cron + run-date.
+                // Re-resolve auth here: on a long generate run the initial token
+                // can lapse mid-phase; auth() re-mints (and rebuilds the client).
+                const { o: oNow } = await auth();
+                for (const [rt, id] of [
+                  ['Appointment', apptId],
+                  ['Encounter', encId],
+                ] as const) {
+                  if (!id) continue;
+                  try {
+                    // Re-GET inside the retry so a retried update never writes a
+                    // stale version; filter our tag systems before re-adding so a
+                    // partially-applied earlier attempt can't duplicate tags.
+                    await withRetry(`tag ${rt}/${id}`, 3, async () => {
+                      const r: any = await oNow.fhir.get({ resourceType: rt, id });
+                      const otherTags = (r.meta?.tag ?? []).filter(
+                        (t: any) => t.system !== CRON_SYSTEM && t.system !== RUN_DATE_SYSTEM
+                      );
+                      r.meta = {
+                        ...(r.meta || {}),
+                        tag: [
+                          ...otherTags,
+                          { system: CRON_SYSTEM, code: 'synth-cron' },
+                          { system: RUN_DATE_SYSTEM, code: today },
+                        ],
+                      };
+                      // Pre-booked: the harness created this as a recent walk-in
+                      // (arrived). Flip it to a real pre-booked visit — Appointment
+                      // booked at a future start, Encounter back to planned with no
+                      // arrival history — leaving the full chart intact for the
+                      // next-day catch-up to sign into a complete visit.
+                      if (v.prebookStartISO) {
+                        if (rt === 'Appointment') {
+                          r.status = 'booked';
+                          r.start = v.prebookStartISO;
+                          r.end = DateTime.fromISO(v.prebookStartISO).plus({ minutes: 15 }).toUTC().toISO();
+                          // Created as a walk-in (the only path that books); re-label the
+                          // FHIR appointmentType as prebook so the board shows
+                          // "Scheduled" + the scheduled time, not "On Demand". The
+                          // board/parser read appointmentType.text.
+                          r.appointmentType = { ...(r.appointmentType || {}), text: 'prebook' };
+                        } else {
+                          r.status = 'planned';
+                          delete r.statusHistory;
+                        }
+                      }
+                      await oNow.fhir.update(r);
+                    });
+                  } catch (e: any) {
+                    tagProblem = true;
+                    console.log(
+                      `  ⚠ ${v.label}: tagging ${rt}/${id} failed after retries — ` +
+                        `visit stays UNTAGGED (invisible to catch-up/cleanup): ${e?.message ?? e}`
+                    );
                   }
                 }
-                await oNow.fhir.update(r);
-              } catch {
-                /* non-fatal */
+              } catch (e: any) {
+                // auth() re-mint failed after retries: the visit exists but its
+                // tags were never applied. Count it and keep the run alive.
+                tagProblem = true;
+                console.log(`  ⚠ ${v.label}: post-create auth failed — visit left UNTAGGED: ${e?.message ?? e}`);
               }
+              if (tagProblem) untagged++;
+              console.log(`  ✓ ${v.targetStatus.padEnd(20)} ${v.label}${tagProblem ? '  (⚠ untagged)' : ''}`);
+            } else {
+              const err =
+                out
+                  .split('\n')
+                  .filter((l) => /error|aborted|failed/i.test(l))
+                  .slice(-1)[0] ?? `exit ${code}`;
+              console.log(`  ✗ FAILED ${v.label}: ${err.trim().slice(0, 120)}`);
             }
-            done++;
-            console.log(`  ✓ ${v.targetStatus.padEnd(20)} ${v.label}`);
-          } else {
-            const err =
-              out
-                .split('\n')
-                .filter((l) => /error|aborted|failed/i.test(l))
-                .slice(-1)[0] ?? `exit ${code}`;
-            console.log(`  ✗ FAILED ${v.label}: ${err.trim().slice(0, 120)}`);
+          } catch (e: any) {
+            // Defensive: nothing above should reach here, but if it does the
+            // visit may exist untagged — surface it rather than crash the run.
+            untagged++;
+            console.log(`  ⚠ ${v.label}: post-create handling crashed (visit may be untagged): ${e?.message ?? e}`);
+          } finally {
+            res();
           }
-          res();
         });
       });
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, CONCURRENCY) }, () => worker()));
-  console.log(`[generate] created ${done}/${COUNT}.`);
+  console.log(`[generate] created ${done}/${visits.length}, untagged: ${untagged}.`);
 }
 
 async function main(): Promise<void> {
@@ -751,21 +780,10 @@ async function main(): Promise<void> {
     'https://fhir.ottehr.com/CodeSystem/global-template-in-person',
     'https://fhir.ottehr.com/CodeSystem/global-template-telemed',
   ];
-  let tmplCount = 0;
-  for (let off = 0; ; off += 500) {
-    const ls = (
-      await o.fhir.search({
-        resourceType: 'List',
-        params: [
-          { name: '_count', value: '500' },
-          { name: '_offset', value: String(off) },
-        ],
-      })
-    ).unbundle() as any[];
-    if (!ls.length) break;
-    tmplCount += ls.filter((l: any) => (l.code?.coding ?? []).some((c: any) => TEMPLATE_SYS.includes(c.system))).length;
-    if (ls.length < 500) break;
-  }
+  const allLists = await searchAllPages<any>(o, 'List', []);
+  const tmplCount = allLists.filter((l: any) =>
+    (l.code?.coding ?? []).some((c: any) => TEMPLATE_SYS.includes(c.system))
+  ).length;
   if (tmplCount === 0) {
     console.warn(
       `⚠ env '${ENV}' has no progress-note templates — templated archetypes will produce thin notes. Seed with copy-templates.ts.`

@@ -21,12 +21,12 @@ synthetic staff (`../SYNTH-STAFF.md`). Three steps: **plan → run → verify**.
    "scaffold" slot per visit (Phase 15 then backdates it). A location whose
    Schedule has realistic per-hour capacity (the synth **Los Angeles** schedule
    caps at 2–18/hr) rejects concurrent scaffold bookings with `4019 "slot
-   unavailable"`. Run once to make LA permissive (capacity 200, open 0–23, like
-   NY); the original is backed up to `la-schedule-backup.json`:
+   unavailable"`. Run once to make the schedules permissive (capacity 200, open
+   0–23); each original is backed up to `schedule-backup-<location-id>.json`:
    ```bash
-   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx fix-la-schedule-permissive.ts
+   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx fix-schedules-permissive.ts
    # restore later if desired:
-   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx fix-la-schedule-permissive.ts --restore
+   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx fix-schedules-permissive.ts --restore
    ```
    Capacity only gates new bookings, never the backdated historical visits.
 
@@ -42,7 +42,8 @@ npx tsx plan-population.ts --patients 500 --seed 7 --out small-plan.json
 ```
 
 How it works (`archetypes.ts` holds the registry + identity pools):
-- **16 archetypes** map to the rich hand-authored scenarios in `../examples`,
+- **46 archetypes** map to scenarios in `../examples` — 16 rich hand-authored
+  ones plus 30 generated `gen-*.json` scenarios (variants + new complaints) —
   each annotated with a plausible patient age band + sex constraint + a
   frequency weight (bread-and-butter complaints weighted high, acute/unusual
   low).

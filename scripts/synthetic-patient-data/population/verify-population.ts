@@ -7,15 +7,11 @@
 //   npx env-cmd -f packages/zambdas/.env/synth.json \
 //     npx tsx scripts/synthetic-patient-data/population/verify-population.ts [--days 400]
 
-import { createOystehrFromEnv } from '../shared/oystehr-client';
-
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
+import { argInt } from '../shared/cli';
+import { createOystehrFromEnv, searchAllPages } from '../shared/oystehr-client';
 
 (async () => {
-  const days = parseInt(arg('--days', '400'), 10);
+  const days = argInt('--days', { default: 400, min: 1 });
   const end = new Date();
   const start = new Date(end);
   start.setDate(start.getDate() - days);
@@ -34,34 +30,26 @@ const arg = (name: string, dflt: string): string => {
   const byLocation: Record<string, number> = {};
   const patients = new Set<string>();
   let total = 0;
-  let offset = 0;
-  const pageSize = 1000;
 
-  for (;;) {
-    const bundle = await o.fhir.search({
-      resourceType: 'Appointment',
-      params: [
-        { name: 'date', value: `ge${startISO}` },
-        { name: 'date', value: `le${endISO}` },
-        { name: '_count', value: String(pageSize) },
-        { name: '_offset', value: String(offset) },
-      ],
-    });
-    const appts = bundle.unbundle().filter((r: any) => r.resourceType === 'Appointment') as any[];
-    if (!appts.length) break;
-    for (const a of appts) {
-      total++;
-      byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
-      if (a.start) byMonth[a.start.slice(0, 7)] = (byMonth[a.start.slice(0, 7)] ?? 0) + 1;
-      const locRef = a.participant?.find((p: any) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference;
-      const locId = locRef?.replace('Location/', '');
-      const ln = locId ? locName[locId] ?? locId : '(none)';
-      byLocation[ln] = (byLocation[ln] ?? 0) + 1;
-      const patRef = a.participant?.find((p: any) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
-      if (patRef) patients.add(patRef);
-    }
-    offset += appts.length;
-    if (appts.length < pageSize) break;
+  const appts = await searchAllPages<any>(
+    o,
+    'Appointment',
+    [
+      { name: 'date', value: `ge${startISO}` },
+      { name: 'date', value: `le${endISO}` },
+    ],
+    { pageSize: 1000 }
+  );
+  for (const a of appts) {
+    total++;
+    byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
+    if (a.start) byMonth[a.start.slice(0, 7)] = (byMonth[a.start.slice(0, 7)] ?? 0) + 1;
+    const locRef = a.participant?.find((p: any) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference;
+    const locId = locRef?.replace('Location/', '');
+    const ln = locId ? locName[locId] ?? locId : '(none)';
+    byLocation[ln] = (byLocation[ln] ?? 0) + 1;
+    const patRef = a.participant?.find((p: any) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
+    if (patRef) patients.add(patRef);
   }
 
   console.log(`Window: ${startISO.slice(0, 10)} → ${endISO.slice(0, 10)} (${days} days)`);

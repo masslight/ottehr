@@ -16,7 +16,6 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
   createCodeableConcept,
-  DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
   getProviderNameWithProfession,
@@ -31,6 +30,7 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
+  followUpTypeFromPerformerType,
   getMyPractitionerId,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
@@ -364,11 +364,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ],
         'Computed tomography (procedure)'
       );
-      const existedSubFollowUpId = filterServiceRequestsFromFhir(
-        allResources,
-        subFollowUpMetaTag,
-        followUpPerformer?.coding?.[0]
-      )[0]?.id;
+      // Match the existing ServiceRequest by resolved follow-up type (coding code OR text) —
+      // filtering by coding alone matches nothing for the coding-less 'other'/'lurie-ct'
+      // performer types and would grab the first sub-follow-up of any type.
+      const existedSubFollowUpId = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag).find(
+        (subFollowUp) => followUpTypeFromPerformerType(subFollowUp.performerType) === followUp.type
+      )?.id;
 
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
@@ -389,11 +390,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // remove sub follow-ups that are not in the current request
     const existingSubFollowUps = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag);
     existingSubFollowUps.forEach((subFollowUp) => {
-      const subFollowUpType = Object.keys(followUpToPerformerMap).find(
-        (key) =>
-          followUpToPerformerMap[key as DispositionFollowUpType]?.coding?.[0].code ===
-          subFollowUp.performerType?.coding?.[0].code
-      );
+      const subFollowUpType = followUpTypeFromPerformerType(subFollowUp.performerType);
       if (subFollowUpType && !disposition.followUp?.some((f) => f.type === subFollowUpType)) {
         saveOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', subFollowUp.id!));
       }

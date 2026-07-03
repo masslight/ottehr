@@ -8,17 +8,9 @@
 //   npx env-cmd -f packages/zambdas/.env/demo.json npx tsx \
 //     scripts/synthetic-patient-data/audit-env-readiness.ts [--env demo]
 
-import Oystehr from '@oystehr/sdk';
+import { arg } from './shared/cli';
+import { createOystehrFromEnv, need, searchAllPages } from './shared/oystehr-client';
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
 const ENV = arg('--env', 'demo');
 
 const TEMPLATE_CODE_SYSTEMS = [
@@ -79,23 +71,7 @@ function report(label: string, want: string[], have: string[]): { ok: number; mi
 }
 
 (async () => {
-  const tk = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const o = new Oystehr({
-    accessToken: (tk as any).access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const o = await createOystehrFromEnv();
   console.log(`Auditing env '${ENV}' (project ${need('PROJECT_ID')}) for synth-census readiness…`);
 
   const search = async (rt: string, params: any[]): Promise<any[]> =>
@@ -121,22 +97,10 @@ function report(label: string, want: string[], have: string[]): { ok: number; mi
 
   // Templates — paginate ALL Lists (a common type) and filter by the global-template
   // code system (not _tag, and not the 300-cap, which both under-count).
-  const tmplTitles: string[] = [];
-  for (let off = 0; ; off += 500) {
-    const ls = (
-      await o.fhir.search({
-        resourceType: 'List',
-        params: [
-          { name: '_count', value: '500' },
-          { name: '_offset', value: String(off) },
-        ],
-      })
-    ).unbundle() as any[];
-    if (!ls.length) break;
-    for (const l of ls)
-      if ((l.code?.coding ?? []).some((c: any) => TEMPLATE_CODE_SYSTEMS.includes(c.system))) tmplTitles.push(l.title);
-    if (ls.length < 500) break;
-  }
+  const allLists = await searchAllPages<any>(o, 'List', []);
+  const tmplTitles = allLists
+    .filter((l: any) => (l.code?.coding ?? []).some((c: any) => TEMPLATE_CODE_SYSTEMS.includes(c.system)))
+    .map((l: any) => l.title);
   report('Progress-note templates', REQUIRED.templates, tmplTitles.filter(Boolean));
 
   // In-house labs

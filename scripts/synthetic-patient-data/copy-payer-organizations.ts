@@ -26,21 +26,16 @@
  */
 import Oystehr from '@oystehr/sdk';
 import type { Organization } from 'fhir/r4b';
-import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { arg, argInt, flag } from './shared/cli';
+import { createOystehrFromEnvFile, loadEnvFile, searchAllPages } from './shared/oystehr-client';
 
-const args = process.argv.slice(2);
-function getFlag(name: string): string | undefined {
-  const idx = args.indexOf(name);
-  return idx === -1 ? undefined : args[idx + 1];
-}
-
-const sourceEnvPath = resolve(getFlag('--source-env') ?? '');
-const destEnvPath = resolve(getFlag('--dest-env') ?? '');
-const carrierFilter = getFlag('--carrier');
-const limit = Number(getFlag('--limit') ?? '20');
-const copyAll = args.includes('--all');
-const isExecute = args.includes('--execute');
+const sourceEnvPath = resolve(arg('--source-env') ?? '');
+const destEnvPath = resolve(arg('--dest-env') ?? '');
+const carrierFilter = arg('--carrier');
+const limit = argInt('--limit', { default: 20, min: 1 });
+const copyAll = flag('--all');
+const isExecute = flag('--execute');
 
 if (!sourceEnvPath || !destEnvPath) {
   console.error(
@@ -65,39 +60,6 @@ const CURATED_CARRIERS = [
   'Tricare',
 ];
 
-interface EnvConfig {
-  AUTH0_ENDPOINT: string;
-  AUTH0_CLIENT: string;
-  AUTH0_SECRET: string;
-  AUTH0_AUDIENCE: string;
-  PROJECT_ID: string;
-  PROJECT_API: string;
-}
-
-function loadEnv(path: string): EnvConfig {
-  return JSON.parse(readFileSync(path, 'utf-8')) as EnvConfig;
-}
-
-async function createOystehr(env: EnvConfig, label: string): Promise<Oystehr> {
-  const tokenRes = await fetch(env.AUTH0_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: env.AUTH0_CLIENT,
-      client_secret: env.AUTH0_SECRET,
-      audience: env.AUTH0_AUDIENCE,
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`[${label}] Oystehr IAM auth failed: ${tokenRes.status} ${await tokenRes.text()}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-  return new Oystehr({
-    accessToken: access_token,
-    projectId: env.PROJECT_ID,
-    services: { projectApiUrl: env.PROJECT_API },
-  });
-}
-
 async function searchPayerByName(oystehr: Oystehr, name: string, limitN = 5): Promise<Organization[]> {
   const result = await oystehr.fhir.search<Organization>({
     resourceType: 'Organization',
@@ -115,31 +77,29 @@ async function main(): Promise<void> {
   console.log(`Source: ${sourceEnvPath}`);
   console.log(`Dest:   ${destEnvPath}`);
 
-  const sourceEnv = loadEnv(sourceEnvPath);
-  const destEnv = loadEnv(destEnvPath);
+  const sourceEnv = loadEnvFile(sourceEnvPath);
+  const destEnv = loadEnvFile(destEnvPath);
   if (sourceEnv.PROJECT_ID === destEnv.PROJECT_ID) throw new Error('Source and dest are the same project');
 
   console.log('Authenticating...');
-  const [source, dest] = await Promise.all([createOystehr(sourceEnv, 'source'), createOystehr(destEnv, 'dest')]);
+  const [{ oystehr: source }, { oystehr: dest }] = await Promise.all([
+    createOystehrFromEnvFile(sourceEnvPath, 'source'),
+    createOystehrFromEnvFile(destEnvPath, 'dest'),
+  ]);
 
   // Build the candidate set from source.
   const candidates: Organization[] = [];
   if (copyAll) {
     console.log('--all set — copying every type=pay Organization from source (this may take a while)');
-    let next: string | undefined;
-    do {
-      const result = await source.fhir.search<Organization>({
-        resourceType: 'Organization',
-        params: [
-          { name: 'type', value: 'http://terminology.hl7.org/CodeSystem/organization-type|pay' },
-          { name: '_count', value: '500' },
-        ],
-      });
-      candidates.push(...result.unbundle());
-      const linkNext = (result as any).link?.find?.((l: { relation: string; url: string }) => l.relation === 'next');
-      next = linkNext?.url;
-      if (next) console.log(`  fetched ${candidates.length} so far, paginating...`);
-    } while (next && candidates.length < 5000);
+    candidates.push(
+      ...(await searchAllPages<Organization>(
+        source,
+        'Organization',
+        [{ name: 'type', value: 'http://terminology.hl7.org/CodeSystem/organization-type|pay' }],
+        { pageSize: 500, max: 5000 }
+      ))
+    );
+    console.log(`  fetched ${candidates.length} payer Organizations from source`);
   } else if (carrierFilter) {
     const found = await searchPayerByName(source, carrierFilter, limit);
     candidates.push(...found);

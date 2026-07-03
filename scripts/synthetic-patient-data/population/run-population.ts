@@ -14,12 +14,7 @@
 import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
-const flag = (name: string): boolean => process.argv.includes(name);
+import { arg, argInt, flag } from '../shared/cli';
 
 const HERE = __dirname;
 const SYNTH = resolve(HERE, '..', 'synthesize-visit.ts');
@@ -29,10 +24,10 @@ const PROGRESS_PATH = resolve(arg('--progress', resolve(HERE, 'population-progre
 const SCEN_DIR = resolve(HERE, '.scenarios');
 const LOG_DIR = resolve(HERE, '.logs');
 
-const CONCURRENCY = parseInt(arg('--concurrency', '4'), 10);
-const LIMIT = parseInt(arg('--limit', '0'), 10); // 0 = no limit
-const FROM = parseInt(arg('--from', '0'), 10);
-const TO = parseInt(arg('--to', '0'), 10); // 0 = no upper bound
+const CONCURRENCY = argInt('--concurrency', { default: 4, min: 1 });
+const LIMIT = argInt('--limit', { default: 0, min: 0 }); // 0 = no limit
+const FROM = argInt('--from', { default: 0, min: 0 });
+const TO = argInt('--to', { default: 0, min: 0 }); // 0 = no upper bound
 const REDO = flag('--redo');
 const DRY = flag('--dry');
 

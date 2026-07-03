@@ -54,6 +54,8 @@ import Oystehr from '@oystehr/sdk';
 import type { Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
 import { SYNTHETIC_PATIENT_ID_SYSTEM as SYNTH_PATIENT_ID_SYSTEM } from './shared/constants';
 import { createOystehrFromEnv, need } from './shared/oystehr-client';
+import { PATIENT_CASCADE_TIERS, type ResourceTypeName } from './shared/patient-cascade';
+import { isTransientNetworkError } from './shared/retry';
 
 const args = process.argv.slice(2);
 const isExecute = args.includes('--execute');
@@ -68,49 +70,9 @@ if (!all && positional.length !== 1) {
 
 // Search-by-patient surface for each resource type we wipe. Most R4 patient-
 // bound resources accept `patient` as a search param; a few use `subject`.
-// Tier order matches the deletion plan in the file header.
-type ResourceTypeName = FhirResource['resourceType'];
-const TIERS: Array<Array<{ rt: ResourceTypeName; param: 'patient' | 'subject' | 'beneficiary' }>> = [
-  // 1. Leaf resources (referenced from Encounter/Patient but not by other writable rows)
-  [
-    { rt: 'Communication', param: 'subject' },
-    { rt: 'MedicationAdministration', param: 'subject' },
-    { rt: 'MedicationRequest', param: 'subject' },
-    { rt: 'DiagnosticReport', param: 'subject' },
-    { rt: 'Immunization', param: 'patient' },
-    { rt: 'Task', param: 'patient' },
-    { rt: 'ServiceRequest', param: 'subject' },
-  ],
-  // 2. Mid-tier patient-bound clinical data
-  [
-    { rt: 'Procedure', param: 'subject' },
-    { rt: 'Observation', param: 'subject' },
-    { rt: 'Condition', param: 'subject' },
-    { rt: 'MedicationStatement', param: 'subject' },
-    { rt: 'AllergyIntolerance', param: 'patient' },
-    { rt: 'EpisodeOfCare', param: 'patient' },
-    { rt: 'ImagingStudy', param: 'subject' },
-  ],
-  // 3. Document attachments + their containers
-  [
-    { rt: 'DocumentReference', param: 'subject' },
-    { rt: 'List', param: 'subject' },
-  ],
-  // 4. Coverage / billing surface
-  [
-    { rt: 'CoverageEligibilityRequest', param: 'patient' },
-    { rt: 'CoverageEligibilityResponse', param: 'patient' },
-    { rt: 'Coverage', param: 'beneficiary' },
-    { rt: 'Account', param: 'subject' },
-    { rt: 'RelatedPerson', param: 'patient' },
-  ],
-  // 5. Visit container resources
-  [
-    { rt: 'Encounter', param: 'patient' },
-    { rt: 'Appointment', param: 'patient' },
-    { rt: 'QuestionnaireResponse', param: 'subject' },
-  ],
-];
+// Tier order matches the deletion plan in the file header. The tier table
+// lives in shared/patient-cascade.ts (also consumed by cleanup-test-patients).
+const TIERS = PATIENT_CASCADE_TIERS;
 
 interface Counts {
   found: number;
@@ -264,8 +226,7 @@ async function cleanupForPatient(oystehr: Oystehr, patientId: string): Promise<v
       patientFound = true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const transient = msg.includes('fetch failed') || msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT');
-      if (!transient) {
+      if (!isTransientNetworkError(err)) {
         console.warn(`  ⚠ Patient/${patientId} not found: ${msg}`);
         return;
       }

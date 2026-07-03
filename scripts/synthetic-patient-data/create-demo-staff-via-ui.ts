@@ -15,11 +15,8 @@
 // duplicate email errors on that one and the script moves on.
 
 import { chromium, Page } from '@playwright/test';
+import { arg } from './shared/cli';
 
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
 const EHR = arg('--ehr', 'https://ehr.ottehr.com').replace(/\/$/, '');
 const slug = (s: string): string =>
   s
@@ -110,11 +107,26 @@ async function createOne(page: Page, s: Staff): Promise<'created' | 'exists' | '
   await page.getByLabel('First name').fill(s.first);
   await page.getByLabel('Last name').fill(s.last);
   await page.getByRole('button', { name: 'Save' }).click();
-  // Success → navigates to /admin/employee/<id>. Failure (dup email) → stays/erros.
-  try {
-    await page.waitForURL(/\/admin\/employee\/[^/]+$/, { timeout: 20000 });
-  } catch {
-    return 'exists'; // most likely the email already existed
+  // Success → navigates to /admin/employee/<id>. Duplicate email → stays on the
+  // Add form and shows the "User is already a member of the project" snackbar
+  // (AddEmployeePage.tsx). Any other failure must be counted as 'failed', not
+  // 'exists'. The snackbar auto-hides after ~5s, so race it against navigation
+  // rather than checking after the full navigation timeout has elapsed.
+  const navigated = page
+    .waitForURL(/\/admin\/employee\/[^/]+$/, { timeout: 20000 })
+    .then(() => 'created' as const)
+    .catch(() => null);
+  const duplicate = page
+    .getByText('already a member of the project')
+    .first()
+    .waitFor({ state: 'visible', timeout: 20000 })
+    .then(() => 'exists' as const)
+    .catch(() => null);
+  const outcome = await Promise.race([navigated, duplicate]);
+  if (outcome !== 'created') {
+    if (outcome === 'exists') return 'exists';
+    console.log(`    ✗ ${s.first} ${s.last} (${email}): Save did not navigate and no duplicate-email error shown`);
+    return 'failed';
   }
   if (s.provider) {
     // Check the "Provider" role box, then Save on the edit page.

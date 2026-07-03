@@ -5,16 +5,12 @@
 //
 //   npx env-cmd -f packages/zambdas/.env/synth.json npx tsx audit-note.ts [--reason "Cough"] [--n 3]
 
+import { arg, argInt } from '../shared/cli';
 import { createOystehrFromEnv } from '../shared/oystehr-client';
-
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
 
 (async () => {
   const reason = arg('--reason', '');
-  const N = parseInt(arg('--n', '4'), 10);
+  const N = argInt('--n', { default: 4, min: 1 });
   const o = await createOystehrFromEnv();
 
   // Grab some fulfilled appointments (optionally filtered by reason text).
@@ -48,6 +44,9 @@ const arg = (name: string, dflt: string): string => {
     console.log(`Encounter ${enc.id}`);
 
     const byType: Record<string, any[]> = {};
+    // Types whose search errored — a failed query must report as unknown, not
+    // masquerade as "0 resources" (a false-clean for an audit tool).
+    const searchErrors: Record<string, string> = {};
     for (const [rt, param] of [
       ['Condition', 'encounter'],
       ['Observation', 'encounter'],
@@ -71,10 +70,15 @@ const arg = (name: string, dflt: string): string => {
           })
         ).unbundle() as any[];
         byType[rt] = rs.filter((r: any) => r.resourceType === rt);
-      } catch {
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`  ! ${rt} search failed for Encounter/${enc.id}: ${msg}`);
+        searchErrors[rt] = msg;
         byType[rt] = [];
       }
     }
+    // Count formatter: 'ERR' (not 0) for types whose search failed.
+    const n = (rt: string): string => (searchErrors[rt] ? 'ERR' : String(byType[rt].length));
 
     // Conditions split by category/meta-tag (dx vs CC/HPI/ROS/MDM).
     const condCat = (c: any): string =>
@@ -96,17 +100,23 @@ const arg = (name: string, dflt: string): string => {
     const obsGroups: Record<string, number> = {};
     for (const ob of byType.Observation) obsGroups[obsKind(ob)] = (obsGroups[obsKind(ob)] || 0) + 1;
 
-    console.log(`  Conditions(${byType.Condition.length}):`, JSON.stringify(condGroups));
-    console.log(`  Observations(${byType.Observation.length}):`, JSON.stringify(obsGroups));
+    console.log(`  Conditions(${n('Condition')}):`, JSON.stringify(condGroups));
+    console.log(`  Observations(${n('Observation')}):`, JSON.stringify(obsGroups));
     console.log(
-      `  MedicationRequest (eRx): ${byType.MedicationRequest.length}  | MedicationStatement (home): ${byType.MedicationStatement.length}  | MedicationAdministration: ${byType.MedicationAdministration.length}`
+      `  MedicationRequest (eRx): ${n('MedicationRequest')}  | MedicationStatement (home): ${n(
+        'MedicationStatement'
+      )}  | MedicationAdministration: ${n('MedicationAdministration')}`
     );
+    console.log(`  ServiceRequest (orders): ${n('ServiceRequest')}  | DiagnosticReport: ${n('DiagnosticReport')}`);
     console.log(
-      `  ServiceRequest (orders): ${byType.ServiceRequest.length}  | DiagnosticReport: ${byType.DiagnosticReport.length}`
+      `  Procedure: ${n('Procedure')}  | Immunization: ${n('Immunization')}  | DocumentReference: ${n(
+        'DocumentReference'
+      )}`
     );
-    console.log(
-      `  Procedure: ${byType.Procedure.length}  | Immunization: ${byType.Immunization.length}  | DocumentReference: ${byType.DocumentReference.length}`
-    );
+    const erroredTypes = Object.keys(searchErrors);
+    if (erroredTypes.length) {
+      console.log(`  ⚠ Search errors (counts above are UNKNOWN, not zero): ${erroredTypes.join(', ')}`);
+    }
     // Show diagnosis text + meds + orders briefly
     const dx = byType.Condition.filter((c: any) => /encounter-diagnosis|diagnosis/i.test(condCat(c)))
       .map((c: any) => c.code?.coding?.[0]?.code || c.code?.text)

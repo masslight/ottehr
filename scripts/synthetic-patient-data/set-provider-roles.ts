@@ -13,15 +13,10 @@
 //
 // Matches synth: providers carry the Provider role only (credential → providerType).
 
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
+import { arg } from './shared/cli';
+import { mintAccessToken, need } from './shared/oystehr-client';
+import { type ZambdaCtx, zambdaPost } from './shared/zambda';
+
 const ZAMBDA_API = arg('--zambda-api', process.env.ZAMBDA_API || 'http://localhost:3000/local');
 
 // The 12 synth providers (must match the names created via the Add-Employee UI /
@@ -43,39 +38,21 @@ const PROVIDERS: Array<[first: string, last: string, type: 'MD' | 'DO' | 'NP' | 
 
 const norm = (s: string): string => (s ?? '').trim().toLowerCase();
 
-async function mintToken(): Promise<string> {
-  const tk = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  return (tk as any).access_token;
-}
-
-async function getEmployees(hdr: Record<string, string>): Promise<any[]> {
-  const res = await fetch(`${ZAMBDA_API}/zambda/get-employees/execute`, {
-    method: 'POST',
-    headers: hdr,
-    body: JSON.stringify({}),
-  });
+async function getEmployees(ctx: ZambdaCtx): Promise<any[]> {
+  const res = await zambdaPost(ctx, 'get-employees', {});
   if (!res.ok) throw new Error(`get-employees failed: ${res.status} ${await res.text()}`);
   const j: any = await res.json();
   return j.output?.employees ?? j.employees ?? [];
 }
 
 (async () => {
-  const at = await mintToken();
-  const projectId = need('PROJECT_ID');
-  const hdr = { 'Content-Type': 'application/json', Authorization: `Bearer ${at}`, 'x-zapehr-project-id': projectId };
+  const ctx: ZambdaCtx = {
+    zambdaApi: ZAMBDA_API,
+    accessToken: await mintAccessToken(),
+    projectId: need('PROJECT_ID'),
+  };
 
-  const employees = await getEmployees(hdr);
+  const employees = await getEmployees(ctx);
   const byName = new Map<string, any>();
   for (const e of employees) byName.set(`${norm(e.firstName)} ${norm(e.lastName)}`, e);
 
@@ -95,16 +72,12 @@ async function getEmployees(hdr: Record<string, string>): Promise<any[]> {
       already++;
       continue;
     }
-    const res = await fetch(`${ZAMBDA_API}/zambda/update-user/execute`, {
-      method: 'POST',
-      headers: hdr,
-      body: JSON.stringify({
-        userId: emp.id,
-        firstName: first,
-        lastName: last,
-        selectedRoles: ['Provider'],
-        providerType,
-      }),
+    const res = await zambdaPost(ctx, 'update-user', {
+      userId: emp.id,
+      firstName: first,
+      lastName: last,
+      selectedRoles: ['Provider'],
+      providerType,
     });
     if (!res.ok) {
       console.log(`  ✗ ${first} ${last}: update-user ${res.status} ${(await res.text()).slice(0, 200)}`);
@@ -115,7 +88,7 @@ async function getEmployees(hdr: Record<string, string>): Promise<any[]> {
   }
 
   // Verify by re-reading.
-  const after = await getEmployees(hdr);
+  const after = await getEmployees(ctx);
   const afterByName = new Map(after.map((e: any) => [`${norm(e.firstName)} ${norm(e.lastName)}`, e]));
   const confirmed = PROVIDERS.filter(([f, l]) => afterByName.get(`${norm(f)} ${norm(l)}`)?.isProvider).length;
   const providerTotal = after.filter((e: any) => e.isProvider).length;

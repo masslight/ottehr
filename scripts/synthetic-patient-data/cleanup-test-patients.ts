@@ -22,43 +22,26 @@
  */
 import Oystehr from '@oystehr/sdk';
 import type { Patient, Resource } from 'fhir/r4b';
-import { createOystehrFromEnv } from './shared/oystehr-client';
+import { arg, flag } from './shared/cli';
+import { createOystehrFromEnv, need } from './shared/oystehr-client';
+import { PATIENT_CASCADE_TIERS } from './shared/patient-cascade';
 
-const args = process.argv.slice(2);
-function getFlag(name: string): string | undefined {
-  const idx = args.indexOf(name);
-  return idx === -1 ? undefined : args[idx + 1];
-}
-
-const email = getFlag('--email');
-const identifier = getFlag('--identifier');
-const isExecute = args.includes('--execute');
+const email = arg('--email');
+const identifier = arg('--identifier');
+const isExecute = flag('--execute');
 
 if (!email && !identifier) {
   console.error('Usage: tsx cleanup-test-patients.ts --email <email> | --identifier <system|value> [--execute]');
   process.exit(1);
 }
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
-}
-
-// Resource types that point to a Patient, with the search param to use.
-// Order: clinical data first, then visit infrastructure, Patient last.
-const RELATED_TYPES: Array<{ resourceType: string; param: string }> = [
-  { resourceType: 'AllergyIntolerance', param: 'patient' },
-  { resourceType: 'MedicationStatement', param: 'subject' },
-  { resourceType: 'Condition', param: 'subject' },
-  { resourceType: 'Observation', param: 'subject' },
-  { resourceType: 'Communication', param: 'subject' },
-  { resourceType: 'QuestionnaireResponse', param: 'subject' },
-  { resourceType: 'Coverage', param: 'beneficiary' },
-  { resourceType: 'RelatedPerson', param: 'patient' },
-  { resourceType: 'Encounter', param: 'subject' },
-  { resourceType: 'Appointment', param: 'actor' },
-];
+// Resource types that point to a Patient, with the search param to use — the
+// shared delete-cascade table, flattened (innermost types first, Patient last).
+// Previously this file kept its own narrower list, which drifted from
+// cleanup-synth-patient's (missing ServiceRequest, DiagnosticReport, Task, …).
+const RELATED_TYPES: Array<{ resourceType: string; param: string }> = PATIENT_CASCADE_TIERS.flat().map(
+  ({ rt, param }) => ({ resourceType: rt, param })
+);
 
 async function findRelatedResources(oystehr: Oystehr, patientId: string): Promise<Resource[]> {
   const all: Resource[] = [];
@@ -85,7 +68,7 @@ async function findRelatedResources(oystehr: Oystehr, patientId: string): Promis
 
 async function main(): Promise<void> {
   console.log(`Mode: ${isExecute ? 'EXECUTE' : 'DRY RUN'}`);
-  console.log(`Project: ${requireEnv('PROJECT_ID')}`);
+  console.log(`Project: ${need('PROJECT_ID')}`);
   console.log(`Match: ${email ? `email="${email}"` : `identifier="${identifier}"`}`);
   console.log('');
 

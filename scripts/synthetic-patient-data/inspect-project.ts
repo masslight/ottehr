@@ -14,56 +14,13 @@
  *
  * Read-only — performs only FHIR searches and a list-templates zambda call.
  */
-import Oystehr from '@oystehr/sdk';
 import type { Location, Medication, Organization, Practitioner, Schedule } from 'fhir/r4b';
+import { argInt } from './shared/cli';
+import { createOystehrFromEnv, need } from './shared/oystehr-client';
 
 // ── Args ──────────────────────────────────────────────────────────────────────
 
-const args = process.argv.slice(2);
-const limitFlag = args.indexOf('--limit');
-const limit = limitFlag !== -1 && args[limitFlag + 1] ? parseInt(args[limitFlag + 1], 10) : 20;
-
-// ── SDK setup ─────────────────────────────────────────────────────────────────
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-async function createOystehr(): Promise<Oystehr> {
-  // Env var names are AUTH0_* for compatibility with the broader Ottehr
-  // .env files, but the surface here is "Oystehr IAM": an OAuth 2.0 client-
-  // credentials exchange for an M2M access token.
-  const oystehrAuthEndpoint = requireEnv('AUTH0_ENDPOINT');
-  const oystehrAuthClient = requireEnv('AUTH0_CLIENT');
-  const oystehrAuthSecret = requireEnv('AUTH0_SECRET');
-  const oystehrAuthAudience = requireEnv('AUTH0_AUDIENCE');
-  const projectId = requireEnv('PROJECT_ID');
-  const projectApi = requireEnv('PROJECT_API');
-  const zambdaApi = process.env.ZAMBDA_API ?? projectApi;
-
-  const tokenResponse = await fetch(oystehrAuthEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: oystehrAuthClient,
-      client_secret: oystehrAuthSecret,
-      audience: oystehrAuthAudience,
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(`Oystehr IAM token request failed: ${tokenResponse.status} ${errorText}`);
-  }
-  const tokenData = (await tokenResponse.json()) as { access_token: string };
-  return new Oystehr({
-    accessToken: tokenData.access_token,
-    projectId,
-    services: { projectApiUrl: projectApi, zambdaApiUrl: zambdaApi },
-  });
-}
+const limit = argInt('--limit', { default: 20, min: 1 });
 
 // ── Output helper ─────────────────────────────────────────────────────────────
 
@@ -83,7 +40,7 @@ function nameOfPractitioner(p: Practitioner): string {
 async function main(): Promise<void> {
   console.log(`Project: ${process.env.PROJECT_ID}`);
   console.log('Authenticating...');
-  const oystehr = await createOystehr();
+  const oystehr = await createOystehrFromEnv({ zambdaApiUrl: process.env.ZAMBDA_API ?? need('PROJECT_API') });
   console.log('Authenticated.');
 
   // Locations

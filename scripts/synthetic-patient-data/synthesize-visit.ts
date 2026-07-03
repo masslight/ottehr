@@ -126,10 +126,13 @@ import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
 import { resolve } from 'path';
-import { finalizeInHouseLabs, finalizeRadiology } from './finalize-visit-orders';
+import { finalizeInHouseLabs, finalizeRadiology, LAB_NAME_ALIASES, normalizeLabName } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
+import { arg } from './shared/cli';
 import { STATUS_GAP_DISTRIBUTIONS, SYNTHETIC_PATIENT_ID_SYSTEM, VISIT_STATUS_ORDER } from './shared/constants';
+import { createOystehrFromToken, mintAccessToken, need } from './shared/oystehr-client';
 import { withRetry } from './shared/retry';
+import { zambdaExecute, zambdaPost } from './shared/zambda';
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 
@@ -155,13 +158,9 @@ if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
 }
 
 const isExecute = args.includes('--execute');
-function getFlagValue(name: string): string | undefined {
-  const idx = args.indexOf(name);
-  return idx === -1 || idx === args.length - 1 ? undefined : args[idx + 1];
-}
-const practitionerOverride = getFlagValue('--practitioner') ?? process.env.SYNTH_PRACTITIONER_NAME;
-const locationOverride = getFlagValue('--location') ?? process.env.SYNTH_LOCATION_NAME;
-const intakeOverride = getFlagValue('--intake') ?? process.env.SYNTH_INTAKE_NAME;
+const practitionerOverride = arg('--practitioner') ?? process.env.SYNTH_PRACTITIONER_NAME;
+const locationOverride = arg('--location') ?? process.env.SYNTH_LOCATION_NAME;
+const intakeOverride = arg('--intake') ?? process.env.SYNTH_INTAKE_NAME;
 const positional = args.filter((a, i) => {
   if (a.startsWith('--')) return false;
   // Skip values consumed by --practitioner / --location / --intake (next arg after each flag).
@@ -245,14 +244,6 @@ interface SynthesisContext {
 
 // ── SDK setup ─────────────────────────────────────────────────────────────────
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
 async function createOystehr(): Promise<{
   oystehr: Oystehr;
   accessToken: string;
@@ -260,16 +251,10 @@ async function createOystehr(): Promise<{
   projectApi: string;
   zambdaApi: string;
 }> {
-  // Env var names are AUTH0_* for compatibility with the broader Ottehr
-  // .env files, but the surface here is "Oystehr IAM": an OAuth 2.0 client-
-  // credentials exchange for an M2M access token. If the underlying IAM
-  // vendor changes, the prose stays accurate even if the env vars don't.
-  const oystehrAuthEndpoint = requireEnv('AUTH0_ENDPOINT');
-  const oystehrAuthClient = requireEnv('AUTH0_CLIENT');
-  const oystehrAuthSecret = requireEnv('AUTH0_SECRET');
-  const oystehrAuthAudience = requireEnv('AUTH0_AUDIENCE');
-  const projectId = requireEnv('PROJECT_ID');
-  const projectApi = requireEnv('PROJECT_API');
+  // The shared helper performs the Oystehr IAM client-credentials exchange
+  // (env var names are AUTH0_* for compatibility with the broader Ottehr .env
+  // files) and throws on any failed/token-less response.
+  //
   // The synth pipeline always routes zambda calls through the local Express
   // zambda server (`packages/zambdas/src/local-server`), which runs the
   // current source — never the cloud-deployed copy that may be stale. The
@@ -277,31 +262,9 @@ async function createOystehr(): Promise<{
   // land in the target Oystehr project. Override with ZAMBDA_API only if you
   // explicitly want to hit a remote zambda runtime (rarely useful).
   const zambdaApi = process.env.ZAMBDA_API ?? 'http://localhost:3000/local';
-
-  const tokenResponse = await fetch(oystehrAuthEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: oystehrAuthClient,
-      client_secret: oystehrAuthSecret,
-      audience: oystehrAuthAudience,
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(`Oystehr IAM token request failed: ${tokenResponse.status} ${errorText}`);
-  }
-  const tokenData = (await tokenResponse.json()) as { access_token: string };
-  const oystehr = new Oystehr({
-    accessToken: tokenData.access_token,
-    projectId,
-    services: {
-      projectApiUrl: projectApi,
-      zambdaApiUrl: zambdaApi,
-    },
-  });
-  return { oystehr, accessToken: tokenData.access_token, projectId, projectApi, zambdaApi };
+  const accessToken = await mintAccessToken();
+  const oystehr = createOystehrFromToken(accessToken, { zambdaApiUrl: zambdaApi });
+  return { oystehr, accessToken, projectId: need('PROJECT_ID'), projectApi: need('PROJECT_API'), zambdaApi };
 }
 
 // ── Logging helpers ───────────────────────────────────────────────────────────
@@ -378,15 +341,7 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
   const roleAssignedIds: Set<string> = new Set();
   if (ctx.mode === 'execute' && ctx.oystehr) {
     try {
-      const employeesRes = await fetch(`${ctx.zambdaApi}/zambda/get-employees/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-          'x-zapehr-project-id': ctx.projectId ?? '',
-        },
-        body: JSON.stringify({}),
-      });
+      const employeesRes = await zambdaPost(ctx, 'get-employees', {});
       if (employeesRes.ok) {
         const j = (await employeesRes.json()) as {
           output?: { employees?: Array<{ profile?: string; id?: string; status?: string }> };
@@ -710,15 +665,7 @@ async function phase0_5_createSlot(ctx: SynthesisContext): Promise<void> {
   if (ctx.mode === 'execute' && ctx.oystehr) {
     // create-slot is registered as /execute-public — the SDK's zambda.execute() hits /execute,
     // so we call it via direct fetch.
-    const res = await fetch(`${ctx.zambdaApi}/zambda/create-slot/execute-public`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify(body),
-    });
+    const res = await zambdaPost(ctx, 'create-slot', body, { execPublic: true });
     if (!res.ok) {
       throw new Error(`create-slot failed: ${res.status} ${await res.text()}`);
     }
@@ -790,15 +737,15 @@ async function phase1_createAppointment(ctx: SynthesisContext): Promise<void> {
   logCall('create-appointment', body);
 
   if (ctx.mode === 'execute' && ctx.oystehr) {
-    const res = await fetch(`${ctx.zambdaApi}/zambda/create-appointment/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify(body),
-    });
+    // Deliberately NOT wrapped in withRetry: create-appointment is not
+    // idempotent. A connection-level failure (ECONNRESET/fetch failed) can
+    // occur AFTER the server processed the request — the zambda PATCHes the
+    // Slot to busy without a not-already-busy precondition and walk-in slots
+    // skip the capacity guard, so a retry could create a SECOND
+    // Appointment/Encounter/QR whose ids we never learn (cleanup couldn't
+    // remove them). A failure here aborts the run and cleanupFailedRun frees
+    // the scaffold Slot; re-running the scenario is the safe retry.
+    const res = await zambdaPost(ctx, 'create-appointment', body);
     if (!res.ok) {
       throw new Error(`create-appointment failed: ${res.status}\n${await res.text()}`);
     }
@@ -952,15 +899,12 @@ async function phase1_5_intakePaperwork(ctx: SynthesisContext): Promise<void> {
     const contentType =
       fileFormat === 'png' ? 'image/png' : fileFormat === 'jpeg' ? 'image/jpeg' : 'application/octet-stream';
 
-    const presignRes = await fetch(`${ctx.zambdaApi}/zambda/get-presigned-file-url/execute-public`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify({ appointmentID: ctx.appointmentId, fileType, fileFormat }),
-    });
+    const presignRes = await zambdaPost(
+      ctx,
+      'get-presigned-file-url',
+      { appointmentID: ctx.appointmentId, fileType, fileFormat },
+      { execPublic: true }
+    );
     if (!presignRes.ok) {
       console.warn(
         `  ⚠ get-presigned-file-url(${fileType}) failed: ${presignRes.status} ${(await presignRes.text()).slice(
@@ -1227,15 +1171,7 @@ async function phase1_5_intakePaperwork(ctx: SynthesisContext): Promise<void> {
 
     if (ctx.mode === 'execute' && ctx.oystehr) {
       const res = await withRetry(`patch-paperwork ${page.linkId}`, 3, () =>
-        fetch(`${ctx.zambdaApi}/zambda/patch-paperwork/execute-public`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${ctx.accessToken}`,
-            'x-zapehr-project-id': ctx.projectId ?? '',
-          },
-          body: JSON.stringify(body),
-        })
+        zambdaPost(ctx, 'patch-paperwork', body, { execPublic: true })
       );
       if (!res.ok) {
         console.warn(`  ⚠ patch-paperwork (${page.linkId}) failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
@@ -1318,15 +1254,7 @@ async function runLocalHarvest(ctx: SynthesisContext, pageLinkId: string): Promi
     })
   )) as Record<string, unknown>;
   const harvestRes = await withRetry('harvest POST', 3, () =>
-    fetch(`${ctx.zambdaApi}/zambda/sub-harvest-paperwork-page/execute-public`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify(refreshedTask),
-    })
+    zambdaPost(ctx, 'sub-harvest-paperwork-page', refreshedTask, { execPublic: true })
   );
   if (!harvestRes.ok) {
     console.warn(
@@ -1370,15 +1298,7 @@ async function phase1_7_assignAttending(ctx: SynthesisContext): Promise<void> {
   if (ctx.mode === 'execute' && ctx.oystehr) {
     // assign-practitioner is one of the OTR-2428 zambdas. Cloud-deployed
     // version lacks the M2M fix; route through local until deploy catches up.
-    const res = await fetch(`${ctx.zambdaApi}/zambda/assign-practitioner/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify(body),
-    });
+    const res = await zambdaPost(ctx, 'assign-practitioner', body);
     if (!res.ok) {
       throw new Error(`assign-practitioner (ATND) failed: ${res.status}\n${await res.text()}`);
     }
@@ -1485,6 +1405,7 @@ async function filterPreExistingHistory(ctx: SynthesisContext): Promise<Filtered
         params: [
           { name: 'patient', value: patientRef },
           { name: '_tag', value: 'known-allergy' },
+          { name: '_count', value: '100' },
         ],
       })
       .then((r) => r.unbundle()),
@@ -1494,6 +1415,7 @@ async function filterPreExistingHistory(ctx: SynthesisContext): Promise<Filtered
         params: [
           { name: 'subject', value: patientRef },
           { name: '_tag', value: 'current-medication' },
+          { name: '_count', value: '100' },
         ],
       })
       .then((r) => r.unbundle()),
@@ -1503,6 +1425,7 @@ async function filterPreExistingHistory(ctx: SynthesisContext): Promise<Filtered
         params: [
           { name: 'subject', value: patientRef },
           { name: '_tag', value: 'medical-condition' },
+          { name: '_count', value: '100' },
         ],
       })
       .then((r) => r.unbundle()),
@@ -1512,6 +1435,7 @@ async function filterPreExistingHistory(ctx: SynthesisContext): Promise<Filtered
         params: [
           { name: 'subject', value: patientRef },
           { name: '_tag', value: 'surgical-history' },
+          { name: '_count', value: '100' },
         ],
       })
       .then((r) => r.unbundle()),
@@ -1521,6 +1445,7 @@ async function filterPreExistingHistory(ctx: SynthesisContext): Promise<Filtered
         params: [
           { name: 'patient', value: patientRef },
           { name: '_tag', value: 'hospitalization' },
+          { name: '_count', value: '100' },
         ],
       })
       .then((r) => r.unbundle()),
@@ -1720,15 +1645,10 @@ async function phase3_chartDataPass1(ctx: SynthesisContext): Promise<void> {
     // `sub` and falls through to `m2m.me()` (when ENVIRONMENT != production),
     // returning a synthetic User whose profile is the M2M client's profile.
     // The M2M client must point at a real Practitioner for this to resolve.
-    const res = await fetch(`${ctx.zambdaApi}/zambda/save-chart-data/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify(body),
-    });
+    // withRetry catches connection-level failures only (fetch failed/ECONNRESET)
+    // — without it a single transient blip aborts the run and cleanup deletes a
+    // nearly-complete visit.
+    const res = await withRetry('save-chart-data (pass 1)', 3, () => zambdaPost(ctx, 'save-chart-data', body));
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`save-chart-data failed: ${res.status}\n${errText}`);
@@ -1758,15 +1678,8 @@ async function phase4_applyTemplate(ctx: SynthesisContext): Promise<void> {
     }
     // Direct fetch for visibility into the response shape and any failures.
     // Auth: M2M token works through the userMe trick (same as save-chart-data).
-    const res = await fetch(`${ctx.zambdaApi}/zambda/apply-template/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify(body),
-    });
+    // withRetry: connection-level failures only (see save-chart-data Pass 1).
+    const res = await withRetry('apply-template', 3, () => zambdaPost(ctx, 'apply-template', body));
     if (!res.ok) {
       throw new Error(`apply-template failed: ${res.status}\n${await res.text()}`);
     }
@@ -1901,15 +1814,8 @@ async function phase5_chartDataPass2(ctx: SynthesisContext): Promise<void> {
   logCall('save-chart-data', body);
 
   if (ctx.mode === 'execute' && ctx.oystehr) {
-    const res = await fetch(`${ctx.zambdaApi}/zambda/save-chart-data/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify(body),
-    });
+    // withRetry: connection-level failures only (see save-chart-data Pass 1).
+    const res = await withRetry('save-chart-data (pass 2)', 3, () => zambdaPost(ctx, 'save-chart-data', body));
     if (!res.ok) {
       throw new Error(`save-chart-data Pass 2 failed: ${res.status}\n${await res.text()}`);
     }
@@ -1954,15 +1860,7 @@ async function phase5_5_providerChartFindings(ctx: SynthesisContext): Promise<vo
   if (Object.keys(body).length > 1) {
     logCall('save-chart-data (provider findings)', body);
     if (ctx.mode === 'execute' && ctx.oystehr) {
-      const res = await fetch(`${ctx.zambdaApi}/zambda/save-chart-data/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-          'x-zapehr-project-id': ctx.projectId ?? '',
-        },
-        body: JSON.stringify(body),
-      });
+      const res = await zambdaPost(ctx, 'save-chart-data', body);
       if (!res.ok) throw new Error(`save-chart-data (provider findings) failed: ${res.status}\n${await res.text()}`);
       logNote('diagnoses/exam/ROS/MDM saved');
     }
@@ -2002,26 +1900,15 @@ async function phase5_5_providerChartFindings(ctx: SynthesisContext): Promise<vo
 // skipped. Normalize (drop parentheticals + non-alphanumerics) and apply a small
 // alias map, then prefer an exact normalized hit before a catalog-contains
 // fallback (so "Rapid Strep A" never collides with a bare "Strep" entry).
-const normLab = (s: string): string =>
-  (s ?? '')
-    .toLowerCase()
-    .replace(/\(.*?\)/g, '')
-    .replace(/[^a-z0-9]/g, '');
-const LAB_NAME_ALIASES: Record<string, string> = {
-  sarscov2antigen: 'covid19antigen',
-  sarscov2: 'covid19antigen',
-  covid19: 'covid19antigen',
-  monospot: 'monospottest',
-  rapidcovid19antigen: 'covid19antigen',
-  rapidinfluenzaab: 'rapidinfluenzaa', // combined "A/B" archetype → the Flu A catalog test
-};
+// normalizeLabName + LAB_NAME_ALIASES are shared with the result finalizer
+// (finalize-visit-orders.ts) so ordering and result lookup use one copy.
 function matchCatalogTest<T extends { name: string }>(labs: T[], testName: string): T | undefined {
-  const want = normLab(testName);
+  const want = normalizeLabName(testName);
   const aliased = LAB_NAME_ALIASES[want] ?? want;
   return (
-    labs.find((t) => normLab(t.name) === want) ??
-    labs.find((t) => normLab(t.name) === aliased) ??
-    labs.find((t) => normLab(t.name).includes(aliased))
+    labs.find((t) => normalizeLabName(t.name) === want) ??
+    labs.find((t) => normalizeLabName(t.name) === aliased) ??
+    labs.find((t) => normalizeLabName(t.name).includes(aliased))
   );
 }
 
@@ -2030,6 +1917,12 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
   if (!s.modules?.inHouseLabs?.length) return;
 
   startPhase('In-house lab orders');
+
+  // Authored results for the end-of-phase finalization, keyed by the RESOLVED
+  // catalog test name (what get-in-house-orders reports as testItemName) — the
+  // scenario name can differ (aliases), and keying by it made positive-result
+  // archetypes silently fall back to normal values in the finalizer.
+  const resultsByTest: Record<string, any> = {};
 
   for (const lab of s.modules.inHouseLabs) {
     logCall('get-create-in-house-lab-order-resources', { encounterId: ctx.encounterId ?? '<from Phase 1>' });
@@ -2042,14 +1935,8 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
     }
 
     // 1. Fetch the catalog of test items available for this encounter.
-    const catalogRes = await fetch(`${ctx.zambdaApi}/zambda/get-create-in-house-lab-order-resources/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify({ encounterId: ctx.encounterId }),
+    const catalogRes = await zambdaPost(ctx, 'get-create-in-house-lab-order-resources', {
+      encounterId: ctx.encounterId,
     });
     if (!catalogRes.ok) {
       throw new Error(
@@ -2069,6 +1956,7 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
       continue;
     }
     logNote(`resolved test "${lab.testName}" from catalog`);
+    if (lab.results) resultsByTest[normalizeLabName(testItem.name)] = lab.results;
 
     // 2. Create the order. testItems is the full DataEntryTestItem objects.
     logCall('create-in-house-lab-order', {
@@ -2078,20 +1966,12 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
       diagnosesNew: lab.diagnoses,
       notes: lab.notes ?? '',
     });
-    const orderRes = await fetch(`${ctx.zambdaApi}/zambda/create-in-house-lab-order/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify({
-        encounterId: ctx.encounterId,
-        testItems: [testItem],
-        diagnosesAll: lab.diagnoses,
-        diagnosesNew: lab.diagnoses,
-        notes: lab.notes ?? '',
-      }),
+    const orderRes = await zambdaPost(ctx, 'create-in-house-lab-order', {
+      encounterId: ctx.encounterId,
+      testItems: [testItem],
+      diagnosesAll: lab.diagnoses,
+      diagnosesNew: lab.diagnoses,
+      notes: lab.notes ?? '',
     });
     if (!orderRes.ok) {
       throw new Error(`create-in-house-lab-order failed: ${orderRes.status}\n${await orderRes.text()}`);
@@ -2113,26 +1993,16 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
     //    which requires walking testItem.components — left as a follow-up.)
     if (lab.results) {
       logCall('collect-in-house-lab-specimen', { serviceRequestId });
-      const collectRes = await fetch(`${ctx.zambdaApi}/zambda/collect-in-house-lab-specimen/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-          'x-zapehr-project-id': ctx.projectId ?? '',
-        },
-        body: JSON.stringify({
-          encounterId: ctx.encounterId,
-          serviceRequestId,
-          data: {
-            specimen: {
-              source: 'throat-swab',
-              // Must match either encounter's attending or the calling user
-              // (synthesizer Practitioner). Use attending — easiest match.
-              collectedBy: { id: ctx.attendingPractitionerId ?? '', name: 'Synthesizer' },
-              collectionDate: new Date().toISOString(),
-            },
+      const collectRes = await zambdaPost(ctx, 'collect-in-house-lab-specimen', {
+        encounterId: ctx.encounterId,
+        serviceRequestId,
+        data: {
+          specimen: {
+            source: 'throat-swab',
+            collectedBy: { id: ctx.attendingPractitionerId ?? '', name: 'Synthesizer' },
+            collectionDate: new Date().toISOString(),
           },
-        }),
+        },
       });
       if (!collectRes.ok) {
         console.warn(
@@ -2151,17 +2021,10 @@ async function phase6_inHouseLabs(ctx: SynthesisContext): Promise<void> {
   // handle-in-house-lab-results (the finalizer derives normal/abnormal flags).
   const target = s.visit.targetStatus ?? 'completed';
   if (ctx.mode === 'execute' && ctx.oystehr && ctx.encounterId && ['discharged', 'completed'].includes(target)) {
-    const nrm = (x: string): string => (x ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const resultsByTest: Record<string, any> = {};
-    for (const lab of s.modules.inHouseLabs) if (lab.results) resultsByTest[nrm(lab.testName)] = lab.results;
     try {
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      };
-      const fz = await finalizeInHouseLabs({ zambdaApi: ctx.zambdaApi, headers }, ctx.encounterId, resultsByTest, true);
+      const fz = await finalizeInHouseLabs(ctx, ctx.encounterId, resultsByTest, true, ctx.attendingPractitionerId);
       if (fz.finalized) logNote(`finalized ${fz.finalized} in-house lab result(s)`);
+      if (fz.failed) console.warn(`  ⚠ ${fz.failed} in-house lab result(s) FAILED to finalize`);
     } catch (err) {
       console.warn(`  ⚠ in-house lab result finalization failed: ${err instanceof Error ? err.message : err}`);
     }
@@ -2231,6 +2094,9 @@ async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
   for (const med of s.modules.inHouseMedications) {
     const medicationId = ctx.mode === 'execute' ? await resolveMedicationId(ctx, med.medicationName) : undefined;
     const routeCode = ROUTE_SNOMED_MAP[(med.route ?? '').toUpperCase()] ?? med.route;
+    // Scenario stores dose as a string; the zambda needs a FHIR Quantity.value
+    // number. A non-numeric dose ("1 tab") would become NaN → null in JSON.
+    const doseValue = Number(med.dose);
 
     // The zambda always creates orders in `pending` status regardless of
     // newStatus. To end up `administered`, we make two calls: first creates
@@ -2245,8 +2111,8 @@ async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
       // orderData.providerId; pass the attending so the order is attributed.
       providerId: ctx.attendingPractitionerId,
       medicationId: medicationId ?? `<unresolved: ${med.medicationName}>`,
-      // dose must be a Number (FHIR Quantity.value). Scenario stores as string.
-      dose: Number(med.dose),
+      // dose must be a Number (FHIR Quantity.value) — validated above.
+      dose: doseValue,
       units: med.units,
       route: routeCode,
       ...(med.effectiveDateTime ? { effectiveDateTime: med.effectiveDateTime } : {}),
@@ -2259,17 +2125,14 @@ async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
         console.warn(`  ⚠ medication "${med.medicationName}" not found in formulary — skipping order`);
         continue;
       }
+      if (!Number.isFinite(doseValue)) {
+        console.warn(
+          `  ⚠ medication "${med.medicationName}" has non-numeric dose "${med.dose}" — skipping order (fix the scenario)`
+        );
+        continue;
+      }
       // Routed to local: cloud-deployed zambda lacks the OTR-2428 fix.
-      const callZambda = (b: unknown): Promise<Response> =>
-        fetch(`${ctx.zambdaApi}/zambda/create-update-medication-order/execute`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${ctx.accessToken}`,
-            'x-zapehr-project-id': ctx.projectId ?? '',
-          },
-          body: JSON.stringify(b),
-        });
+      const callZambda = (b: unknown): Promise<Response> => zambdaPost(ctx, 'create-update-medication-order', b);
       const res = await callZambda(createBody);
       if (!res.ok) {
         console.warn(
@@ -2334,15 +2197,7 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
         console.warn(`  ⚠ vaccine "${imm.vaccineName}" not found in catalog — skipping immunization order`);
         continue;
       }
-      const res = await fetch(`${ctx.zambdaApi}/zambda/create-update-immunization-order/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-          'x-zapehr-project-id': ctx.projectId ?? '',
-        },
-        body: JSON.stringify(orderBody),
-      });
+      const res = await zambdaPost(ctx, 'create-update-immunization-order', orderBody);
       if (!res.ok) {
         console.warn(`  ⚠ create-update-immunization-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
         continue;
@@ -2356,21 +2211,22 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
       // pending for the daily-census catch-up to administer when it signs.
       const target = s.visit.targetStatus ?? 'completed';
       const administerNow = imm.administered && ['discharged', 'completed'].includes(target);
+      // administrationDetails.dose.value is a FHIR Quantity value — a fully
+      // non-numeric scenario dose would send NaN → null. Skip administering
+      // (the order itself stays, pending) rather than send a malformed payload.
+      if (administerNow && !Number.isFinite(parseFloat(imm.dose))) {
+        console.warn(
+          `  ⚠ immunization "${imm.vaccineName}" has non-numeric dose "${imm.dose}" — order left pending (fix the scenario)`
+        );
+        continue;
+      }
       if (administerNow && orderId) {
         const adminBody = {
           orderId,
           administrationDetails: { dose: { value: parseFloat(imm.dose), unit: imm.units } },
         };
         logCall('administer-immunization-order', adminBody);
-        const adminRes = await fetch(`${ctx.zambdaApi}/zambda/administer-immunization-order/execute`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${ctx.accessToken}`,
-            'x-zapehr-project-id': ctx.projectId ?? '',
-          },
-          body: JSON.stringify(adminBody),
-        });
+        const adminRes = await zambdaPost(ctx, 'administer-immunization-order', adminBody);
         if (!adminRes.ok) {
           console.warn(
             `  ⚠ administer-immunization-order failed: ${adminRes.status} ${(await adminRes.text()).slice(0, 200)}`
@@ -2412,15 +2268,7 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
     if (ctx.mode === 'execute' && ctx.oystehr) {
       // Cloud-deployed radiology zambdas appear to be running older code that
       // 500s — route through local until cloud catches up.
-      const res = await fetch(`${ctx.zambdaApi}/zambda/radiology-create-order/execute`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${ctx.accessToken}`,
-          'x-zapehr-project-id': ctx.projectId ?? '',
-        },
-        body: JSON.stringify(orderBody),
-      });
+      const res = await zambdaPost(ctx, 'radiology-create-order', orderBody);
       if (!res.ok) {
         console.warn(`  ⚠ radiology-create-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
         continue;
@@ -2435,15 +2283,7 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
       if (rad.preliminaryReport && serviceRequestId) {
         const reportBody = { serviceRequestId, preliminaryReport: rad.preliminaryReport };
         logCall('radiology-save-preliminary-report', reportBody);
-        const rRes = await fetch(`${ctx.zambdaApi}/zambda/radiology-save-preliminary-report/execute`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${ctx.accessToken}`,
-            'x-zapehr-project-id': ctx.projectId ?? '',
-          },
-          body: JSON.stringify(reportBody),
-        });
+        const rRes = await zambdaPost(ctx, 'radiology-save-preliminary-report', reportBody);
         if (!rRes.ok) {
           console.warn(`  ⚠ save-preliminary-report failed: ${rRes.status} ${(await rRes.text()).slice(0, 200)}`);
         } else {
@@ -2466,12 +2306,7 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
   const target = s.visit.targetStatus ?? 'completed';
   if (ctx.mode === 'execute' && ctx.oystehr && ctx.encounterId && ['discharged', 'completed'].includes(target)) {
     try {
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      };
-      const fz = await finalizeRadiology({ zambdaApi: ctx.zambdaApi, headers }, ctx.encounterId, true);
+      const fz = await finalizeRadiology(ctx, ctx.encounterId, true);
       if (fz.finalized) logNote(`finalized ${fz.finalized} radiology report(s)`);
     } catch (err) {
       console.warn(`  ⚠ radiology final-report finalization failed: ${err instanceof Error ? err.message : err}`);
@@ -3034,25 +2869,6 @@ function makeFinancialBenefit(
   };
 }
 
-async function zambdaExecute(ctx: SynthesisContext, id: string, body: Record<string, unknown>): Promise<unknown> {
-  const res = await fetch(`${ctx.zambdaApi}/zambda/${id}/execute`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${ctx.accessToken}`,
-      'x-zapehr-project-id': ctx.projectId ?? '',
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`${id} failed: ${res.status} ${text.slice(0, 300)}`);
-  }
-  if (!text) return undefined;
-  const parsed = JSON.parse(text) as { output?: unknown };
-  return parsed.output ?? parsed;
-}
-
 // ── Phase 11 — appointment notes (plan-only) ─────────────────────────────────
 
 async function phase11_appointmentNotes(ctx: SynthesisContext): Promise<void> {
@@ -3083,15 +2899,11 @@ async function changeStatus(ctx: SynthesisContext, status: string): Promise<void
   if (!ctx.oystehr) return;
   const body = { encounterId: ctx.encounterId, updatedStatus: status };
   // change-in-person-visit-status doesn't use user.me() — cloud routing OK.
-  const res = await fetch(`${ctx.zambdaApi}/zambda/change-in-person-visit-status/execute`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${ctx.accessToken}`,
-      'x-zapehr-project-id': ctx.projectId ?? '',
-    },
-    body: JSON.stringify(body),
-  });
+  // withRetry: connection-level failures only; setting the same status again is
+  // safe (Phase 13.5 rebuilds statusHistory with canonical entries anyway).
+  const res = await withRetry(`change-in-person-visit-status (${status})`, 3, () =>
+    zambdaPost(ctx, 'change-in-person-visit-status', body)
+  );
   if (!res.ok) {
     throw new Error(`change-in-person-visit-status (${status}) failed: ${res.status}\n${await res.text()}`);
   }
@@ -3105,15 +2917,7 @@ async function assignIntakePractitioner(ctx: SynthesisContext): Promise<void> {
     userRole: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ADM' }],
   };
   // assign-practitioner has the OTR-2428 fix locally; cloud not yet — route local.
-  const res = await fetch(`${ctx.zambdaApi}/zambda/assign-practitioner/execute`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${ctx.accessToken}`,
-      'x-zapehr-project-id': ctx.projectId ?? '',
-    },
-    body: JSON.stringify(body),
-  });
+  const res = await zambdaPost(ctx, 'assign-practitioner', body);
   if (!res.ok) {
     throw new Error(`assign-practitioner (ADM) failed: ${res.status}\n${await res.text()}`);
   }
@@ -3406,15 +3210,9 @@ async function phase14_signOff(ctx: SynthesisContext): Promise<void> {
 
   if (ctx.mode === 'execute' && ctx.oystehr) {
     // sign-appointment has the OTR-2428 fix locally; cloud not yet — route local.
-    const res = await fetch(`${ctx.zambdaApi}/zambda/sign-appointment/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${ctx.accessToken}`,
-        'x-zapehr-project-id': ctx.projectId ?? '',
-      },
-      body: JSON.stringify(body),
-    });
+    // withRetry: connection-level failures only; signing an already-signed
+    // appointment is a no-op-style repeat, not a duplicate create.
+    const res = await withRetry('sign-appointment', 3, () => zambdaPost(ctx, 'sign-appointment', body));
     if (!res.ok) {
       throw new Error(`sign-appointment failed: ${res.status}\n${await res.text()}`);
     }
@@ -3674,7 +3472,10 @@ async function main(): Promise<void> {
   } catch (err) {
     console.log('');
     console.error(`Pipeline aborted: ${err instanceof Error ? err.message : err}`);
-    if (isExecute && ctx.appointmentId && ctx.oystehr) {
+    // No appointmentId gate: the most common early failure is create-appointment
+    // itself, which still leaves the Phase 0.5 scaffold Slot orphaned —
+    // cleanupFailedRun is null-safe per resource and must run regardless.
+    if (isExecute && ctx.oystehr) {
       console.log('');
       console.log('── Cleanup: deleting orphan visit resources from this run ───────────────');
       await cleanupFailedRun(ctx);

@@ -12,7 +12,9 @@
 // → ~2560 visits over the trailing 12 months.
 
 import { writeFileSync } from 'fs';
+import { DateTime } from 'luxon';
 import { resolve } from 'path';
+import { arg, argInt } from '../shared/cli';
 import {
   Archetype,
   ARCHETYPES,
@@ -24,13 +26,8 @@ import {
   PROVIDERS_BY_LOCATION,
 } from './archetypes';
 
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
-
-const TARGET_PATIENTS = parseInt(arg('--patients', '2000'), 10);
-const SEED = parseInt(arg('--seed', '42'), 10);
+const TARGET_PATIENTS = argInt('--patients', { default: 2000, min: 1 });
+const SEED = argInt('--seed', { default: 42 });
 const OUT = resolve(arg('--out', resolve(__dirname, 'population-plan.json')));
 
 // Repeat-visit mix (fraction of patients with exactly k visits).
@@ -87,8 +84,11 @@ interface PlannedVisit {
   sex: 'male' | 'female';
   archetypeKey: string;
   archetypeLabel: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM
+  date: string; // YYYY-MM-DD — UTC calendar day (see time)
+  time: string; // HH:MM — UTC. The harness parses visit.date+time as a UTC
+  // instant (synthesize-visit computeSlotStartISO: `${date}T${time}:00.000Z`;
+  // intendedHistoricalStart: zone 'utc'), so the planner emits the UTC
+  // components of the intended clinic-LOCAL moment (dateTimeForDayOffset).
   location: string;
   provider: string;
   intakeMA: string;
@@ -97,21 +97,37 @@ interface PlannedVisit {
 function dobForAge(ageYears: number): string {
   const d = new Date(TODAY);
   d.setFullYear(d.getFullYear() - ageYears);
-  d.setDate(d.getDate() - randInt(0, 364)); // spread within the year
+  // Spread the birthday over the trailing year. Subtracting 0–364 extra days
+  // keeps the integer age exactly `ageYears` as of TODAY (last birthday was
+  // ≤364 days ago, next one is still ahead) — no band overshoot. NB: a visit
+  // backdated up to 12 months can still catch the patient at ageYears-1.
+  d.setDate(d.getDate() - randInt(0, 364));
   return d.toISOString().slice(0, 10);
 }
 
-// A business-hours datetime on a given day offset (days before today).
-function dateTimeForDayOffset(dayOffset: number): { date: string; time: string } {
-  const d = new Date(TODAY);
-  d.setDate(d.getDate() - dayOffset);
+// Clinic-local timezone per planned location. The planner draws CLINIC-LOCAL
+// business hours, but the harness parses visit.date+time as UTC — so we build
+// the local instant here and emit its UTC components (mirrors
+// synth-daily-census appointmentTimeForStatus).
+const LOCATION_TIMEZONES: Record<string, string> = {
+  'Los Angeles': 'America/Los_Angeles',
+  'New York': 'America/New_York',
+};
+const DEFAULT_TZ = 'America/New_York';
+
+// A business-hours (clinic-local) datetime on a given day offset (days before
+// today), emitted as UTC date+time components for the harness.
+function dateTimeForDayOffset(dayOffset: number, location: string): { date: string; time: string } {
+  const zone = LOCATION_TIMEZONES[location] ?? DEFAULT_TZ;
+  let d = DateTime.fromJSDate(TODAY, { zone }).minus({ days: dayOffset });
   // Lightly de-weight Sunday (resample once if it lands on Sunday).
-  if (d.getDay() === 0 && rng() < 0.7) d.setDate(d.getDate() - 1);
-  const hour = randInt(8, 18); // 08:00–18:45 (urgent-care hours)
+  if (d.weekday === 7 && rng() < 0.7) d = d.minus({ days: 1 });
+  const hour = randInt(8, 18); // 08:00–18:45 clinic-local (urgent-care hours)
   const minute = pick([0, 15, 30, 45]);
+  const utc = d.set({ hour, minute, second: 0, millisecond: 0 }).toUTC();
   return {
-    date: d.toISOString().slice(0, 10),
-    time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+    date: utc.toFormat('yyyy-MM-dd'),
+    time: utc.toFormat('HH:mm'),
   };
 }
 
@@ -180,7 +196,7 @@ for (let p = 0; p < TARGET_PATIENTS; p++) {
   const offsets = visitDayOffsets(k);
   for (let v = 0; v < k; v++) {
     const archetype = v === 0 ? seed : weightedArchetype(pool);
-    const { date, time } = dateTimeForDayOffset(offsets[v]);
+    const { date, time } = dateTimeForDayOffset(offsets[v], location);
     visits.push({
       seq: 0, // assigned after global sort
       patientKey: key,

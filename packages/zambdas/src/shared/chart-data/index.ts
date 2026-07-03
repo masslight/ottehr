@@ -940,32 +940,19 @@ export function makeDispositionDTO(
       ? followUp.orderDetail?.find((detail) => detail.coding?.[0]?.system === 'specialty-transfer')?.text || undefined
       : undefined;
 
-  // BUG (subspecialty follow-up "other" / "lurie-ct"): this reverse lookup
-  // resolves the follow-up type purely from performerType.coding[0].code, but
-  // followUpToPerformerMap stores both 'other' and 'lurie-ct' as coding-less
-  // CodeableConcepts (text only). So when save-chart-data was called with a
-  // disposition.followUp of type 'other', performerCode here is undefined and
-  // the .find() matches the FIRST coding-less map entry — 'lurie-ct' — instead
-  // of 'other'. 'lurie-ct' is then absent from dispositionCheckboxOptions
-  // (commented out), so PatientInstructionsContainer's `.find(...)!.label`
-  // throws and the Review & Sign page hard-crashes.
-  // This is unreachable from the EHR — DispositionCard never offers the pcp/
-  // ip-lab disposition types that surface the subspecialty follow-up section
-  // (true since the repo's first commit), so the only way to create such data
-  // is calling save-chart-data directly (synth, scripts, imports). Fixing it
-  // properly means disambiguating 'other' vs 'lurie-ct' via performerType.text
-  // here, and replacing the non-null assertion in PatientInstructionsContainer
-  // with a safe fallback.
-  const followUpArr = subFollowUp?.map((element) => {
-    const performerCode = element.performerType?.coding?.[0].code;
-    const followUpType = Object.keys(followUpToPerformerMap).find(
-      (keyName) => performerCode === followUpToPerformerMap[keyName as DispositionFollowUpType]?.coding?.[0].code
-    );
-
-    return {
-      type: followUpType as DispositionFollowUpType,
-      note: element.note?.[0].text,
-    };
+  // Resolve each sub-follow-up's type via the shared reverse lookup (coding code OR text,
+  // so the coding-less 'other'/'lurie-ct' performer types disambiguate correctly), and skip
+  // entries whose type can't be resolved rather than emitting a bogus type that downstream
+  // consumers (visit-note PDF, review tab) can't render.
+  const followUpArr = subFollowUp?.flatMap((element) => {
+    const followUpType = followUpTypeFromPerformerType(element.performerType);
+    if (!followUpType) return [];
+    return [
+      {
+        type: followUpType,
+        note: element.note?.[0].text,
+      },
+    ];
   });
 
   const followUpTime = followUp.occurrenceTiming?.repeat?.offset;
@@ -1820,6 +1807,27 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
   'lurie-ct': createCodeableConcept(undefined, 'lurie-ct'),
   other: createCodeableConcept(undefined, 'other'),
 };
+
+/**
+ * Reverse-maps a sub-follow-up ServiceRequest.performerType back to its DispositionFollowUpType.
+ *
+ * Most performer types are identified by coding[0].code, but 'other' and 'lurie-ct' are built
+ * coding-less (text only) in followUpToPerformerMap. Matching on coding code alone would let
+ * `undefined === undefined` resolve every coding-less performer type to whichever coding-less map
+ * entry comes first ('lurie-ct'), so the key is derived from coding code OR text and an entry with
+ * no derivable key never matches.
+ */
+export function followUpTypeFromPerformerType(
+  performerType: CodeableConcept | undefined
+): DispositionFollowUpType | undefined {
+  const key = performerType?.coding?.[0]?.code ?? performerType?.text;
+  if (key === undefined) return undefined;
+  return (Object.keys(followUpToPerformerMap) as DispositionFollowUpType[]).find((typeName) => {
+    const mapped = followUpToPerformerMap[typeName];
+    const mappedKey = mapped?.coding?.[0]?.code ?? mapped?.text;
+    return mappedKey === key;
+  });
+}
 
 export function makeProceduresDTOFromFhirResources(
   encounter: Encounter,

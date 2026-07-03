@@ -20,18 +20,17 @@
  * Without --execute, the script prints the plan and exits.
  */
 import type { M2m } from '@oystehr/sdk';
-import Oystehr from '@oystehr/sdk';
+import { mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { arg, flag } from './shared/cli';
+import { createOystehrFromEnv, need } from './shared/oystehr-client';
 
-function getFlag(name: string): string | undefined {
-  const i = process.argv.indexOf(name);
-  return i >= 0 ? process.argv[i + 1] : undefined;
-}
-
-const referenceName = getFlag('--reference-m2m-name');
-const practitionerId = getFlag('--practitioner-id');
-const newName = getFlag('--name');
-const newDescription = getFlag('--description') ?? 'Created by create-synth-m2m.ts for use by the synth pipeline.';
-const isExecute = process.argv.includes('--execute');
+const referenceName = arg('--reference-m2m-name');
+const practitionerId = arg('--practitioner-id');
+const newName = arg('--name');
+const newDescription = arg('--description') ?? 'Created by create-synth-m2m.ts for use by the synth pipeline.';
+const isExecute = flag('--execute');
 
 if (!referenceName || !practitionerId || !newName) {
   console.error(
@@ -40,32 +39,11 @@ if (!referenceName || !practitionerId || !newName) {
   process.exit(1);
 }
 
-async function mintToken(): Promise<string> {
-  const res = await fetch(process.env.AUTH0_ENDPOINT!, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: process.env.AUTH0_CLIENT,
-      client_secret: process.env.AUTH0_SECRET,
-      audience: process.env.AUTH0_AUDIENCE,
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!res.ok) throw new Error(`Failed to mint token: ${res.status} ${await res.text()}`);
-  const { access_token } = (await res.json()) as { access_token: string };
-  return access_token;
-}
-
 async function main(): Promise<void> {
-  const accessToken = await mintToken();
-  const oystehr = new Oystehr({
-    accessToken,
-    projectId: process.env.PROJECT_ID!,
-    services: { projectApiUrl: process.env.PROJECT_API! },
-  });
+  const oystehr = await createOystehrFromEnv();
 
   console.log(`Mode: ${isExecute ? 'EXECUTE' : 'DRY RUN'}`);
-  console.log(`Project: ${process.env.PROJECT_ID}`);
+  console.log(`Project: ${need('PROJECT_ID')}`);
 
   // Verify the practitioner exists and is active
   console.log(`\nVerifying Practitioner/${practitionerId}...`);
@@ -89,7 +67,7 @@ async function main(): Promise<void> {
     console.log(`  profile: "Practitioner/${practitionerId}"`);
     console.log(`  accessPolicy: <copied from "${referenceName}">`);
     console.log(
-      `\nPass --execute to create. After creation, the script will rotate-secret to print the client_secret (one-time).`
+      `\nPass --execute to create. After creation, the script rotates the secret and writes it to a 0600 temp file (one-time; the path is printed, the secret is not).`
     );
     return;
   }
@@ -106,13 +84,22 @@ async function main(): Promise<void> {
 
   console.log(`\nRotating secret to obtain the client secret...`);
   const { secret } = await oystehr.m2m.rotateSecret({ id: created.id });
+  // Never print the secret to stdout — this script often runs under a `tee`'d
+  // wrapper and the secret would land in a log file. Write it to a 0600 temp
+  // file instead and print only the path.
+  const secretDir = mkdtempSync(join(tmpdir(), 'synth-m2m-'));
+  const secretPath = join(secretDir, 'm2m-credentials.json');
+  writeFileSync(secretPath, JSON.stringify({ AUTH0_CLIENT: created.clientId, AUTH0_SECRET: secret }, null, 2) + '\n', {
+    mode: 0o600,
+  });
   console.log(`\n────────────────────────────────────────────────────────────`);
-  console.log(`SAVE THESE — the client secret will not be retrievable again:`);
+  console.log(`Client secret rotated — it will not be retrievable again.`);
   console.log(`  AUTH0_CLIENT = ${created.clientId}`);
-  console.log(`  AUTH0_SECRET = ${secret}`);
+  console.log(`  AUTH0_SECRET written to (owner-only 0600, NOT printed here):`);
+  console.log(`    ${secretPath}`);
   console.log(`────────────────────────────────────────────────────────────`);
   console.log(
-    `\nNext: update both packages/zambdas/.env/<env>.json and packages/zambdas/.env/zambda-secrets-<env>.json with these values, then restart the zambda server.`
+    `\nNext: copy the values from that file into both packages/zambdas/.env/<env>.json and packages/zambdas/.env/zambda-secrets-<env>.json, restart the zambda server, then delete the temp file.`
   );
 }
 

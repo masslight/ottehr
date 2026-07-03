@@ -11,37 +11,55 @@
 //   npx env-cmd -f packages/zambdas/.env/demo.json npx tsx \
 //     scripts/synthetic-patient-data/finalize-visit-orders.ts --census-day 2026-06-20 [--execute] [--zambda-api URL]
 
-import Oystehr from '@oystehr/sdk';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
-import { withRetry } from './shared/retry';
-
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
-const arg = (name: string, dflt: string): string => {
-  const i = process.argv.indexOf(name);
-  return i !== -1 && i < process.argv.length - 1 ? process.argv[i + 1] : dflt;
-};
+import { arg, argDate, flag } from './shared/cli';
+import {
+  OTTEHR_VISIT_STATUS_EXTENSION_URL as OTT_EXT_URL,
+  SYNTH_CRON_RUN_DATE_SYSTEM as RUN_DATE_SYSTEM,
+} from './shared/constants';
+import { createOystehrFromToken, mintAccessToken, need } from './shared/oystehr-client';
+import { type ZambdaCtx, zambdaPost } from './shared/zambda';
 
 const TZ = 'America/New_York';
 const SCEN_DIR = resolve(__dirname, '.census-scenarios');
-const RUN_DATE_SYSTEM = 'https://fhir.ottehr.com/sid/synth-cron-run-date';
-const OTT_EXT_URL = 'https://extensions.fhir.zapehr.com/visit-status';
 // Results only "come back" once the visit is far enough along; in-progress
 // visits keep pending orders (realistic). --all overrides for backfills.
 const FINALIZED_STATUSES = new Set(['discharged', 'completed']);
 // Strip parentheticals before alphanumerics so a scenario test name ("Urinalysis")
 // matches the catalog/order name ("Urinalysis (UA)") — mirrors the harness's fuzzy
 // catalog match. Harmless for analyte names (which carry no parentheticals).
-const norm = (s: string): string =>
+// Exported so synthesize-visit.ts keys/matches with the exact same normalization
+// (this file is the shared home — synthesize-visit.ts runs main() at module load
+// and cannot be imported for its helpers).
+export const normalizeLabName = (s: string): string =>
   (s ?? '')
     .toLowerCase()
     .replace(/\(.*?\)/g, '')
     .replace(/[^a-z0-9]/g, '');
+const norm = normalizeLabName;
+
+// Scenario test names don't always match the in-house catalog verbatim (e.g.
+// "COVID-19 Antigen" vs "SARS-CoV-2 Antigen", "Monospot test" vs "Mono Spot").
+// Maps normalized SCENARIO names → normalized CATALOG names. Shared single copy:
+// synthesize-visit.ts applies it at order time (catalog match) and
+// finalizeInHouseLabs applies it at result-lookup time, so scenario-keyed result
+// maps (e.g. the census catch-up's loadAuthoredResultsByPatient) still resolve.
+export const LAB_NAME_ALIASES: Record<string, string> = {
+  sarscov2antigen: 'covid19antigen',
+  sarscov2: 'covid19antigen',
+  covid19: 'covid19antigen',
+  monospot: 'monospottest',
+  rapidcovid19antigen: 'covid19antigen',
+  rapidinfluenzaab: 'rapidinfluenzaa', // combined "A/B" archetype → the Flu A catalog test
+};
+// Canonical lookup key for a test name: normalize, then resolve through the
+// alias map so scenario-name keys and catalog-name keys land on the same key.
+const canonicalLabKey = (s: string): string => {
+  const n = norm(s);
+  return LAB_NAME_ALIASES[n] ?? n;
+};
 const latestVisitStatus = (enc: any): string =>
   (enc.statusHistory ?? [])
     .map((h: any) => h.extension?.find((x: any) => x.url === OTT_EXT_URL)?.valueCode)
@@ -55,21 +73,12 @@ export interface AuthoredResult {
 }
 export type AuthoredResultsByTest = Record<string, AuthoredResult[]>; // keyed by normalized testName
 
-export interface FinalizeCtx {
-  zambdaApi: string;
-  headers: Record<string, string>;
-}
+export type FinalizeCtx = ZambdaCtx;
 
 const zfetch = async (ctx: FinalizeCtx, route: string, body: unknown): Promise<any> => {
   // Retry transient network failures only (fetch failed / ECONNRESET / ETIMEDOUT);
   // these zambda calls are idempotent re-attempts in the census/finalizer context.
-  const res = await withRetry(route, 3, () =>
-    fetch(`${ctx.zambdaApi}/zambda/${route}/execute`, {
-      method: 'POST',
-      headers: ctx.headers,
-      body: JSON.stringify(body),
-    })
-  );
+  const res = await zambdaPost(ctx, route, body, { retry: { label: route, attempts: 3 } });
   if (!res.ok) throw new Error(`${route} ${res.status}: ${(await res.text()).slice(0, 200)}`);
   return res.json();
 };
@@ -119,19 +128,31 @@ function buildLabResultData(components: any[], authored: AuthoredResult[] | unde
   return data;
 }
 
-// Finalize every non-FINAL in-house lab order on an encounter. Returns counts.
+// Finalize every non-FINAL in-house lab order on an encounter. Returns counts
+// (`failed` = orders whose collect/result submission errored — surfaced so
+// callers can report partial failure instead of a silently-clean summary).
+// `attendingId` is the encounter's attending Practitioner id — the
+// collect-in-house-lab-specimen zambda requires collectedBy to match either the
+// encounter's attending or the calling user, so pass it whenever known.
 export async function finalizeInHouseLabs(
   ctx: FinalizeCtx,
   encounterId: string,
   resultsByTest: AuthoredResultsByTest,
-  execute: boolean
-): Promise<{ finalized: number; skipped: number }> {
+  execute: boolean,
+  attendingId?: string
+): Promise<{ finalized: number; skipped: number; failed: number }> {
   const list = out(
     await zfetch(ctx, 'get-in-house-orders', { searchBy: { field: 'encounterId', value: encounterId } })
   );
   const orders: any[] = Array.isArray(list) ? list : list?.data ?? [];
+  // Canonicalize the authored-results keys once: callers key by scenario test
+  // name, the lookup below keys by catalog (order) name — the alias map folds
+  // both onto the same canonical key.
+  const canonicalResults: AuthoredResultsByTest = {};
+  for (const [k, v] of Object.entries(resultsByTest)) canonicalResults[canonicalLabKey(k)] = v;
   let finalized = 0;
   let skipped = 0;
+  let failed = 0;
   for (const o of orders) {
     if (o.status === 'FINAL') {
       skipped++;
@@ -143,7 +164,7 @@ export async function finalizeInHouseLabs(
     );
     const detail = (Array.isArray(detailRes) ? detailRes[0] : detailRes?.data?.[0]) ?? detailRes;
     const components: any[] = detail?.labDetails?.components?.components ?? [];
-    const authored = resultsByTest[norm(o.testItemName)];
+    const authored = canonicalResults[canonicalLabKey(o.testItemName)];
     const data = buildLabResultData(components, authored);
     if (!Object.keys(data).length) {
       console.log(`    ⚠ ${o.testItemName}: no resolvable components — skipping`);
@@ -155,25 +176,32 @@ export async function finalizeInHouseLabs(
       finalized++;
       continue;
     }
-    // ORDERED (specimen not yet collected) must be collected before results.
-    if (o.status === 'ORDERED') {
-      await zfetch(ctx, 'collect-in-house-lab-specimen', {
-        encounterId,
-        serviceRequestId: o.serviceRequestId,
-        data: {
-          specimen: {
-            source: 'specimen',
-            collectedBy: { id: '', name: 'Synthesizer' },
-            collectionDate: new Date().toISOString(),
+    try {
+      // ORDERED (specimen not yet collected) must be collected before results —
+      // if the collect fails, do NOT submit results (the zambda would move an
+      // uncollected order to FINAL, or reject confusingly); count it as failed.
+      if (o.status === 'ORDERED') {
+        await zfetch(ctx, 'collect-in-house-lab-specimen', {
+          encounterId,
+          serviceRequestId: o.serviceRequestId,
+          data: {
+            specimen: {
+              source: 'specimen',
+              collectedBy: { id: attendingId ?? '', name: 'Synthesizer' },
+              collectionDate: new Date().toISOString(),
+            },
           },
-        },
-      }).catch((e) => console.log(`    ⚠ collect ${o.testItemName}: ${e.message}`));
+        });
+      }
+      await zfetch(ctx, 'handle-in-house-lab-results', { serviceRequestId: o.serviceRequestId, data });
+      console.log(`    ✓ ${o.testItemName} → FINAL`);
+      finalized++;
+    } catch (e: any) {
+      console.log(`    ✗ ${o.testItemName}: ${e?.message ?? e}`);
+      failed++;
     }
-    await zfetch(ctx, 'handle-in-house-lab-results', { serviceRequestId: o.serviceRequestId, data });
-    console.log(`    ✓ ${o.testItemName} → FINAL`);
-    finalized++;
   }
-  return { finalized, skipped };
+  return { finalized, skipped, failed };
 }
 
 // ── Radiology ────────────────────────────────────────────────────────────────
@@ -390,36 +418,13 @@ export function loadAuthoredResultsByPatient(date: string): Map<string, Authored
 // ── CLI: backfill a whole census day ─────────────────────────────────────────
 async function main(): Promise<void> {
   const ZAMBDA_API = arg('--zambda-api', process.env.ZAMBDA_API || 'http://localhost:3000/local');
-  const date = arg('--census-day', DateTime.now().setZone(TZ).toFormat('yyyy-MM-dd'));
-  const execute = process.argv.includes('--execute');
-  const finalizeAll = process.argv.includes('--all'); // finalize regardless of visit status
+  const date = argDate('--census-day', DateTime.now().setZone(TZ).toFormat('yyyy-MM-dd'));
+  const execute = flag('--execute');
+  const finalizeAll = flag('--all'); // finalize regardless of visit status
 
-  const tk = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const projectId = need('PROJECT_ID');
-  const o = new Oystehr({
-    accessToken: (tk as any).access_token,
-    projectId,
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
-  const ctx: FinalizeCtx = {
-    zambdaApi: ZAMBDA_API,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${(tk as any).access_token}`,
-      'x-zapehr-project-id': projectId,
-    },
-  };
+  const accessToken = await mintAccessToken();
+  const o = createOystehrFromToken(accessToken);
+  const ctx: FinalizeCtx = { zambdaApi: ZAMBDA_API, accessToken, projectId: need('PROJECT_ID') };
 
   const resultsByPatient = loadAuthoredResultsByPatient(date);
   console.log(
@@ -443,6 +448,7 @@ async function main(): Promise<void> {
   const patients = new Map(all.filter((r: any) => r.resourceType === 'Patient').map((p: any) => [p.id, p]));
 
   let tot = 0;
+  let failedTot = 0;
   let skippedInProgress = 0;
   for (const e of encs) {
     const status = latestVisitStatus(e);
@@ -454,20 +460,29 @@ async function main(): Promise<void> {
     const p: any = patients.get(pid);
     const name = p ? `${norm(p.name?.[0]?.given?.[0])} ${norm(p.name?.[0]?.family)}` : '';
     const authored = resultsByPatient.get(name) ?? {};
+    // collect-in-house-lab-specimen requires collectedBy to match the
+    // encounter's attending (or the calling user) — pull the ATND participant.
+    const attendingId = (e.participant ?? [])
+      .find((pt: any) => pt.type?.some((t: any) => t.coding?.some((c: any) => c.code === 'ATND')))
+      ?.individual?.reference?.split('/')[1];
     try {
-      const { finalized } = await finalizeInHouseLabs(ctx, e.id, authored, execute);
+      const { finalized, failed } = await finalizeInHouseLabs(ctx, e.id, authored, execute, attendingId);
       if (finalized) {
         console.log(`  ${p?.name?.[0]?.given?.[0] ?? '?'} ${p?.name?.[0]?.family ?? ''}: ${finalized} lab(s)`);
         tot += finalized;
       }
+      failedTot += failed;
     } catch (err: any) {
       console.log(`  ✗ encounter ${e.id}: ${err.message}`);
+      failedTot++;
     }
   }
   console.log(
-    `\nDone — ${tot} lab order(s) ${execute ? 'finalized' : 'would be finalized'} for ${date}` +
+    `\nDone — ${tot} lab order(s) ${execute ? 'finalized' : 'would be finalized'}` +
+      `${failedTot ? `, ${failedTot} FAILED` : ''} for ${date}` +
       `${finalizeAll ? '' : ` (skipped ${skippedInProgress} in-progress visit(s) — orders stay pending)`}.`
   );
+  if (failedTot) process.exitCode = 1;
 }
 
 if (process.argv[1] && process.argv[1].includes('finalize-visit-orders')) {

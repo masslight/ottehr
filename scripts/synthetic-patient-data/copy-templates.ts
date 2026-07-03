@@ -20,8 +20,9 @@
  */
 import Oystehr from '@oystehr/sdk';
 import type { List } from 'fhir/r4b';
-import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { arg, flag } from './shared/cli';
+import { createOystehrFromEnvFile, loadEnvFile } from './shared/oystehr-client';
 
 // ── Constants from packages/utils/lib/fhir/constants.ts ───────────────────────
 
@@ -33,74 +34,14 @@ const TEMPLATE_CODE_SYSTEMS = [GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM, GLOBAL_TEM
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 
-const args = process.argv.slice(2);
-function getFlag(name: string): string | undefined {
-  const idx = args.indexOf(name);
-  if (idx === -1) return undefined;
-  return args[idx + 1];
-}
-
-const sourceEnvPath = resolve(getFlag('--source-env') ?? '');
-const destEnvPath = resolve(getFlag('--dest-env') ?? '');
-const isExecute = args.includes('--execute');
-const isForce = args.includes('--force');
+const sourceEnvPath = resolve(arg('--source-env') ?? '');
+const destEnvPath = resolve(arg('--dest-env') ?? '');
+const isExecute = flag('--execute');
+const isForce = flag('--force');
 
 if (!sourceEnvPath || !destEnvPath) {
   console.error('Usage: tsx copy-templates.ts --source-env <path> --dest-env <path> [--execute] [--force]');
   process.exit(1);
-}
-
-// ── SDK setup (per env file) ──────────────────────────────────────────────────
-
-interface EnvConfig {
-  AUTH0_ENDPOINT: string;
-  AUTH0_CLIENT: string;
-  AUTH0_SECRET: string;
-  AUTH0_AUDIENCE: string;
-  PROJECT_ID: string;
-  PROJECT_API: string;
-  ZAMBDA_API?: string;
-}
-
-function loadEnv(path: string): EnvConfig {
-  const raw = JSON.parse(readFileSync(path, 'utf-8'));
-  for (const key of [
-    'AUTH0_ENDPOINT',
-    'AUTH0_CLIENT',
-    'AUTH0_SECRET',
-    'AUTH0_AUDIENCE',
-    'PROJECT_ID',
-    'PROJECT_API',
-  ] as const) {
-    if (!raw[key]) throw new Error(`${path} is missing required key: ${key}`);
-  }
-  return raw as EnvConfig;
-}
-
-async function createOystehrFromEnv(env: EnvConfig, label: string): Promise<Oystehr> {
-  const tokenResponse = await fetch(env.AUTH0_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: env.AUTH0_CLIENT,
-      client_secret: env.AUTH0_SECRET,
-      audience: env.AUTH0_AUDIENCE,
-      grant_type: 'client_credentials',
-    }),
-  });
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    throw new Error(`[${label}] Oystehr IAM token request failed: ${tokenResponse.status} ${errorText}`);
-  }
-  const tokenData = (await tokenResponse.json()) as { access_token: string };
-  return new Oystehr({
-    accessToken: tokenData.access_token,
-    projectId: env.PROJECT_ID,
-    services: {
-      projectApiUrl: env.PROJECT_API,
-      zambdaApiUrl: env.ZAMBDA_API ?? env.PROJECT_API,
-    },
-  });
 }
 
 // ── Holder-list helpers ───────────────────────────────────────────────────────
@@ -148,8 +89,8 @@ async function main(): Promise<void> {
   console.log(`Source env: ${sourceEnvPath}`);
   console.log(`Dest env:   ${destEnvPath}`);
 
-  const sourceEnv = loadEnv(sourceEnvPath);
-  const destEnv = loadEnv(destEnvPath);
+  const sourceEnv = loadEnvFile(sourceEnvPath);
+  const destEnv = loadEnvFile(destEnvPath);
   console.log(`Source PROJECT_ID: ${sourceEnv.PROJECT_ID}`);
   console.log(`Dest PROJECT_ID:   ${destEnv.PROJECT_ID}`);
 
@@ -159,9 +100,9 @@ async function main(): Promise<void> {
 
   console.log('');
   console.log('Authenticating to both projects...');
-  const [source, dest] = await Promise.all([
-    createOystehrFromEnv(sourceEnv, 'source'),
-    createOystehrFromEnv(destEnv, 'dest'),
+  const [{ oystehr: source }, { oystehr: dest }] = await Promise.all([
+    createOystehrFromEnvFile(sourceEnvPath, 'source'),
+    createOystehrFromEnvFile(destEnvPath, 'dest'),
   ]);
   console.log('Authenticated.');
 

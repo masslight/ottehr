@@ -8,14 +8,8 @@
 //   npx env-cmd -f packages/zambdas/.env/synth.json \
 //   npx tsx scripts/synthetic-patient-data/link-synth-staff-users.ts
 // Optional: APPLICATION_ID='<ehr-app-id>' to override application auto-detection.
-import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
-
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
+import { createOystehrFromToken, mintAccessToken } from './shared/oystehr-client';
 
 const STAFF_MARKER_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff';
 const STAFF_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff-id';
@@ -129,25 +123,9 @@ async function main(): Promise<void> {
   if (accessToken) {
     console.log('Using OYSTEHR_ACCESS_TOKEN (user/admin token).');
   } else {
-    const t = await (
-      await fetch(need('AUTH0_ENDPOINT'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: process.env.AUTH0_CLIENT,
-          client_secret: process.env.AUTH0_SECRET,
-          audience: process.env.AUTH0_AUDIENCE,
-          grant_type: 'client_credentials',
-        }),
-      })
-    ).json();
-    accessToken = (t as any).access_token;
+    accessToken = await mintAccessToken();
   }
-  const oystehr = new Oystehr({
-    accessToken,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const oystehr = createOystehrFromToken(accessToken);
 
   let applicationId = process.env.APPLICATION_ID;
   if (!applicationId) {

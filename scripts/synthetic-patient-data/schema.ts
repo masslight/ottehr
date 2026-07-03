@@ -703,22 +703,7 @@ export const VisitScenarioSchema = z
   })
   .describe('A single synthetic patient visit scenario');
 
-export const VisitScenarioBatchSchema = z
-  .object({
-    schemaVersion: z.literal('1.0'),
-    scenarios: z.array(VisitScenarioSchema).min(1),
-  })
-  .describe('Multiple scenarios in a single file');
-
 // ── Inferred types ───────────────────────────────────────────────────────────
 
 export type VisitScenario = z.infer<typeof VisitScenarioSchema>;
-export type VisitScenarioBatch = z.infer<typeof VisitScenarioBatchSchema>;
-export type Patient = z.infer<typeof PatientSchema>;
-export type Visit = z.infer<typeof VisitSchema>;
 export type History = z.infer<typeof HistorySchema>;
-export type Vitals = z.infer<typeof VitalsSchema>;
-export type Modules = z.infer<typeof ModulesSchema>;
-export type Eligibility = z.infer<typeof EligibilitySchema>;
-export type Pricing = z.infer<typeof PricingSchema>;
-export type Disposition = z.infer<typeof DispositionSchema>;

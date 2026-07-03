@@ -11,71 +11,54 @@
  *   npx tsx scripts/synthetic-patient-data/create-demo-user.ts \
  *     --env-file packages/zambdas/.env/synth.json
  *
+ * Required (no default — never hard-code passwords in the repo):
+ *   --password <password>  or the DEMO_USER_PASSWORD env var (flag wins).
+ *
  * Optional flags:
  *   --email <email>        default: demo@ottehr.com
- *   --password <password>  default: Oystehr1!
  *   --first <name>         default: Demo
  *   --last <name>          default: Admin
  *   --app-name <name>      EHR application name to look up; default: tries
  *                          OTTEHR_EHR, then EHR, then "Ottehr EHR".
+ *   --show                 echo the password in the final summary (off by default
+ *                          so it stays out of logs).
  *
  * Env file must contain: AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET,
  * AUTH0_AUDIENCE, PROJECT_ID, PROJECT_API.
  */
-import Oystehr from '@oystehr/sdk';
-import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { arg, flag } from './shared/cli';
+import { createOystehrFromEnvFile } from './shared/oystehr-client';
 
-const args = process.argv.slice(2);
-function getFlag(name: string): string | undefined {
-  const idx = args.indexOf(name);
-  return idx === -1 ? undefined : args[idx + 1];
-}
-
-const envFilePath = resolve(getFlag('--env-file') ?? '');
-const email = getFlag('--email') ?? 'demo@ottehr.com';
-const password = getFlag('--password') ?? 'Oystehr1!';
-const firstName = getFlag('--first') ?? 'Demo';
-const lastName = getFlag('--last') ?? 'Admin';
-const appNameOverride = getFlag('--app-name');
+const envFilePath = resolve(arg('--env-file') ?? '');
+const email = arg('--email', 'demo@ottehr.com');
+// No default password — it must come from --password or DEMO_USER_PASSWORD
+// (same pattern as reset-demo-password.ts, which reads NEW_PASSWORD).
+const password = arg('--password') ?? process.env.DEMO_USER_PASSWORD ?? '';
+const firstName = arg('--first', 'Demo');
+const lastName = arg('--last', 'Admin');
+const appNameOverride = arg('--app-name');
+const showPassword = flag('--show');
 
 if (!envFilePath) {
-  console.error('Usage: tsx create-demo-user.ts --env-file <path> [--email ...] [--password ...]');
+  console.error('Usage: tsx create-demo-user.ts --env-file <path> --password <pw> [--email ...] [--show]');
   process.exit(1);
 }
 
-interface EnvConfig {
-  AUTH0_ENDPOINT: string;
-  AUTH0_CLIENT: string;
-  AUTH0_SECRET: string;
-  AUTH0_AUDIENCE: string;
-  PROJECT_ID: string;
-  PROJECT_API: string;
+if (!password) {
+  console.error('No password provided. Pass --password <pw> or set the DEMO_USER_PASSWORD env var.');
+  process.exit(1);
 }
 
 async function main(): Promise<void> {
   console.log(`Env file: ${envFilePath}`);
-  const config = JSON.parse(readFileSync(envFilePath, 'utf-8')) as EnvConfig;
-  console.log(`Project:  ${config.PROJECT_ID}`);
-  console.log(`Email:    ${email}`);
-  console.log('');
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   console.log('Authenticating with M2M credentials...');
-  const tokenResponse = await fetch(config.AUTH0_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: config.AUTH0_CLIENT,
-      client_secret: config.AUTH0_SECRET,
-      audience: config.AUTH0_AUDIENCE,
-    }),
-  });
-  if (!tokenResponse.ok) {
-    throw new Error(`Oystehr IAM token request failed: ${tokenResponse.status} ${await tokenResponse.text()}`);
-  }
-  const { access_token } = (await tokenResponse.json()) as { access_token: string };
+  const { oystehr, env: config, accessToken: access_token } = await createOystehrFromEnvFile(envFilePath);
+  console.log(`Project:  ${config.PROJECT_ID}`);
+  console.log(`Email:    ${email}`);
+  console.log('');
 
   // ── Find EHR Application ID ────────────────────────────────────────────────
   console.log('Looking up EHR Application...');
@@ -111,12 +94,6 @@ async function main(): Promise<void> {
     console.warn(`Warning: could not enable email login (${enableEmailRes.status}). User invite may still succeed.`);
   }
 
-  // ── SDK client for user/role operations ────────────────────────────────────
-  const oystehr = new Oystehr({
-    accessToken: access_token,
-    projectId: config.PROJECT_ID,
-  });
-
   // ── Idempotent: check if user exists, just update password if so ──────────
   console.log(`Checking if ${email} already exists...`);
   let existingUser: { id: string; email?: string } | undefined;
@@ -134,7 +111,7 @@ async function main(): Promise<void> {
     console.log('');
     console.log('✓ Password updated.');
     console.log(`  Email:    ${email}`);
-    console.log(`  Password: ${password}`);
+    console.log(`  Password: ${showPassword ? password : '(hidden — pass --show to display)'}`);
     return;
   }
 
@@ -170,7 +147,7 @@ async function main(): Promise<void> {
   console.log('');
   console.log('✓ User created.');
   console.log(`  Email:    ${email}`);
-  console.log(`  Password: ${password}`);
+  console.log(`  Password: ${showPassword ? password : '(hidden — pass --show to display)'}`);
   console.log(`  Role:     Administrator`);
 }
 

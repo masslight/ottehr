@@ -19,26 +19,15 @@
  * `--also-create` adds an extra medication if not already present, e.g.:
  *   --also-create 'Ibuprofen 200mg Tablet PO=tablet=PO=200=mg'
  */
-import Oystehr from '@oystehr/sdk';
 import type { Medication } from 'fhir/r4b';
-import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { arg, argAll, flag } from './shared/cli';
+import { createOystehrFromEnvFile, loadEnvFile } from './shared/oystehr-client';
 
-const args = process.argv.slice(2);
-function getFlag(name: string): string | undefined {
-  const idx = args.indexOf(name);
-  return idx === -1 ? undefined : args[idx + 1];
-}
-function getAllFlag(name: string): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < args.length; i++) if (args[i] === name && args[i + 1]) out.push(args[i + 1]);
-  return out;
-}
-
-const sourceEnvPath = resolve(getFlag('--source-env') ?? '');
-const destEnvPath = resolve(getFlag('--dest-env') ?? '');
-const isExecute = args.includes('--execute');
-const alsoCreate = getAllFlag('--also-create');
+const sourceEnvPath = resolve(arg('--source-env') ?? '');
+const destEnvPath = resolve(arg('--dest-env') ?? '');
+const isExecute = flag('--execute');
+const alsoCreate = argAll('--also-create');
 
 if (!sourceEnvPath || !destEnvPath) {
   console.error('Usage: tsx copy-medications.ts --source-env <path> --dest-env <path> [--execute]');
@@ -46,39 +35,6 @@ if (!sourceEnvPath || !destEnvPath) {
 }
 
 const NAME_IDENTIFIER_SYSTEM = 'virtual-medication-identifier-name-system';
-
-interface EnvConfig {
-  AUTH0_ENDPOINT: string;
-  AUTH0_CLIENT: string;
-  AUTH0_SECRET: string;
-  AUTH0_AUDIENCE: string;
-  PROJECT_ID: string;
-  PROJECT_API: string;
-}
-
-function loadEnv(path: string): EnvConfig {
-  return JSON.parse(readFileSync(path, 'utf-8')) as EnvConfig;
-}
-
-async function createOystehrFromEnv(env: EnvConfig, label: string): Promise<Oystehr> {
-  const tokenRes = await fetch(env.AUTH0_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: env.AUTH0_CLIENT,
-      client_secret: env.AUTH0_SECRET,
-      audience: env.AUTH0_AUDIENCE,
-    }),
-  });
-  if (!tokenRes.ok) throw new Error(`[${label}] Oystehr IAM auth failed: ${tokenRes.status} ${await tokenRes.text()}`);
-  const { access_token } = (await tokenRes.json()) as { access_token: string };
-  return new Oystehr({
-    accessToken: access_token,
-    projectId: env.PROJECT_ID,
-    services: { projectApiUrl: env.PROJECT_API },
-  });
-}
 
 function nameOf(m: Medication): string | undefined {
   return m.identifier?.find((i) => i.system === NAME_IDENTIFIER_SYSTEM)?.value;
@@ -89,16 +45,16 @@ async function main(): Promise<void> {
   console.log(`Source: ${sourceEnvPath}`);
   console.log(`Dest:   ${destEnvPath}`);
 
-  const sourceEnv = loadEnv(sourceEnvPath);
-  const destEnv = loadEnv(destEnvPath);
+  const sourceEnv = loadEnvFile(sourceEnvPath);
+  const destEnv = loadEnvFile(destEnvPath);
   if (sourceEnv.PROJECT_ID === destEnv.PROJECT_ID) throw new Error('Source and dest are the same project');
   console.log(`Source PROJECT_ID: ${sourceEnv.PROJECT_ID}`);
   console.log(`Dest PROJECT_ID:   ${destEnv.PROJECT_ID}`);
 
   console.log('Authenticating...');
-  const [source, dest] = await Promise.all([
-    createOystehrFromEnv(sourceEnv, 'source'),
-    createOystehrFromEnv(destEnv, 'dest'),
+  const [{ oystehr: source }, { oystehr: dest }] = await Promise.all([
+    createOystehrFromEnvFile(sourceEnvPath, 'source'),
+    createOystehrFromEnvFile(destEnvPath, 'dest'),
   ]);
 
   // Source medications

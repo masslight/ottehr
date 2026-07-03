@@ -7,14 +7,8 @@
 // (matching makeQualificationForPractitioner) so the detail page loads. FHIR-only edit.
 //   npx env-cmd -f packages/zambdas/.env/synth.json \
 //   npx tsx scripts/synthetic-patient-data/fix-synth-staff-qualifications.ts
-import Oystehr from '@oystehr/sdk';
 import { Practitioner, PractitionerQualification } from 'fhir/r4b';
-
-const need = (n: string): string => {
-  const v = process.env[n];
-  if (!v) throw new Error('Missing ' + n);
-  return v;
-};
+import { createOystehrFromEnv } from './shared/oystehr-client';
 
 const STAFF_MARKER_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff';
 const LOCATION_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff-location';
@@ -45,23 +39,7 @@ function properQualification(code: string, state: string): PractitionerQualifica
 }
 
 async function main(): Promise<void> {
-  const t = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
-  ).json();
-  const oystehr = new Oystehr({
-    accessToken: (t as any).access_token,
-    projectId: need('PROJECT_ID'),
-    services: { projectApiUrl: need('PROJECT_API') },
-  });
+  const oystehr = await createOystehrFromEnv();
 
   const bundle = await oystehr.fhir.search<Practitioner>({
     resourceType: 'Practitioner',
