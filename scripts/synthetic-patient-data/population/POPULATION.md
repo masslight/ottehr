@@ -9,6 +9,12 @@ each visit handled by a real-looking provider + intake MA.
 Built on the single-visit harness (`../synthesize-visit.ts`) and the 24
 synthetic staff (`../SYNTH-STAFF.md`). Three steps: **plan → run → verify**.
 
+> **When to run this.** Fresh environments are populated by the [daily census](../DAILY-CENSUS.md) by
+> default. Run this full population build **only when specifically requested** — i.e. when an
+> environment needs ~12 months of *backdated history* (so reports, trends, and time-range dashboards
+> have data), not just a live-looking board going forward. It's an on-demand seed, not part of
+> standing up a new env.
+
 ## Prerequisites
 
 1. **Synth staff created** — run `../link-synth-staff-users.ts` first (see

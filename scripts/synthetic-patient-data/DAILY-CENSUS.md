@@ -6,6 +6,11 @@ in a spread of in-progress statuses, so the EHR always looks like a live clinic.
 
 Default target: **demo**. Runs from your Mac at **07:15** via `launchd`.
 
+> **This is the default way fresh environments get synthetic data** — the census keeps the board live
+> from today forward. For a one-time seed of ~12 months of *backdated history* (for reports/trends),
+> run the full [population build](population/POPULATION.md) — but that's on-demand, only when
+> specifically requested.
+
 ## Pieces
 
 | File | Role |
