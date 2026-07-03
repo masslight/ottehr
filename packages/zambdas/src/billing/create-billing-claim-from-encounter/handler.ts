@@ -77,7 +77,7 @@ import {
   sendErrors,
   ZambdaInput,
 } from '../../shared';
-import { claimProvenanceRequest, resolveClaimActor } from '../provenance';
+import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
@@ -468,7 +468,7 @@ export async function performEffect(
     after: claim,
     agent,
     activity: 'create',
-    recorded: new Date().toISOString(),
+    recorded: recordedNow(),
   });
   if (creationProvenance) {
     requests.push(creationProvenance);

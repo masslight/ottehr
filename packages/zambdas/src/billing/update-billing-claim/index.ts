@@ -25,7 +25,12 @@ import {
   getPayerUrl,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { claimProvenanceRequest, diffResources, resolveClaimActor, versionedReference } from '../provenance';
+import {
+  claimResourceChangeRequests,
+  commitClaimResourceChange,
+  diffResources,
+  resolveClaimActor,
+} from '../provenance';
 import {
   buildAddress,
   buildDiagnosisSequence,
@@ -79,7 +84,7 @@ async function performEffect(
       if (fields.dob !== undefined) patient.birthDate = fields.dob;
       if (fields.gender !== undefined) patient.gender = fields.gender as Patient['gender'];
       if (fields.address !== undefined) patient.address = [buildAddress(fields.address)];
-      return save(oystehr, patient, before, agent, claimReference);
+      return commitClaimResourceChange(oystehr, { resource: patient, before, agent, claimReference });
     }
     case 'Practitioner': {
       const practitioner = await fetchById<Practitioner>(oystehr, 'Practitioner', params.resourceId);
@@ -89,7 +94,7 @@ async function performEffect(
       if (fields.npi !== undefined) setNpi(practitioner, fields.npi);
       if (fields.taxId !== undefined) setTaxId(practitioner, fields.taxId);
       if (fields.taxonomyCode !== undefined) setTaxonomy(practitioner, fields.taxonomyCode);
-      return save(oystehr, practitioner, before, agent, claimReference);
+      return commitClaimResourceChange(oystehr, { resource: practitioner, before, agent, claimReference });
     }
     case 'Coverage': {
       const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.resourceId);
@@ -97,17 +102,18 @@ async function performEffect(
       const { fields } = params;
       if (fields.subscriberId !== undefined) coverage.subscriberId = fields.subscriberId;
       if (fields.status !== undefined) coverage.status = fields.status;
-      if (fields.relationship === undefined) return save(oystehr, coverage, before, agent, claimReference);
-      return saveCoverageSubscriber(
+      if (fields.relationship === undefined) {
+        return commitClaimResourceChange(oystehr, { resource: coverage, before, agent, claimReference });
+      }
+      return saveCoverageSubscriber({
         oystehr,
         coverage,
-        params.resourceId,
-        fields.relationship,
+        relationship: fields.relationship,
+        policyHolder: fields.policyHolder,
         before,
         agent,
         claimReference,
-        fields.policyHolder
-      );
+      });
     }
     case 'Location': {
       const location = await fetchById<Location>(oystehr, 'Location', params.resourceId);
@@ -116,7 +122,7 @@ async function performEffect(
       if (fields.name !== undefined) location.name = fields.name;
       if (fields.npi !== undefined) setNpi(location, fields.npi);
       if (fields.address !== undefined) location.address = buildAddress(fields.address);
-      return save(oystehr, location, before, agent, claimReference);
+      return commitClaimResourceChange(oystehr, { resource: location, before, agent, claimReference });
     }
     case 'Organization': {
       const organization = await fetchById<Organization>(oystehr, 'Organization', params.resourceId);
@@ -126,7 +132,7 @@ async function performEffect(
       if (fields.npi !== undefined) setNpi(organization, fields.npi);
       if (fields.taxId !== undefined) setTaxId(organization, fields.taxId);
       if (fields.taxonomyCode !== undefined) setTaxonomy(organization, fields.taxonomyCode);
-      return save(oystehr, organization, before, agent, claimReference);
+      return commitClaimResourceChange(oystehr, { resource: organization, before, agent, claimReference });
     }
   }
 }
@@ -134,16 +140,16 @@ async function performEffect(
 // Mirror update-billing-coverage: relationship/policy-holder edits also create/update/delete the
 // working-copy subscriber RelatedPerson, so the coverage and the person are written in one transaction.
 // Policy-holder edits are recorded as `policyHolder.*` change entries on the Coverage's Provenance.
-async function saveCoverageSubscriber(
-  oystehr: Oystehr,
-  coverage: Coverage,
-  coverageId: string,
-  relationship: BillingSubscriberRelationship,
-  before: Coverage,
-  agent: ProvenanceAgent,
-  claimReference: string,
-  policyHolder?: BillingPolicyHolderInput
-): Promise<{ id: string | undefined }> {
+async function saveCoverageSubscriber(input: {
+  oystehr: Oystehr;
+  coverage: Coverage;
+  relationship: BillingSubscriberRelationship;
+  policyHolder?: BillingPolicyHolderInput;
+  before: Coverage;
+  agent: ProvenanceAgent;
+  claimReference: string;
+}): Promise<{ id: string | undefined }> {
+  const { oystehr, coverage, relationship, policyHolder, before, agent, claimReference } = input;
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
   if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
@@ -179,26 +185,15 @@ async function saveCoverageSubscriber(
     label: `Policy Holder ${change.label}`,
   }));
 
-  const provenance = claimProvenanceRequest({
-    targetReference: `Coverage/${coverageId}`,
-    claimReference,
+  return commitClaimResourceChange(oystehr, {
+    resource: coverage,
     before,
-    after: coverage,
     agent,
-    activity: 'update',
-    recorded: new Date().toISOString(),
-    priorVersionReference: versionedReference(before),
+    claimReference,
     extraChanges: policyHolderChanges,
+    preRequests: pre,
+    postRequests: post,
   });
-
-  const requests: BatchInputRequest<FhirResource>[] = [
-    ...pre,
-    { method: 'PUT', url: `Coverage/${coverageId}`, resource: coverage },
-    ...post,
-    ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
-  ];
-  await oystehr.fhir.transaction<FhirResource>({ requests });
-  return { id: coverageId };
 }
 
 // Working copy of the chosen original + claim reference, same wiring as create-billing-claim.
@@ -300,18 +295,9 @@ async function attachClaimResources(
       const coverageBefore = structuredClone(coverage);
       coverage.payor = [{ reference: payerUrl, display }];
       if (firstInsurance.coverage) firstInsurance.coverage.display = display;
-      extraRequests.push({ method: 'PUT', url: `Coverage/${coverage.id}`, resource: coverage });
-      const coverageProvenance = claimProvenanceRequest({
-        targetReference: `Coverage/${coverage.id}`,
-        claimReference,
-        before: coverageBefore,
-        after: coverage,
-        agent,
-        activity: 'update',
-        recorded: new Date().toISOString(),
-        priorVersionReference: versionedReference(coverageBefore),
-      });
-      if (coverageProvenance) extraRequests.push(coverageProvenance as BatchInputRequest<FhirResource>);
+      extraRequests.push(
+        ...claimResourceChangeRequests({ resource: coverage, before: coverageBefore, agent, claimReference })
+      );
     }
   }
 
@@ -363,7 +349,13 @@ async function attachClaimResources(
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
 
-  return save(oystehr, claim, before, agent, claimReference, extraRequests);
+  return commitClaimResourceChange(oystehr, {
+    resource: claim,
+    before,
+    agent,
+    claimReference,
+    postRequests: extraRequests,
+  });
 }
 
 async function createCopy(
@@ -373,33 +365,6 @@ async function createCopy(
 ): Promise<FhirResource> {
   const original = await fetchById<Practitioner | Organization | Location>(oystehr, resourceType, resourceId);
   return oystehr.fhir.create(prepareWorkingCopy(original, resourceId));
-}
-
-async function save(
-  oystehr: Oystehr,
-  resource: FhirResource,
-  before: FhirResource,
-  agent: ProvenanceAgent,
-  claimReference: string,
-  extraRequests: BatchInputRequest<FhirResource>[] = []
-): Promise<{ id: string | undefined }> {
-  const provenance = claimProvenanceRequest({
-    targetReference: `${resource.resourceType}/${resource.id}`,
-    claimReference,
-    before,
-    after: resource,
-    agent,
-    activity: 'update',
-    recorded: new Date().toISOString(),
-    priorVersionReference: versionedReference(before),
-  });
-  const requests: BatchInputRequest<FhirResource>[] = [
-    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource },
-    ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
-    ...extraRequests,
-  ];
-  await oystehr.fhir.transaction<FhirResource>({ requests });
-  return { id: resource.id };
 }
 
 function applyName(resource: Patient | Practitioner, firstName?: string, lastName?: string): void {

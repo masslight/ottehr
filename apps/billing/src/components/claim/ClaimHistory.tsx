@@ -13,6 +13,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { ClaimHistoryEntry, ClaimHistoryLink, getApiError } from 'utils';
@@ -24,9 +25,9 @@ const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
 function formatWhen(recorded: string): string {
   if (!recorded) return '-';
-  const date = new Date(recorded);
-  if (Number.isNaN(date.getTime())) return recorded;
-  return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  const dateTime = DateTime.fromISO(recorded);
+  if (!dateTime.isValid) return recorded;
+  return dateTime.toLocaleString(DateTime.DATETIME_MED);
 }
 
 function formatValue(value: string | null): string {

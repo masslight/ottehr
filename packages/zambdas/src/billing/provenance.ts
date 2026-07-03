@@ -14,6 +14,7 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
@@ -89,6 +90,7 @@ function projectClaim(claim: Claim): FieldProjection[] {
     });
   }
   const rendering = claim.careTeam?.[0]?.provider;
+  const sortedInsurance = sortClaimInsurance(claim);
   out.push(
     { field: 'diagnoses', label: 'Diagnoses', value: joinDiagnoses(claim) },
     { field: 'serviceLines', label: 'Service Lines', value: joinServiceLines(claim) },
@@ -105,11 +107,11 @@ function projectClaim(claim: Claim): FieldProjection[] {
     {
       field: 'coverage',
       label: 'Coverage',
-      value: sortClaimInsurance(claim)
+      value: sortedInsurance
         .map((i) => refValue(i.coverage))
         .filter(Boolean)
         .join(', '),
-      ref: sortClaimInsurance(claim)
+      ref: sortedInsurance
         .map((i) => i.coverage?.reference)
         .filter(Boolean)
         .join(', '),
@@ -371,19 +373,70 @@ export function versionedReference(resource: Resource | undefined): string | und
   return `${resource.resourceType}/${resource.id}/_history/${resource.meta.versionId}`;
 }
 
+// UTC timestamp for Provenance.recorded.
+export function recordedNow(): string {
+  return DateTime.now().setZone('UTC').toString();
+}
+
+// --- Shared write-and-record guts --------------------------------------------
+//
+// Every mutation of a claim-graph resource goes through one of the helpers below so the write and
+// its Provenance always travel in the same transaction — a new endpoint can't forget the record.
+
+export interface ClaimResourceChange {
+  // The mutated resource to write (its current state is the Provenance's "after").
+  resource: FhirResource;
+  // Snapshot fetched before mutating; omit only when the write is a create.
+  before?: FhirResource;
+  agent: ProvenanceAgent;
+  claimReference: string;
+  // Defaults to 'update'.
+  activity?: ClaimProvenanceActivityKey;
+  // Change entries the projection diff can't see (e.g. policy-holder edits folded into the Coverage).
+  extraChanges?: ClaimFieldChange[];
+}
+
 /**
- * Commit a single-resource mutation together with its Provenance in one atomic transaction. When the
- * Provenance is null (no-op update) the mutation is still applied.
+ * The PUT for a mutated claim-graph resource plus its Provenance, as transaction requests. Use this
+ * when composing a larger transaction; use commitClaimResourceChange to commit directly.
  */
-export async function commitWithProvenance(
+export function claimResourceChangeRequests(change: ClaimResourceChange): BatchInputRequest<FhirResource>[] {
+  const { resource, before, agent, claimReference, activity, extraChanges } = change;
+  const provenance = claimProvenanceRequest({
+    targetReference: `${resource.resourceType}/${resource.id}`,
+    claimReference,
+    before,
+    after: resource,
+    agent,
+    activity: activity ?? 'update',
+    recorded: recordedNow(),
+    priorVersionReference: versionedReference(before),
+    extraChanges,
+  });
+  return [
+    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource },
+    ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
+  ];
+}
+
+/**
+ * Commit a claim-graph resource mutation and its Provenance in one atomic transaction, optionally
+ * with other requests that must ride along (e.g. a subscriber create/delete).
+ */
+export async function commitClaimResourceChange(
   oystehr: Oystehr,
-  mutation: BatchInputRequest<FhirResource>,
-  provenance: BatchInputPostRequest<Provenance> | null
-): Promise<void> {
-  const requests: BatchInputRequest<FhirResource>[] = provenance
-    ? [mutation, provenance as BatchInputRequest<FhirResource>]
-    : [mutation];
+  change: ClaimResourceChange & {
+    preRequests?: BatchInputRequest<FhirResource>[];
+    postRequests?: BatchInputRequest<FhirResource>[];
+  }
+): Promise<{ id: string | undefined }> {
+  const requests: BatchInputRequest<FhirResource>[] = [
+    ...(change.preRequests ?? []),
+    ...claimResourceChangeRequests(change),
+    ...(change.postRequests ?? []),
+  ];
   await oystehr.fhir.transaction<FhirResource>({ requests });
+  return { id: change.resource.id };
 }
 
 /**
@@ -406,17 +459,15 @@ export async function commitClaimMetaTagsWithProvenance(
     after: afterClaim,
     agent,
     activity,
-    recorded: new Date().toISOString(),
+    recorded: recordedNow(),
     priorVersionReference: versionedReference(claim),
   });
-  await commitWithProvenance(
-    oystehr,
-    getPatchBinary({
-      resourceType: 'Claim',
-      resourceId: claim.id!,
-      patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
-      ifMatch: makeOptimisticLockIfMatchHeader(claim),
-    }),
-    provenance
-  );
+  const patch = getPatchBinary({
+    resourceType: 'Claim',
+    resourceId: claim.id!,
+    patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
+    ifMatch: makeOptimisticLockIfMatchHeader(claim),
+  });
+  const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
+  await oystehr.fhir.transaction<FhirResource>({ requests });
 }

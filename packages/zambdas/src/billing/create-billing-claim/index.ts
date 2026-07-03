@@ -30,7 +30,7 @@ import {
   withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { claimProvenanceRequest, resolveClaimActor } from '../provenance';
+import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   buildDiagnosisSequence,
   createBillingClient,
@@ -99,7 +99,7 @@ async function performEffect(
     after: claim,
     agent,
     activity: 'create',
-    recorded: new Date().toISOString(),
+    recorded: recordedNow(),
   });
   const requests: BatchInputRequest<FhirResource>[] = [
     { method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn },

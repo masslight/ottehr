@@ -1,13 +1,19 @@
+import Oystehr from '@oystehr/sdk';
 import { Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils';
-import { describe, expect, it } from 'vitest';
-import { claimProvenanceRequest, diffResources } from '../../../src/billing/provenance';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  claimProvenanceRequest,
+  claimResourceChangeRequests,
+  commitClaimResourceChange,
+  diffResources,
+} from '../../../src/billing/provenance';
 
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/u1' } };
 const CLAIM_REF = 'Claim/c1';
 
 const coverage = (overrides: Partial<Coverage> = {}): Coverage =>
-  ({ resourceType: 'Coverage', status: 'active', subscriberId: 'M1', payor: [], ...overrides }) as Coverage;
+  ({ resourceType: 'Coverage', id: 'cov1', status: 'active', subscriberId: 'M1', payor: [], ...overrides }) as Coverage;
 
 const parseChanges = (provenance: Provenance): ClaimFieldChange[] =>
   JSON.parse(provenance.extension!.find((e) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)!.valueString!);
@@ -156,5 +162,61 @@ describe('claimProvenanceRequest', () => {
       role: 'revision',
       what: { reference: 'Coverage/1/_history/3' },
     });
+  });
+});
+
+describe('claim resource change guts (shared by all mutation endpoints)', () => {
+  it('builds the PUT and its Provenance as a pair', () => {
+    const before = coverage({ meta: { versionId: '3' } });
+    const requests = claimResourceChangeRequests({
+      resource: coverage({ subscriberId: 'M2' }),
+      before,
+      agent,
+      claimReference: CLAIM_REF,
+    });
+    expect(requests).toHaveLength(2);
+    expect(requests[0]).toMatchObject({ method: 'PUT', url: 'Coverage/cov1' });
+    const provenance = (requests[1] as { resource: Provenance }).resource;
+    expect(provenance.target).toEqual([{ reference: 'Coverage/cov1' }, { reference: CLAIM_REF }]);
+    expect(provenance.entity?.[0]?.what?.reference).toBe('Coverage/cov1/_history/3');
+    expect(parseChanges(provenance)).toEqual([
+      { field: 'memberId', label: 'Member ID', previousValue: 'M1', newValue: 'M2' },
+    ]);
+  });
+
+  it('still writes the resource, without a Provenance, on a no-op change', () => {
+    const requests = claimResourceChangeRequests({
+      resource: coverage(),
+      before: coverage(),
+      agent,
+      claimReference: CLAIM_REF,
+    });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ method: 'PUT', url: 'Coverage/cov1' });
+  });
+
+  it('commits pre-requests, the change pair, and post-requests in one transaction', async () => {
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
+    const oystehr = { fhir: { transaction } } as unknown as Oystehr;
+
+    const result = await commitClaimResourceChange(oystehr, {
+      resource: coverage({ subscriberId: 'M2' }),
+      before: coverage(),
+      agent,
+      claimReference: CLAIM_REF,
+      preRequests: [
+        {
+          method: 'POST',
+          url: '/RelatedPerson',
+          resource: { resourceType: 'RelatedPerson', patient: { reference: 'Patient/p1' } },
+        },
+      ],
+      postRequests: [{ method: 'DELETE', url: 'RelatedPerson/rp1' }],
+    });
+
+    expect(result).toEqual({ id: 'cov1' });
+    expect(transaction).toHaveBeenCalledTimes(1);
+    const requests = transaction.mock.calls[0][0].requests;
+    expect(requests.map((r: { method: string }) => r.method)).toEqual(['POST', 'PUT', 'POST', 'DELETE']);
   });
 });
