@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -22,33 +23,41 @@ import {
 import { DateTime } from 'luxon';
 import {
   AdHocEncounterRow,
-  AdHocEncountersOutput,
+  AdHocEncountersInput,
+  AdHocEncountersOutputSchema,
   appointmentTypeForAppointment,
   CREATED_BY_SYSTEM,
+  dispositionCheckboxOptions,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
-  getAddressForIndividual,
-  getAttendingPractitionerId,
   getEmailForIndividual,
-  getEncounterVisitType,
-  getInPersonVisitStatus,
   getMedicationFromMA,
   getMedicationName,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
+  getTimezone,
   getVisitStatusHistory,
-  isInPersonAppointment,
-  isTelemedAppointment,
+  isInHouseLabServiceRequest,
   mapGenderToLabel,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
-  OTTEHR_MODULE,
   PATIENT_POINT_OF_DISCOVERY_URL,
-  SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchScopedResources, resolveEncounterAppointment } from '../../shared/adhoc-report';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  followUpTypeFromPerformerType,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
+import {
+  buildEncounterRowContext,
+  fetchAppointmentReportResources,
+  fetchScopedResources,
+  resolveEncounterAppointment,
+} from '../../shared/adhoc-report';
+import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -93,10 +102,16 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
       const nm = nameById.get(pid);
       if (nm) map.set(email, nm);
     }
+    // Cache ONLY on success. A transient user.list/Practitioner failure must not poison every
+    // subsequent warm invocation with an empty map (which would silently fall registrar names back
+    // to raw emails until a cold start) — leaving it uncached lets the next call retry.
+    staffNameByEmail = map;
   } catch (e) {
+    // Designed degradation (rows fall back to the raw registrar email), but the failure itself is
+    // still worth surfacing so a persistent IAM/Practitioner problem doesn't go unnoticed.
     console.warn('adhoc-encounters: registrar name resolution failed, falling back to email', e);
+    captureException(e);
   }
-  staffNameByEmail = map;
   return map;
 }
 
@@ -123,9 +138,10 @@ const SYSTOLIC_CODES = ['271649006', '8480-6'];
 const DIASTOLIC_CODES = ['271650006', '8462-4'];
 
 const isActiveOrder = (sr: ServiceRequest): boolean => sr.status !== 'revoked' && sr.status !== 'entered-in-error';
-// A lab order: carries an Oystehr lab local code, or a lab order-type tag.
+// A lab order: carries an Oystehr lab local code, an in-house lab test code, or a lab order-type tag.
 const isLabOrder = (sr: ServiceRequest): boolean =>
   Boolean(sr.code?.coding?.some((c) => c.system?.includes('oystehr-lab-local-codes'))) ||
+  isInHouseLabServiceRequest(sr) ||
   Boolean(sr.meta?.tag?.some((t) => t.code === 'generic-lab-order' || t.code === 'in-house-lab' || t.code === 'lab'));
 // A radiology/imaging order: tagged radiology.
 const isImagingOrder = (sr: ServiceRequest): boolean => Boolean(sr.meta?.tag?.some((t) => t.code === 'radiology'));
@@ -133,6 +149,26 @@ const orderDisplay = (sr: ServiceRequest): string =>
   sr.code?.text || sr.code?.coding?.find((c) => c.display)?.display || sr.code?.coding?.[0]?.code || '';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { secrets, ...params } = validateRequestParameters(input);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  const rows = await fetchAdHocEncounterRows(oystehr, params);
+
+  // The endpoint's Zod schema is its contract: what leaves the zambda MUST match what the LLM was
+  // told about the rows. Fail loud at the source instead of as a client-side parse error.
+  const output = validateOutputWithSchema(AdHocEncountersOutputSchema, { encounters: rows }, ZAMBDA_NAME);
+  return { statusCode: 200, body: JSON.stringify(output) };
+});
+
+// The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
+// stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
+// schema the runtime output validation uses.
+export async function fetchAdHocEncounterRows(
+  oystehr: Oystehr,
+  params: AdHocEncountersInput
+): Promise<AdHocEncounterRow[]> {
   const {
     dateRange,
     includeCodes,
@@ -149,58 +185,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     includeNursing,
     includeIntake,
     includeDocuments,
-    secrets,
-  } = validateRequestParameters(input);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-
-  // The main search returns only this bounded set; opt-in layer resources come from fetchScoped below.
-  type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
-  let allResources: ReportResource[] = [];
-  let offset = 0;
-  const pageSize = 1000;
+  } = params;
 
   // The main search stays LIGHT — only the bounded per-appointment resources (patient, location,
-  // encounter, practitioner) ride along, so a 1000-row page never approaches the FHIR response-size
-  // cap (~6MB). Every opt-in layer's heavier resources (Observations above all) are pulled afterward
-  // in separate, chunked queries keyed by encounter id (fetchScoped below) — the same approach the
-  // codebase uses elsewhere for large Observation pulls.
-  const baseSearchParams = [
-    { name: 'date', value: `ge${dateRange.start}` },
-    { name: 'date', value: `le${dateRange.end}` },
-    // Full set (incl. cancelled / no-show) so a report can include or exclude them explicitly.
-    { name: 'status', value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow' },
-    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-    { name: '_include', value: 'Appointment:patient' },
-    { name: '_include', value: 'Appointment:location' },
-    { name: '_revinclude', value: 'Encounter:appointment' },
-    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-    { name: '_revinclude:iterate', value: 'Encounter:part-of' },
-    { name: '_sort', value: 'date' },
-    { name: '_count', value: pageSize.toString() },
-  ];
-
-  let searchBundle = await oystehr.fhir.search<ReportResource>({
-    resourceType: 'Appointment',
-    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  // encounter, practitioner) ride along, so a page never approaches the FHIR response-size cap
+  // (~6MB). Every opt-in layer's heavier resources (Observations above all) are pulled afterward in
+  // separate, chunked queries keyed by encounter id (fetchScoped below). The Encounters dataset also
+  // walks Encounter:part-of so a follow-up encounter resolves to its parent's appointment.
+  type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
+  const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
+    dateRange,
+    extraParams: [{ name: '_revinclude:iterate', value: 'Encounter:part-of' }],
   });
-  allResources = allResources.concat(searchBundle.unbundle());
-
-  let pageCount = 1;
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-      break;
-    }
-    searchBundle = await oystehr.fhir.search<ReportResource>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-    allResources = allResources.concat(searchBundle.unbundle());
-  }
 
   const encounters = allResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
   const appointmentMap = new Map<string, Appointment>();
@@ -347,52 +343,48 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     resolveEncounterAppointment(encounter, appointmentMap, encounterById);
 
   const staffNames = await getStaffNameByEmail(oystehr);
+  // Memoized per location: getTimezone logs (and falls back) when a Location is missing its
+  // timezone extension, and we don't want that once per row.
+  const tzByLocationId = new Map<string, string>();
+  const timezoneForLocation = (loc: Location): string => {
+    const key = loc.id ?? '';
+    let tz = tzByLocationId.get(key);
+    if (!tz) {
+      tz = getTimezone(loc);
+      tzByLocationId.set(key, tz);
+    }
+    return tz;
+  };
   const rows: AdHocEncounterRow[] = [];
-  for (const encounter of encounters) {
+  // Iterate the id-deduped map, not the raw filter array: an encounter revincluded via both
+  // Encounter:appointment and Encounter:part-of appears twice in `encounters` and would emit
+  // duplicate rows.
+  for (const encounter of encounterById.values()) {
     const appointment = resolveAppointment(encounter);
     if (!appointment) continue;
 
-    const encounterType = getEncounterVisitType(encounter) ?? 'main';
-    const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
-    const parentEncounter = encounter.partOf?.reference
-      ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
-      : undefined;
-    const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
-    const patient = patientRef ? patientMap.get(patientRef) : undefined;
+    const {
+      encounterType,
+      patient,
+      locationRef,
+      location,
+      attendingId,
+      attendingProvider,
+      visitType,
+      visitStatus,
+      serviceCategory,
+      address,
+      start,
+    } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
 
-    const locationRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
-      ?.reference;
-    const location = locationRef ? locationMap.get(locationRef) : undefined;
-
-    const attendingId = getAttendingPractitionerId(encounter);
-    const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
-    const attendingProvider = attendingPractitioner
-      ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
-      : 'Unknown';
-
-    const visitType = isTelemedAppointment(appointment)
-      ? 'Telemed'
-      : isInPersonAppointment(appointment)
-      ? 'In-Person'
-      : 'Unknown';
-
-    const visitStatus = isFollowUpRow
-      ? encounter.status === 'finished'
-        ? 'completed'
-        : encounter.status
-      : getInPersonVisitStatus(appointment, encounter, true);
-
-    const svcCoding = (appointment.serviceCategory ?? [])
-      .flatMap((sc) => sc.coding ?? [])
-      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
-    const serviceCategory = svcCoding?.display || svcCoding?.code || '';
-
-    const address = patient ? getAddressForIndividual(patient) : undefined;
-    const start = (isFollowUpRow ? encounter.period?.start : appointment.start) || '';
-
-    // Hours the clinic is open on this visit's weekday (Location.hoursOfOperation).
+    // Hours the clinic is open on this visit's weekday (Location.hoursOfOperation). The weekday is
+    // resolved in the LOCATION'S OWN timezone — hours-of-operation are clinic-local, so the clinic's
+    // zone (not the server's, and not any fixed practice zone) decides which day the visit fell on.
     let clinicOpenHours: number | null = null;
-    const weekday = start ? DateTime.fromISO(start).toFormat('ccc').toLowerCase() : '';
+    const weekday =
+      start && location
+        ? DateTime.fromISO(start).setZone(timezoneForLocation(location)).toFormat('ccc').toLowerCase()
+        : '';
     for (const h of location?.hoursOfOperation ?? []) {
       if (!weekday || !h.daysOfWeek?.includes(weekday as never) || !h.openingTime || !h.closingTime) continue;
       const hrs = DateTime.fromFormat(h.closingTime, 'HH:mm:ss').diff(
@@ -421,10 +413,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       : '';
     const registeredByName = (regEmail && staffNames.get(regEmail)) || registeredBy;
 
+    const locationId = locationRef ? locationRef.replace('Location/', '') : undefined;
+
     const row: AdHocEncounterRow = {
       appointmentId: appointment.id || '',
       encounterId: encounter.id,
-      date: start ? DateTime.fromISO(start).toFormat('yyyy-MM-dd') : '',
+      // RAW ISO instant — the server never zone-formats dates. The client dataset derives the
+      // viewer-local yyyy-MM-dd day (and the tracking-board href) in the browser.
+      date: start || null,
+      startTime: start || '',
       visitType,
       appointmentType: appointmentTypeForAppointment(appointment),
       serviceCategory,
@@ -445,7 +442,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       email: (patient ? getEmailForIndividual(patient) : '') || '',
       source: patient?.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString || '',
       location: location?.name || 'Unknown',
-      locationId: locationRef ? locationRef.replace('Location/', '') : undefined,
+      locationId,
       region: location?.address?.state || '',
       clinicOpenHours,
       attendingProvider,
@@ -544,9 +541,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (includeMedications) {
       const medications: string[] = [];
       const medicationIngredients: string[] = [];
-      const medicationSources: string[] = [];
+      const medicationSources: ('eRx' | 'in-house')[] = [];
       const medicationCodes: string[] = [];
-      const addMed = (display: string, source: string, code?: string): void => {
+      const addMed = (display: string, source: 'eRx' | 'in-house', code?: string): void => {
         if (!display) return;
         medications.push(display);
         medicationIngredients.push(normalizeDrugName(display));
@@ -583,9 +580,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     if (includeVitals) {
       const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
-      // Last charted value wins per vital field.
+      // Last charted value wins per vital field. FHIR search order is not chronological, so sort by
+      // effectiveDateTime (set to the charting instant by makeObservationResource) before taking the last.
       const fieldCode = (o: Observation): string => o.meta?.tag?.find((t) => t.code?.startsWith('vital-'))?.code ?? '';
-      const latest = (field: string): Observation | undefined => obs.filter((o) => fieldCode(o) === field).at(-1);
+      const effectiveMillis = (o: Observation): number => {
+        const ms = o.effectiveDateTime ? DateTime.fromISO(o.effectiveDateTime).toMillis() : NaN;
+        return Number.isFinite(ms) ? ms : 0;
+      };
+      const latest = (field: string): Observation | undefined =>
+        obs
+          .filter((o) => fieldCode(o) === field)
+          .sort((a, b) => effectiveMillis(a) - effectiveMillis(b))
+          .at(-1);
       const qty = (o?: Observation): number | null =>
         typeof o?.valueQuantity?.value === 'number' ? o.valueQuantity.value : null;
 
@@ -644,9 +650,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         row.nursingOrderCount = nursingOrders.length;
       }
       if (includeDisposition) {
+        // The 'disposition-follow-up' SR only carries the generic "Follow-up visit (procedure)" code.
+        // The actual follow-up items are separate SRs tagged 'sub-follow-up' whose type is encoded in
+        // performerType (see save-chart-data): a SNOMED coding for the coded types, text-only for
+        // 'other'/'lurie-ct'. Reverse-map via followUpTypeFromPerformerType, then render the same human
+        // label the disposition UI uses (dispositionCheckboxOptions).
         const followUpTypes = srs
-          .filter((sr) => hasChartTag(sr, 'disposition-follow-up'))
-          .map(orderDisplay)
+          .filter((sr) => hasChartTag(sr, 'sub-follow-up'))
+          .map((sr) => {
+            const type = followUpTypeFromPerformerType(sr.performerType);
+            if (!type) return '';
+            return dispositionCheckboxOptions.find((o) => o.name === type)?.label ?? type;
+          })
           .filter(Boolean);
         row.followUpTypes = followUpTypes;
         row.followUpCount = followUpTypes.length;
@@ -660,7 +675,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (includeImmunizations) {
       const immunizations: string[] = [];
       for (const ma of encounter.id ? medAdminsByEncounterId.get(encounter.id) ?? [] : []) {
-        if (ma.status === 'entered-in-error' || !hasChartTag(ma, 'immunization')) continue;
+        // Only vaccines actually given. Per mapFhirToOrderStatus (utils/lib/fhir/medication-administration.ts):
+        // completed=administered, on-hold=partially administered (still given), while in-progress=pending order,
+        // not-done=refused/not administered, stopped=cancelled — none of those belong in "vaccines given".
+        if ((ma.status !== 'completed' && ma.status !== 'on-hold') || !hasChartTag(ma, 'immunization')) continue;
         const name =
           getMedicationName(getMedicationFromMA(ma)) ||
           ma.medicationCodeableConcept?.coding?.[0]?.display ||
@@ -697,7 +715,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           rosFindings.push(`${state} ${name}`.trim());
           continue;
         }
-        if (tagOf(o, 'exam-observation-field')) {
+        // Mirror the ROS guard: a negated top-level exam statement (valueBoolean: false) is not a
+        // charted finding and must not count. Observations without a top-level valueBoolean (the
+        // component-carrying ones — makeExamObservationResource only sets it when the DTO value is
+        // a boolean) still pass; their components are already filtered to positives at write time.
+        if (tagOf(o, 'exam-observation-field') && o.valueBoolean !== false) {
           if (o.code?.text) examSystems.push(o.code.text);
           for (const c of o.component ?? []) {
             const code = c.code?.coding?.[0]?.code || c.code?.text;
@@ -765,6 +787,5 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     rows.push(row);
   }
 
-  const output: AdHocEncountersOutput = { encounters: rows };
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
+  return rows;
+}

@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -16,26 +17,31 @@ import {
   Procedure,
   Resource,
 } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
-  AdHocBillingOutput,
+  AdHocBillingInput,
+  AdHocBillingOutputSchema,
   AdHocBillingRow,
-  getAddressForIndividual,
-  getAttendingPractitionerId,
-  getEncounterVisitType,
-  getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
-  isInPersonAppointment,
-  isTelemedAppointment,
   mapGenderToLabel,
-  OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchScopedResources, resolveEncounterAppointment } from '../../shared/adhoc-report';
+import { CURRENT_STATUS_TAG_SYSTEM } from '../../billing/shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  fetchAllPages,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
+import {
+  buildEncounterRowContext,
+  fetchAppointmentReportResources,
+  fetchScopedResources,
+  resolveEncounterAppointment,
+} from '../../shared/adhoc-report';
+import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -46,57 +52,35 @@ const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
 // A Claim carries the source clinical encounter id as an identifier (set by Ottehr's own claim
 // creation, not Candid) — this is how a claim joins back to its encounter.
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
-const CLAIM_STATUS_TAG_SYSTEM = 'current-status'; // workflow status tag (e.g. "open"), distinct from FHIR Claim.status
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes, includeClaims, secrets } =
-    validateRequestParameters(input);
+  const { secrets, ...params } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
+  const rows = await fetchAdHocBillingRows(oystehr, params);
+
+  // The endpoint's Zod schema is its contract: what leaves the zambda MUST match what the LLM was
+  // told about the rows. Fail loud at the source instead of as a client-side parse error.
+  const output = validateOutputWithSchema(AdHocBillingOutputSchema, { rows }, ZAMBDA_NAME);
+  return { statusCode: 200, body: JSON.stringify(output) };
+});
+
+// The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
+// stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
+// schema the runtime output validation uses.
+export async function fetchAdHocBillingRows(oystehr: Oystehr, params: AdHocBillingInput): Promise<AdHocBillingRow[]> {
+  const { dateRange, includePayments, includeCoverage, includeCharges, includeCodes, includeClaims } = params;
+
   // The main search stays LIGHT — only the bounded per-appointment resources ride along; each opt-in
   // billing layer's resources are pulled afterward, scoped to the encounter/patient ids (below).
   type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
-  let allResources: ReportResource[] = [];
-  let offset = 0;
-  const pageSize = 1000;
-
-  const baseSearchParams = [
-    { name: 'date', value: `ge${dateRange.start}` },
-    { name: 'date', value: `le${dateRange.end}` },
-    { name: 'status', value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow' },
-    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-    { name: '_include', value: 'Appointment:patient' },
-    { name: '_include', value: 'Appointment:location' },
-    { name: '_revinclude', value: 'Encounter:appointment' },
-    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-    { name: '_revinclude:iterate', value: 'Encounter:part-of' },
-    { name: '_sort', value: 'date' },
-    { name: '_count', value: pageSize.toString() },
-  ];
-
-  let searchBundle = await oystehr.fhir.search<ReportResource>({
-    resourceType: 'Appointment',
-    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
+    dateRange,
+    extraParams: [{ name: '_revinclude:iterate', value: 'Encounter:part-of' }],
   });
-  allResources = allResources.concat(searchBundle.unbundle());
-
-  let pageCount = 1;
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-      break;
-    }
-    searchBundle = await oystehr.fhir.search<ReportResource>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-    allResources = allResources.concat(searchBundle.unbundle());
-  }
 
   const encounters = allResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
   const appointmentMap = new Map<string, Appointment>();
@@ -137,16 +121,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     extraParams: { name: string; value: string }[] = []
   ): Promise<T[]> {
     const out: T[] = [];
-    let pageOffset = 0;
-    for (;;) {
+    await fetchAllPages(async (offset, count) => {
       const bundle = await oystehr.fhir.search<T>({
         resourceType,
-        params: [{ name: '_count', value: '1000' }, { name: '_offset', value: pageOffset.toString() }, ...extraParams],
+        params: [
+          { name: '_count', value: count.toString() },
+          { name: '_offset', value: offset.toString() },
+          ...extraParams,
+        ],
       });
       out.push(...(bundle.unbundle() as T[]));
-      if (!bundle.link?.find((l) => l.relation === 'next')) break;
-      pageOffset += 1000;
-    }
+      return bundle;
+    }, 1000);
     return out;
   }
 
@@ -175,13 +161,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   if (encRefs.length) {
     if (includePayments) {
-      const notices = await fetchAll<PaymentNotice>('PaymentNotice');
+      // Scope to THIS batch's encounters (PaymentNotice.request → Encounter) rather than scanning
+      // every PaymentNotice project-wide on each of the ~52 concurrent 7-day batch calls — that
+      // whole-table scan grows unbounded as billing history accumulates.
+      const notices = await fetchScoped<PaymentNotice>('PaymentNotice', 'request', encRefs);
       for (const n of notices) pushTo(paymentsByEncId, stripRef(n.request?.reference, 'Encounter'), n);
     }
     if (includeCharges) {
-      const charges = await fetchAll<ChargeItem>('ChargeItem');
+      // Scope to this batch's encounters (ChargeItem.context → Encounter) instead of a full-table scan.
+      const charges = await fetchScoped<ChargeItem>('ChargeItem', 'context', encRefs);
       for (const c of charges) pushTo(chargesByEncId, stripRef(c.context?.reference, 'Encounter'), c);
-      // Build a CPT -> price map from the charge masters (ChargeItemDefinition fee schedules).
+      // The CPT price map comes from the charge masters (ChargeItemDefinition fee schedules), which
+      // are a bounded, encounter-independent fee schedule — legitimately global, so fetchAll stays.
       const defs = await fetchAll<ChargeItemDefinition>('ChargeItemDefinition');
       for (const def of defs) {
         for (const group of def.propertyGroup ?? []) {
@@ -241,53 +232,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const SELF_PAY_TYPE_CODES = new Set(['pay', 'PAY', 'SELF', 'self', '81']);
 
   const rows: AdHocBillingRow[] = [];
-  for (const encounter of encounters) {
+  // Iterate the deduped map, not the raw filter array — a follow-up encounter revincluded via both
+  // Encounter:appointment and Encounter:part-of appears twice in `encounters` and would emit two rows.
+  for (const encounter of encounterById.values()) {
     const appointment = resolveAppointment(encounter);
     if (!appointment) continue;
 
-    const encounterType = getEncounterVisitType(encounter) ?? 'main';
-    const isFollowUpRow = encounterType === 'follow-up' || encounterType === 'scheduled-follow-up';
-    const parentEncounter = encounter.partOf?.reference
-      ? encounterById.get(encounter.partOf.reference.replace('Encounter/', ''))
-      : undefined;
-    const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
-    const patient = patientRef ? patientMap.get(patientRef) : undefined;
-
-    const locationRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
-      ?.reference;
-    const location = locationRef ? locationMap.get(locationRef) : undefined;
-
-    const attendingId = getAttendingPractitionerId(encounter);
-    const attendingPractitioner = attendingId ? practitionerMap.get(attendingId) : undefined;
-    const attendingProvider = attendingPractitioner
-      ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
-      : 'Unknown';
-
-    const visitType = isTelemedAppointment(appointment)
-      ? 'Telemed'
-      : isInPersonAppointment(appointment)
-      ? 'In-Person'
-      : 'Unknown';
-
-    const visitStatus = isFollowUpRow
-      ? encounter.status === 'finished'
-        ? 'completed'
-        : encounter.status
-      : getInPersonVisitStatus(appointment, encounter, true);
-
-    const svcCoding = (appointment.serviceCategory ?? [])
-      .flatMap((sc) => sc.coding ?? [])
-      .find((c) => c.system === SERVICE_CATEGORY_SYSTEM);
-    const serviceCategory = svcCoding?.display || svcCoding?.code || '';
-
-    const address = patient ? getAddressForIndividual(patient) : undefined;
-    const start = (isFollowUpRow ? encounter.period?.start : appointment.start) || '';
+    const {
+      encounterType,
+      patient,
+      location,
+      attendingProvider,
+      visitType,
+      visitStatus,
+      serviceCategory,
+      address,
+      start,
+    } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
     const encId = encounter.id ?? '';
 
     const row: AdHocBillingRow = {
       appointmentId: appointment.id || '',
       encounterId: encounter.id,
-      date: start ? DateTime.fromISO(start).toFormat('yyyy-MM-dd') : '',
+      // RAW ISO instant — the server never zone-formats dates; the client dataset rewrites this
+      // to the viewer-local yyyy-MM-dd day in the browser.
+      date: start || '',
       visitType,
       serviceCategory,
       visitStatus,
@@ -323,13 +292,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       row.paymentsCollected = paymentsCollected;
       row.paymentCount = notices.length;
       row.paymentMethods = methods;
-      row.lastPaymentDate = dates.length ? DateTime.fromISO(dates[dates.length - 1]).toFormat('yyyy-MM-dd') : null;
+      // RAW ISO instant of the latest payment (client-side becomes the viewer-local day).
+      row.lastPaymentDate = dates.length ? dates[dates.length - 1] : null;
     }
 
     if (includeCoverage) {
-      const coverages = [...(patient?.id ? coveragesByPatId.get(patient.id) ?? [] : [])].sort(
-        (a, b) => (a.order ?? 99) - (b.order ?? 99)
-      );
+      // Only active coverage participates in primary/secondary selection — a cancelled/draft/
+      // entered-in-error plan must not be reported as the payer.
+      const coverages = (patient?.id ? coveragesByPatId.get(patient.id) ?? [] : [])
+        .filter((c) => c.status === 'active')
+        .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
       const primary = coverages[0];
       const secondary = coverages[1];
       const primaryTypeCode = primary?.type?.coding?.[0]?.code;
@@ -350,15 +322,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let expectedCharge: number | null = null;
     if (includeCharges) {
       const charges = chargesByEncId.get(encId) ?? [];
-      const cpts = Array.from(
-        new Set(
-          charges
-            .map((c) => c.code?.coding?.find((cd) => cd.system === CPT_SYSTEM)?.code)
-            .filter((c): c is string => Boolean(c))
-        )
-      );
-      const priced = cpts.map((c) => cptPriceMap.get(c)).filter((v): v is number => typeof v === 'number');
-      expectedCharge = charges.length ? round2(priced.reduce((a, b) => a + b, 0)) : null;
+      const lineCpts = charges
+        .map((c) => c.code?.coding?.find((cd) => cd.system === CPT_SYSTEM)?.code)
+        .filter((c): c is string => Boolean(c));
+      const cpts = Array.from(new Set(lineCpts));
+      // Price PER line item (two charges with the same CPT bill twice — chargeCount already counts
+      // them both). When none of the line items could be priced (CPT absent from the charge
+      // master), expectedCharge is null, not 0 — a 0 here would make outstandingBalance read as a
+      // negative payment.
+      const priced = lineCpts.map((c) => cptPriceMap.get(c)).filter((v): v is number => typeof v === 'number');
+      expectedCharge = priced.length ? round2(priced.reduce((a, b) => a + b, 0)) : null;
       row.chargeCpts = cpts;
       row.chargeCount = charges.length;
       row.expectedCharge = expectedCharge;
@@ -398,8 +371,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const claims = [...(claimsByEncId.get(encId) ?? [])].sort((a, b) =>
         (b.created ?? '').localeCompare(a.created ?? '')
       );
-      const billed = claims.reduce((acc, c) => acc + (c.total?.value ?? 0), 0);
-      const hasBilled = claims.some((c) => typeof c.total?.value === 'number');
+      // Cancelled claims are dead paper — their totals must not count toward what was billed.
+      const billableClaims = claims.filter((c) => c.status !== 'cancelled');
+      const billed = billableClaims.reduce((acc, c) => acc + (c.total?.value ?? 0), 0);
+      const hasBilled = billableClaims.some((c) => typeof c.total?.value === 'number');
       // ClaimResponse adjudication (forward-compatible — none exist until the billing tool posts them).
       const PATIENT_OWED = new Set(['copay', 'deductible', 'coins', 'coinsurance', 'patientresp']);
       let paid = 0;
@@ -420,7 +395,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       const mostRecent = claims[0];
       const claimStatus = mostRecent
-        ? mostRecent.meta?.tag?.find((t) => t.system === CLAIM_STATUS_TAG_SYSTEM)?.code ?? mostRecent.status ?? ''
+        ? mostRecent.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? mostRecent.status ?? ''
         : '';
       const billedAmount = hasBilled ? round2(billed) : null;
       const insurancePaid = sawResponse ? round2(paid) : null;
@@ -435,6 +410,5 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     rows.push(row);
   }
 
-  const output: AdHocBillingOutput = { rows };
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
+  return rows;
+}

@@ -1136,7 +1136,6 @@ export const uploadPatientProfilePhoto = async (
 
     const { presignedImageUrl } = chooseJson(urlSigningResponse);
 
-    // Upload the file to S3
     const uploadResponse = await fetch(presignedImageUrl, {
       method: 'PUT',
       headers: {
@@ -1982,8 +1981,6 @@ export const createZ3Object = async (input: CreateZ3ObjectParams, oystehr: Oyste
       oystehr
     );
 
-    // const presignedURLResponse = await presignedURLRequest.json();
-    // Upload the file to S3
     const uploadResponse = await fetch(presignedURLRequest.presignedURL, {
       method: 'PUT',
       headers: {
@@ -3007,10 +3004,8 @@ export const migrateExamData = async (
 export interface ServiceCategoryRuntimeConfig {
   durationMinutes: number;
   /**
-   * Interval between offered slot start times, in minutes. Independent of
-   * durationMinutes — a 60-minute service may be offered every 30 min if
-   * cadenceMinutes is 30. When omitted, the slot generator falls back to a
-   * sensible default (typically 15).
+   * Interval between offered slot start times, in minutes. Independent of durationMinutes (a
+   * 60-min service may be offered every 30 min). Omitted → generator default (typically 15).
    */
   cadenceMinutes?: number;
   serviceModes: Array<'in-person' | 'virtual'>;

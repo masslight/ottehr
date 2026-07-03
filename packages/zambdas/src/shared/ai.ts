@@ -35,8 +35,8 @@ export class ClaudeClient {
       anthropicApiKey,
       temperature: 0,
       clientOptions: {
-        timeout: 5000, // 5 seconds (in milliseconds)
-        maxRetries: 5, // Number of retries on failure
+        timeout: 5000,
+        maxRetries: 5,
       },
     });
   }
@@ -47,7 +47,6 @@ export class ClaudeClient {
 }
 
 let chatbot: ChatAnthropic;
-// let chatbotVertexAI: ChatVertexAI;
 
 export function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient.
@@ -130,7 +129,6 @@ export async function invokeChatbotVertexAI(
   responseSchema?: object,
   model: string = DEFAULT_VERTEX_MODEL
 ): Promise<string> {
-  // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
@@ -153,7 +151,7 @@ export async function invokeChatbotVertexAI(
   const requests = backoffTimes.map(async (backoffTime) => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
-    if (resolved) return null; // Skip if already resolved
+    if (resolved) return null;
 
     try {
       const response = await fetch(
@@ -196,7 +194,24 @@ export async function invokeChatbotVertexAI(
   const response = await (await Promise.any(requests))?.json();
 
   console.log(JSON.stringify(response));
-  return response.candidates[0].content.parts[0].text;
+  // Guard the response shape before drilling into it: a "skipped" request resolves to null (so
+  // `response` is undefined), and a safety-filter / recitation block returns a body with empty
+  // candidates or a candidate with no content.parts. Reading candidates[0].content.parts[0].text
+  // unguarded throws an opaque "Cannot read properties of undefined" — throw a descriptive error
+  // instead so callers can see (and retry on) the actual failure mode.
+  if (response == null) {
+    throw new Error('Vertex AI returned no response body (the winning request resolved without a response)');
+  }
+  const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== 'string') {
+    const candidateCount = Array.isArray(response.candidates) ? response.candidates.length : 'missing';
+    const finishReason = response?.candidates?.[0]?.finishReason ?? 'unknown';
+    const blockReason = response?.promptFeedback?.blockReason ?? 'none';
+    throw new Error(
+      `Vertex AI response contained no candidate text (candidates: ${candidateCount}, finishReason: ${finishReason}, promptFeedback.blockReason: ${blockReason})`
+    );
+  }
+  return text;
 }
 
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
@@ -206,8 +221,8 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
       clientOptions: {
-        timeout: 10000, // 5 seconds (in milliseconds)
-        maxRetries: 1, // Number of retries on failure
+        timeout: 10000,
+        maxRetries: 1,
       },
     });
   }

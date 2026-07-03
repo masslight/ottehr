@@ -41,7 +41,6 @@ export function splitDateRangeIntoBatches(
   let currentStart = startDate;
 
   while (currentStart < endDate) {
-    // Calculate the end of the current batch (maxDays from start, or the final end date)
     const currentEnd = DateTime.min(currentStart.plus({ days: maxDays }).minus({ milliseconds: 1 }), endDate);
 
     batches.push({
@@ -49,7 +48,6 @@ export function splitDateRangeIntoBatches(
       end: currentEnd.toISO() ?? '',
     });
 
-    // Move to the next batch
     currentStart = currentEnd.plus({ milliseconds: 1 });
   }
 

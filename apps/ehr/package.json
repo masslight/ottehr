@@ -70,6 +70,7 @@
     "amazon-chime-sdk-js": "^3.20.0",
     "chart.js": "^4.4.1",
     "dwt": "^19.0.0",
+    "echarts": "^6.1.0",
     "fast-json-patch": "^3.1.1",
     "json-diff-ts": "^4.0.1",
     "notistack": "^3.0.1",
@@ -85,11 +86,13 @@
     "react-window": "^1.8.10",
     "styled-components": "^5.3.11",
     "styled-system": "^5.1.5",
+    "sucrase": "^3.35.0",
     "tsconfig": "*",
     "ui-components": "*",
     "utif": "^3.1.0",
     "utils": "*",
     "uuid": "^11.0.3",
+    "vega-embed": "^7.1.0",
     "wavesurfer.js": "^7.10.1"
   },
   "devDependencies": {

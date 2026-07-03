@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   AllergyIntolerance,
@@ -14,20 +15,24 @@ import {
 import { DateTime } from 'luxon';
 import {
   AdHocPatientRow,
-  AdHocPatientsOutput,
+  AdHocPatientsInput,
+  AdHocPatientsOutputSchema,
   getAddressForIndividual,
+  getAttendingPractitionerId,
   getEmailForIndividual,
+  getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
   isInPersonAppointment,
   isTelemedAppointment,
   mapGenderToLabel,
-  OTTEHR_MODULE,
   PATIENT_POINT_OF_DISCOVERY_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../../shared/adhoc-report';
+import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -45,13 +50,30 @@ interface PatientAgg {
   visitDates: string[]; // ISO start of each visit in range
   lastVisitStart: string;
   lastVisitStatus: string;
-  visitTypes: Set<string>;
+  visitTypes: Set<'In-Person' | 'Telemed'>;
   locations: Set<string>;
   providers: Set<string>;
   serviceCategories: Set<string>;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { secrets, ...params } = validateRequestParameters(input);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  const rows = await fetchAdHocPatientRows(oystehr, params);
+
+  // The endpoint's Zod schema is its contract: what leaves the zambda MUST match what the LLM was
+  // told about the rows. Fail loud at the source instead of as a client-side parse error.
+  const output = validateOutputWithSchema(AdHocPatientsOutputSchema, { patients: rows }, ZAMBDA_NAME);
+  return { statusCode: 200, body: JSON.stringify(output) };
+});
+
+// The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
+// stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
+// schema the runtime output validation uses.
+export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatientsInput): Promise<AdHocPatientRow[]> {
   const {
     dateRange,
     includeAllergies,
@@ -59,11 +81,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     includeMedications,
     includeSurgicalHistory,
     includeHospitalizations,
-    secrets,
-  } = validateRequestParameters(input);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  } = params;
 
   type ReportResource =
     | Appointment
@@ -76,63 +94,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     | MedicationStatement
     | Procedure
     | EpisodeOfCare;
-  let allResources: ReportResource[] = [];
-  let offset = 0;
   // Shrink the page when patient-bound clinical layers are on (each adds resources per patient and
   // the FHIR server caps response size). Pagination + client-side date batching make up the rest.
   const heavy =
     includeAllergies || includeProblems || includeMedications || includeSurgicalHistory || includeHospitalizations;
-  const pageSize = heavy ? 400 : 1000;
 
   // Anchored on Appointment in the date range (like the Encounters dataset), but folded to one row
   // per patient. Patient-bound clinical layers ride along via patient-scoped revincludes.
-  const baseSearchParams = [
-    { name: 'date', value: `ge${dateRange.start}` },
-    { name: 'date', value: `le${dateRange.end}` },
-    { name: 'status', value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow' },
-    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-    { name: '_include', value: 'Appointment:patient' },
-    { name: '_include', value: 'Appointment:location' },
-    { name: '_revinclude', value: 'Encounter:appointment' },
-    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
-    { name: '_sort', value: 'date' },
-    { name: '_count', value: pageSize.toString() },
-  ];
-  if (includeAllergies) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'AllergyIntolerance:patient' });
-  }
-  if (includeProblems) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Condition:patient' });
-  }
-  if (includeMedications) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'MedicationStatement:patient' });
-  }
-  if (includeSurgicalHistory) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'Procedure:patient' });
-  }
-  if (includeHospitalizations) {
-    baseSearchParams.push({ name: '_revinclude:iterate', value: 'EpisodeOfCare:patient' });
-  }
+  const layerRevincludes: { name: string; value: string }[] = [];
+  if (includeAllergies) layerRevincludes.push({ name: '_revinclude:iterate', value: 'AllergyIntolerance:patient' });
+  if (includeProblems) layerRevincludes.push({ name: '_revinclude:iterate', value: 'Condition:patient' });
+  if (includeMedications) layerRevincludes.push({ name: '_revinclude:iterate', value: 'MedicationStatement:patient' });
+  if (includeSurgicalHistory) layerRevincludes.push({ name: '_revinclude:iterate', value: 'Procedure:patient' });
+  if (includeHospitalizations) layerRevincludes.push({ name: '_revinclude:iterate', value: 'EpisodeOfCare:patient' });
 
-  let searchBundle = await oystehr.fhir.search<ReportResource>({
-    resourceType: 'Appointment',
-    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  // Attended visits only (no cancelled / no-show): unlike the Encounters/Billing datasets, the
+  // per-patient rollups (totalVisits, first/lastVisitDate, locations, providers) carry no per-visit
+  // status a report could filter on, so cancelled/no-show visits would silently inflate the counts
+  // and disagree with the Recent Patients report.
+  const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
+    dateRange,
+    pageSize: heavy ? 400 : 1000,
+    extraParams: layerRevincludes,
+    statuses: REPORT_ATTENDED_APPOINTMENT_STATUSES,
   });
-  allResources = allResources.concat(searchBundle.unbundle());
-  let pageCount = 1;
-  while (searchBundle.link?.find((link) => link.relation === 'next')) {
-    offset += pageSize;
-    pageCount++;
-    if (pageCount > 100) {
-      console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-      break;
-    }
-    searchBundle = await oystehr.fhir.search<ReportResource>({
-      resourceType: 'Appointment',
-      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
-    });
-    allResources = allResources.concat(searchBundle.unbundle());
-  }
 
   const appointmentMap = new Map<string, Appointment>();
   const patientMap = new Map<string, Patient>();
@@ -192,8 +177,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   }
   const providerNameForEncounter = (encounter: Encounter): string | undefined => {
-    const ref = encounter.participant?.map((p) => p.individual?.reference).find((x) => x?.startsWith('Practitioner/'));
-    const id = ref?.replace('Practitioner/', '');
+    // The attending (ATND participant), not the first Practitioner participant (which can be intake
+    // staff) — matches the Encounters dataset's attendingProvider so provider rollups agree.
+    const id = getAttendingPractitionerId(encounter);
     return id ? practitionerNameById.get(id) : undefined;
   };
 
@@ -227,7 +213,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const serviceCategory = svcCoding?.display || svcCoding?.code || '';
     const encounter = appointment.id ? encounterByApptRef.get(`Appointment/${appointment.id}`) : undefined;
     const provider = encounter ? providerNameForEncounter(encounter) : undefined;
-    const status = encounter?.status || appointment.status || '';
+    // Same Ottehr status vocabulary as the Encounters/Billing datasets (completed/pending/…), not
+    // the raw FHIR statuses (finished/booked/…) — cross-dataset filters and rollups must agree.
+    // When the appointment has no encounter riding along, map through the helper with a stub so
+    // the appointment-only statuses (booked → pending, arrived, checked-in → ready) still land in
+    // the shared vocabulary.
+    const status = getInPersonVisitStatus(
+      appointment,
+      encounter ?? { resourceType: 'Encounter', status: 'planned', class: { code: 'AMB' } },
+      true
+    );
 
     let agg = aggByPatient.get(patientRef);
     if (!agg) {
@@ -254,8 +249,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (serviceCategory) agg.serviceCategories.add(serviceCategory);
   }
 
-  const ymd = (iso: string): string => (iso ? DateTime.fromISO(iso).toFormat('yyyy-MM-dd') : '');
-
   const rows: AdHocPatientRow[] = [];
   for (const agg of aggByPatient.values()) {
     const patient = agg.patient;
@@ -281,8 +274,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       email: getEmailForIndividual(patient) || '',
       source: patient.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString || '',
       totalVisits: agg.visitDates.length,
-      firstVisitDate: ymd(sortedDates[0] || ''),
-      lastVisitDate: ymd(agg.lastVisitStart),
+      // RAW ISO instants — the server never zone-formats dates. The client dataset rewrites both
+      // to the viewer-local yyyy-MM-dd day in the browser.
+      firstVisitDate: sortedDates[0] || '',
+      lastVisitDate: agg.lastVisitStart,
       lastVisitStatus: agg.lastVisitStatus,
       visitTypes: [...agg.visitTypes].sort(),
       locations: [...agg.locations].sort(),
@@ -337,6 +332,5 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     rows.push(row);
   }
 
-  const output: AdHocPatientsOutput = { patients: rows };
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
+  return rows;
+}

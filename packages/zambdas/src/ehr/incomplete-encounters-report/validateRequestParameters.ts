@@ -25,7 +25,6 @@ export function validateRequestParameters(
     throw INVALID_INPUT_ERROR('dateRange must include both start and end dates');
   }
 
-  // Validate that start and end are valid ISO date strings
   if (isNaN(Date.parse(dateRange.start))) {
     throw INVALID_INPUT_ERROR('dateRange.start must be a valid ISO date string');
   }
