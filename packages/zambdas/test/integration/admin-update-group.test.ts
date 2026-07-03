@@ -112,6 +112,25 @@ describe('admin-update-group', () => {
     return response.output as { group: HealthcareService };
   };
 
+  // Catch-and-return-message pattern shared across the admin-* integration
+  // tests (see admin-service-categories.test.ts / admin-practitioner-role.test.ts).
+  // We use it instead of `.rejects.toThrow(regex)` because the OystehrSdkError
+  // isn't guaranteed to be a proper Error subclass — its String() coercion
+  // can fall back to '[object Object]' even when the underlying `.message`
+  // property carries the admin-facing prose. Pulling `.message` off the
+  // object directly is what every other integration test does.
+  const invokeExpectingRejection = async (input: Record<string, unknown>): Promise<{ message: string }> => {
+    let caught: unknown;
+    try {
+      await oystehrZambdas.zambda.execute({ id: 'admin-update-group', ...input });
+    } catch (e) {
+      caught = e;
+    }
+    if (!caught) throw new Error('expected admin-update-group to reject the payload but it succeeded');
+    const err = caught as { message?: string };
+    return { message: err.message ?? '' };
+  };
+
   it('updates the name', async () => {
     const group = await makeGroup();
     const newName = `Renamed ${randomUUID().slice(0, 8)}`;
@@ -148,7 +167,8 @@ describe('admin-update-group', () => {
       identifier: [{ system: SLUG_SYSTEM, value: collidingSlug }],
     });
     const target = await makeGroup();
-    await expect(invoke({ groupId: target.id, slug: collidingSlug })).rejects.toThrow(/already used/i);
+    const { message } = await invokeExpectingRejection({ groupId: target.id, slug: collidingSlug });
+    expect(message).toMatch(/already used/i);
   });
 
   it('rejects a slug that does not match the URL-safe format', async () => {
@@ -156,7 +176,7 @@ describe('admin-update-group', () => {
     // Uppercase + space are the two easiest ways to break the slug regex —
     // both would produce URLs that look right in the admin UI but fail on
     // the patient-side booking route.
-    await expect(invoke({ groupId: group.id, slug: 'Not A Valid Slug' })).rejects.toThrow();
+    await invokeExpectingRejection({ groupId: group.id, slug: 'Not A Valid Slug' });
   });
 
   it('replaces locationIds with the passed list', async () => {
@@ -215,16 +235,25 @@ describe('admin-update-group', () => {
       })
     );
     const group = await makeGroup();
-    await expect(invoke({ groupId: group.id, supportedCategoryHsIds: [bogus.id!] })).rejects.toThrow(
-      /not tagged as a service category/i
-    );
+    const { message } = await invokeExpectingRejection({
+      groupId: group.id,
+      supportedCategoryHsIds: [bogus.id!],
+    });
+    expect(message).toMatch(/not tagged as a service category/i);
   });
 
   it('rejects a supportedCategoryHsIds entry that does not exist in FHIR', async () => {
     const group = await makeGroup();
-    await expect(invoke({ groupId: group.id, supportedCategoryHsIds: ['nonexistent-cat-id'] })).rejects.toThrow(
-      /not found/i
-    );
+    // Use a UUID-shaped id so this test isolates the "id is well-formed but
+    // doesn't resolve" case. The zambda's fhir.search for `_id=<uuid>` returns
+    // an empty bundle for a nonexistent id (rather than throwing on shape),
+    // so the code path exercised is the map-miss → INVALID_INPUT_ERROR branch
+    // — exactly what this test is pinning.
+    const { message } = await invokeExpectingRejection({
+      groupId: group.id,
+      supportedCategoryHsIds: [randomUUID()],
+    });
+    expect(message).toMatch(/not found/i);
   });
 
   it('writes group characteristics from assignmentMode + allLocations', async () => {
@@ -277,10 +306,11 @@ describe('admin-update-group', () => {
 
   it('rejects when no update fields are provided', async () => {
     const group = await makeGroup();
-    await expect(invoke({ groupId: group.id })).rejects.toThrow(/at least one of/i);
+    const { message } = await invokeExpectingRejection({ groupId: group.id });
+    expect(message).toMatch(/at least one of/i);
   });
 
   it('validation: missing groupId', async () => {
-    await expect(invoke({ name: 'x' })).rejects.toThrow();
+    await invokeExpectingRejection({ name: 'x' });
   });
 });

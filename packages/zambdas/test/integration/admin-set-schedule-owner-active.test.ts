@@ -84,6 +84,23 @@ describe('admin-set-schedule-owner-active', () => {
   const invoke = async (input: unknown): Promise<any> =>
     oystehrZambdas.zambda.execute({ id: 'admin-set-schedule-owner-active', ...(input as object) });
 
+  // Catch-and-return-message pattern shared with the other admin-* tests.
+  // The OystehrSdkError isn't a proper Error subclass, so
+  // `.rejects.toThrow(regex)` can toString to '[object Object]' even when
+  // the underlying `.message` field carries the prose we want to match.
+  // Extract it directly the same way admin-service-categories.test.ts does.
+  const invokeExpectingRejection = async (input: unknown): Promise<{ message: string }> => {
+    let caught: unknown;
+    try {
+      await oystehrZambdas.zambda.execute({ id: 'admin-set-schedule-owner-active', ...(input as object) });
+    } catch (e) {
+      caught = e;
+    }
+    if (!caught) throw new Error('expected admin-set-schedule-owner-active to reject the payload but it succeeded');
+    const err = caught as { message?: string };
+    return { message: err.message ?? '' };
+  };
+
   it('flips a Location-owned schedule to inactive by writing status=inactive on the Location', async () => {
     const location = await makeLocation({ status: 'active' });
     const schedule = await makeSchedule({ resourceType: 'Location', id: location.id! });
@@ -172,9 +189,8 @@ describe('admin-set-schedule-owner-active', () => {
     // PR owners must go through admin-set-practitioner-role-active — this
     // endpoint's simpler patch model would silently skip the conflict
     // re-check that PR reactivation depends on.
-    await expect(invoke({ scheduleId: schedule.id, active: false })).rejects.toThrow(
-      /admin-set-practitioner-role-active/
-    );
+    const { message } = await invokeExpectingRejection({ scheduleId: schedule.id, active: false });
+    expect(message).toMatch(/admin-set-practitioner-role-active/);
   });
 
   it('rejects a HealthcareService-owned schedule (Groups do not own their own Schedules in this data model)', async () => {
@@ -188,20 +204,20 @@ describe('admin-set-schedule-owner-active', () => {
     );
     const schedule = await makeSchedule({ resourceType: 'HealthcareService', id: group.id! });
 
-    await expect(invoke({ scheduleId: schedule.id, active: false })).rejects.toThrow(
-      /HealthcareService-owned Schedules are not supported/
-    );
+    const { message } = await invokeExpectingRejection({ scheduleId: schedule.id, active: false });
+    expect(message).toMatch(/HealthcareService-owned Schedules are not supported/);
   });
 
   it('validation: missing scheduleId', async () => {
-    // Not "expected" enough to warrant asserting on the message — the shape
-    // (throws) is the contract we care about.
-    await expect(invoke({ active: true })).rejects.toThrow();
+    // Shape-of-the-contract test — we care that the zambda rejects, not
+    // what the exact prose is (zod's default missing-field message is
+    // sufficient).
+    await invokeExpectingRejection({ active: true });
   });
 
   it('validation: active is not a boolean', async () => {
     const location = await makeLocation();
     const schedule = await makeSchedule({ resourceType: 'Location', id: location.id! });
-    await expect(invoke({ scheduleId: schedule.id, active: 'yes' })).rejects.toThrow();
+    await invokeExpectingRejection({ scheduleId: schedule.id, active: 'yes' });
   });
 });
