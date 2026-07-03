@@ -15,9 +15,9 @@ import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { arg, argInt, flag } from '../shared/cli';
+import { type HarnessCommand, prepareHarnessCommand } from '../shared/harness-bundle';
 
 const HERE = __dirname;
-const SYNTH = resolve(HERE, '..', 'synthesize-visit.ts');
 const EXAMPLES = resolve(HERE, '..', 'examples');
 const PLAN_PATH = resolve(arg('--plan', resolve(HERE, 'population-plan.json')));
 const PROGRESS_PATH = resolve(arg('--progress', resolve(HERE, 'population-progress.json')));
@@ -117,6 +117,10 @@ function materializeScenario(v: PlannedVisit): string {
   return file;
 }
 
+// Spawn command for the per-visit harness. Set once in main() before the pool
+// starts: a pre-built `node <bundle.js>` (fast path) or `npx tsx` (fallback).
+let harness: HarnessCommand;
+
 function runOne(v: PlannedVisit): Promise<void> {
   return new Promise((resolvePromise) => {
     let scenarioFile: string;
@@ -137,10 +141,9 @@ function runOne(v: PlannedVisit): Promise<void> {
     // ~26-day future window. In-flight seqs (≤concurrency apart) never collide.
     const scaffoldOffsetMin = ((v.seq % 2500) + 1) * 15;
     const child = spawn(
-      'npx',
+      harness.command,
       [
-        'tsx',
-        SYNTH,
+        ...harness.argsPrefix,
         scenarioFile,
         '--execute',
         '--practitioner',
@@ -251,26 +254,34 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Bounded-concurrency worker pool over a shared cursor.
-  let cursor = 0;
-  let completed = 0;
-  const startedAt = Date.now();
-  const worker = async (): Promise<void> => {
-    while (cursor < visits.length) {
-      const v = visits[cursor++];
-      await runOne(v);
-      completed++;
-      if (completed % 25 === 0) {
-        const rate = completed / ((Date.now() - startedAt) / 1000);
-        const remaining = Math.round((visits.length - completed) / Math.max(rate, 1e-6));
-        console.log(
-          `  … ${completed}/${visits.length} done (${rate.toFixed(2)}/s, ~${Math.round(remaining / 60)} min left)`
-        );
+  // Pre-build the harness ONCE (per-visit spawns then run the plain-JS bundle
+  // under `node` instead of re-transpiling the harness via tsx on every spawn).
+  // Never throws — falls back internally to `npx tsx` on build failure.
+  harness = await prepareHarnessCommand();
+  try {
+    // Bounded-concurrency worker pool over a shared cursor.
+    let cursor = 0;
+    let completed = 0;
+    const startedAt = Date.now();
+    const worker = async (): Promise<void> => {
+      while (cursor < visits.length) {
+        const v = visits[cursor++];
+        await runOne(v);
+        completed++;
+        if (completed % 25 === 0) {
+          const rate = completed / ((Date.now() - startedAt) / 1000);
+          const remaining = Math.round((visits.length - completed) / Math.max(rate, 1e-6));
+          console.log(
+            `  … ${completed}/${visits.length} done (${rate.toFixed(2)}/s, ~${Math.round(remaining / 60)} min left)`
+          );
+        }
       }
-    }
-  };
-  await Promise.all(Array.from({ length: Math.max(1, CONCURRENCY) }, () => worker()));
-  flushProgress();
+    };
+    await Promise.all(Array.from({ length: Math.max(1, CONCURRENCY) }, () => worker()));
+    flushProgress();
+  } finally {
+    harness.cleanup();
+  }
 
   const done = Object.values(progress).filter((p) => p.outcome === 'done').length;
   const failed = Object.values(progress).filter((p) => p.outcome === 'failed').length;

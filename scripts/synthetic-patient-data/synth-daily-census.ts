@@ -46,6 +46,7 @@ import {
   SYNTH_CRON_SYSTEM as CRON_SYSTEM,
   VISIT_STATUS_ORDER,
 } from './shared/constants';
+import { type HarnessCommand, prepareHarnessCommand } from './shared/harness-bundle';
 import { createOystehrFromToken, mintAccessToken, need, searchAllPages } from './shared/oystehr-client';
 import { withRetry } from './shared/retry';
 import { type ZambdaCtx, zambdaPost } from './shared/zambda';
@@ -57,7 +58,6 @@ const DRY = flag('--dry');
 const CONCURRENCY = argInt('--concurrency', { default: 4, min: 1 });
 const ZAMBDA_API = arg('--zambda-api', process.env.ZAMBDA_API || 'http://localhost:3000/local');
 const HERE = __dirname;
-const SYNTH = resolve(HERE, 'synthesize-visit.ts');
 const EXAMPLES = resolve(HERE, 'examples');
 const SCEN_DIR = resolve(HERE, '.census-scenarios');
 
@@ -513,15 +513,6 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
   if (!existsSync(SCEN_DIR)) mkdirSync(SCEN_DIR, { recursive: true });
 
   const usedNames = new Set<string>();
-  interface Visit {
-    scenarioFile: string;
-    targetStatus: string;
-    provider: string;
-    intakeMA: string;
-    location: string;
-    label: string;
-    prebookStartISO?: string; // set for 'pending' → patch appt to booked + this start
-  }
   const visits: Visit[] = [];
   for (let i = 0; i < COUNT; i++) {
     const arch: Archetype = weighted(ARCHETYPES, rng);
@@ -585,6 +576,32 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
   );
   if (DRY) return;
 
+  // Pre-build the harness ONCE — the 40 per-visit spawns then run the plain-JS
+  // bundle under `node` instead of re-transpiling the harness via tsx each
+  // time. Never throws — falls back internally to `npx tsx` on build failure.
+  const harness = await prepareHarnessCommand();
+  try {
+    await runGeneratePool(visits, harness, today);
+  } finally {
+    harness.cleanup();
+  }
+}
+
+interface Visit {
+  scenarioFile: string;
+  targetStatus: string;
+  provider: string;
+  intakeMA: string;
+  location: string;
+  label: string;
+  prebookStartISO?: string; // set for 'pending' → patch appt to booked + this start
+}
+
+// The generate phase's bounded worker pool: spawns the harness per visit, then
+// tags the created Appointment/Encounter (synth-cron + run-date) by scraping
+// their ids from the child's stdout. `today` is passed in (not recomputed) so a
+// run that crosses midnight still tags with the run's own date.
+async function runGeneratePool(visits: Visit[], harness: HarnessCommand, today: string): Promise<void> {
   let idx = 0;
   let done = 0;
   let untagged = 0; // created but missing the synth-cron/run-date tags → invisible to catch-up AND cleanup
@@ -593,10 +610,9 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
       const v = visits[idx++];
       await new Promise<void>((res) => {
         const child = spawn(
-          'npx',
+          harness.command,
           [
-            'tsx',
-            SYNTH,
+            ...harness.argsPrefix,
             v.scenarioFile,
             '--execute',
             '--practitioner',
