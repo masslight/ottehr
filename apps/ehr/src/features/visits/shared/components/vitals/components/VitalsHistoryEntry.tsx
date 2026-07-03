@@ -9,6 +9,7 @@ import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
 import {
   celsiusToFahrenheit,
+  formatBMIWithUnit,
   formatDateTimeToLocalTimezone,
   formatHeightObservationValue,
   formatWeightKg,
@@ -158,6 +159,8 @@ export const getObservationValueElements = (
     }
     case 'vital-height':
       return [formatHeightObservationValue(historyEntry.value)];
+    case 'vital-bmi':
+      return [formatBMIWithUnit(historyEntry.value)];
     case 'vital-vision': {
       const dotLines = getDotVisionScreeningLines(historyEntry.dotVisionScreening);
       if (dotLines.length > 0) {
