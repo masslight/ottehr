@@ -17,7 +17,6 @@ import {
   Procedure,
   Resource,
 } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   AdHocBillingOutput,
   AdHocBillingRow,
@@ -51,9 +50,6 @@ const CPT_SYSTEM = 'http://www.ama-assn.org/go/cpt';
 // A Claim carries the source clinical encounter id as an identifier (set by Ottehr's own claim
 // creation, not Candid) — this is how a claim joins back to its encounter.
 const CLAIM_ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
-// Dates are reported in the practice's zone (matches the client's AdHocReport formatting), not the
-// server's zone — in prod the lambda runs in UTC, which would shift evening visits to the next day.
-const REPORT_TIME_ZONE = 'America/New_York';
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -268,7 +264,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const row: AdHocBillingRow = {
       appointmentId: appointment.id || '',
       encounterId: encounter.id,
-      date: start ? DateTime.fromISO(start).setZone(REPORT_TIME_ZONE).toFormat('yyyy-MM-dd') : '',
+      // RAW ISO instant — the server never zone-formats dates; the client dataset rewrites this
+      // to the viewer-local yyyy-MM-dd day in the browser.
+      date: start || '',
       visitType,
       serviceCategory,
       visitStatus,
@@ -304,11 +302,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       row.paymentsCollected = paymentsCollected;
       row.paymentCount = notices.length;
       row.paymentMethods = methods;
-      row.lastPaymentDate = dates.length
-        ? DateTime.fromISO(dates[dates.length - 1])
-            .setZone(REPORT_TIME_ZONE)
-            .toFormat('yyyy-MM-dd')
-        : null;
+      // RAW ISO instant of the latest payment (client-side becomes the viewer-local day).
+      row.lastPaymentDate = dates.length ? dates[dates.length - 1] : null;
     }
 
     if (includeCoverage) {

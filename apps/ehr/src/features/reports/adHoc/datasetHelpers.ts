@@ -1,5 +1,19 @@
+import { DateTime } from 'luxon';
 import { ADHOC_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { AdHocDatasetOption } from './types';
+
+/**
+ * Format a raw ISO instant as the VIEWER-LOCAL yyyy-MM-dd day ('' when absent/unparseable). The
+ * ad-hoc zambdas emit raw ISO instants and never zone-format dates — a report can mix locations
+ * across timezones, so the viewer's browser-local zone is the only internally consistent frame,
+ * and ALL day-level derivation happens here on the client. Shared by the Encounters / Patients /
+ * Billing dataset modules.
+ */
+export const toLocalYmd = (iso: string | null | undefined): string => {
+  if (!iso) return '';
+  const dt = DateTime.fromISO(iso);
+  return dt.isValid ? dt.toFormat('yyyy-MM-dd') : '';
+};
 
 /** Partial-failure info for a batched range fetch: how many of the date windows failed to load. */
 export interface BatchWindowFailures {

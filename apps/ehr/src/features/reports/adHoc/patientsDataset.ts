@@ -1,6 +1,6 @@
 import { AdHocPatientRow } from 'utils';
 import { getAdHocPatients } from '../../../api/api';
-import { availableLayersFor, fetchBatchedRange } from './datasetHelpers';
+import { availableLayersFor, fetchBatchedRange, toLocalYmd } from './datasetHelpers';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
@@ -212,9 +212,20 @@ async function fetchAdHocPatients({ oystehrZambda, dateRange, options }: FetchCo
     includeHospitalizations: !!opts.hospitalizations,
   };
   // Batch long ranges, then MERGE partial per-patient rows (a patient may appear in several batches).
+  // The zambda emits first/lastVisitDate as RAW ISO instants; derive the viewer-local yyyy-MM-dd day
+  // here, BEFORE the merge, so mergePatientRows keeps comparing day-level yyyy-MM-dd strings.
   const rows = await fetchBatchedRange(
     dateRange,
-    (range) => getAdHocPatients(oystehrZambda, { dateRange: range, ...flags }).then((r) => r.patients),
+    (range) =>
+      getAdHocPatients(oystehrZambda, { dateRange: range, ...flags }).then((r) =>
+        r.patients.map(
+          (row): AdHocPatientRow => ({
+            ...row,
+            firstVisitDate: toLocalYmd(row.firstVisitDate),
+            lastVisitDate: toLocalYmd(row.lastVisitDate),
+          })
+        )
+      ),
     mergePatientRows
   );
   return rows as unknown as AdHocRow[];

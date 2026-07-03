@@ -23,7 +23,9 @@ export interface AdHocBillingRow {
   // --- Visit ---
   appointmentId: string;
   encounterId?: string;
-  date: string; // yyyy-MM-dd (visit start)
+  // RAW ISO visit start from the zambda (never zone-formatted server-side); the client dataset
+  // rewrites it to the VIEWER-LOCAL yyyy-MM-dd day before any report sees it.
+  date: string;
   visitType: string; // "In-Person" | "Telemed"
   serviceCategory: string;
   visitStatus: string;
@@ -44,7 +46,9 @@ export interface AdHocBillingRow {
   paymentsCollected?: number | null; // total USD collected (PaymentNotice amounts), null if none
   paymentCount?: number; // number of payments
   paymentMethods?: string[]; // distinct methods used: "card" | "card-reader" | "cash" | "check"
-  lastPaymentDate?: string | null; // yyyy-MM-dd of the most recent payment
+  // RAW ISO instant of the most recent payment from the zambda; rewritten to the viewer-local
+  // yyyy-MM-dd day client-side. Null when the visit has no payments.
+  lastPaymentDate?: string | null;
   // --- Coverage (includeCoverage) — the patient's insurance at the time of the report ---
   payerType?: string; // "Self-pay" | "Insured" | "Unknown"
   primaryPayer?: string; // primary plan/payer name (e.g. "Aetna")

@@ -39,7 +39,17 @@ export interface AdHocEncounterRow {
   // --- Visit ---
   appointmentId: string;
   encounterId?: string;
-  date: string; // yyyy-MM-dd (visit start)
+  // The zambda emits `date` as the RAW ISO visit start (same instant as startTime) — the server
+  // never zone-formats it. The client dataset rewrites it to the VIEWER-LOCAL yyyy-MM-dd day
+  // before any report sees it, so day-grouping is browser-local.
+  date: string;
+  startTime: string; // full ISO visit start timestamp ('' when unknown); `date` is its day-level companion
+  // Ready-made tracking-board link for the visit: /visits?... for in-person rows with a location,
+  // '/visits' for telemed rows, '' when there is no board to link to. Mirrors the Complete
+  // Encounters report's appointment-time link. NOT set by the zambda — computed CLIENT-side (in
+  // adhocEncountersDataset) from startTime/locationId/visitType/visitStatus so its date params are
+  // viewer-local.
+  trackingBoardHref?: string;
   visitType: string; // "In-Person" | "Telemed"
   appointmentType: string; // "walk-in" | "pre-booked" | "post-telemed"
   serviceCategory: string; // service line, e.g. "Urgent Care"

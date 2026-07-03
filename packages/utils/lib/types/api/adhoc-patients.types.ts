@@ -34,8 +34,10 @@ export interface AdHocPatientRow {
   source: string; // point of discovery / marketing
   // --- Visit summary (within the date range) ---
   totalVisits: number;
-  firstVisitDate: string; // yyyy-MM-dd
-  lastVisitDate: string; // yyyy-MM-dd
+  // The zambda emits these as RAW ISO visit starts (the server never zone-formats them); the
+  // client dataset rewrites them to the VIEWER-LOCAL yyyy-MM-dd day before any report sees them.
+  firstVisitDate: string;
+  lastVisitDate: string;
   lastVisitStatus: string;
   visitTypes: string[]; // distinct "In-Person" / "Telemed"
   locations: string[]; // distinct clinic names seen

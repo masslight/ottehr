@@ -35,6 +35,7 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
+  getTimezone,
   getVisitStatusHistory,
   isInHouseLabServiceRequest,
   mapGenderToLabel,
@@ -111,11 +112,6 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
   }
   return map;
 }
-
-// Zone for rendering appointment instants as calendar dates/weekdays. Must match the client
-// (AdHocReport uses America/New_York) — the server's zone is UTC in prod, which would shift
-// evening visits onto the next day.
-const REPORT_TIME_ZONE = 'America/New_York';
 
 const minutesBetween = (start?: string, end?: string): number | null => {
   if (!start || !end) return null;
@@ -329,6 +325,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     resolveEncounterAppointment(encounter, appointmentMap, encounterById);
 
   const staffNames = await getStaffNameByEmail(oystehr);
+  // Memoized per location: getTimezone logs (and falls back) when a Location is missing its
+  // timezone extension, and we don't want that once per row.
+  const tzByLocationId = new Map<string, string>();
+  const timezoneForLocation = (loc: Location): string => {
+    const key = loc.id ?? '';
+    let tz = tzByLocationId.get(key);
+    if (!tz) {
+      tz = getTimezone(loc);
+      tzByLocationId.set(key, tz);
+    }
+    return tz;
+  };
   const rows: AdHocEncounterRow[] = [];
   // Iterate the id-deduped map, not the raw filter array: an encounter revincluded via both
   // Encounter:appointment and Encounter:part-of appears twice in `encounters` and would emit
@@ -351,9 +359,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       start,
     } = buildEncounterRowContext(encounter, appointment, { encounterById, patientMap, locationMap, practitionerMap });
 
-    // Hours the clinic is open on this visit's weekday (Location.hoursOfOperation).
+    // Hours the clinic is open on this visit's weekday (Location.hoursOfOperation). The weekday is
+    // resolved in the LOCATION'S OWN timezone — hours-of-operation are clinic-local, so the clinic's
+    // zone (not the server's, and not any fixed practice zone) decides which day the visit fell on.
     let clinicOpenHours: number | null = null;
-    const weekday = start ? DateTime.fromISO(start).setZone(REPORT_TIME_ZONE).toFormat('ccc').toLowerCase() : '';
+    const weekday =
+      start && location
+        ? DateTime.fromISO(start).setZone(timezoneForLocation(location)).toFormat('ccc').toLowerCase()
+        : '';
     for (const h of location?.hoursOfOperation ?? []) {
       if (!weekday || !h.daysOfWeek?.includes(weekday as never) || !h.openingTime || !h.closingTime) continue;
       const hrs = DateTime.fromFormat(h.closingTime, 'HH:mm:ss').diff(
@@ -382,10 +395,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       : '';
     const registeredByName = (regEmail && staffNames.get(regEmail)) || registeredBy;
 
+    const locationId = locationRef ? locationRef.replace('Location/', '') : undefined;
+
     const row: AdHocEncounterRow = {
       appointmentId: appointment.id || '',
       encounterId: encounter.id,
-      date: start ? DateTime.fromISO(start).setZone(REPORT_TIME_ZONE).toFormat('yyyy-MM-dd') : '',
+      // RAW ISO instant — the server never zone-formats dates. The client dataset derives the
+      // viewer-local yyyy-MM-dd day (and the tracking-board href) in the browser.
+      date: start || '',
+      startTime: start || '',
       visitType,
       appointmentType: appointmentTypeForAppointment(appointment),
       serviceCategory,
@@ -406,7 +424,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       email: (patient ? getEmailForIndividual(patient) : '') || '',
       source: patient?.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString || '',
       location: location?.name || 'Unknown',
-      locationId: locationRef ? locationRef.replace('Location/', '') : undefined,
+      locationId,
       region: location?.address?.state || '',
       clinicOpenHours,
       attendingProvider,

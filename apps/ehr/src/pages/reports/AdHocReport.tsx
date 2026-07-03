@@ -45,13 +45,17 @@ const MAX_AUTO_RETRIES = 1;
 
 // Pure version of the date-range computation (no component state) so the saved-report loader can
 // compute a range directly from stored criteria without waiting for setState to land.
+// The window boundaries are the VIEWER'S BROWSER-LOCAL day boundaries: a report can mix locations
+// across timezones, so the viewer's zone is the only internally consistent frame (and it matches
+// how every date/time in the generated report is rendered). The fetch itself is by absolute ISO
+// instants, so only the boundary zone — not the query semantics — depends on the viewer.
 function rangeFromControls(
   filter: DateRangeFilter,
   customDate: string,
   customStartDate: string,
   customEndDate: string
 ): { start: string; end: string } {
-  const now = DateTime.now().setZone('America/New_York');
+  const now = DateTime.now();
   const today = now.startOf('day');
   switch (filter) {
     case 'today':
@@ -65,13 +69,13 @@ function rangeFromControls(
     case 'last-30-days':
       return { start: today.minus({ days: 29 }).toISO() ?? '', end: today.endOf('day').toISO() ?? '' };
     case 'custom': {
-      // Parse IN the practice zone (not the browser zone, which would shift the calendar day).
-      const d = DateTime.fromISO(customDate, { zone: 'America/New_York' });
+      // Parsed in the browser-local zone: the picked calendar day means "that day where I am".
+      const d = DateTime.fromISO(customDate);
       return { start: d.startOf('day').toISO() ?? '', end: d.endOf('day').toISO() ?? '' };
     }
     case 'customRange': {
-      const s = DateTime.fromISO(customStartDate, { zone: 'America/New_York' });
-      const e = DateTime.fromISO(customEndDate, { zone: 'America/New_York' });
+      const s = DateTime.fromISO(customStartDate);
+      const e = DateTime.fromISO(customEndDate);
       return { start: s.startOf('day').toISO() ?? '', end: e.endOf('day').toISO() ?? '' };
     }
     default:

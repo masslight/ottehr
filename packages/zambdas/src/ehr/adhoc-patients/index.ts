@@ -36,10 +36,6 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'adhoc-patients';
 
-// Format visit dates in the practice's zone (matches AdHocReport.tsx on the client); the process
-// zone is UTC in prod, which would shift evening visits to the next calendar day.
-const REPORT_TIME_ZONE = 'America/New_York';
-
 const hasTag = (resource: { meta?: { tag?: { code?: string }[] } }, code: string): boolean =>
   Boolean(resource.meta?.tag?.some((t) => t.code === code));
 
@@ -237,9 +233,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (serviceCategory) agg.serviceCategories.add(serviceCategory);
   }
 
-  const ymd = (iso: string): string =>
-    iso ? DateTime.fromISO(iso).setZone(REPORT_TIME_ZONE).toFormat('yyyy-MM-dd') : '';
-
   const rows: AdHocPatientRow[] = [];
   for (const agg of aggByPatient.values()) {
     const patient = agg.patient;
@@ -265,8 +258,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       email: getEmailForIndividual(patient) || '',
       source: patient.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString || '',
       totalVisits: agg.visitDates.length,
-      firstVisitDate: ymd(sortedDates[0] || ''),
-      lastVisitDate: ymd(agg.lastVisitStart),
+      // RAW ISO instants — the server never zone-formats dates. The client dataset rewrites both
+      // to the viewer-local yyyy-MM-dd day in the browser.
+      firstVisitDate: sortedDates[0] || '',
+      lastVisitDate: agg.lastVisitStart,
       lastVisitStatus: agg.lastVisitStatus,
       visitTypes: [...agg.visitTypes].sort(),
       locations: [...agg.locations].sort(),

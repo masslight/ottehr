@@ -1,5 +1,6 @@
+import { AdHocEncounterRow, buildTrackingBoardPath, VisitStatusLabel } from 'utils';
 import { getAdHocEncounters } from '../../../api/api';
-import { availableLayersFor, dedupeByEncounter, fetchBatchedRange } from './datasetHelpers';
+import { availableLayersFor, dedupeByEncounter, fetchBatchedRange, toLocalYmd } from './datasetHelpers';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
@@ -99,9 +100,31 @@ const BASE_FIELDS: FieldDef[] = [
     name: 'date',
     type: 'date',
     description:
-      "Visit date (yyyy-MM-dd). Rows are selected into the report by their PARENT appointment's date, " +
-      "but follow-up rows carry their OWN (later) date — so a follow-up row's date can fall outside " +
-      'the requested range.',
+      'Visit date (yyyy-MM-dd) — a day-level label for grouping/bucketing, NOT a clock time (use ' +
+      "startTime for the time of day). Rows are selected into the report by their PARENT appointment's " +
+      "date, but follow-up rows carry their OWN (later) date — so a follow-up row's date can fall " +
+      'outside the requested range.',
+  },
+  {
+    name: 'startTime',
+    type: 'string',
+    description:
+      'Full ISO timestamp of the visit start (empty when unknown). To show the time of day it MUST be ' +
+      "formatted in the user's LOCAL timezone: new Date(startTime).toLocaleTimeString([], " +
+      "{ hour: 'numeric', minute: '2-digit' }) — or new Date(startTime).toLocaleString() for " +
+      "date+time. Do NOT slice the ISO string (e.g. startTime.split('T')[1]) — that shows UTC, the " +
+      'wrong clock time for the user. Use `date` (the day-level field) for grouping/bucketing; use ' +
+      'startTime when the user wants the actual appointment time.',
+  },
+  {
+    name: 'trackingBoardHref',
+    type: 'string',
+    description:
+      'READY-MADE link to the tracking board for this visit (relative URL). When the user wants the ' +
+      'appointment time to link to the tracking board, render the locally-formatted startTime as an anchor ' +
+      'with href=trackingBoardHref (links open in a new tab automatically) — but ONLY when ' +
+      'trackingBoardHref is non-empty (it is empty for visits that have no board). Do NOT construct ' +
+      'this URL yourself; always use this field verbatim.',
   },
   { name: 'visitType', type: 'string', description: '"In-Person" or "Telemed".' },
   {
@@ -509,6 +532,27 @@ function fieldsFor(options: Record<string, boolean>): FieldDef[] {
   ];
 }
 
+// All zone-dependent derivation happens HERE, in the browser (the zambda emits raw ISO instants
+// only): `date` becomes the viewer-local day, and the tracking-board href — whose dateFrom/dateTo
+// come from buildTrackingBoardPath's local-zone formatting — is built client-side too, with the
+// same visit-type branching the Complete Encounters report uses for its appointment-time link.
+function localizeEncounterRow(row: AdHocEncounterRow): AdHocEncounterRow {
+  return {
+    ...row,
+    date: toLocalYmd(row.startTime),
+    trackingBoardHref:
+      row.visitType === 'In-Person' && row.locationId
+        ? buildTrackingBoardPath({
+            appointmentStart: row.startTime,
+            locationId: row.locationId,
+            visitStatus: row.visitStatus as VisitStatusLabel,
+          })
+        : row.visitType === 'Telemed'
+        ? '/visits'
+        : '',
+  };
+}
+
 async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: FetchContext): Promise<AdHocRow[]> {
   const opts = options ?? {};
   const flags = {
@@ -530,7 +574,10 @@ async function fetchAdHocEncounters({ oystehrZambda, dateRange, options }: Fetch
   // Batch long ranges in parallel and dedupe by encounterId, like the other datasets.
   const rows = await fetchBatchedRange(
     dateRange,
-    (range) => getAdHocEncounters(oystehrZambda, { dateRange: range, ...flags }).then((r) => r.encounters),
+    (range) =>
+      getAdHocEncounters(oystehrZambda, { dateRange: range, ...flags }).then((r) =>
+        r.encounters.map(localizeEncounterRow)
+      ),
     dedupeByEncounter
   );
   return rows as unknown as AdHocRow[];

@@ -60,6 +60,13 @@ RULES:
 - Only reference field names that appear in the schema. For categorical filters, match the EXACT
   value strings from a field's "values" domain (e.g. visitType is "Telemed"/"In-Person", never
   "telemedicine"). Dates are "yyyy-MM-dd" strings; numbers are plain numbers; some values may be null.
+- LOCAL TIMEZONE (REQUIRED): ALWAYS display dates and times to the user in the browser's LOCAL
+  timezone. For any ISO timestamp field (e.g. a "...Time" / "...At" field), format with
+  new Date(iso).toLocaleString() / .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) /
+  .toLocaleDateString(). NEVER display a raw ISO string, and NEVER slice the time out of an ISO
+  string (e.g. iso.split('T')[1]) — that shows UTC, which is the wrong clock time for the user.
+  Fields already given as "yyyy-MM-dd" (like "date") are day-level labels for grouping; when you
+  need the actual clock time use the ISO timestamp field and format it locally.
 - NULL-SAFETY (REQUIRED): ANY field value may be null/undefined for some rows. NEVER call a method or
   read a property on a value without guarding it first — e.g. to filter June visits write
   row.date && row.date.startsWith("2026-06"), and to scan a code array write
@@ -305,8 +312,12 @@ const sandboxRunner = (
         return (real._attrs as Record<string, unknown>)[k] ?? null;
       },
       addEventListener() {},
+      // Return a live node, not null — same reasoning as document.getElementById below: reports
+      // routinely set innerHTML on a container and then chain `container.querySelector('tbody')
+      // .appendChild(tr)`, which the browser resolves but a null-returning stub turns into a
+      // spurious "Cannot read properties of null (reading 'appendChild')" reject.
       querySelector() {
-        return null;
+        return makeNode();
       },
       querySelectorAll() {
         return [] as unknown[];

@@ -1,5 +1,6 @@
+import { AdHocBillingRow } from 'utils';
 import { getAdHocBilling } from '../../../api/api';
-import { availableLayersFor, dedupeByEncounter, fetchBatchedRange } from './datasetHelpers';
+import { availableLayersFor, dedupeByEncounter, fetchBatchedRange, toLocalYmd } from './datasetHelpers';
 import { buildSchema, FieldDef } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
@@ -50,7 +51,11 @@ const BASE_FIELDS: FieldDef[] = [
       "Unique id of the visit. To link to the visit's progress note (review & sign page), render an " +
       'anchor with href="/in-person/" + appointmentId + "/review-and-sign". Links open in a new tab.',
   },
-  { name: 'date', type: 'date', description: 'Visit date (yyyy-MM-dd).' },
+  {
+    name: 'date',
+    type: 'date',
+    description: 'Visit date (yyyy-MM-dd) — a day-level label for grouping/bucketing, not a clock time.',
+  },
   { name: 'visitType', type: 'string', description: '"In-Person" or "Telemed".' },
   { name: 'serviceCategory', type: 'string', description: 'Service line of the visit (e.g. "Urgent Care").' },
   {
@@ -182,10 +187,21 @@ async function fetchAdHocBilling({ oystehrZambda, dateRange, options }: FetchCon
     includeCodes: !!opts.codes,
     includeClaims: !!opts.claims,
   };
-  // Batch long ranges in parallel and dedupe by encounterId, like the other datasets.
+  // Batch long ranges in parallel and dedupe by encounterId, like the other datasets. The zambda
+  // emits `date` / `lastPaymentDate` as RAW ISO instants; the viewer-local yyyy-MM-dd day is
+  // derived here in the browser (lastPaymentDate stays null when the visit has no payments).
   const rows = await fetchBatchedRange(
     dateRange,
-    (range) => getAdHocBilling(oystehrZambda, { dateRange: range, ...flags }).then((r) => r.rows),
+    (range) =>
+      getAdHocBilling(oystehrZambda, { dateRange: range, ...flags }).then((r) =>
+        r.rows.map(
+          (row): AdHocBillingRow => ({
+            ...row,
+            date: toLocalYmd(row.date),
+            lastPaymentDate: row.lastPaymentDate == null ? row.lastPaymentDate : toLocalYmd(row.lastPaymentDate),
+          })
+        )
+      ),
     dedupeByEncounter
   );
   return rows as unknown as AdHocRow[];
