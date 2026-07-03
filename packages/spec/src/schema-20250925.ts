@@ -212,9 +212,11 @@ export class Schema20250925 implements Schema<Spec20250925> {
         );
       }
       const retainInEnvironments: string[] = bucket.retainInEnvironments ?? [];
+      const shouldRetain = retainInEnvironments.includes(this.vars.ENVIRONMENT);
       bucketResources.resource.oystehr_z3_bucket[bucketName] = {
         name: this.getValue(bucket.name, this.resources),
-        removal_policy: retainInEnvironments.includes(this.vars.ENVIRONMENT) ? 'retain' : 'delete',
+        removal_policy: shouldRetain ? 'retain' : 'delete',
+        force_destroy: shouldRetain ? undefined : true,
       };
     }
     if (Object.keys(bucketResources.resource.oystehr_z3_bucket).length) {

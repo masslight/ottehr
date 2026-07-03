@@ -237,7 +237,7 @@ describe('Schema20250925 generate()', () => {
       },
     });
 
-    const readBucket = async (): Promise<{ name: string; removal_policy: string }> => {
+    const readBucket = async (): Promise<{ name: string; removal_policy: string; force_destroy: boolean }> => {
       const content = await fs.readFile(path.join(tmpDir, 'buckets.tf.json'), 'utf8');
       return JSON.parse(content).resource.oystehr_z3_bucket.MY_BUCKET;
     };
@@ -253,7 +253,9 @@ describe('Schema20250925 generate()', () => {
       );
       await schema.generate();
 
-      expect((await readBucket()).removal_policy).toBe('retain');
+      const bucket = await readBucket();
+      expect(bucket.removal_policy).toBe('retain');
+      expect(bucket.force_destroy).toBe(false);
     });
 
     it('deletes the bucket when the current environment is not in retainInEnvironments', async () => {
@@ -267,7 +269,9 @@ describe('Schema20250925 generate()', () => {
       );
       await schema.generate();
 
-      expect((await readBucket()).removal_policy).toBe('delete');
+      const bucket = await readBucket();
+      expect(bucket.removal_policy).toBe('delete');
+      expect(bucket.force_destroy).toBe(true);
     });
 
     it('deletes in every environment when retainInEnvironments is empty', async () => {
@@ -281,7 +285,9 @@ describe('Schema20250925 generate()', () => {
       );
       await schema.generate();
 
-      expect((await readBucket()).removal_policy).toBe('delete');
+      const bucket = await readBucket();
+      expect(bucket.removal_policy).toBe('delete');
+      expect(bucket.force_destroy).toBe(true);
     });
 
     it('resolves #{var/...} references in the bucket name', async () => {
@@ -327,7 +333,9 @@ describe('Schema20250925 generate()', () => {
       );
       await schema.generate();
 
-      expect((await readBucket()).removal_policy).toBe('delete');
+      const bucket = await readBucket();
+      expect(bucket.removal_policy).toBe('delete');
+      expect(bucket.force_destroy).toBe(true);
     });
 
     it('throws when a bucket uses the removed removalPolicy field', async () => {
