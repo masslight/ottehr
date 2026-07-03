@@ -211,7 +211,13 @@ export class Schema20250925 implements Schema<Spec20250925> {
           `Bucket "${bucketName}" uses the removed "removalPolicy" field; use "retainInEnvironments" instead`
         );
       }
-      const retainInEnvironments: string[] = bucket.retainInEnvironments ?? [];
+      const rawRetain: unknown = bucket.retainInEnvironments ?? [];
+      if (!Array.isArray(rawRetain) || rawRetain.some((env) => typeof env !== 'string')) {
+        throw new Error(
+          `Bucket "${bucketName}" has an invalid "retainInEnvironments"; expected an array of environment name strings`
+        );
+      }
+      const retainInEnvironments: string[] = rawRetain;
       const shouldRetain = retainInEnvironments.includes(this.vars.ENVIRONMENT);
       bucketResources.resource.oystehr_z3_bucket[bucketName] = {
         name: this.getValue(bucket.name, this.resources),

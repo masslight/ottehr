@@ -174,10 +174,11 @@ Example bucket spec:
 `retain`ed when the current `ENVIRONMENT` is in the list, and `delete`d everywhere else. This
 protects buckets in production-like environments while letting lower/ephemeral environments
 freely destroy and recreate buckets (e.g. across branch switches). An empty list or a missing
-field means `delete` in every environment. Generation throws if buckets are defined but
-`ENVIRONMENT` is not set, so a misconfigured environment can never silently mark buckets
-deletable. The legacy single-value `removalPolicy` field is no longer supported — generation
-throws if a bucket still uses it, forcing migration to `retainInEnvironments`.
+field means `delete` in every environment, and it must be an array of environment name strings.
+Generation also throws if buckets are defined but `ENVIRONMENT` is not set, so a misconfigured
+environment can never silently mark buckets deletable. The legacy single-value `removalPolicy` field
+is no longer supported — generation throws if a bucket still uses it, forcing migration to
+`retainInEnvironments`.
 
 Deletable buckets (those `delete`d in the current environment) are generated with
 `force_destroy = true`, so `terraform destroy` empties and removes the bucket even when it

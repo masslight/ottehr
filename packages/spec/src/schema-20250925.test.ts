@@ -364,5 +364,32 @@ describe('Schema20250925 generate()', () => {
         'Bucket "MY_BUCKET" uses the removed "removalPolicy" field; use "retainInEnvironments" instead'
       );
     });
+
+    it('throws when retainInEnvironments is not an array of strings', async () => {
+      const spec = {
+        path: 'buckets.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          buckets: {
+            MY_BUCKET: {
+              name: '#{var/PROJECT_ID}-my-bucket',
+              retainInEnvironments: 'production',
+            },
+          },
+        },
+      };
+      const schema = new Schema20250925(
+        [spec],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+
+      await expect(schema.generate()).rejects.toThrow(
+        'Bucket "MY_BUCKET" has an invalid "retainInEnvironments"; expected an array of environment name strings'
+      );
+    });
   });
 });
