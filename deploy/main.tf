@@ -85,8 +85,23 @@ module "oystehr" {
   environment                 = var.environment
 }
 
+module "billing_app" {
+  source = "./billing_app"
+
+  project_id                   = var.project_id
+  environment                  = var.environment
+  is_local                     = local.is_local
+  aws_profile                  = var.aws_profile
+  not_local_env_resource_count = local.not_local_env_resource_count
+
+  billing_bucket_name = var.billing_bucket_name
+  billing_domain      = var.billing_domain
+  billing_cert_domain = var.billing_cert_domain
+  ehr_app_url         = var.ehr_domain == null ? "http://localhost:4002" : "https://${var.ehr_domain}"
+}
+
 module "ottehr_apps" {
-  depends_on  = [module.oystehr, module.infra]
+  depends_on  = [module.oystehr, module.infra, module.billing_app]
   source      = "./ottehr_apps"
   environment = var.environment
   is_local    = local.is_local
@@ -132,7 +147,7 @@ module "ottehr_apps" {
     SENTRY_ENV                    = var.environment
     SENTRY_TAGS                   = module.oystehr.sentry_tags
   }
-  zambda_secrets_for_local_server = module.oystehr.zambda_secrets_for_local_server
+  zambda_secrets_for_local_server = merge(module.oystehr.zambda_secrets_for_local_server, module.billing_app.zambda_secrets_for_local_server)
 }
 
 module "apps_upload" {
@@ -146,19 +161,4 @@ module "apps_upload" {
   patient_portal_cdn_distribution_id = one(module.infra[*].patient_portal_cdn_distribution_id)
   ehr_hash                           = one(module.ottehr_apps[*].ehr_hash)
   patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
-}
-
-module "billing_app" {
-  source = "./billing_app"
-
-  project_id                   = var.project_id
-  environment                  = var.environment
-  is_local                     = local.is_local
-  aws_profile                  = var.aws_profile
-  not_local_env_resource_count = local.not_local_env_resource_count
-
-  billing_bucket_name = var.billing_bucket_name
-  billing_domain      = var.billing_domain
-  billing_cert_domain = var.billing_cert_domain
-  ehr_app_url         = var.ehr_domain == null ? "http://localhost:4002" : "https://${var.ehr_domain}"
 }
