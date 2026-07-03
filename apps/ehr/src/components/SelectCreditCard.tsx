@@ -60,8 +60,10 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       setWarningMessage(
         'Responsible party email address is invalid. The Stripe customer was created/updated without an email — the patient will not receive email notifications from Stripe.'
       );
+    } else {
+      setWarningMessage(undefined);
     }
-  }, [setupData?.createdWithoutEmail]);
+  }, [patient?.id, setupData?.createdWithoutEmail]);
 
   const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount);
 
