@@ -43,7 +43,9 @@ const TestWrapper = ({ children, defaultValues = {}, onFormReady }: TestWrapperP
         [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.practiceName.key]: '',
         [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.address.key]: '',
         [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.phone.key]: '',
-        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.fax.key]: '',
+        ...(PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.fax
+          ? { [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.fax.key]: '' }
+          : {}),
         ...defaultValues,
       },
     });
@@ -120,7 +122,7 @@ describe('PrimaryCareContainer', () => {
     [pcp.practiceName.key]: 'Family Medical Center',
     [pcp.address.key]: '123 Main St, AnyTown, ST 12345',
     [pcp.phone.key]: '(555) 123-4567',
-    [pcp.fax.key]: '(555) 123-4567',
+    ...(pcp.fax ? { [pcp.fax.key]: '(555) 123-4567' } : {}),
   };
 
   const filledFieldValues = {
