@@ -45,6 +45,7 @@ import {
   SYNTH_CRON_SYSTEM as CRON_SYSTEM,
   VISIT_STATUS_ORDER,
 } from './shared/constants';
+import { withRetry } from './shared/retry';
 
 const need = (n: string): string => {
   const v = process.env[n];
@@ -97,20 +98,29 @@ const slug = (s: string): string =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-async function tokenAndClient(): Promise<{ at: string; o: Oystehr; projectId: string }> {
+interface AuthCtx {
+  at: string;
+  o: Oystehr;
+  projectId: string;
+}
+
+async function tokenAndClient(): Promise<AuthCtx> {
   const tk = await (
-    await fetch(need('AUTH0_ENDPOINT'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.AUTH0_CLIENT,
-        client_secret: process.env.AUTH0_SECRET,
-        audience: process.env.AUTH0_AUDIENCE,
-        grant_type: 'client_credentials',
-      }),
-    })
+    await withRetry('mint M2M token', 3, () =>
+      fetch(need('AUTH0_ENDPOINT'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: process.env.AUTH0_CLIENT,
+          client_secret: process.env.AUTH0_SECRET,
+          audience: process.env.AUTH0_AUDIENCE,
+          grant_type: 'client_credentials',
+        }),
+      })
+    )
   ).json();
   const at = (tk as any).access_token;
+  if (!at) throw new Error(`M2M token mint failed: ${JSON.stringify(tk).slice(0, 200)}`);
   return {
     at,
     o: new Oystehr({
@@ -120,6 +130,38 @@ async function tokenAndClient(): Promise<{ at: string; o: Oystehr; projectId: st
     }),
     projectId: need('PROJECT_ID'),
   };
+}
+
+// Milliseconds until the JWT expires (Infinity when there's no decodable exp).
+const jwtMsLeft = (jwt: string): number => {
+  try {
+    const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString('utf-8'));
+    return typeof payload.exp === 'number' ? payload.exp * 1000 - Date.now() : Infinity;
+  } catch {
+    return Infinity;
+  }
+};
+
+// Expiry-aware token access: the census used to mint ONE token for the whole
+// run, which lapsed on long runs and turned every subsequent call into a 401/500
+// cascade. Re-mint (and rebuild the Oystehr client) when <5 min of TTL remain.
+// A single in-flight mint is shared so concurrent workers don't stampede.
+let cachedAuth: AuthCtx | undefined;
+let minting: Promise<AuthCtx> | undefined;
+async function auth(): Promise<AuthCtx> {
+  if (cachedAuth && jwtMsLeft(cachedAuth.at) > 5 * 60_000) return cachedAuth;
+  if (!minting) {
+    if (cachedAuth) console.log('[auth] M2M token expiring soon — re-minting');
+    minting = tokenAndClient()
+      .then((a) => {
+        cachedAuth = a;
+        return a;
+      })
+      .finally(() => {
+        minting = undefined;
+      });
+  }
+  return minting;
 }
 const hdr = (at: string, pid: string): Record<string, string> => ({
   'Content-Type': 'application/json',
@@ -205,125 +247,162 @@ async function resolveStaff(at: string, projectId: string): Promise<{ providers:
 }
 
 // ── CATCH-UP ──────────────────────────────────────────────────────────────────
-async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void> {
+async function catchUp(): Promise<void> {
+  const { o } = await auth();
   const todayStart = DateTime.now().setZone(TZ).startOf('day').toUTC().toISO()!;
   // Prior-day synth-cron visits that still need signing. NOTE: an in-progress
   // visit at 'ready for provider' or beyond already carries Appointment.status
   // 'fulfilled' (Ottehr flips it once the patient reaches the exam stage) — so we
   // MUST include 'fulfilled' here or those visits are never caught up. The loop
   // skips any whose visit-status is already 'completed' (truly signed/done).
-  const appts = (
-    await o.fhir.search({
-      resourceType: 'Appointment',
-      params: [
-        { name: '_tag', value: `${CRON_SYSTEM}|synth-cron` },
-        { name: 'date', value: `lt${todayStart}` },
-        { name: 'status', value: 'proposed,pending,booked,arrived,checked-in,waitlist,fulfilled' },
-        { name: '_count', value: '300' },
-      ],
-    })
+  const found = (
+    await withRetry('catch-up Appointment search', 3, () =>
+      o.fhir.search({
+        resourceType: 'Appointment',
+        params: [
+          { name: '_tag', value: `${CRON_SYSTEM}|synth-cron` },
+          { name: 'date', value: `lt${todayStart}` },
+          { name: 'status', value: 'proposed,pending,booked,arrived,checked-in,waitlist,fulfilled' },
+          { name: '_count', value: '300' },
+        ],
+      })
+    )
   )
     .unbundle()
     .filter((r: any) => r.resourceType === 'Appointment') as any[];
-  console.log(`[catch-up] ${appts.length} prior-day synth-cron visits to sign${DRY ? '  [DRY]' : ''}`);
+  // Defensive dedupe by id: visits are independent across workers, but the same
+  // appointment appearing twice (server-side search quirk) would race itself.
+  const appts = [...new Map(found.map((a) => [a.id, a])).values()];
+  const poolSize = Math.min(Math.max(1, CONCURRENCY), 8);
+  console.log(
+    `[catch-up] ${appts.length} prior-day synth-cron visits to sign (concurrency ${poolSize})${DRY ? '  [DRY]' : ''}`
+  );
   let signed = 0;
+  let failed = 0;
   let resulted = 0;
   let administered = 0;
-  // Cache each prior day's scenario-authored lab results (approach A), keyed by date.
+  // Preload each prior day's scenario-authored lab results (approach A) ONCE,
+  // before the pool starts — sync file reads, shared read-only by all workers.
   const authoredCache = new Map<string, Map<string, AuthoredResultsByTest>>();
-  const nameKey = (s: string): string => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
   for (const appt of appts) {
-    try {
-      const encs = (
-        await o.fhir.search({
+    const runDate = (appt.meta?.tag ?? []).find((t: any) => t.system === RUN_DATE_SYSTEM)?.code;
+    if (runDate && !authoredCache.has(runDate)) authoredCache.set(runDate, loadAuthoredResultsByPatient(runDate));
+  }
+  const nameKey = (s: string): string => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Sign one prior-day visit. All log lines are prefixed with the appointment id
+  // so interleaved worker output stays readable.
+  const signOne = async (appt: any): Promise<void> => {
+    const { at, o, projectId } = await auth(); // re-mints when the token is near expiry
+    const encs = (
+      await withRetry(`${appt.id} Encounter search`, 3, () =>
+        o.fhir.search({
           resourceType: 'Encounter',
           params: [{ name: 'appointment', value: `Appointment/${appt.id}` }],
         })
-      ).unbundle() as any[];
-      const enc = encs.find((e: any) => e.resourceType === 'Encounter');
-      if (!enc?.id) continue;
-      const curOtt =
-        (enc.statusHistory ?? [])
-          .map((e: any) => e.extension?.find((x: any) => x.url === OTT_EXT_URL)?.valueCode)
-          .filter(Boolean)
-          .slice(-1)[0] ?? 'pending';
-      // 'fulfilled' appointments are in the query (in-progress exam-stage visits
-      // carry that status) — but one already at visit-status 'completed' is signed
-      // and done; skip so we don't re-process visits from a prior catch-up.
-      if (curOtt === 'completed') continue;
-      if (DRY) {
-        signed++;
-        continue;
-      }
-      // Walk remaining statuses to completed.
-      const fromIdx = Math.max(VISIT_STATUS_ORDER.indexOf(curOtt as any), 0);
-      for (let i = fromIdx + 1; i < VISIT_STATUS_ORDER.length; i++) {
-        const res = await fetch(`${ZAMBDA_API}/zambda/change-in-person-visit-status/execute`, {
+      )
+    ).unbundle() as any[];
+    const enc = encs.find((e: any) => e.resourceType === 'Encounter');
+    if (!enc?.id) return;
+    const curOtt =
+      (enc.statusHistory ?? [])
+        .map((e: any) => e.extension?.find((x: any) => x.url === OTT_EXT_URL)?.valueCode)
+        .filter(Boolean)
+        .slice(-1)[0] ?? 'pending';
+    // 'fulfilled' appointments are in the query (in-progress exam-stage visits
+    // carry that status) — but one already at visit-status 'completed' is signed
+    // and done; skip so we don't re-process visits from a prior catch-up.
+    if (curOtt === 'completed') return;
+    if (DRY) {
+      signed++;
+      return;
+    }
+    // Jump to 'completed' via a single 'discharged' hop instead of walking every
+    // intermediate status (~4-7 calls): change-in-person-visit-status does NO
+    // adjacency validation (its helpers just map status → FHIR patches), and the
+    // timestamps the walk would stamp are DISCARDED — rebuildStatusHistory below
+    // rewrites the whole statusHistory anchored to the visit's own day. The one
+    // hop we keep is 'discharged', so the discharged→scheduled-outreach side
+    // effect still fires for catch-up visits (parity with the old full walk).
+    // The only other status side effect — 'ready for provider' completing an
+    // in-progress AI questionnaire — is a no-op for synth visits (no AI
+    // interview), so skipping that hop loses nothing.
+    const fromIdx = Math.max(VISIT_STATUS_ORDER.indexOf(curOtt as any), 0);
+    for (const target of ['discharged', 'completed']) {
+      if (VISIT_STATUS_ORDER.indexOf(target as any) <= fromIdx) continue;
+      const res = await withRetry(`${appt.id} status→${target}`, 3, () =>
+        fetch(`${ZAMBDA_API}/zambda/change-in-person-visit-status/execute`, {
           method: 'POST',
           headers: hdr(at, projectId),
-          body: JSON.stringify({ encounterId: enc.id, updatedStatus: VISIT_STATUS_ORDER[i] }),
-        });
-        if (!res.ok)
-          throw new Error(`status→${VISIT_STATUS_ORDER[i]}: ${res.status} ${(await res.text()).slice(0, 100)}`);
-      }
-      // Re-backdate statusHistory to the visit's own day (the walk stamped now()).
-      const fresh: any = await o.fhir.get({ resourceType: 'Encounter', id: enc.id });
-      if (appt.start) {
-        const rng = mulberry32(
-          [...`${appt.id}-catchup`].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261)
-        );
-        const newHistory = rebuildStatusHistory(appt.start, fresh, 'completed', rng);
-        await o.fhir.patch({
+          body: JSON.stringify({ encounterId: enc.id, updatedStatus: target }),
+        })
+      );
+      if (!res.ok) throw new Error(`status→${target}: ${res.status} ${(await res.text()).slice(0, 100)}`);
+    }
+    // Re-backdate statusHistory to the visit's own day (the walk stamped now()).
+    const fresh: any = await withRetry(`${appt.id} Encounter get`, 3, () =>
+      o.fhir.get({ resourceType: 'Encounter', id: enc.id })
+    );
+    if (appt.start) {
+      const rng = mulberry32(
+        [...`${appt.id}-catchup`].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261)
+      );
+      const newHistory = rebuildStatusHistory(appt.start, fresh, 'completed', rng);
+      await withRetry(`${appt.id} statusHistory patch`, 3, () =>
+        o.fhir.patch({
           resourceType: 'Encounter',
           id: enc.id,
           operations: [{ op: 'replace', path: '/statusHistory', value: newHistory }],
-        });
-      }
-      // Finalize this visit's pending in-house lab orders BEFORE signing (the
-      // visit just reached 'completed', so results are now "back"). Values come
-      // from that day's persisted scenario files (approach A); the finalizer
-      // falls back to normal in-range values when a scenario file is missing.
-      try {
-        const runDate = (appt.meta?.tag ?? []).find((t: any) => t.system === RUN_DATE_SYSTEM)?.code;
-        if (runDate) {
-          if (!authoredCache.has(runDate)) authoredCache.set(runDate, loadAuthoredResultsByPatient(runDate));
-          const pid = (fresh.subject?.reference ?? enc.subject?.reference)?.split('/')[1];
-          const patient: any = pid ? await o.fhir.get({ resourceType: 'Patient', id: pid }) : undefined;
-          const key = patient ? `${nameKey(patient.name?.[0]?.given?.[0])} ${nameKey(patient.name?.[0]?.family)}` : '';
-          const authored = authoredCache.get(runDate)!.get(key) ?? {};
-          const fz = await finalizeInHouseLabs(
-            { zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) },
-            enc.id,
-            authored,
-            true
-          );
-          resulted += fz.finalized;
-        }
-      } catch (e: any) {
-        console.log(`  ⚠ ${appt.id}: lab finalize: ${e?.message ?? e}`);
-      }
-      // Finalize radiology orders (preliminary → final) the same way — the visit
-      // just reached 'completed', so the final read is now "back".
-      try {
-        const fz = await finalizeRadiology({ zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) }, enc.id, true);
-        resulted += fz.finalized;
-      } catch (e: any) {
-        console.log(`  ⚠ ${appt.id}: radiology finalize: ${e?.message ?? e}`);
-      }
-      // Administer any pending in-house medication + immunization orders left
-      // un-administered while the visit was in progress.
-      try {
-        const fz = await finalizeMedicationsAndImmunizations(
+        })
+      );
+    }
+    // Finalize this visit's pending in-house lab orders BEFORE signing (the
+    // visit just reached 'completed', so results are now "back"). Values come
+    // from that day's persisted scenario files (approach A); the finalizer
+    // falls back to normal in-range values when a scenario file is missing.
+    try {
+      const runDate = (appt.meta?.tag ?? []).find((t: any) => t.system === RUN_DATE_SYSTEM)?.code;
+      if (runDate) {
+        const pid = (fresh.subject?.reference ?? enc.subject?.reference)?.split('/')[1];
+        const patient: any = pid
+          ? await withRetry(`${appt.id} Patient get`, 3, () => o.fhir.get({ resourceType: 'Patient', id: pid }))
+          : undefined;
+        const key = patient ? `${nameKey(patient.name?.[0]?.given?.[0])} ${nameKey(patient.name?.[0]?.family)}` : '';
+        const authored = authoredCache.get(runDate)?.get(key) ?? {};
+        const fz = await finalizeInHouseLabs(
           { zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) },
           enc.id,
+          authored,
           true
         );
-        administered += fz.medications + fz.immunizations;
-      } catch (e: any) {
-        console.log(`  ⚠ ${appt.id}: med/imm finalize: ${e?.message ?? e}`);
+        resulted += fz.finalized;
       }
-      // Sign.
-      const sres = await fetch(`${ZAMBDA_API}/zambda/sign-appointment/execute`, {
+    } catch (e: any) {
+      console.log(`  ⚠ ${appt.id}: lab finalize: ${e?.message ?? e}`);
+    }
+    // Finalize radiology orders (preliminary → final) the same way — the visit
+    // just reached 'completed', so the final read is now "back".
+    try {
+      const fz = await finalizeRadiology({ zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) }, enc.id, true);
+      resulted += fz.finalized;
+    } catch (e: any) {
+      console.log(`  ⚠ ${appt.id}: radiology finalize: ${e?.message ?? e}`);
+    }
+    // Administer any pending in-house medication + immunization orders left
+    // un-administered while the visit was in progress.
+    try {
+      const fz = await finalizeMedicationsAndImmunizations(
+        { zambdaApi: ZAMBDA_API, headers: hdr(at, projectId) },
+        enc.id,
+        true
+      );
+      administered += fz.medications + fz.immunizations;
+    } catch (e: any) {
+      console.log(`  ⚠ ${appt.id}: med/imm finalize: ${e?.message ?? e}`);
+    }
+    // Sign.
+    const sres = await withRetry(`${appt.id} sign`, 3, () =>
+      fetch(`${ZAMBDA_API}/zambda/sign-appointment/execute`, {
         method: 'POST',
         headers: hdr(at, projectId),
         body: JSON.stringify({
@@ -332,15 +411,32 @@ async function catchUp(at: string, o: Oystehr, projectId: string): Promise<void>
           timezone: TZ,
           supervisorApprovalEnabled: false,
         }),
-      });
-      if (!sres.ok) throw new Error(`sign: ${sres.status} ${(await sres.text()).slice(0, 100)}`);
-      signed++;
-    } catch (e: any) {
-      console.log(`  ✗ ${appt.id}: ${e?.message ?? e}`);
+      })
+    );
+    if (!sres.ok) throw new Error(`sign: ${sres.status} ${(await sres.text()).slice(0, 100)}`);
+    signed++;
+    console.log(`  ✓ ${appt.id}: signed (was '${curOtt}')`);
+  };
+
+  // Bounded worker pool — same idiom as generate(). Visits are independent:
+  // change-status's version/ifMatch guard only conflicts on the SAME encounter,
+  // which the id-dedupe above makes impossible across workers.
+  let idx = 0;
+  const worker = async (): Promise<void> => {
+    while (idx < appts.length) {
+      const appt = appts[idx++];
+      try {
+        await signOne(appt);
+      } catch (e: any) {
+        failed++;
+        console.log(`  ✗ ${appt.id}: ${e?.message ?? e}`);
+      }
     }
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(poolSize, Math.max(appts.length, 1)) }, () => worker()));
   console.log(
     `[catch-up] signed ${signed}` +
+      `${failed ? `, FAILED ${failed}` : ''}` +
       `${resulted ? `, finalized ${resulted} lab/radiology order(s)` : ''}` +
       `${administered ? `, administered ${administered} med/immunization order(s)` : ''}.`
   );
@@ -415,7 +511,8 @@ function prebookFutureStart(now: DateTime, rng: () => number): DateTime {
   return ahead > cap ? now.plus({ minutes: 15 + Math.floor(rng() * 45) }) : ahead;
 }
 
-async function generate(at: string, o: Oystehr, staff: { providers: string[]; mas: string[] }): Promise<void> {
+async function generate(staff: { providers: string[]; mas: string[] }): Promise<void> {
+  const { o } = await auth();
   const today = DateTime.now().setZone(TZ).toFormat('yyyy-MM-dd');
   // Idempotency: already ran today?
   const existing = (await o.fhir.search({
@@ -536,6 +633,9 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
           const out = chunks.join('');
           if (code === 0) {
             // Tag the created appointment + encounter as synth-cron + run-date.
+            // Re-resolve auth here: on a long generate run the initial token can
+            // lapse mid-phase; auth() re-mints (and rebuilds the client) if so.
+            const { o: oNow } = await auth();
             const apptId = out.match(/Appointment:\s+([a-f0-9-]+)/)?.[1];
             const encId = out.match(/Encounter:\s+([a-f0-9-]+)/)?.[1];
             for (const [rt, id] of [
@@ -544,7 +644,7 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
             ] as const) {
               if (!id) continue;
               try {
-                const r: any = await o.fhir.get({ resourceType: rt, id });
+                const r: any = await oNow.fhir.get({ resourceType: rt, id });
                 r.meta = {
                   ...(r.meta || {}),
                   tag: [
@@ -573,7 +673,7 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
                     delete r.statusHistory;
                   }
                 }
-                await o.fhir.update(r);
+                await oNow.fhir.update(r);
               } catch {
                 /* non-fatal */
               }
@@ -599,7 +699,7 @@ async function generate(at: string, o: Oystehr, staff: { providers: string[]; ma
 
 async function main(): Promise<void> {
   console.log(`synth-daily-census — env=${ENV}, count=${COUNT}, phase=${PHASE}, zambda=${ZAMBDA_API}`);
-  const { at, o, projectId } = await tokenAndClient();
+  const { at, o, projectId } = await auth();
   // Refuse production.
   if ((process.env.ENVIRONMENT || '').toLowerCase() === 'production')
     throw new Error('Refusing to run against production.');
@@ -674,8 +774,8 @@ async function main(): Promise<void> {
     console.log(`[ready] ${tmplCount} progress-note template(s) present.`);
   }
 
-  if (PHASE === 'both' || PHASE === 'catchup') await catchUp(at, o, projectId);
-  if (PHASE === 'both' || PHASE === 'generate') await generate(at, o, staff);
+  if (PHASE === 'both' || PHASE === 'catchup') await catchUp();
+  if (PHASE === 'both' || PHASE === 'generate') await generate(staff);
   console.log('Done.');
 }
 

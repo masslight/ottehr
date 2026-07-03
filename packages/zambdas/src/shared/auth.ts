@@ -76,14 +76,34 @@ export async function getPersonForPatient(patientID: string, oystehr: Oystehr): 
 
 export type AuthType = 'regular';
 
+// Re-mint the module-cached M2M token when it's within this window of expiry.
+// Without this, a warm lambda (or a long-lived local server) keeps returning a
+// token past its TTL and every downstream call starts failing with 401/500s.
+const M2M_TOKEN_EXPIRY_MARGIN_MS = 5 * 60 * 1000;
+
+const isNearExpiry = (token: string): boolean => {
+  try {
+    const { exp } = decodeJwt(token);
+    // No exp claim → treat as non-expiring (preserve warm-invocation reuse).
+    if (typeof exp !== 'number') return false;
+    return exp * 1000 - Date.now() < M2M_TOKEN_EXPIRY_MARGIN_MS;
+  } catch {
+    // Undecodable cached token — replace it.
+    return true;
+  }
+};
+
 export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
   if (!token) {
     console.log('getting token');
     return await getAuth0Token(secrets);
-  } else {
-    console.log('already have token');
-    return token;
   }
+  if (isNearExpiry(token)) {
+    console.log('cached token expired or near expiry - getting new token');
+    return await getAuth0Token(secrets);
+  }
+  console.log('already have token');
+  return token;
 }
 
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {

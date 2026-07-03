@@ -15,6 +15,7 @@ import Oystehr from '@oystehr/sdk';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
+import { withRetry } from './shared/retry';
 
 const need = (n: string): string => {
   const v = process.env[n];
@@ -60,11 +61,15 @@ export interface FinalizeCtx {
 }
 
 const zfetch = async (ctx: FinalizeCtx, route: string, body: unknown): Promise<any> => {
-  const res = await fetch(`${ctx.zambdaApi}/zambda/${route}/execute`, {
-    method: 'POST',
-    headers: ctx.headers,
-    body: JSON.stringify(body),
-  });
+  // Retry transient network failures only (fetch failed / ECONNRESET / ETIMEDOUT);
+  // these zambda calls are idempotent re-attempts in the census/finalizer context.
+  const res = await withRetry(route, 3, () =>
+    fetch(`${ctx.zambdaApi}/zambda/${route}/execute`, {
+      method: 'POST',
+      headers: ctx.headers,
+      body: JSON.stringify(body),
+    })
+  );
   if (!res.ok) throw new Error(`${route} ${res.status}: ${(await res.text()).slice(0, 200)}`);
   return res.json();
 };
