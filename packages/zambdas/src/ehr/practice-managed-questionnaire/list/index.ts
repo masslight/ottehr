@@ -2,19 +2,19 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
 import {
-  fhirQuestionnaireToManaged,
+  fhirQuestionnaireToPracticeManaged,
   getAllFhirSearchPages,
   MANAGED_QUESTIONNAIRE_ERROR,
-  ManagedQuestionnaireDetailOutput,
-  ManagedQuestionnaireListOutput,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+  PracticeManagedQuestionnaireDetailOutput,
+  PracticeManagedQuestionnaireListOutput,
 } from 'utils';
 import { checkOrCreateM2MClientToken } from '../../../shared';
 import { createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'managed-questionnaire-list';
+const ZAMBDA_NAME = 'practice-managed-questionnaire-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
@@ -27,7 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, secrets);
 
-  let response: ManagedQuestionnaireDetailOutput | ManagedQuestionnaireListOutput | undefined;
+  let response: PracticeManagedQuestionnaireDetailOutput | PracticeManagedQuestionnaireListOutput | undefined;
 
   if (type === 'detail') {
     const questionnaireId = validatedParameters.questionnaireId;
@@ -46,14 +46,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-function getQuestionnaire(oystehr: Oystehr): Promise<ManagedQuestionnaireListOutput>;
+function getQuestionnaire(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput>;
 
-function getQuestionnaire(oystehr: Oystehr, questionnaireId: string): Promise<ManagedQuestionnaireDetailOutput>;
+function getQuestionnaire(oystehr: Oystehr, questionnaireId: string): Promise<PracticeManagedQuestionnaireDetailOutput>;
 
 async function getQuestionnaire(
   oystehr: Oystehr,
   questionnaireId?: string
-): Promise<ManagedQuestionnaireDetailOutput | ManagedQuestionnaireListOutput> {
+): Promise<PracticeManagedQuestionnaireDetailOutput | PracticeManagedQuestionnaireListOutput> {
   const searchParams: SearchParam[] = [
     { name: '_sort', value: 'title' },
     { name: '_tag', value: PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code },
@@ -61,7 +61,7 @@ async function getQuestionnaire(
 
   if (questionnaireId) searchParams.push({ name: '_id', value: questionnaireId });
 
-  const managedFhirQuestionnaires = await getAllFhirSearchPages<Questionnaire>(
+  const practiceManagedFhirQuestionnaires = await getAllFhirSearchPages<Questionnaire>(
     {
       resourceType: 'Questionnaire',
       params: searchParams,
@@ -69,11 +69,11 @@ async function getQuestionnaire(
     oystehr
   );
 
-  console.log(`found questionnaires: ${managedFhirQuestionnaires.length} total`);
+  console.log(`found questionnaires: ${practiceManagedFhirQuestionnaires.length} total`);
 
-  const managedQuestionnaires = managedFhirQuestionnaires.flatMap((questionnaire) => {
+  const practiceManagedQuestionnaires = practiceManagedFhirQuestionnaires.flatMap((questionnaire) => {
     try {
-      return [fhirQuestionnaireToManaged(questionnaire)];
+      return [fhirQuestionnaireToPracticeManaged(questionnaire)];
     } catch (error) {
       console.error(
         `Failed to validate fhir questionnaire to managed: ${questionnaire.title} Questionnaire/${questionnaire.id}`,
@@ -84,21 +84,21 @@ async function getQuestionnaire(
   });
 
   if (questionnaireId) {
-    if (managedQuestionnaires?.length !== 1) {
+    if (practiceManagedQuestionnaires?.length !== 1) {
       throw MANAGED_QUESTIONNAIRE_ERROR(
-        `There was an issue getting the questionnaire with id ${questionnaireId} - ${managedFhirQuestionnaires?.length} questionnaire(s) were returned`
+        `There was an issue getting the questionnaire with id ${questionnaireId} - ${practiceManagedFhirQuestionnaires?.length} questionnaire(s) were returned`
       );
     }
 
-    const res: ManagedQuestionnaireDetailOutput = {
-      managedQuestionnaires: managedQuestionnaires[0],
+    const res: PracticeManagedQuestionnaireDetailOutput = {
+      practiceManagedQuestionnaires: practiceManagedQuestionnaires[0],
     };
 
-    console.log('returning detail successfully', JSON.stringify(managedQuestionnaires[0]));
+    console.log('returning detail successfully', JSON.stringify(practiceManagedQuestionnaires[0]));
     return res;
   } else {
-    const res: ManagedQuestionnaireListOutput = {
-      managedQuestionnaires,
+    const res: PracticeManagedQuestionnaireListOutput = {
+      practiceManagedQuestionnaires,
     };
 
     console.log('returning list successfully');

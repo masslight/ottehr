@@ -28,5 +28,5 @@ export * from './upload-patient-condition-photo.types';
 export * from './custom-folder.types';
 export * from './patient-education.types';
 export * from './legacy-data';
-export * from './managed-questionnaires';
+export * from './practice-managed-questionnaires';
 export * from './send-patient-form';

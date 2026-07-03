@@ -25,7 +25,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
-import { useManagedQuestionnaireList, useManagedQuestionnaireUpdate } from '../admin.queries';
+import { usePracticeManagedQuestionnaireList, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 import { ImportJsonDialog } from './components/ImportJsonDialog';
 
 function countItems(items: QuestionnaireItem[]): number {
@@ -45,11 +45,11 @@ export const QuestionnaireAdminPage: FC = () => {
   const [showDeleted, setShowDeleted] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
 
-  const { mutateAsync: updateQuestionnaire, isPending: isUpdating } = useManagedQuestionnaireUpdate();
+  const { mutateAsync: updateQuestionnaire, isPending: isUpdating } = usePracticeManagedQuestionnaireUpdate();
 
-  const { data, isLoading, error: loadError } = useManagedQuestionnaireList();
+  const { data, isLoading, error: loadError } = usePracticeManagedQuestionnaireList();
 
-  const managedQuestionnaires = (data?.managedQuestionnaires || [])
+  const managedQuestionnaires = (data?.practiceManagedQuestionnaires || [])
     .slice()
     .sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
 

@@ -4,19 +4,19 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageContainer from 'src/layout/PageContainer';
-import { ManagedQuestionnaire } from 'utils';
-import { useManagedQuestionnaireCreate } from '../admin.queries';
+import { PracticeManagedQuestionnaire } from 'utils';
+import { usePracticeManagedQuestionnaireCreate } from '../admin.queries';
 import { QuestionnaireBuilder } from './components/QuestionnaireBuilder';
 
 export const QuestionnaireNew: FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
 
-  const { mutateAsync: createQuestionnaire, isPending: isSaving } = useManagedQuestionnaireCreate();
+  const { mutateAsync: createQuestionnaire, isPending: isSaving } = usePracticeManagedQuestionnaireCreate();
 
   const handleSave = useCallback(
-    async (managedQuestionnaire: ManagedQuestionnaire) => {
-      const result = await createQuestionnaire({ managedQuestionnaire });
+    async (practiceManagedQuestionnaire: PracticeManagedQuestionnaire) => {
+      const result = await createQuestionnaire({ practiceManagedQuestionnaire });
       const { questionnaireId } = result;
       enqueueSnackbar('Questionnaire saved', { variant: 'success' });
       navigate(`/admin/questionnaires/${questionnaireId}`);

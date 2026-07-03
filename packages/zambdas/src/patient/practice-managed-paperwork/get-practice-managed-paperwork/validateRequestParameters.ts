@@ -1,9 +1,9 @@
 import {
-  GetAllManagedPaperworkInput,
-  GetAllManagedPaperworkInputSchema,
-  GetManagedPaperworkForQuestionnaire,
-  GetManagedPaperworkForQuestionnaireInput,
-  GetManagedPaperworkInput,
+  GetAllPracticeManagedPaperworkInput,
+  GetAllPracticeManagedPaperworkInputSchema,
+  GetPracticeManagedPaperworkForQuestionnaire,
+  GetPracticeManagedPaperworkForQuestionnaireInput,
+  GetPracticeManagedPaperworkInput,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   Secrets,
@@ -15,8 +15,8 @@ type BaseContext = {
 };
 
 type ValidatedRequest =
-  | (BaseContext & GetAllManagedPaperworkInput & { questionnaireId: undefined })
-  | (BaseContext & GetManagedPaperworkForQuestionnaireInput);
+  | (BaseContext & GetAllPracticeManagedPaperworkInput & { questionnaireId: undefined })
+  | (BaseContext & GetPracticeManagedPaperworkForQuestionnaireInput);
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
   if (!input.body) {
@@ -25,7 +25,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   const secrets = input.secrets;
 
-  let parsed: GetManagedPaperworkInput;
+  let parsed: GetPracticeManagedPaperworkInput;
   try {
     parsed = JSON.parse(input.body);
   } catch {
@@ -33,7 +33,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
   }
 
   if ('questionnaireId' in parsed) {
-    const validated = safeValidate(GetManagedPaperworkForQuestionnaire, parsed);
+    const validated = safeValidate(GetPracticeManagedPaperworkForQuestionnaire, parsed);
 
     const { appointmentId, questionnaireId } = validated;
 
@@ -43,7 +43,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
       secrets,
     };
   } else {
-    const validated = safeValidate(GetAllManagedPaperworkInputSchema, parsed);
+    const validated = safeValidate(GetAllPracticeManagedPaperworkInputSchema, parsed);
 
     const { appointmentId } = validated;
 

@@ -6,29 +6,29 @@ import {
   DataTypeSchema,
   INPUT_WIDTH_EXTENSION_URL,
   InputWidthSchema,
-  ManagedQuestionnaire,
-  ManagedQuestionnaireItem,
-  ManagedQuestionnaireItemSchema,
-  ManagedQuestionnaireSchema,
+  PracticeManagedQuestionnaire,
+  PracticeManagedQuestionnaireItem,
+  PracticeManagedQuestionnaireItemSchema,
+  PracticeManagedQuestionnaireSchema,
 } from '../../types';
 
 /**
- * Mainly massages the item property, ManagedQuestionnaireItem has a few fields that are custom / needed only for front end
+ * Mainly massages the item property, PracticeManagedQuestionnaireItem has a few fields that are custom / needed only for front end
  * Custom fields are mapped to extensions and _keys are removed
  * Handles managed questionnaire tag (it should exist and only once)
- * @param questionnaire ManagedQuestionnaire
+ * @param questionnaire PracticeManagedQuestionnaire
  * @returns Fhir Questionnaire
  */
-export const managedQuestionnaireToFhir = (questionnaire: ManagedQuestionnaire): Questionnaire => {
-  const fhirItems = questionnaire.item?.map(managedQuestionnaireItemToFhir);
+export const practiceManagedQuestionnaireToFhir = (questionnaire: PracticeManagedQuestionnaire): Questionnaire => {
+  const fhirItems = questionnaire.item?.map(PracticeManagedQuestionnaireItemToFhir);
 
-  const questionnaireWithTag = addManagedQuestionnaireTag(questionnaire);
+  const questionnaireWithTag = addPracticeManagedQuestionnaireTag(questionnaire);
 
   return { ...questionnaireWithTag, item: fhirItems };
 };
 
-const managedQuestionnaireItemToFhir = (item: ManagedQuestionnaireItem): QuestionnaireItem => {
-  const managedNestedItems = item.item?.map(managedQuestionnaireItemToFhir);
+const PracticeManagedQuestionnaireItemToFhir = (item: PracticeManagedQuestionnaireItem): QuestionnaireItem => {
+  const managedNestedItems = item.item?.map(PracticeManagedQuestionnaireItemToFhir);
 
   // Preserve non-Ottehr extensions from imported questionnaires
   const extension: Extension[] =
@@ -56,7 +56,9 @@ const managedQuestionnaireItemToFhir = (item: ManagedQuestionnaireItem): Questio
   };
 };
 
-const addManagedQuestionnaireTag = (questionnaire: Questionnaire | ManagedQuestionnaire): Questionnaire => {
+const addPracticeManagedQuestionnaireTag = (
+  questionnaire: Questionnaire | PracticeManagedQuestionnaire
+): Questionnaire => {
   const existingMeta = questionnaire.meta || { tag: [] };
   const existingTags = existingMeta.tag ?? [];
 
@@ -77,13 +79,13 @@ const addManagedQuestionnaireTag = (questionnaire: Questionnaire | ManagedQuesti
  * also massages the item property, certain extensions are extracted and mapped to custom attributes on the Managed Item Schema
  * adds keys to items to ensure react stability
  * @param questionnaire Fhir Questionnaire
- * @returns ManagedQuestionnaire
+ * @returns PracticeManagedQuestionnaire
  */
-export const fhirQuestionnaireToManaged = (questionnaire: Questionnaire): ManagedQuestionnaire => {
+export const fhirQuestionnaireToPracticeManaged = (questionnaire: Questionnaire): PracticeManagedQuestionnaire => {
   // add keys to questionnaire item
   const managedItems = questionnaire.item?.map(fhirQuestionnaireItemToManaged);
 
-  const result = ManagedQuestionnaireSchema.safeParse({ ...questionnaire, item: managedItems });
+  const result = PracticeManagedQuestionnaireSchema.safeParse({ ...questionnaire, item: managedItems });
   if (!result.success) {
     throw new Error(`Questionnaire is missing required fields: ${result.error.message}`);
   } else {
@@ -91,16 +93,16 @@ export const fhirQuestionnaireToManaged = (questionnaire: Questionnaire): Manage
   }
 };
 
-export function generateManagedQuestionnaireItemKey(): string {
+export function generatePracticeManagedQuestionnaireItemKey(): string {
   return crypto.randomUUID().slice(0, 8);
 }
 
-export const fhirQuestionnaireItemToManaged = (item: QuestionnaireItem): ManagedQuestionnaireItem => {
+export const fhirQuestionnaireItemToManaged = (item: QuestionnaireItem): PracticeManagedQuestionnaireItem => {
   const managedNestedItems = item.item?.map(fhirQuestionnaireItemToManaged);
 
   // check for custom defined managed questionnaire item fields in extension
-  let dataType: ManagedQuestionnaireItem['dataType'] | undefined;
-  let inputWidth: ManagedQuestionnaireItem['inputWidth'] | undefined;
+  let dataType: PracticeManagedQuestionnaireItem['dataType'] | undefined;
+  let inputWidth: PracticeManagedQuestionnaireItem['inputWidth'] | undefined;
 
   const extension: Extension[] = [];
 
@@ -124,14 +126,14 @@ export const fhirQuestionnaireItemToManaged = (item: QuestionnaireItem): Managed
 
   const itemWithKey = {
     ...item,
-    _key: generateManagedQuestionnaireItemKey(),
+    _key: generatePracticeManagedQuestionnaireItemKey(),
     item: managedNestedItems,
     dataType,
     inputWidth,
     ...(extension.length > 0 ? { extension } : { extension: undefined }),
   };
 
-  const result = ManagedQuestionnaireItemSchema.safeParse(itemWithKey);
+  const result = PracticeManagedQuestionnaireItemSchema.safeParse(itemWithKey);
   if (!result.success) {
     throw new Error(`Questionnaire item is missing required fields: ${result.error.message}`);
   }

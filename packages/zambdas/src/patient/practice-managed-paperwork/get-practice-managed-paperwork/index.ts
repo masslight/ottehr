@@ -2,14 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import {
-  GetAllManagedPaperworkOutput,
-  GetManagedPaperworkForQuestionnaireOutput,
-  // APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL,
-  // composeFormIds,
-  // fhirQuestionnaireItemToManaged,
-  // fhirQuestionnaireToManaged,
-  // getAllFhirSearchPages,
-  ManagedPaperworkDTO,
+  GetAllPracticeManagedPaperworkOutput,
+  GetPracticeManagedPaperworkForQuestionnaireOutput,
   // IN_PERSON_INTAKE_PAPERWORK_URL,
   // isNonPaperworkQuestionnaireResponse,
   // ManagedQuestionnaireItem,
@@ -19,6 +13,12 @@ import {
   // PAPERWORK_FLOW_TAG,
   PRACTICE_MANAGED_QR_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+  // APPOINTMENT_PAPERWORK_FLOW_EXTENSION_URL,
+  // composeFormIds,
+  // fhirQuestionnaireItemToManaged,
+  // fhirQuestionnaireToPracticeManaged,
+  // getAllFhirSearchPages,
+  PracticeManagedPaperworkDTO,
   // RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   // toPaperworkFlowRecord,
 } from 'utils';
@@ -116,9 +116,9 @@ import { validateRequestParameters } from './validateRequestParameters';
 // }
 
 let oystehrToken: string;
-const ZAMBDA_NAME = 'get-managed-paperwork';
+const ZAMBDA_NAME = 'get-practice-managed-paperwork';
 
-const EMPTY_RESPONSE: ManagedPaperworkDTO = {
+const EMPTY_RESPONSE: PracticeManagedPaperworkDTO = {
   questionnaireTitle: '',
   questionnaireId: '',
   questionnaireItems: [],
@@ -169,8 +169,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const relatedQR = questionnaireResponses.find((qr) => qr.questionnaire === questionnaire.url);
     console.log(`related questionnaire response: ${relatedQR ? `QuestionnaireResponse/${relatedQR.id}` : 'none'}`);
 
-    const managedPaperwork = makeManagedPaperworkDTO(questionnaire, relatedQR);
-    const response: GetManagedPaperworkForQuestionnaireOutput = { managedPaperwork };
+    const practiceManagedPaperwork = makeManagedPaperworkDTO(questionnaire, relatedQR);
+    const response: GetPracticeManagedPaperworkForQuestionnaireOutput = { practiceManagedPaperwork };
 
     return {
       statusCode: 200,
@@ -199,8 +199,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return managedPaperwork;
     });
 
-    const managedPaperwork = (await Promise.all(promises)).filter(hasQuestionnaireResponse);
-    const response: GetAllManagedPaperworkOutput = { managedPaperwork };
+    const practiceManagedPaperwork = (await Promise.all(promises)).filter(hasQuestionnaireResponse);
+    const response: GetAllPracticeManagedPaperworkOutput = { practiceManagedPaperwork };
 
     return {
       statusCode: 200,
@@ -344,7 +344,7 @@ const getResources = async (oystehr: Oystehr, appointmentId: string): Promise<Re
 function makeManagedPaperworkDTO(
   questionnaire: Questionnaire,
   questionnaireResponse: QuestionnaireResponse | undefined
-): ManagedPaperworkDTO {
+): PracticeManagedPaperworkDTO {
   return {
     questionnaireTitle: questionnaire.title ?? '',
     questionnaireId: questionnaire.id ?? '',
@@ -354,8 +354,8 @@ function makeManagedPaperworkDTO(
 }
 
 function hasQuestionnaireResponse(
-  dto: ManagedPaperworkDTO
-): dto is ManagedPaperworkDTO & { questionnaireResponse: QuestionnaireResponse } {
+  dto: PracticeManagedPaperworkDTO
+): dto is PracticeManagedPaperworkDTO & { questionnaireResponse: QuestionnaireResponse } {
   return dto.questionnaireResponse !== undefined;
 }
 

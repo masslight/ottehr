@@ -12,7 +12,7 @@ import {
   MANUAL_TASK,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PRACTICE_MANAGED_QR_TAG,
-  SaveManagedPaperworkResponseOutput,
+  SavePracticeManagedPaperworkResponseOutput,
   SecretsKeys,
   slugify,
 } from 'utils';
@@ -33,7 +33,7 @@ import { renderQrPdf } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let oystehrToken: string;
-const ZAMBDA_NAME = 'save-managed-paperwork-response';
+const ZAMBDA_NAME = 'save-practice-managed-paperwork-response';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started`);
@@ -75,7 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     `handling responses to Questionnaire with url ${canonicalQuestionnaireUrl} (Questionnaire/${questionnaire.id})`
   );
 
-  let response: SaveManagedPaperworkResponseOutput | undefined;
+  let response: SavePracticeManagedPaperworkResponseOutput | undefined;
 
   if (existing) {
     console.log(`will update existing QuestionnaireResponse/${existing.id}`);

@@ -34,10 +34,10 @@ import {
   createZ3Object,
   deleteVisitFiles,
   generatePaperworkPdf,
-  getManagedPaperwork,
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
+  getPracticeManagedPaperwork,
   getVisitFaxHistory,
   listServiceCategories,
   updatePatientVisitDetails,
@@ -285,7 +285,7 @@ export default function VisitDetailsPage(): ReactElement {
     queryKey: ['practice-managed-questionnaires', appointmentID],
     queryFn: async () => {
       if (!oystehrZambda || !appointmentID) return { managedPaperwork: [] };
-      const response = await getManagedPaperwork(oystehrZambda, { appointmentId: appointmentID });
+      const response = await getPracticeManagedPaperwork(oystehrZambda, { appointmentId: appointmentID });
 
       console.log('huh', response); // todo sarah clean up
 
@@ -1389,8 +1389,8 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
-                    {(practiceManagedData?.managedPaperwork || []).length > 0 ? (
-                      (practiceManagedData?.managedPaperwork || []).map((paperwork, idx) => (
+                    {(practiceManagedData?.practiceManagedPaperwork || []).length > 0 ? (
+                      (practiceManagedData?.practiceManagedPaperwork || []).map((paperwork, idx) => (
                         <Grid item key={`${paperwork.questionnaireId}-${idx}`}>
                           <Paper sx={{ mt: 2, p: 3 }}>
                             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>

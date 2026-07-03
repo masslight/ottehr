@@ -57,13 +57,13 @@ export const StandaloneFormPage: FC = () => {
     const fetchManagedPaperwork = async (): Promise<void> => {
       try {
         setAuthedFetchState(AuthedLoadingState.loading);
-        const response = await api.getManagedPaperwork(zambdaClient, { appointmentId, questionnaireId });
-        const { managedPaperwork } = response;
-        setQuestionnaireTitle(managedPaperwork.questionnaireTitle);
-        setQuestionnaireItems(managedPaperwork.questionnaireItems);
+        const response = await api.getPracticeManagedPaperwork(zambdaClient, { appointmentId, questionnaireId });
+        const { practiceManagedPaperwork } = response;
+        setQuestionnaireTitle(practiceManagedPaperwork.questionnaireTitle);
+        setQuestionnaireItems(practiceManagedPaperwork.questionnaireItems);
 
-        if (managedPaperwork.questionnaireResponse) {
-          setQuestionnaireResponse(managedPaperwork.questionnaireResponse);
+        if (practiceManagedPaperwork.questionnaireResponse) {
+          setQuestionnaireResponse(practiceManagedPaperwork.questionnaireResponse);
         }
       } catch (e) {
         if (isApiError(e)) {
@@ -169,7 +169,7 @@ export const StandaloneFormPage: FC = () => {
 
         const pageAnswers: QuestionnaireResponseItem = { linkId: currentPage.linkId, item };
 
-        const { questionnaireResponse: updatedQR } = await api.saveManagedPaperworkResponse(zambdaClient, {
+        const { questionnaireResponse: updatedQR } = await api.savePracticeManagedPaperworkResponse(zambdaClient, {
           pageAnswers,
           questionnaireId,
           complete: isLastPage,

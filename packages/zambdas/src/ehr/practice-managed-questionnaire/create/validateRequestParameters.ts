@@ -1,10 +1,10 @@
 import { Questionnaire } from 'fhir/r4b';
 import {
   INVALID_INPUT_ERROR,
-  ManagedQuestionnaireCreateInput,
-  ManagedQuestionnaireSchema,
-  managedQuestionnaireToFhir,
   MISSING_REQUEST_BODY,
+  PracticeManagedQuestionnaireCreateInput,
+  PracticeManagedQuestionnaireSchema,
+  practiceManagedQuestionnaireToFhir,
   Secrets,
 } from 'utils';
 import { safeValidate, ZambdaInput } from '../../../shared';
@@ -22,17 +22,17 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   const secrets = input.secrets;
 
-  let params: ManagedQuestionnaireCreateInput;
+  let params: PracticeManagedQuestionnaireCreateInput;
   try {
     params = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }
 
-  const managedQuestionnaire = safeValidate(ManagedQuestionnaireSchema, params.managedQuestionnaire);
+  const managedQuestionnaire = safeValidate(PracticeManagedQuestionnaireSchema, params.practiceManagedQuestionnaire);
   if (managedQuestionnaire.id) delete managedQuestionnaire.id;
 
-  const fhirQuestionnaire = managedQuestionnaireToFhir(managedQuestionnaire);
+  const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(managedQuestionnaire);
 
   return {
     questionnaire: fhirQuestionnaire,

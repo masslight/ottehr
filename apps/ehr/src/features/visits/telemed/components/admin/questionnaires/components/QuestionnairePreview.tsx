@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { getDisplayOptionPrefix, getItemControl, getOptionDisplay } from 'ui-components';
-import { ManagedQuestionnaire, ManagedQuestionnaireItem } from 'utils';
+import { PracticeManagedQuestionnaire, PracticeManagedQuestionnaireItem } from 'utils';
 
 // Ottehr intake color palette
 const COLORS = {
@@ -36,7 +36,7 @@ const COLORS = {
 };
 
 interface QuestionnairePreviewProps {
-  questionnaire: ManagedQuestionnaire;
+  questionnaire: PracticeManagedQuestionnaire;
 }
 
 // Bold input label matching Ottehr's BoldPurpleInputLabel
@@ -113,7 +113,7 @@ const ottehrInputSx = {
   },
 };
 
-function getItemGridWidth(item: ManagedQuestionnaireItem): number {
+function getItemGridWidth(item: PracticeManagedQuestionnaireItem): number {
   const widthMap: Record<string, number> = { s: 4, m: 6, l: 7 };
   // Check the builder's inputWidth field first
   if (item.inputWidth && widthMap[item.inputWidth]) return widthMap[item.inputWidth];
@@ -124,7 +124,7 @@ function getItemGridWidth(item: ManagedQuestionnaireItem): number {
   return 12;
 }
 
-const OpenChoiceSelectPreview: FC<{ item: ManagedQuestionnaireItem }> = ({ item }) => {
+const OpenChoiceSelectPreview: FC<{ item: PracticeManagedQuestionnaireItem }> = ({ item }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [menuWidth, setMenuWidth] = useState<number | null>(null);
 
@@ -164,7 +164,7 @@ const OpenChoiceSelectPreview: FC<{ item: ManagedQuestionnaireItem }> = ({ item 
   );
 };
 
-const ItemPreview: FC<{ item: ManagedQuestionnaireItem }> = ({ item }) => {
+const ItemPreview: FC<{ item: PracticeManagedQuestionnaireItem }> = ({ item }) => {
   switch (item.type) {
     case 'group':
       return (
@@ -381,7 +381,7 @@ const ItemPreview: FC<{ item: ManagedQuestionnaireItem }> = ({ item }) => {
 export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({ questionnaire }) => {
   // Treat top-level group items as pages (Ottehr convention)
   const pages = useMemo(() => {
-    const items = (questionnaire.item || []) as ManagedQuestionnaireItem[];
+    const items = (questionnaire.item || []) as PracticeManagedQuestionnaireItem[];
     const topLevelGroups = items.filter((item) => item.type === 'group');
     // If there are top-level groups, treat them as pages; otherwise show all items as one page
     if (topLevelGroups.length > 0) return topLevelGroups;

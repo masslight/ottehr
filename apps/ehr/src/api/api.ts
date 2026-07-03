@@ -106,8 +106,8 @@ import {
   EHRVisitDetails,
   EmCodeOutput,
   GetAllergyQuickPicksResponse,
-  GetAllManagedPaperworkInput,
-  GetAllManagedPaperworkOutput,
+  GetAllPracticeManagedPaperworkInput,
+  GetAllPracticeManagedPaperworkOutput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -121,10 +121,6 @@ import {
   GetLabelPrintingConfigOutput,
   GetLabOrdersParameters,
   GetLocationSupportPhonesOutput,
-  GetManagedPaperworkForQuestionnaireInput,
-  GetManagedPaperworkForQuestionnaireOutput,
-  GetManagedPaperworkInput,
-  GetManagedPaperworkOutput,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
   GetNursingOrdersInput,
@@ -134,6 +130,10 @@ import {
   GetPatientInstructionQuickPicksResponse,
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
+  GetPracticeManagedPaperworkForQuestionnaireInput,
+  GetPracticeManagedPaperworkForQuestionnaireOutput,
+  GetPracticeManagedPaperworkInput,
+  GetPracticeManagedPaperworkOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
   GetProgressNoteConfigInput,
@@ -170,12 +170,6 @@ import {
   ListTemplatesZambdaOutput,
   MailedStatementsReportZambdaInput,
   MailedStatementsReportZambdaOutput,
-  ManagedQuestionnaireCreateInput,
-  ManagedQuestionnaireCreateOutput,
-  ManagedQuestionnaireDetailInput,
-  ManagedQuestionnaireDetailOutput,
-  ManagedQuestionnaireListOutput,
-  ManagedQuestionnaireUpdateInput,
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   MigrateExamDataInput,
@@ -188,6 +182,12 @@ import {
   PendingSupervisorApprovalInput,
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
+  PracticeManagedQuestionnaireCreateInput,
+  PracticeManagedQuestionnaireCreateOutput,
+  PracticeManagedQuestionnaireDetailInput,
+  PracticeManagedQuestionnaireDetailOutput,
+  PracticeManagedQuestionnaireListOutput,
+  PracticeManagedQuestionnaireUpdateInput,
   PresignUploadUrlResponse,
   ProcedureQuickPickData,
   QuickPickRemoveResponse,
@@ -350,11 +350,11 @@ const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
 const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
 const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
-const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'managed-questionnaire-list';
-const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'managed-questionnaire-update';
-const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'managed-questionnaire-create';
+const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
+const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
+const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
 const SEND_PATIENT_FORM = 'send-patient-form';
-const GET_MANAGED_PAPERWORK = 'get-managed-paperwork';
+const GET_PRACTICE_MANAGED_PAPERWORK = 'get-practice-managed-paperwork';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2864,17 +2864,17 @@ export const migrateExamData = async (
 
 // ── Managed Questionnaires ──
 
-export function managedQuestionnaireList(oystehr: Oystehr): Promise<ManagedQuestionnaireListOutput>;
+export function practiceManagedQuestionnaireList(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput>;
 
-export function managedQuestionnaireList(
+export function practiceManagedQuestionnaireList(
   oystehr: Oystehr,
-  parameters: ManagedQuestionnaireDetailInput
-): Promise<ManagedQuestionnaireDetailOutput>;
+  parameters: PracticeManagedQuestionnaireDetailInput
+): Promise<PracticeManagedQuestionnaireDetailOutput>;
 
-export async function managedQuestionnaireList(
+export async function practiceManagedQuestionnaireList(
   oystehr: Oystehr,
-  parameters?: ManagedQuestionnaireDetailInput
-): Promise<ManagedQuestionnaireDetailOutput | ManagedQuestionnaireListOutput> {
+  parameters?: PracticeManagedQuestionnaireDetailInput
+): Promise<PracticeManagedQuestionnaireDetailOutput | PracticeManagedQuestionnaireListOutput> {
   try {
     const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID, ...(parameters ?? {}) });
     return chooseJson(response);
@@ -2884,9 +2884,9 @@ export async function managedQuestionnaireList(
   }
 }
 
-export const managedQuestionnaireUpdate = async (
+export const practiceManagedQuestionnaireUpdate = async (
   oystehr: Oystehr,
-  parameters: ManagedQuestionnaireUpdateInput
+  parameters: PracticeManagedQuestionnaireUpdateInput
 ): Promise<void> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -2900,10 +2900,10 @@ export const managedQuestionnaireUpdate = async (
   }
 };
 
-export const managedQuestionnaireCreate = async (
+export const practiceManagedQuestionnaireCreate = async (
   oystehr: Oystehr,
-  parameters: ManagedQuestionnaireCreateInput
-): Promise<ManagedQuestionnaireCreateOutput> => {
+  parameters: PracticeManagedQuestionnaireCreateInput
+): Promise<PracticeManagedQuestionnaireCreateOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
@@ -2929,23 +2929,23 @@ export const sendPatientForm = async (oystehr: Oystehr, parameters: SendPatientF
   }
 };
 
-export function getManagedPaperwork(
+export function getPracticeManagedPaperwork(
   oystehr: Oystehr,
-  parameters: GetAllManagedPaperworkInput
-): Promise<GetAllManagedPaperworkOutput>;
+  parameters: GetAllPracticeManagedPaperworkInput
+): Promise<GetAllPracticeManagedPaperworkOutput>;
 
-export function getManagedPaperwork(
+export function getPracticeManagedPaperwork(
   oystehr: Oystehr,
-  parameters: GetManagedPaperworkForQuestionnaireInput
-): Promise<GetManagedPaperworkForQuestionnaireOutput>;
+  parameters: GetPracticeManagedPaperworkForQuestionnaireInput
+): Promise<GetPracticeManagedPaperworkForQuestionnaireOutput>;
 
-export async function getManagedPaperwork(
+export async function getPracticeManagedPaperwork(
   oystehr: Oystehr,
-  parameters: GetManagedPaperworkInput
-): Promise<GetManagedPaperworkOutput> {
+  parameters: GetPracticeManagedPaperworkInput
+): Promise<GetPracticeManagedPaperworkOutput> {
   try {
     const response = await oystehr.zambda.execute({
-      id: GET_MANAGED_PAPERWORK,
+      id: GET_PRACTICE_MANAGED_PAPERWORK,
       ...parameters,
     });
     return chooseJson(response);

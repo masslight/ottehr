@@ -2269,39 +2269,39 @@
       "zip": ".dist/zips/delete-custom-folder.zip"
     },
     "MANAGED_QUESTIONNAIRE_LIST": {
-      "name": "managed-questionnaire-list",
+      "name": "practice-managed-questionnaire-list",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/managed-questionnaire/list/index",
-      "zip": ".dist/zips/managed-questionnaire-list.zip"
+      "src": "src/ehr/practice-managed-questionnaire/list/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-list.zip"
     },
     "MANAGED_QUESTIONNAIRE_UPDATE": {
-      "name": "managed-questionnaire-update",
+      "name": "practice-managed-questionnaire-update",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/managed-questionnaire/update/index",
-      "zip": ".dist/zips/managed-questionnaire-update.zip"
+      "src": "src/ehr/practice-managed-questionnaire/update/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-update.zip"
     },
     "MANAGED_QUESTIONNAIRE_CREATE": {
-      "name": "managed-questionnaire-create",
+      "name": "practice-managed-questionnaire-create",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/managed-questionnaire/create/index",
-      "zip": ".dist/zips/managed-questionnaire-create.zip"
+      "src": "src/ehr/practice-managed-questionnaire/create/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
     },
-    "GET-MANAGED-PAPERWORK": {
-      "name": "get-managed-paperwork",
+    "GET-PRACTICE-MANAGED-PAPERWORK": {
+      "name": "get-practice-managed-paperwork",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/patient/managed-paperwork/get-managed-paperwork/index",
-      "zip": ".dist/zips/get-managed-paperwork.zip"
+      "src": "src/patient/practice-managed-paperwork/get-practice-managed-paperwork/index",
+      "zip": ".dist/zips/get-practice-managed-paperwork.zip"
     },
     "SAVE-MANAGED-PAPERWORK-RESPONSE": {
-      "name": "save-managed-paperwork-response",
+      "name": "save-practice-managed-paperwork-response",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/patient/managed-paperwork/save-managed-paperwork-response/index",
-      "zip": ".dist/zips/save-managed-paperwork-response.zip"
+      "src": "src/patient/practice-managed-paperwork/save-practice-managed-paperwork-response/index",
+      "zip": ".dist/zips/save-practice-managed-paperwork-response.zip"
     }
   },
   "fhirResources": {

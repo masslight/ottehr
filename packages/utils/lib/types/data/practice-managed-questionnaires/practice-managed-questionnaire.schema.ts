@@ -1,12 +1,16 @@
 import { QuestionnaireBaseSchema } from 'config-types';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import z from 'zod';
-import { OTTEHR_DATA_TYPES, OTTEHR_INPUT_WIDTHS, QUESTIONNAIRE_ITEM_TYPES } from './managed-questionnaire.types';
+import {
+  OTTEHR_DATA_TYPES,
+  OTTEHR_INPUT_WIDTHS,
+  QUESTIONNAIRE_ITEM_TYPES,
+} from './practice-managed-questionnaire.types';
 
 export const DataTypeSchema = z.enum(OTTEHR_DATA_TYPES);
 export const InputWidthSchema = z.enum(OTTEHR_INPUT_WIDTHS);
 
-export const ManagedQuestionnaireItemSchema = z
+export const PracticeManagedQuestionnaireItemSchema = z
   .object({
     linkId: z.string(),
     type: z.enum(QUESTIONNAIRE_ITEM_TYPES),
@@ -18,26 +22,26 @@ export const ManagedQuestionnaireItemSchema = z
   })
   .passthrough();
 
-export const ManagedQuestionnaireSchema = QuestionnaireBaseSchema.omit({ version: true })
+export const PracticeManagedQuestionnaireSchema = QuestionnaireBaseSchema.omit({ version: true })
   .extend({
-    item: ManagedQuestionnaireItemSchema.array(),
+    item: PracticeManagedQuestionnaireItemSchema.array(),
   })
   .passthrough();
 
-export const ManagedQuestionnaireUpdateStatusSchema = z.object({
+export const PracticeManagedQuestionnaireUpdateStatusSchema = z.object({
   questionnaireId: z.string().uuid(),
   newStatus: z.enum(['draft', 'active', 'retired', 'unknown']),
 });
 
-export const GetAllManagedPaperworkInputSchema = z.object({
+export const GetAllPracticeManagedPaperworkInputSchema = z.object({
   appointmentId: z.string().uuid(),
 });
 
-export const GetManagedPaperworkForQuestionnaire = GetAllManagedPaperworkInputSchema.extend({
+export const GetPracticeManagedPaperworkForQuestionnaire = GetAllPracticeManagedPaperworkInputSchema.extend({
   questionnaireId: z.string().uuid(),
 });
 
-export const SaveManagedPaperworkResponseInputSchema = z.object({
+export const SavePracticeManagedPaperworkResponseInputSchema = z.object({
   pageAnswers: z.custom<QuestionnaireResponseItem>(),
   questionnaireId: z.string().uuid(),
   // we could probably deduce "complete" from the questionnaire and answers but for simplicity sake passing from the front end for now

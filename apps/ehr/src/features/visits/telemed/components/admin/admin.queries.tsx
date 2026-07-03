@@ -22,9 +22,9 @@ import {
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   getSupportDialog,
-  managedQuestionnaireCreate,
-  managedQuestionnaireList,
-  managedQuestionnaireUpdate,
+  practiceManagedQuestionnaireCreate,
+  practiceManagedQuestionnaireList,
+  practiceManagedQuestionnaireUpdate,
   removeQuickPick,
   updateEmCode,
   updateImmunizationQuickPick,
@@ -62,12 +62,12 @@ import {
   InHouseMedicationQuickPickData,
   isApiError,
   isLocationVirtual,
-  ManagedQuestionnaireCreateInput,
-  ManagedQuestionnaireCreateOutput,
-  ManagedQuestionnaireDetailInput,
-  ManagedQuestionnaireDetailOutput,
-  ManagedQuestionnaireListOutput,
-  ManagedQuestionnaireUpdateInput,
+  PracticeManagedQuestionnaireCreateInput,
+  PracticeManagedQuestionnaireCreateOutput,
+  PracticeManagedQuestionnaireDetailInput,
+  PracticeManagedQuestionnaireDetailOutput,
+  PracticeManagedQuestionnaireListOutput,
+  PracticeManagedQuestionnaireUpdateInput,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
   UpdateEmCodeInput,
@@ -715,25 +715,25 @@ export const useAdminUpdateLocationSupportPhones = (): UseMutationResult<
   });
 };
 
-export const useManagedQuestionnaireCreate = (): UseMutationResult<
-  ManagedQuestionnaireCreateOutput,
+export const usePracticeManagedQuestionnaireCreate = (): UseMutationResult<
+  PracticeManagedQuestionnaireCreateOutput,
   Error,
-  ManagedQuestionnaireCreateInput
+  PracticeManagedQuestionnaireCreateInput
 > => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ['managed-questionnaire-create'],
-    mutationFn: async (input: ManagedQuestionnaireCreateInput) => {
+    mutationKey: ['practice-managed-questionnaire-create'],
+    mutationFn: async (input: PracticeManagedQuestionnaireCreateInput) => {
       if (!oystehrZambda) {
         throw new Error('oystehr client is undefined');
       }
-      return managedQuestionnaireCreate(oystehrZambda!, input);
+      return practiceManagedQuestionnaireCreate(oystehrZambda!, input);
     },
     onSuccess: async (_data, _variables) => {
       await queryClient.invalidateQueries({
-        queryKey: ['managed-questionnaire-list'],
+        queryKey: ['practice-managed-questionnaire-list'],
       });
     },
     onError: (error: any) => {
@@ -745,55 +745,58 @@ export const useManagedQuestionnaireCreate = (): UseMutationResult<
   });
 };
 
-export const useGetManagedQuestionnaireDetail = (
-  input: ManagedQuestionnaireDetailInput
-): UseQueryResult<ManagedQuestionnaireDetailOutput, Error> => {
+export const useGetPracticeManagedQuestionnaireDetail = (
+  input: PracticeManagedQuestionnaireDetailInput
+): UseQueryResult<PracticeManagedQuestionnaireDetailOutput, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['managed-questionnaire-detail', input.questionnaireId],
+    queryKey: ['practice-managed-questionnaire-detail', input.questionnaireId],
     queryFn: async () => {
-      return managedQuestionnaireList(oystehrZambda!, input);
+      return practiceManagedQuestionnaireList(oystehrZambda!, input);
     },
     enabled: !!oystehrZambda,
     staleTime: 30_000, // 30 sec
   });
 };
 
-export const useManagedQuestionnaireList = (): UseQueryResult<ManagedQuestionnaireListOutput, Error> => {
+export const usePracticeManagedQuestionnaireList = (): UseQueryResult<
+  PracticeManagedQuestionnaireListOutput,
+  Error
+> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['managed-questionnaire-list'],
+    queryKey: ['practice-managed-questionnaire-list'],
     queryFn: async () => {
-      return managedQuestionnaireList(oystehrZambda!);
+      return practiceManagedQuestionnaireList(oystehrZambda!);
     },
     enabled: !!oystehrZambda,
     staleTime: 30_000, // 30 sec
   });
 };
 
-export const useManagedQuestionnaireUpdate = (
+export const usePracticeManagedQuestionnaireUpdate = (
   questionnaireId?: string
-): UseMutationResult<void, Error, ManagedQuestionnaireUpdateInput> => {
+): UseMutationResult<void, Error, PracticeManagedQuestionnaireUpdateInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationKey: ['managed-questionnaire-update', questionnaireId],
-    mutationFn: async (input: ManagedQuestionnaireUpdateInput) => {
+    mutationKey: ['practice-managed-questionnaire-update', questionnaireId],
+    mutationFn: async (input: PracticeManagedQuestionnaireUpdateInput) => {
       if (!oystehrZambda) {
         throw new Error('oystehr client is undefined');
       }
-      return managedQuestionnaireUpdate(oystehrZambda!, input);
+      return practiceManagedQuestionnaireUpdate(oystehrZambda!, input);
     },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ['managed-questionnaire-list'],
+          queryKey: ['practice-managed-questionnaire-list'],
         }),
         queryClient.invalidateQueries({
-          queryKey: ['managed-questionnaire-detail'],
+          queryKey: ['practice-managed-questionnaire-detail'],
         }),
       ]);
     },

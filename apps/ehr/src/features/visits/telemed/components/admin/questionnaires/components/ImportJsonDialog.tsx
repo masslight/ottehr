@@ -4,8 +4,8 @@ import { Box, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typo
 import { enqueueSnackbar } from 'notistack';
 import { FC, SetStateAction, useCallback, useRef, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { fhirQuestionnaireToManaged, ManagedQuestionnaire } from 'utils';
-import { useManagedQuestionnaireCreate } from '../../admin.queries';
+import { fhirQuestionnaireToPracticeManaged, PracticeManagedQuestionnaire } from 'utils';
+import { usePracticeManagedQuestionnaireCreate } from '../../admin.queries';
 
 interface ImportJsonDialogProps {
   open: boolean;
@@ -90,11 +90,11 @@ export const ImportJsonDialog: FC<ImportJsonDialogProps> = (props) => {
     mutateAsync: createQuestionnaire,
     isPending: isImporting,
     error: importError,
-  } = useManagedQuestionnaireCreate();
+  } = usePracticeManagedQuestionnaireCreate();
 
   const handleImport = useCallback(async () => {
     let parsed: any;
-    let managedQuestionnaire: ManagedQuestionnaire | undefined;
+    let practiceManagedQuestionnaire: PracticeManagedQuestionnaire | undefined;
     try {
       parsed = JSON.parse(importJson);
       if (parsed.id) {
@@ -107,7 +107,7 @@ export const ImportJsonDialog: FC<ImportJsonDialogProps> = (props) => {
       }
 
       // create questionnaire expects a managed questionnaire so we will format as such
-      managedQuestionnaire = fhirQuestionnaireToManaged(parsed);
+      practiceManagedQuestionnaire = fhirQuestionnaireToPracticeManaged(parsed);
     } catch (e) {
       let errorMessage = 'Error validating the provided json';
       if ((e as any)?.message) errorMessage = (e as any)?.message;
@@ -115,8 +115,10 @@ export const ImportJsonDialog: FC<ImportJsonDialogProps> = (props) => {
       return;
     }
 
-    await createQuestionnaire({ managedQuestionnaire });
-    enqueueSnackbar(`Imported "${managedQuestionnaire.title || managedQuestionnaire.name}"`, { variant: 'success' });
+    await createQuestionnaire({ practiceManagedQuestionnaire });
+    enqueueSnackbar(`Imported "${practiceManagedQuestionnaire.title || practiceManagedQuestionnaire.name}"`, {
+      variant: 'success',
+    });
     setOpen(false);
     setImportJson('');
   }, [createQuestionnaire, importJson, setOpen]);

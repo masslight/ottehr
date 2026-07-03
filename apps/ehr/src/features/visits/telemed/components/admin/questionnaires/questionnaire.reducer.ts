@@ -1,7 +1,7 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import {
-  generateManagedQuestionnaireItemKey as generateKey,
-  ManagedQuestionnaireItem,
+  generatePracticeManagedQuestionnaireItemKey as generateKey,
+  PracticeManagedQuestionnaireItem,
   QuestionnaireItemType,
 } from 'utils';
 
@@ -15,13 +15,13 @@ export type ItemAction =
   | { type: 'ADD_ANSWER_OPTION'; key: string }
   | { type: 'UPDATE_ANSWER_OPTION'; key: string; index: number; option: QuestionnaireItemAnswerOption }
   | { type: 'REMOVE_ANSWER_OPTION'; key: string; index: number }
-  | { type: 'SET_ITEMS'; items: ManagedQuestionnaireItem[] };
+  | { type: 'SET_ITEMS'; items: PracticeManagedQuestionnaireItem[] };
 
 function updateItemInTree(
-  items: ManagedQuestionnaireItem[],
+  items: PracticeManagedQuestionnaireItem[],
   key: string,
-  updater: (item: ManagedQuestionnaireItem) => ManagedQuestionnaireItem
-): ManagedQuestionnaireItem[] {
+  updater: (item: PracticeManagedQuestionnaireItem) => PracticeManagedQuestionnaireItem
+): PracticeManagedQuestionnaireItem[] {
   return items.map((item) => {
     if (item._key === key) return updater(item);
     if (item.item) return { ...item, item: updateItemInTree(item.item, key, updater) };
@@ -29,13 +29,20 @@ function updateItemInTree(
   });
 }
 
-function removeItemFromTree(items: ManagedQuestionnaireItem[], key: string): ManagedQuestionnaireItem[] {
+function removeItemFromTree(
+  items: PracticeManagedQuestionnaireItem[],
+  key: string
+): PracticeManagedQuestionnaireItem[] {
   return items
     .filter((item) => item._key !== key)
     .map((item) => (item.item ? { ...item, item: removeItemFromTree(item.item, key) } : item));
 }
 
-function moveItemInList(items: ManagedQuestionnaireItem[], key: string, direction: -1 | 1): ManagedQuestionnaireItem[] {
+function moveItemInList(
+  items: PracticeManagedQuestionnaireItem[],
+  key: string,
+  direction: -1 | 1
+): PracticeManagedQuestionnaireItem[] {
   const index = items.findIndex((item) => item._key === key);
   if (index >= 0) {
     const newIndex = index + direction;
@@ -49,7 +56,10 @@ function moveItemInList(items: ManagedQuestionnaireItem[], key: string, directio
   return items.map((item) => (item.item ? { ...item, item: moveItemInList(item.item, key, direction) } : item));
 }
 
-export function itemsReducer(state: ManagedQuestionnaireItem[], action: ItemAction): ManagedQuestionnaireItem[] {
+export function itemsReducer(
+  state: PracticeManagedQuestionnaireItem[],
+  action: ItemAction
+): PracticeManagedQuestionnaireItem[] {
   switch (action.type) {
     case 'ADD_PAGE':
       return [

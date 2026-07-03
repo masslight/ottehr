@@ -4,8 +4,8 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageContainer from 'src/layout/PageContainer';
-import { ManagedQuestionnaire } from 'utils';
-import { useGetManagedQuestionnaireDetail, useManagedQuestionnaireUpdate } from '../admin.queries';
+import { PracticeManagedQuestionnaire } from 'utils';
+import { useGetPracticeManagedQuestionnaireDetail, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 import { QuestionnaireBuilder } from './components/QuestionnaireBuilder';
 
 export const QuestionnaireDetail: FC = () => {
@@ -17,23 +17,23 @@ export const QuestionnaireDetail: FC = () => {
     mutateAsync: updateQuestionnaire,
     isPending: isUpdating,
     // error: updateError,
-  } = useManagedQuestionnaireUpdate(questionnaireId ?? '');
+  } = usePracticeManagedQuestionnaireUpdate(questionnaireId ?? '');
 
   const {
     data,
     isPending: isFetching,
     error: fetchError,
     // status,
-  } = useGetManagedQuestionnaireDetail({
+  } = useGetPracticeManagedQuestionnaireDetail({
     questionnaireId: questionnaireId as string,
   });
 
-  const questionnaire = data?.managedQuestionnaires;
+  const questionnaire = data?.practiceManagedQuestionnaires;
 
   console.log('questionnaire', questionnaire);
 
   const handleSave = useCallback(
-    async (questionnaire: ManagedQuestionnaire) => {
+    async (questionnaire: PracticeManagedQuestionnaire) => {
       await updateQuestionnaire({
         updateType: 'update-questionnaire',
         data: questionnaire,

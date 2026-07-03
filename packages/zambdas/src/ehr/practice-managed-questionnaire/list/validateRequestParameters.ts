@@ -1,8 +1,8 @@
 import {
   INVALID_INPUT_ERROR,
   isValidUUID,
-  ManagedQuestionnaireDetailInput,
   MISSING_REQUEST_BODY,
+  PracticeManagedQuestionnaireDetailInput,
   Secrets,
 } from 'utils';
 import { ZambdaInput } from '../../../shared';
@@ -13,7 +13,7 @@ type BaseContext = {
 
 type ValidatedRequest =
   | (BaseContext & { type: 'list' })
-  | (BaseContext & ManagedQuestionnaireDetailInput & { type: 'detail' });
+  | (BaseContext & PracticeManagedQuestionnaireDetailInput & { type: 'detail' });
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
   if (!input.body) {
@@ -22,7 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   const secrets = input.secrets;
 
-  let params: Partial<ManagedQuestionnaireDetailInput>;
+  let params: Partial<PracticeManagedQuestionnaireDetailInput>;
   try {
     params = JSON.parse(input.body);
   } catch {

@@ -1,10 +1,10 @@
 import {
   INVALID_INPUT_ERROR,
-  ManagedQuestionnaireSchema,
-  ManagedQuestionnaireUpdateInput,
-  ManagedQuestionnaireUpdateStatusSchema,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  PracticeManagedQuestionnaireSchema,
+  PracticeManagedQuestionnaireUpdateInput,
+  PracticeManagedQuestionnaireUpdateStatusSchema,
   Secrets,
 } from 'utils';
 import { safeValidate, ZambdaInput } from '../../../shared';
@@ -13,7 +13,7 @@ type BaseContext = {
   secrets: Secrets | null;
 };
 
-type ValidatedRequest = BaseContext & ManagedQuestionnaireUpdateInput;
+type ValidatedRequest = BaseContext & PracticeManagedQuestionnaireUpdateInput;
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
   if (!input.body) {
@@ -22,7 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   const secrets = input.secrets;
 
-  let params: ManagedQuestionnaireUpdateInput;
+  let params: PracticeManagedQuestionnaireUpdateInput;
   try {
     params = JSON.parse(input.body);
   } catch {
@@ -39,7 +39,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   if (updateType === 'update-status') {
     const parsed = data;
-    const validatedData = safeValidate(ManagedQuestionnaireUpdateStatusSchema, parsed);
+    const validatedData = safeValidate(PracticeManagedQuestionnaireUpdateStatusSchema, parsed);
 
     return {
       updateType,
@@ -48,7 +48,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
     };
   } else if (updateType === 'update-questionnaire') {
     const parsed = data;
-    const validatedData = safeValidate(ManagedQuestionnaireSchema, parsed);
+    const validatedData = safeValidate(PracticeManagedQuestionnaireSchema, parsed);
 
     if (!validatedData.id) {
       throw INVALID_INPUT_ERROR(`id is missing from the parsed questionnaire`);

@@ -9,17 +9,17 @@ import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
-  GetAllManagedPaperworkInput,
-  GetAllManagedPaperworkOutput,
+  GetAllPracticeManagedPaperworkInput,
+  GetAllPracticeManagedPaperworkOutput,
   GetAppointmentDetailsResponse,
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
-  GetManagedPaperworkForQuestionnaireInput,
-  GetManagedPaperworkForQuestionnaireOutput,
-  GetManagedPaperworkInput,
-  GetManagedPaperworkOutput,
+  GetPracticeManagedPaperworkForQuestionnaireInput,
+  GetPracticeManagedPaperworkForQuestionnaireOutput,
+  GetPracticeManagedPaperworkInput,
+  GetPracticeManagedPaperworkOutput,
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -32,8 +32,8 @@ import {
   PatientInfo,
   PersistConsentInput,
   PresignUploadUrlResponse,
-  SaveManagedPaperworkResponseInput,
-  SaveManagedPaperworkResponseOutput,
+  SavePracticeManagedPaperworkResponseInput,
+  SavePracticeManagedPaperworkResponseOutput,
   SearchPlacesInput,
   SearchPlacesOutput,
   ServiceMode,
@@ -508,37 +508,37 @@ class API {
     }
   }
 
-  getManagedPaperwork(
+  getPracticeManagedPaperwork(
     zambdaClient: ZambdaClient,
-    input: GetAllManagedPaperworkInput
-  ): Promise<GetAllManagedPaperworkOutput>;
+    input: GetAllPracticeManagedPaperworkInput
+  ): Promise<GetAllPracticeManagedPaperworkOutput>;
 
-  getManagedPaperwork(
+  getPracticeManagedPaperwork(
     zambdaClient: ZambdaClient,
-    input: GetManagedPaperworkForQuestionnaireInput
-  ): Promise<GetManagedPaperworkForQuestionnaireOutput>;
+    input: GetPracticeManagedPaperworkForQuestionnaireInput
+  ): Promise<GetPracticeManagedPaperworkForQuestionnaireOutput>;
 
-  async getManagedPaperwork(
+  async getPracticeManagedPaperwork(
     zambdaClient: ZambdaClient,
-    input: GetManagedPaperworkInput
-  ): Promise<GetManagedPaperworkOutput> {
+    input: GetPracticeManagedPaperworkInput
+  ): Promise<GetPracticeManagedPaperworkOutput> {
     try {
-      const response = await zambdaClient.execute('get-managed-paperwork', input);
+      const response = await zambdaClient.execute('get-practice-managed-paperwork', input);
       const jsonToUse = chooseJson(response);
-      return jsonToUse as GetManagedPaperworkOutput;
+      return jsonToUse as GetPracticeManagedPaperworkOutput;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }
   }
 
-  async saveManagedPaperworkResponse(
+  async savePracticeManagedPaperworkResponse(
     zambdaClient: ZambdaClient,
-    input: SaveManagedPaperworkResponseInput
-  ): Promise<SaveManagedPaperworkResponseOutput> {
+    input: SavePracticeManagedPaperworkResponseInput
+  ): Promise<SavePracticeManagedPaperworkResponseOutput> {
     try {
-      const response = await zambdaClient.execute('save-managed-paperwork-response', input);
+      const response = await zambdaClient.execute('save-practice-managed-paperwork-response', input);
       const jsonToUse = chooseJson(response);
-      return jsonToUse as SaveManagedPaperworkResponseOutput;
+      return jsonToUse as SavePracticeManagedPaperworkResponseOutput;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }

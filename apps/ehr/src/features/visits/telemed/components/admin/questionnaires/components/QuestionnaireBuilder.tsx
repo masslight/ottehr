@@ -7,15 +7,20 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { ManagedQuestionnaire, ManagedQuestionnaireItem, managedQuestionnaireToFhir, slugify } from 'utils';
+import {
+  PracticeManagedQuestionnaire,
+  PracticeManagedQuestionnaireItem,
+  practiceManagedQuestionnaireToFhir,
+  slugify,
+} from 'utils';
 import { itemsReducer } from '../questionnaire.reducer';
 import { QuestionnaireItemEditor } from './QuestionnaireItemEditor';
 import { QuestionnairePreview } from './QuestionnairePreview';
 import { QuestionnaireTestDialog } from './QuestionnaireTestDialog';
 
 interface QuestionnaireBuilderProps {
-  initial?: ManagedQuestionnaire;
-  onSave: (questionnaire: ManagedQuestionnaire) => Promise<void>;
+  initial?: PracticeManagedQuestionnaire;
+  onSave: (questionnaire: PracticeManagedQuestionnaire) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -26,7 +31,7 @@ const toSlug = (text: string): string => slugify(text, { maxLength: 60 });
 // questionnaire by canonical URL, so editing (even retitling) an existing resource must
 // preserve them. Only brand-new questionnaires derive a slug from the title.
 const makeCanonicalFields = (
-  input: { initial: ManagedQuestionnaire } | { title: string }
+  input: { initial: PracticeManagedQuestionnaire } | { title: string }
 ): { name: string; url: string } => {
   if ('initial' in input) {
     const { initial } = input;
@@ -40,10 +45,10 @@ const makeCanonicalFields = (
 
 // link ids are derived from the content of the of the item and must be unique amongst all items
 function ensureUniqueLinkIds(
-  items: ManagedQuestionnaireItem[],
+  items: PracticeManagedQuestionnaireItem[],
   seen = new Set<string>(),
   pageSlug?: string
-): ManagedQuestionnaireItem[] {
+): PracticeManagedQuestionnaireItem[] {
   return items.map((item) => {
     let base = item.linkId;
     if (!base && item.text) {
@@ -84,11 +89,11 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
 
   const navigate = useNavigate();
 
-  const questionnaire = useMemo<ManagedQuestionnaire>(() => {
+  const questionnaire = useMemo<PracticeManagedQuestionnaire>(() => {
     const canonicalFields = makeCanonicalFields(initial ? { initial } : { title });
     const status: Questionnaire['status'] = initial ? initial.status : 'active';
 
-    const questionnaire: ManagedQuestionnaire = {
+    const questionnaire: PracticeManagedQuestionnaire = {
       resourceType: 'Questionnaire',
       status,
       ...(initial?.id && { id: initial.id }),
@@ -101,7 +106,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
   }, [initial, title, description, items]);
 
   const { fhirQuestionnaire, jsonPreview } = useMemo(() => {
-    const fhirQuestionnaire = managedQuestionnaireToFhir(questionnaire);
+    const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(questionnaire);
     const jsonPreview = JSON.stringify(fhirQuestionnaire, null, 2);
 
     return { fhirQuestionnaire, jsonPreview };
@@ -175,7 +180,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
               </Typography>
             )}
 
-            {items.map((item: ManagedQuestionnaireItem) => (
+            {items.map((item: PracticeManagedQuestionnaireItem) => (
               <QuestionnaireItemEditor key={item._key} item={item} dispatch={dispatch} />
             ))}
           </Paper>

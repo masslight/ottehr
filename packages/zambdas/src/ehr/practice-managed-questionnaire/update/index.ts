@@ -1,13 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { managedQuestionnaireToFhir } from 'utils';
+import { practiceManagedQuestionnaireToFhir } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../../shared';
 import { wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'managed-questionnaire-update';
+const ZAMBDA_NAME = 'practice-managed-questionnaire-update';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
@@ -26,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(`patching questionnaire status to ${newStatus} for Questionnaire/${questionnaireId}`);
     await updateQuestionnaireStatus(questionnaireId, newStatus, oystehr);
   } else if (updateType === 'update-questionnaire') {
-    const fhirQuestionnaire = managedQuestionnaireToFhir(data);
+    const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(data);
 
     console.log(`Updating Questionnaire/${fhirQuestionnaire.id}`);
     await oystehr.fhir.update<Questionnaire>(fhirQuestionnaire);
