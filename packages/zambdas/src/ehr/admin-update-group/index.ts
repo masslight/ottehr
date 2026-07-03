@@ -145,6 +145,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     id: parsed.groupId,
   });
 
+  // Groups and service categories share resourceType='HealthcareService';
+  // SERVICE_CATEGORY_TAG is the only wire-level discriminator, so the
+  // routing guard has to live here.
+  if (isServiceCategoryHealthcareService(currentGroup)) {
+    throw INVALID_INPUT_ERROR(
+      `HealthcareService "${parsed.groupId}" is a service-category catalog entry — use admin-update-service-category instead. ` +
+        'admin-update-group is for Group HealthcareServices only (untagged, carrying .location[] and .characteristic[] pool config).'
+    );
+  }
+
   // Slug uniqueness — a second Group already using this slug would silently
   // start winning URL routing depending on FHIR search order. Check before
   // writing so the caller gets a clear error instead of a corrupted UX.

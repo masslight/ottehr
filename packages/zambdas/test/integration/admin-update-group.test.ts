@@ -256,6 +256,31 @@ describe('admin-update-group', () => {
     expect(message).toMatch(/not found/i);
   });
 
+  it('rejects updating a HealthcareService that is a service-category catalog entry', async () => {
+    // Groups and service categories share resourceType='HealthcareService'
+    // but the two occupy different modeling roles — the same patch shape
+    // would silently corrupt a category record's .type[] (the downstream
+    // slot-routing coding) and characteristic[] (mode/visit-type/duration
+    // config). Guard has to be at the zambda boundary because the tag is
+    // the only thing that distinguishes the two on the wire.
+    const category = await makeCategoryHs();
+    const { message } = await invokeExpectingRejection({
+      groupId: category.id,
+      name: 'Should Not Save',
+    });
+    expect(message).toMatch(/service-category catalog entry/i);
+    expect(message).toMatch(/admin-update-service-category/);
+
+    // Belt-and-suspenders — verify the category record is intact. A regression
+    // in the guard would leave the name updated even if the response looked
+    // rejected, so read it back and assert we didn't corrupt anything.
+    const refetched = await oystehrAdmin.fhir.get<HealthcareService>({
+      resourceType: 'HealthcareService',
+      id: category.id,
+    });
+    expect(refetched.name).toBe(category.name);
+  });
+
   it('writes group characteristics from assignmentMode + allLocations', async () => {
     const group = await makeGroup();
     const { group: updated } = await invoke({
