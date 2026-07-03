@@ -205,12 +205,7 @@ export const SaveServiceFacilityInputSchema = z.object({
   zip: z
     .string()
     .trim()
-    .regex(/^\d{5}$/, 'ZIP must be 5 digits'),
-  zipPlus4: z
-    .string()
-    .trim()
-    .regex(/^\d{4}$/, 'ZIP+4 must be 4 digits')
-    .optional(),
+    .regex(/^\d{9}$/, 'ZIP must be 9 digits'),
   npi: z
     .string()
     .trim()
@@ -379,6 +374,7 @@ export const CreateBillingCoverageInputSchema = z
     payerId: nonEmptyString,
     memberId: nonEmptyString,
     insuranceType: insuranceTypeSchema,
+    planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
     policyHolder: billingPolicyHolderSchema.optional(),
   })
@@ -398,6 +394,7 @@ export const UpdateBillingCoverageInputSchema = z
     payerId: nonEmptyString.optional(),
     memberId: nonEmptyString.optional(),
     insuranceType: insuranceTypeSchema.optional(),
+    planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema.optional(),
     policyHolder: billingPolicyHolderSchema.optional(),
   })

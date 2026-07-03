@@ -57,6 +57,7 @@ import {
   PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
   SecretsKeys,
+  setCoveragePlanType,
   withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
@@ -597,11 +598,12 @@ export function buildBillingCoverage(params: {
   memberId: string;
   status: Coverage['status'];
   insuranceType: BillingInsuranceType;
+  planType?: string;
   relationship: BillingSubscriberRelationship;
   // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
   subscriberReference: string;
 }): Coverage {
-  const coverage: Coverage = {
+  let coverage: Coverage = {
     resourceType: 'Coverage',
     status: params.status,
     beneficiary: { type: 'Patient', reference: `Patient/${params.patientId}` },
@@ -611,6 +613,9 @@ export function buildBillingCoverage(params: {
   };
   setCoveragePayer(coverage, params.payerOrg, params.memberId);
   setCoverageRelationship(coverage, params.relationship);
+  if (params.planType) {
+    coverage = setCoveragePlanType(coverage, params.planType);
+  }
   return coverage;
 }
 

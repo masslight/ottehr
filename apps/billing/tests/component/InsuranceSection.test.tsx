@@ -34,14 +34,14 @@ const claim = {
   patientOriginalId: 'patient-1',
 } as ClaimDetailResponse;
 
-describe('InsuranceSection — insurance type', () => {
+describe('InsuranceSection — plan type', () => {
   it('offers the value-set options and saves the selected candid code on the claim', async () => {
     const updateResource = vi.fn().mockResolvedValue(null);
     render(<InsuranceSection claim={claim} updateResource={updateResource} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Insurance type' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Plan type' }));
     fireEvent.click(await screen.findByRole('option', { name: 'PPO' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
