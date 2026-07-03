@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
 import {
@@ -12,9 +11,11 @@ import {
   ClaimHistoryLink,
   getAllFhirSearchPages,
   GetClaimHistoryResponse,
+  getOptionalSecret,
   isPayerUrl,
+  SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, sendErrors, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createBillingClient,
   fhirName,
@@ -46,6 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryParams): Promise<GetClaimHistoryResponse> {
   const { claimId } = params;
+  const environment = getOptionalSecret(SecretsKeys.ENVIRONMENT, params.secrets) ?? '';
 
   // Every claim-history Provenance targets the claim (in addition to the changed resource), so one
   // paginated search returns the complete history — including changes to working copies that were
@@ -69,7 +71,7 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryPar
   });
 
   const entries: ClaimHistoryEntry[] = provenances
-    .map((provenance) => toHistoryEntry(provenance, agentsByRef))
+    .map((provenance) => toHistoryEntry(provenance, agentsByRef, environment))
     // Newest first. Sort here rather than relying on a server-side _sort on `recorded`.
     .sort((a, b) => (a.recorded < b.recorded ? 1 : a.recorded > b.recorded ? -1 : 0));
 
@@ -78,31 +80,36 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryPar
   return { entries };
 }
 
-// Report a claim-history data anomaly to Sentry. We degrade gracefully (never crash the view) but
-// want observability that a Provenance we wrote isn't shaped as intended.
-function reportAnomaly(message: string, provenanceId: string | undefined, cause?: unknown): void {
-  const error = cause instanceof Error ? cause : new Error(message);
-  captureException(error, { extra: { zambda: ZAMBDA_NAME, provenanceId, message } });
+// Report a claim-history data anomaly to Sentry via the shared, env-guarded reporter. We degrade
+// gracefully (never crash the view) but want observability that a Provenance we wrote isn't shaped
+// as intended.
+function reportAnomaly(message: string, environment: string, cause?: unknown): void {
+  const error = cause instanceof Error ? new Error(message, { cause }) : new Error(message);
+  void sendErrors(error, environment);
 }
 
-function parseChanges(provenance: Provenance): ClaimFieldChange[] {
+function parseChanges(provenance: Provenance, environment: string): ClaimFieldChange[] {
   const diffString = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)?.valueString;
   if (!diffString) return [];
   try {
     const parsed = JSON.parse(diffString);
     if (!Array.isArray(parsed)) {
-      reportAnomaly(`Claim-history change set is not an array on Provenance/${provenance.id}`, provenance.id);
+      reportAnomaly(`Claim-history change set is not an array on Provenance/${provenance.id}`, environment);
       return [];
     }
     return parsed as ClaimFieldChange[];
   } catch (err) {
     // One malformed record shouldn't blank the whole history view, but we want to know it happened.
-    reportAnomaly(`Malformed change set on Provenance/${provenance.id}`, provenance.id, err);
+    reportAnomaly(`Malformed change set on Provenance/${provenance.id}`, environment, err);
     return [];
   }
 }
 
-function toHistoryEntry(provenance: Provenance, agentsByRef: Map<string, Practitioner | Device>): ClaimHistoryEntry {
+function toHistoryEntry(
+  provenance: Provenance,
+  agentsByRef: Map<string, Practitioner | Device>,
+  environment: string
+): ClaimHistoryEntry {
   const activityCode = provenance.activity?.coding?.[0]?.code;
   // target[0] is the changed resource (the claim itself is appended as a second target).
   const targetRef = provenance.target?.[0]?.reference;
@@ -118,7 +125,7 @@ function toHistoryEntry(provenance: Provenance, agentsByRef: Map<string, Practit
     !agentRef && 'agent.who.reference',
   ].filter((f): f is string => !!f);
   if (missing.length > 0) {
-    reportAnomaly(`Claim-history Provenance/${provenance.id} is missing: ${missing.join(', ')}`, provenance.id);
+    reportAnomaly(`Claim-history Provenance/${provenance.id} is missing: ${missing.join(', ')}`, environment);
   }
 
   const resourceType = targetRef?.split('/')[0] ?? '';
@@ -130,7 +137,7 @@ function toHistoryEntry(provenance: Provenance, agentsByRef: Map<string, Practit
       display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
       type: agentTypeCode === 'system' ? 'system' : 'user',
     },
-    changes: parseChanges(provenance),
+    changes: parseChanges(provenance, environment),
   };
 }
 
