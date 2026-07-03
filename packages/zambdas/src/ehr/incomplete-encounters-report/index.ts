@@ -9,7 +9,7 @@ import {
   getPatientLastName,
   getVisitStatusHistory,
   IncompleteEncountersReportZambdaInput,
-  IncompleteEncountersReportZambdaOutput,
+  IncompleteEncountersReportZambdaOutputSchema,
   isFollowupEncounter,
   isInPersonAppointment,
   isTelemedAppointment,
@@ -18,6 +18,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { resolveEncounterAppointment } from '../../shared/adhoc-report';
+import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -32,7 +33,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
-  // Get M2M token for FHIR access
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
@@ -42,8 +42,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Searching for appointments in date range:', dateRange);
 
-  // Search for appointments within the date range with proper pagination
-  // Fetch all appointments, encounters, patients, locations, and practitioners with proper FHIR pagination
   type ReportResource = Appointment | Encounter | Patient | Location | Practitioner | Condition | Procedure;
   let allResources: ReportResource[] = [];
   let offset = 0;
@@ -120,7 +118,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   let pageCount = 1;
   console.log(`Fetching page ${pageCount} of incomplete encounters...`);
 
-  // Get resources from first page
   let pageResources = searchBundle.unbundle();
   allResources = allResources.concat(pageResources);
   const pageAppointments = pageResources.filter(
@@ -130,7 +127,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointments.length} appointments)`
   );
 
-  // Follow pagination links to get all pages
   while (searchBundle.link?.find((link) => link.relation === 'next')) {
     offset += pageSize;
     pageCount++;
@@ -151,7 +147,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`
     );
 
-    // Safety check to prevent infinite loops
     if (pageCount > 100) {
       console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
       break;
@@ -160,7 +155,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`Found ${allResources.length} total resources across ${pageCount} pages`);
 
-  // Separate resources by type
   const encounters = allResources.filter((resource): resource is Encounter => resource.resourceType === 'Encounter');
   const appointments = allResources.filter(
     (resource): resource is Appointment => resource.resourceType === 'Appointment'
@@ -175,7 +169,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     `Encounters: ${encounters.length}, Appointments: ${appointments.length}, Patients: ${patients.length}, Locations: ${locations.length}, Practitioners: ${practitioners.length}`
   );
 
-  // Create lookup maps
   const appointmentMap = new Map<string, Appointment>();
   appointments.forEach((apt) => {
     if (apt.id) {
@@ -231,7 +224,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const resolveAppointment = (encounter: Encounter): Appointment | undefined =>
     resolveEncounterAppointment(encounter, appointmentMap, encounterById);
 
-  // Filter encounters based on encounterStatus parameter
   const filteredEncounters = encounters.filter((encounter) => {
     // Follow-up encounters are separate rows in 'all' mode only; the report pages count visits,
     // not follow-ups (previously follow-ups that carried an appointment reference could leak in
@@ -253,7 +245,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return true;
     }
 
-    // Get visit status
     const visitStatus = getInPersonVisitStatus(appointment, encounter, true);
 
     if (encounterStatus === 'complete') {
@@ -267,7 +258,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`Found ${filteredEncounters.length} ${encounterStatus} encounters`);
 
-  // Build the response data
   const encounterItems = filteredEncounters.map((encounter) => {
     const appointment = resolveAppointment(encounter);
     const encounterType = encounterStatus === 'all' ? getEncounterVisitType(encounter) : undefined;
@@ -279,21 +269,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const patientRef = encounter.subject?.reference ?? parentEncounter?.subject?.reference;
     const patient = patientRef ? patientMap.get(patientRef) : undefined;
 
-    // Get location name from Location resource
     const locationRef = appointment?.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
       ?.reference;
     const location = locationRef ? locationMap.get(locationRef) : undefined;
     const locationName = location?.name || 'Unknown';
     const locationId = locationRef ? locationRef.replace('Location/', '') : undefined;
 
-    // Get attending practitioner name
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
     const attendingPractitioner = attendingPractitionerId ? practitionerMap.get(attendingPractitionerId) : undefined;
     const attendingProviderName = attendingPractitioner
       ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
       : 'Unknown';
 
-    // Determine visit type based on appointment meta tags
     const visitType = isTelemedAppointment(appointment)
       ? 'Telemed'
       : isInPersonAppointment(appointment)
@@ -372,10 +359,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   });
 
-  const response: IncompleteEncountersReportZambdaOutput = {
-    message: `Found ${encounterItems.length} ${encounterStatus} encounters`,
-    encounters: encounterItems,
-  };
+  // Validate the response against the endpoint's schema before it ships — a mapper drift fails loud
+  // here (server-side log) instead of as a client-side parse error, and extra fields are stripped.
+  const response = validateOutputWithSchema(
+    IncompleteEncountersReportZambdaOutputSchema,
+    {
+      message: `Found ${encounterItems.length} ${encounterStatus} encounters`,
+      encounters: encounterItems,
+    },
+    ZAMBDA_NAME
+  );
 
   return {
     statusCode: 200,

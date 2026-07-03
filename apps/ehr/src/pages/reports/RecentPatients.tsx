@@ -25,7 +25,7 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import type { RecentPatientsReportZambdaOutput } from 'utils';
 import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getRecentPatientsReport } from '../../api/api';
-import { setAdHocCriteria } from '../../features/reports/adHoc/seed';
+import { setAdHocCriteria } from '../../features/report-builder/customize/seed';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
@@ -38,7 +38,6 @@ const AD_HOC_RANGE_SLUG: Record<string, string> = {
   customRange: 'customRange',
 };
 
-// Custom toolbar for DataGrid with export functionality
 function CustomToolbar(): React.ReactElement {
   return (
     <GridToolbarContainer>
@@ -60,7 +59,6 @@ export default function RecentPatients(): React.ReactElement {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
 
-  // Fetch locations on component mount
   useEffect(() => {
     const fetchLocations = async (): Promise<void> => {
       if (!oystehr) return;
@@ -148,14 +146,12 @@ export default function RecentPatients(): React.ReactElement {
           throw new Error('Oystehr client not available');
         }
 
-        // Calculate the date range in days
         const startDate = DateTime.fromISO(start);
         const endDate = DateTime.fromISO(end);
         const daysDifference = endDate.diff(startDate, 'days').days;
 
         console.log(`Date range is ${daysDifference.toFixed(2)} days`);
 
-        // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
         if (daysDifference <= DEFAULT_BATCH_DAYS) {
           console.log('Making single request for date range');
           const response = await getRecentPatientsReport(oystehrZambda, {
@@ -165,11 +161,9 @@ export default function RecentPatients(): React.ReactElement {
 
           setReportData(response);
         } else {
-          // Split the date range into DEFAULT_BATCH_DAYS-day batches
           const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
           console.log(`Splitting date range into ${batches.length} batches of up to ${DEFAULT_BATCH_DAYS} days each`);
 
-          // Fetch data for each batch in parallel
           const batchPromises = batches.map(async (batch, index) => {
             console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
             const response = await getRecentPatientsReport(oystehrZambda, {
@@ -180,27 +174,24 @@ export default function RecentPatients(): React.ReactElement {
             return response.patients;
           });
 
-          // Wait for all batches to complete
           const batchResults = await Promise.all(batchPromises);
 
-          // Combine all patients from all batches
           const allPatients = batchResults.flat();
           console.log(`Total patients across all batches: ${allPatients.length}`);
 
-          // Remove duplicates by patientId (a patient might appear in multiple batches)
+          // Dedupe by patientId (may appear in multiple batches).
           const uniquePatients = Array.from(
             new Map(allPatients.map((patient) => [patient.patientId, patient])).values()
           );
           console.log(`Unique patients after deduplication: ${uniquePatients.length}`);
 
-          // Sort by last name, then first name (same as backend)
+          // Sort by last then first name (match backend).
           uniquePatients.sort((a, b) => {
             const lastNameCompare = a.lastName.localeCompare(b.lastName);
             if (lastNameCompare !== 0) return lastNameCompare;
             return a.firstName.localeCompare(b.firstName);
           });
 
-          // Construct the combined response
           const combinedResponse: RecentPatientsReportZambdaOutput = {
             message: 'Successfully retrieved recent patients report',
             totalPatients: uniquePatients.length,
@@ -271,7 +262,6 @@ export default function RecentPatients(): React.ReactElement {
     [customStartDate, customEndDate]
   );
 
-  // Define DataGrid columns
   const columns = useMemo<GridColDef[]>(
     () =>
       [
@@ -313,7 +303,6 @@ export default function RecentPatients(): React.ReactElement {
           renderCell: (params) => {
             const value = params.value as string;
             if (!value) return '';
-            // Format phone number if it's a 10-digit number
             const cleaned = value.replace(/\D/g, '');
             if (cleaned.length === 10) {
               return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
@@ -368,14 +357,12 @@ export default function RecentPatients(): React.ReactElement {
     []
   );
 
-  // Transform data to flatten nested fields for DataGrid
   const transformedRows = useMemo(() => {
     if (!reportData) return [];
 
     return reportData.patients.map((patient) => {
       let serviceCategory = patient.mostRecentVisit?.serviceCategory || '';
 
-      // Transform service category display names
       if (serviceCategory === 'in-person-service-mode') {
         serviceCategory = 'In-person';
       } else if (serviceCategory === 'virtual-service-mode') {
@@ -410,7 +397,6 @@ export default function RecentPatients(): React.ReactElement {
   return (
     <PageContainer>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
-        {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <IconButton onClick={handleBack} sx={{ mr: 2 }}>
             <ArrowBackIcon />
@@ -423,7 +409,6 @@ export default function RecentPatients(): React.ReactElement {
           </Box>
         </Box>
 
-        {/* Filters */}
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <FormControl sx={{ minWidth: 200 }}>
             <InputLabel id="date-filter-label">Date Range</InputLabel>
@@ -497,21 +482,18 @@ export default function RecentPatients(): React.ReactElement {
           </Button>
         </Box>
 
-        {/* Error display */}
         {error && (
           <Alert severity="error" onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
-        {/* Loading state */}
         {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
         )}
 
-        {/* Data Grid */}
         {!loading && reportData && (
           <Box sx={{ height: 600, width: '100%' }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
@@ -546,7 +528,6 @@ export default function RecentPatients(): React.ReactElement {
           </Box>
         )}
 
-        {/* Empty state */}
         {!loading && reportData && reportData.patients.length === 0 && (
           <Box sx={{ textAlign: 'center', p: 4 }}>
             <Typography variant="h6" color="text.secondary">

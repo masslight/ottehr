@@ -1,7 +1,9 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { AdHocReportTurn, fixAndParseJsonObjectFromString, InferAdHocLayersOutput } from 'utils';
+import { fixAndParseJsonObjectFromString, InferAdHocLayersOutput, InferAdHocLayersOutputSchema } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { DEFAULT_VERTEX_MODEL, invokeChatbotVertexAI } from '../../shared/ai';
+import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'infer-adhoc-report-layers';
@@ -18,19 +20,7 @@ const RESPONSE_SCHEMA = {
   required: ['layerIds'],
 };
 
-const buildPrompt = (
-  layers: { id: string; label: string; description?: string }[],
-  request: string,
-  conversation?: AdHocReportTurn[]
-): string => {
-  const conversationBlock =
-    conversation && conversation.length > 0
-      ? `\nThis request REFINES an earlier report. Prior turns (oldest first) — consider the WHOLE ` +
-        `conversation when deciding which layers the current request needs:\n` +
-        conversation.map((t) => `- ${t.role}: ${t.content}`).join('\n') +
-        `\n`
-      : '';
-
+const buildPrompt = (layers: { id: string; label: string; description?: string }[], request: string): string => {
   return `
 You select which optional DATA LAYERS to load for a clinical ad-hoc report, BEFORE the data is fetched.
 
@@ -42,7 +32,7 @@ step can still pull a missing layer on demand. Loading an unneeded layer only ma
 
 AVAILABLE LAYERS (choose ids from this list only):
 ${layers.map((l) => `- ${l.id}: ${l.label}${l.description ? ` — ${l.description}` : ''}`).join('\n')}
-${conversationBlock}
+
 USER REQUEST:
 """
 ${request}
@@ -53,7 +43,7 @@ Return JSON: { "layerIds": ["<id>", ...] }  — an empty array if no optional la
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { layers, request, conversation, secrets } = validateRequestParameters(input);
+  const { layers, request, secrets } = validateRequestParameters(input);
 
   const validIds = new Set(layers.map((l) => l.id));
   let layerIds: string[] = [];
@@ -62,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // needsLayers backfill is the safety net, so we never hard-fail the report on a classifier miss.
   try {
     const raw = await invokeChatbotVertexAI(
-      [{ text: buildPrompt(layers, request, conversation) }],
+      [{ text: buildPrompt(layers, request) }],
       secrets,
       RESPONSE_SCHEMA,
       DEFAULT_VERTEX_MODEL
@@ -72,9 +62,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       layerIds = parsed.layerIds.filter((id): id is string => typeof id === 'string' && validIds.has(id));
     }
   } catch (e) {
+    // Designed degradation (the report proceeds with no pre-selected layers), but the failure must
+    // still surface so a persistent classifier problem doesn't go unnoticed.
     console.warn('infer-adhoc-report-layers: inference failed, returning no layers', e);
+    captureException(e);
   }
 
-  const output: InferAdHocLayersOutput = { layerIds: Array.from(new Set(layerIds)) };
+  const output: InferAdHocLayersOutput = validateOutputWithSchema(
+    InferAdHocLayersOutputSchema,
+    { layerIds: Array.from(new Set(layerIds)) },
+    ZAMBDA_NAME
+  );
   return { statusCode: 200, body: JSON.stringify(output) };
 });

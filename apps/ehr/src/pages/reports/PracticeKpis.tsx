@@ -23,7 +23,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PracticeKpisReportZambdaOutput } from 'utils';
 import { getPracticeKpisReport } from '../../api/api';
-import { setAdHocCriteria } from '../../features/reports/adHoc/seed';
+import { setAdHocCriteria } from '../../features/report-builder/customize/seed';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
@@ -194,7 +194,6 @@ export default function PracticeKpis(): React.ReactElement {
     [customDate, customStartDate, customEndDate]
   );
 
-  // Define columns for the DataGrid
   const columns: GridColDef[] = useMemo(
     () => [
       {
@@ -441,7 +440,6 @@ export default function PracticeKpis(): React.ReactElement {
     []
   );
 
-  // Prepare rows for the DataGrid
   const rows = useMemo(() => {
     if (!reportData?.locations) return [];
     return reportData.locations.map((location, index) => ({
@@ -486,7 +484,6 @@ export default function PracticeKpis(): React.ReactElement {
     navigate('/reports/ad-hoc');
   }, [dateFilter, customDate, customStartDate, customEndDate, navigate]);
 
-  // Custom toolbar with CSV export only
   const CustomToolbar = (): React.ReactElement => {
     return (
       <GridToolbarContainer>
@@ -498,7 +495,6 @@ export default function PracticeKpis(): React.ReactElement {
   return (
     <PageContainer>
       <Box>
-        {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <IconButton onClick={handleBack} sx={{ mr: 2 }}>
             <ArrowBackIcon />
@@ -514,7 +510,6 @@ export default function PracticeKpis(): React.ReactElement {
           </Box>
         </Box>
 
-        {/* Date Filter */}
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -595,24 +590,20 @@ export default function PracticeKpis(): React.ReactElement {
           </CardContent>
         </Card>
 
-        {/* Error Alert */}
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
 
-        {/* Loading State */}
         {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
             <CircularProgress />
           </Box>
         )}
 
-        {/* Report Content */}
         {!loading && reportData && (
           <>
-            {/* Summary Card */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -631,7 +622,6 @@ export default function PracticeKpis(): React.ReactElement {
               </CardContent>
             </Card>
 
-            {/* Location Metrics Table */}
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -666,7 +656,6 @@ export default function PracticeKpis(): React.ReactElement {
           </>
         )}
 
-        {/* No Data State */}
         {!loading && !reportData && !error && (
           <Card>
             <CardContent>
