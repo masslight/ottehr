@@ -70,6 +70,7 @@ export const ensureStripeCustomerId = async (
 ): Promise<{
   updatedAccount: Account;
   customerId: string;
+  createdWithoutEmail: boolean;
 }> => {
   const { guarantorResource: guarantor, account, patientId, stripeClient, stripeAccount } = params;
   if (!account.id) {
@@ -79,6 +80,7 @@ export const ensureStripeCustomerId = async (
   let customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
 
   let updatedAccount = account;
+  let createdWithoutEmail = false;
   if (customerId === undefined) {
     const email = guarantor ? getEmailForIndividual(guarantor) : undefined;
     const name = guarantor ? getFullName(guarantor) : undefined;
@@ -95,6 +97,7 @@ export const ensureStripeCustomerId = async (
           { name, metadata: { oystehr_patient_id: patientId } },
           { stripeAccount }
         );
+        createdWithoutEmail = true;
       } else {
         throw stripeError;
       }
@@ -119,5 +122,5 @@ export const ensureStripeCustomerId = async (
     });
     customerId = customer.id;
   }
-  return { updatedAccount, customerId };
+  return { updatedAccount, customerId, createdWithoutEmail };
 };

@@ -11,7 +11,7 @@ import {
 import { Box } from '@mui/system';
 import { Elements } from '@stripe/react-stripe-js';
 import { Patient } from 'fhir/r4b';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
 import { useSetDefaultPaymentMethod } from 'src/hooks/useSetDefaultPaymentMethod';
 import { useSetupStripe } from 'src/hooks/useSetupStripe';
@@ -45,6 +45,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
   const [cards, setCards] = useState<CreditCardInfo[]>([]);
 
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
+  const [warningMessage, setWarningMessage] = useState<string | undefined>(undefined);
 
   const {
     data: setupData,
@@ -53,6 +54,14 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     refetch: refetchSetupData,
     isRefetching: isSetupDataRefetching,
   } = useSetupStripe(patient?.id, appointmentId);
+
+  useEffect(() => {
+    if (setupData?.createdWithoutEmail) {
+      setWarningMessage(
+        'Responsible party email address is invalid. The Stripe customer was created without an email — the patient will not receive email notifications from Stripe.'
+      );
+    }
+  }, [setupData?.createdWithoutEmail]);
 
   const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount);
 
@@ -224,6 +233,17 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       >
         <Alert onClose={() => setErrorMessage(undefined)} severity="error" variant="filled">
           {errorMessage}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        open={warningMessage !== undefined}
+        autoHideDuration={8000}
+        onClose={() => setWarningMessage(undefined)}
+      >
+        <Alert onClose={() => setWarningMessage(undefined)} severity="warning" variant="filled">
+          {warningMessage}
         </Alert>
       </Snackbar>
     </>
