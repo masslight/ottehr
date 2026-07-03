@@ -1811,6 +1811,7 @@
       "name": "cron-outreach-invoice-due",
       "type": "cron",
       "runtime": "nodejs22.x",
+      "timeout": "595",
       "src": "src/rcm/scheduled-outreach/producers/cron-outreach-invoice-due/index",
       "zip": ".dist/zips/cron-outreach-invoice-due.zip",
       "schedule": {
