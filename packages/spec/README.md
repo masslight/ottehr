@@ -179,10 +179,9 @@ field means `delete` in every environment. Generation throws if buckets are defi
 deletable. The legacy single-value `removalPolicy` field is no longer supported — generation
 throws if a bucket still uses it, forcing migration to `retainInEnvironments`.
 
-Deletable buckets (those `delete`d in the current environment) are also generated with
+Deletable buckets (those `delete`d in the current environment) are generated with
 `force_destroy = true`, so `terraform destroy` empties and removes the bucket even when it
-still holds objects; retained buckets get `force_destroy = false`. `force_destroy` requires the
-`oystehr` provider at version `0.0.22` or later.
+still holds objects. `force_destroy` requires the `oystehr` provider at version `0.0.22` or later.
 
 ## Zambda Configuration
 

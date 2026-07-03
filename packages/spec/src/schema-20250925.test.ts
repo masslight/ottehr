@@ -237,7 +237,7 @@ describe('Schema20250925 generate()', () => {
       },
     });
 
-    const readBucket = async (): Promise<{ name: string; removal_policy: string; force_destroy: boolean }> => {
+    const readBucket = async (): Promise<{ name: string; removal_policy: string; force_destroy?: boolean }> => {
       const content = await fs.readFile(path.join(tmpDir, 'buckets.tf.json'), 'utf8');
       return JSON.parse(content).resource.oystehr_z3_bucket.MY_BUCKET;
     };
@@ -255,7 +255,7 @@ describe('Schema20250925 generate()', () => {
 
       const bucket = await readBucket();
       expect(bucket.removal_policy).toBe('retain');
-      expect(bucket.force_destroy).toBe(false);
+      expect(bucket.force_destroy).toBeUndefined();
     });
 
     it('deletes the bucket when the current environment is not in retainInEnvironments', async () => {
