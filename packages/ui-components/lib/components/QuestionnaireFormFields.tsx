@@ -92,63 +92,6 @@ export function getCalculatedExpression(item: QuestionnaireItem): string | undef
   return undefined;
 }
 
-/**
- * Evaluates all calculated expressions in a questionnaire against the current answers.
- * Returns a map of linkId → computed value for items with JavaScript calculated expressions.
- *
- * Choice answers come back from the form as strings (the option's valueCoding.code).
- * For scoring expressions (sums, comparisons), numeric strings must be coerced to
- * numbers — otherwise reduce((a,b)=>a+b) string-concatenates.
- */
-export function evaluateCalculatedExpressions(
-  items: QuestionnaireItem[],
-  answers: Record<string, any>
-): Record<string, any> {
-  // Coerce numeric-string answers to numbers. Non-numeric strings (e.g. "female")
-  // pass through unchanged so equality checks still work.
-  const normalizedAnswers: Record<string, any> = {};
-  for (const [k, v] of Object.entries(answers)) {
-    if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) {
-      normalizedAnswers[k] = Number(v);
-    } else {
-      normalizedAnswers[k] = v;
-    }
-  }
-
-  const results: Record<string, any> = {};
-  const allItems: QuestionnaireItem[] = [];
-
-  // Flatten all items (including nested groups)
-  const walk = (list: QuestionnaireItem[]): void => {
-    for (const item of list) {
-      allItems.push(item);
-      if (item.item) walk(item.item);
-    }
-  };
-  walk(items);
-
-  // First pass: evaluate expressions that depend only on answers
-  // Second pass: evaluate expressions that depend on other computed values
-  // Two passes handles one level of dependency (computed item referencing another computed item)
-  for (let pass = 0; pass < 2; pass++) {
-    for (const item of allItems) {
-      const expression = getCalculatedExpression(item);
-      if (!expression) continue;
-
-      try {
-        // Build a combined context: normalized answers + previously computed results
-        const context = { ...normalizedAnswers, ...results };
-        const fn = new Function('answers', `with(answers) { return (${expression}); }`);
-        results[item.linkId] = fn(context);
-      } catch (e) {
-        console.warn(`Failed to evaluate expression for ${item.linkId}:`, e);
-      }
-    }
-  }
-
-  return results;
-}
-
 export function getItemControl(item: QuestionnaireItem): string | undefined {
   const ext = getExtension(item.extension, 'http://hl7.org/fhir/StructureDefinition/questionnaire-itemControl');
   return ext?.valueCodeableConcept?.coding?.[0]?.code;
@@ -179,11 +122,6 @@ export function getOptionDisplay(option: any): string {
   if (option.valueCoding?.display) return option.valueCoding.display;
   if (option.valueString) return option.valueString;
   return option.valueCoding?.code || 'Option';
-}
-
-export function isScoreItem(item: QuestionnaireItem): boolean {
-  const unitExt = getExtension(item.extension, 'http://hl7.org/fhir/StructureDefinition/questionnaire-unit');
-  return unitExt?.valueCoding?.code === '{score}';
 }
 
 // ── Styling constants ───────────────────────────────────────────────────────
@@ -407,11 +345,6 @@ export const QuestionnaireFormField: FC<QuestionnaireFormFieldProps> = ({ item, 
       );
 
     case 'decimal':
-      if (isScoreItem(item)) {
-        // Score items never render to the patient (no visible numeric scores). Their value
-        // is computed via calculatedExpressions and written to the QR on the final save.
-        return null;
-      }
       return (
         <Box>
           {label}
@@ -738,63 +671,9 @@ export const QuestionnaireResponseViewer: FC<QuestionnaireResponseViewerProps> =
     return flat;
   }, [questionnaire.item]);
 
-  // Build raw answers for expression evaluation (linkId → numeric code)
-  const rawAnswers = useMemo(() => {
-    const raw: Record<string, any> = {};
-    answerMap.forEach((answer, linkId) => {
-      if (answer.valueCoding?.code) raw[linkId] = parseInt(answer.valueCoding.code, 10) || answer.valueCoding.code;
-      else if (answer.valueString) raw[linkId] = answer.valueString;
-      else if (answer.valueBoolean !== undefined) raw[linkId] = answer.valueBoolean;
-      else if (answer.valueInteger !== undefined) raw[linkId] = answer.valueInteger;
-      else if (answer.valueDecimal !== undefined) raw[linkId] = answer.valueDecimal;
-    });
-    return raw;
-  }, [answerMap]);
-
-  // Evaluate calculated expressions for computed items
-  const computedValues = useMemo(
-    () => evaluateCalculatedExpressions(questionnaire.item || [], rawAnswers),
-    [questionnaire.item, rawAnswers]
-  );
-
-  // Calculate total score if there are scored items (sum-based like GAD-7)
-  const totalScore = useMemo(() => {
-    let hasScoring = false;
-    let score = 0;
-    for (const item of allItems) {
-      if (isScoreItem(item)) {
-        hasScoring = true;
-        continue;
-      }
-      if (item.type !== 'choice' || !item.answerOption) continue;
-      const hasWeights = item.answerOption.some((o: any) => getOptionWeight(o) !== undefined);
-      if (!hasWeights) continue;
-      hasScoring = true;
-
-      const answer = answerMap.get(item.linkId);
-      if (!answer) continue;
-      const selectedCode = answer.valueCoding?.code || answer.valueString;
-      if (!selectedCode) continue;
-
-      const matchingOpt = item.answerOption.find((o: any) => (o.valueCoding?.code || o.valueString) === selectedCode);
-      if (matchingOpt) {
-        const weight = getOptionWeight(matchingOpt);
-        if (weight !== undefined) score += weight;
-      }
-    }
-    return hasScoring ? score : null;
-  }, [allItems, answerMap]);
-
   // Separate visible answer items from computed items.
   // Rationale items (linkId ending in -rationale) are rendered inline beneath their parent result.
-  const answerItems = allItems.filter((item) => !isScoreItem(item) && !isHiddenItem(item));
-  const computedItems = allItems.filter(
-    (item) => isHiddenItem(item) && getCalculatedExpression(item) && !item.linkId.endsWith('-rationale')
-  );
-  const rationaleFor = (linkId: string): string | undefined => {
-    const val = computedValues[`${linkId}-rationale`];
-    return typeof val === 'string' && val.length > 0 ? val : undefined;
-  };
+  const answerItems = allItems.filter((item) => !isHiddenItem(item));
 
   return (
     <Box>
@@ -830,46 +709,6 @@ export const QuestionnaireResponseViewer: FC<QuestionnaireResponseViewerProps> =
           </Box>
         );
       })}
-      {totalScore !== null && (
-        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: COLORS.border }}>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primaryMain }}>
-            Total Score: {totalScore}
-          </Typography>
-        </Box>
-      )}
-      {computedItems.length > 0 && (
-        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: COLORS.border }}>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primaryMain, mb: 0.5 }}>
-            Screening Results
-          </Typography>
-          {computedItems.map((item) => {
-            const value = computedValues[item.linkId];
-            if (value === undefined) return null;
-            const displayValue = typeof value === 'boolean' ? (value ? 'Positive' : 'Negative') : String(value);
-            const rationale = rationaleFor(item.linkId);
-            return (
-              <Box key={item.linkId} sx={{ py: 0.25 }}>
-                <Typography variant="body2">
-                  <Box component="span" sx={{ fontWeight: 600, color: COLORS.primaryMain }}>
-                    {item.text}:
-                  </Box>{' '}
-                  <Box component="span" sx={{ color: value === true ? 'error.main' : 'success.main', fontWeight: 600 }}>
-                    {displayValue}
-                  </Box>
-                </Typography>
-                {rationale && (
-                  <Typography
-                    variant="caption"
-                    sx={{ display: 'block', color: COLORS.textSecondary, fontFamily: 'monospace', ml: 1 }}
-                  >
-                    {rationale}
-                  </Typography>
-                )}
-              </Box>
-            );
-          })}
-        </Box>
-      )}
     </Box>
   );
 };

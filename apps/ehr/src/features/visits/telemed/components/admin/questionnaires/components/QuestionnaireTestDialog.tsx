@@ -3,7 +3,7 @@ import { Box, Dialog, DialogContent, DialogTitle, IconButton, Typography } from 
 import { Questionnaire } from 'fhir/r4b';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { buildQuestionnairePages, evaluateCalculatedExpressions, QuestionnaireFormPage } from 'ui-components';
+import { buildQuestionnairePages, QuestionnaireFormPage } from 'ui-components';
 
 interface QuestionnaireTestDialogProps {
   open: boolean;
@@ -94,35 +94,8 @@ export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open
               Form Complete
             </Typography>
             {(() => {
-              const computed = evaluateCalculatedExpressions(fhirItems, answers);
-              const computedEntries = Object.entries(computed).filter(([, v]) => v !== undefined);
               return (
                 <>
-                  {computedEntries.length > 0 && (
-                    <>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        Computed scoring values (provider sees these in the QR):
-                      </Typography>
-                      <Box
-                        sx={{
-                          bgcolor: '#E2F0FF',
-                          borderRadius: '8px',
-                          p: 2,
-                          mb: 2,
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          maxHeight: 250,
-                          overflow: 'auto',
-                        }}
-                      >
-                        {computedEntries.map(([k, v]) => (
-                          <Box key={k} sx={{ mb: 0.5 }}>
-                            <strong>{k}</strong>: {typeof v === 'string' ? `"${v}"` : String(v)}
-                          </Box>
-                        ))}
-                      </Box>
-                    </>
-                  )}
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     Patient answers submitted:
                   </Typography>

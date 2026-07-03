@@ -126,9 +126,7 @@ export const ImportJsonDialog: FC<ImportJsonDialogProps> = (props) => {
       <DialogTitle sx={{ typography: 'h4', color: '#0F347C' }}>Import FHIR Questionnaire</DialogTitle>
       <DialogContent>
         <Typography variant="body1" color="text.primary" sx={{ mb: 2 }}>
-          Upload a JSON file or paste a FHIR R4 Questionnaire resource. The questionnaire will be saved as-is,
-          preserving all extensions, coded answer options, and scoring. You can import standardized instruments like
-          GAD-7, PHQ-9, or any valid FHIR Questionnaire.
+          Upload a JSON file or paste a FHIR R4 Questionnaire resource. The questionnaire will be saved as-is.
         </Typography>
         <FileUploadArea
           onFileLoaded={(content) => {

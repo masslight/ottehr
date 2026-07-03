@@ -2970,8 +2970,6 @@ export interface ServiceCategoryRuntimeConfig {
   /** Booking flows for this category — 'prebook' vs 'walk-in'. */
   visitTypes: Array<'prebook' | 'walk-in'>;
   reasonsForVisit?: Array<{ label: string; value: string }>;
-  /** Practice paperwork flow this visit type uses (OTR-2309); undefined = default by mode. */
-  paperworkFlowId?: string;
 }
 
 export interface ServiceCategory {

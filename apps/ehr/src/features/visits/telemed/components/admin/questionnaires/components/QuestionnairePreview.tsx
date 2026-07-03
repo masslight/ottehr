@@ -1,12 +1,10 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import CalculateIcon from '@mui/icons-material/Calculate';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import {
   Box,
   Button,
   Checkbox,
-  Chip,
   FormControl,
   FormControlLabel,
   Grid,
@@ -19,7 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { FC, useEffect, useMemo, useRef, useState } from 'react';
-import { getDisplayOptionPrefix, getItemControl, getOptionDisplay, isScoreItem } from 'ui-components';
+import { getDisplayOptionPrefix, getItemControl, getOptionDisplay } from 'ui-components';
 import { ManagedQuestionnaire, ManagedQuestionnaireItem } from 'utils';
 
 // Ottehr intake color palette
@@ -297,35 +295,6 @@ const ItemPreview: FC<{ item: ManagedQuestionnaireItem }> = ({ item }) => {
       );
 
     case 'decimal':
-      if (isScoreItem(item as unknown as Parameters<typeof isScoreItem>[0])) {
-        return (
-          <Box
-            sx={{
-              mb: 1.5,
-              mt: 1,
-              p: 2,
-              bgcolor: COLORS.cardBg,
-              borderRadius: '8px',
-              border: '1px solid',
-              borderColor: COLORS.border,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-            }}
-          >
-            <CalculateIcon sx={{ color: COLORS.secondaryMain, fontSize: 28 }} />
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.primaryMain }}>
-                {item.text || item.linkId}
-              </Typography>
-              <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
-                Auto-calculated from scored items above
-              </Typography>
-            </Box>
-            <Chip label="Score" size="small" sx={{ bgcolor: COLORS.secondaryMain, color: '#fff', fontWeight: 600 }} />
-          </Box>
-        );
-      }
       return (
         <Box sx={{ mb: 1.5 }}>
           <OttehrLabel text={item.text || item.linkId} required={item.required} />
