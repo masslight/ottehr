@@ -241,10 +241,19 @@ export default function SendInvoiceToPatientDialog({
                 label="Due date"
                 variant="outlined"
                 control={control}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  validate: (value: string) => {
+                    if (!value) return true;
+                    return (
+                      DateTime.fromISO(value).startOf('day') > DateTime.now().startOf('day') ||
+                      'Invoice Due Date must be in the future'
+                    );
+                  },
+                }}
                 component="Picker"
                 disabled={disableAllFields}
-                disablePast={true}
+                minDate={DateTime.now().plus({ days: 1 }).toISODate() ?? undefined}
               />
             </Grid>
 

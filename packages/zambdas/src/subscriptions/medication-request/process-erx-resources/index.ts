@@ -9,9 +9,10 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fillMeta,
   makeMedicationResource,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -24,7 +25,7 @@ export function validateRequestParameters(input: ZambdaInput): {
     throw new Error('No request body provided');
   }
 
-  const medicationRequest = JSON.parse(input.body);
+  const medicationRequest = safeJsonParse(input.body);
 
   if (medicationRequest.resourceType !== 'MedicationRequest') {
     throw new Error(`resource parsed should be a medication request but was a ${medicationRequest.resourceType}`);
@@ -84,7 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   console.log('Created zapToken and fhir client');
 
   console.log(`Medication request id: ${medicationRequest.id}`);

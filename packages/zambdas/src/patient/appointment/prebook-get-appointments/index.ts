@@ -12,7 +12,7 @@ import {
 } from 'utils';
 import {
   checkPaperworkComplete,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getUser,
   wrapHandler,
@@ -44,7 +44,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   console.log('getting user');
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
 

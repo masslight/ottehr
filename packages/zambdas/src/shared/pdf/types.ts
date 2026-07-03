@@ -779,17 +779,31 @@ export interface VisitDetailsInput {
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
+}
+
+/**
+ * Minimal service-category shape consumed by resolveServiceCategoryAbbreviation
+ * (utils) — matched against the appointment's category code/name to produce the
+ * abbreviation shown in PDF visit headers.
+ */
+export interface ServiceCategoryCatalogEntry {
+  code: string;
+  name: string;
+  abbreviation?: string;
 }
 
 export interface VisitDataInput {
   appointment: Appointment;
   location?: Location;
   timezone: string;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface ProgressNoteVisitDataInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface PatientDataInput {
@@ -933,6 +947,7 @@ export interface VitalsDataInDischargeSummary extends PdfData {
     weight?: string;
     height?: string;
     vision?: string;
+    dotVisionScreening?: string[];
     lastMenstrualPeriod?: string;
   };
 }
@@ -953,6 +968,7 @@ export interface DischargeSummaryData extends PdfData {
   inHouseMedications: InHouseMedicationsDataForDischargeSummary;
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
+  procedures?: Procedures;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
@@ -992,6 +1008,29 @@ export interface GetPaymentDataResponse {
   };
 }
 
+/** Resolved from an Encounter `author`/`verifier` Provenance: who signed/approved and when. */
+export interface SignatureProvenanceInfo {
+  /** Provider display name (via `getProviderNameWithProfession`). */
+  name: string;
+  /** `Provenance.recorded` ISO timestamp. */
+  dateTimeISO?: string;
+}
+
+export interface ProgressNoteSignatures {
+  /** `author` Provenance — the provider who signed the note. */
+  signedBy?: SignatureProvenanceInfo;
+  /** `verifier` Provenance — the supervisor who approved the note (supervisor-approval flow only). */
+  approvedBy?: SignatureProvenanceInfo;
+}
+
+/** Pre-formatted signature lines rendered at the bottom of the visit note. */
+export interface SignatureData extends PdfData {
+  /** "Signed electronically by {provider} on {date} {time}". */
+  signedBy?: string;
+  /** "Approved by {provider} on {date} {time}" — present only when supervisor-approved. */
+  approvedBy?: string;
+}
+
 export interface ProgressNoteInput {
   patient: Patient;
   encounter: Encounter;
@@ -999,6 +1038,8 @@ export interface ProgressNoteInput {
   appointmentPackage: FullAppointmentResourcePackage;
   questionnaireResponse?: QuestionnaireResponse;
   upcomingFollowUps: UpcomingFollowUp[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
+  signatures?: ProgressNoteSignatures;
 }
 
 export interface ProgressNoteData extends PdfData {
@@ -1033,12 +1074,14 @@ export interface ProgressNoteData extends PdfData {
   plan: PlanData;
   followupCompleted: FollowupCompleted;
   upcomingVisits: UpcomingVisitsData;
+  signature: SignatureData;
 }
 
 export interface DischargeSummaryInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
   upcomingFollowUps: UpcomingFollowUp[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface DischargeSummaryData extends PdfData {
@@ -1053,6 +1096,7 @@ export interface DischargeSummaryData extends PdfData {
   inHouseMedications: InHouseMedicationsDataForDischargeSummary;
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
+  procedures?: Procedures;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;

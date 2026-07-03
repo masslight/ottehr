@@ -13,10 +13,11 @@ import {
   TerminalReaderDTO,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -34,7 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrM2MClientToken = await getAuth0Token(input.secrets);
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, input.secrets);
   const terminalLocationId = await getStripeTerminalLocationIdForAppointmentOrEncounter(
     {
       encounterId: validatedParameters.encounterId,
@@ -89,7 +90,7 @@ const validateRequestParameters = (input: ZambdaInput): GetPatientPaymentTermina
     throw MISSING_REQUEST_BODY;
   }
 
-  const { encounterId } = JSON.parse(input.body);
+  const { encounterId } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
   if (!encounterId) {

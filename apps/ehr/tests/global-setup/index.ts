@@ -3,6 +3,7 @@ import { FullConfig } from '@playwright/test';
 import { randomUUID } from 'crypto';
 import { Location, Schedule } from 'fhir/r4b';
 import {
+  BILLING_RESOURCE_TAG,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
@@ -52,6 +53,7 @@ async function getOystehr(
       fhirApiUrl: ehrZambdaEnv.FHIR_API,
       projectApiUrl: ehrZambdaEnv.PROJECT_API,
     },
+    ignoreTags: [BILLING_RESOURCE_TAG],
   });
   return oystehr;
 }
@@ -155,4 +157,5 @@ const createTelemedLocation = async (locationData: VirtualLocationBody, oystehr:
   console.log(`Created fhir location: state: ${fhirLocation?.address?.state}, id: ${fhirLocation?.id}`);
   console.log(`Created fhir schedule: id: ${locationSchedule.id} for ${fhirLocation?.address?.state} location`);
 };
+
 export default globalSetup;

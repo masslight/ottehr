@@ -1,18 +1,22 @@
-import { MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY, Secrets } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface GetStripeAccountInfoInput {
   stripeAccountId: string;
   secrets: Secrets | null;
 }
 
-export function validateRequestParameters(input: ZambdaInput): GetStripeAccountInfoInput {
-  const parsed = typeof input.body === 'string' ? JSON.parse(input.body) : input.body;
-  const stripeAccountId = parsed?.stripeAccountId;
+const GetStripeAccountInfoBodySchema = z.object({
+  stripeAccountId: z.string().min(1),
+});
 
-  if (!stripeAccountId || typeof stripeAccountId !== 'string') {
-    throw MISSING_REQUIRED_PARAMETERS(['stripeAccountId']);
+export function validateRequestParameters(input: ZambdaInput): GetStripeAccountInfoInput {
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
   }
+
+  const { stripeAccountId } = safeValidate(GetStripeAccountInfoBodySchema, safeJsonParse(input.body));
 
   return {
     stripeAccountId,

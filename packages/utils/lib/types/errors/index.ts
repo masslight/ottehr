@@ -288,6 +288,13 @@ export const FHIR_RESOURCE_IS_GONE = (): APIError => ({
   message: `The requested resource is gone`,
 });
 
+export const CLAIM_NOT_READY_FOR_X12_EXPORT: APIError = {
+  code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+  statusCode: 400,
+  message:
+    "This claim isn't ready to export as X12. It may be missing required information or contain invalid references. Complete the claim and try again.",
+};
+
 export const MISSING_REQUIRED_PARAMETERS = (params: string[]): APIError => {
   return {
     code: APIErrorCode.MISSING_REQUIRED_PARAMETERS,

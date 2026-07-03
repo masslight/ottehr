@@ -3,9 +3,13 @@ import react from '@vitejs/plugin-react';
 import browserslistToEsbuild from 'browserslist-to-esbuild';
 import { existsSync } from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv, UserConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import viteTsconfigPaths from 'vite-tsconfig-paths';
+import { devStampRestartPlugin } from '../../vite/dev-stamp-restart';
+
+const coreRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 export default ({ mode }: { mode: string }): UserConfig => {
   console.log(`Mode is: ${mode}`);
@@ -13,7 +17,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
 
-  const plugins = [react(), viteTsconfigPaths(), svgr()];
+  const plugins = [devStampRestartPlugin(coreRoot), react(), viteTsconfigPaths(), svgr()];
 
   const shouldUploadSentrySourceMaps =
     Boolean(env.SENTRY_AUTH_TOKEN) && Boolean(env.SENTRY_ORG) && Boolean(env.SENTRY_PROJECT);
@@ -65,6 +69,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
       sourcemap: shouldUploadSentrySourceMaps,
     },
     resolve: {
+      preserveSymlinks: true,
       alias: {
         '@ehrTheme': path.resolve(__dirname, env.THEME_PATH || 'src/themes/ottehr'),
         '@ehrDefaultTheme': path.resolve(__dirname, 'src/themes/ottehr'),

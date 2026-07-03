@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { ProviderDetails } from 'utils';
+import { EmployeeDetails, ProviderDetails } from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
@@ -10,10 +10,24 @@ export interface EmployeesForAssignment {
   nonProviders: ProviderDetails[];
 }
 
-const toProviderDetails = (employee: { profile: string; firstName: string; lastName: string }): ProviderDetails => ({
-  practitionerId: employee.profile.split('/')[1],
-  name: `${employee.firstName} ${employee.lastName}`.trim(),
-});
+export const toProviderDetails = (employee: {
+  profile: string;
+  firstName: string;
+  lastName: string;
+  /** Canonical employee display name. Used as a fallback when firstName +
+   *  lastName don't produce a usable label (e.g. Practitioner records where
+   *  only the legacy single-string name is populated). The upstream filter
+   *  in useGetEmployeesWithDetails already drops entries whose `name` is
+   *  blank, so this fallback always has something to land on for surviving
+   *  entries — no risk of producing a blank ProviderDetails.name. */
+  name?: string;
+}): ProviderDetails => {
+  const composedName = `${employee.firstName} ${employee.lastName}`.trim();
+  return {
+    practitionerId: employee.profile.split('/')[1],
+    name: composedName || employee.name || '',
+  };
+};
 
 /**
  * Fetches the intake-staff and provider lists used for assigning practitioners to an encounter.
@@ -24,7 +38,24 @@ const toProviderDetails = (employee: { profile: string; firstName: string; lastN
  */
 export const useGetEmployees = (options?: {
   enabled?: boolean;
-}): UseQueryResult<EmployeesForAssignment | null, Error> => {
+}): Pick<UseQueryResult<EmployeesForAssignment | null, Error>, 'data' | 'isLoading' | 'isError' | 'error'> => {
+  const res = useGetEmployeesWithDetails({ enabled: options?.enabled ?? true });
+  const { data } = res;
+
+  const newData =
+    data == null
+      ? data
+      : {
+          providers: data.providers.map(toProviderDetails),
+          nonProviders: data.nonProviders.map(toProviderDetails),
+        };
+
+  return { ...res, data: newData };
+};
+
+export const useGetEmployeesWithDetails = (options?: {
+  enabled?: boolean;
+}): UseQueryResult<{ providers: EmployeeDetails[]; nonProviders: EmployeeDetails[] } | null, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
@@ -34,17 +65,15 @@ export const useGetEmployees = (options?: {
       const getEmployeesRes = await getEmployees(oystehrZambda, { lite: true });
       const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
 
-      const formattedProviders: ProviderDetails[] = activeEmployees
+      const formattedProviders: EmployeeDetails[] = activeEmployees
         .filter((employee) => employee.isProvider && !employee.isCustomerSupport)
-        .map(toProviderDetails)
-        .filter((prov) => prov.name);
+        .filter((employee) => Boolean(`${employee.firstName} ${employee.lastName}`.trim() || employee.name));
 
       // TODO: remove this once we have nurses role
       // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
-      const formattedNonProviders: ProviderDetails[] = activeEmployees
+      const formattedNonProviders: EmployeeDetails[] = activeEmployees
         .filter((employee) => !employee.isCustomerSupport)
-        .map(toProviderDetails)
-        .filter((prov) => prov.name);
+        .filter((employee) => Boolean(`${employee.firstName} ${employee.lastName}`.trim() || employee.name));
 
       return {
         providers: formattedProviders,

@@ -8,7 +8,7 @@ import {
   VisitStatusWithoutUnknown,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 import { ChangeInPersonVisitStatusInputValidated } from '.';
 
 const validStatuses = visitStatusArray.filter((s) => s !== 'unknown') as [
@@ -30,7 +30,7 @@ export function validateRequestParameters(input: ZambdaInput): ChangeInPersonVis
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const { encounterId, updatedStatus } = safeValidate(ChangeVisitStatusBodySchema, JSON.parse(input.body));
+  const { encounterId, updatedStatus } = safeValidate(ChangeVisitStatusBodySchema, safeJsonParse(input.body));
 
   getSecret(SecretsKeys.PROJECT_API, input.secrets);
   getSecret(SecretsKeys.ORGANIZATION_ID, input.secrets);

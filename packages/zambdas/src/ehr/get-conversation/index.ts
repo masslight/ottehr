@@ -14,7 +14,7 @@ import {
   Secrets,
 } from 'utils';
 import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 
 export interface GetConversationInputValidated extends GetConversationInput {
   secrets: Secrets;
@@ -55,7 +55,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const relatedResults = (
     await oystehr.fhir.search<RelatedPerson>({

@@ -412,9 +412,14 @@ export async function executeBookingScenario(
   // - Walk-in in-person: patient info → location
   if (scenario.visitType === 'prebook') {
     if (scenario.bookableEntityType === 'Group' && scenario.groupBookingSlug) {
-      // Group booking: navigate directly to prebook URL with bookingOn and scheduleType params
-      // This bypasses the location dropdown since the HealthcareService is specified in the URL
-      const groupBookingUrl = `/prebook/${scenario.serviceMode}?bookingOn=${scenario.groupBookingSlug}&scheduleType=group`;
+      // Group booking: navigate directly to prebook URL with bookingOn and scheduleType params.
+      // This bypasses the location dropdown since the HealthcareService is specified in the URL.
+      // Includes serviceCategory so we bypass PrebookVisit's category-picker redirect — that
+      // redirect now fires when a scoped deep link lands without a category and the destination
+      // supports multiple. The scenario already declares which category it's exercising; passing
+      // it on the URL mirrors what the picker would have produced and keeps this test focused
+      // on the post-pick booking flow rather than the picker UI itself.
+      const groupBookingUrl = `/prebook/${scenario.serviceMode}?bookingOn=${scenario.groupBookingSlug}&scheduleType=group&serviceCategory=${scenario.serviceCategory}`;
       console.log(`Navigating to Group booking URL: ${groupBookingUrl}`);
       await page.goto(groupBookingUrl, { waitUntil: 'networkidle' });
     } else {
