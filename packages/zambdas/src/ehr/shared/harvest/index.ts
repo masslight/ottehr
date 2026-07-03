@@ -1717,8 +1717,8 @@ export async function searchInsuranceInformation(
   if (insuranceOrgRefs.length === 0) {
     return [];
   }
-  return await Promise.all(
-    insuranceOrgRefs.map((ref) => {
+  const results = await Promise.all(
+    insuranceOrgRefs.map(async (ref) => {
       if (isPayerUrl(ref)) {
         if (oystehr.rcm.constructPayerUrl({ id: '00000' }) === ref) {
           // We have added a dummy payer option to paperwork, so we need to handle it here
@@ -1750,7 +1750,7 @@ export async function searchInsuranceInformation(
                 ],
               },
             ],
-          };
+          } as Organization;
         }
         return oystehr.rcm.getPayerByUrl({ url: ref });
       }
@@ -1758,9 +1758,19 @@ export async function searchInsuranceInformation(
       if (orgFromFhir) {
         return orgFromFhir;
       }
-      return oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] });
+      try {
+        return await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: ref.split('/')[1] });
+      } catch (error: unknown) {
+        const status = Number((error as any)?.status ?? (error as any)?.statusCode ?? (error as any)?.code);
+        if (status === 410) {
+          console.warn(`[CLAIM SUBMISSION] Organization ${ref} is deleted (410 Gone), excluding from payer list.`);
+          return undefined;
+        }
+        throw error;
+      }
     })
   );
+  return results.filter((org): org is Organization => org !== undefined);
 }
 
 const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
