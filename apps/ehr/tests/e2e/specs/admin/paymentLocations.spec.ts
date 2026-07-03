@@ -7,6 +7,7 @@ import {
   PaymentLocationDetailPage,
   PaymentLocationsPage,
 } from '../../page/PaymentLocationsPage';
+import { adminSidebarItem } from '../../utils/adminNav';
 
 function findFirstLocationName(): string {
   const entries = Object.values((locationsSpec as { fhirResources: Record<string, any> }).fhirResources);
@@ -107,16 +108,16 @@ test.describe('Payment Locations Admin', () => {
     await page.waitForLoadState('networkidle');
 
     // Click Payment Locations sidebar item
-    await page.locator('a[href="/admin/billing/payment-locations"]').click();
+    await adminSidebarItem(page, '/admin/billing/payment-locations').click();
     await page.waitForURL('**/billing/payment-locations');
     paymentLocationsPage = await expectPaymentLocationsPage(page);
 
     // Click Fee Schedules sidebar item
-    await page.locator('a[href="/admin/billing/fee-schedules"]').click();
+    await adminSidebarItem(page, '/admin/billing/fee-schedules').click();
     await page.waitForURL('**/billing/fee-schedules');
 
     // Click back to Payment Locations
-    await page.locator('a[href="/admin/billing/payment-locations"]').click();
+    await adminSidebarItem(page, '/admin/billing/payment-locations').click();
     await page.waitForURL('**/billing/payment-locations');
   });
 });

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { adminSidebarItem } from '../../utils/adminNav';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
@@ -7,8 +8,7 @@ test.describe('Invoicing Admin', () => {
     await page.goto('/admin/billing/invoicing');
 
     await test.step('Invoicing sidebar item is selected', async () => {
-      // Active sidebar item carries MUI's selected class.
-      await expect(page.locator('a[href="/admin/billing/invoicing"] .Mui-selected')).toBeVisible(DEFAULT_TIMEOUT);
+      await expect(adminSidebarItem(page, '/admin/billing/invoicing', true)).toBeVisible(DEFAULT_TIMEOUT);
     });
 
     await test.step('Invoicing page heading is visible', async () => {
@@ -98,16 +98,16 @@ test.describe('Invoicing Admin', () => {
 
   test('billing sub-page navigation works from Invoicing', async ({ page }) => {
     await page.goto('/admin/billing/invoicing');
-    await expect(page.locator('a[href="/admin/billing/invoicing"] .Mui-selected')).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(adminSidebarItem(page, '/admin/billing/invoicing', true)).toBeVisible(DEFAULT_TIMEOUT);
 
     await test.step('Switch to Fee Schedules', async () => {
-      await page.locator('a[href="/admin/billing/fee-schedules"]').click();
+      await adminSidebarItem(page, '/admin/billing/fee-schedules').click();
       await page.waitForURL('**/billing/fee-schedules');
-      await expect(page.locator('a[href="/admin/billing/fee-schedules"] .Mui-selected')).toBeVisible(DEFAULT_TIMEOUT);
+      await expect(adminSidebarItem(page, '/admin/billing/fee-schedules', true)).toBeVisible(DEFAULT_TIMEOUT);
     });
 
     await test.step('Switch back to Invoicing', async () => {
-      await page.locator('a[href="/admin/billing/invoicing"]').click();
+      await adminSidebarItem(page, '/admin/billing/invoicing').click();
       await page.waitForURL('**/billing/invoicing');
       await expect(page.getByRole('heading', { name: 'Invoicing', exact: true })).toBeVisible(DEFAULT_TIMEOUT);
     });
