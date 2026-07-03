@@ -83,6 +83,7 @@ export const ensureStripeCustomerId = async (
   let createdWithoutEmail = false;
   if (customerId === undefined) {
     const email = guarantor ? getEmailForIndividual(guarantor) : undefined;
+    createdWithoutEmail = !email;
     const name = guarantor ? getFullName(guarantor) : undefined;
     let customer: Stripe.Customer;
     try {

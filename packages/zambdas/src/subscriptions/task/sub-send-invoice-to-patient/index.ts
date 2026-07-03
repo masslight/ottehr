@@ -60,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
     if (!stripeCustomerId) {
       console.log('No Stripe customer ID on account, creating one now');
-      const { customerId } = await ensureStripeCustomerId(
+      const { customerId, createdWithoutEmail } = await ensureStripeCustomerId(
         {
           guarantorResource: patient,
           account,
@@ -70,6 +70,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         oystehr
       );
+      if (createdWithoutEmail)
+        throw new Error(
+          'In order to create invoices that are sent to the customer, the responsible party must have a valid email.'
+        );
       stripeCustomerId = customerId;
     }
     const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
