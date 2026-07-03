@@ -32,6 +32,7 @@ import {
   ClaimStatusFieldKey,
   ClaimStatusValues,
   claimStatusValuesToTags,
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
@@ -281,8 +282,12 @@ export function hasTag(resource: Resource, system: string, code: string): boolea
 // Taxonomy is stored as a ZZ-typed identifier
 export function getTaxonomy(resource: Practitioner | Organization): string {
   return (
-    resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === FHIR_IDENTIFIER_CODE_TAXONOMY))?.value ??
-    ''
+    resource.identifier?.find(
+      (id) =>
+        id.type?.coding?.some(
+          (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+        )
+    )?.value ?? ''
   );
 }
 
@@ -386,14 +391,18 @@ export function setTaxId(resource: Practitioner | Organization, taxId: string): 
 
 export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode: string): void {
   const isTaxonomy = (id: Identifier): boolean =>
-    !!id.type?.coding?.some((tc) => tc.code === FHIR_IDENTIFIER_CODE_TAXONOMY);
+    !!id.type?.coding?.some(
+      (tc) => tc.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && tc.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+    );
   const identifier = resource.identifier ?? [];
   const existing = identifier.find(isTaxonomy);
   if (taxonomyCode) {
     if (existing) existing.value = taxonomyCode;
     else {
       identifier.push({
-        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
+        type: {
+          coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_TAXONOMY }],
+        },
         value: taxonomyCode,
       });
     }
