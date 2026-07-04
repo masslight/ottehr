@@ -31,6 +31,13 @@ const FUNCTION_MEMORY_MB = Number(process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE) |
 const MEMORY_HEADROOM_MB = 256;
 const MAX_MEDICAL_RECORD_BYTES = Math.max(64, Math.floor((FUNCTION_MEMORY_MB - MEMORY_HEADROOM_MB) / 2)) * 1024 * 1024;
 
+// How many attachments to download in parallel. Serial downloads overrun the invocation timeout for
+// large charts (each attachment is a presign + fetch round-trip); this bounds wall-clock and how many
+// downloads are in flight at once. Note it does NOT bound total resident memory: archiver compresses on
+// a single-concurrency queue, so appended-but-not-yet-compressed input buffers can pile up faster than
+// they drain. Peak memory is bounded instead by MAX_MEDICAL_RECORD_BYTES (see buildMedicalRecordZip).
+const DOWNLOAD_CONCURRENCY = 20;
+
 type NamedAttachment = {
   url: string;
   name: string;
@@ -200,8 +207,13 @@ const downloadAttachment = async (url: string): Promise<Buffer | undefined> => {
   }
 };
 
-// Downloads and appends one document at a time so only a single document is held in memory at once,
-// not the whole chart. The compressed output is still buffered in full (the Z3 upload needs its length).
+// Downloads documents with bounded concurrency and appends each to the archive as it arrives. A
+// large chart has thousands of attachments, each needing a presign + fetch round-trip; downloading
+// them serially overruns the invocation timeout, so a fixed pool of workers runs in parallel.
+// Resident memory is bounded by MAX_MEDICAL_RECORD_BYTES rather than by the worker count: totalBytes
+// tracks cumulative downloaded input and aborts once the cap is exceeded, so the archiver's internal
+// (single-concurrency) compression queue can hold at most that many input bytes even if downloads
+// outpace compression. The compressed output is still buffered in full, as the Z3 upload needs its length.
 const buildMedicalRecordZip = async (
   namedAttachments: NamedAttachment[]
 ): Promise<{ zipBytes: Uint8Array; archivedCount: number }> => {
@@ -215,20 +227,40 @@ const buildMedicalRecordZip = async (
     archive.on('error', (err) => reject(err));
   });
 
+  let nextIndex = 0;
   let archivedCount = 0;
   let totalBytes = 0;
-  for (const { url, name } of namedAttachments) {
-    const buffer = await downloadAttachment(url);
-    if (!buffer) continue;
+  let aborted = false;
 
-    totalBytes += buffer.length;
-    if (totalBytes > MAX_MEDICAL_RECORD_BYTES) {
-      archive.abort();
-      throw new Error(`Medical record exceeds the maximum supported size of ${MAX_MEDICAL_RECORD_BYTES} bytes`);
+  // Each worker pulls the next attachment index until the list is exhausted (or the run is aborted).
+  const worker = async (): Promise<void> => {
+    while (!aborted) {
+      const i = nextIndex++;
+      if (i >= namedAttachments.length) return;
+
+      const { url, name } = namedAttachments[i];
+      const buffer = await downloadAttachment(url);
+      // Re-check after the await: another worker may have tripped the size cap while we were fetching.
+      if (aborted) return;
+      if (!buffer) continue;
+
+      totalBytes += buffer.length;
+      if (totalBytes > MAX_MEDICAL_RECORD_BYTES) {
+        aborted = true;
+        throw new Error(`Medical record exceeds the maximum supported size of ${MAX_MEDICAL_RECORD_BYTES} bytes`);
+      }
+
+      archive.append(buffer, { name });
+      archivedCount++;
     }
+  };
 
-    archive.append(buffer, { name });
-    archivedCount++;
+  try {
+    const poolSize = Math.min(DOWNLOAD_CONCURRENCY, namedAttachments.length);
+    await Promise.all(Array.from({ length: poolSize }, () => worker()));
+  } catch (error) {
+    archive.abort();
+    throw error;
   }
 
   if (archivedCount === 0) {

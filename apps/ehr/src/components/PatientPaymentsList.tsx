@@ -678,9 +678,12 @@ export default function PatientPaymentList({
   });
 
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  const isUrgentCare = serviceCategory === 'urgent-care';
-  const isOccupationalMedicine = serviceCategory === 'occupational-medicine';
-  const isWorkmansComp = serviceCategory === 'workers-comp';
+
+  // The logic is based on the create-slot contract and the create-appointment fallback for legacy slots https://github.com/masslight/ottehr/pull/8369
+  // A more robust solution would be to add available payment options directly to the Encounter/Appointment
+  const isEmployerPayAvailable = serviceCategory === 'occupational-medicine' || serviceCategory === 'workers-comp';
+  const isInsurancePayAvailable = Boolean(serviceCategory && !isEmployerPayAvailable);
+
   const formattedCopayAmount = formatUsd(copayAmount?.amountInUSD);
   const formattedRemainingDeductibleAmount = formatUsd(remainingDeductibleAmount?.amountInUSD);
 
@@ -780,7 +783,7 @@ export default function PatientPaymentList({
           },
         }}
       >
-        {isUrgentCare ? (
+        {isInsurancePayAvailable ? (
           <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.insurance}>
             Insurance
           </ToggleButton>
@@ -788,7 +791,7 @@ export default function PatientPaymentList({
         <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.selfPay}>
           Self Pay
         </ToggleButton>
-        {isOccupationalMedicine || isWorkmansComp ? (
+        {isEmployerPayAvailable ? (
           <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.employer}>
             Employer
           </ToggleButton>

@@ -1,5 +1,5 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 
@@ -67,6 +67,7 @@ export interface BillingCoverageOption {
   payorId: string;
   payorFhirId: string;
   insuranceType?: BillingInsuranceType;
+  planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
@@ -89,7 +90,6 @@ export interface ServiceFacilityItem {
   city: string;
   state: string;
   zip: string;
-  zipPlus4: string;
   npi: string;
   clia: string;
   posCode: string;
@@ -191,7 +191,7 @@ export interface BillingClaimItem {
   payerName: string;
   payerId: string;
   memberId: string;
-  appointmentType: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined;
+  service: string | undefined;
   serviceDate: string;
   facility: string;
   renderingProvider: string;
@@ -245,6 +245,10 @@ export interface PatientDetailResponse {
 
 export interface ClaimDetailResponse {
   id: string;
+  // Clinical Encounter this claim was generated from (from the claim's claim-encounter-id identifier).
+  encounterId: string;
+  // Clinical Appointment this claim was generated from (the EHR /visit/<id> route key).
+  appointmentId: string;
   type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
   // Legacy `current-status` value (kept for compatibility); `statuses` carries the indicators shown in the UI.
   status: string;
@@ -252,7 +256,7 @@ export interface ClaimDetailResponse {
   created: string;
   billingType: string;
   billableStatus: string;
-  appointmentType?: string;
+  service?: string;
   patientName: string;
   patientDob: string;
   patientGender: string;
@@ -274,6 +278,7 @@ export interface ClaimDetailResponse {
   memberId: string;
   subscriberId: string;
   coverageStatus: string;
+  planType: string;
   relationship: string;
   policyHolder: BillingPolicyHolderSummary | null;
   responsibleParty: string;
@@ -361,6 +366,10 @@ export interface SearchBillingLocationsResponse {
   locations: BillingLocationOption[];
 }
 
+export interface SearchBillingServicesResponse {
+  services: BillingService[];
+}
+
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
 }
@@ -393,8 +402,22 @@ export interface TaggedClaimResponse {
   ok: true;
 }
 
+export interface ExportClaimX12Response {
+  x12: string;
+}
+
 export interface CreatedClaimResponse {
   claimId: string;
+}
+
+export interface SubmitBillingClaimResult {
+  claimId: string;
+  status: 'submitted' | 'error';
+  error?: string;
+}
+
+export interface SubmitBillingClaimsResponse {
+  results: SubmitBillingClaimResult[];
 }
 
 export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';
@@ -434,4 +457,8 @@ export interface BillingChargeItemDefinition {
   default?: ChargeItemDefinitionDefault;
   effectiveDate?: string;
   procedureCodes: BillingChargeItemDefinitionProcedureCode[];
+}
+
+export interface BillingService {
+  name: string;
 }

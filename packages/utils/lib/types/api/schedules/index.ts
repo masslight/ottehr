@@ -54,6 +54,8 @@ export interface ScheduleOwnerListItem {
     scheduleCount: number;
   };
   supportPhoneNumber?: string;
+  /** Whether the owner is active. For Location rows: `status === 'active'`. */
+  active?: boolean;
 }
 
 export interface ScheduleListItem {

@@ -1,12 +1,12 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, SubmitLabOrderInput } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): SubmitLabOrderInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { serviceRequestIDs, manualOrder } = JSON.parse(input.body) as SubmitLabOrderInput;
+  const { serviceRequestIDs, manualOrder } = safeJsonParse(input.body) as SubmitLabOrderInput;
 
   if (!serviceRequestIDs) throw MISSING_REQUIRED_PARAMETERS(['serviceRequestIDs']);
   if (serviceRequestIDs && !Object.values(serviceRequestIDs).every((srId) => typeof srId === 'string')) {
