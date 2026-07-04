@@ -290,9 +290,7 @@
     ]
   },
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Antibiotics for kidney infection; urine culture pending. Return immediately for vomiting, inability to keep fluids down, or worsening pain.",
     "followUpIn": 2
   },

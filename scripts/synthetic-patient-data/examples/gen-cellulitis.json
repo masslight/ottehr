@@ -245,9 +245,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Antibiotics for cellulitis; elevate the leg, mark the border. Return for spreading redness past the line, fever, or blistering.",
     "followUpIn": 2
   },

@@ -282,9 +282,7 @@
     ]
   },
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Pain control + tamsulosin, strain urine, hydrate. Return for fever, uncontrolled vomiting, or worsening pain.",
     "followUpIn": 3
   },

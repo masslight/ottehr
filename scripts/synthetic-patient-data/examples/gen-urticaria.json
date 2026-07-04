@@ -264,9 +264,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Antihistamines + short steroid course for hives. Return immediately for lip/tongue swelling, trouble breathing, or fainting.",
     "followUpIn": 2
   },

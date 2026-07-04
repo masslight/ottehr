@@ -158,11 +158,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Discharged home with mother. Aircast splint applied, crutches provided. Non-weight-bearing × 48 hours then progressive WB as tolerated. Ibuprofen 600 mg q6h prn. Follow up with PCP or sports medicine in 5-7 days if not improved.",
-    "followUpIn": 7,
-    "followUp": []
+    "followUpIn": 7
   },
 
   "signOff": {

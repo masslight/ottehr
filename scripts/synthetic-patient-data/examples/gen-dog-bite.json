@@ -259,9 +259,7 @@
     ]
   },
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Antibiotics for dog bite, wound left open, tetanus updated. Return for spreading redness, drainage, fever, or numbness.",
     "followUpIn": 2
   },

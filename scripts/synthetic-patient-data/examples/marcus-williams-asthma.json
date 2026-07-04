@@ -177,11 +177,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Discharged after improvement post-nebulizer/prednisone. Prednisone 50 mg PO daily × 5 days, continue albuterol q4h prn. Follow up with PCP within 1 week. Return immediately for worsening SOB, inability to speak in full sentences, or SpO2 <92%.",
-    "followUpIn": 7,
-    "followUp": []
+    "followUpIn": 7
   },
 
   "signOff": {

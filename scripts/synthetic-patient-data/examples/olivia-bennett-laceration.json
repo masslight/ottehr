@@ -171,11 +171,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up for suture removal",
+    "type": "pcp-no-type",
     "note": "Discharged home with mother. Wound care instructions reviewed. Return to PCP or urgent care for suture removal in 7-10 days.",
-    "followUpIn": 8,
-    "followUp": []
+    "followUpIn": 7
   },
 
   "signOff": {

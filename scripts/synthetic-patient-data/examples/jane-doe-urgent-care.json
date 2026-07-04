@@ -268,13 +268,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
-    "note": "Patient stable for discharge. Follow up with PCP if no improvement in 5 days.",
-    "followUpIn": 5,
-    "followUp": [
-      { "type": "ent", "note": "Refer to ENT if symptoms persist beyond 7 days" }
-    ]
+    "type": "pcp-no-type",
+    "note": "Patient stable for discharge. Follow up with PCP if no improvement in 5 days. Refer to ENT if symptoms persist beyond 7 days.",
+    "followUpIn": 5
   },
 
   "signOff": {

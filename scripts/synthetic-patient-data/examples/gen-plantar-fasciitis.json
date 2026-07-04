@@ -249,9 +249,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Plantar fasciitis — calf/plantar stretches, supportive shoes, NSAIDs. Return for sudden pop, numbness, or inability to walk.",
     "followUpIn": 14
   },

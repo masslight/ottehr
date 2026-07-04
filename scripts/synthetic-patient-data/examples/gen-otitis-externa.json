@@ -249,9 +249,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Topical drops for swimmer’s ear, keep ear dry. Return for fever, facial swelling, or worsening pain.",
     "followUpIn": 3
   },

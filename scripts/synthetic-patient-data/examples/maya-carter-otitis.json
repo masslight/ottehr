@@ -141,11 +141,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Discharged home with mother. Amoxicillin Rx for AOM. Follow up with Dr. Park at Trenton Pediatrics in 48-72 hours if no improvement.",
-    "followUpIn": 3,
-    "followUp": []
+    "followUpIn": 3
   },
 
   "signOff": {

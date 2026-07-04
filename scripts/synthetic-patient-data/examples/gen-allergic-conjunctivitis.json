@@ -248,9 +248,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Allergy eye drops + oral antihistamine. Return for vision changes, eye pain, or pus-like discharge.",
     "followUpIn": 3
   },

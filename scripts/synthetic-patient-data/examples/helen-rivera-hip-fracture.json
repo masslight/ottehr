@@ -177,12 +177,9 @@
 
   "disposition": {
     "type": "specialty",
-    "text": "Transfer to higher level of care — orthopedic surgery",
+    "specialty": "Orthopedics",
     "note": "Displaced left intertrochanteric femur fracture on warfarin; transferred via EMS to community hospital ED for orthopedic surgery evaluation. Anticipate operative repair within 24-48 hours per ortho referral. Warfarin held pending consult. Cardiology + PCP notified.",
-    "followUpIn": 1,
-    "followUp": [
-      { "type": "orthopedics", "note": "Inpatient orthopedic surgery evaluation and operative repair" }
-    ]
+    "followUpIn": 1
   },
 
   "signOff": {

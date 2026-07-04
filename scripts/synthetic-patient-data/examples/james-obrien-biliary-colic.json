@@ -143,10 +143,9 @@
 
   "disposition": {
     "type": "specialty",
-    "text": "Refer to general surgery and PCP; ultrasound order placed",
+    "specialty": "General Surgery",
     "note": "Symptomatic relief in clinic. Lab studies ordered (CBC, CMP, lipase, UA) at outside lab. RUQ ultrasound referred. Strong recommendation to follow up with PCP and surgery within 1 week. Bland diet, avoid fatty foods. Return immediately for worsening pain, fever, jaundice, persistent vomiting, or signs of cholangitis.",
-    "followUpIn": 7,
-    "followUp": []
+    "followUpIn": 7
   },
 
   "signOff": {

@@ -271,11 +271,9 @@
     ]
   },
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Wound care for sutured hand laceration; suture removal in 10-14 days. Return for redness, drainage, fever, or numbness.",
-    "followUpIn": 10
+    "followUpIn": 14
   },
   "signOff": {
     "practitionerName": "Demo Admin",

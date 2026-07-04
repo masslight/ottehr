@@ -252,9 +252,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Oral rehydration in small frequent sips, antiemetic as needed. Return for inability to keep fluids down, no urination, or confusion.",
     "followUpIn": 2
   },

@@ -252,9 +252,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "BPPV — Epley maneuver done, meclizine PRN. Return for slurred speech, weakness, severe headache, or hearing loss.",
     "followUpIn": 5
   },

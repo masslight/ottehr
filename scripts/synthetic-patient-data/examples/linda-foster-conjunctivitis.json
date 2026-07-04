@@ -137,11 +137,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up if needed",
+    "type": "pcp-no-type",
     "note": "Erythromycin 0.5% ophthalmic ointment to right eye QID × 7 days. Cold compresses for comfort. Strict hand hygiene. Stay home from public spaces if heavy discharge. Return for vision changes, severe pain, or worsening symptoms.",
-    "followUpIn": 7,
-    "followUp": []
+    "followUpIn": 7
   },
 
   "signOff": {

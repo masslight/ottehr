@@ -280,9 +280,7 @@
     ]
   },
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Supportive care for influenza, complete oseltamivir course. Return for shortness of breath or persistent high fever.",
     "followUpIn": 5
   },

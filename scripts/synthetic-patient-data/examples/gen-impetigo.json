@@ -242,9 +242,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Topical antibiotic for impetigo, good hand hygiene, avoid sharing towels. Return for spreading sores, swelling, or fever.",
     "followUpIn": 5
   },

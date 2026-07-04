@@ -246,9 +246,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Nosebleed care — humidify, avoid nose-picking and NSAIDs, pinch nose for bleeding. Return for bleeding that won’t stop after 15 minutes of pressure or lightheadedness.",
     "followUpIn": 5
   },

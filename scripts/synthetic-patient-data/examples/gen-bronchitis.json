@@ -255,9 +255,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Supportive care for acute bronchitis. Return for fever, shortness of breath, or coughing up blood.",
     "followUpIn": 3
   },

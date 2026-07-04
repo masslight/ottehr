@@ -20,6 +20,7 @@
  * contracts change, new zambdas are added to the pipeline, or new clinical
  * features need representation.
  */
+import { followUpInOptions, OTHER_SPECIALTY_TRANSFER_OPTION, specialtyTransferOptions } from 'utils';
 import { z } from 'zod';
 
 // ── Primitives ────────────────────────────────────────────────────────────────
@@ -584,27 +585,100 @@ const NotesSchema = z
   .describe('Polish for demo realism — appointment notes, patient ed handouts');
 
 // ── Disposition ───────────────────────────────────────────────────────────────
+//
+// Constrained to EXACTLY what a clinician can produce through the EHR's
+// Disposition card. The card exposes four selectable tabs
+// (apps/ehr/src/features/visits/shared/components/DispositionCard.tsx) and each
+// tab renders a fixed field set (dispositionFieldsPerType in
+// apps/ehr/src/features/visits/telemed/utils/disposition.helper.ts):
+//
+//   pcp-no-type → followUpIn
+//   another     → reason
+//   ed          → nothingToEatOrDrink, refusalOfEmsTransport
+//   specialty   → specialty (+ specialtyOther when "Other"), followUpIn
+//
+// The legacy DispositionType values ('pcp', 'ip', 'ip-lab', 'ip-oth') and the
+// subspecialty followUp[] checkboxes (dentistry/ent/…/lurie-ct sub-follow-up
+// ServiceRequests) are NOT reachable from any tab, so synthetic data must not
+// emit them — a specialty referral is expressed as type 'specialty' + the
+// `specialty` dropdown value instead.
 
-const FollowUpSchema = z
-  .object({
-    type: z
-      .enum(['dentistry', 'ent', 'ophthalmology', 'orthopedics', 'other', 'lurie-ct'])
-      .describe('Specialty referral checkbox; PCP follow-up belongs in disposition.followUpIn instead.'),
-    note: z.string().optional(),
-  })
-  .describe('Maps to disposition.followUp[] — specialty referrals only.');
+// Mirrors reasonsForTransferOptions in
+// apps/ehr/src/features/visits/telemed/utils/disposition.helper.ts (the EHR app
+// isn't importable from scripts, so the three options are restated here).
+const REASONS_FOR_TRANSFER = ['Equipment availability', 'Procedure or advanced care', 'Xray'] as const;
+
+// The EHR "Follow up visit in" dropdown accepts ONLY these values
+// (followUpInOptions in utils): 0 = "as needed", 1-5 days, 7 = 1 week, 14 = 2 weeks.
+const FOLLOW_UP_IN_DAYS: readonly number[] = followUpInOptions.map((o) => o.value);
 
 const DispositionSchema = z
   .object({
     type: z
-      .enum(['ip', 'ip-lab', 'pcp', 'ed', 'ip-oth', 'pcp-no-type', 'another', 'specialty'])
-      .describe('Discharge type — must match DispositionType. Use "pcp" for routine discharge with PCP follow-up.'),
-    text: z.string().optional(),
-    note: z.string().optional(),
-    followUpIn: z.number().optional().describe('Number of days for PCP/visit follow-up (1, 2, 3, 4, 7, 14, 30 etc.).'),
-    followUp: z.array(FollowUpSchema).optional().describe('Specialty referral checkboxes only.'),
+      .enum(['pcp-no-type', 'another', 'ed', 'specialty'])
+      .describe(
+        'Discharge type — must be one of the four EHR Disposition tabs: "pcp-no-type" (routine discharge home ' +
+          'with PCP follow-up), "another" (transfer to another location), "ed" (ED transfer), ' +
+          '"specialty" (outpatient specialty referral/transfer).'
+      ),
+    note: z
+      .string()
+      .optional()
+      .describe('Disposition note shown on the visit note; defaults to "N/A" exactly like the EHR.'),
+    followUpIn: z
+      .number()
+      .optional()
+      .describe(
+        'Days until PCP/visit follow-up — only for type "pcp-no-type" or "specialty", and only one of the EHR ' +
+          'dropdown values: 1, 2, 3, 4, 5, 7 (1 week), 14 (2 weeks), or 0 ("as needed").'
+      ),
+    reason: z.enum(REASONS_FOR_TRANSFER).optional().describe('Reason for transfer — only for type "another".'),
+    specialty: z
+      .enum(specialtyTransferOptions as [string, ...string[]])
+      .optional()
+      .describe(
+        'Specialty the patient is referred to — only for type "specialty". For a specialty not in the list ' +
+          '(e.g. Dentistry), use "Other" plus specialtyOther.'
+      ),
+    specialtyOther: z.string().optional().describe('Free-text specialty — only when specialty is "Other".'),
+    nothingToEatOrDrink: z.boolean().optional().describe('"Nothing to eat or drink" checkbox — only for type "ed".'),
+    refusalOfEmsTransport: z.boolean().optional().describe('"Refusal of EMS transport" checkbox — only for type "ed".'),
   })
-  .describe('Maps to save-chart-data.disposition');
+  // strict: reject legacy fields (`text`, subspecialty `followUp[]`) loudly
+  // instead of silently stripping a clinician-intent-bearing referral.
+  .strict()
+  .superRefine((d, ctx) => {
+    // Reject (loudly, at authoring time) any field combination the EHR's
+    // Disposition card cannot produce, rather than silently dropping fields.
+    const fail = (path: string, message: string): void => {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+    };
+    if (d.followUpIn !== undefined) {
+      if (d.type !== 'pcp-no-type' && d.type !== 'specialty') {
+        fail('followUpIn', `followUpIn is only available on the "pcp-no-type" and "specialty" tabs, not "${d.type}"`);
+      }
+      if (!FOLLOW_UP_IN_DAYS.includes(d.followUpIn)) {
+        fail('followUpIn', `followUpIn must be one of ${FOLLOW_UP_IN_DAYS.join(', ')} (EHR dropdown options)`);
+      }
+    }
+    if (d.reason !== undefined && d.type !== 'another') {
+      fail('reason', `reason is only available on the "another" tab, not "${d.type}"`);
+    }
+    if (d.specialty !== undefined && d.type !== 'specialty') {
+      fail('specialty', `specialty is only available on the "specialty" tab, not "${d.type}"`);
+    }
+    if (d.specialtyOther !== undefined) {
+      if (d.type !== 'specialty') {
+        fail('specialtyOther', `specialtyOther is only available on the "specialty" tab, not "${d.type}"`);
+      } else if (d.specialty !== OTHER_SPECIALTY_TRANSFER_OPTION) {
+        fail('specialtyOther', 'specialtyOther requires specialty to be "Other"');
+      }
+    }
+    if ((d.nothingToEatOrDrink !== undefined || d.refusalOfEmsTransport !== undefined) && d.type !== 'ed') {
+      fail('type', `nothingToEatOrDrink/refusalOfEmsTransport are only available on the "ed" tab, not "${d.type}"`);
+    }
+  })
+  .describe('Maps to save-chart-data.disposition — restricted to shapes the EHR Disposition card can create.');
 
 // ── Sign-off ──────────────────────────────────────────────────────────────────
 

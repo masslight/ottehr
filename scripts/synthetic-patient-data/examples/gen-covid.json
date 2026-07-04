@@ -278,9 +278,7 @@
     ]
   },
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Supportive care for COVID-19, isolate per guidance. Return for shortness of breath, chest pain, or persistent high fever.",
     "followUpIn": 5
   },

@@ -277,9 +277,7 @@
     ]
   },
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Empiric STI treatment; partner should be treated, abstain until 7 days after treatment. Return for fever, pelvic pain, or no improvement.",
     "followUpIn": 7
   },

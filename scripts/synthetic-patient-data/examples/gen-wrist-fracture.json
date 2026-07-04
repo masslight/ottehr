@@ -257,14 +257,8 @@
     ]
   },
   "disposition": {
-    "followUp": [
-      {
-        "type": "orthopedics",
-        "note": "Distal radius fracture, splinted"
-      }
-    ],
     "type": "specialty",
-    "text": "Orthopedic follow-up",
+    "specialty": "Orthopedics",
     "note": "Sugar-tong splint applied, neurovascularly intact. Orthopedics in 3-5 days for definitive management.",
     "followUpIn": 4
   },

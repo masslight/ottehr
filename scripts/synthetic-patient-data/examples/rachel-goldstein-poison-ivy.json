@@ -150,11 +150,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up if needed",
+    "type": "pcp-no-type",
     "note": "Prednisone taper (40 mg × 5d, 30 mg × 3d, 20 mg × 3d, 10 mg × 3d). Hydroxyzine 25 mg q6h prn itch (caution with driving). Triamcinolone 0.1% ointment BID to affected areas. Cool compresses, oatmeal baths. Avoid scratching. Return for facial swelling, SOB, or signs of secondary infection.",
-    "followUpIn": 10,
-    "followUp": []
+    "followUpIn": 14
   },
 
   "signOff": {

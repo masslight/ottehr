@@ -256,9 +256,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Migraine treatment; rest in a dark room, hydrate. Return for worst headache of life, fever with neck stiffness, weakness, or vision loss.",
     "followUpIn": 3
   },

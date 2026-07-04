@@ -261,9 +261,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Activity as tolerated, NSAIDs, muscle relaxant for back strain. Return for leg weakness, numbness, or loss of bladder/bowel control.",
     "followUpIn": 7
   },

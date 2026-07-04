@@ -172,11 +172,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up in 2-3 days",
+    "type": "pcp-no-type",
     "note": "Levofloxacin 750 mg PO daily × 5 days. Prednisone 40 mg PO daily × 5 days. Continue tiotropium + albuterol prn. Discussed admission given hypoxemia + comorbidities; CURB-65 = 1; patient strongly preferred outpatient with close f/u. Strict return precautions: worsening SOB, chest pain, fever not improving in 48-72h, confusion. PCP follow-up in 2-3 days mandatory.",
-    "followUpIn": 3,
-    "followUp": []
+    "followUpIn": 3
   },
 
   "signOff": {

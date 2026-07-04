@@ -250,14 +250,9 @@
     }
   ],
   "disposition": {
-    "followUp": [
-      {
-        "type": "dentistry",
-        "note": "Periapical abscess, needs source control"
-      }
-    ],
     "type": "specialty",
-    "text": "Urgent dental referral",
+    "specialty": "Other",
+    "specialtyOther": "Dentistry",
     "note": "Antibiotics and analgesia started; refer to dentist within 1-2 days for definitive treatment.",
     "followUpIn": 1
   },

@@ -1281,40 +1281,48 @@ diagnoses already existing on the encounter.
 
 ### 7.11 Disposition / follow-up
 
-The `disposition` payload produces three coordinated changes: a parent `ServiceRequest`, sub-follow-up `ServiceRequest`s, and a patch to `Encounter.hospitalization.dischargeDisposition`. None fit in templates (`ServiceRequest` isn't a templated type).
+The `disposition` payload produces two coordinated changes: a parent `ServiceRequest` and a patch to `Encounter.hospitalization.dischargeDisposition`. Neither fits in templates (`ServiceRequest` isn't a templated type).
 
-**`disposition.type` is a strict enum.** Valid values come from `DispositionType`
-in `packages/utils/lib/types/api/chart-data/chart-data.types.ts`:
+**Scenarios may only use dispositions a clinician can actually create through
+the EHR Disposition card.** The card exposes exactly four selectable tabs
+(`apps/ehr/src/features/visits/shared/components/DispositionCard.tsx`), and
+each tab exposes a fixed field set (`dispositionFieldsPerType` in
+`apps/ehr/src/features/visits/telemed/utils/disposition.helper.ts`):
 
-| Value | EHR label | Use for |
-|---|---|---|
-| `pcp` | Primary Care Physician | Routine discharge home with PCP follow-up |
-| `pcp-no-type` | Primary Care Physician | PCP follow-up without specialty referrals |
-| `ed` | ED Transfer | Send to emergency department |
-| `ip` | Ottehr IP Transfer | Inpatient transfer (in-network) |
-| `ip-oth` | Non-Ottehr IP Transfer | Inpatient transfer (out-of-network) |
-| `ip-lab` | Ottehr IP Lab | Send-out lab + IP transfer |
-| `specialty` | Specialty Transfer | Outpatient specialty referral |
-| `another` | Transfer to Another Location | Other transfer reason |
+| Value | EHR label | Extra fields | Use for |
+|---|---|---|---|
+| `pcp-no-type` | Primary Care Physician | `followUpIn` | Routine discharge home with PCP follow-up |
+| `another` | Transfer to Another Location | `reason` (`Equipment availability` / `Procedure or advanced care` / `Xray`) | Other transfer reason |
+| `ed` | ED Transfer | `nothingToEatOrDrink`, `refusalOfEmsTransport` booleans | Send to emergency department |
+| `specialty` | Specialty Transfer | `specialty` (dropdown), `specialtyOther` (free text when `specialty: 'Other'`), `followUpIn` | Outpatient specialty referral |
 
-**`disposition.followUp[].type` is a separate enum** for *specialty referral
-checkboxes only* — it does NOT include "primary-care". Valid values come from
-`dispositionCheckboxOptions` in `packages/utils/lib/fhir/disposition.ts`:
-`dentistry`, `ent`, `ophthalmology`, `orthopedics`, `other`, `lurie-ct`.
+`followUpIn` accepts only the EHR dropdown values: `1, 2, 3, 4, 5, 7, 14`, or
+`0` ("as needed").
 
-**For PCP follow-up, use the top-level `followUpIn` field (number of days),
-not a `followUp[]` entry:**
+The other `DispositionType` values (`pcp`, `ip`, `ip-lab`, `ip-oth`) and the
+subspecialty `followUp[]` checkbox array (`dentistry`/`ent`/…/`lurie-ct`
+sub-follow-up `ServiceRequest`s) exist in the shared types for legacy data but
+are **not reachable from any Disposition tab**, so the scenario schema rejects
+them. Express a specialty referral the way the UI does — `type: 'specialty'`
+plus the `specialty` dropdown value (`Other` + `specialtyOther` for off-list
+specialties like Dentistry):
 
 ```ts
 {
   disposition: {
-    type:       'pcp',
-    text:       'Discharge home with PCP follow-up',
+    type:       'pcp-no-type',
     note:       'Patient stable for discharge. Follow up with PCP if no improvement in 5 days.',
     followUpIn: 5,                                              // PCP / visit follow-up window in days
-    followUp: [
-      { type: 'ent', note: 'Refer to ENT if symptoms persist beyond 7 days' },
-    ],
+  },
+}
+
+// specialty referral:
+{
+  disposition: {
+    type:      'specialty',
+    specialty: 'Orthopedics',   // or 'Other' + specialtyOther: 'Dentistry'
+    note:      'Sugar-tong splint applied. Orthopedics in 3-5 days for definitive management.',
+    followUpIn: 4,
   },
 }
 ```

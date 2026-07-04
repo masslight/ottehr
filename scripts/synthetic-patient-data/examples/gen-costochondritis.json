@@ -254,9 +254,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Costochondritis — NSAIDs, warm compress, avoid aggravating activity. Return for pain with exertion, shortness of breath, sweating, or fainting.",
     "followUpIn": 5
   },

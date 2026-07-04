@@ -242,9 +242,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Corneal abrasion — antibiotic ointment, no contact lenses, do not rub the eye. Return for worsening vision, increasing pain, or pus.",
     "followUpIn": 2
   },

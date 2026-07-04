@@ -256,9 +256,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Antibiotics for bacterial sinusitis, nasal saline + steroid spray. Return for vision changes, severe headache, or facial swelling.",
     "followUpIn": 5
   },

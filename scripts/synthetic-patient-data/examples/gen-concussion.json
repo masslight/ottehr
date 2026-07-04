@@ -260,9 +260,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Concussion — cognitive and physical rest, gradual return to activity. Return immediately for repeated vomiting, worsening headache, confusion, weakness, or seizure.",
     "followUpIn": 3
   },

@@ -151,11 +151,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Stable for discharge after Zofran. Strict return precautions for worsening dehydration. Follow up with PCP in 2-3 days if not improving.",
-    "followUpIn": 3,
-    "followUp": []
+    "followUpIn": 3
   },
 
   "signOff": {

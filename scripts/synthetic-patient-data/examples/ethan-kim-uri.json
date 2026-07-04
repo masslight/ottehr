@@ -158,11 +158,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Symptomatic care for viral URI. Flu shot administered. Return precautions for shortness of breath, persistent fever >5 days, or worsening cough.",
-    "followUpIn": 5,
-    "followUp": []
+    "followUpIn": 5
   },
 
   "signOff": {

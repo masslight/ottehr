@@ -281,9 +281,7 @@
     ]
   },
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Supportive care for infectious mononucleosis. Avoid contact sports 3-4 weeks. Return for severe abdominal pain, difficulty swallowing, or trouble breathing.",
     "followUpIn": 7
   },

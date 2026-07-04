@@ -151,11 +151,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Naproxen 500 mg PO BID × 7 days. Cyclobenzaprine 5 mg PO TID prn × 5 days. Ice/heat alternation, gentle ROM. Follow up with PCP in 1 week. Return for worsening neurologic symptoms, severe headache, or new weakness.",
-    "followUpIn": 7,
-    "followUp": []
+    "followUpIn": 7
   },
 
   "signOff": {

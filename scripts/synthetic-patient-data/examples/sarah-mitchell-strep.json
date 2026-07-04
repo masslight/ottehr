@@ -185,11 +185,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up if needed",
+    "type": "pcp-no-type",
     "note": "Discharged with amoxicillin 500 mg PO BID × 10 days. Encouraged hydration and rest. Return for inability to swallow fluids, worsening fever, or rash.",
-    "followUpIn": 3,
-    "followUp": []
+    "followUpIn": 3
   },
 
   "signOff": {

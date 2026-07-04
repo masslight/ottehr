@@ -257,9 +257,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Supportive care for croup. Return immediately for noisy breathing at rest, drooling, or trouble breathing.",
     "followUpIn": 2
   },

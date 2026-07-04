@@ -246,9 +246,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Burn wound care with daily dressing changes. Return for increasing redness, pus, fever, or worsening pain.",
     "followUpIn": 2
   },

@@ -1787,20 +1787,33 @@ async function phase5_chartDataPass2(ctx: SynthesisContext): Promise<void> {
   }
 
   if (s.disposition) {
-    body.disposition = {
-      type: s.disposition.type,
-      ...(s.disposition.text ? { text: s.disposition.text } : {}),
-      ...(s.disposition.note ? { note: s.disposition.note } : {}),
-      ...(s.disposition.followUpIn !== undefined ? { followUpIn: s.disposition.followUpIn } : {}),
-      ...(s.disposition.followUp?.length
-        ? {
-            followUp: s.disposition.followUp.map((f) => ({
-              type: f.type,
-              ...(f.note ? { note: f.note } : {}),
-            })),
-          }
-        : {}),
+    // Mirror the EHR's mapFormToDisposition (apps/ehr/.../disposition.helper.ts):
+    // emit ONLY the fields the selected Disposition tab exposes, and default the
+    // note to 'N/A' exactly like the UI, so synth dispositions are byte-for-byte
+    // what a clinician saving through the Disposition card would produce.
+    const d = s.disposition;
+    const disposition: Record<string, unknown> = {
+      type: d.type,
+      note: d.note?.trim() || 'N/A',
     };
+    if ((d.type === 'pcp-no-type' || d.type === 'specialty') && d.followUpIn !== undefined) {
+      disposition.followUpIn = d.followUpIn;
+    }
+    if (d.type === 'another' && d.reason !== undefined) {
+      disposition.reason = d.reason;
+    }
+    if (d.type === 'specialty' && d.specialty !== undefined) {
+      disposition.specialty = d.specialty;
+      if (d.specialty === 'Other' && d.specialtyOther?.trim()) {
+        disposition.specialtyOther = d.specialtyOther.trim();
+      }
+    }
+    if (d.type === 'ed') {
+      // The ED tab always saves both checkbox booleans (unchecked = false).
+      disposition.nothingToEatOrDrink = d.nothingToEatOrDrink ?? false;
+      disposition.refusalOfEmsTransport = d.refusalOfEmsTransport ?? false;
+    }
+    body.disposition = disposition;
   }
 
   if (s.emCode) {

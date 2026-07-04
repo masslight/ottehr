@@ -163,11 +163,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up if needed",
+    "type": "pcp-no-type",
     "note": "Discharged with nitrofurantoin 100 mg PO BID × 5 days. Phenazopyridine 100 mg TID × 2 days for symptom relief. Hydration encouraged. Return for fever, flank pain, or worsening symptoms after 48-72 hours.",
-    "followUpIn": 5,
-    "followUp": []
+    "followUpIn": 5
   },
 
   "signOff": {

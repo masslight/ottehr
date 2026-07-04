@@ -249,9 +249,7 @@
     }
   ],
   "disposition": {
-    "followUp": [],
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up",
+    "type": "pcp-no-type",
     "note": "Avoid the trigger; topical steroid + antihistamine for contact dermatitis. Return for spreading rash, blistering, pus, or fever.",
     "followUpIn": 7
   },

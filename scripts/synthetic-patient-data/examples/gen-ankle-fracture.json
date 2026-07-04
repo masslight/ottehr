@@ -260,14 +260,8 @@
     ]
   },
   "disposition": {
-    "followUp": [
-      {
-        "type": "orthopedics",
-        "note": "Lateral malleolus fracture, splinted, NWB"
-      }
-    ],
     "type": "specialty",
-    "text": "Orthopedic follow-up",
+    "specialty": "Orthopedics",
     "note": "Posterior splint applied, non-weight-bearing with crutches. Orthopedics follow-up in 5-7 days for possible operative vs non-operative management.",
     "followUpIn": 5
   },

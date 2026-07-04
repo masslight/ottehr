@@ -177,11 +177,9 @@
   },
 
   "disposition": {
-    "type": "pcp",
-    "text": "Discharge home with PCP follow-up within 48 hours",
+    "type": "pcp-no-type",
     "note": "Cefdinir 300 mg PO BID × 7 days (NKDA, prior tolerance with cefdinir per chart). 500 mL NS bolus given for mild dehydration. Susan (daughter, healthcare proxy) instructed on hydration, mental-status monitoring, and signs of worsening. PCP follow-up within 48h. Strict return precautions: persistent confusion beyond 48h of antibiotics, fever >101°F, vomiting, flank pain, inability to take PO fluids.",
-    "followUpIn": 2,
-    "followUp": []
+    "followUpIn": 2
   },
 
   "signOff": {
