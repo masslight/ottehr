@@ -321,7 +321,7 @@ export const InboundFaxMatch: React.FC = () => {
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                   <Typography variant="subtitle2" sx={{ color: 'primary.dark' }}>
                     Fax from {senderFaxNumber || 'unknown'} &middot; {pageCount || '?'} pages &middot; Received{' '}
-                    {receivedDate || 'unknown'}
+                    {receivedDate ? formatDate(receivedDate) : 'unknown'}
                   </Typography>
                   {presignedPdfUrl && (
                     <Link
