@@ -1,4 +1,5 @@
 import { Communication } from 'fhir/r4b';
+import { APIError, APIErrorCode } from 'utils';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateDeleteParams } from '../../src/ehr/delete-inbound-fax/validateRequestParameters';
 import { validateRequestParameters as validateFileParams } from '../../src/ehr/file-inbound-fax/validateRequestParameters';
@@ -13,6 +14,22 @@ const createMockZambdaInput = (body: any): ZambdaInput => ({
   secrets: null,
 });
 
+const emptyBodyInput: ZambdaInput = {
+  body: '',
+  headers: { Authorization: 'Bearer test-token' },
+  secrets: null,
+};
+
+/** Runs fn, expecting it to throw a structured APIError; returns the thrown error. */
+const catchApiError = (fn: () => unknown): APIError => {
+  try {
+    fn();
+  } catch (error) {
+    return error as APIError;
+  }
+  throw new Error('Expected function to throw, but it did not');
+};
+
 // ============================================================================
 // file-inbound-fax validation
 // ============================================================================
@@ -24,7 +41,6 @@ describe('File Inbound Fax - validateRequestParameters', () => {
     patientId: 'patient-789',
     folderId: 'folder-abc',
     documentName: 'Fax from +15551234567',
-    pdfUrl: 'https://z3.example.com/bucket/file.pdf',
   };
 
   test('should validate input with all required fields', () => {
@@ -36,54 +52,41 @@ describe('File Inbound Fax - validateRequestParameters', () => {
     expect(result.patientId).toBe('patient-789');
     expect(result.folderId).toBe('folder-abc');
     expect(result.documentName).toBe('Fax from +15551234567');
-    expect(result.pdfUrl).toBe('https://z3.example.com/bucket/file.pdf');
     expect(result.secrets).toBeNull();
   });
 
-  test('should throw error when body is missing', () => {
-    const input: ZambdaInput = {
-      body: '',
-      headers: { Authorization: 'Bearer test-token' },
-      secrets: null,
-    };
-
-    expect(() => validateFileParams(input)).toThrow('No request body provided');
+  test('should throw structured error when body is missing', () => {
+    const error = catchApiError(() => validateFileParams(emptyBodyInput));
+    expect(error.code).toBe(APIErrorCode.MISSING_REQUEST_BODY);
   });
 
-  test('should throw error when taskId is missing', () => {
-    const { taskId: _taskId, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateFileParams(input)).toThrow('taskId is required');
+  test.each(['taskId', 'communicationId', 'patientId', 'folderId', 'documentName'] as const)(
+    'should throw structured error when %s is missing',
+    (param) => {
+      const { [param]: _removed, ...rest } = validBody;
+      const error = catchApiError(() => validateFileParams(createMockZambdaInput(rest)));
+      expect(error.code).toBe(APIErrorCode.MISSING_REQUIRED_PARAMETERS);
+      expect(error.message).toContain(param);
+    }
+  );
+
+  test('should report all missing params at once', () => {
+    const error = catchApiError(() => validateFileParams(createMockZambdaInput({ taskId: 'task-123' })));
+    expect(error.code).toBe(APIErrorCode.MISSING_REQUIRED_PARAMETERS);
+    for (const param of ['communicationId', 'patientId', 'folderId', 'documentName']) {
+      expect(error.message).toContain(param);
+    }
   });
 
-  test('should throw error when communicationId is missing', () => {
-    const { communicationId: _communicationId, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateFileParams(input)).toThrow('communicationId is required');
+  test('SECURITY: should accept but ignore a client-supplied pdfUrl (server sources it from the Task)', () => {
+    const input = createMockZambdaInput({ ...validBody, pdfUrl: 'https://evil.example.com/anything.pdf' });
+    const result = validateFileParams(input);
+    expect(result).not.toHaveProperty('pdfUrl');
   });
 
-  test('should throw error when patientId is missing', () => {
-    const { patientId: _patientId, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateFileParams(input)).toThrow('patientId is required');
-  });
-
-  test('should throw error when folderId is missing', () => {
-    const { folderId: _folderId, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateFileParams(input)).toThrow('folderId is required');
-  });
-
-  test('should throw error when documentName is missing', () => {
-    const { documentName: _documentName, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateFileParams(input)).toThrow('documentName is required');
-  });
-
-  test('should throw error when pdfUrl is missing', () => {
-    const { pdfUrl: _pdfUrl, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateFileParams(input)).toThrow('pdfUrl is required');
+  test('should not require pdfUrl', () => {
+    const input = createMockZambdaInput(validBody);
+    expect(() => validateFileParams(input)).not.toThrow();
   });
 });
 
@@ -95,7 +98,6 @@ describe('Delete Inbound Fax - validateRequestParameters', () => {
   const validBody = {
     taskId: 'task-123',
     communicationId: 'comm-456',
-    pdfUrl: 'https://z3.example.com/bucket/file.pdf',
   };
 
   test('should validate input with all required fields', () => {
@@ -104,36 +106,30 @@ describe('Delete Inbound Fax - validateRequestParameters', () => {
 
     expect(result.taskId).toBe('task-123');
     expect(result.communicationId).toBe('comm-456');
-    expect(result.pdfUrl).toBe('https://z3.example.com/bucket/file.pdf');
     expect(result.secrets).toBeNull();
   });
 
-  test('should throw error when body is missing', () => {
-    const input: ZambdaInput = {
-      body: '',
-      headers: { Authorization: 'Bearer test-token' },
-      secrets: null,
-    };
-
-    expect(() => validateDeleteParams(input)).toThrow('No request body provided');
+  test('should throw structured error when body is missing', () => {
+    const error = catchApiError(() => validateDeleteParams(emptyBodyInput));
+    expect(error.code).toBe(APIErrorCode.MISSING_REQUEST_BODY);
   });
 
-  test('should throw error when taskId is missing', () => {
-    const { taskId: _taskId, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateDeleteParams(input)).toThrow('taskId is required');
+  test.each(['taskId', 'communicationId'] as const)('should throw structured error when %s is missing', (param) => {
+    const { [param]: _removed, ...rest } = validBody;
+    const error = catchApiError(() => validateDeleteParams(createMockZambdaInput(rest)));
+    expect(error.code).toBe(APIErrorCode.MISSING_REQUIRED_PARAMETERS);
+    expect(error.message).toContain(param);
   });
 
-  test('should throw error when communicationId is missing', () => {
-    const { communicationId: _communicationId, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateDeleteParams(input)).toThrow('communicationId is required');
+  test('SECURITY: should accept but ignore a client-supplied pdfUrl (server sources it from the Task)', () => {
+    const input = createMockZambdaInput({ ...validBody, pdfUrl: 'https://evil.example.com/anything.pdf' });
+    const result = validateDeleteParams(input);
+    expect(result).not.toHaveProperty('pdfUrl');
   });
 
-  test('should throw error when pdfUrl is missing', () => {
-    const { pdfUrl: _pdfUrl, ...rest } = validBody;
-    const input = createMockZambdaInput(rest);
-    expect(() => validateDeleteParams(input)).toThrow('pdfUrl is required');
+  test('should not require pdfUrl', () => {
+    const input = createMockZambdaInput(validBody);
+    expect(() => validateDeleteParams(input)).not.toThrow();
   });
 });
 
@@ -168,38 +164,39 @@ describe('Handle Inbound Fax - validateRequestParameters', () => {
     expect(result.secrets).toBeNull();
   });
 
-  test('should throw error when body is missing', () => {
-    const input: ZambdaInput = {
-      body: '',
-      headers: { Authorization: 'Bearer test-token' },
-      secrets: null,
-    };
-
-    expect(() => validateHandleParams(input)).toThrow('No request body provided');
+  test('should throw structured error when body is missing', () => {
+    const error = catchApiError(() => validateHandleParams(emptyBodyInput));
+    expect(error.code).toBe(APIErrorCode.MISSING_REQUEST_BODY);
   });
 
-  test('should throw error when resourceType is not Communication', () => {
+  test('should throw structured error when resourceType is not Communication', () => {
     const input = createMockZambdaInput({
       ...validCommunication,
       resourceType: 'Patient',
     });
 
-    expect(() => validateHandleParams(input)).toThrow('Expected Communication but got Patient');
+    const error = catchApiError(() => validateHandleParams(input));
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+    expect(error.message).toBe('Expected Communication but got Patient');
   });
 
-  test('should throw error when status is not completed', () => {
+  test('should throw structured error when status is not completed', () => {
     const input = createMockZambdaInput({
       ...validCommunication,
       status: 'in-progress',
     });
 
-    expect(() => validateHandleParams(input)).toThrow('Expected completed status but got in-progress');
+    const error = catchApiError(() => validateHandleParams(input));
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+    expect(error.message).toBe('Expected completed status but got in-progress');
   });
 
-  test('should throw error when id is missing', () => {
+  test('should throw structured error when id is missing', () => {
     const { id: _id, ...rest } = validCommunication;
     const input = createMockZambdaInput(rest);
 
-    expect(() => validateHandleParams(input)).toThrow('Communication is missing id');
+    const error = catchApiError(() => validateHandleParams(input));
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+    expect(error.message).toBe('Communication is missing id');
   });
 });

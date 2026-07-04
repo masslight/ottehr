@@ -2270,7 +2270,8 @@ export interface FileInboundFaxInput {
   patientId: string;
   folderId: string;
   documentName: string;
-  pdfUrl: string;
+  // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative
+  // url from the verified inbound-fax Task's stored input.
 }
 
 export interface FileInboundFaxOutput {
@@ -3056,7 +3057,8 @@ export const removeQuickPick = async (oystehr: Oystehr, quickPickId: string): Pr
 export interface DeleteInboundFaxInput {
   taskId: string;
   communicationId: string;
-  pdfUrl: string;
+  // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative
+  // url from the verified inbound-fax Task's stored input.
 }
 
 export const deleteInboundFax = async (oystehr: Oystehr, parameters: DeleteInboundFaxInput): Promise<void> => {

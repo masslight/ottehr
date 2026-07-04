@@ -1,3 +1,5 @@
+import { Task as FhirTask } from 'fhir/r4b';
+
 export interface Task {
   id: string;
   category: string;
@@ -86,6 +88,15 @@ export const FAX_TASK = {
     receivedDate: 'received-date',
   },
 } as const;
+
+/**
+ * Reads a valueString Task.input from a Task created via the zambdas' `createTask` helper,
+ * which encodes the input type as `type.coding[].code`. Security-sensitive values (e.g. the
+ * inbound-fax pdf url) must be sourced from the verified Task via this helper — never from
+ * client request bodies.
+ */
+export const getTaskInputValue = (task: FhirTask, inputTypeCode: string): string | undefined =>
+  task.input?.find((input) => input.type?.coding?.some((coding) => coding.code === inputTypeCode))?.valueString;
 
 export const RADIOLOGY_TASK = {
   category: 'radiology',
