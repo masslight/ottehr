@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import {
   DOB_DATE_FORMAT,
   ERX_TASK,
+  FAX_TASK,
   getFullName,
   IN_HOUSE_LAB_TASK,
   LAB_ORDER_TASK,
@@ -32,6 +33,7 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [MANUAL_TASK.category.charting]: 'Charting',
   [MANUAL_TASK.category.coding]: 'Coding',
   [MANUAL_TASK.category.billing]: 'Billing',
+  [FAX_TASK.category]: 'Fax',
   [MANUAL_TASK.category.other]: 'Other',
 };
 

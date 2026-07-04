@@ -29,6 +29,7 @@ import {
   TASKS_PAGE_SIZE,
   useCompleteTask,
   useGetTasks,
+  VIEW_FAX,
 } from 'src/features/visits/in-person/hooks/useTasks';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -69,7 +70,9 @@ export const Tasks: React.FC = () => {
   const { oystehr } = useApiClients();
 
   const renderActionButton = (task: Task): ReactElement | null => {
-    if (task.status === COMPLETED) {
+    // Completed tasks normally have no action, except read-only "View" actions (e.g. a filed
+    // inbound fax, where the PDF can still be opened) which fall through to the generic button.
+    if (task.status === COMPLETED && task.action?.name !== VIEW_FAX) {
       return null;
     }
     if (task.action) {
@@ -352,12 +355,10 @@ export const Tasks: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          {task.status !== COMPLETED ? (
-                            <Stack direction="row" justifyContent="space-between" spacing={1}>
-                              {renderActionButton(task)}
-                              {renderCompleteButton(task)}
-                            </Stack>
-                          ) : null}
+                          <Stack direction="row" justifyContent="space-between" spacing={1}>
+                            {renderActionButton(task)}
+                            {renderCompleteButton(task)}
+                          </Stack>
                         </TableCell>
                         <TableCell>
                           <MoreTaskActions task={task} currentUser={currentUser} />

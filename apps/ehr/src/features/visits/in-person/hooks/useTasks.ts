@@ -8,6 +8,7 @@ import {
   chooseJson,
   CreateManualTaskRequest,
   ERX_TASK,
+  FAX_TASK,
   getCoding,
   getExtension,
   IN_HOUSE_LAB_TASK,
@@ -28,6 +29,8 @@ import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
+// Read-only action label for fax tasks that have already been actioned (filed/deleted).
+export const VIEW_FAX = 'View';
 
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
@@ -80,7 +83,7 @@ export const useGetTasks = (
     queryKey: [GET_TASKS_KEY, assignedTo, category, location, status, page],
     queryFn: async () => {
       if (!oystehr) throw new Error('oystehr not defined');
-      const params: SearchParam[] = [
+      const baseParams: SearchParam[] = [
         {
           name: '_tag',
           value: 'task',
@@ -93,54 +96,90 @@ export const useGetTasks = (
           name: '_total',
           value: 'accurate',
         },
-        {
-          name: '_count',
-          value: TASKS_PAGE_SIZE,
-        },
         ...TASK_STATUSES_TO_EXCLUDE.map((status) => ({ name: 'status:not', value: status })),
         ...TASK_CODES_TO_EXCLUDE.map((code) => ({ name: 'code:not', value: code })),
       ];
-      if (page) {
-        params.push({
-          name: '_offset',
-          value: page * TASKS_PAGE_SIZE,
-        });
-      }
       if (assignedTo) {
-        params.push({
+        baseParams.push({
           name: 'owner',
           value: 'Practitioner/' + assignedTo,
         });
       }
       if (category) {
-        params.push({
+        baseParams.push({
           name: 'group-identifier',
           value: TASK_CATEGORY_IDENTIFIER + '|' + category,
         });
       }
-      if (location) {
-        params.push({
-          name: '_tag',
-          value: TASK_LOCATION_SYSTEM + '|' + location,
-        });
-      }
       if (status) {
-        params.push({
+        baseParams.push({
           name: 'status',
           value: status,
         });
       }
-      params.push({
+      baseParams.push({
         name: '_include',
         value: 'Task:encounter',
       });
-      const bundle = await oystehr.fhir.search<FhirTask | Encounter>({
-        resourceType: 'Task',
-        params,
-      });
-      const resources = bundle.unbundle();
-      const tasks = resources.filter((r) => r.resourceType === 'Task') as FhirTask[];
-      const encounters = resources.filter((r) => r.resourceType === 'Encounter') as Encounter[];
+
+      const searchTasks = async (
+        extraParams: SearchParam[],
+        count: number,
+        offset: number
+      ): Promise<{ tasks: FhirTask[]; encounters: Encounter[]; total: number | undefined }> => {
+        const bundle = await oystehr.fhir.search<FhirTask | Encounter>({
+          resourceType: 'Task',
+          params: [...baseParams, ...extraParams, { name: '_count', value: count }, { name: '_offset', value: offset }],
+        });
+        const resources = bundle.unbundle();
+        return {
+          tasks: resources.filter((r) => r.resourceType === 'Task') as FhirTask[],
+          encounters: resources.filter((r) => r.resourceType === 'Encounter') as Encounter[],
+          total: bundle.total,
+        };
+      };
+
+      const pageOffset = (page ?? 0) * TASKS_PAGE_SIZE;
+
+      let fhirTasks: FhirTask[];
+      let encounters: Encounter[];
+      let total: number;
+
+      if (location) {
+        // Tasks with no location tag (e.g. inbound faxes) are location-agnostic and must NOT be
+        // hidden by the location filter. FHIR search can't express "location tag == X OR no
+        // location tag" in a single query, so we run two disjoint searches — tasks tagged with
+        // the selected location, and tasks with no location tag at all — and merge them.
+        // To paginate the merged set correctly, fetch each stream through the end of the
+        // requested page window, merge-sort, and slice out the page.
+        const windowEnd = pageOffset + TASKS_PAGE_SIZE;
+        const [tagged, untagged] = await Promise.all([
+          searchTasks([{ name: '_tag', value: TASK_LOCATION_SYSTEM + '|' + location }], windowEnd, 0),
+          searchTasks([{ name: '_tag:not', value: TASK_LOCATION_SYSTEM + '|' }], windowEnd, 0),
+        ]);
+        // Defensive: only keep genuinely location-less tasks from the second search in case the
+        // server's handling of a system-only `_tag:not` differs from the FHIR spec.
+        const locationLessTasks = untagged.tasks.filter(
+          (task) => !task.meta?.tag?.some((tag) => tag.system === TASK_LOCATION_SYSTEM)
+        );
+        const seenTaskIds = new Set<string>();
+        fhirTasks = [...tagged.tasks, ...locationLessTasks]
+          .filter((task) => {
+            if (!task.id || seenTaskIds.has(task.id)) return false;
+            seenTaskIds.add(task.id);
+            return true;
+          })
+          .sort((a, b) => (b.authoredOn ?? '').localeCompare(a.authoredOn ?? ''))
+          .slice(pageOffset, windowEnd);
+        encounters = [...tagged.encounters, ...untagged.encounters];
+        total = tagged.total != null && untagged.total != null ? tagged.total + untagged.total : -1;
+      } else {
+        const result = await searchTasks([], TASKS_PAGE_SIZE, pageOffset);
+        fhirTasks = result.tasks;
+        encounters = result.encounters;
+        total = result.total ?? -1;
+      }
+
       const encountersMap = new Map<string, Encounter>();
       encounters.forEach((encounter) => {
         if (encounter.id) {
@@ -148,10 +187,10 @@ export const useGetTasks = (
         }
       });
       // can probably remove filterTasks, leaving for now because we have a handful of tasks in prod that will get pulled on in a weird way if removed
-      const transformedTasks = tasks.filter(filterTasks).map((task) => fhirTaskToTask(task, encountersMap));
+      const transformedTasks = fhirTasks.filter(filterTasks).map((task) => fhirTaskToTask(task, encountersMap));
       return {
         tasks: transformedTasks,
-        total: bundle.total ?? -1,
+        total,
       };
     },
     enabled: oystehr != null,
@@ -509,6 +548,27 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     title = `Provider ${providerName} has notifications in DoseSpot`;
     completable = true;
     action = { name: OPEN_DOSESPOT, link: '' };
+  }
+  if (category === FAX_TASK.category) {
+    const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';
+    const senderFaxNumber = getInputString(FAX_TASK.input.senderFaxNumber, task);
+    const pageCount = getInputString(FAX_TASK.input.pageCount, task);
+    const receivedDate = getInputString(FAX_TASK.input.receivedDate, task);
+    const communicationId = getInputString(FAX_TASK.input.communicationId, task);
+
+    if (code === FAX_TASK.code.matchInboundFax) {
+      title = `Inbound fax from ${senderFaxNumber || 'unknown'} (${pageCount || '?'} pages)`;
+      subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
+      if (communicationId) {
+        // Once the fax is actioned (filed = completed, deleted = cancelled), the match page
+        // renders read-only, so the action label flips from "Match" to "View".
+        const isActioned = task.status === 'completed' || task.status === 'cancelled';
+        action = {
+          name: isActioned ? VIEW_FAX : 'Match',
+          link: `/inbound-fax/${communicationId}/match`,
+        };
+      }
+    }
   }
 
   return {
