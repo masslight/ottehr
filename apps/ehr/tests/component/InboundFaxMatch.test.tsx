@@ -277,7 +277,7 @@ describe('InboundFaxMatch page', () => {
     });
   });
 
-  it('shows an already-actioned message when the only matching task is not ready', async () => {
+  it('renders a read-only view (PDF preview, no match controls) when the task is completed', async () => {
     mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'Task') return Promise.resolve({ unbundle: () => [makeFaxTask('completed')] });
       return Promise.resolve({ unbundle: () => [] });
@@ -290,9 +290,64 @@ describe('InboundFaxMatch page', () => {
       </Wrapper>
     );
 
+    // Read-only notice replaces the match panel
     await waitFor(() => {
-      expect(screen.getByText('This fax has already been filed or deleted.')).toBeDefined();
+      expect(screen.getByText('This fax has already been filed.')).toBeDefined();
     });
+
+    // The PDF preview still loads (Communication + PDF survive filing)
+    expect(mockGetPresignedURL).toHaveBeenCalledWith('https://z3.example.com/bucket/fax.pdf', 'test-token');
+    await waitFor(() => {
+      expect(screen.getByTitle('Inbound fax PDF preview')).toBeDefined();
+    });
+    expect(screen.getByText(/\+15551234567/)).toBeDefined();
+
+    // No match controls: patient search, folder picker, Save, and Delete are all absent
+    expect(screen.queryByTestId('patient-search')).toBeNull();
+    expect(screen.queryByText('Save')).toBeNull();
+    expect(screen.queryByText('Delete')).toBeNull();
+    expect(screen.queryByText('Match to patient:')).toBeNull();
+  });
+
+  it('prefers the ready task (full match form) when both ready and completed tasks exist', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task')
+        return Promise.resolve({ unbundle: () => [makeFaxTask('completed'), makeFaxTask('ready')] });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('patient-search')).toBeDefined();
+    });
+    expect(screen.getByText('Save')).toBeDefined();
+    expect(screen.queryByText('This fax has already been filed.')).toBeNull();
+  });
+
+  it('shows a deleted message when the only matching task is cancelled', async () => {
+    mockFhirSearch.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'Task') return Promise.resolve({ unbundle: () => [makeFaxTask('cancelled')] });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('This fax was deleted and is no longer available.')).toBeDefined();
+    });
+    // A deleted fax's PDF is gone — no presign attempt, no preview
+    expect(mockGetPresignedURL).not.toHaveBeenCalled();
   });
 
   it('displays fax metadata after loading', async () => {

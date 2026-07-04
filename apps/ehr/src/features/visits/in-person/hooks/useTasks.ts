@@ -29,6 +29,8 @@ import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
+// Read-only action label for fax tasks that have already been actioned (filed/deleted).
+export const VIEW_FAX = 'View';
 
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
@@ -558,8 +560,11 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
       title = `Inbound fax from ${senderFaxNumber || 'unknown'} (${pageCount || '?'} pages)`;
       subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
       if (communicationId) {
+        // Once the fax is actioned (filed = completed, deleted = cancelled), the match page
+        // renders read-only, so the action label flips from "Match" to "View".
+        const isActioned = task.status === 'completed' || task.status === 'cancelled';
         action = {
-          name: 'Match',
+          name: isActioned ? VIEW_FAX : 'Match',
           link: `/inbound-fax/${communicationId}/match`,
         };
       }

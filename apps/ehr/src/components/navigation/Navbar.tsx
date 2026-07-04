@@ -31,21 +31,21 @@ const managerNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Admin: { urls: ['/admin'] },
-  Tasks: { urls: ['/tasks'] },
+  Tasks: { urls: ['/tasks', '/inbound-fax'] },
   Reports: { urls: ['/reports'] },
 };
 
 const staffNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Tasks: { urls: ['/tasks'] },
+  Tasks: { urls: ['/tasks', '/inbound-fax'] },
   Reports: { urls: ['/reports'] },
 };
 
 const providerNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Tasks: { urls: ['/tasks'] },
+  Tasks: { urls: ['/tasks', '/inbound-fax'] },
   Reports: { urls: ['/reports'] },
 };
 
