@@ -1,6 +1,7 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, Practitioner } from 'fhir/r4b';
+import { Communication, Device, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AppointmentProviderNotificationTypes,
@@ -8,10 +9,11 @@ import {
   FAX_TASK,
   getProviderNotificationSettingsForPractitioner,
   getSecret,
+  INVALID_INPUT_ERROR,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { fetchAllPages, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { createTask } from '../../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -27,7 +29,11 @@ export function getSenderFaxNumber(communication: Communication): string {
     const containedId = senderRef.slice(1);
     const containedDevice = communication.contained?.find((r) => r.resourceType === 'Device' && r.id === containedId);
     if (containedDevice && 'identifier' in containedDevice) {
-      const phoneIdentifier = (containedDevice as any).identifier?.find((id: any) => id.system === 'phone' || id.value);
+      const identifiers = (containedDevice as Device).identifier ?? [];
+      // Prefer the identifier explicitly marked as a phone number; only fall back to the
+      // first identifier that has any value if no phone-system identifier exists.
+      const phoneIdentifier =
+        identifiers.find((id) => id.system === 'phone' && id.value) ?? identifiers.find((id) => id.value);
       if (phoneIdentifier?.value) {
         return phoneIdentifier.value;
       }
@@ -75,10 +81,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('pdfUrl:', pdfUrl);
 
     if (!pdfUrl) {
-      console.error(`Communication/${communication.id} has no PDF attachment URL`);
+      throw INVALID_INPUT_ERROR(`Communication/${communication.id} has no PDF attachment URL`);
+    }
+
+    // Idempotency: FHIR subscriptions can re-fire for the same Communication. If an
+    // inbound-fax Task already exists for it, no-op instead of duplicating the Task and
+    // re-sending notifications.
+    const existingFaxTasks = (
+      await oystehr.fhir.search<Task>({
+        resourceType: 'Task',
+        params: [{ name: 'based-on', value: `Communication/${communication.id}` }],
+      })
+    )
+      .unbundle()
+      .filter((existing) => existing.groupIdentifier?.value === FAX_TASK.category);
+
+    if (existingFaxTasks.length > 0) {
+      const existingTaskId = existingFaxTasks[0].id;
+      console.log(
+        `[${ZAMBDA_NAME}] inbound-fax Task/${existingTaskId} already exists for Communication/${communication.id}; skipping (idempotent no-op)`
+      );
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Communication has no PDF attachment URL' }),
+        statusCode: 200,
+        body: JSON.stringify({ taskId: existingTaskId, alreadyProcessed: true }),
       };
     }
 
@@ -108,17 +133,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // Create provider notifications for all practitioners with task notifications enabled
     try {
-      const practitioners = (
-        await oystehr.fhir.search<Practitioner>({
+      let practitioners: Practitioner[] = [];
+      await fetchAllPages(async (offset, count) => {
+        const bundle = await oystehr.fhir.search<Practitioner>({
           resourceType: 'Practitioner',
-          params: [{ name: '_count', value: '100' }],
-        })
-      ).unbundle();
+          params: [
+            { name: '_count', value: count.toString() },
+            { name: '_offset', value: offset.toString() },
+          ],
+        });
+        practitioners = practitioners.concat(bundle.unbundle());
+        return bundle;
+      }, 500);
+
+      // Deactivating a user sets Practitioner.active = false (see user-activation); exclude
+      // those, but keep practitioners that predate the flag (active undefined).
+      const activePractitioners = practitioners.filter((practitioner) => practitioner.active !== false);
 
       const notificationMessage = `Inbound fax received from ${senderFaxNumber} (${pageCount ?? '?'} pages)`;
       const notificationRequests: BatchInputPostRequest<Communication>[] = [];
 
-      for (const practitioner of practitioners) {
+      for (const practitioner of activePractitioners) {
         const settings = getProviderNotificationSettingsForPractitioner(practitioner);
         if (settings?.taskNotificationsEnabled && practitioner.id) {
           notificationRequests.push({
@@ -153,7 +188,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         console.log('No practitioners with task notifications enabled');
       }
     } catch (notifError) {
-      console.warn('Failed to create provider notifications, continuing:', notifError);
+      // The fax Task itself was created successfully; a notification fan-out failure should
+      // not fail ingestion (the subscription would re-fire and duplicate work), but it must
+      // be visible to operators.
+      console.error(`[${ZAMBDA_NAME}] failed to create provider notifications, continuing:`, notifError);
+      captureException(notifError);
     }
 
     return {

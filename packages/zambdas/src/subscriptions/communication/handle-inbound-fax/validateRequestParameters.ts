@@ -1,5 +1,5 @@
 import { Communication } from 'fhir/r4b';
-import { Secrets } from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface HandleInboundFaxInput {
@@ -9,21 +9,21 @@ export interface HandleInboundFaxInput {
 
 export function validateRequestParameters(input: ZambdaInput): HandleInboundFaxInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const communication = JSON.parse(input.body) as Communication;
 
   if (communication.resourceType !== 'Communication') {
-    throw new Error(`Expected Communication but got ${communication.resourceType}`);
+    throw INVALID_INPUT_ERROR(`Expected Communication but got ${communication.resourceType}`);
   }
 
   if (communication.status !== 'completed') {
-    throw new Error(`Expected completed status but got ${communication.status}`);
+    throw INVALID_INPUT_ERROR(`Expected completed status but got ${communication.status}`);
   }
 
   if (!communication.id) {
-    throw new Error('Communication is missing id');
+    throw INVALID_INPUT_ERROR('Communication is missing id');
   }
 
   return { communication, secrets: input.secrets };

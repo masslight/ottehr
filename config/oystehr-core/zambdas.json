@@ -757,12 +757,7 @@
       "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/communication/handle-inbound-fax/index",
-      "zip": ".dist/zips/handle-inbound-fax.zip",
-      "subscription": {
-        "criteria": "Communication?medium=FAXWRIT&status=completed",
-        "reason": "Inbound fax received",
-        "event": "create"
-      }
+      "zip": ".dist/zips/handle-inbound-fax.zip"
     },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
@@ -2313,6 +2308,15 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/PROCESS-TELEMED-RECORDING/id}"
+    "HANDLE_INBOUND_FAX_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Inbound fax received",
+        "criteria": "Communication?medium=FAXWRIT&status=completed",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-INBOUND-FAX/id}"
         },
         "extension": [
           {
