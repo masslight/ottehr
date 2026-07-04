@@ -5,6 +5,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { LoadingButton } from '@mui/lab';
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -60,6 +61,8 @@ export const InboundFaxMatch: React.FC = () => {
   const [isFiling, setIsFiling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string>();
+  // True when the fax task is already completed (filed): show the PDF read-only, no match form.
+  const [readOnly, setReadOnly] = useState(false);
 
   const [taskId, setTaskId] = useState<string>();
   const [pdfUrl, setPdfUrl] = useState<string>();
@@ -110,14 +113,24 @@ export const InboundFaxMatch: React.FC = () => {
           })
         ).unbundle();
 
-        const task = tasks.find((t) => t.status === 'ready');
+        const readyTask = tasks.find((t) => t.status === 'ready');
+        // Filing completes the task but the Communication + PDF still exist, so a completed fax
+        // can be viewed read-only. (Enhancement: the completed Task doesn't record the
+        // patient/DocumentReference it was filed to, so we can't deep-link to the filed chart doc.)
+        const completedTask = tasks.find((t) => t.status === 'completed');
+        const task = readyTask ?? completedTask;
         if (!task?.id) {
-          // Filing completes the task; deleting cancels it. Either way a task still exists.
+          // Deleting cancels the task and removes the Communication + PDF — nothing left to show.
           setError(
-            tasks.length > 0 ? 'This fax has already been filed or deleted.' : 'No matching task found for this fax'
+            tasks.some((t) => t.status === 'cancelled')
+              ? 'This fax was deleted and is no longer available.'
+              : 'No matching task found for this fax'
           );
           setIsLoading(false);
           return;
+        }
+        if (!readyTask) {
+          setReadOnly(true);
         }
         setTaskId(task.id);
 
@@ -367,139 +380,145 @@ export const InboundFaxMatch: React.FC = () => {
               </Paper>
             </Grid>
 
-            {/* Right side: matching form */}
+            {/* Right side: matching form, or a read-only notice once the fax has been filed */}
             <Grid item xs={12} md={5}>
-              <Paper sx={{ p: 3 }}>
-                <Stack spacing={3}>
-                  {/* Patient search */}
-                  <Stack spacing={1}>
-                    <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
-                      Match to patient:
-                    </Typography>
-                    {confirmedSelectedPatient ? (
-                      <TextField
-                        label="Selected"
-                        InputProps={{
-                          readOnly: true,
-                          endAdornment: (
-                            <IconButton
-                              onClick={() => {
-                                setConfirmedSelectedPatient(undefined);
-                                setSelectedFolder(undefined);
-                              }}
-                              edge="end"
-                              size="small"
-                            >
-                              <ClearIcon />
-                            </IconButton>
-                          ),
-                        }}
-                        value={`${confirmedSelectedPatient.name} (${confirmedSelectedPatient.birthDate})`}
-                      />
-                    ) : (
-                      <UnsolicitedPatientMatchSearchCard
-                        selectedPatient={confirmedSelectedPatient}
-                        setSelectedPatient={handlePatientSelect}
-                        handleConfirmPatientMatch={handlePatientSelect}
-                      />
-                    )}
-                  </Stack>
-
-                  {/* Folder selection */}
-                  {confirmedSelectedPatient && (
+              {readOnly ? (
+                <Alert severity="info">This fax has already been filed.</Alert>
+              ) : (
+                <Paper sx={{ p: 3 }}>
+                  <Stack spacing={3}>
+                    {/* Patient search */}
                     <Stack spacing={1}>
                       <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
-                        Select folder:
+                        Match to patient:
                       </Typography>
-                      {foldersLoading ? (
-                        <CircularProgress size={24} />
-                      ) : folders.length === 0 ? (
-                        <Typography color="text.secondary">No folders found for this patient</Typography>
-                      ) : (
-                        <List dense disablePadding>
-                          {[...folders]
-                            .sort((a, b) => a.folderName.localeCompare(b.folderName))
-                            .map((folder) => (
-                              <ListItemButton
-                                key={folder.id}
-                                selected={selectedFolder?.id === folder.id}
-                                onClick={() => setSelectedFolder(selectedFolder?.id === folder.id ? undefined : folder)}
-                                sx={{ borderRadius: 1 }}
+                      {confirmedSelectedPatient ? (
+                        <TextField
+                          label="Selected"
+                          InputProps={{
+                            readOnly: true,
+                            endAdornment: (
+                              <IconButton
+                                onClick={() => {
+                                  setConfirmedSelectedPatient(undefined);
+                                  setSelectedFolder(undefined);
+                                }}
+                                edge="end"
+                                size="small"
                               >
-                                <ListItemIcon sx={{ minWidth: 36 }}>
-                                  <FolderOutlinedIcon />
-                                </ListItemIcon>
-                                <ListItemText
-                                  primary={`${folder.folderName} (${folder.documentsCount})`}
-                                  primaryTypographyProps={{
-                                    fontWeight: selectedFolder?.id === folder.id ? 600 : 400,
-                                  }}
-                                />
-                              </ListItemButton>
-                            ))}
-                        </List>
+                                <ClearIcon />
+                              </IconButton>
+                            ),
+                          }}
+                          value={`${confirmedSelectedPatient.name} (${confirmedSelectedPatient.birthDate})`}
+                        />
+                      ) : (
+                        <UnsolicitedPatientMatchSearchCard
+                          selectedPatient={confirmedSelectedPatient}
+                          setSelectedPatient={handlePatientSelect}
+                          handleConfirmPatientMatch={handlePatientSelect}
+                        />
                       )}
                     </Stack>
-                  )}
 
-                  {/* Document name */}
-                  {confirmedSelectedPatient && selectedFolder && (
-                    <Stack spacing={1}>
-                      <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
-                        Document name:
+                    {/* Folder selection */}
+                    {confirmedSelectedPatient && (
+                      <Stack spacing={1}>
+                        <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
+                          Select folder:
+                        </Typography>
+                        {foldersLoading ? (
+                          <CircularProgress size={24} />
+                        ) : folders.length === 0 ? (
+                          <Typography color="text.secondary">No folders found for this patient</Typography>
+                        ) : (
+                          <List dense disablePadding>
+                            {[...folders]
+                              .sort((a, b) => a.folderName.localeCompare(b.folderName))
+                              .map((folder) => (
+                                <ListItemButton
+                                  key={folder.id}
+                                  selected={selectedFolder?.id === folder.id}
+                                  onClick={() =>
+                                    setSelectedFolder(selectedFolder?.id === folder.id ? undefined : folder)
+                                  }
+                                  sx={{ borderRadius: 1 }}
+                                >
+                                  <ListItemIcon sx={{ minWidth: 36 }}>
+                                    <FolderOutlinedIcon />
+                                  </ListItemIcon>
+                                  <ListItemText
+                                    primary={`${folder.folderName} (${folder.documentsCount})`}
+                                    primaryTypographyProps={{
+                                      fontWeight: selectedFolder?.id === folder.id ? 600 : 400,
+                                    }}
+                                  />
+                                </ListItemButton>
+                              ))}
+                          </List>
+                        )}
+                      </Stack>
+                    )}
+
+                    {/* Document name */}
+                    {confirmedSelectedPatient && selectedFolder && (
+                      <Stack spacing={1}>
+                        <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
+                          Document name:
+                        </Typography>
+                        <TextField
+                          fullWidth
+                          value={documentName}
+                          onChange={(e) => setDocumentName(e.target.value)}
+                          placeholder="Enter document name"
+                        />
+                      </Stack>
+                    )}
+
+                    {/* Actions */}
+                    {previewUnavailable && !isPresigning && (
+                      <Typography variant="body2" color="error" textAlign="right">
+                        The fax preview must load before it can be filed. Use “Retry preview”.
                       </Typography>
-                      <TextField
-                        fullWidth
-                        value={documentName}
-                        onChange={(e) => setDocumentName(e.target.value)}
-                        placeholder="Enter document name"
-                      />
+                    )}
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                      <ConfirmationDialog
+                        title="Delete inbound fax?"
+                        description={`This will permanently delete the ${pageCount || '?'}-page fax received from ${
+                          senderFaxNumber || 'unknown'
+                        } on ${receivedDate ? formatDate(receivedDate) : 'an unknown date'}. This cannot be undone.`}
+                        response={handleDelete}
+                        actionButtons={{
+                          proceed: { text: 'Delete', color: 'error', loading: isDeleting },
+                          back: { text: 'Cancel' },
+                        }}
+                      >
+                        {(showDialog) => (
+                          <LoadingButton
+                            loading={isDeleting}
+                            variant="outlined"
+                            color="error"
+                            onClick={showDialog}
+                            sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
+                          >
+                            Delete
+                          </LoadingButton>
+                        )}
+                      </ConfirmationDialog>
+                      <LoadingButton
+                        loading={isFiling}
+                        variant="contained"
+                        color="primary"
+                        onClick={handleFile}
+                        disabled={!readyToSubmit}
+                        sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
+                      >
+                        Save
+                      </LoadingButton>
                     </Stack>
-                  )}
-
-                  {/* Actions */}
-                  {previewUnavailable && !isPresigning && (
-                    <Typography variant="body2" color="error" textAlign="right">
-                      The fax preview must load before it can be filed. Use “Retry preview”.
-                    </Typography>
-                  )}
-                  <Stack direction="row" spacing={2} justifyContent="flex-end">
-                    <ConfirmationDialog
-                      title="Delete inbound fax?"
-                      description={`This will permanently delete the ${pageCount || '?'}-page fax received from ${
-                        senderFaxNumber || 'unknown'
-                      } on ${receivedDate ? formatDate(receivedDate) : 'an unknown date'}. This cannot be undone.`}
-                      response={handleDelete}
-                      actionButtons={{
-                        proceed: { text: 'Delete', color: 'error', loading: isDeleting },
-                        back: { text: 'Cancel' },
-                      }}
-                    >
-                      {(showDialog) => (
-                        <LoadingButton
-                          loading={isDeleting}
-                          variant="outlined"
-                          color="error"
-                          onClick={showDialog}
-                          sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
-                        >
-                          Delete
-                        </LoadingButton>
-                      )}
-                    </ConfirmationDialog>
-                    <LoadingButton
-                      loading={isFiling}
-                      variant="contained"
-                      color="primary"
-                      onClick={handleFile}
-                      disabled={!readyToSubmit}
-                      sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
-                    >
-                      Save
-                    </LoadingButton>
                   </Stack>
-                </Stack>
-              </Paper>
+                </Paper>
+              )}
             </Grid>
           </Grid>
         )}
