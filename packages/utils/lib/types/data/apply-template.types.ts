@@ -1,6 +1,7 @@
 import { CreateLabPaymentMethod } from './labs/labs.types';
 
 export type TemplateSectionAction = 'skip' | 'overwrite' | 'append';
+export type ResolvedSectionActions = Record<TemplateSectionKey, TemplateSectionAction>;
 
 export type TemplateSectionKey =
   | 'hpi'

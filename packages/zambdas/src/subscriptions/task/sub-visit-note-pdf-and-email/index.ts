@@ -30,6 +30,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { getEncounterSignatures } from '../../../shared/pdf/get-encounter-signatures';
 import { getUpcomingFollowUps } from '../../../shared/pdf/get-upcoming-follow-ups';
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -129,12 +130,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounter.id
     );
 
-    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps] = await Promise.all([
-      chartDataPromise,
-      additionalChartDataPromise,
-      medicationOrdersPromise,
-      upcomingFollowUpsPromise,
-    ]);
+    // Signature/approval lines for the bottom of the visit note. Supplementary, so a failure here
+    // must not block PDF generation or the completion email.
+    const signaturesPromise = getEncounterSignatures(oystehr, visitResources.encounter.id!).catch((error) => {
+      console.error(`Failed to resolve encounter signatures for encounter ${visitResources.encounter.id}:`, error);
+      return { signedBy: undefined, approvedBy: undefined };
+    });
+
+    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps, signatures] =
+      await Promise.all([
+        chartDataPromise,
+        additionalChartDataPromise,
+        medicationOrdersPromise,
+        upcomingFollowUpsPromise,
+        signaturesPromise,
+      ]);
     const immunizationOrders = (
       await getImmunizationOrders(oystehr, {
         encounterIds: [visitResources.encounter.id!],
@@ -164,11 +174,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           appointmentPackage: visitResources,
           questionnaireResponse: visitResources.questionnaireResponse,
           upcomingFollowUps,
+          signatures,
         },
         secrets,
         oystehrToken
       );
       if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+      if (isPDFOnlyTask) {
+        pdfInfo.title = 'Patient Follow-up Note';
+      }
       console.log(`Creating visit note pdf docRef`);
       await makeVisitNotePdfDocumentReference(
         oystehr,
