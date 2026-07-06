@@ -1811,6 +1811,7 @@
       "name": "cron-outreach-invoice-due",
       "type": "cron",
       "runtime": "nodejs22.x",
+      "timeout": "595",
       "src": "src/rcm/scheduled-outreach/producers/cron-outreach-invoice-due/index",
       "zip": ".dist/zips/cron-outreach-invoice-due.zip",
       "schedule": {
@@ -1942,6 +1943,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-set-practitioner-role-active/index",
       "zip": ".dist/zips/admin-set-practitioner-role-active.zip"
+    },
+    "ADMIN_SET_SCHEDULE_OWNER_ACTIVE": {
+      "name": "admin-set-schedule-owner-active",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-set-schedule-owner-active/index",
+      "zip": ".dist/zips/admin-set-schedule-owner-active.zip"
+    },
+    "ADMIN_UPDATE_GROUP": {
+      "name": "admin-update-group",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/admin-update-group/index",
+      "zip": ".dist/zips/admin-update-group.zip"
     },
     "GET_SERVICE_CATEGORIES": {
       "name": "get-service-categories",

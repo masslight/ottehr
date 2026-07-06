@@ -7,12 +7,14 @@ import {
   BillingSubscriberRelationship,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
-  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
+  setCoveragePlanType,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -30,7 +32,6 @@ import {
   setNpi,
   setTaxId,
   setTaxonomy,
-  sortClaimInsurance,
 } from '../shared';
 import { UpdateBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -47,7 +48,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // Only fields present in the request are touched.
-async function performEffect(oystehr: Oystehr, params: UpdateBillingClaimParams): Promise<{ id: string | undefined }> {
+export async function performEffect(
+  oystehr: Oystehr,
+  params: UpdateBillingClaimParams
+): Promise<{ id: string | undefined }> {
   switch (params.resourceType) {
     case 'Claim':
       return attachClaimResources(oystehr, params);
@@ -149,13 +153,21 @@ async function attachClaimResources(
   const { fields } = params;
 
   if (fields.type) {
-    claim.type = getClaimTypeCoding(fields.type);
+    claim.type = { coding: [getClaimTypeCoding(fields.type)] };
     const tags = [
       ...(claim.meta?.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_CLAIM_TYPE),
       getClaimTypeCoding(fields.type),
     ];
     claim.meta ??= {};
     claim.meta.tag = tags;
+  }
+
+  if (fields.service) {
+    claim.meta ??= {};
+    claim.meta.tag = [
+      ...(claim.meta.tag ?? []).filter((t) => t.system !== CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM),
+      { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: fields.service },
+    ];
   }
 
   if (fields.billingProvider) {
@@ -169,7 +181,7 @@ async function attachClaimResources(
       {
         sequence: 1,
         provider: { reference: `${fields.renderingProvider.type}/${copy.id}` },
-        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }] },
+        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
       },
       ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
     ];
@@ -220,18 +232,6 @@ async function attachClaimResources(
     delete claim.insurer;
   }
 
-  if (fields.payerId) {
-    const payerUrl = getPayerUrl(fields.payerId);
-    // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
-    if (claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
-    const coverageRef = sortClaimInsurance(claim)[0]?.coverage?.reference;
-    if (coverageRef?.startsWith('Coverage/')) {
-      const coverage = await fetchById<Coverage>(oystehr, 'Coverage', coverageRef.replace('Coverage/', ''));
-      coverage.payor = [{ reference: payerUrl }];
-      await oystehr.fhir.update(coverage);
-    }
-  }
-
   if (fields.diagnoses) {
     const seen = new Set<string>();
     claim.diagnosis = fields.diagnoses
@@ -253,10 +253,10 @@ async function attachClaimResources(
       sequence: i + 1,
       careTeamSequence: hasRenderingProvider ? [1] : undefined,
       diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
-      productOrService: { coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }] },
+      productOrService: { coding: [{ system: CODE_SYSTEM_HL7_HCPCS, code: line.cptCode }] },
       modifier: line.modifiers?.length
         ? line.modifiers.map((m) => ({
-            coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER, code: m }],
+            coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER, code: m }],
           }))
         : undefined,
       servicedPeriod: { start: line.serviceDate },
@@ -276,9 +276,30 @@ async function attachClaimResources(
     }));
   }
 
+  if (fields.serviceDate) {
+    // Claim-level DOS edit: apply the one date to every line (matches Create Claim's one-DOS-per-claim model).
+    claim.item = claim.item?.map((item) => ({
+      ...item,
+      servicedPeriod: { ...item.servicedPeriod, start: fields.serviceDate },
+    }));
+  }
+
   // Guarantee the Claim.insurance invariant regardless of which fields changed: keep the no-coverage
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
+
+  if (fields.payerId || fields.planType) {
+    const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;
+    // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
+    if (payerUrl && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerUrl };
+    const focalCoverageRef = claim.insurance.find((i) => i.focal)?.coverage?.reference;
+    if (focalCoverageRef?.startsWith('Coverage/')) {
+      let coverage = await fetchById<Coverage>(oystehr, 'Coverage', focalCoverageRef.replace('Coverage/', ''));
+      if (payerUrl) coverage.payor = [{ reference: payerUrl }];
+      if (fields.planType) coverage = setCoveragePlanType(coverage, fields.planType);
+      await oystehr.fhir.update(coverage);
+    }
+  }
 
   return save(oystehr, claim);
 }

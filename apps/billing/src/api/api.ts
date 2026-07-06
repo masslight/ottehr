@@ -27,6 +27,7 @@ import {
   GetPatientCoveragesInputSchema,
   GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
+  ImportEraInputSchema,
   PatientDetailResponse,
   SaveBillingTagInputSchema,
   SavedResourceResponse,
@@ -51,6 +52,8 @@ import {
   SearchErasInputSchema,
   SearchServiceFacilitiesInputSchema,
   SearchServiceFacilitiesResponse,
+  SubmitBillingClaimsInputSchema,
+  SubmitBillingClaimsResponse,
   TagBillingClaimInputSchema,
   TaggedClaimResponse,
   UpdateBillingCoverageInputSchema,
@@ -126,6 +129,11 @@ export const tagBillingClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof TagBillingClaimInputSchema>
 ): Promise<TaggedClaimResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
+
+export const submitBillingClaims = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SubmitBillingClaimsInputSchema>
+): Promise<SubmitBillingClaimsResponse> => executeBillingZambda(oystehr, 'submit-billing-claim', parameters);
 
 // --- Providers ---
 
@@ -256,6 +264,9 @@ export const getBillingEraDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetEraDetailInputSchema>
 ): Promise<EraDetailResponse> => executeBillingZambda(oystehr, 'get-billing-era-detail', parameters);
+
+export const importEra = (oystehr: Oystehr, parameters: z.input<typeof ImportEraInputSchema>): Promise<any> =>
+  executeBillingZambda(oystehr, 'import-era', parameters);
 
 // --- ChargeItemDefinitions --
 
