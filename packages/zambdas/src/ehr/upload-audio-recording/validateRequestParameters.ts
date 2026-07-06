@@ -1,4 +1,4 @@
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 import { CreateUploadAudioRecordingInputValidated } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CreateUploadAudioRecordingInputValidated {
@@ -6,7 +6,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateUploadAudio
     throw new Error('No request body provided');
   }
 
-  const { visitID } = JSON.parse(input.body);
+  const { visitID } = safeJsonParse(input.body);
 
   if (!visitID) {
     throw new Error('visitID is required');

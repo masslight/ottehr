@@ -1,5 +1,5 @@
 import { ProcedureDetail } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): ProcedureDetail & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
@@ -17,7 +17,7 @@ export function validateRequestParameters(input: ZambdaInput): ProcedureDetail &
     suppliesUsed,
     procedureDetails,
     timeSpent,
-  } = JSON.parse(input.body);
+  } = safeJsonParse(input.body);
 
   return {
     procedureType,

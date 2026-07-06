@@ -351,14 +351,7 @@ export default function AppointmentsFilters(): ReactElement {
               />
             </Box>
             <Box sx={{ flex: 1, width: '100%' }}>
-              <EmployeeSelectInput
-                name="provider"
-                label="Provider"
-                filter={PROVIDERS_FILTER}
-                includeScheduleOwners
-                size="medium"
-                multiple
-              />
+              <EmployeeSelectInput name="provider" label="Provider" filter={PROVIDERS_FILTER} size="medium" multiple />
             </Box>
           </Stack>
         </Stack>

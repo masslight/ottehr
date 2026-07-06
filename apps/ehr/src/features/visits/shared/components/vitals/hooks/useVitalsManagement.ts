@@ -4,10 +4,14 @@ import { useParams } from 'react-router-dom';
 import { uploadDotVisionDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  calculateBMI,
   getAbnormalVitals,
   GetVitalsResponseData,
+  isHeightVitalObservation,
+  isWeightVitalObservation,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
+  VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -82,6 +86,8 @@ export interface VitalsFields {
   oxygenSat: VitalField<VitalsOxygenSatObservationDTO, ReturnType<typeof useOxygenSatLocalState>>;
   weight: VitalField<VitalsWeightObservationDTO, ReturnType<typeof useWeightLocalState>>;
   height: VitalField<VitalsHeightObservationDTO, ReturnType<typeof useHeightLocalState>>;
+  // BMI is derived and read-only — the read-only subset of a VitalField.
+  bmi: Pick<VitalField<VitalsBMIObservationDTO>, 'current' | 'historical' | 'delete'>;
   vision: VitalField<VitalsVisionObservationDTO, ReturnType<typeof useVisionLocalState>>;
   lmp: VitalField<VitalsLastMenstrualPeriodObservationDTO, ReturnType<typeof useLMPLocalState>>;
 }
@@ -195,6 +201,20 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     }
   }, [dotVisionState, finalizeDotVisionDocument, handleSaveVital]);
 
+  // Saves a derived BMI when both inputs exist. Doesn't refetch; caller refetches once. Returns whether it saved.
+  const saveBMI = useCallback(
+    async (weightKg: number | undefined, heightCm: number | undefined): Promise<boolean> => {
+      if (!weightKg || !heightCm) return false;
+      const bmiDto: VitalsBMIObservationDTO = {
+        field: VitalFieldNames.VitalBMI,
+        value: calculateBMI(weightKg, heightCm),
+      };
+      await saveVitals(bmiDto);
+      return true;
+    },
+    [saveVitals]
+  );
+
   const handleDeleteVital = useCallback(
     async (vitalEntity: VitalsObservationDTO): Promise<void> => {
       await deleteVitals(vitalEntity);
@@ -218,7 +238,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
   const handleAddAllVitals = useCallback(async () => {
     // Map field names to refs and local states
     const fieldMap: Record<
-      VitalFieldNames,
+      Exclude<VitalFieldNames, VitalFieldNames.VitalBMI>,
       {
         ref: React.RefObject<HTMLDivElement>;
         state: VitalLocalState;
@@ -235,13 +255,14 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       [VitalFieldNames.VitalLastMenstrualPeriod]: { ref: lmpCardRef, state: lmpState },
     };
 
+    type NonBMIVitalFieldNames = Exclude<VitalFieldNames, VitalFieldNames.VitalBMI>;
     const { invalidFields, validVitalsEntries } = Object.entries(fieldMap).reduce<{
-      invalidFields: VitalFieldNames[];
+      invalidFields: NonBMIVitalFieldNames[];
       validVitalsEntries: [string, { ref: React.RefObject<HTMLDivElement>; state: VitalLocalState }][];
     }>(
       (acc, entry) => {
         const [fieldName, { state }] = entry;
-        const field = fieldName as VitalFieldNames;
+        const field = fieldName as NonBMIVitalFieldNames;
 
         // Exclude Weight if Patient Refused is selected (it saves immediately)
         if (field === VitalFieldNames.VitalWeight && weightState.isPatientRefusedSelected) {
@@ -261,7 +282,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
 
     const validVitals = validVitalsEntries
       .map(([_, { state }]) => state.getDTO())
-      .filter((dto): dto is VitalsObservationDTO => dto !== null);
+      .filter((dto): dto is NonNullable<typeof dto> => dto !== null);
 
     // DOT vision screening is captured in its own sub-form (not part of fieldMap); fold it into the
     // same batch so "Add all vitals" doesn't silently drop it.
@@ -278,7 +299,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           vitalsToSave.push(await finalizeDotVisionDocument(dotDtoToSave));
         }
         await batchSaveVitals(vitalsToSave);
-        await refetchEncounterVitals();
+        const refetchResult = await refetchEncounterVitals();
 
         // Clear only the forms that were saved
         validVitalsEntries.forEach(([_, { state }]) => {
@@ -292,6 +313,20 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         enqueueSnackbar(`Successfully saved ${vitalsToSave.length} ${vitalText}`, {
           variant: 'success',
         });
+
+        // Auto-save BMI if height or weight was saved; isolated so a BMI failure doesn't flag the saved vitals.
+        const savedFields = validVitals.map((v) => v.field);
+        if (savedFields.includes(VitalFieldNames.VitalHeight) || savedFields.includes(VitalFieldNames.VitalWeight)) {
+          try {
+            const heightCm = refetchResult.data?.[VitalFieldNames.VitalHeight]?.[0]?.value;
+            const weightKg = refetchResult.data?.[VitalFieldNames.VitalWeight]?.[0]?.value;
+            if (await saveBMI(weightKg, heightCm)) {
+              await refetchEncounterVitals();
+            }
+          } catch {
+            enqueueSnackbar('Error saving BMI data', { variant: 'error' });
+          }
+        }
       } catch {
         enqueueSnackbar('Error saving vitals', { variant: 'error' });
       } finally {
@@ -340,49 +375,68 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     lmpState,
     batchSaveVitals,
     refetchEncounterVitals,
+    saveBMI,
   ]);
 
   // Helper to create field save handler with validation
   const createFieldSaveHandler = useCallback(
-    (field: VitalFieldNames, state: VitalLocalState) => async () => {
-      if (fieldSavingStates[field]) {
-        return;
-      }
-
-      if (!state.isValid) {
-        state.setValidationError(true);
-        const validationErrorMessage = getValidationErrorMessage(state);
-        if (validationErrorMessage) {
-          enqueueSnackbar(validationErrorMessage, { variant: 'error' });
+    (field: VitalFieldNames, state: VitalLocalState, triggerBMI = false) =>
+      async () => {
+        if (fieldSavingStates[field]) {
+          return;
         }
-        return;
-      }
 
-      const dto = state.getDTO();
-      if (dto) {
-        try {
-          setFieldSavingStates((prev) => ({ ...prev, [field]: true }));
-          await handleSaveVital(dto);
-          state.clearForm();
-        } catch {
-          const fieldNameMap: Record<VitalFieldNames, string> = {
-            [VitalFieldNames.VitalTemperature]: 'Temperature',
-            [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
-            [VitalFieldNames.VitalRespirationRate]: 'Respiration Rate',
-            [VitalFieldNames.VitalBloodPressure]: 'Blood Pressure',
-            [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen Saturation',
-            [VitalFieldNames.VitalWeight]: 'Weight',
-            [VitalFieldNames.VitalHeight]: 'Height',
-            [VitalFieldNames.VitalVision]: 'Vision',
-            [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
-          };
-          enqueueSnackbar(`Error saving ${fieldNameMap[field] || ''} data`, { variant: 'error' });
-        } finally {
-          setFieldSavingStates((prev) => ({ ...prev, [field]: false }));
+        if (!state.isValid) {
+          state.setValidationError(true);
+          const validationErrorMessage = getValidationErrorMessage(state);
+          if (validationErrorMessage) {
+            enqueueSnackbar(validationErrorMessage, { variant: 'error' });
+          }
+          return;
         }
-      }
-    },
-    [fieldSavingStates, handleSaveVital]
+
+        const dto = state.getDTO();
+        if (dto) {
+          try {
+            setFieldSavingStates((prev) => ({ ...prev, [field]: true }));
+            await saveVitals(dto);
+            // Derive BMI from the just-saved value plus the counterpart in state (no extra refetch);
+            // isolated so a BMI failure doesn't flag the saved height/weight.
+            if (triggerBMI) {
+              const heightCm = isHeightVitalObservation(dto)
+                ? dto.value
+                : encounterVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value;
+              const weightKg = isWeightVitalObservation(dto)
+                ? dto.value
+                : encounterVitals?.[VitalFieldNames.VitalWeight]?.[0]?.value;
+              try {
+                await saveBMI(weightKg, heightCm);
+              } catch {
+                enqueueSnackbar('Error saving BMI data', { variant: 'error' });
+              }
+            }
+            await refetchEncounterVitals();
+            state.clearForm();
+          } catch {
+            const fieldNameMap: Record<VitalFieldNames, string> = {
+              [VitalFieldNames.VitalTemperature]: 'Temperature',
+              [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
+              [VitalFieldNames.VitalRespirationRate]: 'Respiration Rate',
+              [VitalFieldNames.VitalBloodPressure]: 'Blood Pressure',
+              [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen Saturation',
+              [VitalFieldNames.VitalWeight]: 'Weight',
+              [VitalFieldNames.VitalHeight]: 'Height',
+              [VitalFieldNames.VitalBMI]: 'BMI',
+              [VitalFieldNames.VitalVision]: 'Vision',
+              [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
+            };
+            enqueueSnackbar(`Error saving ${fieldNameMap[field] || ''} data`, { variant: 'error' });
+          } finally {
+            setFieldSavingStates((prev) => ({ ...prev, [field]: false }));
+          }
+        }
+      },
+    [fieldSavingStates, saveVitals, refetchEncounterVitals, encounterVitals, saveBMI]
   );
 
   const saveHandlers = useMemo(() => {
@@ -401,8 +455,8 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         VitalFieldNames.VitalOxygenSaturation,
         oxygenSatState
       ),
-      [VitalFieldNames.VitalWeight]: createFieldSaveHandler(VitalFieldNames.VitalWeight, weightState),
-      [VitalFieldNames.VitalHeight]: createFieldSaveHandler(VitalFieldNames.VitalHeight, heightState),
+      [VitalFieldNames.VitalWeight]: createFieldSaveHandler(VitalFieldNames.VitalWeight, weightState, true),
+      [VitalFieldNames.VitalHeight]: createFieldSaveHandler(VitalFieldNames.VitalHeight, heightState, true),
       [VitalFieldNames.VitalVision]: createFieldSaveHandler(VitalFieldNames.VitalVision, visionState),
       [VitalFieldNames.VitalLastMenstrualPeriod]: createFieldSaveHandler(
         VitalFieldNames.VitalLastMenstrualPeriod,
@@ -500,6 +554,11 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       current: (encounterVitals?.[VitalFieldNames.VitalHeight] as VitalsHeightObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalHeight] as VitalsHeightObservationDTO[]) ?? [],
       localState: heightState,
+    },
+    bmi: {
+      current: (encounterVitals?.[VitalFieldNames.VitalBMI] as VitalsBMIObservationDTO[]) ?? [],
+      historical: (historicalVitals?.[VitalFieldNames.VitalBMI] as VitalsBMIObservationDTO[]) ?? [],
+      delete: handleDeleteVital,
     },
     vision: {
       save: saveHandlers[VitalFieldNames.VitalVision],
