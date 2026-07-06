@@ -7,15 +7,19 @@ import { DataEntryTestItem } from 'utils';
 
 interface InHouseLabSelectProps {
   availableTests: DataEntryTestItem[];
-  selectedTestNames: string[];
-  onChange: (newNames: string[]) => void;
+  selectedTestNames?: string[];
+  onChange?: (newNames: string[]) => void;
+  handleTestSelection?: (testName: string) => void;
 }
 
-export const InHouseLabSelect: React.FC<InHouseLabSelectProps> = ({ availableTests, selectedTestNames, onChange }) => {
+export const InHouseLabSelect: React.FC<InHouseLabSelectProps> = ({
+  availableTests,
+  selectedTestNames = [],
+  onChange,
+  handleTestSelection,
+}) => {
   const [pendingTestNames, setPendingTestNames] = useState<string[]>(selectedTestNames);
 
-  // Sync internal pending state when committed selection changes externally
-  // (e.g. via lab sets, prefill, or the delete button in the table)
   useEffect(() => {
     setPendingTestNames(selectedTestNames);
   }, [selectedTestNames]);
@@ -31,19 +35,20 @@ export const InHouseLabSelect: React.FC<InHouseLabSelectProps> = ({ availableTes
         value={pendingTestNames}
         label="Test"
         onChange={(e) => {
-          const value = e.target.value;
-          setPendingTestNames(Array.isArray(value) ? value : [value]);
+          const newNames = Array.isArray(e.target.value) ? e.target.value : [e.target.value];
+          if (handleTestSelection) {
+            newNames.filter((name) => !pendingTestNames.includes(name)).forEach((name) => handleTestSelection(name));
+          }
+          setPendingTestNames(newNames);
         }}
-        onClose={() => onChange(pendingTestNames)}
+        onClose={() => onChange?.(pendingTestNames)}
         renderValue={(selected) =>
           selected.length === 0 ? '' : `${selected.length} test${selected.length > 1 ? 's' : ''} selected`
         }
         MenuProps={{
           autoFocus: false,
           disableAutoFocusItem: true,
-          PaperProps: {
-            'data-testid': dataTestIds.orderInHouseLabPage.testTypeList,
-          },
+          PaperProps: { 'data-testid': dataTestIds.orderInHouseLabPage.testTypeList },
         }}
       >
         {availableTests.map((test) => {
