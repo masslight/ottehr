@@ -645,6 +645,7 @@ export interface PrimaryCarePhysician extends PdfData {
   pcpPracticeName: string;
   pcpAddress: string;
   pcpPhone: string;
+  pcpFax: string;
 }
 
 export interface Documents extends PdfData {
