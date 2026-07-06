@@ -199,7 +199,7 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
         queryKey: [GET_TASKS_KEY],
         exact: false,
       });
-      enqueueSnackbar('Task assigned successfully and moved to Pending status.', { variant: 'success' });
+      enqueueSnackbar('Task assigned successfully and moved to In Progress status.', { variant: 'success' });
     },
   });
 };
