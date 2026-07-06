@@ -48,6 +48,7 @@ import {
   hasTemplateRelevantTag,
   isDiagnosisCondition,
   isInHouseLabRepeatTestCptCode,
+  isPatientEducationCommunication,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -612,6 +613,11 @@ export const filterEntriesToTemplateContent = (
 
     // we don't write the repeat tests themselves to the templates, so don't take their cpt codes either
     if (isInHouseLabRepeatTestCptCode(resource)) return false;
+
+    // filter out pdf patient education here -- captured as a communication resource
+    // with the patient-instructions tag
+    // template todo: this will change when we decide to include patient education in templates
+    if (isPatientEducationCommunication(resource)) return false;
 
     return hasTemplateRelevantTag(resource);
   });

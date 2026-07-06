@@ -36,6 +36,7 @@ import {
   getTemplateEncounterBundle,
   hasTemplateRelevantTag,
   isDiagnosisCondition,
+  isPatientEducationCommunication,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
 import { applyExternalLabPlans, isExternalLabPlanServiceRequest } from './apply-external-labs';
@@ -597,6 +598,10 @@ export const makeCreateRequests = (
       });
       continue;
     }
+
+    // Older templates erroneously contained Patient Education Communications. These should not be included
+    // template todo: this will change when we decide to include patient education in templates
+    if (isPatientEducationCommunication(containedResource)) continue;
 
     const resourceToCreate = { ...containedResource };
 
