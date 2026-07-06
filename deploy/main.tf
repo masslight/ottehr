@@ -160,4 +160,5 @@ module "billing_app" {
   billing_bucket_name = var.billing_bucket_name
   billing_domain      = var.billing_domain
   billing_cert_domain = var.billing_cert_domain
+  ehr_app_url         = var.ehr_domain == null ? "http://localhost:4002" : "https://${var.ehr_domain}"
 }

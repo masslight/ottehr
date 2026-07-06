@@ -17,11 +17,13 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   genderMap,
   getClaimStatusValues,
+  getCoveragePlanType,
   getNPI,
   getPayerId,
   getResourcesFromBatchInlineRequests,
   getTaxID,
 } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   CLAIM_TAG_SYSTEM,
@@ -141,6 +143,9 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
 
   return {
     id: claim.id ?? '',
+    encounterId: claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '',
+    appointmentId:
+      claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-appointment-id'))?.value ?? '',
     type: getClaimType(claim),
     status,
     statuses: getClaimStatusValues(claim),
@@ -165,6 +170,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     coverageStatus: coverage?.status ?? '',
+    planType: getCoveragePlanType(coverage) ?? '',
     relationship: coverage?.relationship?.coding?.[0]?.display ?? '',
     policyHolder,
     responsibleParty: 'Primary',
