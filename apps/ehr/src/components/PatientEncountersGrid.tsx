@@ -38,7 +38,6 @@ import styled from 'styled-components';
 import {
   AppointmentHistoryRow,
   AppointmentType,
-  BOOKING_CONFIG,
   FollowUpVisitHistoryRow,
   formatMinutes,
   getAnnotationFollowupStatusLabel,
@@ -50,6 +49,7 @@ import {
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
+import { useMergedServiceCategories } from '../hooks/useMergedServiceCategories';
 import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
 import { RoundedButton } from './RoundedButton';
 
@@ -144,6 +144,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [period, setPeriod] = useState(0);
   const [status, setStatus] = useState('all');
   const [serviceCategory, setServiceCategory] = useState('all');
+  const serviceCategories = useMergedServiceCategories();
   const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
   const [hideCancelled, setHideCancelled] = useState(false);
   const [hideNoShow, setHideNoShow] = useState(false);
@@ -379,9 +380,9 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           }}
         >
           <MenuItem value="all">All</MenuItem>
-          {BOOKING_CONFIG.serviceCategories.map((sc) => (
-            <MenuItem key={sc.category.code} value={sc.category.code}>
-              {sc.category.display}
+          {serviceCategories.map((sc) => (
+            <MenuItem key={sc.code} value={sc.code}>
+              {sc.display}
             </MenuItem>
           ))}
         </TextField>

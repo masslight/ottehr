@@ -51,6 +51,7 @@ const mockUseGetCreateExternalLabResources = vi.fn();
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCreateExternalLabResources: (...args: any[]) => mockUseGetCreateExternalLabResources(...args),
+  GET_MEDICATION_ORDERS_QUERY_KEY: 'telemed-get-medication-orders',
 }));
 
 let mockIsReadOnly = false;
@@ -194,6 +195,18 @@ const mockTemplateDetail = {
         consentObtained: true,
         diagnoses: [{ code: 'S62.001A', display: 'Fracture of left wrist' }],
         cptCodes: [{ code: '29105', display: 'Application of long arm splint', modifiers: [] }],
+      },
+    ],
+    inHouseMedications: [
+      {
+        planId: 'med-plan-1',
+        medicationName: 'Ibuprofen',
+        dose: 400,
+        units: 'mg',
+        route: 'Oral route',
+        instructions: 'Take with food.',
+        cptCodes: [{ code: '99070', display: 'Supplies', modifiers: [] }],
+        diagnoses: [{ code: 'M79.3', display: 'Panniculitis, unspecified' }],
       },
     ],
   },
@@ -519,6 +532,7 @@ describe('ApplyTemplate', () => {
             inHouseLabs: 'append',
             externalLabs: 'append',
             procedures: 'append',
+            inHouseMedications: 'append',
           },
           // The payment method auto-selects from the visit's payment details
           // ('insurance' because the patient has coverage) and rides along
@@ -703,6 +717,7 @@ describe('ApplyTemplate', () => {
         inHouseLabs: [],
         externalLabs: [],
         procedures: [],
+        inHouseMedications: [],
         // Only HPI has content.
       },
     });
@@ -898,6 +913,47 @@ describe('ApplyTemplate', () => {
 
     await screen.findByTestId('template-section-hpi');
     expect(screen.queryByTestId('template-section-externalLabs')).toBeNull();
+  });
+
+  it('should render the in-house medications section, hide Overwrite, and show medication details on expand', async () => {
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    const medCard = await screen.findByTestId('template-section-inHouseMedications');
+    // Summary shows the medication name while collapsed.
+    expect(within(medCard).getByText(/Ibuprofen/)).toBeInTheDocument();
+
+    // In-house medications are append-or-skip only; Overwrite must not appear.
+    expect(within(medCard).queryByRole('button', { name: 'Overwrite' })).toBeNull();
+    expect(within(medCard).getByRole('button', { name: 'Skip' })).toBeInTheDocument();
+    expect(within(medCard).getByRole('button', { name: 'Append' })).toBeInTheDocument();
+
+    // Expanding reveals full dose/route line, CPT chip, and diagnosis chip.
+    await user.click(within(medCard).getByTestId('template-section-inHouseMedications-header'));
+    await waitFor(() => {
+      expect(within(medCard).getByText(/400 mg via Oral route/)).toBeInTheDocument();
+    });
+    expect(within(medCard).getByText(/Take with food/)).toBeInTheDocument();
+    expect(within(medCard).getByText(/99070/)).toBeInTheDocument();
+    expect(within(medCard).getByText(/M79.3/)).toBeInTheDocument();
+  });
+
+  it('should not render the in-house medications section when the template carries none', async () => {
+    mockGetTemplateDetail.mockResolvedValue({
+      ...mockTemplateDetail,
+      sections: { ...mockTemplateDetail.sections, inHouseMedications: [] },
+    });
+    const user = userEvent.setup();
+    render(<ApplyTemplate />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByLabelText('Select condition'));
+    await user.click(await screen.findByText('Sore Throat'));
+
+    await screen.findByTestId('template-section-hpi');
+    expect(screen.queryByTestId('template-section-inHouseMedications')).toBeNull();
   });
 
   it('should disable autocomplete when in read-only mode', async () => {

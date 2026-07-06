@@ -14,7 +14,6 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import {
-  ApplyTemplateWarning,
   ApplyTemplateZambdaInput,
   ApplyTemplateZambdaOutput,
   chartDataTagSystem,
@@ -22,11 +21,13 @@ import {
   DiagnosisDTO,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   ICD_10_CODE_SYSTEM,
+  ResolvedSectionActions,
   resourceHasTagSystem,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
   TemplateSectionActions,
   TemplateSectionKey,
+  TemplateWarning,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -44,6 +45,7 @@ import {
   getLatestInHouseLabActivityDefinitionsForTemplatePlan,
   isInHouseLabPlanServiceRequest,
 } from './apply-in-house-labs';
+import { applyInHouseMedicationPlans } from './apply-in-house-medications';
 import {
   buildLiveProcedureRequest,
   collectContainedIdsClaimedByProcedures,
@@ -57,8 +59,6 @@ interface ComplexValidationOutput {
   encounter: Encounter;
   encounterBundle: TemplateEncounterResource[];
 }
-
-type ResolvedSectionActions = Record<TemplateSectionKey, TemplateSectionAction>;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -185,6 +185,9 @@ const getSectionForResource = (resource: FhirResource): TemplateSectionKey | nul
   if (isDiagnosisCondition(resource)) {
     return 'diagnoses';
   }
+  if (resourceHasTagSystem(resource, chartDataTagSystem('in-house-medication-administration-template'))) {
+    return 'inHouseMedications';
+  }
   return null;
 };
 
@@ -194,7 +197,7 @@ const performEffect = async (
   encounter: Encounter,
   encounterBundle: TemplateEncounterResource[],
   oystehr: Oystehr
-): Promise<{ warnings: ApplyTemplateWarning[] }> => {
+): Promise<{ warnings: TemplateWarning[] }> => {
   const { encounterId, sectionActions } = validatedInput;
   const actions = resolveSectionActions(sectionActions);
 
@@ -273,6 +276,28 @@ const performEffect = async (
     diagnosesClaimedByLabs
   );
 
+  // Regarding Conditions: In house meds, unlike labs, cannot add their own Condition Dx to the chart
+  // and are instead fully dependent on the existing Conditions on the chart.
+  // This means that to properly associate in house meds to their Dx, we need to
+  // know which Conditions will be materialized by the createRequests call.
+  // Each should have a fullUrl for us to reference
+  // In-house medications must be awaited before the miniTransaction fires: the
+  // ERX interaction checks (async) determine whether any MAs get created, and
+  // the resulting MA/MR/CPT Procedure requests must land in the same transaction
+  // as the Conditions they reference via urn:uuid fullUrls.
+  const inHouseMedicationsResult = await applyInHouseMedicationPlans({
+    templateList,
+    encounter,
+    oystehr,
+    actions,
+    userToken: validatedInput.userToken,
+    secrets: validatedInput.secrets,
+    conditionRequests: createRequests.filter(
+      (r): r is BatchInputPostRequest<Condition> => r.method === 'POST' && r.url === 'Condition'
+    ),
+    encounterResources: encounterBundle,
+  });
+
   // The live procedure ServiceRequests we build from the template's procedure
   // plans (NOT the plan resources themselves - those live in the template's
   // contained array) need to live in the same FHIR transaction as the new
@@ -309,7 +334,7 @@ const performEffect = async (
   );
 
   const miniTransactionPromise = oystehr.fhir.transaction({
-    requests: miniTransactionRequests,
+    requests: [...miniTransactionRequests, ...inHouseMedicationsResult.requests],
   });
 
   const [bundles, inHouseLabsResult, externalLabsResult] = await Promise.all([
@@ -320,7 +345,9 @@ const performEffect = async (
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
 
-  return { warnings: [...inHouseLabsResult.warnings, ...externalLabsResult.warnings] };
+  return {
+    warnings: [...inHouseLabsResult.warnings, ...externalLabsResult.warnings, ...inHouseMedicationsResult.warnings],
+  };
 };
 
 // Decide whether an existing chart-data resource on the encounter should be deleted

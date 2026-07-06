@@ -9,18 +9,20 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 // validateRequestParameters
 // ---------------------------------------------------------------------------
 
+const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
 function makeInput(body: Record<string, unknown>): ZambdaInput {
   return { headers: null, body: JSON.stringify(body), secrets: null };
 }
 
 describe('get-version-history validateRequestParameters', () => {
   it('returns validated params', () => {
-    const result = validateRequestParameters(makeInput({ resourceId: 'fs-1' }));
-    expect(result).toMatchObject({ resourceId: 'fs-1' });
+    const result = validateRequestParameters(makeInput({ resourceId: VALID_UUID }));
+    expect(result).toMatchObject({ resourceId: VALID_UUID });
   });
 
   it('throws when resourceId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({}))).toThrow('resourceId');
+    expect(() => validateRequestParameters(makeInput({}))).toThrow('Validation error: Required at "resourceId"');
   });
 });
 
@@ -51,7 +53,7 @@ const { index: handler } = (await import('../../src/rcm/fee-schedules/get-versio
 function makeResource(versionId: string, lastUpdated: string): ChargeItemDefinition {
   return {
     resourceType: 'ChargeItemDefinition',
-    id: 'fs-1',
+    id: VALID_UUID,
     status: 'active',
     url: 'http://example.com',
     meta: { versionId, lastUpdated },
@@ -82,7 +84,7 @@ describe('get-version-history handler', () => {
     };
     mockOystehrClient.fhir.history.mockResolvedValue(bundle);
 
-    const result = await handler(makeInput({ resourceId: 'fs-1' }));
+    const result = await handler(makeInput({ resourceId: VALID_UUID }));
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
     expect(body.entries).toHaveLength(3);
@@ -100,7 +102,7 @@ describe('get-version-history handler', () => {
         {
           resource: {
             resourceType: 'ChargeItemDefinition',
-            id: 'fs-1',
+            id: VALID_UUID,
             status: 'active',
             url: 'http://example.com',
             meta: {},
@@ -109,7 +111,7 @@ describe('get-version-history handler', () => {
         {
           resource: {
             resourceType: 'ChargeItemDefinition',
-            id: 'fs-1',
+            id: VALID_UUID,
             status: 'active',
             url: 'http://example.com',
           },
@@ -118,7 +120,7 @@ describe('get-version-history handler', () => {
     };
     mockOystehrClient.fhir.history.mockResolvedValue(bundle);
 
-    const result = await handler(makeInput({ resourceId: 'fs-1' }));
+    const result = await handler(makeInput({ resourceId: VALID_UUID }));
     const body = JSON.parse(result.body);
     expect(body.entries).toHaveLength(1);
     expect(body.entries[0].versionId).toBe('1');
@@ -131,7 +133,7 @@ describe('get-version-history handler', () => {
       entry: [],
     });
 
-    const result = await handler(makeInput({ resourceId: 'fs-1' }));
+    const result = await handler(makeInput({ resourceId: VALID_UUID }));
     const body = JSON.parse(result.body);
     expect(body.entries).toHaveLength(0);
   });
@@ -144,11 +146,11 @@ describe('get-version-history handler', () => {
       entry: [{ resource }],
     });
 
-    const result = await handler(makeInput({ resourceId: 'fs-1' }));
+    const result = await handler(makeInput({ resourceId: VALID_UUID }));
     const body = JSON.parse(result.body);
     expect(body.entries[0].resource).toMatchObject({
       resourceType: 'ChargeItemDefinition',
-      id: 'fs-1',
+      id: VALID_UUID,
     });
   });
 });

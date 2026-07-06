@@ -1,8 +1,10 @@
-import { Location } from 'fhir/r4b';
+import { Coding, Location } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
   getNPI,
   SaveServiceFacilityInput,
   ServiceFacilityItem,
@@ -19,7 +21,6 @@ export function getPlaceOfServiceCode(location: Location): string | undefined {
 // FHIR Location -> the flat shape the billing UI consumes.
 export function mapServiceFacility(location: Location): ServiceFacilityItem {
   const address = location.address;
-  const [zip, zipPlus4 = ''] = (address?.postalCode ?? '').split('-');
   return {
     id: location.id ?? '',
     name: location.name ?? '',
@@ -27,8 +28,7 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
     addressLine2: address?.line?.[1] ?? '',
     city: address?.city ?? '',
     state: address?.state ?? '',
-    zip: zip ?? '',
-    zipPlus4,
+    zip: (address?.postalCode ?? '').replace(/\D/g, ''),
     npi: getNPI(location) ?? '',
     clia: getCLIA(location) ?? '',
     posCode: getPlaceOfServiceCode(location) ?? '',
@@ -55,12 +55,17 @@ export function applyServiceFacilityInput(params: SaveServiceFacilityInput, exis
   if (params.city !== undefined) address.city = params.city;
   if (params.state !== undefined) address.state = params.state;
   if (params.zip !== undefined) {
-    address.postalCode = params.zipPlus4 ? `${params.zip}-${params.zipPlus4}` : params.zip;
+    address.postalCode = params.zip;
   }
   if (Object.keys(address).length > 0) location.address = address;
 
   if (params.npi !== undefined) {
     location.identifier = setIdentifier(location.identifier, FHIR_IDENTIFIER_NPI, params.npi);
+    location.identifier = setIdentifier(
+      location.identifier,
+      { system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI },
+      params.npi
+    );
   }
   if (params.clia !== undefined) {
     location.identifier = setIdentifier(location.identifier, FHIR_IDENTIFIER_CLIA, params.clia);
@@ -75,17 +80,29 @@ export function applyServiceFacilityInput(params: SaveServiceFacilityInput, exis
 // Replace the entry for `system` with `value`, or remove it when `value` is null.
 function setIdentifier(
   identifiers: Location['identifier'],
-  system: string,
+  systemOrTypeCoding: string | Coding,
   value: string | null
 ): Location['identifier'] {
-  const others = (identifiers ?? []).filter((identifier) => identifier.system !== system);
+  const others = (identifiers ?? []).filter((identifier) => {
+    if (typeof systemOrTypeCoding === 'string') {
+      return identifier.system !== systemOrTypeCoding;
+    }
+    if (!identifier.type || !identifier.type.coding) {
+      return true;
+    }
+    return !identifier.type.coding.some(
+      (coding) => coding.system === systemOrTypeCoding.system && coding.code === systemOrTypeCoding.code
+    );
+  });
   if (value === null) {
     return others.length > 0 ? others : undefined;
   }
   return [
     ...others,
     {
-      system,
+      ...(typeof systemOrTypeCoding === 'string'
+        ? { system: systemOrTypeCoding }
+        : { type: { coding: [systemOrTypeCoding] } }),
       value,
     },
   ];

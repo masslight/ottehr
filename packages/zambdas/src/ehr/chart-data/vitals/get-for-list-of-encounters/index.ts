@@ -4,6 +4,7 @@ import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir
 import {
   convertVitalsListToMap,
   extractBloodPressureObservationMethod,
+  extractDotVisionScreening,
   extractHeartbeatObservationMethod,
   extractOxySaturationObservationMethod,
   extractTemperatureObservationMethod,
@@ -196,7 +197,14 @@ const parseVisionObservation = (
     visionOptions,
   } = extractVisionValues(components);
 
-  if (leftEyeVisionText === undefined && rightEyeVisionText === undefined && bothEyesVisionText === undefined) {
+  const dotVisionScreening = extractDotVisionScreening(components, observation.derivedFrom);
+
+  if (
+    leftEyeVisionText === undefined &&
+    rightEyeVisionText === undefined &&
+    bothEyesVisionText === undefined &&
+    dotVisionScreening === undefined
+  ) {
     return undefined;
   }
 
@@ -210,6 +218,7 @@ const parseVisionObservation = (
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
     extraVisionOptions: visionOptions,
+    dotVisionScreening,
   };
 };
 
@@ -219,7 +228,8 @@ type AllOtherFields =
   | VitalFieldNames.VitalTemperature
   | VitalFieldNames.VitalRespirationRate
   | VitalFieldNames.VitalHeight
-  | VitalFieldNames.VitalWeight;
+  | VitalFieldNames.VitalWeight
+  | VitalFieldNames.VitalBMI;
 
 const parseNumericValueObservation = (
   observation: Observation,

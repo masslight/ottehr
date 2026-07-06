@@ -1,11 +1,12 @@
+import { SearchParam } from '@oystehr/sdk';
 import { SearchOptionsPagination } from '../types';
 
-export const addSearchPagination = (url: string, pagination: SearchOptionsPagination): string => {
-  const params: string[] = [];
+export const addSearchPagination = (pagination: SearchOptionsPagination): SearchParam[] => {
+  const params: SearchParam[] = [];
 
-  if (pagination.pageSize) params.push(`_count=${pagination.pageSize}`);
-  if (pagination.offset) params.push(`_offset=${pagination.offset}`);
-  params.push('_total=accurate');
+  if (pagination.pageSize) params.push({ name: '_count', value: pagination.pageSize });
+  if (pagination.offset) params.push({ name: '_offset', value: pagination.offset });
+  params.push({ name: '_total', value: 'accurate' });
 
-  return `${url}${url.includes('?') ? '&' : '?'}${params.join('&')}`;
+  return params;
 };

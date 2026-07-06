@@ -4,7 +4,7 @@ import {
   MISSING_REQUEST_BODY,
   NOT_AUTHORIZED,
 } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): CreateDischargeSummaryInputValidated {
   console.group('validateRequestParameters');
@@ -19,7 +19,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateDischargeSu
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  const parsedJSON = JSON.parse(input.body) as unknown;
+  const parsedJSON = safeJsonParse(input.body) as unknown;
 
   const validatedParams = safeValidate(CreateDischargeSummaryInputSchema, parsedJSON);
 

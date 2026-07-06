@@ -3,7 +3,9 @@ import { Location } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
   SaveServiceFacilityInput,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -51,8 +53,7 @@ const validPayload: SaveServiceFacilityInput = {
   addressLine2: 'Suite 200',
   city: 'Boston',
   state: 'MA',
-  zip: '02118',
-  zipPlus4: '1234',
+  zip: '021181234',
   npi: '1234567893',
   clia: '05D1234567',
   posCode: '11',
@@ -71,7 +72,7 @@ describe('save-billing-service-facility validateRequestParameters', () => {
         addressLine1: '1 A St',
         city: 'Boston',
         state: 'MA',
-        zip: '02118',
+        zip: '021181234',
       })
     );
     expect(result.name).toBe('X');
@@ -111,12 +112,12 @@ describe('save-billing-service-facility validateRequestParameters', () => {
     ).toThrow(/place of service/i);
   });
 
-  it('rejects a non-5-digit ZIP', () => {
+  it('rejects a ZIP that is not exactly 9 digits', () => {
     expect(() =>
       validateRequestParameters(
         makeInput({
           ...validPayload,
-          zip: '021',
+          zip: '02118',
         })
       )
     ).toThrow(/ZIP/);
@@ -156,9 +157,20 @@ describe('applyServiceFacilityInput', () => {
     expect(location.status).toBe('active');
     expect(location.name).toBe('Main Street Clinic');
     expect(location.address?.line).toEqual(['123 Main St', 'Suite 200']);
-    expect(location.address?.postalCode).toBe('02118-1234');
+    expect(location.address?.postalCode).toBe('021181234');
     expect(location.identifier).toContainEqual({
       system: FHIR_IDENTIFIER_NPI,
+      value: '1234567893',
+    });
+    expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
       value: '1234567893',
     });
     expect(location.identifier).toContainEqual({
@@ -171,12 +183,9 @@ describe('applyServiceFacilityInput', () => {
     });
   });
 
-  it('omits the ZIP+4 suffix when not provided', () => {
-    const location = applyServiceFacilityInput({
-      ...validPayload,
-      zipPlus4: undefined,
-    });
-    expect(location.address?.postalCode).toBe('02118');
+  it('stores the 9-digit ZIP verbatim, without a hyphen', () => {
+    const location = applyServiceFacilityInput(validPayload);
+    expect(location.address?.postalCode).toBe('021181234');
   });
 
   it('leaves existing identifiers and POS extension untouched when those params are omitted', () => {
@@ -187,6 +196,17 @@ describe('applyServiceFacilityInput', () => {
       identifier: [
         {
           system: FHIR_IDENTIFIER_NPI,
+          value: '1234567893',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
           value: '1234567893',
         },
         {
@@ -207,7 +227,7 @@ describe('applyServiceFacilityInput', () => {
         addressLine1: '1 A St',
         city: 'Boston',
         state: 'MA',
-        zip: '02118',
+        zip: '021181234',
       },
       existing
     );
@@ -215,6 +235,17 @@ describe('applyServiceFacilityInput', () => {
     expect(location.name).toBe('Renamed');
     expect(location.identifier).toContainEqual({
       system: FHIR_IDENTIFIER_NPI,
+      value: '1234567893',
+    });
+    expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
       value: '1234567893',
     });
     expect(location.identifier).toContainEqual({
@@ -235,6 +266,17 @@ describe('applyServiceFacilityInput', () => {
       identifier: [
         {
           system: FHIR_IDENTIFIER_NPI,
+          value: '1234567893',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
           value: '1234567893',
         },
         {
@@ -295,6 +337,17 @@ describe('applyServiceFacilityInput', () => {
           system: FHIR_IDENTIFIER_NPI,
           value: '1234567893',
         },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
+          value: '1234567893',
+        },
       ],
     };
     const location = applyServiceFacilityInput(
@@ -309,6 +362,24 @@ describe('applyServiceFacilityInput', () => {
     expect(updatedNpi).toEqual([
       {
         system: FHIR_IDENTIFIER_NPI,
+        value: '1245319599',
+      },
+    ]);
+    const updatedCodedNpi = (location.identifier ?? []).filter(
+      (identifier) =>
+        identifier.type?.coding?.[0].system === FHIR_IDENTIFIER_SYSTEM &&
+        identifier.type?.coding?.[0].code === FHIR_IDENTIFIER_CODE_NPI
+    );
+    expect(updatedCodedNpi).toEqual([
+      {
+        type: {
+          coding: [
+            {
+              system: FHIR_IDENTIFIER_SYSTEM,
+              code: FHIR_IDENTIFIER_CODE_NPI,
+            },
+          ],
+        },
         value: '1245319599',
       },
     ]);
@@ -347,11 +418,34 @@ describe('applyServiceFacilityInput', () => {
       system: FHIR_IDENTIFIER_NPI,
       value: '1234567893',
     });
+    expect(location.identifier).toContainEqual({
+      type: {
+        coding: [
+          {
+            system: FHIR_IDENTIFIER_SYSTEM,
+            code: FHIR_IDENTIFIER_CODE_NPI,
+          },
+        ],
+      },
+      value: '1234567893',
+    });
   });
 });
 
 describe('mapServiceFacility', () => {
-  it('flattens a Location into the UI shape and splits the ZIP', () => {
+  it('strips a legacy hyphenated ZIP to 9 digits', () => {
+    const location: Location = {
+      resourceType: 'Location',
+      id: 'loc-9',
+      status: 'active',
+      address: {
+        postalCode: '02118-1234',
+      },
+    };
+    expect(mapServiceFacility(location).zip).toBe('021181234');
+  });
+
+  it('flattens a Location into the UI shape with a 9-digit ZIP', () => {
     const location: Location = {
       resourceType: 'Location',
       id: 'loc-1',
@@ -361,11 +455,22 @@ describe('mapServiceFacility', () => {
         line: ['123 Main St', 'Suite 200'],
         city: 'Boston',
         state: 'MA',
-        postalCode: '02118-1234',
+        postalCode: '021181234',
       },
       identifier: [
         {
           system: FHIR_IDENTIFIER_NPI,
+          value: '1234567893',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: FHIR_IDENTIFIER_SYSTEM,
+                code: FHIR_IDENTIFIER_CODE_NPI,
+              },
+            ],
+          },
           value: '1234567893',
         },
         {
@@ -387,8 +492,7 @@ describe('mapServiceFacility', () => {
       addressLine2: 'Suite 200',
       city: 'Boston',
       state: 'MA',
-      zip: '02118',
-      zipPlus4: '1234',
+      zip: '021181234',
       npi: '1234567893',
       clia: '05D1234567',
       posCode: '11',
