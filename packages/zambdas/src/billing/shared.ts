@@ -39,6 +39,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
+  FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -328,7 +329,7 @@ export function buildAddress(parts: {
   };
 }
 
-export function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
+export function setNpi(resource: Practitioner | Organization | Location, npi: string | null): void {
   const identifier = resource.identifier ?? [];
 
   // The `system|value` identifier is used for search
@@ -409,6 +410,18 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
     resource.identifier = identifier;
   } else if (existing) {
     resource.identifier = identifier.filter((id) => !isTaxonomy(id));
+  }
+}
+
+export function setClia(resource: Location, clia: string | null): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_CLIA);
+  if (clia) {
+    if (existing) existing.value = clia;
+    else identifier.push({ system: FHIR_IDENTIFIER_CLIA, value: clia });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
   }
 }
 
