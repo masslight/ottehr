@@ -1,6 +1,7 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
 import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import MergeIcon from '@mui/icons-material/MergeType';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
@@ -11,6 +12,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
+import { SendFaxDialog } from 'src/components/dialogs/SendFaxDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
@@ -48,6 +50,7 @@ export default function PatientPage(): JSX.Element {
     !isLegacyPatientFollowupsEnabled && defaultTab === 'followups' ? 'encounters' : defaultTab || 'encounters'
   );
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
+  const [showSendFaxDialog, setShowSendFaxDialog] = useState(false);
   const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
 
   const currentUser = useEvolveUser();
@@ -264,6 +267,13 @@ export default function PatientPage(): JSX.Element {
                     <DescriptionOutlinedIcon />
                   </GoToButton>
                   <GoToButton
+                    text="Fax Patient Docs"
+                    backgroundColor={otherColors.lightBlue}
+                    onClick={() => setShowSendFaxDialog(true)}
+                  >
+                    <FaxOutlinedIcon />
+                  </GoToButton>
+                  <GoToButton
                     text="Medical Record"
                     backgroundColor={otherColors.lightBlue}
                     loading={isDownloadingMedicalRecord}
@@ -431,6 +441,9 @@ export default function PatientPage(): JSX.Element {
                   }}
                 />
               ) : null}
+              {showSendFaxDialog && (
+                <SendFaxDialog open={showSendFaxDialog} onClose={() => setShowSendFaxDialog(false)} patient={patient} />
+              )}
             </>
           )}
         </Stack>

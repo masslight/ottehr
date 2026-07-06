@@ -1081,8 +1081,16 @@
       "name": "send-fax",
       "type": "http_auth",
       "runtime": "nodejs22.x",
+      "timeout": "120",
       "src": "src/ehr/send-fax/index",
       "zip": ".dist/zips/send-fax.zip"
+    },
+    "GET-FAX-DOCUMENTS": {
+      "name": "get-fax-documents",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-fax-documents/index",
+      "zip": ".dist/zips/get-fax-documents.zip"
     },
     "CREATE-SLOT": {
       "name": "create-slot",

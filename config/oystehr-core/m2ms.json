@@ -31,6 +31,11 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Fax:Configuration"],
+          "action": ["Fax:GetConfiguration"],
+          "effect": "Allow"
+        },
+        {
           "resource": ["IAM:M2MClient:*"],
           "action": ["IAM:ListAllM2MClients", "IAM:GetM2MClient"],
           "effect": "Allow"
@@ -66,7 +71,8 @@
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
             "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
             "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*",
-            "Z3:#{var/PROJECT_ID}-medical-record-exports/*"
+            "Z3:#{var/PROJECT_ID}-medical-record-exports/*",
+            "Z3:#{var/PROJECT_ID}-faxes/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
           "effect": "Allow"
