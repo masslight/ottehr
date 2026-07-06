@@ -1,5 +1,10 @@
-import { GetPatientDetailInput, GetPatientDetailInputSchema, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils';
-import { formatZodError, ZambdaInput } from '../../shared';
+import {
+  GetPatientDetailInput,
+  GetPatientDetailInputSchema,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+} from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
 export interface GetPatientDetailParams extends GetPatientDetailInput {
   secrets: ZambdaInput['secrets'];
@@ -7,16 +12,12 @@ export interface GetPatientDetailParams extends GetPatientDetailInput {
 
 export function validateRequestParameters(input: ZambdaInput): GetPatientDetailParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
+  if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(input.body);
-  } catch {
-    throw INVALID_INPUT_ERROR('Request body is not valid JSON');
-  }
+  const data = safeValidate(GetPatientDetailInputSchema, validateJsonBody(input));
 
-  const result = GetPatientDetailInputSchema.safeParse(raw);
-  if (!result.success) throw INVALID_INPUT_ERROR(formatZodError(result.error));
-
-  return { ...result.data, secrets: input.secrets };
+  return {
+    ...data,
+    secrets: input.secrets,
+  };
 }

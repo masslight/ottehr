@@ -26,7 +26,7 @@ import {
 import {
   AuditableZambdaEndpoints,
   createAuditEvent,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getParticipantFromAppointment,
   updateAppointmentTime,
@@ -56,7 +56,7 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const slot = normalizeSlotToUTC(inputSlot);
 

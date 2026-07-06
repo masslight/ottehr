@@ -14,7 +14,7 @@ import {
   VISIT_NOTE_SUMMARY_CODE,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getUser, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'send-fax';
@@ -34,7 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.group('checkOrCreateM2MClientToken() then createOystehrClient()');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
   console.groupEnd();
   console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
 

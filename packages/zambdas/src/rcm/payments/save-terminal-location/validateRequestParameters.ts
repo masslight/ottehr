@@ -1,5 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY, Secrets } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface SaveTerminalLocationInput {
   locationId: string;
@@ -7,25 +8,21 @@ export interface SaveTerminalLocationInput {
   secrets: Secrets | null;
 }
 
+const SaveTerminalLocationBodySchema = z.object({
+  locationId: z.string().uuid(),
+  terminalLocationId: z.string().min(1).nullable().optional(),
+});
+
 export function validateRequestParameters(input: ZambdaInput): SaveTerminalLocationInput {
-  const parsed = typeof input.body === 'string' ? JSON.parse(input.body) : input.body;
-  const locationId = parsed?.locationId;
-
-  if (!locationId || typeof locationId !== 'string') {
-    throw MISSING_REQUIRED_PARAMETERS(['locationId']);
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
   }
 
-  const terminalLocationId = parsed?.terminalLocationId ?? null;
-  if (terminalLocationId !== null && typeof terminalLocationId !== 'string') {
-    throw INVALID_INPUT_ERROR('terminalLocationId must be a string or null');
-  }
-  if (typeof terminalLocationId === 'string' && terminalLocationId.trim() === '') {
-    throw INVALID_INPUT_ERROR('terminalLocationId must not be an empty string');
-  }
+  const { locationId, terminalLocationId } = safeValidate(SaveTerminalLocationBodySchema, safeJsonParse(input.body));
 
   return {
     locationId,
-    terminalLocationId,
+    terminalLocationId: terminalLocationId ?? null,
     secrets: input.secrets,
   };
 }

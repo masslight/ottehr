@@ -3,7 +3,7 @@ import { Communication, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ERX_TASK, Secrets, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils';
 import { getAuth0Token, wrapHandler } from '../../../shared';
-import { assertDefined, createOystehrClient, validateJsonBody } from '../../../shared/helpers';
+import { assertDefined, createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { createTask } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types';
 
@@ -27,7 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const practitioner = assertDefined(
     (

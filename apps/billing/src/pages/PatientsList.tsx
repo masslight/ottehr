@@ -1,9 +1,11 @@
-import { Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
 import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { chooseJson } from 'utils';
+import { getApiError, SearchBillingPatientsInput } from 'utils';
+import { searchBillingPatients } from '../api/api';
+import { AddPatientDialog } from '../components/AddPatientDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
@@ -47,6 +49,7 @@ export default function PatientsList(): ReactElement {
   const [searchDob, setSearchDob] = useState('');
   const [searchId, setSearchId] = useState('');
   const [searchUuid, setSearchUuid] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
   const { debounce } = useDebounce();
 
@@ -56,21 +59,19 @@ export default function PatientsList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const hasSearch = filters.name || filters.dob || filters.identifier || filters.uuid;
-        const body: Record<string, unknown> = {
+        const params: SearchBillingPatientsInput = {
           offset: page * pageSize,
           pageSize,
         };
-        if (hasSearch) body.includeWorkingCopies = true;
-        if (filters.name) body.name = filters.name;
-        if (filters.dob) body.dob = filters.dob;
-        if (filters.identifier) body.identifier = filters.identifier;
-        if (filters.uuid) body.uuid = filters.uuid;
-        const data = chooseJson(await oystehrZambda.zambda.execute({ id: 'search-billing-patients', ...body }));
-        setPatients(data?.patients ?? []);
-        setTotal(data?.total ?? 0);
+        if (filters.name) params.name = filters.name;
+        if (filters.dob) params.dob = filters.dob;
+        if (filters.identifier) params.identifier = filters.identifier;
+        if (filters.uuid) params.uuid = filters.uuid;
+        const data = await searchBillingPatients(oystehrZambda, params);
+        setPatients((data.patients ?? []).filter((p): p is typeof p & { id: string } => Boolean(p.id)));
+        setTotal(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load patients' }));
         setPatients([]);
       } finally {
         setLoading(false);
@@ -131,9 +132,19 @@ export default function PatientsList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        Patients
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+          <Typography variant="h4" color="primary.dark" fontWeight={600}>
+            Patients
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {total} total
+          </Typography>
+        </Box>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+          Add patient
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -215,6 +226,12 @@ export default function PatientsList(): ReactElement {
         pageSizeOptions={[25, 50, 100]}
         slots={dataGridSlots}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
+      />
+
+      <AddPatientDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onCreated={() => void fetchPatients(currentFilters())}
       />
     </Box>
   );

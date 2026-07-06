@@ -4,7 +4,7 @@ import { Account, Appointment, Encounter, FhirResource, Patient, QuestionnaireRe
 import * as fs from 'fs';
 import { OTTEHR_MODULE, PATIENT_BILLING_ACCOUNT_TYPE, unbundleBatchPostOutput } from 'utils';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { createOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { executePageHarvest, HarvestContext } from '../../src/subscriptions/task/sub-harvest-paperwork/page-handlers';
 import questionnaireResponse from '../data/base-qr.json';
 
@@ -22,7 +22,7 @@ describe('sub-harvest-paperwork-page integration', () => {
 
   beforeAll(async () => {
     token = await getAuth0Token(envConfig);
-    oystehr = createOystehrClient(token, envConfig);
+    oystehr = createClinicalOystehrClient(token, envConfig);
 
     BASE_QR = {
       ...questionnaireResponse,

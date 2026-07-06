@@ -3,6 +3,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CancelRadiologyOrderZambdaInput,
   EMPTY_PAGINATION,
+  getApiError,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
 } from 'utils';
@@ -243,10 +244,14 @@ export const usePatientRadiologyOrders = (options: {
         const searchParams = getCurrentSearchParamsForPage(page);
         await fetchOrders(searchParams);
       } catch (err) {
-        console.error('Error saving report:', err);
-        enqueueSnackbar(`An error occurred while saving ${reportType} report`, { variant: 'error' });
-        const errorObj = err instanceof Error ? err : new Error(`Failed to save ${reportType} report`);
+        console.error('Error saving report:', err, JSON.stringify(err));
+        const defaultError = `Failed to save ${reportType} report`;
+        const errorMsg = getApiError({ error: err, defaultError });
+
+        const errorObj = err instanceof Error ? err : new Error(errorMsg);
         setError(errorObj);
+
+        enqueueSnackbar(errorMsg, { variant: 'error' });
       } finally {
         setIsSavingReport(false);
       }

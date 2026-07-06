@@ -1,16 +1,20 @@
-import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
+import {
+  DeleteOutlined as DeleteIcon,
+  InsertDriveFileOutlined as InsertDriveFileOutlinedIcon,
+} from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import { Box, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, IconButton, Link, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
 import {
   celsiusToFahrenheit,
-  cmToFeet,
-  cmToInches,
+  formatBMIWithUnit,
   formatDateTimeToLocalTimezone,
+  formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
+  getDotVisionScreeningLines,
   getVisionExtraOptionsFormattedString,
   roundTemperatureValue,
   vitalsConfig,
@@ -61,11 +65,7 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({
           {observationValueElements.map((value, index) => {
             if (typeof value === 'string') {
               return (
-                <Typography
-                  key={index}
-                  component="span"
-                  sx={{ fontWeight: index === 0 ? 'bold' : 'normal', color: lineColor }}
-                >
+                <Typography key={index} component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
                   {value}
                 </Typography>
               );
@@ -128,7 +128,7 @@ export const getObservationValueElements = (
     case 'vital-temperature':
       return [
         `${roundTemperatureValue(historyEntry.value)} C`,
-        ` = ${celsiusToFahrenheit(historyEntry.value).toFixed(1)} F`,
+        ` ≈ ${celsiusToFahrenheit(historyEntry.value).toFixed(1)} F`,
       ];
     case 'vital-oxygen-sat':
       return [`${historyEntry.value}%`];
@@ -146,20 +146,59 @@ export const getObservationValueElements = (
         const kgStr = formatWeightKg(historyEntry.value) + ' kg';
         const lbsStr = formatWeightLbs(historyEntry.value) + ' lbs';
         if (vitalsConfig['vital-weight'].unit == 'kg') {
-          return [kgStr, ` = ${lbsStr}`];
+          return [kgStr, ` ≈ ${lbsStr}`];
         } else {
-          return [lbsStr, ` = ${kgStr}`];
+          return [lbsStr, ` ≈ ${kgStr}`];
         }
       }
       return [];
     }
     case 'vital-height':
-      return [
-        `${historyEntry.value} cm`,
-        ` = ${cmToInches(historyEntry.value).toFixed(1)} in`,
-        ` = ${cmToFeet(historyEntry.value).toFixed(1)} ft`,
-      ];
-    case 'vital-vision':
+      return [formatHeightObservationValue(historyEntry.value)];
+    case 'vital-bmi':
+      return [formatBMIWithUnit(historyEntry.value)];
+    case 'vital-vision': {
+      const dotLines = getDotVisionScreeningLines(historyEntry.dotVisionScreening);
+      if (dotLines.length > 0) {
+        const dotDocument = historyEntry.dotVisionScreening?.document;
+        return [
+          <Box key="dot" component="span" sx={{ display: 'block' }}>
+            {dotLines.map((line, idx) => {
+              const [label, value] = line.split(/:(.+)/);
+              return (
+                <Typography key={idx} component="div" sx={{ color: lineColor }}>
+                  {label}:
+                  <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
+                    {value}
+                  </Typography>
+                </Typography>
+              );
+            })}
+            {dotDocument && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  mt: 0.5,
+                  p: 0.5,
+                  borderRadius: 1,
+                  backgroundColor: '#EBEFF4',
+                }}
+              >
+                <InsertDriveFileOutlinedIcon fontSize="small" color="primary" />
+                {dotDocument.url ? (
+                  <Link href={dotDocument.url} target="_blank" rel="noopener">
+                    {dotDocument.title}
+                  </Link>
+                ) : (
+                  <Typography component="span">{dotDocument.title}</Typography>
+                )}
+              </Box>
+            )}
+          </Box>,
+        ];
+      }
       return [
         <>
           {historyEntry.leftEyeVisionText && (
@@ -182,6 +221,7 @@ export const getObservationValueElements = (
           </Typography>
         </>,
       ];
+    }
     case 'vital-last-menstrual-period': {
       if (!historyEntry.value && historyEntry.isUnsure) {
         return ['unsure'];

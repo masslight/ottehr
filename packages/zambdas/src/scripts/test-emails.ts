@@ -21,7 +21,7 @@ import {
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
 } from 'utils';
-import { createOystehrClient, EmailAttachment, getAuth0Token, getEmailClient } from '../shared';
+import { createClinicalOystehrClient, EmailAttachment, getAuth0Token, getEmailClient } from '../shared';
 
 const randomVisitId = randomUUID();
 
@@ -167,7 +167,7 @@ const main = async (): Promise<void> => {
   if (!token) {
     throw new Error('Failed to fetch auth token.');
   }
-  const oystehr = createOystehrClient(token, envConfig);
+  const oystehr = createClinicalOystehrClient(token, envConfig);
   if (appointmentID) {
     const appointmentBundle = (
       await oystehr.fhir.search<Appointment | Patient | Slot | Location>({

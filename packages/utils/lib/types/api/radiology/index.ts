@@ -46,20 +46,24 @@ export enum RadiologyOrderStatus {
   final = 'final',
   reviewed = 'reviewed',
 }
-export interface GetRadiologyOrderListZambdaOrder {
+
+export interface RadiologyDTO {
   serviceRequestId: string;
-  appointmentId: string;
+  cptCodeDisplay: string;
   studyType: string;
+  diagnosis: string;
+  clinicalHistory?: string;
+  preliminaryReport?: string;
+  finalReport?: string;
+  studyName?: string;
+}
+export interface GetRadiologyOrderListZambdaOrder extends RadiologyDTO {
+  appointmentId: string;
   visitDateTime: string;
   orderAddedDateTime: string;
   providerName: string;
-  diagnosis: string;
   status: RadiologyOrderStatus;
   isStat: boolean;
-  preliminaryReport?: string;
-  finalReport?: string;
-  clinicalHistory?: string;
-  studyName?: string;
   history?: RadiologyOrderHistoryRow[];
   task?: Task;
   consentObtained: boolean;

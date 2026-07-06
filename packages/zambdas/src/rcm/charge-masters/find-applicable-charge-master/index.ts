@@ -3,7 +3,7 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { orgIdMatchesReference } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   RCM_TAG_SYSTEM,
   wrapHandler,
   ZambdaInput,
@@ -40,7 +40,7 @@ export const index = wrapHandler(
       validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // Fetch all active charge masters tagged as charge-master
     const allResults = await oystehr.fhir.search<ChargeItemDefinition>({

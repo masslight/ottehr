@@ -125,6 +125,7 @@ describe('Schema20250925 generate()', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'spec-test-'));
+    await fs.mkdir(path.join(tmpDir, 'oystehr'));
   });
 
   afterEach(async () => {
@@ -144,14 +145,14 @@ describe('Schema20250925 generate()', () => {
         },
       };
 
-      const schema = new Schema20250925([spec], {}, tmpDir, '/zambdas');
+      const schema = new Schema20250925([spec], {}, `${tmpDir}/oystehr`, '/zambdas');
       await schema.generate();
 
-      const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
+      const outputsContent = await fs.readFile(path.join(`${tmpDir}/oystehr`, 'outputs.tf.json'), 'utf8');
       const outputs = JSON.parse(outputsContent);
 
-      expect(outputs.output.zambda_secrets_for_local_server).toBeDefined();
-      const value: string = outputs.output.zambda_secrets_for_local_server.value;
+      expect(outputs.locals.zambda_secrets_for_local_server).toBeDefined();
+      const value: string = outputs.locals.zambda_secrets_for_local_server.value;
       // Static secret references
       expect(value).toContain('"MY_API_KEY": oystehr_secret.MY_API_KEY.value');
       expect(value).toContain('"ANOTHER_SECRET": oystehr_secret.ANOTHER_SECRET.value');
@@ -187,6 +188,32 @@ describe('Schema20250925 generate()', () => {
       const outputs = JSON.parse(outputsContent);
 
       expect(outputs.output.zambda_secrets_for_local_server).toBeUndefined();
+    });
+  });
+
+  describe('outputs', () => {
+    it('outputs values are defined as locals', async () => {
+      const spec = {
+        path: 'secrets.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          secrets: {
+            MY_API_KEY: { name: 'my-api-key', value: 'val1' },
+            ANOTHER_SECRET: { name: 'another-secret', value: 'val2' },
+          },
+        },
+      };
+
+      const schema = new Schema20250925([spec], {}, tmpDir, '/zambdas');
+      await schema.generate();
+
+      const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
+      const outputs = JSON.parse(outputsContent);
+
+      expect(outputs.locals.zambda_secrets_for_local_server).toBeDefined();
+      expect(outputs.output.zambda_secrets_for_local_server).toBeDefined();
+      const value: string = outputs.output.zambda_secrets_for_local_server.value;
+      expect(value).toContain('local.zambda_secrets_for_local_server');
     });
   });
 });

@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.0';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.4';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -146,6 +146,26 @@ function buildFormFields(
           type: 'string',
           dataType: 'Email',
           autocomplete: 'section-patient shipping email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         phoneNumber: {
           key: 'patient-number',
@@ -334,6 +354,11 @@ function buildFormFields(
               label: 'places address',
               type: 'string',
             },
+            pharmacyPlacesPhone: {
+              key: 'pharmacy-places-phone',
+              label: 'places phone',
+              type: 'string',
+            },
             pharmacyPlacesSaved: {
               key: 'pharmacy-places-saved',
               label: 'places saved',
@@ -406,6 +431,27 @@ function buildFormFields(
           key: 'pharmacy-address',
           label: 'Pharmacy address',
           type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['enable'],
+              operator: '=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['filter'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+        },
+        phone: {
+          key: 'pharmacy-phone',
+          label: 'Pharmacy phone',
+          type: 'string',
+          dataType: 'Phone Number',
           disabledDisplay: 'hidden',
           triggers: [
             {
@@ -677,7 +723,7 @@ function buildFormFields(
       items: Object.assign(
         {},
         ...patientScreeningQuestionsConfig.fields
-          .filter((field) => Boolean(field.existsInQuestionnaire))
+          .filter((field) => Boolean(field.existsInQuestionnaire) && !field.hideInVirtualPaperwork)
           .map((field) => ({
             [field.fhirField.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())]: {
               key: field.fhirField,
@@ -1743,9 +1789,43 @@ function buildFormFields(
               operator: '!=',
               answerString: 'Self',
             },
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['filter'],
+              operator: '=',
+              answerString: 'Self',
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
           ],
+          enableBehavior: 'all',
           disabledDisplay: 'disabled',
           dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Don't have email",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+          ],
+          disabledDisplay: 'protected',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],

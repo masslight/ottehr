@@ -15,11 +15,11 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Location, Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RoleType, ScheduleDTO, scheduleTypeFromFHIRType, UpdateScheduleParams } from 'utils';
+import { setScheduleOwnerActive } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
 
@@ -113,24 +113,15 @@ export default function ScheduleGeneralTab({
     }
     try {
       setStatusPatchLoading(true);
-      const value: string | boolean = item.owner.type === 'Location' ? (isActive ? 'active' : 'inactive') : isActive;
-      const patched = await oystehr.fhir.patch<Location | Practitioner>({
-        resourceType: item.owner.type as 'Location' | 'Practitioner',
-        id: item.owner.id,
-        operations: [
-          {
-            path: item.owner.type === 'Location' ? '/status' : '/active',
-            op: 'add',
-            value,
-          },
-        ],
+      // Server-side patch via admin-set-schedule-owner-active — the zambda
+      // resolves Schedule → actor → correct field (Location.status vs
+      // Practitioner.active) and returns the derived active boolean, so this
+      // component doesn't have to hold the "which field to patch" branch or
+      // reduce the returned resource shape itself.
+      const { active: newActiveStatus } = await setScheduleOwnerActive(oystehr, {
+        scheduleId: item.id,
+        active: isActive,
       });
-      let newActiveStatus = isActive;
-      if (patched.resourceType === 'Location') {
-        newActiveStatus = patched.status === 'active';
-      } else {
-        newActiveStatus = patched.active === true;
-      }
       onSchedulePersisted({
         ...item,
         owner: {

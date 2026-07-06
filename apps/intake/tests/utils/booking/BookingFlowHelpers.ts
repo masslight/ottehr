@@ -9,6 +9,7 @@ import {
   getServiceCategoryCodings,
   prepopulateBookingForm,
   selectBookingQuestionnaire,
+  serviceCategorySupportsContext,
   VALUE_SETS,
 } from 'utils';
 import {
@@ -156,6 +157,12 @@ export class BookingFlowHelpers {
           } else if (trigger.answerBoolean !== undefined) {
             return targetValue === trigger.answerBoolean;
           }
+        } else if (trigger.operator === '!=') {
+          if (trigger.answerString !== undefined) {
+            return targetValue !== trigger.answerString;
+          } else if (trigger.answerBoolean !== undefined) {
+            return targetValue !== trigger.answerBoolean;
+          }
         }
         return false;
       });
@@ -248,9 +255,15 @@ export class BookingFlowHelpers {
   ): Promise<void> {
     const categories = config.serviceCategories;
 
-    // Filter categories to those available for this flow's mode and visit type
+    // Filter categories to those available for this flow's mode and visit type.
+    // Preserve the prior "no filter when mode is unknown" branch — some callers
+    // intentionally skip the mode check. Tag entries with source so the shared
+    // helper treats untagged BOOKING_CONFIG fixtures as supports-all rather
+    // than silently filtering them out.
     const availableCategories = serviceMode
-      ? categories.filter((sc) => sc.serviceModes.includes(serviceMode) && sc.visitTypes.includes(visitType))
+      ? categories.filter((sc) =>
+          serviceCategorySupportsContext({ ...sc, source: 'booking-config' }, serviceMode, visitType)
+        )
       : categories;
 
     // Skip if only one or no categories available for this flow
