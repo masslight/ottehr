@@ -1,8 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
-import { FHIR_EXTENSION, getPatchOperationToUpdateExtension, UpdateRadiologyOrderZambdaOutput } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  createOystehrClient,
+  FHIR_EXTENSION,
+  getPatchOperationToUpdateExtension,
+  UpdateRadiologyOrderZambdaOutput,
+} from 'utils';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -17,7 +22,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const validatedInput = await validateInput(unsafeInput);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets.FHIR_API, secrets.PROJECT_API);
 
     const output = await performEffect(validatedInput, oystehr);
 
