@@ -615,7 +615,7 @@ export const filterEntriesToTemplateContent = (
     if (isInHouseLabRepeatTestCptCode(resource)) return false;
 
     // filter out pdf patient education here -- captured as a communication resource
-    // with the patient-instructions tag
+    // with the patient-instruction tag
     // template todo: this will change when we decide to include patient education in templates
     if (isPatientEducationCommunication(resource)) return false;
 
