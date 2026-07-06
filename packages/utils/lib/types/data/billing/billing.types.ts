@@ -223,7 +223,6 @@ export interface PatientDetailResponse {
   };
   friendlyId: string;
   active: boolean;
-  // TODO: wire real balance from ClaimResponse/PaymentReconciliation
   balance: {
     claimsWithPatientBalance: number;
     pendingPayments: number;

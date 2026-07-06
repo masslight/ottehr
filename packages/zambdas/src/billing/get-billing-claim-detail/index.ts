@@ -25,6 +25,7 @@ import {
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
 import {
   CLAIM_TAG_SYSTEM,
   claimHasRealCoverage,
@@ -134,10 +135,14 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     ? payersByRef.get(secondaryCoverage.payor[0].reference)
     : undefined;
 
-  // Other claims via Person lookup
-  const otherClaims = await fetchOtherClaims(oystehr, patient?.id, claimId);
+  // Other claims via Person lookup, plus this claim's ERA adjudications
+  const [otherClaims, claimResponsesByClaimId] = await Promise.all([
+    fetchOtherClaims(oystehr, patient?.id, claimId),
+    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
+  ]);
 
   const billed = claim.total?.value ?? 0;
+  const payments = summarizeClaimPayments(claimResponsesByClaimId.get(claimId) ?? [], billed);
   const status = getClaimStatus(claim);
   const patientAddr = patient?.address?.[0];
 
@@ -222,12 +227,11 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       diagnosisPointers: item.diagnosisSequence ?? [],
     })),
     billed,
-    // TODO: wire payment data from ClaimResponse/PaymentReconciliation
-    allowed: 0,
-    insurancePaid: 0,
-    patientResp: 0,
-    patientPaid: 0,
-    balance: billed,
+    allowed: payments.allowed,
+    insurancePaid: payments.insurancePaid,
+    patientResp: payments.patientResp,
+    patientPaid: payments.patientPaid,
+    balance: payments.balance,
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

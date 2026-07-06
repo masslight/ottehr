@@ -90,14 +90,13 @@ const claimColumns: GridColDef[] = [
     headerAlign: 'right',
     valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
-  // TODO: should be wired from ClaimResponse? showing placeholder until real data available
   {
     field: 'insurancePaid',
     headerName: 'Insurance Paid',
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
   {
     field: 'patientResp',
@@ -105,7 +104,7 @@ const claimColumns: GridColDef[] = [
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
   {
     field: 'patientPaid',
@@ -113,7 +112,7 @@ const claimColumns: GridColDef[] = [
     width: 110,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
 ];
 
@@ -196,13 +195,12 @@ export default function PatientDetail(): ReactElement {
         </Box>
       </Box>
 
-      {/* TODO: wire real balance data from ClaimResponse/PaymentReconciliation */}
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Box sx={{ display: 'flex', gap: 4 }}>
-            <BalanceItem label="Current Balance" value="—" />
-            <BalanceItem label="Claims with Patient Balance" value="—" />
-            <BalanceItem label="Pending Payments" value="—" />
+            <BalanceItem label="Current Balance" value={formatCurrency(patient.balance.currentBalance)} />
+            <BalanceItem label="Claims with Patient Balance" value={String(patient.balance.claimsWithPatientBalance)} />
+            <BalanceItem label="Pending Payments" value={formatCurrency(patient.balance.pendingPayments)} />
           </Box>
         </CardContent>
       </Card>
