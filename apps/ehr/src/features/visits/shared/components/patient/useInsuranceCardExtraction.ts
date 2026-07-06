@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { DocumentReference } from 'fhir/r4b';
+import { DocumentReference, Reference } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   DocumentType,
@@ -7,7 +7,6 @@ import {
   INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
   InsuranceCardExtraction,
   InsuranceCardExtractionFields,
-  InsuranceQuickPickData,
   LOINC_SYSTEM,
 } from 'utils';
 
@@ -133,36 +132,154 @@ export interface CardFieldSuggestion {
   comparable: string;
 }
 
+export interface CarrierCandidate {
+  /** Payer display exactly as the carrier field's option list shows it. */
+  label: string;
+  /** The `{ reference, display }` shape the carrier reference field stores. */
+  formValue: { reference: string; display: string };
+}
+
+export interface CarrierSuggestion extends CardFieldSuggestion {
+  /**
+   * Ranked fuzzy candidates for the picker; present (possibly empty) only when the extracted
+   * name did not strong-match exactly one payer.
+   */
+  candidates?: CarrierCandidate[];
+  /** Popover title override for the picker (e.g. when candidates come from a payer-ID match). */
+  pickerTitle?: string;
+  /** True when the suggestion was resolved by an exact payer-ID match against a single payer. */
+  resolvedByPayerId?: boolean;
+}
+
+// Option displays carry a "PAYERID - " prefix when the answer source uses prependIdentifier.
+const PAYER_ID_SEPARATOR = ' - ';
+const stripPayerIdPrefix = (display: string): string => {
+  const separatorIndex = display.indexOf(PAYER_ID_SEPARATOR);
+  return separatorIndex >= 0 ? display.slice(separatorIndex + PAYER_ID_SEPARATOR.length) : display;
+};
+const parsePayerIdPrefix = (display: string): string | null => {
+  const separatorIndex = display.indexOf(PAYER_ID_SEPARATOR);
+  return separatorIndex >= 0 ? display.slice(0, separatorIndex) : null;
+};
+
 /**
- * Carrier is suggested by NAME only (no payer-ID resolution). When the extracted payer
- * name uniquely matches the loaded payer list, accepting writes the `{ reference, display }`
- * shape the carrier field stores (same write as the carrier quick picks); otherwise the
- * suggestion is informational and the user picks via the existing carrier picker.
+ * Suggests a carrier against the same payer option list the carrier reference field loads
+ * (get-all-insurance-payers), payer-ID first, then by name:
+ *
+ * 1. Payer ID (when extracted): each option's ID is parsed from its "PAYERID - Name" display
+ *    and compared exactly (trim + case-insensitive — an alphanumeric EDI id, never fuzzy).
+ *    Exactly one match → one-click accept flagged `resolvedByPayerId`; several → the picker
+ *    scoped to those ID matches; none → fall through to name matching.
+ * 2. Name:
+ *    - Strong match (all non-alphanumerics stripped, so "BlueCross BlueShield" equals
+ *      "Blue Cross Blue Shield") against exactly one payer → one-click accept that writes the
+ *      `{ reference, display }` shape the carrier field stores.
+ *    - Otherwise → ranked fuzzy `candidates` (contains/token match) for the row's picker; an
+ *      empty list surfaces the picker's "No matches found" state rather than a dead row.
+ *
+ * One-click resolutions (single ID or strong-name match) set `display` to the resolved
+ * directory label ("PAYERID - Name") — exactly what accepting writes. Picker branches keep
+ * the raw extracted term as the clickable text.
  */
 export const buildCarrierSuggestion = (
   payer: string | null | undefined,
-  payerOptions: InsuranceQuickPickData[]
-): CardFieldSuggestion | null => {
-  if (!payer) return null;
-  const target = normalizeForComparison(payer);
-  const matches = payerOptions.filter((option) => {
-    if (normalizeForComparison(option.name) === target) return true;
-    // Option names may carry a "PAYERID - " prefix (prependIdentifier); match without it too.
-    if (option.payerId && option.name.toLowerCase().startsWith(option.payerId.toLowerCase())) {
-      const nameWithoutId = option.name.slice(option.payerId.length).replace(/^\s*-\s*/, '');
-      if (normalizeForComparison(nameWithoutId) === target) return true;
+  payerId: string | null | undefined,
+  payerOptions: Reference[]
+): CarrierSuggestion | null => {
+  if (!payer && !payerId) return null;
+  const usableOptions = payerOptions.filter((option): option is Reference & { reference: string; display: string } =>
+    Boolean(option.reference && option.display)
+  );
+
+  // 1. Payer-ID-first resolution: exact (case-insensitive) equality against the "PAYERID - "
+  // prefix of each option display. EDI ids are opaque codes — no fuzzy matching.
+  const idTarget = normalizeForComparison(payerId);
+  if (idTarget) {
+    const idMatches = usableOptions.filter((option) => {
+      const optionPayerId = parsePayerIdPrefix(option.display);
+      return optionPayerId != null && normalizeForComparison(optionPayerId) === idTarget;
+    });
+    if (idMatches.length === 1) {
+      const pick = idMatches[0];
+      return {
+        // One-click resolutions display the resolved directory label ("PAYERID - Name"),
+        // not the raw card text, so the pill shows exactly what "+" writes.
+        display: pick.display,
+        formValue: { reference: pick.reference, display: pick.display },
+        comparable: pick.display,
+        resolvedByPayerId: true,
+      };
     }
-    return false;
-  });
-  if (matches.length === 1) {
-    const pick = matches[0];
+    if (idMatches.length > 1) {
+      return {
+        display: payer ?? payerId!,
+        formValue: null,
+        comparable: payer ?? payerId!,
+        pickerTitle: `Payers for ID '${payerId}'`,
+        candidates: idMatches.map((option) => ({
+          label: option.display,
+          formValue: { reference: option.reference, display: option.display },
+        })),
+      };
+    }
+    // Zero ID matches → fall through to name matching below.
+  }
+
+  // 2. Name matching (no payer ID extracted, or it matched nothing in the directory).
+  if (!payer) return null;
+  const target = normalizeForComparison(payer, true);
+
+  const strongMatches = usableOptions.filter(
+    (option) =>
+      normalizeForComparison(option.display, true) === target ||
+      normalizeForComparison(stripPayerIdPrefix(option.display), true) === target
+  );
+  if (strongMatches.length === 1) {
+    const pick = strongMatches[0];
     return {
-      display: payer,
-      formValue: { reference: pick.organizationReference, display: pick.name },
-      comparable: pick.name,
+      // As with the payer-ID resolution above: show the resolved directory label, which is
+      // what accepting writes (e.g. "00390 - TN BCBS" rather than "BlueCross BlueShield").
+      display: pick.display,
+      formValue: { reference: pick.reference, display: pick.display },
+      comparable: pick.display,
     };
   }
-  return { display: payer, formValue: null, comparable: payer };
+
+  // No unique strong match → rank fuzzy candidates: exact > contains > token overlap.
+  const targetTokens = Array.from(
+    new Set(
+      payer
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length >= 3)
+    )
+  );
+  const scored = usableOptions
+    .map((option) => {
+      const nameNormalized = normalizeForComparison(stripPayerIdPrefix(option.display), true);
+      let score = 0;
+      if (target && nameNormalized === target) {
+        score = 100;
+      } else if (target && nameNormalized && (nameNormalized.includes(target) || target.includes(nameNormalized))) {
+        score = 75;
+      } else if (targetTokens.length > 0) {
+        const matchedTokens = targetTokens.filter((token) => nameNormalized.includes(token));
+        if (matchedTokens.length > 0) score = 50 * (matchedTokens.length / targetTokens.length);
+      }
+      return { option, score };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || a.option.display.localeCompare(b.option.display));
+
+  return {
+    display: payer,
+    formValue: null,
+    comparable: payer,
+    candidates: scored.map(({ option }) => ({
+      label: option.display,
+      formValue: { reference: option.reference, display: option.display },
+    })),
+  };
 };
 
 /**
@@ -188,17 +305,20 @@ export const buildPlanTypeSuggestion = (
 /**
  * Composes the additional-information suggestion from the extracted values that have no
  * dedicated form field (group / Rx / payer ID / effective date, plus an unmapped plan type).
+ * The payer ID is included only when the carrier suggestion did NOT already resolve it
+ * (ambiguous/unmatched IDs stay here so they aren't lost), mirroring `planTypeMapped`.
  */
 export const buildAdditionalInfoSuggestion = (
   fields: InsuranceCardExtractionFields,
-  planTypeMapped: boolean
+  planTypeMapped: boolean,
+  carrierResolvedByPayerId: boolean
 ): string | null => {
   const parts: string[] = [];
   if (fields.groupNumber) parts.push(`Group #: ${fields.groupNumber}`);
   if (fields.rxBin) parts.push(`RxBIN: ${fields.rxBin}`);
   if (fields.rxPcn) parts.push(`RxPCN: ${fields.rxPcn}`);
   if (fields.rxGroup) parts.push(`RxGroup: ${fields.rxGroup}`);
-  if (fields.payerId) parts.push(`Payer ID: ${fields.payerId}`);
+  if (fields.payerId && !carrierResolvedByPayerId) parts.push(`Payer ID: ${fields.payerId}`);
   if (fields.effectiveDate) parts.push(`Effective: ${fields.effectiveDate}`);
   if (!planTypeMapped && fields.insuranceType) parts.push(`Plan type: ${fields.insuranceType}`);
   return parts.length > 0 ? parts.join('; ') : null;

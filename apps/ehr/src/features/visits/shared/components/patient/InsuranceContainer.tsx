@@ -20,7 +20,6 @@ import { Row } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useMergedInsuranceQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import {
   chooseJson,
   CoverageCheckWithDetails,
@@ -36,7 +35,7 @@ import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
 import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
 import { InsuranceCarrierQuickPicks } from './InsuranceCarrierQuickPicks';
-import PatientRecordFormField from './PatientRecordFormField';
+import PatientRecordFormField, { buildAnswerSourceOptionsInput, useAnswerOptionsQuery } from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 import {
   buildAdditionalInfoSuggestion,
@@ -160,9 +159,20 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   // the matching card (primary titles vs "-2" secondary titles).
   const { primary: primaryCardFields, secondary: secondaryCardFields } = useInsuranceCardExtraction(patientId);
   const cardFields = ordinal === 1 ? primaryCardFields : secondaryCardFields;
-  // Carrier is suggested by name only; the payer list is loaded solely when a payer name was extracted.
-  const { quickPicks: payerOptions } = useMergedInsuranceQuickPicks({ enabled: Boolean(cardFields?.payer) });
-  const carrierSuggestion = cardFields ? buildCarrierSuggestion(cardFields.payer, payerOptions) : null;
+  // Carrier is suggested payer-ID-first, then by name, resolved against the same
+  // get-all-insurance-payers option list the carrier reference field itself loads (identical query
+  // key → shared React Query cache, so a suggested pick is always an option the carrier
+  // Autocomplete offers). Only queried when a payer name or payer ID was extracted.
+  const carrierItem = FormFields.insuranceCarrier;
+  const carrierAnswerSource =
+    carrierItem && 'dataSource' in carrierItem ? carrierItem.dataSource?.answerSource : undefined;
+  const { data: carrierPayerOptions } = useAnswerOptionsQuery(
+    carrierAnswerSource ? buildAnswerSourceOptionsInput(carrierAnswerSource) : undefined,
+    Boolean(cardFields?.payer || cardFields?.payerId)
+  );
+  const carrierSuggestion = cardFields
+    ? buildCarrierSuggestion(cardFields.payer, cardFields.payerId, carrierPayerOptions ?? [])
+    : null;
   const planTypeSuggestion = cardFields
     ? buildPlanTypeSuggestion(
         cardFields.insuranceType,
@@ -170,7 +180,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       )
     : null;
   const additionalInfoSuggestion = cardFields
-    ? buildAdditionalInfoSuggestion(cardFields, planTypeSuggestion != null)
+    ? buildAdditionalInfoSuggestion(
+        cardFields,
+        planTypeSuggestion != null,
+        carrierSuggestion?.resolvedByPayerId === true
+      )
     : null;
 
   // Surface the insurance type determined by the eligibility check into the editable
@@ -610,6 +624,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           suggestedDisplay={carrierSuggestion.display}
           suggestedFormValue={carrierSuggestion.formValue}
           suggestedComparable={carrierSuggestion.comparable}
+          candidates={carrierSuggestion.candidates}
+          pickerTitle={carrierSuggestion.pickerTitle}
           getCurrentComparable={(value) => (value as { display?: string } | null)?.display ?? ''}
         />
       )}
