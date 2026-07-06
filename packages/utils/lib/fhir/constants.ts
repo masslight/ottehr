@@ -756,6 +756,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
   groupType: `${PRIVATE_EXTENSION_BASE_URL}/group-type`,
+  hideControlLabel: `${PRIVATE_EXTENSION_BASE_URL}/hide-control-label`,
   infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,
   inputWidth: `${PRIVATE_EXTENSION_BASE_URL}/input-width`,
   minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
