@@ -408,13 +408,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
       const staticSecretRefs = Object.keys(this.resources.secrets)
         .map((name) => `"${name}": oystehr_secret.${name}.value`)
         .join(', ');
-      const zambdaSecretsExpr = `\${merge({for k, v in ${
-        outputsOutFile.includes('oystehr/') ? 'oystehr_secret.sendgrid_template_ids' : '{}'
-      } : k => v.value}, ${
-        outputsOutFile.includes('oystehr/')
-          ? 'length(oystehr_secret.sendgrid_send_email_api_key) > 0 ? {"SENDGRID_SEND_EMAIL_API_KEY": one(oystehr_secret.sendgrid_send_email_api_key[*].value)} : {}'
-          : '{}'
-      }, {${staticSecretRefs}})}`;
+      const zambdaSecretsExpr = `\${merge({for k, v in oystehr_secret.sendgrid_template_ids : k => v.value}, length(oystehr_secret.sendgrid_send_email_api_key) > 0 ? {"SENDGRID_SEND_EMAIL_API_KEY": one(oystehr_secret.sendgrid_send_email_api_key[*].value)} : {}, {${staticSecretRefs}})}`;
       outputDirectives.locals['zambda_secrets_for_local_server'] = { value: zambdaSecretsExpr };
       outputDirectives.output['zambda_secrets_for_local_server'] = {
         value: '${local.zambda_secrets_for_local_server.value}',

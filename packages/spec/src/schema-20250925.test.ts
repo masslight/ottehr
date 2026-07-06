@@ -125,7 +125,6 @@ describe('Schema20250925 generate()', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'spec-test-'));
-    await fs.mkdir(path.join(tmpDir, 'oystehr'));
   });
 
   afterEach(async () => {
@@ -145,10 +144,10 @@ describe('Schema20250925 generate()', () => {
         },
       };
 
-      const schema = new Schema20250925([spec], {}, `${tmpDir}/oystehr`, '/zambdas');
+      const schema = new Schema20250925([spec], {}, tmpDir, '/zambdas');
       await schema.generate();
 
-      const outputsContent = await fs.readFile(path.join(`${tmpDir}/oystehr`, 'outputs.tf.json'), 'utf8');
+      const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
       const outputs = JSON.parse(outputsContent);
 
       expect(outputs.locals.zambda_secrets_for_local_server).toBeDefined();
