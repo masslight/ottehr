@@ -34,6 +34,7 @@ import { STATUS_TO_STYLE_MAP } from 'src/features/visits/shared/components/patie
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
@@ -58,6 +59,7 @@ import {
   mapEligibilityCheckResultToSimpleStatus,
   OrderedCoveragesWithSubscribers,
   PATIENT_HAS_MEDICAID_URL,
+  PATIENT_RECORD_QUESTIONNAIRE,
   PatientPaymentBenefit,
   PatientPaymentDTO,
   PaymentVariant,
@@ -651,31 +653,24 @@ export default function PatientPaymentList({
 
   const updatePatientHasMedicaid = useMutation({
     mutationFn: async (nextValue: boolean) => {
-      if (!oystehr || !patient?.id) return;
-      const existingIndex = patient.extension?.findIndex((ext) => ext.url === PATIENT_HAS_MEDICAID_URL) ?? -1;
-      // Build the operation so it works whether the extension array is
-      // absent, present-without-this-url, or already carries the url.
-      const hasExtensionArray = Array.isArray(patient.extension);
-      const newExtensionEntry = { url: PATIENT_HAS_MEDICAID_URL, valueBoolean: nextValue };
-      let operation: { op: 'add' | 'replace'; path: string; value: unknown };
-      if (!hasExtensionArray) {
-        operation = { op: 'add', path: '/extension', value: [newExtensionEntry] };
-      } else if (existingIndex >= 0) {
-        operation = { op: 'replace', path: `/extension/${existingIndex}`, value: newExtensionEntry };
-      } else {
-        operation = { op: 'add', path: '/extension/-', value: newExtensionEntry };
-      }
-      await oystehr.fhir.patch<Patient>({
-        resourceType: 'Patient',
-        id: patient.id,
-        operations: [operation],
-      });
+      if (!apiClient || !patient?.id) return;
+      // Route through the existing update-patient-account zambda instead
+      // of patching Patient directly from the client. The zambda's harvest
+      // layer already knows how to translate `patient-has-medicaid` into
+      // the correct Patient extension via the shared linkId → fhir-path
+      // table — the same pipeline the intake credit-card page uses when
+      // the patient checks the box during paperwork.
+      const questionnaireResponse = structureQuestionnaireResponse(
+        PATIENT_RECORD_QUESTIONNAIRE(),
+        { 'patient-has-medicaid': nextValue },
+        patient.id,
+        { 'patient-has-medicaid': true }
+      );
+      await apiClient.updatePatientAccount({ questionnaireResponse });
       await queryClient.invalidateQueries({ queryKey: ['get-visit-details'] });
     },
     onError: (e, _next, previous) => {
       console.log('error updating patient-has-medicaid', e);
-      // Roll back the optimistic local state on failure so the checkbox
-      // stays honest with the server.
       if (typeof previous === 'boolean') setPatientHasMedicaid(previous);
       enqueueSnackbar("Something went wrong! Medicaid preference can't be updated.", { variant: 'error' });
     },
