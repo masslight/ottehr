@@ -245,8 +245,13 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         const savedFields = validVitals.map((v) => v.field);
         if (savedFields.includes(VitalFieldNames.VitalHeight) || savedFields.includes(VitalFieldNames.VitalWeight)) {
           try {
-            const heightCm = refetchResult.data?.[VitalFieldNames.VitalHeight]?.[0]?.value;
-            const weightKg = refetchResult.data?.[VitalFieldNames.VitalWeight]?.[0]?.value;
+            // Fall back to the latest historical value for the counterpart not recorded this encounter.
+            const heightCm =
+              refetchResult.data?.[VitalFieldNames.VitalHeight]?.[0]?.value ??
+              historicalVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value;
+            const weightKg =
+              refetchResult.data?.[VitalFieldNames.VitalWeight]?.[0]?.value ??
+              historicalVitals?.[VitalFieldNames.VitalWeight]?.[0]?.value;
             if (await saveBMI(weightKg, heightCm)) {
               await refetchEncounterVitals();
             }
@@ -294,6 +299,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     batchSaveVitals,
     refetchEncounterVitals,
     saveBMI,
+    historicalVitals,
   ]);
 
   // Helper to create field save handler with validation
@@ -321,12 +327,15 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
             // Derive BMI from the just-saved value plus the counterpart in state (no extra refetch);
             // isolated so a BMI failure doesn't flag the saved height/weight.
             if (triggerBMI) {
+              // Counterpart comes from this encounter if present, else the latest historical reading.
               const heightCm = isHeightVitalObservation(dto)
                 ? dto.value
-                : encounterVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value;
+                : encounterVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value ??
+                  historicalVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value;
               const weightKg = isWeightVitalObservation(dto)
                 ? dto.value
-                : encounterVitals?.[VitalFieldNames.VitalWeight]?.[0]?.value;
+                : encounterVitals?.[VitalFieldNames.VitalWeight]?.[0]?.value ??
+                  historicalVitals?.[VitalFieldNames.VitalWeight]?.[0]?.value;
               try {
                 await saveBMI(weightKg, heightCm);
               } catch {
@@ -354,7 +363,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           }
         }
       },
-    [fieldSavingStates, saveVitals, refetchEncounterVitals, encounterVitals, saveBMI]
+    [fieldSavingStates, saveVitals, refetchEncounterVitals, encounterVitals, historicalVitals, saveBMI]
   );
 
   const saveHandlers = useMemo(() => {
