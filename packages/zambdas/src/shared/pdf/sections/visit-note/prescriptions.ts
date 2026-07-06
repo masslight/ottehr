@@ -1,36 +1,19 @@
 import { ErxGetPharmacyResponse } from '@oystehr/sdk';
-import { PrescribedMedicationDTO } from 'utils';
 import { mapResourceByNameField } from '../../helpers/mappers';
+import { groupPrescriptionsByPharmacy } from '../../helpers/pharmacy';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import { PdfSection, pharmacyInfo, Prescriptions } from '../../types';
+import { PdfSection, Prescriptions } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
-
-const toPharmacyInfo = (pharmacy: ErxGetPharmacyResponse): pharmacyInfo => ({
-  name: pharmacy.name,
-  address: [pharmacy.address1, pharmacy.address2, pharmacy.city, pharmacy.state, pharmacy.zipCode]
-    .filter(Boolean)
-    .join(', '),
-  phone: pharmacy.phone,
-});
 
 export const composePrescriptions: DataComposer<
   { allChartData: AllChartData; erxPharmacies?: Record<string, ErxGetPharmacyResponse> },
   Prescriptions
 > = ({ allChartData, erxPharmacies }) => {
   const meds = allChartData.additionalChartData?.prescribedMedications ?? [];
-
-  const groups = new Map<string | undefined, PrescribedMedicationDTO[]>();
-  for (const med of meds) {
-    const key = med.pharmacyId;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(med);
-  }
-
-  const pharmacyGroups = Array.from(groups.entries()).map(([pharmacyId, groupMeds]) => ({
-    pharmacy: pharmacyId && erxPharmacies?.[pharmacyId] ? toPharmacyInfo(erxPharmacies[pharmacyId]) : undefined,
+  const pharmacyGroups = groupPrescriptionsByPharmacy(meds, erxPharmacies).map(({ pharmacy, meds: groupMeds }) => ({
+    pharmacy,
     prescriptions: mapResourceByNameField(groupMeds),
   }));
-
   return { pharmacyGroups };
 };
 

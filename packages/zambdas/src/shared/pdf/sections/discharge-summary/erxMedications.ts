@@ -1,36 +1,18 @@
-import { ErxGetPharmacyResponse } from '@oystehr/sdk';
-import { mapErxMedicationsToDisplay, PrescribedMedicationDTO } from 'utils';
+import { mapErxMedicationsToDisplay } from 'utils';
+import { groupPrescriptionsByPharmacy } from '../../helpers/pharmacy';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import { DischargeSummaryInput, ErxMedicationsData, PdfSection, pharmacyInfo } from '../../types';
-
-const toPharmacyInfo = (pharmacy: ErxGetPharmacyResponse): pharmacyInfo => ({
-  name: pharmacy.name,
-  address: [pharmacy.address1, pharmacy.address2, pharmacy.city, pharmacy.state, pharmacy.zipCode]
-    .filter(Boolean)
-    .join(', '),
-  phone: pharmacy.phone,
-});
+import { DischargeSummaryInput, ErxMedicationsData, PdfSection } from '../../types';
 
 export const composeErxMedications: DataComposer<
   Pick<DischargeSummaryInput, 'allChartData' | 'appointmentPackage' | 'erxPharmacies'>,
   ErxMedicationsData
 > = ({ allChartData, appointmentPackage, erxPharmacies }) => {
-  const { additionalChartData } = allChartData;
+  const meds = allChartData.additionalChartData?.prescribedMedications ?? [];
   const { timezone } = appointmentPackage;
-  const meds = additionalChartData?.prescribedMedications ?? [];
-
-  const groups = new Map<string | undefined, PrescribedMedicationDTO[]>();
-  for (const med of meds) {
-    const key = med.pharmacyId;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(med);
-  }
-
-  const pharmacyGroups = Array.from(groups.entries()).map(([pharmacyId, groupMeds]) => ({
-    pharmacy: pharmacyId && erxPharmacies?.[pharmacyId] ? toPharmacyInfo(erxPharmacies[pharmacyId]) : undefined,
+  const pharmacyGroups = groupPrescriptionsByPharmacy(meds, erxPharmacies).map(({ pharmacy, meds: groupMeds }) => ({
+    pharmacy,
     medications: mapErxMedicationsToDisplay(groupMeds, timezone),
   }));
-
   return { pharmacyGroups };
 };
 
