@@ -1,7 +1,7 @@
 import { DiagnosticReport, DocumentReference, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
 import { LAB_DR_TYPE_TAG, LAB_RESULT_HL7_DOC_REF_CODING_CODE, LabType } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../shared';
 
 // Grabs all of the DiagnosticReports for a given order number, their ServiceRequest, and the transmission DocRef
 // npm run get-lab-sr-dr-docref ['local' | 'dev' | 'development' | 'testing' | 'staging'] [orderNumber]
@@ -43,7 +43,7 @@ const main = async (): Promise<void> => {
   if (!token) {
     throw new Error('Failed to fetch auth token.');
   }
-  const oystehr = createOystehrClient(token, envConfig);
+  const oystehr = createClinicalOystehrClient(token, envConfig);
 
   const resources = (
     await oystehr.fhir.search<ServiceRequest | DiagnosticReport | DocumentReference>({

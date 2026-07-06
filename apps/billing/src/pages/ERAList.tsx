@@ -1,4 +1,4 @@
-import { Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -17,14 +17,17 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  BillingOrganizationOption,
   BillingPatientOption,
-  chooseJson,
+  BillingPayerOption,
   ClaimsQueueItemStatuses,
   EraListItem,
+  getApiError,
+  SearchErasInput,
 } from 'utils';
+import { searchBillingEras, searchBillingPatients, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { formatClaimStatus } from '../constants/claimStatus';
+import { ImportEraDialog } from '../components/ImportEraDialog';
+import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { formatCurrency } from '../utils/format';
@@ -86,6 +89,7 @@ export default function ERAList(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   // ERA-level filters
   const [checkNumber, setCheckNumber] = useState('');
@@ -93,8 +97,8 @@ export default function ERAList(): ReactElement {
   const [eraDateFrom, setEraDateFrom] = useState('');
   const [eraDateTo, setEraDateTo] = useState('');
   const [eraStatus, setEraStatus] = useState('');
-  const [selectedPayer, setSelectedPayer] = useState<BillingOrganizationOption | null>(null);
-  const [payerOptions, setPayerOptions] = useState<BillingOrganizationOption[]>([]);
+  const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
+  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
 
   // Claim-level filters
   const [searchText, setSearchText] = useState('');
@@ -112,27 +116,26 @@ export default function ERAList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const body: Record<string, unknown> = {
+        const params: SearchErasInput = {
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
         };
-        if (filters.checkNumber) body.checkNumber = filters.checkNumber;
-        if (filters.eraId) body.eraId = filters.eraId;
-        if (filters.eraDateFrom) body.eraDateFrom = filters.eraDateFrom;
-        if (filters.eraDateTo) body.eraDateTo = filters.eraDateTo;
-        if (filters.eraStatus) body.eraStatus = filters.eraStatus;
-        if (filters.payerId) body.payerId = filters.payerId;
-        if (filters.searchText) body.searchText = filters.searchText;
-        if (filters.claimStatus) body.claimStatus = filters.claimStatus;
-        if (filters.dosFrom) body.dosFrom = filters.dosFrom;
-        if (filters.dosTo) body.dosTo = filters.dosTo;
-        if (filters.patientId) body.patientId = filters.patientId;
-        const response = await oystehrZambda.zambda.execute({ id: 'search-billing-eras', ...body });
-        const data = chooseJson(response);
+        if (filters.checkNumber) params.checkNumber = filters.checkNumber;
+        if (filters.eraId) params.eraId = filters.eraId;
+        if (filters.eraDateFrom) params.eraDateFrom = filters.eraDateFrom;
+        if (filters.eraDateTo) params.eraDateTo = filters.eraDateTo;
+        if (filters.eraStatus) params.eraStatus = filters.eraStatus;
+        if (filters.payerId) params.payerId = filters.payerId;
+        if (filters.searchText) params.searchText = filters.searchText;
+        if (filters.claimStatus) params.claimStatus = filters.claimStatus;
+        if (filters.dosFrom) params.dosFrom = filters.dosFrom;
+        if (filters.dosTo) params.dosTo = filters.dosTo;
+        if (filters.patientId) params.patientId = filters.patientId;
+        const data = await searchBillingEras(oystehrZambda, params);
         setEras(data.eras ?? []);
         setTotalRows(data.total ?? 0);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(getApiError({ error: err, defaultError: 'Failed to load ERAs' }));
       } finally {
         setLoading(false);
       }
@@ -145,11 +148,8 @@ export default function ERAList(): ReactElement {
       if (!oystehrZambda) return;
       debounce(async () => {
         try {
-          const res = await oystehrZambda.zambda.execute({
-            id: 'search-billing-organizations',
-            ...(query ? { name: query } : {}),
-          });
-          setPayerOptions(chooseJson(res).organizations ?? []);
+          const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
+          setPayerOptions(res.payers ?? []);
         } catch {
           setPayerOptions([]);
         }
@@ -163,11 +163,8 @@ export default function ERAList(): ReactElement {
       if (!oystehrZambda) return;
       debounce(async () => {
         try {
-          const res = await oystehrZambda.zambda.execute({
-            id: 'search-billing-patients',
-            ...(query ? { name: query, includeWorkingCopies: true } : {}),
-          });
-          setPatientOptions(chooseJson(res).patients ?? []);
+          const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
+          setPatientOptions(res.patients ?? []);
         } catch {
           setPatientOptions([]);
         }
@@ -190,7 +187,7 @@ export default function ERAList(): ReactElement {
       eraDateFrom: overrides?.eraDateFrom ?? eraDateFrom,
       eraDateTo: overrides?.eraDateTo ?? eraDateTo,
       eraStatus: overrides?.eraStatus ?? eraStatus,
-      payerId: overrides?.payerId ?? selectedPayer?.id,
+      payerId: overrides?.payerId ?? selectedPayer?.payerId,
       searchText: overrides?.searchText ?? searchText,
       claimStatus: overrides?.claimStatus ?? claimStatus,
       dosFrom: overrides?.dosFrom ?? dosFrom,
@@ -264,9 +261,14 @@ export default function ERAList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        ERAs
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
+          ERAs
+        </Typography>
+        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => setShowImportDialog(true)}>
+          Import
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -333,10 +335,10 @@ export default function ERAList(): ReactElement {
           value={selectedPayer}
           onChange={(_, v) => {
             setSelectedPayer(v);
-            applyFilters({ payerId: v?.id ?? '' });
+            applyFilters({ payerId: v?.payerId ?? '' });
           }}
           renderInput={(params) => <TextField {...params} label="Payer" />}
-          isOptionEqualToValue={(o, v) => o.id === v.id}
+          isOptionEqualToValue={(o, v) => o.payerId === v.payerId}
           sx={{ minWidth: 200 }}
         />
         <TextField
@@ -382,7 +384,7 @@ export default function ERAList(): ReactElement {
             <MenuItem value="">All</MenuItem>
             {ClaimsQueueItemStatuses.map((s) => (
               <MenuItem key={s} value={s}>
-                {formatClaimStatus(s)}
+                {formatAntCaseString(s)}
               </MenuItem>
             ))}
           </Select>
@@ -458,6 +460,7 @@ export default function ERAList(): ReactElement {
         slots={dataGridSlots}
         sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
       />
+      {showImportDialog && <ImportEraDialog onClose={() => setShowImportDialog(false)} />}
     </Box>
   );
 }

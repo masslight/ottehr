@@ -159,25 +159,6 @@ export const formatFhirEncounterToPatientFollowupDetails = (
   return formatted;
 };
 
-export const getEncounterForAppointment = async (appointmentID: string, oystehr: Oystehr): Promise<Encounter> => {
-  const encounterTemp = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [
-        {
-          name: 'appointment',
-          value: `Appointment/${appointmentID}`,
-        },
-      ],
-    })
-  ).unbundle();
-  const encounter = encounterTemp[0];
-  if (encounterTemp.length === 0 || !encounter.id) {
-    throw new Error('Error getting appointment encounter');
-  }
-  return encounter;
-};
-
 export const getSpentTime = (history?: EncounterStatusHistory[]): string | undefined => {
   const value = history?.find((item) => item.status === 'in-progress');
   if (!value || !value.period.start) {

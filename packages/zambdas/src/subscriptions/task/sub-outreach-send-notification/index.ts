@@ -21,11 +21,12 @@ import {
 import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
 import {
   checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
   createOutreachEmailCommunication,
-  createOystehrClient,
   fillOutreachTemplate,
   getEmailClient,
   resolveTemplatePlaceholders,
+  safeJsonParse,
   sendSmsForPatient,
   StatementType,
   wrapHandler,
@@ -40,7 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!input.body) throw new Error('No request body provided');
   if (!input.secrets) throw new Error('Secrets are not defined');
 
-  const task: Task = JSON.parse(input.body);
+  const task: Task = safeJsonParse(input.body);
 
   if (task.resourceType !== 'Task') {
     throw new Error(`Expected Task resource but got ${task.resourceType}`);
@@ -52,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
   // Mark as in-progress with optimistic locking to guard against duplicate
   // subscription deliveries racing to execute the same task. If another

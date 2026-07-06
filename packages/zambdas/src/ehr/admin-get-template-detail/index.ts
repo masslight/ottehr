@@ -6,6 +6,7 @@ import {
   Communication,
   Condition,
   List,
+  MedicationAdministration,
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
@@ -22,6 +23,8 @@ import {
   examConfig,
   extractCptCodeModifiersFromCoding,
   FHIR_EXTENSION,
+  getCptCodesFromMA,
+  getDosageUnitsAndRouteOfMedication,
   getRosFindingStateFromKey,
   getSecret,
   getTag,
@@ -30,21 +33,36 @@ import {
   PERFORMER_TYPE_SYSTEM,
   PROCEDURE_TYPE_SYSTEM,
   resourceHasTagSystem,
+  searchRouteByCode,
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
   TemplateCptCodeInfo,
   TemplateExamFinding,
+  TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
+  TemplateInHouseMedicationDetail,
   TemplateProcedurePlan,
   TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import {
+  fetchPlanItemsByLabGuid,
+  findExternalLabPlans,
+  labelForExternalLabPlan,
+  matchOrderableItemForPlan,
+  parseExternalLabPlan,
+} from '../apply-template/apply-external-labs';
 import {
   indexLatestActivityDefinitionsByUrl,
   urlFromInstantiatesCanonical,
 } from '../apply-template/apply-in-house-labs';
+import {
+  deriveMedicationName,
+  isInHouseMedicationTemplatePlan,
+  makeMedicationsByIdMap,
+} from '../apply-template/apply-in-house-medications';
 import { findProcedurePlans } from '../apply-template/apply-procedures';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -60,9 +78,9 @@ export const index = wrapHandler(
 
       const { secrets } = validatedInput;
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-      const result = await performEffect(validatedInput, oystehr);
+      const result = await performEffect(validatedInput, oystehr, m2mToken);
 
       return {
         statusCode: 200,
@@ -145,7 +163,8 @@ function buildFieldLabels(config: Record<string, any>): Map<string, string> {
 
 const performEffect = async (
   validatedInput: AdminGetTemplateDetailInput & Pick<ZambdaInput, 'secrets'>,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  m2mToken: string
 ): Promise<AdminGetTemplateDetailOutput> => {
   const { templateId } = validatedInput;
 
@@ -375,6 +394,53 @@ const performEffect = async (
     };
   });
 
+  // Parse external lab plans. Each plan is a ServiceRequest with intent 'plan'
+  // and the external-lab-template-plan meta tag carrying the lab + test combo,
+  // Dx, note, and PSC flag. We verify each lab + test combo still resolves in
+  // the lab's current compendium so the admin UI can flag tests that would be
+  // skipped at apply time.
+  const externalLabPlans = findExternalLabPlans(templateList);
+  const externalParsedPlans = externalLabPlans.map((plan) => ({ plan, parsed: parseExternalLabPlan(plan) }));
+
+  const externalOrderableItemsByLabGuid = await fetchPlanItemsByLabGuid(
+    externalParsedPlans.map((p) => p.parsed).filter((p): p is NonNullable<typeof p> => p !== null),
+    m2mToken
+  );
+
+  const externalLabs: TemplateExternalLabPlanDetail[] = externalParsedPlans.map(({ plan, parsed }) => {
+    if (!parsed) {
+      // Malformed plan (missing lab guid or item code) - surface it as missing
+      // so an admin can rebuild the template; apply-template skips it with a
+      // warning.
+      return {
+        planId: plan.id ?? '',
+        labGuid: '',
+        labName: '',
+        testName: labelForExternalLabPlan(plan),
+        testCode: '',
+        diagnoses: [],
+        note: null,
+        psc: false,
+        missing: true,
+      };
+    }
+    const items = externalOrderableItemsByLabGuid.get(parsed.labGuid);
+    // When the availability check itself failed, don't report a false
+    // "missing" - apply-template re-checks and warns at apply time.
+    const missing = items === undefined || items === 'fetch-failed' ? false : !matchOrderableItemForPlan(parsed, items);
+    return {
+      planId: parsed.planId,
+      labGuid: parsed.labGuid,
+      labName: parsed.labName,
+      testName: parsed.testName,
+      testCode: parsed.itemCode,
+      diagnoses: parsed.dx.map((d) => ({ code: d.code, display: d.display })),
+      note: parsed.note ?? null,
+      psc: parsed.psc,
+      missing,
+    };
+  });
+
   // Parse in-office procedure plans. Each plan is a ServiceRequest with intent
   // 'plan' and the procedure-template-plan meta tag, carrying the procedure
   // form's data via category/performerType/bodySite plus a stable set of
@@ -462,6 +528,46 @@ const performEffect = async (
     };
   });
 
+  // Parse in-house medication template MAs. Each MedicationAdministration
+  // with the in-house-medication-administration-template tag, carries the drug identity as
+  // medicationReference (pointing to a contained Medication in the template List), dosage, CPT codes, reason notes, and ICD-10 diagnoses.
+  const inHouseMedicationTemplatePlans = contained.filter((r): r is MedicationAdministration =>
+    isInHouseMedicationTemplatePlan(r)
+  );
+  const inHouseMedicationReferencedMedicationsById = makeMedicationsByIdMap(contained);
+
+  const inHouseMedications: TemplateInHouseMedicationDetail[] = inHouseMedicationTemplatePlans.map((templateMA) => {
+    const cptEntries = getCptCodesFromMA(templateMA) ?? [];
+    const maCptCodes: TemplateCptCodeInfo[] = cptEntries.map((e) => ({
+      code: e.code,
+      display: e.display,
+      modifiers: [], // you can't currently add modifiers to in house med cpt codes, but this typing is useful downstream
+    }));
+
+    const maDiagnoses: TemplateCodeInfo[] = (templateMA.reasonCode ?? [])
+      .map((rc) => {
+        const icd = rc.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? rc.coding?.[0];
+        return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
+      })
+      .filter((d) => d.code || d.display);
+
+    const containedMedicationId = templateMA.medicationReference?.reference?.replace('#', '');
+    const medicationName = deriveMedicationName(containedMedicationId, inHouseMedicationReferencedMedicationsById);
+
+    const { route, dose, units } = getDosageUnitsAndRouteOfMedication(templateMA);
+
+    return {
+      planId: templateMA.id ?? '',
+      medicationName,
+      dose,
+      units,
+      route: searchRouteByCode(route)?.display,
+      instructions: templateMA.dosage?.text,
+      cptCodes: maCptCodes,
+      diagnoses: maDiagnoses,
+    };
+  });
+
   return {
     templateName: templateList.title ?? '',
     templateId: templateList.id!,
@@ -480,7 +586,9 @@ const performEffect = async (
       emCode,
       accident,
       inHouseLabs,
+      externalLabs,
       procedures,
+      inHouseMedications,
     },
   };
 };

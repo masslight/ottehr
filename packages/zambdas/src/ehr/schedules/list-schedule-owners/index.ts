@@ -19,18 +19,31 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   OVERRIDE_DATE_FORMAT,
+  RoleType,
   SCHEDULE_CHANGES_DATE_FORMAT,
   ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
   TIMEZONES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'list-schedule-owners';
+
+// Logs how long an async operation takes. Used to pinpoint which fetch
+// dominates the endpoint's latency in production (FHIR include search vs.
+// user pagination) so we can keep an eye on timeout regressions.
+const timed = async <T>(label: string, fn: () => Promise<T>): Promise<T> => {
+  const start = Date.now();
+  try {
+    return await fn();
+  } finally {
+    console.log(`${label} took ${Date.now() - start}ms`);
+  }
+};
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
@@ -39,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const { ownerType } = validatedParameters;
 
   let effectInput: EffectInput;
@@ -65,10 +78,12 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
       const { owner, schedules, displayName, address: itemAddress, providerSchedulesSummary } = item;
       let address: Address | undefined;
       let supportPhoneNumber: string | undefined;
+      let active: boolean | undefined;
       if (owner.resourceType === 'Location') {
         const loc = owner as Location;
         address = loc.address;
         supportPhoneNumber = loc.extension?.find((e) => e.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString;
+        active = loc.status === 'active';
       } else if (owner.resourceType === 'Practitioner') {
         address = (owner as Practitioner).address?.[0];
       }
@@ -81,6 +96,7 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
           address: addressString ?? '',
           providerSchedulesSummary,
           supportPhoneNumber,
+          active,
         },
         schedules: schedules.map((schedule) => ({
           resourceType: schedule.resourceType,
@@ -150,16 +166,11 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
   // splitting these into separate requests lest the _include lead to too large a response due to potentially very large json extension on
   // schedule resources.
   // Paginated: >1000 schedules would otherwise silently drop owners whose schedule lands on a later page.
-  // Filter Location owners to status=active. Matches the canonical filter
-  // used at PR creation (apps/ehr/src/components/schedule/PractitionerRoleList
-  // uses `params: [{ name: 'status', value: 'active' }]`), so the admin
-  // surface here doesn't surface schedule owners the rest of the system
-  // treats as invisible. Practitioner/HealthcareService have different
-  // active-flag conventions; leave them alone for now to avoid scope creep.
+  // Location owners are returned regardless of status: the admin Schedules
+  // list shows inactive Locations too (with an "Active" Yes/No column), so a
+  // Location deactivated from the General tab stays visible and can be
+  // reactivated. The owner DTO carries `active` so the table can render it.
   const ownerParams: { name: string; value: string }[] = [];
-  if (ownerType === 'Location') {
-    ownerParams.push({ name: 'status', value: 'active' });
-  }
   const [schedules, owners] = await Promise.all([
     getAllFhirSearchPages<Schedule>(
       {
@@ -232,7 +243,21 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
   // from the admin list. Matches the pagination pattern used in the other
   // function in this file. user.list() is deprecated by the SDK; listV2
   // with cursor pagination is the supported path.
-  const fetchAllUsers = async (): Promise<Awaited<ReturnType<typeof oystehr.user.listV2>>['data']> => {
+  //
+  // Scope the user fetch to the Provider role rather than every User in the
+  // project. Users include patients (tens of thousands in production), and
+  // paging through all of them — at limit 100 per sequential round trip —
+  // is what timed this endpoint out. We only ever keep Practitioners that
+  // map to a User here, and only providers get a Practitioner profile + the
+  // Provider role, so role-scoping returns exactly the candidate set (a few
+  // hundred) without changing the output.
+  const fetchProviderUsers = async (): Promise<Awaited<ReturnType<typeof oystehr.user.listV2>>['data']> => {
+    const roles = await oystehr.role.list();
+    const providerRole = roles.find((r) => r.name === RoleType.Provider);
+    if (!providerRole) {
+      console.error(`No "${RoleType.Provider}" role found; no provider rows can be resolved.`);
+      return [];
+    }
     const collected: Awaited<ReturnType<typeof oystehr.user.listV2>>['data'] = [];
     // The SDK types nextCursor as `string | null`. Treat any non-string-non-empty
     // value as "no more pages" so a stray `''` from the server can't trigger
@@ -240,37 +265,49 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
     // with a falsy cursor and re-fetch page 1 forever).
     let cursor: string | null = null;
     do {
-      const response: Awaited<ReturnType<typeof oystehr.user.listV2>> = await oystehr.user.listV2(
-        cursor ? { cursor } : {}
-      );
+      const response: Awaited<ReturnType<typeof oystehr.user.listV2>> = await oystehr.user.listV2({
+        ...(cursor ? { cursor } : {}),
+        limit: 1000,
+        roleId: providerRole.id,
+        sort: 'name',
+      });
       collected.push(...response.data);
       cursor = response.metadata.nextCursor;
     } while (cursor);
     return collected;
   };
+  const overallStart = Date.now();
   const [prResources, allPractitioners, allUsers] = await Promise.all([
-    getAllFhirSearchPages<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>(
-      {
-        resourceType: 'PractitionerRole',
-        params: [
-          { name: 'active', value: 'true' },
-          { name: '_include', value: 'PractitionerRole:practitioner' },
-          { name: '_include', value: 'PractitionerRole:location' },
-          { name: '_include', value: 'PractitionerRole:service' },
-          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
-        ],
-      },
-      oystehr
+    timed('PractitionerRole search (with _include/_revinclude)', () =>
+      getAllFhirSearchPages<PractitionerRole | Practitioner | Location | Schedule | HealthcareService>(
+        {
+          resourceType: 'PractitionerRole',
+          params: [
+            { name: 'active', value: 'true' },
+            { name: '_include', value: 'PractitionerRole:practitioner' },
+            { name: '_include', value: 'PractitionerRole:location' },
+            { name: '_include', value: 'PractitionerRole:service' },
+            { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+          ],
+        },
+        oystehr
+      )
     ),
-    getAllFhirSearchPages<Practitioner>(
-      {
-        resourceType: 'Practitioner',
-        params: [{ name: 'active', value: 'true' }],
-      },
-      oystehr
+    timed('Practitioner search (active=true)', () =>
+      getAllFhirSearchPages<Practitioner>(
+        {
+          resourceType: 'Practitioner',
+          params: [{ name: 'active', value: 'true' }],
+        },
+        oystehr
+      )
     ),
-    fetchAllUsers(),
+    timed('fetchProviderUsers (Provider-role users)', () => fetchProviderUsers()),
   ]);
+  console.log(
+    `[list-schedule-owners] all parallel fetches done in ${Date.now() - overallStart}ms ` +
+      `(prResources=${prResources.length}, activePractitioners=${allPractitioners.length}, providerUsers=${allUsers.length})`
+  );
 
   const roles = prResources.filter((r): r is PractitionerRole => r.resourceType === 'PractitionerRole');
   const includedPractitioners = prResources.filter((r): r is Practitioner => r.resourceType === 'Practitioner');

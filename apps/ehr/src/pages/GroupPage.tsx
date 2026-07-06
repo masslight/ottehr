@@ -20,30 +20,26 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { Operation } from 'fast-json-patch';
-import { CodeableConcept, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { listServiceCategories } from 'src/api/api';
+import { listServiceCategories, updateGroup } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { formatLocationLabel } from 'src/components/schedule/locationLabel';
 import {
   BOOKING_CONFIG,
   getAllFhirSearchPages,
   getGroupAllLocations,
   getGroupAssignmentMode,
-  getPatchBinary,
   getPractitionerRoleAllCategories,
   getSlugForBookableResource,
-  GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
-  groupCharacteristics,
-  mergeOwnedCharacteristics,
-  SCHEDULE_STRATEGY_SYSTEM,
-  SERVICE_CATEGORY_SYSTEM,
-  SLUG_SYSTEM,
+  isValidSlug,
+  SLUG_VALIDATION_MESSAGE,
 } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import { useHydratedSupportedCategoryHsIds } from './useHydratedSupportedCategoryHsIds';
 
 type AssignmentMode = 'anonymous' | 'provider';
 
@@ -84,8 +80,9 @@ function GroupPageContent(): ReactElement {
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('anonymous');
   // Categories the group supports. Authoritative — what the patient is allowed
   // to book through this group. Admin-curated; a Massage group containing a
-  // multi-skill member shouldn't expose that member's other categories.
-  const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useState<string[]>([]);
+  // multi-skill member shouldn't expose that member's other categories. State
+  // + hydration live in the hook so the race-prone "wait for both queries"
+  // logic is covered by a focused unit test.
   const [name, setName] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -164,6 +161,16 @@ function GroupPageContent(): ReactElement {
     }
     return map;
   }, [categoryData]);
+
+  // Categories the group supports — see the comment near `group` state. Hook
+  // hydrates from group.type[] once both `group` and the FHIR catalog query
+  // have resolved; the `categoryData !== undefined` flag distinguishes
+  // "query done with empty catalog" from "still loading."
+  const [supportedCategoryHsIds, setSupportedCategoryHsIds] = useHydratedSupportedCategoryHsIds(
+    group,
+    categoryByHsId,
+    categoryData !== undefined
+  );
 
   // For each Location, count the distinct active providers that picking the
   // Location would pull into the group's pool. "Provider" = distinct
@@ -252,7 +259,6 @@ function GroupPageContent(): ReactElement {
   const locationProviderRollup = useMemo(() => {
     if (!allLocations && selectedLocationIds.length === 0) return [];
     const relevantHsIdSet = new Set(supportedCategoryHsIds);
-    const locationById = new Map((locations || []).filter((l) => l.id).map((l) => [l.id!, l] as const));
     const targetLocationIds = allLocations
       ? (locations || []).map((l) => l.id).filter((id): id is string => !!id)
       : selectedLocationIds;
@@ -296,7 +302,6 @@ function GroupPageContent(): ReactElement {
       }
     }
     const rows = targetLocationIds.map((locId) => {
-      const loc = locationById.get(locId);
       const byPrac = byLocation.get(locId) ?? new Map();
       const providers = Array.from(byPrac.entries())
         .filter(([, entry]) => entry.services.size > 0)
@@ -312,7 +317,7 @@ function GroupPageContent(): ReactElement {
         // Suffix inactive Locations so the rollup matches the chip in the
         // picker — slot generation skips them, and the admin should see why
         // a previously-listed Location now contributes nothing.
-        locationName: loc?.status === 'inactive' ? `${loc?.name || locId} (inactive)` : loc?.name || locId,
+        locationName: formatLocationLabel(locations || [], locId),
         providers,
       };
     });
@@ -447,29 +452,6 @@ function GroupPageContent(): ReactElement {
     setAllLocations(getGroupAllLocations(groupTemp) ?? false);
   }, [oystehr, groupID]);
 
-  // Resolve the group's authoritative supported-categories list. group.type[]
-  // stores category codes; the multi-select keys on HS ids. We map via the
-  // catalog (categoryByHsId, populated by the service-categories query). A
-  // group with empty type[] (e.g., freshly created) hydrates to an empty
-  // allow-list — the admin must explicitly select services.
-  const supportedHydratedRef = useRef(false);
-  useEffect(() => {
-    if (supportedHydratedRef.current) return;
-    if (!group || !categoryByHsId.size) return;
-
-    const codes = (group.type || [])
-      .flatMap((t) => t.coding || [])
-      .map((c) => c.code)
-      .filter((c): c is string => !!c);
-
-    const allowed = new Set<string>();
-    for (const [id, info] of categoryByHsId.entries()) {
-      if (codes.includes(info.code)) allowed.add(id);
-    }
-    setSupportedCategoryHsIds([...allowed]);
-    supportedHydratedRef.current = true;
-  }, [group, categoryByHsId]);
-
   useEffect(() => {
     void getOptions();
   }, [getOptions]);
@@ -478,80 +460,55 @@ function GroupPageContent(): ReactElement {
     try {
       event.preventDefault();
       if (!oystehr) return;
+      // Optimistic client-side slug validation to short-circuit round-trips —
+      // the zambda runs the same check server-side (source of truth), so a
+      // bypass here would just get a 400 back with the same message.
+      if (slug && !isValidSlug(slug)) {
+        enqueueSnackbar(`Permalink ${SLUG_VALIDATION_MESSAGE}.`, { variant: 'error' });
+        return;
+      }
       setLoading(true);
 
-      // Locations are admin-curated directly via selectedLocationIds (the
-      // source of truth for the group's `.location[]`). The reader expands
-      // each Location into the PR-schedules at that Location via the
-      // `pools-providers` strategy set below. Categories are also admin-
-      // curated (Option A): supportedCategoryHsIds is what the patient is
-      // allowed to book through this group, regardless of what a member's
-      // PR additionally exposes.
-      // When the all-locations toggle is on, write an empty .location[] so
-      // the persisted shape reflects "pool everywhere" cleanly. Toggling off
-      // later starts the admin from a fresh picker.
-      const selectedLocationRefs = allLocations
-        ? []
-        : selectedLocationIds.map((id) => ({ reference: `Location/${id}` }));
-      const supportedTypes: CodeableConcept[] = supportedCategoryHsIds
-        .map((hsId) => categoryByHsId.get(hsId))
-        .filter((x): x is NonNullable<typeof x> => !!x)
-        .map((cat) => ({
-          coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: cat.code, display: cat.name }],
-          text: cat.name,
-        }));
-
-      const patchOperations: Operation[] = [
-        { op: group?.location ? 'replace' : 'add', path: '/location', value: selectedLocationRefs },
-        { op: group?.type ? 'replace' : 'add', path: '/type', value: supportedTypes },
-      ];
-
-      // Replace this page's own characteristic codings on save; preserve any
-      // characteristic codings owned by other systems. Strategy lives here
-      // too — the group form sets `pools-providers` so the reader knows to
-      // expand .location[] (and .healthcareService[] back-refs) into PR
-      // schedules at slot-resolution time.
-      const ownedCharacteristicSystems = [...GROUP_OWNED_CHARACTERISTIC_SYSTEMS, SCHEDULE_STRATEGY_SYSTEM];
-      const newCharacteristics = mergeOwnedCharacteristics(group?.characteristic, ownedCharacteristicSystems, [
-        ...groupCharacteristics({ assignmentMode, allLocations }),
-        {
-          coding: [{ system: SCHEDULE_STRATEGY_SYSTEM, code: 'pools-providers', display: 'Pools Providers' }],
-        },
-      ]);
-      patchOperations.push({
-        op: group?.characteristic ? 'replace' : 'add',
-        path: '/characteristic',
-        value: newCharacteristics,
-      });
-
-      const currentSlug = group ? getSlugForBookableResource(group) ?? '' : '';
-      if (group && slug !== currentSlug) {
-        const newIdentifierList = group.identifier?.filter((identifier) => identifier.system !== SLUG_SYSTEM) || [];
-        if (slug) newIdentifierList.push({ system: SLUG_SYSTEM, value: slug });
-        patchOperations.push({
-          op: group.identifier === undefined ? 'add' : 'replace',
-          path: '/identifier',
-          value: newIdentifierList,
+      // Server-side patch via admin-update-group — the zambda owns the
+      // patch-operation composition (name, slug, location[], type[],
+      // characteristic[]) plus slug-uniqueness enforcement and
+      // service-category HS validation. Client only forwards user-visible
+      // form state:
+      //   - name           straight through
+      //   - slug           straight through (empty string clears the identifier)
+      //   - locationIds    from the picker; when allLocations=true the
+      //                    zambda will discard it and write an empty
+      //                    .location[] — we still forward the current
+      //                    selection so a later allLocations toggle-off
+      //                    saves without needing to re-pick.
+      //   - supportedCategoryHsIds  the admin's curated allow-list; the
+      //                             zambda expands each id to a coding
+      //                             (code + display) after re-verifying
+      //                             it's actually a service-category HS.
+      //   - assignmentMode + allLocations  written to .characteristic[]
+      //                                     with foreign codings preserved.
+      try {
+        await updateGroup(oystehr, {
+          groupId: groupID,
+          name,
+          slug,
+          locationIds: selectedLocationIds,
+          supportedCategoryHsIds,
+          assignmentMode,
+          allLocations,
         });
+      } catch (error) {
+        // Server-side validation errors (bad slug, unknown category HS,
+        // slug collision) carry admin-friendly messages we should surface
+        // rather than a generic "Failed to save group."
+        const message =
+          error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
+            ? (error as any).message
+            : 'Failed to save group.';
+        enqueueSnackbar(message, { variant: 'error' });
+        console.error('Error saving group:', error);
+        return;
       }
-
-      if (group && name !== (group.name ?? '')) {
-        patchOperations.push({
-          op: group.name === undefined ? 'add' : 'replace',
-          path: '/name',
-          value: name,
-        });
-      }
-
-      const healthcareServicePatchRequest = getPatchBinary({
-        resourceType: 'HealthcareService',
-        resourceId: groupID,
-        patchOperations,
-      });
-
-      await oystehr.fhir.transaction<HealthcareService>({
-        requests: [healthcareServicePatchRequest],
-      });
 
       enqueueSnackbar('Group saved successfully!', { variant: 'success' });
       await getOptions();
@@ -562,6 +519,11 @@ function GroupPageContent(): ReactElement {
       setLoading(false);
     }
   }
+
+  // A non-empty permalink must match the URL-safe shape the patient side
+  // enforces, otherwise the save succeeds here but booking by slug later fails
+  // with a validation error.
+  const slugError = !!slug && !isValidSlug(slug);
 
   if (!group) {
     return (
@@ -608,6 +570,8 @@ function GroupPageContent(): ReactElement {
                 onChange={(event) => {
                   setSlug(event.target.value);
                 }}
+                error={slugError}
+                helperText={slugError ? SLUG_VALIDATION_MESSAGE : undefined}
                 sx={{ width: '250px' }}
               />
               <Typography
@@ -690,6 +654,7 @@ function GroupPageContent(): ReactElement {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxWidth: 640 }}>
                 {Array.from(categoryByHsId.entries())
+                  .filter(([, info]) => info.source !== 'booking-config') // Only show FHIR-backed categories for now
                   .sort(([, a], [, b]) => a.name.localeCompare(b.name))
                   .map(([hsId, info]) => {
                     const isInAllowList = supportedCategoryHsIds.includes(hsId);
@@ -797,15 +762,11 @@ function GroupPageContent(): ReactElement {
                 value={selectedLocationIds}
                 onChange={(_e, v) => setSelectedLocationIds(v)}
                 isOptionEqualToValue={(option, v) => option === v}
-                getOptionLabel={(id) => {
-                  const loc = (locations || []).find((l) => l.id === id);
-                  const base = loc?.name || id;
-                  // Saved selection may include Locations whose status has
-                  // since flipped to inactive — slot generation now skips
-                  // them automatically, but mark them in the chip so the
-                  // admin can spot and remove the stale ref if desired.
-                  return loc?.status === 'inactive' ? `${base} (inactive)` : base;
-                }}
+                // Saved selection may include Locations whose status has since
+                // flipped to inactive — slot generation now skips them
+                // automatically, but the helper marks them in the chip so the
+                // admin can spot and remove the stale ref if desired.
+                getOptionLabel={(id) => formatLocationLabel(locations || [], id)}
                 renderOption={(props, id) => {
                   const loc = (locations || []).find((l) => l.id === id);
                   const selected = selectedLocationIds.includes(id);
@@ -886,7 +847,14 @@ function GroupPageContent(): ReactElement {
               )}
             </Box>
             <Box>
-              <LoadingButton loading={loading} type="submit" variant="contained" color="primary" size="medium">
+              <LoadingButton
+                loading={loading}
+                type="submit"
+                variant="contained"
+                color="primary"
+                size="medium"
+                disabled={slugError}
+              >
                 Save
               </LoadingButton>
             </Box>

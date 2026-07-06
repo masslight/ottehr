@@ -1,6 +1,6 @@
 import { GetPatientInstructionsInput, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const GetPatientInstructionsBodySchema = z.object({
   type: z.enum(['provider', 'organization']),
@@ -17,7 +17,7 @@ export function validateRequestParameters(
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body) as unknown;
+  const parsed = safeJsonParse(input.body) as unknown;
   const data = safeValidate(GetPatientInstructionsBodySchema, parsed);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');

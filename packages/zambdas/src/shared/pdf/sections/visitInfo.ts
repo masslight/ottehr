@@ -2,9 +2,11 @@ import { Appointment } from 'fhir/r4b';
 import {
   FhirAppointmentType,
   formatDateToMDYWithTime,
-  getAppointmentServiceCategoryAbbreviation,
+  getCoding,
   isInPersonAppointment,
   isTelemedAppointment,
+  resolveServiceCategoryAbbreviation,
+  SERVICE_CATEGORY_SYSTEM,
 } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { PdfSection, VisitDataInput, VisitInfo } from '../types';
@@ -41,9 +43,18 @@ export const getBookingTypeForPdf = (appointment: Appointment): string | undefin
   }
 };
 
-export const composeVisitData: DataComposer<VisitDataInput, VisitInfo> = ({ appointment, location, timezone }) => {
+export const composeVisitData: DataComposer<VisitDataInput, VisitInfo> = ({
+  appointment,
+  location,
+  timezone,
+  serviceCategories,
+}) => {
   const type = getVisitTypeForPdf(appointment);
-  const serviceCategory = getAppointmentServiceCategoryAbbreviation(appointment);
+  const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+  const serviceCategory = resolveServiceCategoryAbbreviation(
+    serviceCategoryCoding?.code ?? serviceCategoryCoding?.display,
+    serviceCategories
+  );
   const bookingType = getBookingTypeForPdf(appointment);
   const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
   const locationName = location?.name ?? '';
