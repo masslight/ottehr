@@ -77,13 +77,13 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
       const section = editableSection ?? generatedSection;
       if (!section) throw new Error('No content to save');
 
-      const pdfBytes = await generateCombinedPdf([section]);
+      const pdfBytes = await generateCombinedPdf([section], language);
       const pdfBase64 = btoa(
         Array.from(pdfBytes)
           .map((b) => String.fromCharCode(b))
           .join('')
       );
-      const title = `Patient Education: ${section.patientTitle}`;
+      const title = `${language === 'es' ? 'Educación del paciente' : 'Patient Education'}: ${section.patientTitle}`;
       const icdCodes: ApprovedPatientEducationIcdCode[] = [
         { code: primary.code, display: primary.display },
         ...alternates.map((a) => ({ code: a.code, display: a.display })),

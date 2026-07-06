@@ -54,6 +54,12 @@ export type GenerateOutcome = 'review' | 'completed';
 // variant (approved PDF or prefetched content), so the language is part of the key.
 const educationKey = (code: string, language: PatientEducationLanguage): string => `${code}:${language}`;
 
+export const stripPatientEducationTitlePrefix = (title: string): string =>
+  title.replace(/^(Patient Education|Educación del paciente):\s*/i, '');
+
+export const formatPatientEducationDocumentTitle = (title: string, language: PatientEducationLanguage): string =>
+  `${language === 'es' ? 'Educación del paciente' : 'Patient Education'}: ${title}`;
+
 export interface UsePatientEducationResult {
   prefetchAllDiagnoses: (language: PatientEducationLanguage) => void;
   generateDiagnoses: (
@@ -233,7 +239,7 @@ export function usePatientEducation(): UsePatientEducationResult {
             throw new Error(`Generated content for ${dx.code} is missing.`);
           }
 
-          const generatedBytes = await generateCombinedPdf([generatedSection]);
+          const generatedBytes = await generateCombinedPdf([generatedSection], language);
           await appendPdfPages(generatedBytes);
         }
 
@@ -247,13 +253,13 @@ export function usePatientEducation(): UsePatientEducationResult {
         if (approved) {
           if (titledApprovedIds.has(approved.documentReferenceId)) continue;
           titledApprovedIds.add(approved.documentReferenceId);
-          titleParts.push(approved.title.replace(/^Patient Education:\s*/, '') || dx.display);
+          titleParts.push(stripPatientEducationTitlePrefix(approved.title) || dx.display);
         } else {
           const section = sections.find((s) => s.icdCode === dx.code);
           titleParts.push(section?.patientTitle || dx.display);
         }
       }
-      const title = 'Patient Education: ' + titleParts.join(', ');
+      const title = formatPatientEducationDocumentTitle(titleParts.join(', '), language);
 
       const { documentReferenceId, presignedDownloadUrl } = await apiClient.savePatientEducationPdf(
         mergedPdfBytes
@@ -566,7 +572,8 @@ const FOOTER = {
 } as const;
 
 export async function generateCombinedPdf(
-  sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[]
+  sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[],
+  language: PatientEducationLanguage = 'en'
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -598,16 +605,26 @@ export async function generateCombinedPdf(
       font: helveticaOblique,
       color: TEXT_LIGHT,
     });
-    const formattedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    page.drawText(`Generated: ${formattedDate}  |  Source: MedlinePlus`, {
+    const formattedDate = new Date().toLocaleDateString(language === 'es' ? 'es-US' : 'en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const sourceText =
+      language === 'es'
+        ? `Generado: ${formattedDate}  |  Fuente: MedlinePlus`
+        : `Generated: ${formattedDate}  |  Source: MedlinePlus`;
+    page.drawText(sourceText, {
       x: PAGE.MARGIN,
       y: PAGE.MARGIN - FOOTER.SECONDARY_Y_OFFSET,
       size: TYPOGRAPHY.FOOTER_FONT_SIZE,
       font: helvetica,
       color: TEXT_LIGHT,
     });
-    page.drawText(`Page ${pageNum} of ${totalPages}`, {
-      x: PAGE.WIDTH - PAGE.MARGIN - FOOTER.PAGE_NUM_X_OFFSET,
+    const pageNumberText =
+      language === 'es' ? `Página ${pageNum} de ${totalPages}` : `Page ${pageNum} of ${totalPages}`;
+    page.drawText(pageNumberText, {
+      x: PAGE.WIDTH - PAGE.MARGIN - helvetica.widthOfTextAtSize(pageNumberText, TYPOGRAPHY.FOOTER_FONT_SIZE),
       y: PAGE.MARGIN - FOOTER.PRIMARY_Y_OFFSET,
       size: TYPOGRAPHY.FOOTER_FONT_SIZE,
       font: helvetica,

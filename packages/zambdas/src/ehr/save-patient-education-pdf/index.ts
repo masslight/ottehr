@@ -64,7 +64,7 @@ const performEffect = async (
   });
 
   const pdfBytes = validatedInput.sections
-    ? await createPatientEducationPdf(validatedInput.sections)
+    ? await createPatientEducationPdf(validatedInput.sections, language)
     : Uint8Array.from(Buffer.from(validatedInput.pdfBase64, 'base64'));
 
   const z3Url = makeZ3Url({

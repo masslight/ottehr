@@ -41,6 +41,7 @@ import {
   MergePatientsResponse,
   OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
+  PatientEducationLanguage,
   ProcedureDetail,
   ProcedureSuggestion,
   RemoveCoverageResponse,
@@ -152,6 +153,10 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
+
+type SaveApprovedPatientEducationWithLanguageInput = SaveApprovedPatientEducationInput & {
+  language?: PatientEducationLanguage;
+};
 
 export const getOystehrTelemedAPI = (
   params: GetOystehrTelemedAPIParams,
@@ -465,7 +470,7 @@ export const getOystehrTelemedAPI = (
   };
 
   const saveApprovedPatientEducation = async (
-    parameters: SaveApprovedPatientEducationInput
+    parameters: SaveApprovedPatientEducationWithLanguageInput
   ): Promise<SaveApprovedPatientEducationOutput> => {
     return await makeZapRequest('save approved patient education', parameters);
   };

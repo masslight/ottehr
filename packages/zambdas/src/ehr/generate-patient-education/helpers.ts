@@ -17,7 +17,7 @@ export function buildEducationPrompt(
 
   const titleExample =
     language === 'es'
-      ? `(e.g., "Cómo entender su infección de oído" instead of "Otitis media aguda")`
+      ? `(e.g., "Cómo entender su infección de oído" instead of "Otitis media aguda", or "Cómo cuidar su herida" instead of "Herida abierta de la parte inferior de la pierna, no especificada")`
       : `(e.g., "Understanding Your Ear Infection" instead of "Acute Otitis Media", or "Caring for Your Wound" instead of "Open wound of unspecified lower leg")`;
 
   return `Use these links to generate patient education materials suitable for distribution to urgent care patients for the following ICD code description: ${icdDescription}
