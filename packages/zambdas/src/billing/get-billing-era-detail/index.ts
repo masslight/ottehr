@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Patient, PaymentReconciliation } from 'fhir/r4b';
 import { EraDetailResponse, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { extractClaimResponseAmounts } from '../claim-amounts';
 import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM, fhirName, findRef, resolvePayersByRef } from '../shared';
 import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -66,19 +67,15 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
     const cr = claimResponses.find((r) => r.request?.reference === `Claim/${c.id}`);
     const patient = findRef<Patient>(patients, c.patient?.reference);
 
-    let paid = 0;
-    let allowed = 0;
-    if (cr?.total) {
-      paid = cr.total.find((t) => t.category?.coding?.[0]?.code === 'paid')?.amount?.value ?? 0;
-      allowed = cr.total.find((t) => t.category?.coding?.[0]?.code === 'allowed')?.amount?.value ?? 0;
-    }
+    const amounts = cr ? extractClaimResponseAmounts(cr) : undefined;
+    const paid = amounts?.paid ?? 0;
 
     return {
       claimId: c.id ?? '',
       patientName: fhirName(patient),
       dos: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
       billed: c.total?.value ?? 0,
-      allowed,
+      allowed: amounts?.allowed ?? 0,
       paid,
       posted: paid,
       status: cr?.outcome ?? '',
