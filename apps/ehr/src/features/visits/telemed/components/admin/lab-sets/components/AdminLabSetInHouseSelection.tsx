@@ -1,5 +1,4 @@
 import { Stack } from '@mui/system';
-import { enqueueSnackbar } from 'notistack';
 import { useEffect, useRef, useState } from 'react';
 import { InHouseLabSelect } from 'src/features/in-house-labs/components/create/InHouseLabSelect';
 import { InHouseSelectedTestTable } from 'src/features/in-house-labs/components/create/InHouseSelectedTestTable';
@@ -40,33 +39,33 @@ export const AdminLabSetInHouseSelection: React.FC<AdminLabSetInHouseSelectionPr
     onTestsChange(selectedTests);
   }, [selectedTests, onTestsChange]);
 
-  const handleTestSelection = (selectedTest: string): void => {
+  const handleTestSelectionChange = (newSelectedNames: string[]): void => {
     if (!availableTests?.length) {
       return;
     }
 
-    const foundEntry = availableTests.find((test) => test.name === selectedTest);
+    setSelectedTests((currentTests) => {
+      const testsToAdd = newSelectedNames
+        .filter((name) => !currentTests.some((test) => test.name === name))
+        .map((name) => availableTests.find((test) => test.name === name))
+        .filter((test): test is DataEntryTestItem => test !== undefined);
 
-    if (!foundEntry) {
-      return;
-    }
-
-    const alreadySelected = selectedTests.find((tempLab) => {
-      return tempLab.name === selectedTest;
-    });
-
-    if (!alreadySelected) {
-      setSelectedTests([...selectedTests, foundEntry]);
-    } else {
-      enqueueSnackbar('This lab has already been selected', {
-        variant: 'error',
+      const testsAfterRemovals = currentTests.filter((test) => {
+        const isAvailableTest = availableTests.some((availableTest) => availableTest.name === test.name);
+        return !isAvailableTest || newSelectedNames.includes(test.name);
       });
-    }
+
+      return [...testsAfterRemovals, ...testsToAdd];
+    });
   };
 
   return (
     <Stack spacing={2}>
-      <InHouseLabSelect availableTests={availableTests} handleTestSelection={handleTestSelection} />
+      <InHouseLabSelect
+        availableTests={availableTests}
+        selectedTestNames={selectedTests.map((t) => t.name)}
+        onChange={handleTestSelectionChange}
+      />
       {selectedTests.length > 0 && (
         <InHouseSelectedTestTable
           selectedTests={selectedTests}

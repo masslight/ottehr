@@ -66,14 +66,37 @@ export class OrderInHouseLabPage {
   }
 
   async selectTest(testName: string): Promise<void> {
+    await this.selectMultipleTests([testName]);
+  }
+
+  async selectMultipleTests(testNames: string[]): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField).click();
+    await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).waitFor({ state: 'visible' });
+
+    for (const testName of testNames) {
+      const testOption = this.#page
+        .getByTestId(dataTestIds.orderInHouseLabPage.testTypeList)
+        .locator('li', { hasText: testName });
+      await testOption.click();
+    }
+
+    await this.#page.keyboard.press('Escape');
+  }
+
+  async verifySelectedTestsCountLabel(count: number): Promise<void> {
+    const expectedText = `${count} test${count > 1 ? 's' : ''} selected`;
+    await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField)).toContainText(expectedText);
+  }
+
+  async uncheckTest(testName: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField).click();
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).waitFor({ state: 'visible' });
 
     const testOption = this.#page
       .getByTestId(dataTestIds.orderInHouseLabPage.testTypeList)
       .locator('li', { hasText: testName });
-
     await testOption.click();
+
     await this.#page.keyboard.press('Escape');
   }
 

@@ -1,5 +1,3 @@
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import {
   Autocomplete,
   Box,
@@ -9,7 +7,6 @@ import {
   FormControl,
   Grid,
   InputLabel,
-  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -41,6 +38,7 @@ import { DataEntryTestItem, getAttendingPractitionerId, isApiError, LabSetDTO, L
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import { InHouseLabSelect } from '../components/create/InHouseLabSelect';
 import { InHouseSelectedTestTable } from '../components/create/InHouseSelectedTestTable';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
@@ -53,7 +51,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [selectedTests, setSelectedTests] = useState<DataEntryTestItem[]>([]);
-  const [pendingTestNames, setPendingTestNames] = useState<string[]>([]);
   const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
 
@@ -224,24 +221,14 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     }
   };
 
-  // Keep pendingTestNames in sync when tests are added/removed externally
-  // (e.g. via lab sets, prefill, or the delete button in the table)
-  useEffect(() => {
-    setPendingTestNames(selectedTests.map((t) => t.name));
-  }, [selectedTests]);
-
-  const handleTestDropdownChange = (newSelectedNames: string[]): void => {
-    setPendingTestNames(newSelectedNames);
-  };
-
-  const handleTestDropdownClose = (): void => {
+  const handleTestSelectionChange = (newSelectedNames: string[]): void => {
     if (!availableTests?.length) {
       return;
     }
 
     setSelectedTests((currentTests) => {
       // Add newly checked tests
-      const testsToAdd = pendingTestNames
+      const testsToAdd = newSelectedNames
         .filter((name) => !currentTests.some((test) => test.name === name))
         .map((name) => availableTests.find((test) => test.name === name))
         .filter((test): test is DataEntryTestItem => test !== undefined);
@@ -250,7 +237,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       // Only remove tests that are present in availableTests (i.e. came from the dropdown)
       const testsAfterRemovals = currentTests.filter((test) => {
         const isAvailableTest = availableTests.some((availableTest) => availableTest.name === test.name);
-        return !isAvailableTest || pendingTestNames.includes(test.name);
+        return !isAvailableTest || newSelectedNames.includes(test.name);
       });
 
       return [...testsAfterRemovals, ...testsToAdd];
@@ -297,46 +284,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
             <form onSubmit={handleSubmit}>
               <Grid container spacing={3}>
                 <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel id="test-type-label">Test</InputLabel>
-                    <Select
-                      labelId="test-type-label"
-                      id="test-type"
-                      data-testid={dataTestIds.orderInHouseLabPage.testTypeField}
-                      multiple
-                      value={pendingTestNames}
-                      label="Test"
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        handleTestDropdownChange(Array.isArray(value) ? value : [value]);
-                      }}
-                      onClose={handleTestDropdownClose}
-                      renderValue={(selected) =>
-                        selected.length === 0 ? '' : `${selected.length} test${selected.length > 1 ? 's' : ''} selected`
-                      }
-                      MenuProps={{
-                        autoFocus: false,
-                        disableAutoFocusItem: true,
-                        PaperProps: {
-                          'data-testid': dataTestIds.orderInHouseLabPage.testTypeList,
-                        },
-                      }}
-                    >
-                      {availableTests.map((test) => {
-                        const selected = pendingTestNames.includes(test.name);
-                        const SelectionIcon = selected ? CheckBoxIcon : CheckBoxOutlineBlankIcon;
-                        return (
-                          <MenuItem key={`${test.name}-${test.adId}`} value={test.name}>
-                            <SelectionIcon
-                              fontSize="small"
-                              style={{ marginRight: 8, padding: 9, boxSizing: 'content-box' }}
-                            />
-                            <ListItemText primary={test.name} />
-                          </MenuItem>
-                        );
-                      })}
-                    </Select>
-                  </FormControl>
+                  <InHouseLabSelect
+                    availableTests={availableTests}
+                    selectedTestNames={selectedTests.map((t) => t.name)}
+                    onChange={handleTestSelectionChange}
+                  />
 
                   {labSets && <LabSets labSets={labSets} setSelectedLabs={handleSetSelectedLabsViaLabSets} />}
 
