@@ -30,6 +30,7 @@ import {
   TIMEZONES,
 } from 'utils';
 import { ZambdaInput } from './types';
+import { safeJsonParse } from './validation';
 
 export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   switch (auth0Audience) {
@@ -219,7 +220,7 @@ export function validateJsonBody(input: ZambdaInput): any {
     throw INVALID_INPUT_ERROR('Request body is required');
   }
   try {
-    return JSON.parse(input.body);
+    return safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Invalid JSON in request body');
   }

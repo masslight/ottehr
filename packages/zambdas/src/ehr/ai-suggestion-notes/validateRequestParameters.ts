@@ -1,5 +1,5 @@
 import { AISuggestionNotesInput, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): AISuggestionNotesInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
@@ -7,7 +7,7 @@ export function validateRequestParameters(input: ZambdaInput): AISuggestionNotes
   }
 
   // no complication
-  const { type, hpi, details } = JSON.parse(input.body);
+  const { type, hpi, details } = safeJsonParse(input.body);
 
   if (!type) {
     throw MISSING_REQUIRED_PARAMETERS(['type']);

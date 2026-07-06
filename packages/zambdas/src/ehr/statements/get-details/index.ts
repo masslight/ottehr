@@ -12,6 +12,7 @@ import {
   createClinicalOystehrClient,
   getAuth0Token,
   getStatementDetails,
+  safeJsonParse,
   StatementType,
   wrapHandler,
   ZambdaInput,
@@ -32,7 +33,7 @@ function validateRequestParameters(input: ZambdaInput): GetStatementTypeInput {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const body = JSON.parse(input.body) as Record<string, unknown>;
+  const body = safeJsonParse(input.body) as Record<string, unknown>;
 
   const statementType = body.statementType;
   if (typeof statementType !== 'string' || !validStatementTypes.has(statementType as StatementType)) {

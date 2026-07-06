@@ -1,12 +1,12 @@
 import { GetCreateLabOrderResources } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrderResources & { secrets: any } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { patientId, encounterId, search, labOrgIdsString, selectedLabSet } = JSON.parse(input.body);
+  const { patientId, encounterId, search, labOrgIdsString, selectedLabSet } = safeJsonParse(input.body);
 
   if (!patientId && !search && !selectedLabSet) {
     throw new Error('One of the following must be passed as a parameter: patientId, search, selectedLabSet');

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { LAB_ORDER_UPDATE_RESOURCES_EVENTS, Secrets, UpdateLabOrderResourcesInput } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -15,7 +15,7 @@ export function validateRequestParameters(
   let params: UpdateLabOrderResourcesInput;
 
   try {
-    params = JSON.parse(input.body);
+    params = safeJsonParse(input.body);
   } catch {
     throw Error('Invalid JSON in request body');
   }

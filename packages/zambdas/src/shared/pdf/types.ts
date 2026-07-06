@@ -947,6 +947,7 @@ export interface VitalsDataInDischargeSummary extends PdfData {
     weight?: string;
     height?: string;
     vision?: string;
+    dotVisionScreening?: string[];
     lastMenstrualPeriod?: string;
   };
 }
@@ -1007,6 +1008,29 @@ export interface GetPaymentDataResponse {
   };
 }
 
+/** Resolved from an Encounter `author`/`verifier` Provenance: who signed/approved and when. */
+export interface SignatureProvenanceInfo {
+  /** Provider display name (via `getProviderNameWithProfession`). */
+  name: string;
+  /** `Provenance.recorded` ISO timestamp. */
+  dateTimeISO?: string;
+}
+
+export interface ProgressNoteSignatures {
+  /** `author` Provenance — the provider who signed the note. */
+  signedBy?: SignatureProvenanceInfo;
+  /** `verifier` Provenance — the supervisor who approved the note (supervisor-approval flow only). */
+  approvedBy?: SignatureProvenanceInfo;
+}
+
+/** Pre-formatted signature lines rendered at the bottom of the visit note. */
+export interface SignatureData extends PdfData {
+  /** "Signed electronically by {provider} on {date} {time}". */
+  signedBy?: string;
+  /** "Approved by {provider} on {date} {time}" — present only when supervisor-approved. */
+  approvedBy?: string;
+}
+
 export interface ProgressNoteInput {
   patient: Patient;
   encounter: Encounter;
@@ -1015,6 +1039,7 @@ export interface ProgressNoteInput {
   questionnaireResponse?: QuestionnaireResponse;
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
+  signatures?: ProgressNoteSignatures;
 }
 
 export interface ProgressNoteData extends PdfData {
@@ -1049,6 +1074,7 @@ export interface ProgressNoteData extends PdfData {
   plan: PlanData;
   followupCompleted: FollowupCompleted;
   upcomingVisits: UpcomingVisitsData;
+  signature: SignatureData;
 }
 
 export interface DischargeSummaryInput {

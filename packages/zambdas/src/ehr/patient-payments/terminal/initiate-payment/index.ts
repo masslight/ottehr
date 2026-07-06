@@ -19,6 +19,7 @@ import {
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -123,7 +124,7 @@ const validateRequestParameters = (input: ZambdaInput): InitiatePatientPaymentTe
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId, amountInCents, readerId, simulatedReader, description } = JSON.parse(input.body);
+  const { patientId, encounterId, amountInCents, readerId, simulatedReader, description } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
   if (!patientId) {

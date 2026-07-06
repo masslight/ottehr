@@ -12,6 +12,7 @@ import {
   createClinicalOystehrClient,
   fillMeta,
   makeMedicationResource,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -24,7 +25,7 @@ export function validateRequestParameters(input: ZambdaInput): {
     throw new Error('No request body provided');
   }
 
-  const medicationRequest = JSON.parse(input.body);
+  const medicationRequest = safeJsonParse(input.body);
 
   if (medicationRequest.resourceType !== 'MedicationRequest') {
     throw new Error(`resource parsed should be a medication request but was a ${medicationRequest.resourceType}`);
