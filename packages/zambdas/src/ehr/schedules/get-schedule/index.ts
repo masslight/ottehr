@@ -9,6 +9,7 @@ import {
   getTimezone,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
+  isLocationInPerson,
   isLocationVirtual,
   isValidUUID,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
@@ -107,6 +108,7 @@ const performEffect = (
 
   let detailText: string | undefined = undefined;
   let isVirtual: boolean | undefined = undefined;
+  let isInPerson: boolean | undefined = undefined;
   let stripeAccountId: string | undefined = undefined;
   let advapacsLocationId: string | undefined = undefined;
   let rooms: string[] | undefined = undefined;
@@ -124,6 +126,7 @@ const performEffect = (
     description = loc.description;
     telecom = loc.telecom;
     isVirtual = isLocationVirtual(loc);
+    isInPerson = isLocationInPerson(loc);
     reviewLink = loc.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl;
     if (options.includePaymentFields) {
       stripeAccountId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
@@ -168,6 +171,7 @@ const performEffect = (
     detailText,
     hoursOfOperation: (ownerResource as Location)?.hoursOfOperation,
     isVirtual,
+    isInPerson,
     healthcareServiceIds,
     allCategories,
     locationId,

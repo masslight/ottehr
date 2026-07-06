@@ -50,6 +50,9 @@ export default function ScheduleGeneralTab({
   // Slug and timezone live on the General tab, not here — keeping them
   // editable here would let this tab's save overwrite General-tab edits.
   const [isVirtual, setIsVirtual] = useState<boolean>(Boolean(item.owner.isVirtual));
+  // Legacy Locations have no explicit in-person marker; get-schedule already
+  // defaults `isInPerson` to `!isVirtual`, so this reflects the effective state.
+  const [isInPerson, setIsInPerson] = useState<boolean>(Boolean(item.owner.isInPerson));
   const [stripeAccountId, setStripeAccountId] = useState<string>(item.owner.stripeAccountId ?? '');
   const [advapacsLocationId, setAdvapacsLocationId] = useState<string>(item.owner.advapacsLocationId ?? '');
   type RoomEntry = { id: string; value: string };
@@ -80,6 +83,7 @@ export default function ScheduleGeneralTab({
 
   useEffect(() => {
     setIsVirtual(Boolean(item.owner.isVirtual));
+    setIsInPerson(Boolean(item.owner.isInPerson));
     setStripeAccountId(item.owner.stripeAccountId ?? '');
     setAdvapacsLocationId(item.owner.advapacsLocationId ?? '');
     setRooms(toRoomEntries(item.owner.rooms ?? []));
@@ -182,13 +186,20 @@ export default function ScheduleGeneralTab({
     };
   };
 
+  const noLocationModeSelected = isLocation && !isVirtual && !isInPerson;
+
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
+    if (noLocationModeSelected) {
+      enqueueSnackbar('Select at least one of "Virtual" or "In person".', { variant: 'warning' });
+      return;
+    }
     const params: UpdateScheduleParams = {
       scheduleId: item.id,
     };
     if (isLocation) {
       params.isVirtual = isVirtual;
+      params.isInPerson = isInPerson;
       params.rooms = rooms.map((room) => room.value.trim()).filter((value) => value !== '');
       params.description = description.trim();
       params.address = buildAddressPayload();
@@ -272,10 +283,21 @@ export default function ScheduleGeneralTab({
 
           {isLocation && (
             <Box sx={{ marginTop: 3 }}>
-              <FormControlLabel
-                control={<Checkbox checked={isVirtual} onChange={(event) => setIsVirtual(event.target.checked)} />}
-                label="Telemed location"
-              />
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <FormControlLabel
+                  control={<Checkbox checked={isVirtual} onChange={(event) => setIsVirtual(event.target.checked)} />}
+                  label="Virtual (Telemed)"
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={isInPerson} onChange={(event) => setIsInPerson(event.target.checked)} />}
+                  label="In person"
+                />
+                {noLocationModeSelected && (
+                  <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+                    Select at least one of "Virtual" or "In person". A location may be both.
+                  </Typography>
+                )}
+              </Box>
 
               <Box sx={{ marginTop: 2, display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 500 }}>
                 <TextField
@@ -428,7 +450,13 @@ export default function ScheduleGeneralTab({
           )}
 
           <Box>
-            <LoadingButton type="submit" loading={isSaving} variant="contained" sx={{ marginTop: 3 }}>
+            <LoadingButton
+              type="submit"
+              loading={isSaving}
+              disabled={noLocationModeSelected}
+              variant="contained"
+              sx={{ marginTop: 3 }}
+            >
               Save
             </LoadingButton>
           </Box>

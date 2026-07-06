@@ -155,6 +155,12 @@ export interface ScheduleDTOOwner {
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
   isVirtual?: boolean;
+  /**
+   * Location owners only — whether the Location should surface in in-person
+   * contexts. Independent of `isVirtual`: a Location may be both. Defaults to
+   * `!isVirtual` for legacy Locations with no explicit in-person marker.
+   */
+  isInPerson?: boolean;
   /** PR owners only — IDs of HealthcareService resources this role offers. */
   healthcareServiceIds?: string[];
   /**

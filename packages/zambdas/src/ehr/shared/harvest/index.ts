@@ -369,6 +369,11 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   const nowIso = DateTime.now().setZone('UTC').toISO() || '';
 
+  // TODO(dual-mode locations): this derives the facility name from the Location's
+  // virtual flag, but a Location can now be both virtual and in-person. For an
+  // in-person visit at a dual-mode Location this mislabels the facility as
+  // "Ottehr Telemedicine". This should key off the appointment/encounter service
+  // mode (e.g. isTelemedAppointment) rather than the Location flag. Tracked separately.
   const isVirtualLocation =
     locationResource?.extension?.find(
       (ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release'
