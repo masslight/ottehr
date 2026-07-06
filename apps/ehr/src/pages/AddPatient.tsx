@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { useQuery } from '@tanstack/react-query';
+import type { ServiceCategoryConfig } from 'config-types';
 import { Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
