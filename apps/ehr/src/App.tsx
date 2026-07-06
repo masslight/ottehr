@@ -17,60 +17,90 @@ import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
 import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
-import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
-import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
-import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
-import { Tasks } from './features/tasks/pages/Tasks';
-import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
-import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
-import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
-import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
-import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
-import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
-import ImmunizationQuickPickDetailPage from './features/visits/telemed/components/admin/ImmunizationQuickPickDetailPage';
-import AdminAddInHouseLab from './features/visits/telemed/components/admin/in-house-labs/AdminAddInHouseLab';
-import AdminInHouseLabDetails from './features/visits/telemed/components/admin/in-house-labs/AdminInHouseLabDetails';
-import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage';
-import AdminAddLabSet from './features/visits/telemed/components/admin/lab-sets/AdminAddLabSet';
-import AdminLabSetDetails from './features/visits/telemed/components/admin/lab-sets/AdminLabSetDetails';
-import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
-import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
-import AddEmployeePage from './pages/AddEmployeePage';
-import AddPatient from './pages/AddPatient';
-import AddSchedulePage from './pages/AddSchedulePage';
-import { AdminPage } from './pages/AdminPage';
 import AppointmentsPage from './pages/Appointments';
-import AddMedicationPage from './pages/configuration/AddMedicationPage';
-import UpdateMedicationPage from './pages/configuration/UpdateMedicationPage';
-import EditEmployeePage from './pages/EditEmployee';
-import EmployeeProfilePage from './pages/EmployeeProfilePage';
-import GroupPage from './pages/GroupPage';
-import LegacyDataPage from './pages/LegacyDataPage';
 import Logout from './pages/Logout';
-import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
-import PatientInformationPage from './pages/PatientInformationPage';
-import PatientPage from './pages/PatientPage';
-import PatientsPage from './pages/Patients';
-import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
-import Reports from './pages/Reports';
-import {
-  AiAssistedEncounters,
-  CompleteEncounters,
-  DailyPayments,
-  DataExports,
-  IncompleteEncounters,
-  InvoiceablePatientsReportPage,
-  MailedStatements,
-  PracticeKpis,
-  RecentPatients,
-  VisitsOverview,
-} from './pages/reports/index';
-import SchedulePage from './pages/SchedulePage';
-import TaskAdmin from './pages/TaskAdmin';
-import VisitDetailsPage from './pages/VisitDetailsPage';
 import { useNavStore } from './state/nav.store';
+
+// Lazy-loaded pages — excluded from the initial bundle
+const UnsolicitedResultsInbox = lazy(() =>
+  import('./features/external-labs/pages/UnsolicitedResultsInbox').then((m) => ({ default: m.UnsolicitedResultsInbox }))
+);
+const UnsolicitedResultsMatch = lazy(() =>
+  import('./features/external-labs/pages/UnsolicitedResultsMatch').then((m) => ({ default: m.UnsolicitedResultsMatch }))
+);
+const UnsolicitedResultsReview = lazy(() =>
+  import('./features/external-labs/pages/UnsolicitedResultsReview').then((m) => ({
+    default: m.UnsolicitedResultsReview,
+  }))
+);
+const Tasks = lazy(() => import('./features/tasks/pages/Tasks').then((m) => ({ default: m.Tasks })));
+const AddPatientFollowup = lazy(() => import('./features/visits/shared/components/patient/AddPatientFollowup'));
+const PatientFollowup = lazy(() => import('./features/visits/shared/components/patient/PatientFollowup'));
+const EditChargeItem = lazy(() => import('./features/visits/telemed/components/admin/EditChargeItem'));
+const EditInsurance = lazy(() => import('./features/visits/telemed/components/admin/EditInsurance'));
+const EditVirtualLocationPage = lazy(
+  () => import('./features/visits/telemed/components/admin/EditVirtualLocationPage')
+);
+const GlobalTemplateDetailPage = lazy(
+  () => import('./features/visits/telemed/components/admin/GlobalTemplateDetailPage')
+);
+const ImmunizationQuickPickDetailPage = lazy(
+  () => import('./features/visits/telemed/components/admin/ImmunizationQuickPickDetailPage')
+);
+const AdminAddInHouseLab = lazy(
+  () => import('./features/visits/telemed/components/admin/in-house-labs/AdminAddInHouseLab')
+);
+const AdminInHouseLabDetails = lazy(
+  () => import('./features/visits/telemed/components/admin/in-house-labs/AdminInHouseLabDetails')
+);
+const InHouseMedicationQuickPickDetailPage = lazy(
+  () => import('./features/visits/telemed/components/admin/InHouseMedicationQuickPickDetailPage')
+);
+const AdminAddLabSet = lazy(() => import('./features/visits/telemed/components/admin/lab-sets/AdminAddLabSet'));
+const AdminLabSetDetails = lazy(() => import('./features/visits/telemed/components/admin/lab-sets/AdminLabSetDetails'));
+const ProcedureQuickPickDetailPage = lazy(
+  () => import('./features/visits/telemed/components/admin/ProcedureQuickPickDetailPage')
+);
+const RadiologyQuickPickDetailPage = lazy(
+  () => import('./features/visits/telemed/components/admin/RadiologyQuickPickDetailPage')
+);
+const AddEmployeePage = lazy(() => import('./pages/AddEmployeePage'));
+const AddPatient = lazy(() => import('./pages/AddPatient'));
+const AddSchedulePage = lazy(() => import('./pages/AddSchedulePage'));
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
+const AddMedicationPage = lazy(() => import('./pages/configuration/AddMedicationPage'));
+const UpdateMedicationPage = lazy(() => import('./pages/configuration/UpdateMedicationPage'));
+const EditEmployeePage = lazy(() => import('./pages/EditEmployee'));
+const EmployeeProfilePage = lazy(() => import('./pages/EmployeeProfilePage'));
+const GroupPage = lazy(() => import('./pages/GroupPage'));
+const LegacyDataPage = lazy(() => import('./pages/LegacyDataPage'));
+const PatientDocumentsExplorerPage = lazy(() => import('./pages/PatientDocumentsExplorerPage'));
+const PatientInformationPage = lazy(() => import('./pages/PatientInformationPage'));
+const PatientPage = lazy(() => import('./pages/PatientPage'));
+const PatientsPage = lazy(() => import('./pages/Patients'));
+const PaymentLocationDetailPage = lazy(() => import('./pages/PaymentLocationDetailPage'));
+const Reports = lazy(() => import('./pages/Reports'));
+const AiAssistedEncounters = lazy(() =>
+  import('./pages/reports/index').then((m) => ({ default: m.AiAssistedEncounters }))
+);
+const CompleteEncounters = lazy(() => import('./pages/reports/index').then((m) => ({ default: m.CompleteEncounters })));
+const DailyPayments = lazy(() => import('./pages/reports/index').then((m) => ({ default: m.DailyPayments })));
+const DataExports = lazy(() => import('./pages/reports/index').then((m) => ({ default: m.DataExports })));
+const IncompleteEncounters = lazy(() =>
+  import('./pages/reports/index').then((m) => ({ default: m.IncompleteEncounters }))
+);
+const InvoiceablePatientsReportPage = lazy(() =>
+  import('./pages/reports/index').then((m) => ({ default: m.InvoiceablePatientsReportPage }))
+);
+const MailedStatements = lazy(() => import('./pages/reports/index').then((m) => ({ default: m.MailedStatements })));
+const PracticeKpis = lazy(() => import('./pages/reports/index').then((m) => ({ default: m.PracticeKpis })));
+const RecentPatients = lazy(() => import('./pages/reports/index').then((m) => ({ default: m.RecentPatients })));
+const VisitsOverview = lazy(() => import('./pages/reports/index').then((m) => ({ default: m.VisitsOverview })));
+const SchedulePage = lazy(() => import('./pages/SchedulePage'));
+const TaskAdmin = lazy(() => import('./pages/TaskAdmin'));
+const VisitDetailsPage = lazy(() => import('./pages/VisitDetailsPage'));
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
 
@@ -183,9 +213,9 @@ function App(): ReactElement {
                 <Navbar />
                 <ProtectedRoute
                   showWhenAuthenticated={
-                    <>
+                    <Suspense fallback={<LoadingScreen />}>
                       <Outlet />
-                    </>
+                    </Suspense>
                   }
                 />
               </TabContext>

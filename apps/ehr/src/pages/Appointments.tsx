@@ -127,7 +127,7 @@ export default function Appointments(): ReactElement {
       loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
-      void fetchStuff(oystehrZambda);
+      debounce(() => void fetchStuff(oystehrZambda), 'fetch-appointments');
     }
   }, [
     oystehrZambda,
