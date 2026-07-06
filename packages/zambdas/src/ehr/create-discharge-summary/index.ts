@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { ErxGetPharmacyResponse } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
@@ -107,13 +107,23 @@ export const performEffect = async (
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');
-  const pharmacyId = additionalChartData?.prescribedMedications?.find((m) => m.pharmacyId)?.pharmacyId;
-  const erxPharmacy = pharmacyId
-    ? await oystehr.erx.getPharmacy({ pharmacyId }).catch((e) => {
+  const uniquePharmacyIds = [
+    ...new Set(
+      (additionalChartData?.prescribedMedications ?? [])
+        .map((prescription) => prescription.pharmacyId)
+        .filter((id): id is string => !!id)
+    ),
+  ];
+  const erxPharmacies: Record<string, ErxGetPharmacyResponse> = {};
+  await Promise.all(
+    uniquePharmacyIds.map(async (id) => {
+      try {
+        erxPharmacies[id] = await oystehr.erx.getPharmacy({ pharmacyId: id });
+      } catch (e) {
         console.error('Failed to fetch eRx pharmacy:', e);
-        return undefined;
-      })
-    : undefined;
+      }
+    })
+  );
 
   const { pdfInfo, attached } = await createDischargeSummaryPdf(
     {
@@ -124,7 +134,7 @@ export const performEffect = async (
       },
       appointmentPackage: visitResources,
       upcomingFollowUps,
-      erxPharmacy,
+      erxPharmacies,
     },
     secrets,
     m2mToken

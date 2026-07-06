@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { ErxGetPharmacyResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -150,13 +150,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Check if we should skip making visit note visible in patient portal
       const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
-      const pharmacyId = additionalChartData?.prescribedMedications?.find((m) => m.pharmacyId)?.pharmacyId;
-      const erxPharmacy = pharmacyId
-        ? await oystehr.erx.getPharmacy({ pharmacyId }).catch((e) => {
+      const uniquePharmacyIds = [
+        ...new Set(
+          (additionalChartData?.prescribedMedications ?? [])
+            .map((prescription) => prescription.pharmacyId)
+            .filter((id): id is string => !!id)
+        ),
+      ];
+      const erxPharmacies: Record<string, ErxGetPharmacyResponse> = {};
+      await Promise.all(
+        uniquePharmacyIds.map(async (id) => {
+          try {
+            erxPharmacies[id] = await oystehr.erx.getPharmacy({ pharmacyId: id });
+          } catch (e) {
             console.error('Failed to fetch eRx pharmacy:', e);
-            return undefined;
-          })
-        : undefined;
+          }
+        })
+      );
 
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
@@ -172,7 +182,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           appointmentPackage: visitResources,
           questionnaireResponse: visitResources.questionnaireResponse,
           upcomingFollowUps,
-          erxPharmacy,
+          erxPharmacies,
         },
         secrets,
         oystehrToken

@@ -541,8 +541,7 @@ export interface RosObservations extends PdfData {
 }
 
 export interface Prescriptions extends PdfData {
-  prescriptions: string[];
-  pharmacy?: pharmacyInfo;
+  pharmacyGroups: { pharmacy?: pharmacyInfo; prescriptions: string[] }[];
 }
 
 export interface EmCode extends PdfData {
@@ -896,8 +895,7 @@ export interface RadiologyData extends PdfData {
 }
 
 export interface ErxMedicationsData extends PdfData {
-  medications: PrescribedMedication[];
-  pharmacy?: pharmacyInfo;
+  pharmacyGroups: { pharmacy?: pharmacyInfo; medications: PrescribedMedication[] }[];
 }
 
 export interface PatientInstructionsData extends PdfData {
@@ -1018,7 +1016,7 @@ export interface ProgressNoteInput {
   questionnaireResponse?: QuestionnaireResponse;
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
-  erxPharmacy?: ErxGetPharmacyResponse;
+  erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
 }
 
 export interface ProgressNoteData extends PdfData {
@@ -1060,7 +1058,7 @@ export interface DischargeSummaryInput {
   appointmentPackage: FullAppointmentResourcePackage;
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
-  erxPharmacy?: ErxGetPharmacyResponse;
+  erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
 }
 
 export interface DischargeSummaryData extends PdfData {

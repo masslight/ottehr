@@ -59,7 +59,7 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     externalLabs: composeExternalLabs({ allChartData }),
     radiology: composeRadiology({ allChartData }),
     inHouseMedications: composeInHouseMedicationsForDischargeSummary({ allChartData, appointmentPackage }),
-    erxMedications: composeErxMedications({ allChartData, appointmentPackage, erxPharmacy: input.erxPharmacy }),
+    erxMedications: composeErxMedications({ allChartData, appointmentPackage, erxPharmacies: input.erxPharmacies }),
     diagnoses: composeDiagnoses({ allChartData }),
     procedures: composeProcedures({ allChartData, appointmentPackage }),
     patientInstructions: composePatientInstructions({ allChartData }),

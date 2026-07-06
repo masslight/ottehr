@@ -1,5 +1,5 @@
 import { ErxGetPharmacyResponse } from '@oystehr/sdk';
-import { mapErxMedicationsToDisplay } from 'utils';
+import { mapErxMedicationsToDisplay, PrescribedMedicationDTO } from 'utils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { DischargeSummaryInput, ErxMedicationsData, PdfSection, pharmacyInfo } from '../../types';
 
@@ -12,15 +12,26 @@ const toPharmacyInfo = (pharmacy: ErxGetPharmacyResponse): pharmacyInfo => ({
 });
 
 export const composeErxMedications: DataComposer<
-  Pick<DischargeSummaryInput, 'allChartData' | 'appointmentPackage' | 'erxPharmacy'>,
+  Pick<DischargeSummaryInput, 'allChartData' | 'appointmentPackage' | 'erxPharmacies'>,
   ErxMedicationsData
-> = ({ allChartData, appointmentPackage, erxPharmacy }) => {
+> = ({ allChartData, appointmentPackage, erxPharmacies }) => {
   const { additionalChartData } = allChartData;
   const { timezone } = appointmentPackage;
-  const medications = additionalChartData?.prescribedMedications
-    ? mapErxMedicationsToDisplay(additionalChartData?.prescribedMedications, timezone)
-    : [];
-  return { medications, pharmacy: erxPharmacy ? toPharmacyInfo(erxPharmacy) : undefined };
+  const meds = additionalChartData?.prescribedMedications ?? [];
+
+  const groups = new Map<string | undefined, PrescribedMedicationDTO[]>();
+  for (const med of meds) {
+    const key = med.pharmacyId;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(med);
+  }
+
+  const pharmacyGroups = Array.from(groups.entries()).map(([pharmacyId, groupMeds]) => ({
+    pharmacy: pharmacyId && erxPharmacies?.[pharmacyId] ? toPharmacyInfo(erxPharmacies[pharmacyId]) : undefined,
+    medications: mapErxMedicationsToDisplay(groupMeds, timezone),
+  }));
+
+  return { pharmacyGroups };
 };
 
 export const createErxMedicationsSection = <TData extends { erxMedications?: ErxMedicationsData }>(): PdfSection<
@@ -30,19 +41,21 @@ export const createErxMedicationsSection = <TData extends { erxMedications?: Erx
   return createConfiguredSection(null, () => ({
     title: 'eRX',
     dataSelector: (data) => data.erxMedications,
-    shouldRender: (sectionData) => !!sectionData.medications?.length,
+    shouldRender: (sectionData) => sectionData.pharmacyGroups.some((g) => g.medications.length > 0),
     render: (client, data, styles) => {
-      if (data.pharmacy) {
-        const pharmacyValue = [data.pharmacy.name, data.pharmacy.address, data.pharmacy.phone]
-          .filter(Boolean)
-          .join(', ');
-        client.drawTextSequential('Pharmacy: ', { ...styles.textStyles.bold, newLineAfter: false });
-        client.drawTextSequential(pharmacyValue, styles.textStyles.regularText);
-      }
-      data.medications?.forEach((rx) => {
-        client.drawText(`${rx.name}`, styles.textStyles.bold);
-        if (rx.instructions) client.drawText(rx.instructions, styles.textStyles.regular);
-        if (rx.date) client.drawText(rx.date, styles.textStyles.regular);
+      data.pharmacyGroups.forEach((group) => {
+        if (group.pharmacy) {
+          const pharmacyValue = [group.pharmacy.name, group.pharmacy.address, group.pharmacy.phone]
+            .filter(Boolean)
+            .join(', ');
+          client.drawTextSequential('Pharmacy: ', { ...styles.textStyles.bold, newLineAfter: false });
+          client.drawTextSequential(pharmacyValue, styles.textStyles.regularText);
+        }
+        group.medications.forEach((rx) => {
+          client.drawText(`${rx.name}`, styles.textStyles.bold);
+          if (rx.instructions) client.drawText(rx.instructions, styles.textStyles.regular);
+          if (rx.date) client.drawText(rx.date, styles.textStyles.regular);
+        });
       });
       client.drawSeparatedLine(styles.lineStyles.separator);
     },
