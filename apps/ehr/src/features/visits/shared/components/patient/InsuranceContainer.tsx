@@ -20,6 +20,7 @@ import { Row } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useMergedInsuranceQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import {
   chooseJson,
   CoverageCheckWithDetails,
@@ -33,9 +34,16 @@ import {
 } from 'utils';
 import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
+import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
 import { InsuranceCarrierQuickPicks } from './InsuranceCarrierQuickPicks';
 import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
+import {
+  buildAdditionalInfoSuggestion,
+  buildCarrierSuggestion,
+  buildPlanTypeSuggestion,
+  useInsuranceCardExtraction,
+} from './useInsuranceCardExtraction';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -146,6 +154,24 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const insurancePriority = watch(FormFields.insurancePriority.key);
   const currentInsurancePlanType = watch(FormFields.insurancePlanType.key);
+
+  // Insurance-card OCR suggestions. The extraction is stored on the card DocumentReference
+  // by the extract-insurance-card zambda; this only reads it. This container's ordinal picks
+  // the matching card (primary titles vs "-2" secondary titles).
+  const { primary: primaryCardFields, secondary: secondaryCardFields } = useInsuranceCardExtraction(patientId);
+  const cardFields = ordinal === 1 ? primaryCardFields : secondaryCardFields;
+  // Carrier is suggested by name only; the payer list is loaded solely when a payer name was extracted.
+  const { quickPicks: payerOptions } = useMergedInsuranceQuickPicks({ enabled: Boolean(cardFields?.payer) });
+  const carrierSuggestion = cardFields ? buildCarrierSuggestion(cardFields.payer, payerOptions) : null;
+  const planTypeSuggestion = cardFields
+    ? buildPlanTypeSuggestion(
+        cardFields.insuranceType,
+        'options' in FormFields.insurancePlanType ? FormFields.insurancePlanType.options : undefined
+      )
+    : null;
+  const additionalInfoSuggestion = cardFields
+    ? buildAdditionalInfoSuggestion(cardFields, planTypeSuggestion != null)
+    : null;
 
   // Surface the insurance type determined by the eligibility check into the editable
   // "Insurance plan type" dropdown when the field is empty. This intentionally re-applies whenever the
@@ -578,18 +604,43 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
+      {carrierSuggestion && (
+        <InsuranceCardAiSuggestionRow
+          fieldKey={FormFields.insuranceCarrier.key}
+          suggestedDisplay={carrierSuggestion.display}
+          suggestedFormValue={carrierSuggestion.formValue}
+          suggestedComparable={carrierSuggestion.comparable}
+          getCurrentComparable={(value) => (value as { display?: string } | null)?.display ?? ''}
+        />
+      )}
       <PatientRecordFormField
         item={FormFields.insurancePlanType}
         isLoading={false}
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
+      {planTypeSuggestion && (
+        <InsuranceCardAiSuggestionRow
+          fieldKey={FormFields.insurancePlanType.key}
+          suggestedDisplay={planTypeSuggestion.display}
+          suggestedFormValue={planTypeSuggestion.formValue}
+          suggestedComparable={planTypeSuggestion.comparable}
+        />
+      )}
       <PatientRecordFormField
         item={FormFields.memberId}
         isLoading={false}
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
+      {cardFields?.memberId && (
+        <InsuranceCardAiSuggestionRow
+          fieldKey={FormFields.memberId.key}
+          suggestedDisplay={cardFields.memberId}
+          suggestedFormValue={cardFields.memberId}
+          compareAlphanumericOnly
+        />
+      )}
       <PatientRecordFormField
         item={FormFields.relationship}
         isLoading={false}
@@ -682,6 +733,13 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
+        {additionalInfoSuggestion && (
+          <InsuranceCardAiSuggestionRow
+            fieldKey={FormFields.additionalInformation.key}
+            suggestedDisplay={additionalInfoSuggestion}
+            suggestedFormValue={additionalInfoSuggestion}
+          />
+        )}
         {isNew ? (
           <Button
             onClick={onCancelAdd}
