@@ -304,7 +304,8 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const { isSubmitting, isLoading, errors } = formState;
 
-  const errorMessage = makeFormErrorMessage(items, errors);
+  const visibleItems = useStyledItems({ formItems: items });
+  const errorMessage = makeFormErrorMessage(visibleItems, errors);
   const { formValues } = useQRState();
 
   // Only run credit-card auto-save when the current page actually contains a Credit Card input.
