@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import {
   CPT_CODE_SYSTEM,
-  CPT_MODIFIER_EXTENSION_URL,
+  EXTENSION_URL_CPT_MODIFIER,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
@@ -395,7 +395,7 @@ describe('update-charge-item-definition', () => {
                 },
                 extension: [
                   {
-                    url: CPT_MODIFIER_EXTENSION_URL,
+                    url: EXTENSION_URL_CPT_MODIFIER,
                     valueCode: '22',
                   },
                 ],

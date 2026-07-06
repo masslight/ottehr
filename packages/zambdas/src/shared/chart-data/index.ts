@@ -43,6 +43,7 @@ import {
   BooleanValueDTO,
   ClinicalImpressionDTO,
   CommunicationDTO,
+  CPT_CODE_SYSTEM,
   CPTCodeDTO,
   createCodeableConcept,
   createFilesDocumentReferences,
@@ -370,7 +371,7 @@ export function makeProcedureResource(
     result.note = [{ text: text }];
   } else if ('code' in data && 'display' in data) {
     result.code = {
-      coding: [{ code: data.code, display: data.display }],
+      coding: [{ system: CPT_CODE_SYSTEM, code: data.code, display: data.display }],
     };
   }
   if (partOf) {

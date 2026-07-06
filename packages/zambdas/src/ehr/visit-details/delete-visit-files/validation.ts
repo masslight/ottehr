@@ -9,7 +9,14 @@ import {
   Secrets,
 } from 'utils';
 import z from 'zod';
-import { checkIsEHRUser, getUser, isTestUser, userHasAccessToPatient, ZambdaInput } from '../../../shared';
+import {
+  checkIsEHRUser,
+  getUser,
+  isTestUser,
+  safeJsonParse,
+  userHasAccessToPatient,
+  ZambdaInput,
+} from '../../../shared';
 
 export interface ValidatedInput {
   body: DeleteVisitFilesInput;
@@ -54,7 +61,7 @@ export async function validateRequestParameters(input: ZambdaInput): Promise<Val
   }
   console.log('input', JSON.stringify(input, null, 2));
 
-  const parsedBody = JSON.parse(input.body);
+  const parsedBody = safeJsonParse(input.body);
 
   // Validate with Zod
   const validationResult = DeleteVisitFilesInputSchema.safeParse(parsedBody);

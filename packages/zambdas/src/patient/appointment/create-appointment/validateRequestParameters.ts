@@ -35,11 +35,14 @@ import {
   SLOT_UNAVAILABLE_ERROR,
   VisitType,
 } from 'utils';
+import { z } from 'zod';
 import {
   checkIsEHRUser,
   isTestUser,
   phoneRegex,
   resolveBookingLocationId,
+  safeJsonParse,
+  safeValidate,
   userHasAccessToPatient,
   ZambdaInput,
 } from '../../../shared';
@@ -54,22 +57,26 @@ export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   appointmentMetadata?: Appointment['meta'];
 };
 
+const CreateAppointmentBodySchema = z.object({
+  slotId: z.string().uuid(),
+  patient: z.record(z.unknown()),
+  language: z.string().optional(),
+  locationState: z.string().optional(),
+  appointmentMetadata: z.record(z.unknown()).optional(),
+  followUpOptions: z.unknown().optional(),
+});
+
 export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
   if (!input.body) {
     throw new Error('No request body provided');
   }
   const isEHRUser = user && checkIsEHRUser(user);
 
-  const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions } = bodyJSON;
+  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions } = safeValidate(
+    CreateAppointmentBodySchema,
+    safeJsonParse(input.body)
+  );
   console.log('patient:', patient, 'slotId:', slotId);
-  // Check existence of necessary fields
-  if (patient === undefined) {
-    throw MISSING_REQUIRED_PARAMETERS(['patient']);
-  }
-  if (slotId === undefined) {
-    throw MISSING_REQUIRED_PARAMETERS(['slotId']);
-  }
 
   console.log('patient input:', JSON.stringify(patient));
   // Patient details
@@ -95,30 +102,30 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (missingRequiredPatientFields.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missingRequiredPatientFields.map((field) => `patient.${field}`));
   }
-  const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth).isValid;
+  const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth as string).isValid;
   if (isInvalidPatientDate) {
     throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date');
   }
 
-  if (patient.sex && !Object.values(PersonSex).includes(patient.sex)) {
+  if (patient.sex && !Object.values(PersonSex).includes(patient.sex as PersonSex)) {
     throw INVALID_INPUT_ERROR(
       `"patient.sex" must be one of the following values: ${JSON.stringify(Object.values(PersonSex))}`
     );
   }
 
   if (isEHRUser && !patient.email) {
-    patient.emailUser = undefined;
+    (patient as Record<string, unknown>).emailUser = undefined;
   }
 
-  if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber)) {
+  if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber as string)) {
     throw INVALID_INPUT_ERROR('patient phone number is not valid');
   }
 
-  patient.reasonForVisit = `${patient.reasonForVisit}${
+  (patient as Record<string, unknown>).reasonForVisit = `${patient.reasonForVisit}${
     patient?.reasonAdditional ? `${REASON_FOR_VISIT_SEPARATOR}${patient?.reasonAdditional}` : ''
   }`;
 
-  if (patient.reasonForVisit && patient.reasonForVisit.length > REASON_MAXIMUM_CHAR_LIMIT) {
+  if (patient.reasonForVisit && (patient.reasonForVisit as string).length > REASON_MAXIMUM_CHAR_LIMIT) {
     throw CHARACTER_LIMIT_EXCEEDED_ERROR('Reason for visit', REASON_MAXIMUM_CHAR_LIMIT);
   }
 
@@ -148,11 +155,11 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     slotId,
     user,
     isEHRUser,
-    patient,
+    patient: patient as unknown as PatientInfo,
     secrets: input.secrets,
     language,
     locationState,
-    appointmentMetadata,
+    appointmentMetadata: appointmentMetadata as Appointment['meta'],
     followUpOptions: validatedFollowUpOptions,
   };
 }

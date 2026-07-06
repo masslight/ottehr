@@ -26,6 +26,7 @@ import {
   getApiError,
   PatientDetailResponse,
   UpdateBillingPatientInput,
+  VALUE_SETS,
 } from 'utils';
 import {
   deleteBillingCoverage,
@@ -56,6 +57,10 @@ const insuranceTypeRank = (type: BillingInsuranceType | undefined): number => {
   const idx = type ? INSURANCE_TYPE_ORDER.indexOf(type) : -1;
   return idx === -1 ? INSURANCE_TYPE_ORDER.length : idx;
 };
+
+const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
+const planTypeLabel = (candidCode: string): string =>
+  PLAN_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
 
 const claimColumns: GridColDef[] = [
   { field: 'serviceDate', headerName: 'Date of Service', width: 130 },
@@ -539,6 +544,7 @@ function CoverageCard({
       <DetailRow label="Payer" value={coverage.payorName} labelWidth={170} />
       <DetailRow label="Payer ID" value={coverage.payorId} labelWidth={170} />
       <DetailRow label="Member ID" value={coverage.memberId ?? coverage.subscriberId} labelWidth={170} />
+      {coverage.planType ? <DetailRow label="Plan type" value={planTypeLabel(coverage.planType)} /> : <></>}
       <DetailRow label="Relationship to insured" value={coverage.relationship ?? ''} labelWidth={170} />
       {policyHolderName && <DetailRow label="Policy holder" value={policyHolderName} labelWidth={170} />}
       <Box sx={{ mt: 1.5 }}>

@@ -22,6 +22,7 @@ import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { useCallSettingsStore, useJoinCall, useVideoCallStore, VideoRoom } from '../features/video-call';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useOystehrAPIClient } from '../utils';
+import { getVideoCallAppointmentId } from './video-chat-helpers';
 
 const VideoChatPage: FC = () => {
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
@@ -39,14 +40,17 @@ const VideoChatPage: FC = () => {
 
   const apiClient = useOystehrAPIClient();
   const [searchParams] = useSearchParams();
-  const urlAppointmentID = searchParams.get('appointmentID');
+  const urlAppointmentID = getVideoCallAppointmentId(searchParams);
   const navigate = useNavigate();
   const location = useLocation();
   const isRegularParticipant = location.pathname === intakeFlowPageRoute.VideoCall.path;
+  const appointmentID = useAppointmentStore((state) => state.appointmentID);
 
-  if (urlAppointmentID) {
-    useAppointmentStore.setState(() => ({ appointmentID: urlAppointmentID }));
-  }
+  useEffect(() => {
+    if (urlAppointmentID && urlAppointmentID !== appointmentID) {
+      useAppointmentStore.setState(() => ({ appointmentID: urlAppointmentID }));
+    }
+  }, [appointmentID, urlAppointmentID]);
 
   useEffect(() => {
     const start = async (): Promise<void> => {
@@ -108,6 +112,8 @@ const VideoChatPage: FC = () => {
 
   useJoinCall(
     apiClient,
+    // Invite URLs carry appointment_id in the query string; regular patient navigation uses the persisted store.
+    urlAppointmentID ?? appointmentID,
     async (response) => {
       if (!response) {
         return;

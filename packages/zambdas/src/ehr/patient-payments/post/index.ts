@@ -33,6 +33,7 @@ import {
   lambdaResponse,
   makeBusinessIdentifierForCandidPayment,
   makeBusinessIdentifierForStripePayment,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -189,7 +190,7 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId, paymentDetails } = JSON.parse(input.body);
+  const { patientId, encounterId, paymentDetails } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
 

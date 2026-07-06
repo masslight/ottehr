@@ -1,6 +1,6 @@
 import { DeleteChartDataRequest } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const DeleteChartDataBodySchema = z
   .object({
@@ -13,7 +13,7 @@ export function validateRequestParameters(input: ZambdaInput): DeleteChartDataRe
     throw new Error('No request body provided');
   }
 
-  const data = safeValidate(DeleteChartDataBodySchema, JSON.parse(input.body));
+  const data = safeValidate(DeleteChartDataBodySchema, safeJsonParse(input.body));
 
   return {
     ...(data as DeleteChartDataRequest),

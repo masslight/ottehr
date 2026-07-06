@@ -1,5 +1,5 @@
 import { GetUnsolicitedResultsResourcesInput, Secrets, UnsolicitedResultsRequestType } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -8,7 +8,7 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { requestType, diagnosticReportId, patientId } = JSON.parse(input.body);
+  const { requestType, diagnosticReportId, patientId } = safeJsonParse(input.body);
 
   const validRequestTypes = Object.values(UnsolicitedResultsRequestType);
   if (!validRequestTypes.includes(requestType)) {

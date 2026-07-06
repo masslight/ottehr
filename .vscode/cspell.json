@@ -33,7 +33,6 @@
     "**/seed-ehr-appointment-data.json",
     "config/oystehr/in-house-lab-activity-definitions*.json",
     "config/oystehr/payers.json",
-    "packages/zambdas/icd-10-cm-tabular/",
     "packages/zambdas/src/scripts/data/insurance-payers.csv",
     "packages/zambdas/src/scripts/data/insurance-payers-WITH-ERROR-LINES.csv",
     "packages/zambdas/src/scripts/data/lowers_practitioners.json",
