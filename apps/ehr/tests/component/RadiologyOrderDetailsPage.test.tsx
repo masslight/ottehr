@@ -106,6 +106,8 @@ const makeHookResult = (overrides = {}): ReturnType<typeof usePatientRadiologyOr
   handleSendForFinalRead: vi.fn(),
   isSavingReport: false,
   isSendingForFinalRead: false,
+  handleUpdateConsent: vi.fn(),
+  isUpdatingConsent: false,
   ...overrides,
 });
 
