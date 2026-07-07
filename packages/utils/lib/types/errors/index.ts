@@ -59,6 +59,7 @@ export enum APIErrorCode {
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
   LABEL_PRINTING_GENERAL = 4405,
   RADIOLOGY_GENERAL = 4406,
+  INSURANCE_CARD_IMAGE_GENERAL = 4407,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
@@ -500,5 +501,14 @@ export const RADIOLOGY_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.RADIOLOGY_GENERAL,
     message,
+  };
+};
+
+/** Insurance-card image processing failure (download / rotate / re-store) — a server-side 500, not bad input. */
+export const INSURANCE_CARD_IMAGE_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.INSURANCE_CARD_IMAGE_GENERAL,
+    message,
+    statusCode: 500,
   };
 };

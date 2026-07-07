@@ -10,7 +10,7 @@ import {
   LOINC_SYSTEM,
 } from 'utils';
 
-type CardOrdinal = 'primary' | 'secondary';
+export type CardOrdinal = 'primary' | 'secondary';
 type CardFace = 'front' | 'back';
 type CardSlotKey = `${CardOrdinal}-${CardFace}`;
 
@@ -22,9 +22,23 @@ const CARD_SLOT_BY_TITLE: Partial<Record<string, { ordinal: CardOrdinal; face: C
   [DocumentType.InsuranceBackSecondary]: { ordinal: 'secondary', face: 'back' },
 };
 
+/** The stored OCR orientation verdict for the newest front-card image of one insurance ordinal. */
+export interface FrontCardOrientationHint {
+  /** DocumentReference.id of the front-card image the verdict was stored on. */
+  docRefId: string;
+  /** `InsuranceCardExtraction.readable` for that image; null/absent means "no hint". */
+  readable: boolean | null;
+}
+
 export interface MergedCardExtractions {
   primary: InsuranceCardExtractionFields | null;
   secondary: InsuranceCardExtractionFields | null;
+  /**
+   * Orientation verdict of the NEWEST front-card DocRef per ordinal (OCR judges orientation on
+   * the front image only). Bound to that DocRef's id so consumers can verify the hint belongs
+   * to the exact image they display.
+   */
+  frontOrientation: Record<CardOrdinal, FrontCardOrientationHint | null>;
 }
 
 export interface UseInsuranceCardExtractionResult extends MergedCardExtractions {
@@ -62,25 +76,40 @@ const mergeFrontBack = (
 /**
  * Groups stored card extractions by insurance ordinal (primary vs "-2" secondary titles),
  * keeps the newest DocRef per slot (input is expected newest-first), drops notACard /
- * empty extractions, and merges front + back field-wise with front precedence.
+ * empty extractions, and merges front + back field-wise with front precedence. Also captures
+ * each ordinal's front-card orientation verdict (`readable`) keyed to its DocRef id.
  *
  * Exported for tests.
  */
 export const mergeCardExtractions = (docRefsNewestFirst: DocumentReference[]): MergedCardExtractions => {
   const bySlot: Partial<Record<CardSlotKey, InsuranceCardExtractionFields>> = {};
+  const frontOrientation: Record<CardOrdinal, FrontCardOrientationHint | null> = { primary: null, secondary: null };
+  const frontSeen: Partial<Record<CardOrdinal, true>> = {};
   for (const docRef of docRefsNewestFirst) {
     const title = docRef.content?.[0]?.attachment?.title;
     const slot = title ? CARD_SLOT_BY_TITLE[title] : undefined;
     if (!slot) continue; // photo-ID / full-card-PDF titles carry no per-slot extraction
     const slotKey: CardSlotKey = `${slot.ordinal}-${slot.face}`;
-    if (bySlot[slotKey]) continue; // newest DocRef per slot wins
+    const needsFields = !bySlot[slotKey]; // newest DocRef per slot wins
+    const isNewestFront = slot.face === 'front' && !frontSeen[slot.ordinal];
+    if (!needsFields && !isNewestFront) continue;
     const extraction = readStoredExtraction(docRef);
-    if (!extraction || extraction.notACard || !extraction.fields) continue;
+    if (isNewestFront) {
+      frontSeen[slot.ordinal] = true;
+      // The rotate hint must bind to the exact image displayed: only the NEWEST front DocRef's
+      // verdict counts — an older card's `readable` must never flag a newer upload (which may
+      // have no extraction yet). No extraction / notACard stores readable as null → "no hint".
+      if (docRef.id) {
+        frontOrientation[slot.ordinal] = { docRefId: docRef.id, readable: extraction?.readable ?? null };
+      }
+    }
+    if (!needsFields || !extraction || extraction.notACard || !extraction.fields) continue;
     bySlot[slotKey] = extraction.fields;
   }
   return {
     primary: mergeFrontBack(bySlot['primary-front'], bySlot['primary-back']),
     secondary: mergeFrontBack(bySlot['secondary-front'], bySlot['secondary-back']),
+    frontOrientation,
   };
 };
 
@@ -109,7 +138,12 @@ export const useInsuranceCardExtraction = (patientId: string | undefined): UseIn
     },
     enabled,
   });
-  return { primary: data?.primary ?? null, secondary: data?.secondary ?? null, isLoading: enabled && isLoading };
+  return {
+    primary: data?.primary ?? null,
+    secondary: data?.secondary ?? null,
+    frontOrientation: data?.frontOrientation ?? { primary: null, secondary: null },
+    isLoading: enabled && isLoading,
+  };
 };
 
 /**
