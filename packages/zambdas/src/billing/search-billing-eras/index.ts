@@ -9,6 +9,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   ERA_CHECK_SYSTEM,
   ERA_ID_SYSTEM,
+  getEraIdValue,
   resolvePayersByRef,
 } from '../shared';
 import { SearchErasParams, validateRequestParameters } from './validateRequestParameters';
@@ -75,9 +76,7 @@ async function performEffect(
     params: searchParams,
   });
   const payments = bundle.unbundle();
-  const eraIdValues = payments
-    .map((pr) => pr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value)
-    .filter(Boolean) as string[];
+  const eraIdValues = payments.map((pr) => getEraIdValue(pr)).filter(Boolean) as string[];
   const [payersByRef, claimResponsesByEraId] = await Promise.all([
     resolvePayersByRef(
       oystehr,
@@ -107,7 +106,7 @@ async function findEraIdentifiersForClaims(oystehr: Oystehr, claimIds: Set<strin
       ],
     });
     for (const cr of bundle.unbundle()) {
-      const eraId = cr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value;
+      const eraId = getEraIdValue(cr);
       if (eraId) eraIds.add(eraId);
     }
   }
@@ -149,7 +148,7 @@ function mapEra(
   const payerRef = pr.paymentIssuer?.reference;
   const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
 
-  const eraId = pr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value ?? '';
+  const eraId = getEraIdValue(pr) ?? '';
   const checkNumber = pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? '';
   const counts = countEraClaims(claimResponsesByEraId.get(eraId) ?? []);
 

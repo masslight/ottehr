@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, ClaimResponseItemAdjudication } from 'fhir/r4b';
 import { fetchAllPages } from '../shared';
-import { ERA_ID_SYSTEM } from './shared';
+import { ERA_ID_SYSTEM, getEraIdValue } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
 export const X12_ADJUSTMENT_GROUP_SYSTEM = 'https://x12.org/codes/claim-adjustment-group-codes';
@@ -201,6 +201,6 @@ export async function fetchClaimResponsesByEraIds(
       name: 'identifier',
       value: batch.map((id) => `${ERA_ID_SYSTEM}|${id}`).join(','),
     }),
-    (claimResponse) => claimResponse.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value
+    (claimResponse) => getEraIdValue(claimResponse)
   );
 }

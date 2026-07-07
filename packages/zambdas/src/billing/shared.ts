@@ -204,6 +204,10 @@ export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-
 export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 
+export function getEraIdValue(resource: { identifier?: Identifier[] }): string | undefined {
+  return resource.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value;
+}
+
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';

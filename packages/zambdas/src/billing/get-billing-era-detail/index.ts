@@ -9,7 +9,7 @@ import {
   fetchClaimResponsesByEraIds,
   isMatchedToClaim,
 } from '../claim-amounts';
-import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM, fhirName, findRef, resolvePayersByRef } from '../shared';
+import { createBillingClient, ERA_CHECK_SYSTEM, fhirName, findRef, getEraIdValue, resolvePayersByRef } from '../shared';
 import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -36,7 +36,7 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
   const payerOrg = pr.paymentIssuer?.reference ? payersByRef.get(pr.paymentIssuer.reference) : undefined;
 
   // Find ClaimResponses linked via ERA identifier
-  const eraIdValue = pr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value;
+  const eraIdValue = getEraIdValue(pr);
   const claimResponses: ClaimResponse[] = eraIdValue
     ? (await fetchClaimResponsesByEraIds(oystehr, [eraIdValue])).get(eraIdValue) ?? []
     : [];
