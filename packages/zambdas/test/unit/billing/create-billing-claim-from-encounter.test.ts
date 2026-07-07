@@ -41,7 +41,6 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
   getDefaultClaimSubmissionExtensions,
-  ICD_10_CODE_SYSTEM,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
@@ -2944,7 +2943,7 @@ describe('create-billing-claim-from-encounter', () => {
                 coding: [
                   {
                     // Incorrect system
-                    system: ICD_10_CODE_SYSTEM,
+                    system: CODE_SYSTEM_ICD_10,
                     code: 'S06.1XAS',
                     display: 'Traumatic cerebral edema with loss of consciousness status unknown, sequela',
                   },

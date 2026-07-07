@@ -11,8 +11,8 @@ import {
 } from 'fhir/r4b';
 import {
   chartDataTagSystem,
+  CODE_SYSTEM_ICD_10,
   DiagnosisDTO,
-  ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
@@ -186,7 +186,7 @@ const makeDxCondition = (id: string, icdCode: string): Condition => ({
   id,
   subject: { reference: 'Patient/pat-1' },
   meta: { tag: [{ system: chartDataTagSystem('diagnosis'), code: 'diagnosis' }] },
-  code: { coding: [{ system: ICD_10_CODE_SYSTEM, code: icdCode }] },
+  code: { coding: [{ system: CODE_SYSTEM_ICD_10, code: icdCode }] },
 });
 
 const makeTemplateList = (
@@ -972,7 +972,7 @@ const makeExternalLabPlan = (id: string, icdCodes: string[]): ServiceRequest => 
   subject: { reference: '#stub-patient' },
   meta: { tag: [{ system: chartDataTagSystem('external-lab-template-plan') }] },
   reasonCode: icdCodes.map((code) => ({
-    coding: [{ system: ICD_10_CODE_SYSTEM, code, display: `Display ${code}` }],
+    coding: [{ system: CODE_SYSTEM_ICD_10, code, display: `Display ${code}` }],
   })),
 });
 
@@ -986,7 +986,7 @@ const makeInHouseLabPlan = (id: string, icdCodes: string[]): ServiceRequest => (
   instantiatesCanonical: ['https://example.com/test-ad/1'],
   code: { coding: [{ system: IN_HOUSE_TEST_CODE_SYSTEM, code: 'TEST-1' }] },
   reasonCode: icdCodes.map((code) => ({
-    coding: [{ system: ICD_10_CODE_SYSTEM, code, display: `Display ${code}` }],
+    coding: [{ system: CODE_SYSTEM_ICD_10, code, display: `Display ${code}` }],
   })),
 });
 

@@ -7,7 +7,7 @@
 const MEDLINE_BASE_URL = 'https://connect.medlineplus.gov/service';
 
 // MedlinePlus's required value-set OID for ICD-10-CM. Distinct from the FHIR URN
-// form (`http://hl7.org/fhir/sid/icd-10`, exported as ICD_10_CODE_SYSTEM in utils)
+// form (`http://hl7.org/fhir/sid/icd-10-cm`, exported as CODE_SYSTEM_ICD_10 in utils)
 // — MedlinePlus's API only accepts the HL7 OID.
 const ICD10_CM_OID = '2.16.840.1.113883.6.90';
 

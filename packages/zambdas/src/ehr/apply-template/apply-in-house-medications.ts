@@ -11,11 +11,11 @@ import {
 import { DateTime } from 'luxon';
 import {
   chartDataTagSystem,
+  CODE_SYSTEM_ICD_10,
   getCptCodesFromMA,
   getDosageUnitsAndRouteOfMedication,
   getMedicationName,
   getMediSpanIdForInteraction,
-  ICD_10_CODE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MedicationApplianceLocation,
@@ -36,6 +36,8 @@ import {
 import { isDiagnosisCondition, TemplateEncounterResource } from '../shared/template-helpers';
 import { diagnosesFromReasonCode } from './helpers';
 
+// Local const so that DEPRECATED system doesn't get imported from utils
+const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 const IN_HOUSE_MEDICATION_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-medication-administration-template');
 
 export const isInHouseMedicationTemplatePlan = (resource: FhirResource): resource is MedicationAdministration => {
@@ -294,7 +296,12 @@ const makeDxConditionFullUrlByCodeMap = (requests: BatchInputPostRequest<Conditi
   const dxConditionFullUrlByCodeMap = new Map<string, string>();
   for (const request of dxConditionRequests) {
     const resource = request.resource;
-    const code = resource.code?.coding?.find((coding) => coding.system === ICD_10_CODE_SYSTEM)?.code;
+    const code = resource.code?.coding?.find(
+      (coding) =>
+        coding.system === CODE_SYSTEM_ICD_10 ||
+        // legacy system
+        coding.system === ICD_10_CODE_SYSTEM
+    )?.code;
     if (!code) continue;
     if (!request.fullUrl) {
       console.warn(`Found a condition request with no fullUrl. Unexpected. Cannot associate Dx with code ${code}`);
