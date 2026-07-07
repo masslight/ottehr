@@ -161,6 +161,13 @@ export interface ScheduleDTOOwner {
    * `!isVirtual` for legacy Locations with no explicit in-person marker.
    */
   isInPerson?: boolean;
+  /**
+   * Location owners only — true when the Location was created through the EHR
+   * admin "Add location" UI (carries the manually-created marker extension).
+   * The admin is allowed to edit the slug of such Locations; terraform-managed
+   * Location slugs stay read-only.
+   */
+  isManuallyCreated?: boolean;
   /** PR owners only — IDs of HealthcareService resources this role offers. */
   healthcareServiceIds?: string[];
   /**

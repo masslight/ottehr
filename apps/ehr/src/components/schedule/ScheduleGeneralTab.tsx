@@ -3,6 +3,8 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { LoadingButton } from '@mui/lab';
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
   Checkbox,
@@ -109,6 +111,36 @@ export default function ScheduleGeneralTab({
     }
     return '';
   }, [item.owner.type, item.owner.isVirtual, item.owner.slug]);
+
+  // What (if anything) keeps this Location out of the patient booking selects.
+  // Mirrors the hard requirements enforced by the list-bookables zambda:
+  //  - status active, and a slug           → both modes
+  //  - address.city                        → in-person (list-bookables searches
+  //                                            `address-city:missing=false`)
+  //  - address.state                       → virtual (patients pick by state)
+  // Based on the persisted DTO (`item.owner`) so it reflects real bookability,
+  // and refreshes after each save.
+  const patientVisibilityIssues = useMemo<string[]>(() => {
+    if (!isLocation) {
+      return [];
+    }
+    const issues: string[] = [];
+    if (!item.owner.active) {
+      issues.push('Set the location to Active (toggle above).');
+    }
+    if (!item.owner.slug?.trim()) {
+      issues.push('Set a Permalink (slug) on the General tab.');
+    }
+    const hasCity = Boolean(item.owner.address?.city?.trim());
+    const hasState = Boolean(item.owner.address?.state?.trim());
+    if (item.owner.isInPerson && !hasCity) {
+      issues.push('Add a City to the address — in-person locations without a city never appear in patient booking.');
+    }
+    if (item.owner.isVirtual && !hasState) {
+      issues.push('Add a State to the address — virtual locations need a state for patients to select.');
+    }
+    return issues;
+  }, [isLocation, item.owner]);
 
   const setActiveStatus = async (isActive: boolean): Promise<void> => {
     if (!oystehr || !item?.id) {
@@ -231,6 +263,18 @@ export default function ScheduleGeneralTab({
         </Box>
         <hr />
         <br />
+
+        {isLocation && patientVisibilityIssues.length > 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <AlertTitle>Not yet visible to patients</AlertTitle>
+            To make this location appear in patient booking selects:
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              {patientVisibilityIssues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </Alert>
+        )}
 
         <form onSubmit={(e) => void handleSubmit(e)}>
           <TextField

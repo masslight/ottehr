@@ -25,6 +25,17 @@ export const LOCATION_FACILITY_GROUP_CODE = 'si';
 // as both virtual and in-person at once.
 export const LOCATION_IN_PERSON_CODE = 'in-person';
 
+// Marks a Location created through the EHR admin "Add location" UI, as opposed
+// to one provisioned by terraform / setup scripts. Manually-created Locations
+// get their slug auto-generated from the name at create time; the admin is then
+// allowed to edit that slug afterward (terraform-managed slugs stay read-only).
+export const LOCATION_MANUALLY_CREATED_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/location-manually-created`;
+
+export const isLocationManuallyCreated = (location: Location): boolean =>
+  Boolean(
+    location.extension?.some((ext) => ext.url === LOCATION_MANUALLY_CREATED_EXTENSION_URL && ext.valueBoolean === true)
+  );
+
 const hasLocationFormCoding = (location: Location | Schedule, code: string): boolean =>
   Boolean(location.extension?.some((ext) => ext.url === LOCATION_FORM_EXTENSION_URL && ext.valueCoding?.code === code));
 
