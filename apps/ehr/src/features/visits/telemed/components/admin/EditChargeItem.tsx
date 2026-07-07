@@ -41,8 +41,8 @@ import StarterKit from '@tiptap/starter-kit';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { BILLING_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { BILLING_URL } from 'src/features/admin/adminRoutes';
 import PageContainer from 'src/layout/PageContainer';
 import {
   useDesignateChargeMasterEntryMutation,
