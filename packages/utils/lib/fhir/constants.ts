@@ -269,6 +269,20 @@ export const SLUG_VALIDATION_MESSAGE = 'must be a URL-safe slug (letters, digits
 export const isValidSlug = (slug: string): boolean => SLUG_REGEX.test(slug);
 
 /**
+ * Derive a URL-safe slug from a human-entered name. Any run of characters that
+ * isn't a letter/digit collapses to a single hyphen, and leading/trailing
+ * hyphens are trimmed — so the result always satisfies {@link isValidSlug}
+ * (or is empty when the name has no URL-safe characters at all, e.g. a purely
+ * non-Latin name). Case is preserved to match the existing slug convention
+ * (e.g. "NewYork-NY"). Callers must handle the empty-string case (invalid).
+ */
+export const slugFromName = (name: string): string =>
+  name
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+/**
  * Optional admin-editable display name for a PractitionerRole-actored schedule.
  * Stored as a PR.extension valueString. When absent, callers compose a name
  * from the role's referenced Practitioner + Location — see the GroupPage /

@@ -1,11 +1,13 @@
 import { Location } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { PUBLIC_EXTENSION_BASE_URL } from './constants';
+import { isValidSlug, PUBLIC_EXTENSION_BASE_URL, slugFromName } from './constants';
 import {
   isLocationFacilityGroup,
   isLocationInPerson,
+  isLocationManuallyCreated,
   isLocationVirtual,
   LOCATION_IN_PERSON_CODE,
+  LOCATION_MANUALLY_CREATED_EXTENSION_URL,
   LOCATION_PHYSICAL_TYPE_SYSTEM,
 } from './location';
 
@@ -72,5 +74,42 @@ describe('location virtual / in-person helpers', () => {
       expect(isLocationFacilityGroup(makeLocation('vi', 'si'))).toBe(true);
       expect(isLocationFacilityGroup(makeLocation())).toBe(false);
     });
+  });
+
+  describe('isLocationManuallyCreated', () => {
+    const withMarker = (value: boolean): Location => ({
+      resourceType: 'Location',
+      status: 'active',
+      extension: [{ url: LOCATION_MANUALLY_CREATED_EXTENSION_URL, valueBoolean: value }],
+    });
+
+    it('is true when the manually-created marker is present and true', () => {
+      expect(isLocationManuallyCreated(withMarker(true))).toBe(true);
+    });
+
+    it('is false when the marker is absent (terraform-managed / legacy)', () => {
+      expect(isLocationManuallyCreated(makeLocation())).toBe(false);
+    });
+
+    it('is false when the marker is present but false', () => {
+      expect(isLocationManuallyCreated(withMarker(false))).toBe(false);
+    });
+  });
+});
+
+describe('slugFromName', () => {
+  it('derives a URL-safe slug and preserves case', () => {
+    expect(slugFromName('New York')).toBe('New-York');
+    expect(isValidSlug(slugFromName('New York'))).toBe(true);
+  });
+
+  it('collapses runs of non-url-safe characters into a single hyphen and trims edges', () => {
+    expect(slugFromName('  Café  &  Clinic!! ')).toBe('Caf-Clinic');
+    expect(isValidSlug(slugFromName('  Café  &  Clinic!! '))).toBe(true);
+  });
+
+  it('returns an empty string (invalid slug) for a name with no url-safe characters', () => {
+    expect(slugFromName('Москва')).toBe('');
+    expect(isValidSlug(slugFromName('Москва'))).toBe(false);
   });
 });
