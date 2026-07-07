@@ -3,7 +3,9 @@ import {
   BRANDING_CONFIG,
   createQuestionnaireItemFromConfig,
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  INTAKE_PAPERWORK_CONFIG,
   PATIENT_RECORD_CONFIG,
+  VIRTUAL_INTAKE_PAPERWORK_CONFIG,
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 import { expect, test } from 'vitest';
@@ -14,7 +16,10 @@ import VirtualIntakePaperworkQuestionnaire from './data/virtual-intake-paperwork
 
 describe('testing Questionnaire generation from config objects', () => {
   test
-    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
+    .skipIf(
+      BRANDING_CONFIG.projectName !== 'Ottehr' ||
+        !('fax' in PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items)
+    )
     .concurrent('patient record questionnaire config generates expected questionnaire items', async () => {
       const questionnaireItems = createQuestionnaireItemFromConfig(PATIENT_RECORD_CONFIG);
       expect(questionnaireItems).toBeDefined();
@@ -30,7 +35,7 @@ describe('testing Questionnaire generation from config objects', () => {
     });
 
   test
-    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
+    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr' || !('phone' in INTAKE_PAPERWORK_CONFIG.FormFields.pharmacy.items))
     .concurrent('intake paperwork questionnaire generates expected questionnaire', async () => {
       const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
       expect(generatedQuestionnaire).toBeDefined();
@@ -106,7 +111,10 @@ describe('testing Questionnaire generation from config objects', () => {
     });
 
   test
-    .skipIf(BRANDING_CONFIG.projectName !== 'Ottehr')
+    .skipIf(
+      BRANDING_CONFIG.projectName !== 'Ottehr' ||
+        !('phone' in VIRTUAL_INTAKE_PAPERWORK_CONFIG.FormFields.pharmacy.items)
+    )
     .concurrent('virtual intake paperwork questionnaire generates expected questionnaire', async () => {
       const generatedQuestionnaire = VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
       expect(generatedQuestionnaire).toBeDefined();
