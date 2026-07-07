@@ -31,6 +31,7 @@ import {
   getTimezone,
   isPostTelemedAppointment,
   makeSlotAtLocationExtensionEntry,
+  makeSlotBookedViaGroupExtensionEntry,
   PatientInfo,
   SCHEDULE_EXTENSION_URL,
   ScheduleOwnerFhirResource,
@@ -41,7 +42,7 @@ import {
   Timezone,
 } from 'utils';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,
@@ -277,11 +278,19 @@ describe('prebook integration - from getting list of slots to booking with selec
 
     assert(elevenPMSlot);
     console.log('selectedSlot ', elevenPMSlot);
-    const createSlotParams = createSlotParamsFromSlotAndOptions(elevenPMSlot.slot, {
-      postTelemedLabOnly: false,
-      originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
+    // get-schedule was called without a serviceCategoryCode (the test
+    // doesn't exercise category resolution), so the vended slot carries
+    // no SERVICE_CATEGORY_SYSTEM coding. Inject 'urgent-care' as the
+    // explicit category — create-slot's invariant guard now refuses
+    // categoryless slot creation on multi-category test configs.
+    const createSlotParams: CreateSlotParams = {
+      ...createSlotParamsFromSlotAndOptions(elevenPMSlot.slot, {
+        postTelemedLabOnly: false,
+        originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
+        status: 'busy-tentative',
+      }),
+      serviceCategoryCode: 'urgent-care',
+    };
     console.log('createSlotParams ', createSlotParams);
     assert(createSlotParams);
     const validatedSlotResponse = await createSlotAndValidate(
@@ -353,14 +362,9 @@ describe('prebook integration - from getting list of slots to booking with selec
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
   });
 
@@ -501,11 +505,22 @@ describe('prebook integration - from getting list of slots to booking with selec
       expect(getSlotAtLocationId(fauxVendedSlot)).toBe(persistedLocation.id);
 
       // createSlotParamsFromSlotAndOptions should forward the extension as
-      // atLocationId on the resulting CreateSlotParams.
-      const createSlotParams = createSlotParamsFromSlotAndOptions(fauxVendedSlot, {
-        status: 'busy-tentative',
-        originalBookingUrl: `pr-integration?bookingOn=${prSlug}`,
-      });
+      // atLocationId on the resulting CreateSlotParams. The faux vended slot
+      // carries no SERVICE_CATEGORY_SYSTEM coding, so we inject a category
+      // code explicitly — create-slot's invariant guard now refuses
+      // categoryless slot creation on multi-category test configs. Uses a
+      // synthetic non-BOOKING_CONFIG code (not 'urgent-care') because the
+      // schedule actor is a PractitionerRole, and the separate PR +
+      // BOOKING_CONFIG guard would reject any compile-time category. Anything
+      // not in BOOKING_CONFIG is treated as a FHIR-backed code at the
+      // create-slot stamping layer, which bypasses the PR guard.
+      const createSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(fauxVendedSlot, {
+          status: 'busy-tentative',
+          originalBookingUrl: `pr-integration?bookingOn=${prSlug}`,
+        }),
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
+      };
       expect(createSlotParams.atLocationId).toBe(persistedLocation.id);
 
       // create-slot zambda should accept atLocationId, validate it against
@@ -572,6 +587,219 @@ describe('prebook integration - from getting list of slots to booking with selec
         await oystehr.fhir.batch({ requests: deletes });
       } catch (e) {
         console.error('Failed to clean up PR-actored fixture; afterAll process-tag sweep will retry:', e);
+      }
+    }
+  });
+
+  // Virtual group booking end-to-end: a /prebook/virtual link for a group
+  // whose Schedule actor is a PractitionerRole (a NON-Location owner). The
+  // booking's licensing state can't come from the owner — it must be derived
+  // from the group's virtual member Location. Before the fix, create-appointment
+  // rejected this with "locationState is required for virtual appointments";
+  // now it derives the state (FL) from the resolved member Location.
+  test('virtual group booking derives locationState from the virtual member Location (no explicit locationState)', async () => {
+    assert(processId);
+    const tag = {
+      system: 'OTTEHR_AUTOMATED_TEST',
+      code: tagForProcessId(processId),
+      display: 'integration test fixture',
+    };
+    const scheduleJson = buildSimpleScheduleExt({ prebookSlots: 4 });
+    // Anchored to tomorrow so the slot start stays in the future regardless
+    // of run time (create-slot rejects past-dated startISO).
+    const timeNow = startOfDayWithTimezone().plus({ days: 1, hours: 8 });
+
+    const practitionerUrn = `urn:uuid:${randomUUID()}`;
+    const locationUrn = `urn:uuid:${randomUUID()}`;
+    const prUrn = `urn:uuid:${randomUUID()}`;
+    const hsUrn = `urn:uuid:${randomUUID()}`;
+    const locationSlug = `virtual-group-loc-${randomUUID()}`;
+
+    const fixtureRequests: BatchInputPostRequest<FhirResource>[] = [
+      {
+        method: 'POST',
+        url: 'Practitioner',
+        fullUrl: practitionerUrn,
+        resource: {
+          resourceType: 'Practitioner',
+          name: [{ family: 'TelemedProvider', given: ['Group'] }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'Location',
+        fullUrl: locationUrn,
+        resource: {
+          resourceType: 'Location',
+          status: 'active',
+          name: 'Virtual-Group-MemberLocation',
+          identifier: [{ system: SLUG_SYSTEM, value: locationSlug }],
+          // Virtual (telemed) Location: the 'vi' form code is what
+          // isLocationVirtual keys on; address.state is the licensing state
+          // create-appointment derives for the booking.
+          address: { state: 'FL' },
+          extension: [
+            {
+              url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
+              valueCoding: {
+                system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
+                code: 'vi',
+                display: 'Virtual',
+              },
+            },
+          ],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'PractitionerRole',
+        fullUrl: prUrn,
+        resource: {
+          resourceType: 'PractitionerRole',
+          active: true,
+          practitioner: { reference: practitionerUrn },
+          location: [{ reference: locationUrn }],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'Schedule',
+        resource: {
+          resourceType: 'Schedule',
+          actor: [{ reference: prUrn }],
+          extension: [
+            { url: 'http://hl7.org/fhir/StructureDefinition/timezone', valueString: 'America/New_York' },
+            { url: SCHEDULE_EXTENSION_URL, valueString: JSON.stringify(scheduleJson) },
+          ],
+          meta: { tag: [tag] },
+        },
+      },
+      {
+        method: 'POST',
+        url: 'HealthcareService',
+        fullUrl: hsUrn,
+        resource: {
+          resourceType: 'HealthcareService',
+          active: true,
+          name: 'Virtual Member Group',
+          location: [{ reference: locationUrn }],
+          meta: { tag: [tag] },
+        },
+      },
+    ];
+
+    const tx = await oystehr.fhir.transaction({ requests: fixtureRequests });
+    const memberLoc = tx.entry?.find((e) => e.resource?.resourceType === 'Location')?.resource as Location;
+    const memberPrac = tx.entry?.find((e) => e.resource?.resourceType === 'Practitioner')?.resource as Practitioner;
+    const memberPr = tx.entry?.find((e) => e.resource?.resourceType === 'PractitionerRole')
+      ?.resource as PractitionerRole;
+    const memberHs = tx.entry?.find((e) => e.resource?.resourceType === 'HealthcareService')
+      ?.resource as HealthcareService;
+    const memberSchedule = tx.entry?.find((e) => e.resource?.resourceType === 'Schedule')?.resource as Schedule;
+    assert(memberLoc?.id);
+    assert(memberPrac?.id);
+    assert(memberPr?.id);
+    assert(memberHs?.id);
+    assert(memberSchedule?.id);
+
+    let persistedSlotId: string | undefined;
+    try {
+      // Build a vended-Slot-equivalent for the group: it points at the PR's
+      // Schedule and is stamped with both the member Location (slot-at-
+      // location) and the group (booked-via-group), matching what
+      // makeSlotListItems produces. createSlotParamsFromSlotAndOptions
+      // forwards the explicit virtual serviceModality, so the persisted Slot
+      // is virtual even though its owner (the PR) is not a virtual Location.
+      const slotStartISO = timeNow.plus({ hours: 1 }).toISO()!;
+      const fauxVendedSlot: Slot = {
+        resourceType: 'Slot',
+        id: `${memberSchedule.id}|${slotStartISO}`,
+        status: 'free',
+        start: slotStartISO,
+        end: timeNow.plus({ hours: 1, minutes: 15 }).toISO()!,
+        schedule: { reference: `Schedule/${memberSchedule.id}` },
+        extension: [makeSlotAtLocationExtensionEntry(memberLoc.id), makeSlotBookedViaGroupExtensionEntry(memberHs.id)],
+      };
+
+      // The faux vended slot carries no SERVICE_CATEGORY_SYSTEM coding, so
+      // we inject a category code explicitly — create-slot's invariant
+      // guard now refuses categoryless slot creation on multi-category test
+      // configs. Uses a synthetic non-BOOKING_CONFIG code because the
+      // member schedule is PR-actored; the PR + BOOKING_CONFIG guard would
+      // reject any compile-time category.
+      const createSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(fauxVendedSlot, {
+          status: 'busy-tentative',
+          originalBookingUrl: `prebook/virtual?bookingOn=${locationSlug}&scheduleType=group`,
+          serviceModality: ServiceMode.virtual,
+        }),
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
+      };
+      // The explicit modality must survive into the create-slot params.
+      expect(createSlotParams.serviceModality).toBe(ServiceMode.virtual);
+      expect(createSlotParams.atLocationId).toBe(memberLoc.id);
+      expect(createSlotParams.bookedViaGroupId).toBe(memberHs.id);
+
+      const persistedSlot = (
+        await oystehr.zambda.executePublic({
+          id: 'create-slot',
+          ...createSlotParams,
+        })
+      ).output as Slot;
+      assert(persistedSlot?.id);
+      persistedSlotId = persistedSlot.id;
+      // The persisted Slot is virtual (serviceModality drove serviceCategory)
+      // and carries the member-Location stamp create-appointment resolves.
+      expect(getServiceModeFromSlot(persistedSlot)).toBe(ServiceMode.virtual);
+      expect(getSlotAtLocationId(persistedSlot)).toBe(memberLoc.id);
+
+      // create-appointment WITHOUT an explicit locationState. The owner is a
+      // PR (no state of its own); the state must be derived from the virtual
+      // member Location. This previously threw INVALID_INPUT.
+      const newPatient = makeTestPatient();
+      const patientInfo: PatientInfo = {
+        firstName: newPatient.name![0]!.given![0],
+        lastName: newPatient.name![0]!.family,
+        sex: 'female',
+        dateOfBirth: newPatient.birthDate,
+        newPatient: true,
+        phoneNumber: '+12027139680',
+        email: 'integration-virtual-group@example.com',
+        tags: [tag],
+      };
+      const createApptResponse = (
+        await oystehr.zambda.execute({
+          id: 'create-appointment',
+          patient: patientInfo,
+          slotId: persistedSlot.id,
+        })
+      ).output as CreateAppointmentResponse;
+      assert(createApptResponse?.appointmentId);
+
+      // The booking succeeded and is virtual — no "locationState is required"
+      // rejection, and the Encounter is classed virtual.
+      const { encounter } = createApptResponse.resources;
+      expect(checkEncounterIsVirtual(encounter)).toBe(true);
+    } finally {
+      // Fixture resources are deleted here; the appointment / encounter /
+      // patient created by create-appointment are process-tagged and swept
+      // by cleanupTestScheduleResources in afterAll.
+      const deletes: BatchInputDeleteRequest[] = [];
+      if (persistedSlotId) deletes.push({ method: 'DELETE', url: `Slot/${persistedSlotId}` });
+      deletes.push(
+        { method: 'DELETE', url: `Schedule/${memberSchedule.id}` },
+        { method: 'DELETE', url: `PractitionerRole/${memberPr.id}` },
+        { method: 'DELETE', url: `Practitioner/${memberPrac.id}` },
+        { method: 'DELETE', url: `HealthcareService/${memberHs.id}` },
+        { method: 'DELETE', url: `Location/${memberLoc.id}` }
+      );
+      try {
+        await oystehr.fhir.batch({ requests: deletes });
+      } catch (e) {
+        console.error('Failed to clean up virtual-group fixture; afterAll process-tag sweep will retry:', e);
       }
     }
   });
@@ -770,6 +998,12 @@ describe('prebook integration - from getting list of slots to booking with selec
         status: 'busy-tentative',
         originalBookingUrl: 'group-membership-test',
         bookedViaGroupId: groupHs.id,
+        // Required by the create-slot invariant guard; test isolates the
+        // bookedViaGroup membership check, not category resolution. Synthetic
+        // non-BOOKING_CONFIG code because the schedule is PR-actored — the
+        // PR + BOOKING_CONFIG guard would otherwise reject before the
+        // membership check runs and the test would fail with the wrong error.
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
       };
 
       let caught: unknown;
@@ -907,6 +1141,10 @@ describe('prebook integration - from getting list of slots to booking with selec
         status: 'busy-tentative',
         originalBookingUrl: 'group-membership-test',
         bookedViaGroupId: memberHs.id,
+        // Required by the create-slot invariant guard; test focuses on
+        // bookedViaGroup extension persistence, not category resolution.
+        // Synthetic non-BOOKING_CONFIG code because the schedule is PR-actored.
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
       };
 
       const persistedSlot = (
@@ -1012,6 +1250,10 @@ describe('prebook integration - from getting list of slots to booking with selec
         status: 'busy-tentative',
         originalBookingUrl: 'group-membership-test',
         bookedViaGroupId: memberHs.id,
+        // Required by the create-slot invariant guard; test focuses on
+        // bookedViaGroup extension persistence, not category resolution.
+        // Synthetic non-BOOKING_CONFIG code because the schedule is PR-actored.
+        serviceCategoryCode: 'fhir-cat-for-pr-test',
       };
 
       const persistedSlot = (

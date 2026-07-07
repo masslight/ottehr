@@ -5,8 +5,11 @@ import {
   ChartDataRequestedFields,
   ChartDataWithResources,
   GetChartDataResponse,
+  getCptCodesFromMA,
+  getDosageFromMA,
   getMedicationFromMA,
   getNdcCodeFromMedication,
+  MedicationCptCodeEntry,
   PharmacyDTO,
   SCHOOL_WORK_NOTE,
   SearchParams,
@@ -251,18 +254,38 @@ export async function convertSearchResultsToResponse(
         if (ma.id) maMap.set(ma.id, ma);
       });
 
-      const procedureNdcMap = new Map<string, string>();
+      const procedureBillingMap = new Map<
+        string,
+        { ndcCode?: string; dose?: number; doseUnits?: string; cptEntries?: MedicationCptCodeEntry[] }
+      >();
       procedureMaIdMap.forEach((maId, procedureId) => {
         const ma = maMap.get(maId);
-        const med = ma ? getMedicationFromMA(ma) : undefined;
+        if (!ma) return;
+        const med = getMedicationFromMA(ma);
         const ndc = med ? getNdcCodeFromMedication(med) : undefined;
-        if (ndc) procedureNdcMap.set(procedureId, ndc);
+        const dosage = getDosageFromMA(ma);
+        const cptEntries = getCptCodesFromMA(ma);
+        if (ndc || dosage || cptEntries) {
+          procedureBillingMap.set(procedureId, {
+            ndcCode: ndc,
+            dose: dosage?.dose,
+            doseUnits: dosage?.units,
+            cptEntries,
+          });
+        }
       });
 
-      if (procedureNdcMap.size > 0) {
+      if (procedureBillingMap.size > 0) {
         getChartDataResponse.cptCodes = getChartDataResponse.cptCodes.map((cpt) => {
-          const ndc = cpt.resourceId ? procedureNdcMap.get(cpt.resourceId) : undefined;
-          return ndc ? { ...cpt, ndcCode: ndc } : cpt;
+          const billing = cpt.resourceId ? procedureBillingMap.get(cpt.resourceId) : undefined;
+          if (!billing) return cpt;
+          const billableUnits = billing.cptEntries?.find((entry) => entry.code === cpt.code)?.billableUnits;
+          return {
+            ...cpt,
+            ...(billing.ndcCode != null && { ndcCode: billing.ndcCode }),
+            ...(billing.dose != null && { dose: billing.dose, doseUnits: billing.doseUnits }),
+            ...(billableUnits != null && { billableUnits }),
+          };
         });
       }
     }

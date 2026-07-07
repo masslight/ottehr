@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -7,7 +7,7 @@ export const index = wrapHandler('delete-fee-schedule', async (input: ZambdaInpu
   const { id, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   await oystehr.fhir.delete({
     resourceType: 'ChargeItemDefinition',

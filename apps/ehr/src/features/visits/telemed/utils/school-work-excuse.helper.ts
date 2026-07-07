@@ -171,7 +171,6 @@ export const getDefaultExcuseFormValues = (params: {
   isSchool: boolean;
   isTemplate: boolean;
   providerName?: string;
-  suffix?: string;
   phoneNumber?: string;
 }): ExcuseFormValues => {
   const defaultFormValues = {
@@ -209,9 +208,7 @@ export const getDefaultExcuseFormValues = (params: {
     if (params.phoneNumber) {
       defaultFormValues.footerNote = `For any questions, please do not hesitate to call ${params.phoneNumber}.\n`;
     }
-    defaultFormValues.footerNote += `Sincerely,\n${params.providerName || '{Provider name}'}, ${
-      params.suffix || 'Medical Doctor'
-    }`;
+    defaultFormValues.footerNote += `Sincerely,\n${params.providerName || '{Provider name}'}`;
   }
 
   return defaultFormValues;

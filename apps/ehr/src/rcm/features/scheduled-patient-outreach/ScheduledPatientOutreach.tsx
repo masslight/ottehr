@@ -53,6 +53,7 @@ import { useNavigate } from 'react-router-dom';
 import { SmsCharacterCounter } from 'src/components/template-editor-field/SmsCharacterCounter';
 import { INVOICE_TOKEN_IDS, TemplateEditorField } from 'src/components/template-editor-field/TemplateEditorField';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { usePaymentLocationsQuery } from 'src/rcm/state/payments/payments.queries';
 import {
   useGetOutreachConfigQuery,
@@ -1196,30 +1197,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-        <Box>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-              Patient Outreach, Collections and Automation
-            </Typography>
-            <Chip
-              label="Beta"
-              size="small"
-              sx={{
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                height: 22,
-                bgcolor: otherColors.outreachInfoBgSubtle,
-                color: otherColors.outreachInfoDark,
-                letterSpacing: '0.05em',
-              }}
-            />
-          </Stack>
-          <Typography variant="body2" color="text.secondary">
-            Configure automated outreach and collection actions triggered relative to billing events. Actions execute in
-            order of days from the trigger event.
-          </Typography>
-        </Box>
+      <AdminHeaderActionSlot>
         {pageTab === 'tasks-report' && (
           <Tooltip title="Cron schedule info">
             <IconButton onClick={(e) => setCronInfoAnchor(e.currentTarget)} sx={{ color: 'primary.main' }}>
@@ -1255,7 +1233,12 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
             </Button>
           </Stack>
         )}
-      </Stack>
+      </AdminHeaderActionSlot>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Configure automated outreach and collection actions triggered relative to billing events. Actions execute in
+        order of days from the trigger event.
+      </Typography>
 
       {/* ── Page Tabs ──────────────────────────────────────────────────── */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
@@ -1447,7 +1430,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                         <Accordion
                           key={action.id}
                           defaultExpanded={false}
-                          sx={{ mb: 1, opacity: action.enabled ? 1 : 0.5 }}
+                          sx={{ mb: 1, opacity: action.enabled !== false ? 1 : 0.5 }}
                         >
                           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                             <Stack
@@ -2024,7 +2007,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
           {/* ── Notification Settings Dialog ───────────────────────────────── */}
           <Dialog open={settingsDialogOpen} onClose={() => setSettingsDialogOpen(false)} maxWidth="sm" fullWidth>
             <DialogTitle>
-              <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
+              <Typography variant="h3" component="span" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                 Patient Notification Settings
               </Typography>
             </DialogTitle>

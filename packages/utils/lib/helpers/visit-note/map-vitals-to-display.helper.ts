@@ -3,6 +3,7 @@ import { vitalsConfig } from '../../ottehr-config';
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
+  VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -16,10 +17,11 @@ import {
 import { formatDateTimeToZone } from '../../utils';
 import {
   celsiusToFahrenheit,
-  cmToFeet,
-  cmToInches,
+  formatBMIWithUnit,
+  formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
+  getDotVisionScreeningLines,
   getVisionExtraOptionsFormattedString,
   VitalsVisitNoteData,
 } from '../vitals';
@@ -38,7 +40,7 @@ export const mapVitalsToDisplay = (
     switch (field) {
       case VitalFieldNames.VitalTemperature:
         parsed = observation as VitalsTemperatureObservationDTO;
-        text = `${parsed.value} C = ${celsiusToFahrenheit(parsed.value).toFixed(1)} F ${
+        text = `${parsed.value} C ≈ ${celsiusToFahrenheit(parsed.value).toFixed(1)} F ${
           parsed.observationMethod ? ` (${parsed.observationMethod})` : ''
         }`;
         break;
@@ -70,19 +72,29 @@ export const mapVitalsToDisplay = (
           const kgStr = formatWeightKg(parsed.value) + ' kg';
           const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
           if (vitalsConfig['vital-weight'].unit === 'kg') {
-            text = `${kgStr} = ${lbsStr}`;
+            text = `${kgStr} ≈ ${lbsStr}`;
           } else {
-            text = `${lbsStr} = ${kgStr}`;
+            text = `${lbsStr} ≈ ${kgStr}`;
           }
         }
         break;
       }
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
-        text = `${parsed.value} cm = ${cmToInches(parsed.value)} inch = ${cmToFeet(parsed.value)} ft`;
+        text = formatHeightObservationValue(parsed.value);
+        break;
+      case VitalFieldNames.VitalBMI:
+        parsed = observation as VitalsBMIObservationDTO;
+        text = formatBMIWithUnit(parsed.value);
         break;
       case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;
+        const dotLines = getDotVisionScreeningLines(parsed.dotVisionScreening, { includeDocument: true });
+        if (dotLines.length > 0) {
+          // DOT screening entries are stored as their own observation; render the MCSA-5875 layout.
+          text = dotLines.join('\n');
+          break;
+        }
         const visionParts: string[] = [];
         if (parsed.leftEyeVisionText) visionParts.push(`Left eye: ${parsed.leftEyeVisionText}`);
         if (parsed.rightEyeVisionText) visionParts.push(`Right eye: ${parsed.rightEyeVisionText}`);

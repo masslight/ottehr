@@ -1,6 +1,6 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import {
   Autocomplete,
   Box,
@@ -15,6 +15,7 @@ import {
   FormControlLabel,
   IconButton,
   Paper,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -29,7 +30,7 @@ import { Location, PractitionerRole, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createPractitionerRole, deletePractitionerRole, listServiceCategories } from 'src/api/api';
+import { createPractitionerRole, listServiceCategories, setPractitionerRoleActive } from 'src/api/api';
 import { getPractitionerRoleAllCategories, SCHEDULE_DISPLAY_NAME_EXTENSION_URL, TIMEZONES } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 
@@ -47,6 +48,9 @@ interface ScheduleRow {
   categoryLabels: string[];
   /** User-facing label, e.g. "Intake — Main Clinic" or "Main Clinic". */
   displayLabel: string;
+  /** PractitionerRole.active — `false` means soft-deleted; the row is kept in
+   *  the list so an admin can reactivate without recreating from scratch. */
+  active: boolean;
 }
 
 // Default label when an admin hasn't set a custom Name. Just the Location —
@@ -65,12 +69,17 @@ export default function PractitionerRoleList({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<ScheduleRow | null>(null);
+  const [pendingDeactivate, setPendingDeactivate] = useState<ScheduleRow | null>(null);
+
+  const listQueryKey = ['practitioner-role-list', practitionerId];
 
   const { data, isLoading } = useQuery({
-    queryKey: ['practitioner-role-list', practitionerId],
+    queryKey: listQueryKey,
     queryFn: async (): Promise<{ rows: ScheduleRow[]; activeLocations: Location[] }> => {
+      // Both guards are belt-and-suspenders given `enabled` below — keep them
+      // so the queryFn types narrow cleanly without non-null assertions.
       if (!oystehr) throw new Error('oystehr client not ready');
+      if (!oystehrZambda) throw new Error('zambda client not ready');
       const [roleBundle, locationBundle] = await Promise.all([
         oystehr.fhir.search<PractitionerRole | Location | Schedule>({
           resourceType: 'PractitionerRole',
@@ -89,20 +98,17 @@ export default function PractitionerRoleList({
       // PRs without a Location reference are group-membership records (linking
       // a practitioner to a Group HealthcareService), not schedule-bearing PRs.
       // Skip those — they belong to the Group admin flow, not scheduling.
-      // Also skip soft-deleted PRs (active=false from a previous "Delete schedule").
+      // Inactive PRs (previously soft-deleted) are kept so an admin can flip
+      // the row's status toggle back on instead of recreating from scratch.
       const roles = resources.filter(
         (r): r is PractitionerRole =>
-          r.resourceType === 'PractitionerRole' &&
-          !!(r as PractitionerRole).location?.[0]?.reference &&
-          (r as PractitionerRole).active !== false
+          r.resourceType === 'PractitionerRole' && !!(r as PractitionerRole).location?.[0]?.reference
       );
       const includedLocations = resources.filter((r): r is Location => r.resourceType === 'Location');
-      const schedules = resources.filter((r): r is Schedule => r.resourceType === 'Schedule' && r.active !== false);
+      const schedules = resources.filter((r): r is Schedule => r.resourceType === 'Schedule');
 
       // Resolve category labels once.
-      const categoriesResp = oystehrZambda
-        ? await listServiceCategories(oystehrZambda).catch(() => ({ serviceCategories: [] }))
-        : { serviceCategories: [] };
+      const categoriesResp = await listServiceCategories(oystehrZambda).catch(() => ({ serviceCategories: [] }));
       const categoriesById = new Map<string, { code: string; name: string }>();
       for (const sc of categoriesResp.serviceCategories || []) {
         if ((sc as any).id) {
@@ -140,12 +146,15 @@ export default function PractitionerRoleList({
           schedule,
           categoryLabels,
           displayLabel: explicitName || deriveDisplayLabel(location?.name),
+          active: role.active !== false,
         };
       });
 
       return { rows, activeLocations: locationBundle.unbundle() };
     },
-    enabled: !!oystehr,
+    // Wait for both clients before running so category labels resolve on the
+    // first paint instead of rendering as empty until oystehrZambda catches up.
+    enabled: !!oystehr && !!oystehrZambda,
   });
 
   const createRole = useMutation({
@@ -167,7 +176,7 @@ export default function PractitionerRoleList({
       });
     },
     onSuccess: ({ schedule }) => {
-      void queryClient.invalidateQueries({ queryKey: ['practitioner-role-list', practitionerId] });
+      void queryClient.invalidateQueries({ queryKey: listQueryKey });
       setDialogOpen(false);
       // Drop the admin straight into the editor for the new schedule — no
       // separate "ok now configure it" step.
@@ -187,21 +196,63 @@ export default function PractitionerRoleList({
     },
   });
 
-  const deleteRole = useMutation({
-    mutationFn: async (roleId: string) => {
+  type ListQueryData = { rows: ScheduleRow[]; activeLocations: Location[] };
+
+  const setActive = useMutation({
+    mutationFn: async ({ roleId, active }: { roleId: string; active: boolean }) => {
       if (!oystehrZambda) throw new Error('zambda client not ready');
-      return deletePractitionerRole(oystehrZambda, { roleId });
+      return setPractitionerRoleActive(oystehrZambda, { roleId, active });
     },
-    onSuccess: () => {
-      enqueueSnackbar('Schedule deleted.', { variant: 'success' });
-      setPendingDelete(null);
-      void queryClient.invalidateQueries({ queryKey: ['practitioner-role-list', practitionerId] });
+    // Optimistically flip the row's active state in the cache so the Switch
+    // updates the instant the user clicks. If the request fails, onError
+    // rolls back to the snapshot we take here.
+    onMutate: async ({ roleId, active }) => {
+      await queryClient.cancelQueries({ queryKey: listQueryKey });
+      const snapshot = queryClient.getQueryData<ListQueryData>(listQueryKey);
+      if (snapshot) {
+        queryClient.setQueryData<ListQueryData>(listQueryKey, {
+          ...snapshot,
+          rows: snapshot.rows.map((r) => (r.role.id === roleId ? { ...r, active } : r)),
+        });
+      }
+      return { snapshot };
     },
-    onError: (err) => {
+    onSuccess: (_data, variables) => {
+      enqueueSnackbar(variables.active ? 'Schedule activated.' : 'Schedule deactivated.', { variant: 'success' });
+      setPendingDeactivate(null);
+    },
+    onError: (err, variables, context) => {
       console.error(err);
-      enqueueSnackbar('Failed to delete schedule.', { variant: 'error' });
+      if (context?.snapshot) {
+        queryClient.setQueryData(listQueryKey, context.snapshot);
+      }
+      // Surface the zambda's own message when present (e.g. the
+      // PRACTITIONER_SCHEDULE_CONFLICT_ERROR text the admin needs to see to
+      // reconcile against). Fall back to a generic message otherwise.
+      const fallback = variables.active ? 'Failed to activate schedule.' : 'Failed to deactivate schedule.';
+      const message =
+        err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string'
+          ? (err as any).message
+          : fallback;
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: listQueryKey });
     },
   });
+
+  // Activation is cheap and fully reversible, so it fires straight from the
+  // switch. Deactivation goes through the confirmation dialog below — it's
+  // soft, but it pulls a schedule out of bookable circulation immediately and
+  // we want an explicit "are you sure" before that happens.
+  const handleToggleActive = (row: ScheduleRow, nextActive: boolean): void => {
+    if (!row.role.id) return;
+    if (nextActive) {
+      setActive.mutate({ roleId: row.role.id, active: true });
+    } else {
+      setPendingDeactivate(row);
+    }
+  };
 
   if (isLoading || !data) {
     return (
@@ -213,7 +264,6 @@ export default function PractitionerRoleList({
 
   const rows = data.rows;
   const activeLocations = data.activeLocations;
-  const isMulti = rows.length >= 2;
   const headerLabel = rows.length === 1 ? 'Schedule' : 'Schedules';
 
   // Single-Location org + zero schedules → one-click setup. The admin doesn't
@@ -259,60 +309,42 @@ export default function PractitionerRoleList({
         </Typography>
       )}
 
-      {rows.length === 1 && (
-        <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography variant="body1">{rows[0].displayLabel}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Services: {rows[0].categoryLabels.join(', ')}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {rows[0].schedule?.id ? (
-              <Link to={`/admin/schedule/id/${rows[0].schedule.id}`}>
-                <Button variant="contained">Edit</Button>
-              </Link>
-            ) : (
-              <Typography variant="caption" color="error">
-                Schedule resource missing
-              </Typography>
-            )}
-            <Tooltip title="Delete schedule">
-              <IconButton size="small" onClick={() => setPendingDelete(rows[0])}>
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
-      )}
-
-      {isMulti && (
+      {rows.length > 0 && (
         <Table size="small" sx={{ mt: 2 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>Schedule</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Services</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '20%' }} />
+              <TableCell sx={{ fontWeight: 'bold', width: '12%' }}>Active</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '12%' }} align="right">
+                Actions
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={row.role.id}>
-                <TableCell>{row.displayLabel}</TableCell>
+              <TableRow key={row.role.id} sx={{ opacity: row.active ? 1 : 0.6 }}>
+                <TableCell sx={{ color: row.active ? 'text.primary' : 'text.disabled' }}>{row.displayLabel}</TableCell>
                 <TableCell>{row.categoryLabels.join(', ')}</TableCell>
                 <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
-                    {row.schedule?.id ? (
-                      <Link to={`/admin/schedule/id/${row.schedule.id}`}>Edit</Link>
-                    ) : (
-                      <em>missing</em>
-                    )}
-                    <Tooltip title="Delete schedule">
-                      <IconButton size="small" onClick={() => setPendingDelete(row)}>
-                        <DeleteOutlineIcon fontSize="small" />
+                  <ScheduleStatusToggle
+                    row={row}
+                    onToggle={handleToggleActive}
+                    disabled={setActive.isPending && setActive.variables?.roleId === row.role.id}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  {row.schedule?.id ? (
+                    <Tooltip title="Edit schedule">
+                      <IconButton size="small" component={Link} to={`/admin/schedule/id/${row.schedule.id}`}>
+                        <EditOutlinedIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                  </Box>
+                  ) : (
+                    <Typography variant="caption" color="error">
+                      missing
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -336,34 +368,56 @@ export default function PractitionerRoleList({
         practitionerName={practitionerName}
       />
 
-      <Dialog open={!!pendingDelete} onClose={() => !deleteRole.isPending && setPendingDelete(null)}>
-        <DialogTitle>Delete schedule?</DialogTitle>
+      <Dialog open={!!pendingDeactivate} onClose={() => !setActive.isPending && setPendingDeactivate(null)}>
+        <DialogTitle>Deactivate schedule?</DialogTitle>
         <DialogContent>
           <DialogContentText>
             This will deactivate{' '}
             <strong>
-              {pendingDelete?.location?.name || 'this schedule'}
-              {pendingDelete?.categoryLabels.length ? ` (${pendingDelete.categoryLabels.join(', ')})` : ''}
+              {pendingDeactivate?.location?.name || 'this schedule'}
+              {pendingDeactivate?.categoryLabels.length ? ` (${pendingDeactivate.categoryLabels.join(', ')})` : ''}
             </strong>
             . Past appointments and encounters that referenced this schedule are preserved; it just stops appearing as a
-            bookable option going forward.
+            bookable option going forward. You can switch it back on at any time.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPendingDelete(null)} disabled={deleteRole.isPending}>
+          <Button onClick={() => setPendingDeactivate(null)} disabled={setActive.isPending}>
             Cancel
           </Button>
           <Button
             color="error"
             variant="contained"
-            disabled={deleteRole.isPending}
-            onClick={() => pendingDelete?.role.id && deleteRole.mutate(pendingDelete.role.id)}
+            disabled={setActive.isPending}
+            onClick={() =>
+              pendingDeactivate?.role.id && setActive.mutate({ roleId: pendingDeactivate.role.id, active: false })
+            }
           >
-            Delete
+            Deactivate
           </Button>
         </DialogActions>
       </Dialog>
     </Paper>
+  );
+}
+
+interface ScheduleStatusToggleProps {
+  row: ScheduleRow;
+  onToggle: (row: ScheduleRow, nextActive: boolean) => void;
+  disabled: boolean;
+}
+
+function ScheduleStatusToggle({ row, onToggle, disabled }: ScheduleStatusToggleProps): ReactElement {
+  return (
+    <Tooltip title={row.active ? 'Deactivate schedule' : 'Activate schedule'}>
+      <Switch
+        size="small"
+        checked={row.active}
+        onChange={(e) => onToggle(row, e.target.checked)}
+        disabled={disabled}
+        inputProps={{ 'aria-label': row.active ? 'Deactivate schedule' : 'Activate schedule' }}
+      />
+    </Tooltip>
   );
 }
 

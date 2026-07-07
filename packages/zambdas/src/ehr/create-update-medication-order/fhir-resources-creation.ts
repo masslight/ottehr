@@ -17,6 +17,7 @@ import {
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   INTERACTIONS_UNAVAILABLE,
   ISSUE_TYPE_CODE_SYSTEM,
+  isValidUUID,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
@@ -184,7 +185,12 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
         },
       ],
     };
-  if (orderData.associatedDx) resource.reasonReference = [{ reference: `Condition/${orderData.associatedDx}` }];
+  if (orderData.associatedDx)
+    resource.reasonReference = [
+      {
+        reference: isValidUUID(orderData.associatedDx) ? `Condition/${orderData.associatedDx}` : orderData.associatedDx,
+      },
+    ];
 
   // Store user-selected CPT/HCPCS codes on the MedicationAdministration
   if (orderData.cptCodes && orderData.cptCodes.length > 0) {

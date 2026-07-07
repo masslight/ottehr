@@ -1,6 +1,6 @@
 // Thin client for MedlinePlus Connect — the public NLM service that returns curated
 // patient-education links keyed by ICD-10-CM code. Lives at the zambda-shared level
-// (alongside icd-10-search.ts) so any zambda that needs to look up MedlinePlus
+// so any zambda that needs to look up MedlinePlus
 // resources can import it; promote to packages/utils if the EHR/intake apps ever
 // need to call it directly.
 

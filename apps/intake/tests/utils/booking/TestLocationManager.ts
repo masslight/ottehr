@@ -1,8 +1,11 @@
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, Organization, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  getAllFhirSearchPages,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
   SCHEDULE_STRATEGY_SYSTEM,
   ScheduleStrategy,
   SERVICE_CATEGORY_SYSTEM,
@@ -69,6 +72,7 @@ export class TestLocationManager {
   private deeplinkOpenSchedule?: Schedule;
   private deeplinkClosedLocation?: Location;
   private deeplinkClosedSchedule?: Schedule;
+  private occMedEmployer?: Organization;
 
   /**
    * @param workerUniqueId - Unique identifier for this worker to isolate test resources
@@ -122,6 +126,81 @@ export class TestLocationManager {
     const { providers = 1 } = params;
     const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, providers }));
     return this.buildAndPersist247Schedule({ ...params, actorType: 'Practitioner', hours });
+  }
+
+  /**
+   * Sweep every Slot referencing one of the given reused test Schedules.
+   * Status-agnostic: a Slot's mere existence on a test Schedule is enough
+   * evidence it's leftover from a previous run that didn't clean up. We
+   * don't filter to busy/busy-tentative — fresh test runs build their own
+   * Slots from scratch, so leaving any Slot behind (including `free` ones
+   * vended by an earlier get-schedule call but never booked) would still
+   * pollute the schedule's perceived availability state.
+   *
+   * Production-side create-slot doesn't tag Slots with any test marker
+   * (it has no test-aware concept), so cleanup() can't find Slots via the
+   * usual tag-based search. When a prior test run crashed before cleanup
+   * or cleanup itself failed, the Schedule survives — and the next run's
+   * `ensure*` helpers reuse it. Without this sweep, every booking the
+   * previous run completed remains as a busy Slot referencing the reused
+   * Schedule, and get-schedule's "first available" walks forward over
+   * time. By the time enough accumulates, helpers like
+   * findAndClickSuitableTimeSlot can no longer find a slot at least 30
+   * minutes in the future and tests fail with the wrong-looking symptom.
+   *
+   * Discovers Slots by the Slot.schedule reference (the only durable link
+   * to the test Schedule); pagination is via getAllFhirSearchPages so a
+   * deeply-accumulated schedule doesn't escape past the FHIR default page
+   * size. Deletes are chunked into bounded batches — a single
+   * oystehr.fhir.batch() with thousands of entries can fail on size; the
+   * chunk size matches what a healthy reused-schedule sweep would
+   * realistically need without ever sending an oversized request.
+   */
+  private async purgeSlotsForSchedules(scheduleIds: string[]): Promise<void> {
+    const oystehr = this.resourceHandler.apiClient;
+    const ids = scheduleIds.filter((id) => !!id);
+    if (ids.length === 0) return;
+    const scheduleRefs = ids.map((id) => `Schedule/${id}`).join(',');
+    let slots: Slot[];
+    try {
+      slots = await getAllFhirSearchPages<Slot>(
+        { resourceType: 'Slot', params: [{ name: 'schedule', value: scheduleRefs }] },
+        oystehr
+      );
+    } catch (e) {
+      console.warn(
+        `Failed to search leftover Slots for schedules ${ids.join(
+          ', '
+        )}; reused schedule may carry accumulated busy slots:`,
+        e
+      );
+      return;
+    }
+    const allRequests: BatchInputDeleteRequest[] = slots
+      .filter((s): s is Slot & { id: string } => !!s.id)
+      .map((s) => ({ method: 'DELETE' as const, url: `/Slot/${s.id}` }));
+    if (allRequests.length === 0) return;
+    // Chunk to avoid oversized-batch failures when a long-running worker has
+    // accumulated thousands of stale Slots. 100 per batch is well under any
+    // realistic FHIR server limit and matches the conservative end of cleanup
+    // patterns elsewhere in the repo.
+    const CHUNK_SIZE = 100;
+    let purgedCount = 0;
+    for (let i = 0; i < allRequests.length; i += CHUNK_SIZE) {
+      const requests = allRequests.slice(i, i + CHUNK_SIZE);
+      try {
+        await oystehr.fhir.batch({ requests });
+        purgedCount += requests.length;
+      } catch (e) {
+        console.warn(
+          `Failed to purge a chunk of leftover Slots (offset ${i}, size ${requests.length}); continuing with remaining chunks:`,
+          e
+        );
+      }
+    }
+    console.log(
+      `Purged ${purgedCount}/${allRequests.length} leftover Slot(s) from reused test schedule(s): ${ids.join(', ')}`
+    );
   }
 
   private async buildAndPersist247Schedule(params: {
@@ -240,6 +319,10 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // Sweep any busy Slots a prior crashed test run left on this
+        // schedule before handing it back; otherwise the first-available
+        // walks forward over time. See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.walkinLocation = existingLocation;
         this.walkinSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -298,6 +381,60 @@ export class TestLocationManager {
     return { location: this.walkinLocation, schedule: this.walkinSchedule };
   }
 
+  async ensureOccMedEmployer(): Promise<Organization> {
+    const oystehr = this.resourceHandler.apiClient;
+    const processId = this.workerUniqueId;
+
+    const existingEmployers = await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [
+        {
+          name: '_tag',
+          value: `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${processId}-test-occ-med-employer`,
+        },
+      ],
+    });
+
+    const existingEmployer = existingEmployers.unbundle()[0] as Organization | undefined;
+    if (existingEmployer?.id) {
+      this.occMedEmployer = existingEmployer;
+      return existingEmployer;
+    }
+
+    const organization: Organization = {
+      resourceType: 'Organization',
+      active: true,
+      name: `E2E-OccMedEmployer-${processId}`,
+      type: [
+        {
+          coding: [
+            {
+              system: ORG_TYPE_CODE_SYSTEM,
+              code: ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
+              display: 'Occupational Medicine Employer',
+            },
+          ],
+        },
+      ],
+      meta: {
+        tag: [
+          {
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+            code: `${processId}-test-occ-med-employer`,
+            display: 'E2E Test Occupational Medicine Employer',
+          },
+        ],
+      },
+    };
+
+    this.occMedEmployer = await oystehr.fhir.create(organization);
+    if (!this.occMedEmployer.id) {
+      throw new Error('Failed to create occupational-medicine employer test organization');
+    }
+
+    return this.occMedEmployer;
+  }
+
   /**
    * Get the test location name for use in tests
    */
@@ -348,6 +485,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock for why this sweep is needed.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.prebookInPersonLocation = existingLocation;
         this.prebookInPersonSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -450,6 +589,11 @@ export class TestLocationManager {
       console.log(`Found existing HealthcareService: ${existingHealthcareService.id}, looking for related resources`);
       const group = await this.findExistingGroupResources(existingHealthcareService, processId, tagCode);
       if (group) {
+        // See purgeSlotsForSchedules docblock. Group has two member
+        // Schedules (Location-actored + Practitioner-actored); sweep both.
+        await this.purgeSlotsForSchedules(
+          [group.locationSchedule.id, group.practitionerSchedule.id].filter((id): id is string => !!id)
+        );
         this.prebookInPersonGroup = group;
         return group;
       }
@@ -784,6 +928,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.prebookVirtualLocation = existingLocation;
         this.prebookVirtualSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -971,6 +1117,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.deeplinkOpenLocation = existingLocation;
         this.deeplinkOpenSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -1067,6 +1215,8 @@ export class TestLocationManager {
       const existingSchedule = existingSchedules.unbundle()[0] as Schedule | undefined;
 
       if (existingSchedule?.id) {
+        // See purgeSlotsForSchedules docblock.
+        await this.purgeSlotsForSchedules([existingSchedule.id]);
         this.deeplinkClosedLocation = existingLocation;
         this.deeplinkClosedSchedule = existingSchedule;
         return { location: existingLocation, schedule: existingSchedule };
@@ -1262,6 +1412,14 @@ export class TestLocationManager {
         await oystehr.fhir.delete({ resourceType: 'Location', id: this.deeplinkClosedLocation.id });
       } catch (error) {
         console.warn('Failed to delete deeplink closed test location:', error);
+      }
+    }
+
+    if (this.occMedEmployer?.id) {
+      try {
+        await oystehr.fhir.delete({ resourceType: 'Organization', id: this.occMedEmployer.id });
+      } catch (error) {
+        console.warn('Failed to delete occupational-medicine employer test organization:', error);
       }
     }
   }

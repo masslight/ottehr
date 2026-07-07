@@ -578,7 +578,7 @@ export default function PracticeKpis(): React.ReactElement {
                 </Typography>
                 {reportData.unsignedVisitCount > 0 && (
                   <Alert severity="info" sx={{ mt: 1 }}>
-                    {`${reportData.unsignedVisitCount} unsigned ${
+                    {`${reportData.unsignedVisitCount} discharged ${
                       reportData.unsignedVisitCount === 1 ? 'visit was' : 'visits were'
                     } excluded from this report.`}
                   </Alert>

@@ -13,7 +13,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -29,7 +29,7 @@ export const index = wrapHandler(
     try {
       const validatedInput = validateRequestParameters(input);
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-      const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+      const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
       const result = await performEffect(oystehr, m2mToken);
       return {

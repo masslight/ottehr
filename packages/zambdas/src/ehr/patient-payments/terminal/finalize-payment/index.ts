@@ -25,12 +25,13 @@ import {
   TIMEZONES,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   getUser,
   lambdaResponse,
   makeBusinessIdentifierForStripePayment,
+  safeJsonParse,
   STRIPE_PAYMENT_ID_SYSTEM,
   wrapHandler,
   ZambdaInput,
@@ -58,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrM2MClientToken = await getAuth0Token(input.secrets);
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, input.secrets);
   const stripeContext = await getStripePaymentContext(validatedParameters, oystehrClient);
 
   const stripeClient = getStripeClient(input.secrets);
@@ -119,7 +120,7 @@ const validateRequestParameters = (input: ZambdaInput): FinalizePatientPaymentTe
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId, paymentIntentId } = JSON.parse(input.body);
+  const { patientId, encounterId, paymentIntentId } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
   if (!patientId) {

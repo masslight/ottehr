@@ -9,7 +9,7 @@ import {
   getWaitingMinutesAtSchedule,
   TaskStatus,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
@@ -31,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const taskCodingList = task.code?.coding ?? [];
   console.log('taskCodingList', JSON.stringify(taskCodingList));

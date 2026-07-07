@@ -22,8 +22,9 @@ import {
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   resolveBookingLocationId,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -39,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
   const slotDetails = performEffect(effectInput);
@@ -97,7 +98,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { slotId } = JSON.parse(input.body);
+  const { slotId } = safeJsonParse(input.body);
 
   if (!slotId) {
     throw MISSING_REQUIRED_PARAMETERS(['slotId']);

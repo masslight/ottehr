@@ -5,7 +5,7 @@ import {
   SaveApprovedPatientEducationInput,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const icdCodeSchema = z.object({
   code: z.string().min(1, 'Each icdCodes entry must have a code'),
@@ -25,7 +25,7 @@ export function validateRequestParameters(
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const parsed = safeValidate(saveApprovedPatientEducationInputSchema, JSON.parse(input.body));
+  const parsed = safeValidate(saveApprovedPatientEducationInputSchema, safeJsonParse(input.body));
 
   return {
     ...parsed,

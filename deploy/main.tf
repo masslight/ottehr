@@ -17,7 +17,8 @@ terraform {
       version = "~> 2.0"
     }
     oystehr = {
-      source = "registry.terraform.io/masslight/oystehr"
+      source  = "registry.terraform.io/masslight/oystehr"
+      version = "0.0.22"
     }
     aws = {
       source = "hashicorp/aws"
@@ -33,7 +34,7 @@ locals {
   # `1` is the magic number to run a module that checks this local variable.
   # switch which line is commented out to run non-local modules like aws_infra
   # while still in the `local` environment
-  is_local                     = contains(["local", "e2e", "e2e2", "e2e3"], var.environment)
+  is_local                     = contains(["local", "e2e", "e2e2", "e2e3", "e2e4", "e2e5"], var.environment)
   not_local_env_resource_count = local.is_local ? 0 : 1
   # not_local_env_resource_count = 1
 
@@ -85,8 +86,23 @@ module "oystehr" {
   environment                 = var.environment
 }
 
+module "billing_app" {
+  source = "./billing_app"
+
+  project_id                   = var.project_id
+  environment                  = var.environment
+  is_local                     = local.is_local
+  aws_profile                  = var.aws_profile
+  not_local_env_resource_count = local.not_local_env_resource_count
+
+  billing_bucket_name = var.billing_bucket_name
+  billing_domain      = var.billing_domain
+  billing_cert_domain = var.billing_cert_domain
+  ehr_app_url         = var.ehr_domain == null ? "http://localhost:4002" : "https://${var.ehr_domain}"
+}
+
 module "ottehr_apps" {
-  depends_on  = [module.oystehr, module.infra]
+  depends_on  = [module.oystehr, module.infra, module.billing_app]
   source      = "./ottehr_apps"
   environment = var.environment
   is_local    = local.is_local
@@ -132,7 +148,7 @@ module "ottehr_apps" {
     SENTRY_ENV                    = var.environment
     SENTRY_TAGS                   = module.oystehr.sentry_tags
   }
-  zambda_secrets_for_local_server = module.oystehr.zambda_secrets_for_local_server
+  zambda_secrets_for_local_server = merge(module.oystehr.zambda_secrets_for_local_server, module.billing_app.zambda_secrets_for_local_server)
 }
 
 module "apps_upload" {

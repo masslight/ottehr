@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FHIR_EXTENSION, getPatientsForUser, PatientInfo, Secrets } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -29,7 +29,7 @@ export const index = wrapHandler('get-patients', async (input: ZambdaInput): Pro
   // const user = await appClient.getMe();
   // console.log(user);
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   console.log('getting user');
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
   console.log('getting patients for user', user);
