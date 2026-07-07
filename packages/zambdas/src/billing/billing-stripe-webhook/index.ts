@@ -1,10 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Money, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, getSecret, PAYMENT_METHOD_EXTENSION_URL, SecretsKeys } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { checkOrCreateM2MClientToken, STRIPE_PAYMENT_ID_SYSTEM, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  getStripeClient,
+  STRIPE_PAYMENT_ID_SYSTEM,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { createBillingClient, reconcilePaymentNoticesForClaim } from '../shared';
 import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -39,7 +45,7 @@ const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParam
       break;
     }
     case 'charge.refunded': {
-      // TODO (OTR-2679): refunds are the refund.* path's job; re-upserting the gross amount would mask them
+      // refund accounting happens via the refund.* events; re-upserting the gross amount adds nothing
       const charge = event.data.object as Stripe.Charge;
       console.log(`Ignoring charge.refunded for ${charge.id}`);
       break;
@@ -47,9 +53,9 @@ const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParam
     case 'refund.created':
     case 'refund.updated':
     case 'refund.failed': {
-      const refund = event.data.object;
-      console.log(`Refund event for ${refund.id}, charge: ${refund.charge}`);
-      // TODO (OTR-2679): upsert a PaymentNotice for this refund; resolve the encounter via refund.charge
+      const refund = event.data.object as Stripe.Refund;
+      console.log(`Refund event for ${refund.id}, charge: ${refund.charge}, status: ${refund.status}`);
+      await upsertPaymentNoticeForRefund(oystehr, refund, event.account, secrets);
       break;
     }
     default:
@@ -105,14 +111,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   const desiredNotice: PaymentNotice = {
     resourceType: 'PaymentNotice',
     status: 'active',
-    // Payments before claim creation: until the claim exists, request carries only a logical
-    // reference (the claim-encounter-id identifier) and reconcilePaymentNoticesForClaim adds the
-    // literal reference once the claim is born.
-    request: {
-      type: 'Claim',
-      identifier: { system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId },
-      ...(claim?.id ? { reference: `Claim/${claim.id}` } : {}),
-    },
+    request: claimRequestFor(claim, encounterId),
     created,
     amount: paymentAmount,
     // Charge id first: refunds point at charges. The payment intent id is kept alongside for parity
@@ -127,9 +126,29 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     recipient: { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` },
   };
 
-  const existing = await conditionalCreatePaymentNotice(desiredNotice, charge.id, secrets);
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, secrets);
+};
+
+// Payments usually precede claim creation: until the claim exists, request carries only a logical
+// reference (the claim-encounter-id identifier) and reconcilePaymentNoticesForClaim adds the literal
+// reference once the claim is born.
+const claimRequestFor = (claim: Claim | undefined, encounterId: string): Reference => ({
+  type: 'Claim',
+  identifier: { system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId },
+  ...(claim?.id ? { reference: `Claim/${claim.id}` } : {}),
+});
+
+const persistPaymentNoticeUpsert = async (
+  oystehr: Oystehr,
+  desiredNotice: PaymentNotice,
+  dedupStripeId: string,
+  claim: Claim | undefined,
+  encounterId: string,
+  secrets: ZambdaInput['secrets']
+): Promise<void> => {
+  const existing = await conditionalCreatePaymentNotice(desiredNotice, dedupStripeId, secrets);
   if (existing?.id) {
-    // already exist
+    // already existed — rebuild, but never strip an existing link when this run's claim search missed
     const reference = claim?.id ? `Claim/${claim.id}` : existing.request?.reference;
     await oystehr.fhir.update<PaymentNotice>({
       ...desiredNotice,
@@ -146,6 +165,68 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
       await reconcilePaymentNoticesForClaim(oystehr, lateClaim);
     }
   }
+};
+
+const upsertPaymentNoticeForRefund = async (
+  oystehr: Oystehr,
+  refund: Stripe.Refund,
+  stripeAccount: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<void> => {
+  const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
+  if (!chargeId) {
+    console.warn(`Refund ${refund.id} has no charge; skipping PaymentNotice upsert`);
+    return;
+  }
+  // refunds carry no metadata — the charge holds the encounter linkage
+  const charge = await getStripeClient(secrets).charges.retrieve(chargeId, undefined, { stripeAccount });
+
+  const encounterId = charge.metadata?.oystehr_encounter_id ?? charge.metadata?.encounterId;
+  if (!encounterId) {
+    console.warn(`Charge ${charge.id} for refund ${refund.id} has no encounter metadata; skipping`);
+    return;
+  }
+
+  // the refund may arrive before (or without) the charge's own webhook delivery
+  await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, secrets);
+
+  const claim = await findBillingClaimForEncounter(oystehr, encounterId);
+  const created = new Date(refund.created * 1000).toISOString();
+  const failed = refund.status === 'failed' || refund.status === 'canceled';
+
+  // negative amount: a claim's patient AR is the plain sum over its notices
+  const refundAmount: Money = {
+    value: -((refund.amount ?? 0) / 100),
+    currency: (refund.currency ?? 'usd').toUpperCase(),
+  };
+
+  const reconciliation: PaymentReconciliation = {
+    resourceType: 'PaymentReconciliation',
+    id: 'contained-reconciliation',
+    status: failed ? 'cancelled' : 'active',
+    created,
+    disposition: `Stripe refund ${refund.id} (${refund.status ?? 'unknown'}) for charge ${charge.id}`,
+    outcome: refund.status === 'succeeded' ? 'complete' : failed ? 'error' : 'queued',
+    paymentDate: created.slice(0, 10),
+    paymentAmount: refundAmount,
+  };
+
+  const desiredNotice: PaymentNotice = {
+    resourceType: 'PaymentNotice',
+    // Patient AR = sum of PaymentNotice.amount where status === 'active'. Failed/canceled refunds are
+    // cancelled so they never count; readers must filter on status.
+    status: failed ? 'cancelled' : 'active',
+    request: claimRequestFor(claim, encounterId),
+    created,
+    amount: refundAmount,
+    identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: refund.id }],
+    extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: charge.payment_method_details?.type ?? 'card' }],
+    contained: [reconciliation],
+    payment: { reference: `#${reconciliation.id}` },
+    recipient: { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` },
+  };
+
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId, secrets);
 };
 
 // The @oystehr/sdk transaction helper strips ifNoneExist (see rcm produce-outreach-tasks.ts), so the
