@@ -63,6 +63,7 @@
             "Z3:#{var/PROJECT_ID}-statements/*",
             "Z3:#{var/PROJECT_ID}-patient-education/*",
             "Z3:#{var/PROJECT_ID}-patient-education-admin/*",
+            "Z3:#{var/PROJECT_ID}-radiology-reports/*",
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
             "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
             "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*",
