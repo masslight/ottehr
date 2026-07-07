@@ -2,7 +2,9 @@ import { ClaimResponse, ClaimResponseItemAdjudication } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
   ADJUDICATION_CODES,
+  countEraClaims,
   extractClaimResponseAmounts,
+  isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
   summarizeClaimPayments,
   X12_ADJUSTMENT_GROUP_SYSTEM,
@@ -341,5 +343,62 @@ describe('summarizeClaimPayments', () => {
     const summary = summarizeClaimPayments([cr], 100);
     expect(summary.patientResp).toBe(0);
     expect(summary.balance).toBe(0);
+  });
+});
+
+describe('isMatchedToClaim', () => {
+  it('recognizes a real Claim reference as matched', () => {
+    expect(isMatchedToClaim(claimMdClaimResponse())).toBe(true);
+  });
+
+  it('treats an unmatched contained #request reference as unmatched', () => {
+    const unmatched: ClaimResponse = {
+      ...claimMdClaimResponse(),
+      request: {
+        reference: '#request',
+      },
+    };
+    expect(isMatchedToClaim(unmatched)).toBe(false);
+  });
+
+  it('treats a missing request as unmatched', () => {
+    const withoutRequest: ClaimResponse = {
+      ...claimMdClaimResponse(),
+      request: undefined,
+    };
+    expect(isMatchedToClaim(withoutRequest)).toBe(false);
+  });
+});
+
+describe('countEraClaims', () => {
+  it('returns zeros for an ERA with no claim responses', () => {
+    expect(countEraClaims([])).toEqual({
+      total: 0,
+      matched: 0,
+      unmatched: 0,
+    });
+  });
+
+  it('counts distinct claims when an ERA adjudicates the same claim twice', () => {
+    // both fixtures reference Claim/c1 (e.g. a reversal + corrected payment in one remittance)
+    expect(countEraClaims([claimMdClaimResponse('2026-01-01'), claimMdClaimResponse('2026-02-01')])).toEqual({
+      total: 1,
+      matched: 1,
+      unmatched: 0,
+    });
+  });
+
+  it('counts unmatched responses individually', () => {
+    const unmatched: ClaimResponse = {
+      ...claimMdClaimResponse(),
+      request: {
+        reference: '#request',
+      },
+    };
+    expect(countEraClaims([claimMdClaimResponse(), unmatched, unmatched])).toEqual({
+      total: 3,
+      matched: 1,
+      unmatched: 2,
+    });
   });
 });

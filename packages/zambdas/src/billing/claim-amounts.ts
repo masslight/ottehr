@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, ClaimResponseItemAdjudication } from 'fhir/r4b';
+import { ERA_ID_SYSTEM } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
 export const X12_ADJUSTMENT_GROUP_SYSTEM = 'https://x12.org/codes/claim-adjustment-group-codes';
@@ -104,6 +105,30 @@ export function summarizeClaimPayments(claimResponses: ClaimResponse[], billed: 
   };
 }
 
+// Oystehr leaves unmatched ERA ClaimResponses pointing at a contained '#request' claim instead of a
+// real Claim/{id} reference.
+export function isMatchedToClaim(claimResponse: ClaimResponse): boolean {
+  return claimResponse.request?.reference?.startsWith('Claim/') ?? false;
+}
+
+export interface EraClaimCounts {
+  total: number;
+  matched: number;
+  unmatched: number;
+}
+
+export function countEraClaims(claimResponses: ClaimResponse[]): EraClaimCounts {
+  const matched = new Set(
+    claimResponses.filter(isMatchedToClaim).map((claimResponse) => claimResponse.request?.reference)
+  ).size;
+  const unmatched = claimResponses.filter((claimResponse) => !isMatchedToClaim(claimResponse)).length;
+  return {
+    total: matched + unmatched,
+    matched,
+    unmatched,
+  };
+}
+
 const BATCH = 100;
 // Fetch every matched ClaimResponse for the given claims, grouped by claim id. Unmatched ERA
 // ClaimResponses never carry a Claim/{id} request reference, so this returns matched ones only.
@@ -137,4 +162,38 @@ export async function fetchClaimResponsesByClaimIds(
     }
   }
   return byClaimId;
+}
+
+// Fetch every ClaimResponse produced by the given ERAs, grouped by ERA business identifier.
+// Includes unmatched responses (contained '#request' claims) so callers can count both.
+export async function fetchClaimResponsesByEraIds(
+  oystehr: Oystehr,
+  eraIdValues: string[]
+): Promise<Map<string, ClaimResponse[]>> {
+  const byEraId = new Map<string, ClaimResponse[]>();
+  const ids = [...new Set(eraIdValues)];
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const batch = ids.slice(i, i + BATCH).map((id) => `${ERA_ID_SYSTEM}|${id}`);
+    const bundle = await oystehr.fhir.search<ClaimResponse>({
+      resourceType: 'ClaimResponse',
+      params: [
+        {
+          name: 'identifier',
+          value: batch.join(','),
+        },
+        {
+          name: '_count',
+          value: '1000',
+        },
+      ],
+    });
+    for (const claimResponse of bundle.unbundle()) {
+      const eraId = claimResponse.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value;
+      if (!eraId) continue;
+      const list = byEraId.get(eraId) ?? [];
+      list.push(claimResponse);
+      byEraId.set(eraId, list);
+    }
+  }
+  return byEraId;
 }

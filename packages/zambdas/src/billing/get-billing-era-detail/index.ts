@@ -3,7 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Patient, PaymentReconciliation } from 'fhir/r4b';
 import { EraDetailResponse, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { extractClaimResponseAmounts } from '../claim-amounts';
+import {
+  countEraClaims,
+  extractClaimResponseAmounts,
+  fetchClaimResponsesByEraIds,
+  isMatchedToClaim,
+} from '../claim-amounts';
 import { createBillingClient, ERA_CHECK_SYSTEM, ERA_ID_SYSTEM, fhirName, findRef, resolvePayersByRef } from '../shared';
 import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -32,21 +37,17 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
 
   // Find ClaimResponses linked via ERA identifier
   const eraIdValue = pr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value;
-  let claimResponses: ClaimResponse[] = [];
-  if (eraIdValue) {
-    const crResult = await oystehr.fhir.search<ClaimResponse>({
-      resourceType: 'ClaimResponse',
-      params: [{ name: 'identifier', value: `${ERA_ID_SYSTEM}|${eraIdValue}` }],
-    });
-    claimResponses = crResult.unbundle();
-  }
+  const claimResponses: ClaimResponse[] = eraIdValue
+    ? (await fetchClaimResponsesByEraIds(oystehr, [eraIdValue])).get(eraIdValue) ?? []
+    : [];
 
-  // Fetch referenced claims + patients
-  const claimIds = [
-    ...claimResponses.map((cr) => cr.request?.reference?.replace('Claim/', '')).filter(Boolean),
-    ...(pr.detail ?? []).map((d) => d.request?.reference?.replace('Claim/', '')).filter(Boolean),
-  ];
-  const uniqueClaimIds = [...new Set(claimIds)] as string[];
+  // Fetch referenced claims + patients (unmatched responses only carry a contained '#request'
+  // claim)
+  const claimIds = claimResponses
+    .filter(isMatchedToClaim)
+    .map((claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''))
+    .filter(Boolean) as string[];
+  const uniqueClaimIds = [...new Set(claimIds)];
 
   let claims: Claim[] = [];
   let patients: Patient[] = [];
@@ -83,8 +84,7 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
   });
 
   const checkNumber = pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? '';
-  const claimCount = pr.detail?.length ?? 0;
-  const matchedCount = pr.detail?.filter((d) => d.request?.reference).length ?? 0;
+  const counts = countEraClaims(claimResponses);
 
   return {
     id: pr.id ?? '',
@@ -96,9 +96,9 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
     payerFhirId: payerOrg?.id ?? '',
     status: pr.outcome ?? pr.status ?? '',
     paymentMethod: pr.paymentIdentifier ? (pr.paymentIdentifier.system?.includes('check') ? 'CHK' : 'EFT') : '',
-    totalClaims: claimCount,
-    matchedClaims: matchedCount,
-    unmatchedClaims: claimCount - matchedCount,
+    totalClaims: counts.total,
+    matchedClaims: counts.matched,
+    unmatchedClaims: counts.unmatched,
     claims: claimItems,
   };
 }

@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
 import { EraListItem, getPayerId, getPayerUrl } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
+import { countEraClaims, fetchClaimResponsesByEraIds } from '../claim-amounts';
 import {
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -74,11 +75,17 @@ async function performEffect(
     params: searchParams,
   });
   const payments = bundle.unbundle();
-  const payersByRef = await resolvePayersByRef(
-    oystehr,
-    payments.map((pr) => pr.paymentIssuer?.reference)
-  );
-  const eras = payments.map((pr) => mapEra(pr, payersByRef));
+  const eraIdValues = payments
+    .map((pr) => pr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value)
+    .filter(Boolean) as string[];
+  const [payersByRef, claimResponsesByEraId] = await Promise.all([
+    resolvePayersByRef(
+      oystehr,
+      payments.map((pr) => pr.paymentIssuer?.reference)
+    ),
+    fetchClaimResponsesByEraIds(oystehr, eraIdValues),
+  ]);
+  const eras = payments.map((pr) => mapEra(pr, payersByRef, claimResponsesByEraId));
 
   return { eras, total: bundle.total ?? 0, offset, pageSize };
 }
@@ -134,14 +141,17 @@ async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams):
   return ids;
 }
 
-function mapEra(pr: PaymentReconciliation, payersByRef: Map<string, Organization>): EraListItem {
+function mapEra(
+  pr: PaymentReconciliation,
+  payersByRef: Map<string, Organization>,
+  claimResponsesByEraId: Map<string, ClaimResponse[]>
+): EraListItem {
   const payerRef = pr.paymentIssuer?.reference;
   const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
 
   const eraId = pr.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value ?? '';
   const checkNumber = pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? '';
-  const claimCount = pr.detail?.length ?? 0;
-  const matchedCount = pr.detail?.filter((d) => d.request?.reference).length ?? 0;
+  const counts = countEraClaims(claimResponsesByEraId.get(eraId) ?? []);
 
   return {
     id: pr.id ?? '',
@@ -151,8 +161,8 @@ function mapEra(pr: PaymentReconciliation, payersByRef: Map<string, Organization
     paymentDate: pr.paymentDate ?? pr.created ?? '',
     paymentAmount: pr.paymentAmount?.value ?? 0,
     status: pr.outcome ?? pr.status ?? '',
-    claimCount,
-    matchedCount,
-    unmatchedCount: claimCount - matchedCount,
+    claimCount: counts.total,
+    matchedCount: counts.matched,
+    unmatchedCount: counts.unmatched,
   };
 }
