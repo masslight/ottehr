@@ -1,10 +1,7 @@
-import {
-  DeleteOutlined as DeleteIcon,
-  InsertDriveFileOutlined as InsertDriveFileOutlinedIcon,
-} from '@mui/icons-material';
+import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import { Box, IconButton, Link, Typography, useTheme } from '@mui/material';
+import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
 import {
@@ -21,6 +18,7 @@ import {
   VitalsObservationDTO,
 } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
+import DotVisionDocumentChip from '../vision/DotVisionDocumentChip';
 
 type VitalHistoryElementProps<T extends VitalsObservationDTO = VitalsObservationDTO> = {
   historyEntry: T;
@@ -174,28 +172,7 @@ export const getObservationValueElements = (
                 </Typography>
               );
             })}
-            {dotDocument && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  mt: 0.5,
-                  p: 0.5,
-                  borderRadius: 1,
-                  backgroundColor: '#EBEFF4',
-                }}
-              >
-                <InsertDriveFileOutlinedIcon fontSize="small" color="primary" />
-                {dotDocument.url ? (
-                  <Link href={dotDocument.url} target="_blank" rel="noopener">
-                    {dotDocument.title}
-                  </Link>
-                ) : (
-                  <Typography component="span">{dotDocument.title}</Typography>
-                )}
-              </Box>
-            )}
+            {dotDocument && <DotVisionDocumentChip document={dotDocument} />}
           </Box>,
         ];
       }
