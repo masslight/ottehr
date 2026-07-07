@@ -579,6 +579,7 @@ export default function ClaimsList(): ReactElement {
         rowSelectionModel={selected}
         onRowSelectionModelChange={setSelected}
         slots={dataGridSlots}
+        pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
 
