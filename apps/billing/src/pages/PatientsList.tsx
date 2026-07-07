@@ -227,6 +227,7 @@ export default function PatientsList(): ReactElement {
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
         slots={dataGridSlots}
+        pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
 
