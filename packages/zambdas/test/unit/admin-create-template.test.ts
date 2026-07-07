@@ -1,7 +1,7 @@
 import { Communication, Condition, Encounter, Observation, Procedure, ServiceRequest } from 'fhir/r4b';
 import {
   chartDataTagSystem,
-  ICD_10_CODE_SYSTEM,
+  CODE_SYSTEM_ICD_10,
   IN_HOUSE_TEST_CODE_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
@@ -22,7 +22,7 @@ const makeDxCondition = (id: string, encounterId = 'enc-1'): Condition => ({
   subject: { reference: 'Patient/p1' },
   encounter: { reference: `Encounter/${encounterId}` },
   meta: { tag: [{ system: chartDataTagSystem('diagnosis'), code: 'diagnosis' }] },
-  code: { coding: [{ system: ICD_10_CODE_SYSTEM, code: 'J02.9' }] },
+  code: { coding: [{ system: CODE_SYSTEM_ICD_10, code: 'J02.9' }] },
 });
 
 const makeMedicalCondition = (id: string, encounterId = 'enc-1'): Condition => ({
@@ -31,7 +31,7 @@ const makeMedicalCondition = (id: string, encounterId = 'enc-1'): Condition => (
   subject: { reference: 'Patient/p1' },
   encounter: { reference: `Encounter/${encounterId}` },
   meta: { tag: [{ system: chartDataTagSystem('medical-condition'), code: 'medical-condition' }] },
-  code: { coding: [{ system: ICD_10_CODE_SYSTEM, code: 'J45.909' }] },
+  code: { coding: [{ system: CODE_SYSTEM_ICD_10, code: 'J45.909' }] },
 });
 
 const makeObservation = (id: string, tagField: string): Observation => ({
