@@ -12,6 +12,7 @@ import {
   Account,
   AccountGuarantor,
   Address,
+  Appointment,
   Attachment,
   Bundle,
   CodeableConcept,
@@ -96,6 +97,7 @@ import {
   isFieldExplicitlyCleared,
   isoStringFromDateComponents,
   isPayerUrl,
+  isTelemedAppointment,
   isValidUUID,
   makeOptimisticLockIfMatchHeader,
   makeSSNIdentifier,
@@ -231,7 +233,7 @@ interface CreateConsentResourcesInput {
   questionnaireResponse: QuestionnaireResponse;
   patientResource: Patient;
   locationResource?: Location;
-  appointmentId: string;
+  appointment: Appointment;
   oystehrAccessToken: string;
   oystehr: Oystehr;
   secrets: Secrets | null;
@@ -243,12 +245,13 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     questionnaireResponse,
     patientResource,
     locationResource,
-    appointmentId,
+    appointment,
     oystehrAccessToken,
     oystehr,
     secrets,
     listResources,
   } = input;
+  const appointmentId = appointment.id!;
   console.log('Checking DocumentReferences for consent forms');
   const paperwork = questionnaireResponse.item ?? [];
 
@@ -369,17 +372,13 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   const nowIso = DateTime.now().setZone('UTC').toISO() || '';
 
-  // TODO(dual-mode locations): this derives the facility name from the Location's
-  // virtual flag, but a Location can now be both virtual and in-person. For an
-  // in-person visit at a dual-mode Location this mislabels the facility as
-  // "Ottehr Telemedicine". This should key off the appointment/encounter service
-  // mode (e.g. isTelemedAppointment) rather than the Location flag. Tracked separately.
-  const isVirtualLocation =
-    locationResource?.extension?.find(
-      (ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release'
-    )?.valueCoding?.code === 'vi';
+  // Key the facility label off the visit's service mode, not the Location's
+  // virtual flag: a Location can be both virtual and in-person (dual-mode), so
+  // an in-person visit at such a Location must still show its physical facility
+  // name rather than "Ottehr Telemedicine".
+  const isTelemedVisit = isTelemedAppointment(appointment);
 
-  const facilityName = isVirtualLocation
+  const facilityName = isTelemedVisit
     ? 'Ottehr Telemedicine'
     : locationResource?.identifier?.find(
         (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
