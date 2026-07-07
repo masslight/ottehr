@@ -7,15 +7,28 @@ export const DOT_VISION_SCREENING_LABELS = {
   monocularVision: 'Monocular vision',
   referredToSpecialist: 'Referred to ophthalmologist or optometrist?',
   receivedDocumentation: 'Received documentation from ophthalmologist or optometrist?',
+  referralDocument: 'Referral documentation',
 } as const;
 
 const yesNo = (value: boolean): string => (value ? 'Yes' : 'No');
+
+interface GetDotVisionScreeningLinesOptions {
+  /**
+   * Append a line naming the attached referral document. Off by default so the EHR (which renders a
+   * clickable file chip separately) doesn't show the file twice; PDFs enable it since they have no
+   * chip and would otherwise omit the document entirely.
+   */
+  includeDocument?: boolean;
+}
 
 /**
  * Formats DOT (MCSA-5875) vision screening data into display lines mirroring the form layout:
  * horizontal field of vision per eye (with "degrees" units), then the four Yes/No qualifiers.
  */
-export const getDotVisionScreeningLines = (dot?: VitalsDotVisionScreening): string[] => {
+export const getDotVisionScreeningLines = (
+  dot?: VitalsDotVisionScreening,
+  options?: GetDotVisionScreeningLinesOptions
+): string[] => {
   if (!dot) return [];
   const lines: string[] = [];
   if (dot.horizontalFieldLeftDegrees != null) {
@@ -35,6 +48,9 @@ export const getDotVisionScreeningLines = (dot?: VitalsDotVisionScreening): stri
   }
   if (dot.receivedDocumentation != null) {
     lines.push(`${DOT_VISION_SCREENING_LABELS.receivedDocumentation}: ${yesNo(dot.receivedDocumentation)}`);
+  }
+  if (options?.includeDocument && dot.document) {
+    lines.push(`${DOT_VISION_SCREENING_LABELS.referralDocument}: ${dot.document.title}`);
   }
   return lines;
 };
