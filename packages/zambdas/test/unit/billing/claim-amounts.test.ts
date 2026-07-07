@@ -6,6 +6,7 @@ import {
   extractClaimResponseAmounts,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
+  sortClaimResponsesByRecency,
   summarizeClaimPayments,
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
@@ -400,5 +401,29 @@ describe('countEraClaims', () => {
       matched: 1,
       unmatched: 2,
     });
+  });
+});
+
+describe('sortClaimResponsesByRecency', () => {
+  it('orders by created, then lastUpdated, oldest first', () => {
+    const jan = claimResponse('2026-01-01', { totalPaid: 1 });
+    const febEarly = claimResponse('2026-02-01', {
+      totalPaid: 2,
+      lastUpdated: '2026-02-01T08:00:00Z',
+    });
+    const febLate = claimResponse('2026-02-01', {
+      totalPaid: 3,
+      lastUpdated: '2026-02-02T08:00:00Z',
+    });
+    const sorted = sortClaimResponsesByRecency([febLate, jan, febEarly]);
+    expect(sorted.map((cr) => cr.total?.[0]?.amount?.value)).toEqual([1, 2, 3]);
+  });
+
+  it('does not mutate the input array', () => {
+    const a = claimResponse('2026-02-01', { totalPaid: 1 });
+    const b = claimResponse('2026-01-01', { totalPaid: 2 });
+    const input = [a, b];
+    sortClaimResponsesByRecency(input);
+    expect(input).toEqual([a, b]);
   });
 });

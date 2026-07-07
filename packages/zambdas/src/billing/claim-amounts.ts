@@ -68,6 +68,14 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
   };
 }
 
+export function sortClaimResponsesByRecency(claimResponses: ClaimResponse[]): ClaimResponse[] {
+  return [...claimResponses].sort(
+    (a, b) =>
+      (a.created ?? '').localeCompare(b.created ?? '') ||
+      (a.meta?.lastUpdated ?? '').localeCompare(b.meta?.lastUpdated ?? '')
+  );
+}
+
 export function summarizeClaimPayments(claimResponses: ClaimResponse[], billed: number): ClaimPaymentSummary {
   // patientPaid comes from the patient-payments subsystem, which is not wired yet
   const patientPaid = 0;
@@ -83,12 +91,7 @@ export function summarizeClaimPayments(claimResponses: ClaimResponse[], billed: 
     };
   }
 
-  const sorted = [...claimResponses].sort(
-    (a, b) =>
-      (a.created ?? '').localeCompare(b.created ?? '') ||
-      (a.meta?.lastUpdated ?? '').localeCompare(b.meta?.lastUpdated ?? '')
-  );
-  const amounts = sorted.map(extractClaimResponseAmounts);
+  const amounts = sortClaimResponsesByRecency(claimResponses).map(extractClaimResponseAmounts);
 
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
   const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;

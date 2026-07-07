@@ -5,9 +5,10 @@ import { EraDetailResponse, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   countEraClaims,
-  extractClaimResponseAmounts,
   fetchClaimResponsesByEraIds,
   isMatchedToClaim,
+  sortClaimResponsesByRecency,
+  summarizeClaimPayments,
 } from '../claim-amounts';
 import { createBillingClient, ERA_CHECK_SYSTEM, fhirName, findRef, getEraIdValue, resolvePayersByRef } from '../shared';
 import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
@@ -41,13 +42,19 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
     ? (await fetchClaimResponsesByEraIds(oystehr, [eraIdValue])).get(eraIdValue) ?? []
     : [];
 
-  // Fetch referenced claims + patients (unmatched responses only carry a contained '#request'
-  // claim)
-  const claimIds = claimResponses
-    .filter(isMatchedToClaim)
-    .map((claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''))
-    .filter(Boolean) as string[];
-  const uniqueClaimIds = [...new Set(claimIds)];
+  // Group matched responses by claim id; an ERA can adjudicate the same claim more than once
+  // (reversal + correction), and unmatched responses only carry a contained '#request' claim so
+  // they are excluded here and surface only in the counts below.
+  const responsesByClaimId = new Map<string, ClaimResponse[]>();
+  for (const claimResponse of claimResponses) {
+    if (!isMatchedToClaim(claimResponse)) continue;
+    const claimId = claimResponse.request?.reference?.replace('Claim/', '');
+    if (!claimId) continue;
+    const list = responsesByClaimId.get(claimId) ?? [];
+    list.push(claimResponse);
+    responsesByClaimId.set(claimId, list);
+  }
+  const uniqueClaimIds = [...responsesByClaimId.keys()];
 
   let claims: Claim[] = [];
   let patients: Patient[] = [];
@@ -65,21 +72,22 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
   }
 
   const claimItems = claims.map((c) => {
-    const cr = claimResponses.find((r) => r.request?.reference === `Claim/${c.id}`);
+    const crs = responsesByClaimId.get(c.id ?? '') ?? [];
     const patient = findRef<Patient>(patients, c.patient?.reference);
 
-    const amounts = cr ? extractClaimResponseAmounts(cr) : undefined;
-    const paid = amounts?.paid ?? 0;
+    const billed = c.total?.value ?? 0;
+    const payments = summarizeClaimPayments(crs, billed);
+    const latestStatus = sortClaimResponsesByRecency(crs).at(-1)?.outcome ?? '';
 
     return {
       claimId: c.id ?? '',
       patientName: fhirName(patient),
       dos: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
-      billed: c.total?.value ?? 0,
-      allowed: amounts?.allowed ?? 0,
-      paid,
-      posted: paid,
-      status: cr?.outcome ?? '',
+      billed,
+      allowed: payments.allowed,
+      paid: payments.insurancePaid,
+      posted: payments.insurancePaid,
+      status: latestStatus,
     };
   });
 
