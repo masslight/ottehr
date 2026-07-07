@@ -1,7 +1,6 @@
-import { Box, CircularProgress, Grid, Paper, Typography } from '@mui/material';
+import { Box, CircularProgress, Paper, Typography } from '@mui/material';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement, useCallback, useState } from 'react';
-import PageContainer from 'src/layout/PageContainer';
 import { APIError, LabelPrintingConfig } from 'utils';
 import { useAdminGetLabelPrintingConfig, useAdminUpdateLabelPrintingConfig } from '../admin.queries';
 import AdminLabelPrintingConfigForm from './AdminLabelPrintingConfigForm';
@@ -45,29 +44,25 @@ export default function AdminPrintingConfigPage(): ReactElement {
   );
 
   return (
-    <PageContainer tabTitle={'Update Label Printing Config'} showEnvFooter={false}>
-      <Grid container direction="row" alignItems="center" justifyContent="center">
-        <Grid item maxWidth={'584px'} width={'100%'}>
-          <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
-            {isPending ? (
-              <Box display="flex" justifyContent="center" alignItems="center" py={3}>
-                <CircularProgress />
-              </Box>
-            ) : isFetchDataError ? (
-              <Typography>An error has occurred</Typography>
-            ) : (
-              <AdminLabelPrintingConfigForm
-                key={dataUpdatedAt}
-                formMode="edit"
-                defaultValues={configToRender}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                submitError={submitError}
-              />
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
-    </PageContainer>
+    <Box>
+      {isPending ? (
+        <Box display="flex" justifyContent="center" alignItems="center" py={3}>
+          <CircularProgress />
+        </Box>
+      ) : isFetchDataError ? (
+        <Typography>An error has occurred</Typography>
+      ) : (
+        <Paper sx={{ p: 3 }}>
+          <AdminLabelPrintingConfigForm
+            key={dataUpdatedAt}
+            formMode="edit"
+            defaultValues={configToRender}
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+            submitError={submitError}
+          />
+        </Paper>
+      )}
+    </Box>
   );
 }
