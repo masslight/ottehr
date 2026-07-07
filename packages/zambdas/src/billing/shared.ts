@@ -12,6 +12,7 @@ import {
   Location,
   Organization,
   Patient,
+  PaymentNotice,
   Person,
   Practitioner,
   RelatedPerson,
@@ -46,6 +47,7 @@ import {
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getClaimStatusValues,
+  getPatchBinary,
   getPayerId,
   getPayerUrl,
   getSecret,
@@ -61,6 +63,7 @@ import {
   withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 
 // Type alias for resources relevant to billing
 export type BillingFhirResource =
@@ -783,4 +786,36 @@ export function getDefaultSettingForChargeItemDefinition(
       ? (defaultCode as 'insurance' | 'self-pay')
       : undefined;
   return defaultValue;
+}
+
+// Links PaymentNotices the stripe webhook stored before this claim existed — their request holds only a
+// logical reference (the claim-encounter-id identifier). Oystehr matches request:identifier by VALUE only;
+export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
+  const encounterId = claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value;
+  if (!claim.id || !encounterId) return;
+
+  const notices = (
+    await oystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [{ name: 'request:identifier', value: encounterId }],
+    })
+  ).unbundle();
+
+  const unlinked = notices.filter((n) => n.id && !n.request?.reference);
+  if (unlinked.length === 0) return;
+
+  const result = await oystehr.fhir.batch({
+    requests: unlinked.map((n) =>
+      getPatchBinary({
+        resourceType: 'PaymentNotice',
+        resourceId: n.id!,
+        patchOperations: [{ op: 'add', path: '/request/reference', value: `Claim/${claim.id}` }],
+      })
+    ),
+  });
+  const failed = (result.entry ?? []).filter((e) => e.response?.outcome?.id !== 'ok');
+  if (failed.length > 0) {
+    console.warn(`reconcilePaymentNoticesForClaim: ${failed.length} of ${unlinked.length} patches failed`);
+  }
+  console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
 }

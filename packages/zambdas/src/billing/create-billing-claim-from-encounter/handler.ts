@@ -96,6 +96,7 @@ import {
   prepareWorkingCopy,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  reconcilePaymentNoticesForClaim,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
@@ -506,6 +507,13 @@ export async function performEffect(
   if (!createdClaim || !createdClaim.id) {
     console.log('Claim not created');
     throw InternalError;
+  }
+
+  // Adopt any payments the stripe webhook recorded before this claim existed
+  try {
+    await reconcilePaymentNoticesForClaim(billingOystehr, createdClaim);
+  } catch (err) {
+    console.error('Failed to reconcile PaymentNotices for new claim', err);
   }
 
   return { claimId: createdClaim.id };

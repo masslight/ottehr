@@ -5,7 +5,7 @@ import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, getSecret, PAYMENT_METHOD_EXTENSION_URL, SecretsKeys } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, STRIPE_PAYMENT_ID_SYSTEM, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient } from '../shared';
+import { createBillingClient, reconcilePaymentNoticesForClaim } from '../shared';
 import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
@@ -49,12 +49,25 @@ const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParam
     case 'refund.failed': {
       const refund = event.data.object;
       console.log(`Refund event for ${refund.id}, charge: ${refund.charge}`);
-      // TODO (OTR-2679): upsert a refund PaymentNotice; resolve the encounter via refund.charge
+      // TODO (OTR-2679): upsert a PaymentNotice for this refund; resolve the encounter via refund.charge
       break;
     }
     default:
       console.log('Ignoring unhandled event type:', event.type);
   }
+};
+
+const findBillingClaimForEncounter = async (oystehr: Oystehr, encounterId: string): Promise<Claim | undefined> => {
+  const claims = (
+    await oystehr.fhir.search<Claim>({
+      resourceType: 'Claim',
+      params: [
+        { name: 'identifier', value: `${ottehrIdentifierSystem('claim-encounter-id')}|${encounterId}` },
+        { name: '_count', value: '1' },
+      ],
+    })
+  ).unbundle();
+  return claims[0];
 };
 
 const upsertPaymentNoticeOnBillingClaimForCharge = async (
@@ -68,25 +81,9 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     return;
   }
 
-  const claims = (
-    await oystehr.fhir.search<Claim>({
-      resourceType: 'Claim',
-      params: [
-        { name: 'identifier', value: `${ottehrIdentifierSystem('claim-encounter-id')}|${encounterId}` },
-        { name: '_count', value: '1' },
-      ],
-    })
-  ).unbundle();
+  const claim = await findBillingClaimForEncounter(oystehr, encounterId);
 
-  const claim = claims[0];
-  if (!claim?.id) {
-    console.warn(
-      `No billing Claim found for encounter ${encounterId}; skipping PaymentNotice upsert for charge ${charge.id}`
-    );
-    return;
-  }
-
-  const stripePaymentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.id;
+  const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : undefined;
   const created = new Date(charge.created * 1000).toISOString();
 
   const paymentAmount: Money = {
@@ -108,23 +105,47 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   const desiredNotice: PaymentNotice = {
     resourceType: 'PaymentNotice',
     status: 'active',
-    request: { reference: `Claim/${claim.id}`, type: 'Claim' },
+    // Payments before claim creation: until the claim exists, request carries only a logical
+    // reference (the claim-encounter-id identifier) and reconcilePaymentNoticesForClaim adds the
+    // literal reference once the claim is born.
+    request: {
+      type: 'Claim',
+      identifier: { system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId },
+      ...(claim?.id ? { reference: `Claim/${claim.id}` } : {}),
+    },
     created,
     amount: paymentAmount,
-    identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: stripePaymentId }],
+    // Charge id first: refunds point at charges. The payment intent id is kept alongside for parity
+    // with the clinical PaymentNotices, which are keyed by payment intent.
+    identifier: [
+      { system: STRIPE_PAYMENT_ID_SYSTEM, value: charge.id },
+      ...(paymentIntentId ? [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: paymentIntentId }] : []),
+    ],
     extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: charge.payment_method_details?.type ?? 'card' }],
     contained: [reconciliation],
     payment: { reference: `#${reconciliation.id}` },
     recipient: { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` },
   };
 
-  const existing = await conditionalCreatePaymentNotice(desiredNotice, stripePaymentId, secrets);
-  if (!existing?.id) {
-    return;
+  const existing = await conditionalCreatePaymentNotice(desiredNotice, charge.id, secrets);
+  if (existing?.id) {
+    // already exist
+    const reference = claim?.id ? `Claim/${claim.id}` : existing.request?.reference;
+    await oystehr.fhir.update<PaymentNotice>({
+      ...desiredNotice,
+      id: existing.id,
+      request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
+    });
   }
 
-  // already existed — rebuild from the charge so the contained reconciliation never drifts
-  await oystehr.fhir.update<PaymentNotice>({ ...desiredNotice, id: existing.id });
+  if (!claim) {
+    // the claim may have been created while the notice was being persisted: the other half of this
+    // race is create-billing-claim-from-encounter reconciling right after it creates the claim
+    const lateClaim = await findBillingClaimForEncounter(oystehr, encounterId);
+    if (lateClaim) {
+      await reconcilePaymentNoticesForClaim(oystehr, lateClaim);
+    }
+  }
 };
 
 // The @oystehr/sdk transaction helper strips ifNoneExist (see rcm produce-outreach-tasks.ts), so the
@@ -132,12 +153,12 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
 // manually) and the match query is tag-scoped because clinical PaymentNotices share this identifier system.
 const conditionalCreatePaymentNotice = async (
   notice: PaymentNotice,
-  stripePaymentId: string,
+  stripeObjectId: string,
   secrets: ZambdaInput['secrets']
 ): Promise<PaymentNotice | undefined> => {
   const fhirApiUrl = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
   const ifNoneExist = [
-    `identifier=${encodeURIComponent(`${STRIPE_PAYMENT_ID_SYSTEM}|${stripePaymentId}`)}`,
+    `identifier=${encodeURIComponent(`${STRIPE_PAYMENT_ID_SYSTEM}|${stripeObjectId}`)}`,
     `_tag=${encodeURIComponent(`${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`)}`,
   ].join('&');
 
@@ -161,7 +182,7 @@ const conditionalCreatePaymentNotice = async (
   });
 
   if (res.status === 412) {
-    console.log(`Conditional create matched multiple PaymentNotices for ${stripePaymentId}, skipping`);
+    console.log(`Conditional create matched multiple PaymentNotices for ${stripeObjectId}, skipping`);
     return undefined;
   }
   if (!res.ok) {
