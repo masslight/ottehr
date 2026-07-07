@@ -347,18 +347,26 @@ export function buildExtensionObject(url: string, value: string): Extension | un
     case 'valueCodeableConcept': {
       const mapping = CODEABLE_CONCEPT_MAPPINGS[url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
       if (mapping) {
-        const valueMapping = mapping[value as keyof typeof mapping] as Coding;
-        extensionValue = {
-          valueCodeableConcept: {
-            coding: [
-              {
-                system: valueMapping?.system,
-                code: valueMapping?.code,
-                display: valueMapping?.display,
-              },
-            ],
-          },
-        };
+        const valueMapping = mapping[value as keyof typeof mapping] as Coding | undefined;
+        // Only build the coding when the value is a known mapping key. An unmapped value
+        // would otherwise produce a coding of all-undefined fields that serializes to an
+        // empty `{}` — which violates FHIR constraint ele-1 and fails the whole patch.
+        // Leaving extensionValue undefined makes the caller skip this field entirely.
+        if (valueMapping) {
+          extensionValue = {
+            valueCodeableConcept: {
+              coding: [
+                {
+                  system: valueMapping.system,
+                  code: valueMapping.code,
+                  display: valueMapping.display,
+                },
+              ],
+            },
+          };
+        } else {
+          console.warn(`buildExtensionObject: no mapping for ${url} value "${value}"; skipping extension`);
+        }
       }
       break;
     }

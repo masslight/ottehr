@@ -26,6 +26,8 @@ import {
   Person,
   Practitioner,
   Procedure,
+  Provenance,
+  ProvenanceAgent,
   Reference,
   RelatedPerson,
   Resource,
@@ -81,6 +83,7 @@ import {
   sendErrors,
   ZambdaInput,
 } from '../../shared';
+import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
@@ -92,10 +95,12 @@ import {
   ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
+  payerDisplay,
   prepareCopy,
   prepareWorkingCopy,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  resourceDisplayName,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
@@ -154,7 +159,7 @@ interface ClaimResources {
 }
 
 type CreateClaimFromEncounterRequests = Array<
-  | BatchInputPostRequest<BillingFhirResource>
+  | BatchInputPostRequest<BillingFhirResource | Provenance>
   | BatchInputPatchRequest<BillingFhirResource>
   | BatchInputPutRequest<BillingFhirResource>
   | BatchInputDeleteRequest
@@ -170,14 +175,16 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
+  const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(billingOystehr, cvo);
+  const response = await performEffect(billingOystehr, cvo, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 }
 
 export async function performEffect(
   billingOystehr: Oystehr,
-  cvo: ComplexValidationOutput
+  cvo: ComplexValidationOutput,
+  agent: ProvenanceAgent
 ): Promise<{ claimId: string }> {
   const { clinicalResources, billingResources } = cvo;
 
@@ -455,8 +462,24 @@ export async function performEffect(
     billingTags,
     chargeMaster: billingResources.chargeMaster,
   });
-  requests.push({ method: 'POST', url: '/Claim', resource: claim });
+  const claimUrn = 'urn:uuid:claim';
+  requests.push({ method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn });
   order.push('claim');
+
+  // Creation Provenance for the working claim, written in the same transaction. It targets the
+  // claim's urn:uuid, which the transaction resolves to the real Claim reference.
+  const creationProvenance = claimProvenanceRequest({
+    targetReference: claimUrn,
+    claimReference: claimUrn,
+    after: claim,
+    agent,
+    activity: 'create',
+    recorded: recordedNow(),
+  });
+  if (creationProvenance) {
+    requests.push(creationProvenance);
+    order.push('provenance');
+  }
 
   // Remove urns from id before submitting transaction
   requests.forEach((r) => {
@@ -466,7 +489,7 @@ export async function performEffect(
   });
 
   console.log('all claim requests', JSON.stringify(requests, undefined, 2));
-  const txResult = await billingOystehr.fhir.transaction<BillingFhirResource>({ requests });
+  const txResult = await billingOystehr.fhir.transaction<BillingFhirResource | Provenance>({ requests });
   const entries = (txResult.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
 
   if (entries.length !== order.length) {
@@ -515,6 +538,12 @@ function uuidOrUrnReference(resourceType: BillingFhirResource['resourceType'], u
   return { reference: uuidOrUrnReferenceString(resourceType, uuidOrUrn) };
 }
 
+// Claim.insurance reference to a coverage copy, carrying the payer's name as the display so history
+// records read as e.g. "Aetna (60054)" instead of a urn/id reference.
+function coverageDisplayReference(coverage: Coverage): Reference {
+  return { ...uuidOrUrnReference('Coverage', coverage.id!), display: coverage.payor?.[0]?.display };
+}
+
 function uuidOrUrnReferenceString(resourceType: BillingFhirResource['resourceType'], uuidOrUrn: string): string {
   if (uuidOrUrn.startsWith('urn:uuid:')) {
     return uuidOrUrn;
@@ -553,20 +582,10 @@ export function getClaimCoveragesForEncounter(
       });
       return [
         ...(primaryCoverage
-          ? [
-              {
-                coverageRef: uuidOrUrnReference('Coverage', primaryCoverage.id!),
-                payorRef: primaryCoverage.payor[0],
-              },
-            ]
+          ? [{ coverageRef: coverageDisplayReference(primaryCoverage), payorRef: primaryCoverage.payor[0] }]
           : []),
         ...(secondaryCoverage
-          ? [
-              {
-                coverageRef: uuidOrUrnReference('Coverage', secondaryCoverage.id!),
-                payorRef: secondaryCoverage.payor[0],
-              },
-            ]
+          ? [{ coverageRef: coverageDisplayReference(secondaryCoverage), payorRef: secondaryCoverage.payor[0] }]
           : []),
       ];
     }
@@ -586,14 +605,7 @@ export function getClaimCoveragesForEncounter(
         }
       });
       return [
-        ...(wcCoverage
-          ? [
-              {
-                coverageRef: uuidOrUrnReference('Coverage', wcCoverage.id!),
-                payorRef: wcCoverage.payor[0],
-              },
-            ]
-          : []),
+        ...(wcCoverage ? [{ coverageRef: coverageDisplayReference(wcCoverage), payorRef: wcCoverage.payor[0] }] : []),
       ];
     }
     case CODE_SYSTEM_SERVICE_CATEGORY_CODES['occupational-medicine']: {
@@ -713,15 +725,24 @@ export function copyCoverageAndSubscriber(
     subscriberId = subscriber.id;
   }
   copy.subscriber = uuidOrUrnReference('RelatedPerson', subscriberId);
-  // Move all coverages to payer URLs
-  const internalRefId = copy.payor[0].reference?.replace('Organization/', '');
+  // Move all coverages to payer URLs, carrying the payer's display name so downstream references
+  // (claim.insurer, history records) stay human-readable.
+  const payorRef = copy.payor[0].reference;
+  const internalRefId = payorRef?.replace('Organization/', '');
   if (internalRefId && isValidUUID(internalRefId)) {
     // TODO: this does not support billing copies of non-insurance payers
     const org = payors.find((p) => p.id === internalRefId);
     const payerId = getPayerId(org);
     if (payerId) {
-      copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }) }];
+      copy.payor = [{ reference: billingOystehr.rcm.constructPayerUrl({ id: payerId }), display: payerDisplay(org) }];
     }
+  } else if (payorRef && !copy.payor[0].display) {
+    // Payor is already a payer URL: resolve its display from the payer organizations fetched upstream.
+    const org = payors.find((p) => {
+      const payerId = getPayerId(p);
+      return payerId && billingOystehr.rcm.constructPayerUrl({ id: payerId }) === payorRef;
+    });
+    if (org) copy.payor = [{ reference: payorRef, display: payerDisplay(org) }];
   }
   const planTypeCode = getCandidPlanTypeCodeFromCoverage(coverage);
   if (planTypeCode) copy = setCoveragePlanType(copy, planTypeCode);
@@ -1151,9 +1172,17 @@ function buildClaim(resources: ClaimResources): Claim {
     extension: getDefaultClaimSubmissionExtensions(),
     patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
-      ? { reference: `Organization/${resources.billingProvider.id}` }
+      ? {
+          reference: `Organization/${resources.billingProvider.id}`,
+          display: resourceDisplayName(resources.billingProvider),
+        }
       : { display: 'Unknown' },
-    facility: resources.serviceFacility ? { reference: `Location/${resources.serviceFacility.id}` } : undefined,
+    facility: resources.serviceFacility
+      ? {
+          reference: `Location/${resources.serviceFacility.id}`,
+          display: resourceDisplayName(resources.serviceFacility),
+        }
+      : undefined,
     insurer: resources.coverageRefs.length
       ? resources.coverageRefs[0].payorRef
         ? resources.coverageRefs[0].payorRef
@@ -1170,7 +1199,10 @@ function buildClaim(resources: ClaimResources): Claim {
       ? [
           {
             sequence: 1,
-            provider: { reference: `Practitioner/${resources.renderingProvider.id}` },
+            provider: {
+              reference: `Practitioner/${resources.renderingProvider.id}`,
+              display: resourceDisplayName(resources.renderingProvider),
+            },
             role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
           },
         ]

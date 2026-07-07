@@ -3,11 +3,21 @@ import { Box, Paper, TextField, Typography } from '@mui/material';
 import { HealthcareService, Location } from 'fhir/r4b';
 import { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ScheduleStrategyCoding } from 'utils';
+import {
+  isValidSlug,
+  LOCATION_FORM_EXTENSION_URL,
+  LOCATION_IN_PERSON_CODE,
+  LOCATION_MANUALLY_CREATED_EXTENSION_URL,
+  LOCATION_PHYSICAL_TYPE_SYSTEM,
+  ScheduleStrategyCoding,
+  SLUG_SYSTEM,
+  slugFromName,
+  TIMEZONE_EXTENSION_URL,
+  TIMEZONES,
+} from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { getResource } from './SchedulePage';
 
 const VALID_SCHEDULE_TYPES = ['location', 'group'] as const;
 type ScheduleTypeParam = (typeof VALID_SCHEDULE_TYPES)[number];
@@ -33,44 +43,107 @@ export default function AddSchedulePage(): ReactElement {
   // without a name.
   const trimmedName = name.trim();
 
+  // A new Location gets a slug auto-derived from its name so it's immediately
+  // bookable (the patient-facing list-bookables zambda requires a slug). Some
+  // names have no URL-safe characters (e.g. a purely non-Latin name) and yield
+  // an empty/invalid slug — block creation and tell the admin, since a Location
+  // without a slug can never surface to patients.
+  const isLocation = scheduleType === 'location';
+  const derivedSlug = isLocation ? slugFromName(trimmedName) : '';
+  const slugInvalid = isLocation && trimmedName.length > 0 && !isValidSlug(derivedSlug);
+
+  const nameHelperText = ((): string => {
+    if (!trimmedName) {
+      return 'Name is required';
+    }
+    if (isLocation) {
+      return slugInvalid
+        ? 'Cannot build a URL-safe permalink from this name. Use letters, digits, or hyphens.'
+        : `Permalink will be: ${derivedSlug}`;
+    }
+    return ' ';
+  })();
+
   async function createSchedule(event: any): Promise<void> {
     event.preventDefault();
     if (!oystehr) return;
     if (!trimmedName) return;
+    if (slugInvalid) return;
     setLoading(true);
-    const resourceData: Location | HealthcareService = {
-      resourceType: getResource(scheduleType),
-      name: trimmedName,
-    };
+    let resourceData: Location | HealthcareService;
     if (scheduleType === 'group') {
-      (resourceData as HealthcareService).characteristic = [
-        {
-          coding: [
-            {
-              system: 'http://hl7.org/fhir/service-mode',
-              code: 'in-person',
+      resourceData = {
+        resourceType: 'HealthcareService',
+        name: trimmedName,
+        characteristic: [
+          {
+            coding: [
+              {
+                system: 'http://hl7.org/fhir/service-mode',
+                code: 'in-person',
+                display: 'In Person',
+              },
+            ],
+          },
+          {
+            coding: [
+              {
+                code: ScheduleStrategyCoding.poolsAll.code,
+                display: ScheduleStrategyCoding.poolsAll.display,
+                system: ScheduleStrategyCoding.poolsAll.system,
+              },
+            ],
+          },
+        ],
+      };
+    } else {
+      // Build a fully-formed Location, matching what terraform / the setup
+      // scripts create — a bare { resourceType, name } is invisible to patients
+      // (inactive, no slug) and never becomes bookable. An admin-created
+      // Location defaults to in-person + active with a slug derived from the
+      // name; the marker extension lets the UI treat it as manually-created and
+      // allow slug edits later. Address (required for the in-person booking
+      // search) is configured afterward on the Location tab.
+      resourceData = {
+        resourceType: 'Location',
+        name: trimmedName,
+        status: 'active',
+        identifier: [
+          {
+            system: SLUG_SYSTEM,
+            value: derivedSlug,
+          },
+        ],
+        extension: [
+          {
+            url: TIMEZONE_EXTENSION_URL,
+            valueString: TIMEZONES[0],
+          },
+          {
+            url: LOCATION_FORM_EXTENSION_URL,
+            valueCoding: {
+              system: LOCATION_PHYSICAL_TYPE_SYSTEM,
+              code: LOCATION_IN_PERSON_CODE,
               display: 'In Person',
             },
-          ],
-        },
-        {
-          coding: [
-            {
-              code: ScheduleStrategyCoding.poolsAll.code,
-              display: ScheduleStrategyCoding.poolsAll.display,
-              system: ScheduleStrategyCoding.poolsAll.system,
-            },
-          ],
-        },
-      ];
+          },
+          {
+            url: LOCATION_MANUALLY_CREATED_EXTENSION_URL,
+            valueBoolean: true,
+          },
+        ],
+      };
     }
-    const resource = await oystehr.fhir.create<Location | HealthcareService>(resourceData);
-    setLoading(false);
+    try {
+      const resource = await oystehr.fhir.create<Location | HealthcareService>(resourceData);
 
-    if (scheduleType === 'group') {
-      navigate(`/admin/group/id/${resource.id}`);
-    } else {
-      navigate(`/admin/schedule/new/${scheduleType}/${resource.id}`);
+      if (scheduleType === 'group') {
+        navigate(`/admin/group/id/${resource.id}`);
+      } else {
+        navigate(`/admin/schedule/new/${scheduleType}/${resource.id}`);
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -95,8 +168,8 @@ export default function AddSchedulePage(): ReactElement {
                 required
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                helperText={!trimmedName ? 'Name is required' : ' '}
-                error={!trimmedName && name.length > 0}
+                helperText={nameHelperText}
+                error={(!trimmedName && name.length > 0) || slugInvalid}
               />
               <br />
               <LoadingButton
@@ -104,7 +177,7 @@ export default function AddSchedulePage(): ReactElement {
                 loading={loading}
                 variant="contained"
                 sx={{ marginTop: 2 }}
-                disabled={!trimmedName}
+                disabled={!trimmedName || slugInvalid}
               >
                 Save
               </LoadingButton>

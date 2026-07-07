@@ -17,7 +17,8 @@ terraform {
       version = "~> 2.0"
     }
     oystehr = {
-      source = "registry.terraform.io/masslight/oystehr"
+      source  = "registry.terraform.io/masslight/oystehr"
+      version = "0.0.22"
     }
     aws = {
       source = "hashicorp/aws"
