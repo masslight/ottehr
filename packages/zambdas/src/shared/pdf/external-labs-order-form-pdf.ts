@@ -15,6 +15,7 @@ import {
   getPatientIdForLabOrder,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LabPaymentMethod,
+  MIME_TYPES,
   ORDER_ITEM_UNKNOWN,
   PaymentResources,
   Secrets,
@@ -31,7 +32,7 @@ import { ExternalLabOrderFormData, OrderFormInsuranceInfo, PdfClient } from './t
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUrl);
+  await uploadObjectToZ3(pdfBytes, presignedUrl, MIME_TYPES.PDF);
 }
 
 export async function createExternalLabsOrderFormPDF(

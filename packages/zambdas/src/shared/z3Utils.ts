@@ -1,5 +1,5 @@
 import retry from 'retry';
-import { MIME_TYPES, MimeType } from 'utils';
+import { MimeType } from 'utils';
 
 export async function createPresignedUrl(
   token: string,
@@ -22,10 +22,12 @@ export async function createPresignedUrl(
   return presignedURLResponse.signedUrl;
 }
 
+// mimeType is intentionally REQUIRED (no default): the stored Content-Type drives how browsers
+// render the object, so a forgotten argument must be a compile error, not a silent PDF label.
 export async function uploadObjectToZ3(
   fileBytes: Uint8Array,
   presignedUploadUrl: string,
-  mimeType: MimeType = MIME_TYPES.PDF
+  mimeType: MimeType
 ): Promise<void> {
   const operation = retry.operation({
     retries: 3,

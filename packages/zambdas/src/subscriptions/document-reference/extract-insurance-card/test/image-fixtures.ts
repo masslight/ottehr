@@ -58,15 +58,16 @@ export function withExifOrientation(jpeg: Buffer, orientation: number): Buffer {
  * independent of jimp's own rotate — so tests using it genuinely prove the rotation DIRECTION of
  * the EXIF baking: a wrong direction would put the red quadrant in a different corner.
  *
- * Supported orientations: 1 (identity), 3 (rotate 180), 6 (stored = scene rotated 90 CCW; viewer
- * must rotate 90 CW), 8 (stored = scene rotated 90 CW; viewer must rotate 90 CCW).
+ * Supported orientations: 1 (identity), 2 (stored = scene mirrored horizontally), 3 (rotate 180),
+ * 5 (stored = transpose of scene — mirrored + 90-degree turn), 6 (stored = scene rotated 90 CCW;
+ * viewer must rotate 90 CW), 8 (stored = scene rotated 90 CW; viewer must rotate 90 CCW).
  */
 export async function makeOrientedSceneJpeg(
-  orientation: 1 | 3 | 6 | 8,
+  orientation: 1 | 2 | 3 | 5 | 6 | 8,
   sceneWidth = 32,
   sceneHeight = 16
 ): Promise<Buffer> {
-  const swapped = orientation === 6 || orientation === 8;
+  const swapped = orientation === 5 || orientation === 6 || orientation === 8;
   const image = new Jimp({
     width: swapped ? sceneHeight : sceneWidth,
     height: swapped ? sceneWidth : sceneHeight,
@@ -78,9 +79,17 @@ export async function makeOrientedSceneJpeg(
       let storedX: number;
       let storedY: number;
       switch (orientation) {
+        case 2: // stored = scene mirrored horizontally (viewer mirrors it back)
+          storedX = sceneWidth - 1 - x;
+          storedY = y;
+          break;
         case 3: // stored = scene rotated 180
           storedX = sceneWidth - 1 - x;
           storedY = sceneHeight - 1 - y;
+          break;
+        case 5: // stored = transpose of scene (EXIF 5: viewer transposes to display)
+          storedX = y;
+          storedY = x;
           break;
         case 6: // stored = scene rotated 90 CCW
           storedX = y;

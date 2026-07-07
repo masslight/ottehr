@@ -12,6 +12,7 @@ import {
   BUCKET_NAMES,
   CODE_SYSTEM_ICD_10,
   getSecret,
+  MIME_TYPES,
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
   PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
@@ -67,7 +68,7 @@ const performEffect = async (
   const fileName = `approved-patient-education-${primaryIcdSlug}-${randomUUID()}.pdf`;
   const z3Url = makeZ3FileUrl({ secrets, bucketName: BUCKET_NAMES.PATIENT_EDUCATION_ADMIN, fileName });
   const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
+  await uploadObjectToZ3(pdfBytes, presignedUploadUrl, MIME_TYPES.PDF);
   console.log('Uploaded approved patient education PDF to Z3:', z3Url);
 
   // 2. Load existing index List + all approved DocumentReferences (one round trip)

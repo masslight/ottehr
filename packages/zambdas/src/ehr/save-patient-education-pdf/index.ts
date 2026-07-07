@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
   getSecret,
+  MIME_TYPES,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   SavePatientEducationPdfInput,
   SavePatientEducationPdfOutput,
@@ -70,7 +71,7 @@ const performEffect = async (
     fileName: 'PatientEducation.pdf',
   });
   const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
+  await uploadObjectToZ3(pdfBytes, presignedUploadUrl, MIME_TYPES.PDF);
 
   // Return a download URL alongside the DocumentReference so the UI can open the newly
   // approved PDF without a second round-trip (DocumentReference fetch + presign).

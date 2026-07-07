@@ -85,9 +85,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INSURANCE_CARD_IMAGE_ERROR('The card image could not be rotated; it may not be a valid image.');
   }
 
-  // Re-store the rotated bytes to the SAME Z3 object so the fix persists everywhere the attachment
-  // url is consumed (display, PDF composer) without touching the url itself. A failure here means
-  // the stored object is unchanged, so erroring out is retry-safe.
+  // Re-store the rotated bytes to the SAME Z3 object without touching the url itself, so anything
+  // that reads the attachment url ON DEMAND (image display, on-demand PDF composition) picks up the
+  // fix. NOTE: any PRE-composed and stored artifact — e.g. the fullInsuranceCard PDF composed at
+  // paperwork submit and surfaced via get-visit-files — still contains the old pixels and stays
+  // stale until it is regenerated. A failure here means the stored object is unchanged, so erroring
+  // out is retry-safe.
   try {
     const uploadUrl = await createPresignedUrl(m2mToken, attachmentUrl, 'upload');
     await uploadObjectToZ3(

@@ -19,9 +19,15 @@ interface InsuranceCardOrientationHintProps {
   /** Which insurance the displayed card belongs to (primary vs secondary). */
   ordinal: CardOrdinal;
   /**
-   * DocumentReference.id of the DISPLAYED front-card image. The hint renders only when the
-   * stored OCR orientation verdict belongs to this exact image (guards against a stale verdict
-   * from a deleted/replaced card).
+   * Which face of the card is displayed. OCR judges orientation on the FRONT image only, so the
+   * "Card may be rotated" chip is considered for front cards only; back cards get just the
+   * always-available rotate button.
+   */
+  face: 'front' | 'back';
+  /**
+   * DocumentReference.id of the DISPLAYED card image. Renders nothing when null (no image to
+   * rotate). The warning chip additionally requires the stored OCR orientation verdict to belong
+   * to this exact image (guards against a stale verdict from a deleted/replaced card).
    */
   documentReferenceId: string | null;
   /**
@@ -33,36 +39,52 @@ interface InsuranceCardOrientationHintProps {
 }
 
 /**
- * "Card may be rotated" hint for an insurance-card image the OCR judged not right-side-up
- * (stored extraction `readable === false`; OCR runs on the FRONT image only). Renders a subtle
- * warning chip plus a one-click rotate-90°-clockwise button; a successful rotate refreshes the
- * image and re-reads the extraction, whose `readable` the backend reset to null — clearing the
- * hint. Renders nothing when there is no `readable === false` verdict for the displayed image.
+ * Always-available rotate-90°-clockwise control for a displayed insurance-card image, plus a
+ * conditional "Card may be rotated" warning chip when the OCR judged the FRONT image not
+ * right-side-up (stored extraction `readable === false`). The control stays mounted across
+ * rotates so a 180°/270° card can be fixed with repeated clicks; each successful rotate
+ * refreshes the image and re-reads the extraction.
+ *
+ * After a successful rotate the chip is also suppressed client-side for that DocumentReference
+ * id: the backend resets `readable` to null, but if that reset patch fails, the stale
+ * `readable === false` must not re-show the chip and invite an over-rotate.
  */
 export default function InsuranceCardOrientationHint({
   patientId,
   ordinal,
+  face,
   documentReferenceId,
   onRotated,
 }: InsuranceCardOrientationHintProps): ReactElement | null {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [isRotating, setIsRotating] = useState<boolean>(false);
+  // DocRef ids successfully rotated in this session: their stale `readable === false` verdicts
+  // no longer mean "not upright" (keyed by id so a replaced card image is unaffected).
+  const [rotatedDocRefIds, setRotatedDocRefIds] = useState<ReadonlySet<string>>(new Set());
   const { frontOrientation } = useInsuranceCardExtraction(patientId);
 
-  const hint = frontOrientation[ordinal];
+  if (documentReferenceId == null) return null;
+
+  const hint = face === 'front' ? frontOrientation[ordinal] : null;
   const looksRotated =
-    documentReferenceId != null && hint != null && hint.docRefId === documentReferenceId && hint.readable === false;
-  if (!looksRotated) return null;
+    hint != null &&
+    hint.docRefId === documentReferenceId &&
+    hint.readable === false &&
+    !rotatedDocRefIds.has(documentReferenceId);
 
   const handleRotate = async (): Promise<void> => {
     if (!oystehrZambda || isRotating) return;
     setIsRotating(true);
     try {
       await rotateInsuranceCardImage(oystehrZambda, { documentReferenceId, rotationDegrees: 90 });
+      // The rotate itself succeeded: suppress the warning chip for this image immediately, so a
+      // failed backend `readable`-reset (or a failed refresh below) can't leave a stale chip
+      // inviting an over-rotate.
+      setRotatedDocRefIds((prev) => new Set(prev).add(documentReferenceId));
       // The bytes changed in place: refresh the displayed image (onRotated refetches presigned
       // urls — a new signed url string, so no stale browser cache) and re-read the extraction
-      // (the backend reset `readable` to null, which clears this hint).
+      // (the backend reset `readable` to null).
       await Promise.all([
         onRotated(),
         queryClient.invalidateQueries({ queryKey: ['insurance-card-extraction', patientId] }),
@@ -78,16 +100,18 @@ export default function InsuranceCardOrientationHint({
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, marginTop: 0.5 }}>
-      <Tooltip title="The scanned card doesn't look right-side-up. Rotate it until the text reads normally.">
-        <Chip
-          size="small"
-          color="warning"
-          variant="outlined"
-          icon={<WarningAmberIcon />}
-          label={CARD_MAY_BE_ROTATED_LABEL}
-          sx={{ fontSize: '0.7rem' }}
-        />
-      </Tooltip>
+      {looksRotated && (
+        <Tooltip title="The scanned card doesn't look right-side-up. Rotate it until the text reads normally.">
+          <Chip
+            size="small"
+            color="warning"
+            variant="outlined"
+            icon={<WarningAmberIcon />}
+            label={CARD_MAY_BE_ROTATED_LABEL}
+            sx={{ fontSize: '0.7rem' }}
+          />
+        </Tooltip>
+      )}
       <Tooltip title="Rotate 90° clockwise">
         {/* span keeps the tooltip working while the button is disabled */}
         <span>

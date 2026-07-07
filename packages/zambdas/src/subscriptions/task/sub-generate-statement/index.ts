@@ -10,6 +10,7 @@ import {
   BUCKET_NAMES,
   createFilesDocumentReferences,
   getOrCreateCandidApiClient,
+  MIME_TYPES,
   OTTEHR_MODULE,
   Secrets,
   STATEMENT_CODE,
@@ -101,7 +102,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   let presignedUrl: string;
   try {
     presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
-    await uploadObjectToZ3(pdfBytes, presignedUrl);
+    await uploadObjectToZ3(pdfBytes, presignedUrl, MIME_TYPES.PDF);
   } catch (error: unknown) {
     throw new Error('failed uploading pdf to z3', { cause: error });
   }

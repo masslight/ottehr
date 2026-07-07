@@ -512,6 +512,33 @@ describe('extract-insurance-card handler', () => {
     ]);
   });
 
+  it('still succeeds when the attachment-metadata patch fails after the re-store (non-fatal branch)', async () => {
+    const docRef = makeDocRef();
+    const rotated = await makeOrientedSceneJpeg(6, 32, 16);
+    setupHappyMocks(docRef, rotated);
+    // fail ONLY the attachment-metadata patch; the extraction-extension patch still succeeds
+    mockPatch.mockImplementation(async (arg: { operations: { path: string }[] }) => {
+      if (arg.operations.some((op) => op.path.startsWith('/content/'))) {
+        throw new Error('metadata patch failed');
+      }
+      return docRef;
+    });
+
+    const result = await invokeHandler(makeInput(docRef));
+
+    // the zambda still succeeds: the stored object IS already the normalized image
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({ documentReferenceId: 'docref-1', extracted: true });
+    expect(captureException).toHaveBeenCalled(); // the swallowed patch failure is still reported
+
+    // pipeline continued on the NORMALIZED bytes (they were re-stored before the patch attempt)
+    expect(uploadObjectToZ3).toHaveBeenCalledTimes(1);
+    const uploadedBuffer = Buffer.from(vi.mocked(uploadObjectToZ3).mock.calls[0][0] as Uint8Array);
+    const [parts] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    expect((parts[1] as any).inlineData.data).toBe(uploadedBuffer.toString('base64'));
+    expect(getPatchedExtraction().imageHash).toBe(sha256Of(uploadedBuffer));
+  });
+
   it('does not re-store an already-normalized (small, upright) card', async () => {
     const docRef = makeDocRef();
     setupHappyMocks(docRef); // IMAGE_BYTES is a small upright EXIF-less JPEG

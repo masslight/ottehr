@@ -1,7 +1,7 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { PageSizes, PDFImage } from 'pdf-lib';
-import { BUCKET_NAMES, Secrets } from 'utils';
+import { BUCKET_NAMES, MIME_TYPES, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
@@ -90,7 +90,7 @@ async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUrl);
+  await uploadObjectToZ3(pdfBytes, presignedUrl, MIME_TYPES.PDF);
 }
 
 export async function createReceiptPdf(

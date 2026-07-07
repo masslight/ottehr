@@ -48,6 +48,7 @@ import {
   LABCORP_SNOMED_CODE_SYSTEM,
   LabDrTypeTagCode,
   LabType,
+  MIME_TYPES,
   ObsContentType,
   OBSERVATION_CODES,
   OBSERVATION_INTERPRETATION_SYSTEM,
@@ -1444,7 +1445,7 @@ function getInHouseResultRowDisplayColor(labResult: InHouseLabResult): Color {
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUrl);
+  await uploadObjectToZ3(pdfBytes, presignedUrl, MIME_TYPES.PDF);
 }
 
 async function createLabsResultsFormPDF(

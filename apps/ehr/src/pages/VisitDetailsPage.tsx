@@ -1204,7 +1204,17 @@ export default function VisitDetailsPage(): ReactElement {
                           <InsuranceCardOrientationHint
                             patientId={patientId}
                             ordinal="primary"
+                            face="front"
                             documentReferenceId={primaryInsuranceCards.frontId}
+                            onRotated={refetchFileData}
+                          />
+                        }
+                        backCardHint={
+                          <InsuranceCardOrientationHint
+                            patientId={patientId}
+                            ordinal="primary"
+                            face="back"
+                            documentReferenceId={primaryInsuranceCards.backId}
                             onRotated={refetchFileData}
                           />
                         }
@@ -1226,7 +1236,17 @@ export default function VisitDetailsPage(): ReactElement {
                           <InsuranceCardOrientationHint
                             patientId={patientId}
                             ordinal="secondary"
+                            face="front"
                             documentReferenceId={secondaryInsuranceCards.frontId}
+                            onRotated={refetchFileData}
+                          />
+                        }
+                        backCardHint={
+                          <InsuranceCardOrientationHint
+                            patientId={patientId}
+                            ordinal="secondary"
+                            face="back"
+                            documentReferenceId={secondaryInsuranceCards.backId}
                             onRotated={refetchFileData}
                           />
                         }
@@ -1750,8 +1770,10 @@ interface CardCategoryGridItemInput {
   handleDeleteClick: (id: string | null) => Promise<void>;
   isDeletingFront: boolean;
   isDeletingBack: boolean;
-  /** Rendered under the FRONT card image (e.g. the "card may be rotated" hint for insurance cards). */
+  /** Rendered under the FRONT card image (e.g. the rotate control + "card may be rotated" hint for insurance cards). */
   frontCardHint?: React.ReactNode;
+  /** Rendered under the BACK card image (e.g. the rotate control for insurance cards; OCR gives no orientation verdict for backs). */
+  backCardHint?: React.ReactNode;
 }
 
 function parseFiletype(fileUrl: string): string {
@@ -1777,6 +1799,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   isDeletingFront,
   isDeletingBack,
   frontCardHint,
+  backCardHint,
 }) => {
   const title = (() => {
     if (category === 'primary-ins') {
@@ -1943,7 +1966,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                     setDeleteDialogOpen(null);
                   }}
                 />
-                {key === 'front' && frontCardHint}
+                {key === 'front' ? frontCardHint : backCardHint}
               </Grid>
             ) : (
               <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>

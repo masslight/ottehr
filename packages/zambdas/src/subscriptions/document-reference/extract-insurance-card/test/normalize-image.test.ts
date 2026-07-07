@@ -1,4 +1,4 @@
-import { Jimp } from 'jimp';
+import { intToRGBA, Jimp } from 'jimp';
 import { getImageOrientation } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { JPEG_QUALITY, MAX_DIMENSION, normalizeInsuranceCardImage, toArrayBuffer } from '../normalize-image';
@@ -34,8 +34,10 @@ describe('normalizeInsuranceCardImage', () => {
   // The stored fixture bitmaps are built with direct pixel math (see image-fixtures.ts), so red
   // landing in the scene's top-left quadrant after normalization PROVES the rotation direction:
   // rotating an orientation-6 image the wrong way (90 CCW instead of 90 CW) would put the red
-  // quadrant at the bottom-right instead.
-  it.each([3, 6, 8] as const)('bakes EXIF orientation %d into upright pixels', async (orientation) => {
+  // quadrant at the bottom-right instead. The MIRRORED orientations (2, 5) likewise prove the
+  // mirror handling: baking 2 without the horizontal flip (or 5 as a plain 90-degree turn) would
+  // leave the red quadrant at the top-right.
+  it.each([2, 3, 5, 6, 8] as const)('bakes EXIF orientation %d into upright pixels', async (orientation) => {
     const bytes = await makeOrientedSceneJpeg(orientation, 32, 16);
     // fixture sanity: the tag is present and readable by the reused utils parser
     expect(getImageOrientation(toArrayBuffer(bytes))).toBe(orientation);
@@ -44,7 +46,7 @@ describe('normalizeInsuranceCardImage', () => {
 
     expect(result.changed).toBe(true);
     expect(result.contentType).toBe('image/jpeg');
-    // upright scene dimensions restored (6/8 fixtures are stored 16x32)
+    // upright scene dimensions restored (5/6/8 fixtures are stored 16x32)
     expect(result.width).toBe(32);
     expect(result.height).toBe(16);
 
@@ -90,6 +92,50 @@ describe('normalizeInsuranceCardImage', () => {
     expect(result.changed).toBe(true);
     expect(result.width).toBe(MAX_DIMENSION);
     expect(result.height).toBe(MAX_DIMENSION / 2);
+  });
+
+  it('is idempotent: normalizing an already-normalized output is a byte-identical no-op', async () => {
+    const first = await normalizeInsuranceCardImage(await makeOrientedSceneJpeg(6, 32, 16), 'image/jpeg');
+    expect(first.changed).toBe(true);
+
+    const second = await normalizeInsuranceCardImage(first.bytes, first.contentType);
+    expect(second.changed).toBe(false);
+    expect(second.bytes).toBe(first.bytes); // exact same buffer, no second re-encode
+    expect(second).toMatchObject({ width: first.width, height: first.height, contentType: first.contentType });
+  });
+
+  it('flattens PNG transparency onto WHITE (not black) when re-encoding to JPEG', async () => {
+    // fully transparent black pixels: without the flatten, dropping alpha would leave them black
+    const transparent = new Jimp({ width: 2100, height: 30, color: 0x00000000 });
+    const bytes = Buffer.from((await transparent.getBuffer('image/png')) as unknown as Uint8Array);
+
+    const result = await normalizeInsuranceCardImage(bytes, 'image/png');
+
+    expect(result.changed).toBe(true);
+    expect(result.contentType).toBe('image/jpeg');
+    const decoded = await Jimp.read(result.bytes);
+    const { r, g, b } = intToRGBA(decoded.getPixelColor(10, 10));
+    expect(r).toBeGreaterThan(200);
+    expect(g).toBeGreaterThan(200);
+    expect(b).toBeGreaterThan(200);
+  });
+
+  it('returns the ORIGINAL bytes when utils reports a 90-degree orientation but jimp fails to bake it', async () => {
+    // Parser-mismatch guard: corrupt the TIFF magic (0x002A) inside the EXIF block. utils'
+    // getImageOrientation never validates it and still reports orientation 6, but jimp's
+    // exif-parser rejects the block (silently), so Jimp.read decodes WITHOUT baking. Re-encoding
+    // would strip the EXIF tag and freeze the wrong orientation, so normalize must no-op and leave
+    // the EXIF-tagged original for EXIF-aware viewers.
+    // cast: two @types/node copies in this workspace disagree about Buffer/Uint8Array
+    const bytes = Buffer.from((await makeOrientedSceneJpeg(6, 32, 16)) as unknown as Uint8Array);
+    expect(bytes.readUInt16LE(14)).toBe(0x002a); // fixture layout sanity: TIFF magic location
+    bytes.writeUInt16LE(0x002b, 14);
+    expect(getImageOrientation(toArrayBuffer(bytes))).toBe(6); // utils parser still says "rotated"
+
+    const result = await normalizeInsuranceCardImage(bytes, 'image/jpeg');
+
+    expect(result.changed).toBe(false);
+    expect(result.bytes).toBe(bytes); // untouched: EXIF segment preserved
   });
 
   it('re-encodes at the configured JPEG quality constant', () => {

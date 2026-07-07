@@ -7,6 +7,7 @@ import {
   createFilesDocumentReferences,
   EXPORTED_QUESTIONNAIRE_CODE,
   getPaperworkResources,
+  MIME_TYPES,
   OTTEHR_MODULE,
   PAPERWORK_PDF_ATTACHMENT_TITLE,
   PAPERWORK_PDF_BASE_NAME,
@@ -63,7 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   let presignedUrl;
   try {
     presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
-    await uploadObjectToZ3(await pdfDocument.save(), presignedUrl);
+    await uploadObjectToZ3(await pdfDocument.save(), presignedUrl, MIME_TYPES.PDF);
   } catch (error: unknown) {
     throw new Error('failed uploading pdf to z3', { cause: error });
   }

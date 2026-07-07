@@ -14,6 +14,29 @@ export function toArrayBuffer(bytes: Buffer): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
+/**
+ * Reads the STORED (pre-EXIF-rotation) pixel dimensions straight from the JPEG's SOF segment.
+ * Used to verify that Jimp.read really baked a 90-degree EXIF orientation (5-8) into the pixels:
+ * jimp's EXIF pass (exif-parser) silently swallows parse errors, so it can disagree with utils'
+ * getImageOrientation — and re-encoding an un-rotated bitmap would strip the EXIF tag and make the
+ * mis-orientation permanent. Returns null when no SOF segment is found (treat as unverifiable).
+ */
+function getJpegStoredDimensions(bytes: Buffer): { width: number; height: number } | null {
+  let offset = 2; // skip SOI
+  // Walk marker segments: [0xFF][marker][length:2][payload]. SOFn markers are 0xC0-0xCF except
+  // 0xC4 (DHT), 0xC8 (JPG extension), 0xCC (DAC); their payload is [precision:1][height:2][width:2].
+  while (offset + 9 <= bytes.length) {
+    if (bytes[offset] !== 0xff) return null;
+    const marker = bytes[offset + 1];
+    if (marker === 0xda) return null; // start-of-scan reached without a SOF: give up
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return { height: bytes.readUInt16BE(offset + 5), width: bytes.readUInt16BE(offset + 7) };
+    }
+    offset += 2 + bytes.readUInt16BE(offset + 2);
+  }
+  return null;
+}
+
 export interface NormalizedInsuranceCardImage {
   bytes: Buffer;
   contentType: string;
@@ -33,7 +56,10 @@ export interface NormalizedInsuranceCardImage {
  * orientation tag — all eight orientations, including the mirrored ones — to the bitmap when
  * decoding a JPEG, then treats the image as orientation 1. So Jimp.read itself performs the
  * pixel baking; applying utils' getOrientationCorrection on top would DOUBLE-rotate. We use the
- * (reused) getImageOrientation parser only to decide whether a re-encode is needed at all.
+ * (reused) getImageOrientation parser only to decide whether a re-encode is needed at all; because
+ * the two parsers can disagree (jimp swallows EXIF parse errors), 90-degree orientations (5-8) are
+ * additionally verified against the JPEG's stored SOF dimensions before the bake is trusted — see
+ * the parser-mismatch guard below.
  * The re-encoded output is written by jpeg-js, which emits no EXIF segment, so downstream
  * EXIF-aware viewers cannot rotate it a second time. Both facts are locked in by the corner-pixel
  * tests in ./test/normalize-image.test.ts.
@@ -66,12 +92,38 @@ export async function normalizeInsuranceCardImage(
     return { bytes, contentType, changed: false, width, height };
   }
 
+  // Parser-mismatch guard: the gate above uses utils' getImageOrientation, but the actual baking is
+  // jimp's EXIF pass, which SILENTLY swallows parse errors. If jimp failed to bake, re-encoding here
+  // would store an un-rotated bitmap with the EXIF tag stripped — permanently mis-oriented, with no
+  // metadata left to recover from. Orientations 5-8 imply a 90-degree turn, so a successful bake is
+  // verifiable: the decoded dimensions must be SWAPPED relative to the JPEG's stored SOF dimensions.
+  // On mismatch (or when the stored dimensions can't be read) do NOT re-encode: return the ORIGINAL
+  // bytes unchanged so EXIF-aware viewers still render the image correctly. (Square images pass
+  // trivially — swapped and unswapped dimensions are identical, so the check cannot flag them.)
+  if (orientation >= 5 && orientation <= 8) {
+    const stored = getJpegStoredDimensions(bytes);
+    const bakeApplied = stored !== null && width === stored.height && height === stored.width;
+    if (!bakeApplied) {
+      return { bytes, contentType, changed: false, width, height };
+    }
+  }
+
   if (needsResize) {
     image.scaleToFit({ w: MAX_DIMENSION, h: MAX_DIMENSION });
   }
 
-  // cast: jimp's Buffer type resolves against a second @types/node copy in this workspace
-  const encoded = (await image.getBuffer(JimpMime.jpeg, { quality: JPEG_QUALITY })) as unknown as Uint8Array;
+  // JPEG has no alpha channel and jpeg-js simply drops it, which turns PNG transparency into black.
+  // On the re-encode path only, flatten a PNG onto a white background first.
+  // cast: new Jimp() and Jimp.read() instances have unrelated generic types, but both implement
+  // composite/getBuffer; jimp's Buffer type also resolves against a second @types/node copy.
+  let toEncode = image as { getBuffer: typeof image.getBuffer };
+  if (contentType === 'image/png') {
+    const flattened = new Jimp({ width: image.width, height: image.height, color: 0xffffffff });
+    flattened.composite(image, 0, 0);
+    toEncode = flattened as unknown as typeof toEncode;
+  }
+
+  const encoded = (await toEncode.getBuffer(JimpMime.jpeg, { quality: JPEG_QUALITY })) as unknown as Uint8Array;
   return {
     bytes: Buffer.from(encoded),
     contentType: JimpMime.jpeg,
