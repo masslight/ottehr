@@ -25,7 +25,7 @@ describe('get-appointments helpers', () => {
     expect(queryInput.params).toContainEqual({ name: '_elements', value: APPOINTMENT_SEARCH_ELEMENTS });
   });
 
-  test('preserves tracking-board appointment includes and revincludes', async () => {
+  test('preserves required tracking-board appointment includes and revincludes', async () => {
     const queryInput = await getAppointmentQueryInput({
       oystehr: {} as Oystehr,
       resourceId: '550e8400-e29b-41d4-a716-446655440000',
@@ -43,11 +43,11 @@ describe('get-appointments helpers', () => {
         { name: '_revinclude:iterate', value: 'Encounter:participant' },
         { name: '_include', value: 'Appointment:location' },
         { name: '_revinclude:iterate', value: 'Encounter:appointment' },
-        { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
         { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
         { name: '_include', value: 'Appointment:actor' },
       ])
     );
+    expect(queryInput.params).not.toContainEqual({ name: '_revinclude:iterate', value: 'DocumentReference:patient' });
   });
 
   // isNonPaperworkQuestionnaireResponse (index.ts) reads QuestionnaireResponse.questionnaire; if _elements
