@@ -10,38 +10,21 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4b';
 import {
-  AppointmentSummary,
-  AvailableLocationInformation,
-  checkEncounterIsVirtual,
-  Closure,
   DOB_UNCONFIRMED_ERROR,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
-  getScheduleExtension,
   HealthcareServiceWithLocationContext,
   isNonPaperworkQuestionnaireResponse,
   mapQuestionnaireAndValueSetsToItemsList,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PaperworkSupportingInfo,
-  PersonSex,
-  ScheduleExtension,
-  ScheduleType,
   Secrets,
-  ServiceMode,
-  serviceModeForHealthcareService,
-  SLUG_SYSTEM,
   UCGetPaperworkResponse,
-  VisitType,
 } from 'utils';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getOtherOfficesForLocation,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
+import { formatPatientSexForPaperwork, getPaperworkSupportingInfoForUserWithAccess } from '../sharedHelpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetPaperworkInput {
@@ -264,12 +247,6 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     console.log('building get paperwork response');
     const updateTimestamp = getLastUpdateTimestampForResource(questionnaireResponseResource);
 
-    // gender must be saved in lower case on the patient resource but the paperwork sex fields consume the value with title case
-    const formatPatientSexForPaperwork = (value: string): PersonSex | undefined => {
-      const sex = Object.keys(PersonSex).find((key) => PersonSex[key as keyof typeof PersonSex] === value);
-      return sex as PersonSex | undefined;
-    };
-
     // console.log('qrResponse item', JSON.stringify(questionnaireResponseResource.item));
 
     const response: UCGetPaperworkResponse = {
@@ -316,38 +293,6 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
   }
 });
 
-interface GetPaperworkSupportingInfoInput {
-  appointment: Appointment;
-  encounter: Encounter;
-  patient: Patient;
-  location: Location | undefined;
-  hsResources: { hs: HealthcareService; locations?: Location[]; serviceArea?: Location } | undefined;
-  practitioner?: Practitioner;
-}
-
-function getPaperworkSupportingInfoForUserWithAccess(input: GetPaperworkSupportingInfoInput): PaperworkSupportingInfo {
-  const { appointment, patient, location, hsResources, practitioner, encounter } = input;
-  const serviceMode: ServiceMode = checkEncounterIsVirtual(encounter)
-    ? ServiceMode['virtual']
-    : ServiceMode['in-person'];
-
-  return {
-    appointment: {
-      id: appointment?.id ?? 'Unknown', // i hate this
-      start: appointment?.start || 'Unknown',
-      location: makeLocationSummary({ appointment, location, hsResources, practitioner }),
-      visitType: appointment?.appointmentType?.text as VisitType,
-      status: appointment?.status,
-      serviceMode: serviceMode,
-    },
-    patient: {
-      id: patient.id,
-      firstName: patient.name?.[0].given?.[0],
-      dateOfBirth: patient.birthDate,
-    },
-  };
-}
-
 enum Access_Level {
   anonymous,
   full,
@@ -379,95 +324,5 @@ const validateUserAccess = async (input: AccessValidationInput): Promise<Access_
     return Access_Level.full;
   } else {
     throw DOB_UNCONFIRMED_ERROR;
-  }
-};
-interface LocationSummaryInput {
-  appointment: Appointment;
-  location?: Location;
-  hsResources?: HealthcareServiceWithLocationContext;
-  practitioner?: Practitioner;
-}
-// todo: consider whether all the location config stuff needs to be on here
-const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['location'] => {
-  const { appointment, location, hsResources, practitioner } = input;
-  if (hsResources) {
-    // do a thing
-    const { hs, locations, coverageArea } = hsResources;
-    const otherOffices: AvailableLocationInformation['otherOffices'] = [];
-    const serviceMode = serviceModeForHealthcareService(hs);
-    let scheduleExtension: ScheduleExtension | undefined = undefined;
-    let loc: Location | undefined;
-    // note there's not really any clear notion what to do here if the HS pools provider schedules
-    // this is to be addressed in a future release
-    if (serviceMode === ServiceMode['in-person']) {
-      // this is most likely a fictional use case...
-      loc = locations?.find((tempLoc) => {
-        return appointment?.participant?.some((maybeLoc) => {
-          const reference = maybeLoc.actor?.reference;
-          if (reference) {
-            return reference === `${tempLoc.resourceType}/${tempLoc.id}`;
-          }
-          return false;
-        });
-      });
-      if (loc === undefined) {
-        loc = locations?.length === 1 ? locations[0] : undefined;
-      }
-      if (loc) {
-        scheduleExtension = getScheduleExtension(loc);
-      }
-    } else {
-      loc = coverageArea?.length === 1 ? coverageArea[0] : undefined;
-    }
-    return {
-      id: loc?.id,
-      slug: loc?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,
-      name: loc?.name ?? hs?.name,
-      description: loc?.description,
-      address: loc?.address,
-      telecom: loc?.telecom,
-      timezone: loc?.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-      )?.valueString,
-      otherOffices,
-      scheduleOwnerType: ScheduleType['group'],
-      scheduleExtension,
-    };
-  } else if (practitioner) {
-    // todo build out practitioner scheduling more
-    return {
-      id: practitioner?.id,
-      slug: practitioner?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,
-      name: `${practitioner.name?.[0]?.given?.[0]} ${practitioner.name?.[0]?.family}`,
-      description: undefined,
-      address: undefined,
-      telecom: [],
-      timezone: practitioner?.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-      )?.valueString,
-      otherOffices: [],
-      scheduleOwnerType: ScheduleType['provider'],
-    };
-  } else {
-    const closures: Closure[] = [];
-    if (location) {
-      const schedule = getScheduleExtension(location);
-      if (schedule && schedule.closures) {
-        closures.push(...schedule.closures);
-      }
-    }
-    return {
-      id: location?.id,
-      slug: location?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,
-      name: location?.name,
-      description: location?.description,
-      address: location?.address,
-      telecom: location?.telecom,
-      timezone: location?.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-      )?.valueString,
-      otherOffices: location ? getOtherOfficesForLocation(location) : [],
-      scheduleOwnerType: ScheduleType['location'],
-    };
   }
 };

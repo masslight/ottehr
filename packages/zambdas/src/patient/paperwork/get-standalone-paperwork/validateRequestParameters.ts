@@ -1,8 +1,8 @@
 import {
+  GetStandAlonePaperworkInput,
+  GetStandAlonePaperworkInputSchema,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
-  SavePracticeManagedPaperworkResponseInput,
-  SavePracticeManagedPaperworkResponseInputSchema,
   Secrets,
 } from 'utils';
 import { safeValidate, ZambdaInput } from '../../../shared';
@@ -11,7 +11,7 @@ type BaseContext = {
   secrets: Secrets | null;
 };
 
-type ValidatedRequest = BaseContext & SavePracticeManagedPaperworkResponseInput;
+type ValidatedRequest = BaseContext & GetStandAlonePaperworkInput;
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
   if (!input.body) {
@@ -20,22 +20,19 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   const secrets = input.secrets;
 
-  let parsed: Partial<SavePracticeManagedPaperworkResponseInput>;
+  let parsed: GetStandAlonePaperworkInput;
   try {
     parsed = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }
 
-  const validated = safeValidate(SavePracticeManagedPaperworkResponseInputSchema, parsed);
+  const validated = safeValidate(GetStandAlonePaperworkInputSchema, parsed);
 
-  const { pageAnswers, questionnaireId, complete, appointmentId } = validated;
+  const { questionnaireResponseId } = validated;
 
   return {
-    pageAnswers,
-    questionnaireId,
-    complete,
-    appointmentId,
+    questionnaireResponseId,
     secrets,
   };
 }

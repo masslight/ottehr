@@ -1,9 +1,6 @@
 import {
   GetAllPracticeManagedPaperworkInput,
   GetAllPracticeManagedPaperworkInputSchema,
-  GetPracticeManagedPaperworkForQuestionnaire,
-  GetPracticeManagedPaperworkForQuestionnaireInput,
-  GetPracticeManagedPaperworkInput,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   Secrets,
@@ -14,9 +11,7 @@ type BaseContext = {
   secrets: Secrets | null;
 };
 
-type ValidatedRequest =
-  | (BaseContext & GetAllPracticeManagedPaperworkInput & { questionnaireId: undefined })
-  | (BaseContext & GetPracticeManagedPaperworkForQuestionnaireInput);
+type ValidatedRequest = BaseContext & GetAllPracticeManagedPaperworkInput;
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
   if (!input.body) {
@@ -25,32 +20,19 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   const secrets = input.secrets;
 
-  let parsed: GetPracticeManagedPaperworkInput;
+  let parsed: GetAllPracticeManagedPaperworkInput;
   try {
     parsed = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }
 
-  if ('questionnaireId' in parsed) {
-    const validated = safeValidate(GetPracticeManagedPaperworkForQuestionnaire, parsed);
+  const validated = safeValidate(GetAllPracticeManagedPaperworkInputSchema, parsed);
 
-    const { appointmentId, questionnaireId } = validated;
+  const { appointmentId } = validated;
 
-    return {
-      appointmentId,
-      questionnaireId,
-      secrets,
-    };
-  } else {
-    const validated = safeValidate(GetAllPracticeManagedPaperworkInputSchema, parsed);
-
-    const { appointmentId } = validated;
-
-    return {
-      appointmentId,
-      questionnaireId: undefined,
-      secrets,
-    };
-  }
+  return {
+    appointmentId,
+    secrets,
+  };
 }

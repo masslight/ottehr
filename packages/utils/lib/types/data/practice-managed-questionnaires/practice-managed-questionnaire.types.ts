@@ -4,11 +4,10 @@ import z from 'zod';
 import { PRIVATE_EXTENSION_BASE_URL } from '../../../fhir';
 import {
   GetAllPracticeManagedPaperworkInputSchema,
-  GetPracticeManagedPaperworkForQuestionnaire,
+  GetStandAlonePaperworkInputSchema,
   PracticeManagedQuestionnaireItemSchema,
   PracticeManagedQuestionnaireSchema,
   PracticeManagedQuestionnaireUpdateStatusSchema,
-  SavePracticeManagedPaperworkResponseInputSchema,
 } from './practice-managed-questionnaire.schema';
 
 // todo sarah these are defined in OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS
@@ -67,7 +66,7 @@ export type PracticeManagedPaperworkDTO = {
   questionnaireTitle: string;
   questionnaireId: string;
   questionnaireItems: QuestionnaireItem[]; // todo sarah update
-  questionnaireResponse: QuestionnaireResponse | undefined;
+  questionnaireResponse: QuestionnaireResponse;
 };
 
 // ============= api input / output types ===============
@@ -104,27 +103,13 @@ export type PracticeManagedQuestionnaireCreateOutput = {
   questionnaireId: string;
 };
 
-// get managed paperwork
+// get standalone paperwork
+// todo sarah this is getting replaced
 export type GetAllPracticeManagedPaperworkInput = z.infer<typeof GetAllPracticeManagedPaperworkInputSchema>;
-export type GetPracticeManagedPaperworkForQuestionnaireInput = z.infer<
-  typeof GetPracticeManagedPaperworkForQuestionnaire
->;
-export type GetPracticeManagedPaperworkInput =
-  | GetAllPracticeManagedPaperworkInput
-  | GetPracticeManagedPaperworkForQuestionnaireInput;
-
 export type GetAllPracticeManagedPaperworkOutput = {
-  practiceManagedPaperwork: (PracticeManagedPaperworkDTO & { questionnaireResponse: QuestionnaireResponse })[];
+  practiceManagedPaperwork: PracticeManagedPaperworkDTO[]; // might make more sense to use QAndQRResponse
 };
-export type GetPracticeManagedPaperworkForQuestionnaireOutput = {
-  practiceManagedPaperwork: PracticeManagedPaperworkDTO;
-};
-export type GetPracticeManagedPaperworkOutput =
-  | GetAllPracticeManagedPaperworkOutput
-  | GetPracticeManagedPaperworkForQuestionnaireOutput;
 
-// save manged paperwork
-export type SavePracticeManagedPaperworkResponseInput = z.infer<typeof SavePracticeManagedPaperworkResponseInputSchema>;
-export type SavePracticeManagedPaperworkResponseOutput = {
-  questionnaireResponse: QuestionnaireResponse;
-};
+// used for patient app rendering custom, standalone forms
+// return is type UCGetPaperworkResponse which is the same as get-paperwork
+export type GetStandAlonePaperworkInput = z.infer<typeof GetStandAlonePaperworkInputSchema>;

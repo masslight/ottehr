@@ -3,6 +3,7 @@ import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   filterDisabledPages,
   getQuestionnaireItemsAndProgress,
+  isPracticeManagedQr,
   makeValidationSchema,
   PatchPaperworkParameters,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
@@ -36,6 +37,7 @@ export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>,
   updatedAnswers: QuestionnaireResponseItem[];
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
+  createReviewTaskAndPdf: boolean;
 }
 
 const basicValidation = (input: ZambdaInput): BasicInput => {
@@ -200,6 +202,7 @@ const complexSubmitValidation = async (
     questionnaireResponseId,
     updatedAnswers: filteredAnswers,
     currentQRStatus: fullQRResource.status,
+    createReviewTaskAndPdf: isPracticeManagedQr(fullQRResource),
   };
 };
 const complexPatchValidation = async (

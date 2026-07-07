@@ -31,6 +31,7 @@ import { usePaperworkStore } from 'src/pages/PaperworkPage';
 import {
   formatZipcodeForDisplay,
   IntakeQuestionnaireItem,
+  isPracticeManagedQr,
   makeValidationSchema,
   pickFirstValueFromAnswerItem,
   QuestionnaireFormFields,
@@ -340,13 +341,16 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const { bottomComponent, hideControls, controlButtons } = options;
   const swizzledCtrlButtons = useMemo(() => {
     const baseStuff = controlButtons ?? {};
+
+    const useContinueLabel =
+      questionnaireResponse?.questionnaire?.includes('intake-paperwork-inperson') ||
+      isPracticeManagedQr(questionnaireResponse);
+
     return {
       ...baseStuff,
       submitDisabled: baseStuff.loading || isLoading || saveButtonDisabled,
       // only use the continue label with inperson paperwork
-      submitLabel: questionnaireResponse?.questionnaire?.includes('intake-paperwork-inperson')
-        ? continueLabel
-        : undefined,
+      submitLabel: useContinueLabel ? continueLabel : undefined,
       onSubmit: submitHandler,
     };
   }, [continueLabel, controlButtons, isLoading, questionnaireResponse, saveButtonDisabled, submitHandler]);

@@ -655,6 +655,13 @@
       "src": "src/patient/paperwork/get-paperwork/index",
       "zip": ".dist/zips/get-paperwork.zip"
     },
+    "GET-STANDALONE-PAPERWORK": {
+      "name": "get-standalone-paperwork",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/get-standalone-paperwork/index",
+      "zip": ".dist/zips/get-standalone-paperwork.zip"
+    },
     "CREATE-IN-HOUSE-MEDICATION": {
       "name": "create-in-house-medication",
       "type": "http_auth",
@@ -1467,13 +1474,6 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/admin-get-template-detail/index",
       "zip": ".dist/zips/admin-get-template-detail.zip"
-    },
-    "FINALIZE-PRACTICE-MANAGED-RESPONSE": {
-      "name": "finalize-practice-managed-response",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/patient/paperwork/finalize-practice-managed-response/index",
-      "zip": ".dist/zips/finalize-practice-managed-response.zip"
     },
     "DELETE-PATIENT-DOCUMENT": {
       "name": "delete-patient-document",
@@ -2295,13 +2295,6 @@
       "runtime": "nodejs22.x",
       "src": "src/patient/practice-managed-paperwork/get-practice-managed-paperwork/index",
       "zip": ".dist/zips/get-practice-managed-paperwork.zip"
-    },
-    "SAVE-MANAGED-PAPERWORK-RESPONSE": {
-      "name": "save-practice-managed-paperwork-response",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/patient/practice-managed-paperwork/save-practice-managed-paperwork-response/index",
-      "zip": ".dist/zips/save-practice-managed-paperwork-response.zip"
     }
   },
   "fhirResources": {

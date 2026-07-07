@@ -1,6 +1,6 @@
-import { Extension, Questionnaire, QuestionnaireItem } from 'fhir/r4b';
+import { Extension, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
-import { PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from '../../fhir';
+import { PRACTICE_MANAGED_QR_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from '../../fhir';
 import {
   DATA_TYPE_EXTENSION_URL,
   DataTypeSchema,
@@ -140,3 +140,10 @@ export const fhirQuestionnaireItemToManaged = (item: QuestionnaireItem): Practic
 
   return result.data;
 };
+
+export function isPracticeManagedQr(qr: QuestionnaireResponse | undefined): boolean {
+  if (!qr) return false;
+
+  const { system, code } = PRACTICE_MANAGED_QR_TAG;
+  return Boolean(qr.meta?.tag?.some((t) => t.code === code && t.system === system));
+}

@@ -130,10 +130,6 @@ import {
   GetPatientInstructionQuickPicksResponse,
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
-  GetPracticeManagedPaperworkForQuestionnaireInput,
-  GetPracticeManagedPaperworkForQuestionnaireOutput,
-  GetPracticeManagedPaperworkInput,
-  GetPracticeManagedPaperworkOutput,
   GetPresignedFileURLInput,
   GetProcedureQuickPicksResponse,
   GetProgressNoteConfigInput,
@@ -209,6 +205,7 @@ import {
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
   SendPatientFormInput,
+  SendPatientFormOutput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -2862,7 +2859,7 @@ export const migrateExamData = async (
   }
 };
 
-// ── Managed Questionnaires ──
+// ── Practice Managed Questionnaires ──
 
 export function practiceManagedQuestionnaireList(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput>;
 
@@ -2916,7 +2913,10 @@ export const practiceManagedQuestionnaireCreate = async (
   }
 };
 
-export const sendPatientForm = async (oystehr: Oystehr, parameters: SendPatientFormInput): Promise<void> => {
+export const sendPatientForm = async (
+  oystehr: Oystehr,
+  parameters: SendPatientFormInput
+): Promise<SendPatientFormOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: SEND_PATIENT_FORM,
@@ -2929,20 +2929,11 @@ export const sendPatientForm = async (oystehr: Oystehr, parameters: SendPatientF
   }
 };
 
-export function getPracticeManagedPaperwork(
-  oystehr: Oystehr,
-  parameters: GetAllPracticeManagedPaperworkInput
-): Promise<GetAllPracticeManagedPaperworkOutput>;
-
-export function getPracticeManagedPaperwork(
-  oystehr: Oystehr,
-  parameters: GetPracticeManagedPaperworkForQuestionnaireInput
-): Promise<GetPracticeManagedPaperworkForQuestionnaireOutput>;
-
+// todo sarah absorb this into get visit details, no need to have its own thing
 export async function getPracticeManagedPaperwork(
   oystehr: Oystehr,
-  parameters: GetPracticeManagedPaperworkInput
-): Promise<GetPracticeManagedPaperworkOutput> {
+  parameters: GetAllPracticeManagedPaperworkInput
+): Promise<GetAllPracticeManagedPaperworkOutput> {
   try {
     const response = await oystehr.zambda.execute({
       id: GET_PRACTICE_MANAGED_PAPERWORK,

@@ -284,7 +284,7 @@ export default function VisitDetailsPage(): ReactElement {
   const { data: practiceManagedData } = useQuery({
     queryKey: ['practice-managed-questionnaires', appointmentID],
     queryFn: async () => {
-      if (!oystehrZambda || !appointmentID) return { managedPaperwork: [] };
+      if (!oystehrZambda || !appointmentID) return { practiceManagedPaperwork: [] };
       const response = await getPracticeManagedPaperwork(oystehrZambda, { appointmentId: appointmentID });
 
       console.log('huh', response); // todo sarah clean up

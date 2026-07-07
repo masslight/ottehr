@@ -30,6 +30,7 @@ const PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL || '';
 export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appointmentId }) => {
   const { oystehrZambda } = useApiClients();
   const [selectedId, setSelectedId] = useState('');
+  const [questionnaireResponseId, setQuestionnaireResponseId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
   const [questionnaires, setQuestionnaires] = useState<{ id: string; title: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,10 +67,9 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
   }, [open, oystehrZambda]);
 
   const formUrl = useMemo(() => {
-    if (!selectedId || !PATIENT_APP_URL) return '';
-    if (appointmentId) return `${PATIENT_APP_URL}/forms/${appointmentId}/${selectedId}`;
-    return '';
-  }, [selectedId, appointmentId]);
+    if (!questionnaireResponseId || !PATIENT_APP_URL) return '';
+    return `${PATIENT_APP_URL}/forms/${questionnaireResponseId}`;
+  }, [questionnaireResponseId]);
 
   const handleCopyUrl = useCallback(() => {
     if (!formUrl) return;
@@ -83,24 +83,29 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
 
     setSending(true);
     try {
-      await sendPatientForm(oystehrZambda, { appointmentId, questionnaireId: selectedId });
+      const response = await sendPatientForm(oystehrZambda, { appointmentId, questionnaireId: selectedId });
       enqueueSnackbar('Form link sent to patient', { variant: 'success' });
-      onClose();
-      setSelectedId('');
+      setQuestionnaireResponseId(response.questionnaireResponseId);
     } catch (err) {
       console.error('Failed to send form:', err);
       enqueueSnackbar('Failed to send form link', { variant: 'error' });
     } finally {
       setSending(false);
     }
-  }, [oystehrZambda, selectedId, appointmentId, onClose]);
+  }, [oystehrZambda, selectedId, appointmentId]);
+
+  const handleClose = (): void => {
+    onClose();
+    setSelectedId('');
+    setQuestionnaireResponseId(undefined);
+  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Send Form to Patient</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Select a form to send to the patient via SMS, or copy the link to share directly.
+          Select a form to send to the patient via SMS.
         </Typography>
         {loading ? (
           <CircularProgress size={24} />
@@ -143,17 +148,23 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={sending}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSend}
-          disabled={!selectedId || sending || loading}
-          startIcon={sending ? <CircularProgress size={16} /> : <SendIcon />}
-        >
-          Send via SMS
-        </Button>
+        {questionnaireResponseId ? (
+          <Button onClick={handleClose}>Close</Button>
+        ) : (
+          <Box>
+            <Button onClick={handleClose} disabled={sending}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSend}
+              disabled={!selectedId || sending || loading}
+              startIcon={sending ? <CircularProgress size={16} /> : <SendIcon />}
+            >
+              Send via SMS
+            </Button>
+          </Box>
+        )}
       </DialogActions>
     </Dialog>
   );

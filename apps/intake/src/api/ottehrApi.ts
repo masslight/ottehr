@@ -9,22 +9,17 @@ import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
-  GetAllPracticeManagedPaperworkInput,
-  GetAllPracticeManagedPaperworkOutput,
   GetAppointmentDetailsResponse,
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
-  GetPracticeManagedPaperworkForQuestionnaireInput,
-  GetPracticeManagedPaperworkForQuestionnaireOutput,
-  GetPracticeManagedPaperworkInput,
-  GetPracticeManagedPaperworkOutput,
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetSlotDetailsParams,
   GetSlotDetailsResponse,
+  GetStandAlonePaperworkInput,
   GetSupportDialogOutput,
   HandleAnswerInput,
   isApiError,
@@ -32,8 +27,6 @@ import {
   PatientInfo,
   PersistConsentInput,
   PresignUploadUrlResponse,
-  SavePracticeManagedPaperworkResponseInput,
-  SavePracticeManagedPaperworkResponseOutput,
   SearchPlacesInput,
   SearchPlacesOutput,
   ServiceMode,
@@ -312,6 +305,19 @@ class API {
     }
   }
 
+  async getStandAlonePaperwork(
+    zambdaClient: ZambdaClient,
+    input: GetStandAlonePaperworkInput
+  ): Promise<UCGetPaperworkResponse> {
+    try {
+      const response = await zambdaClient.execute('get-standalone-paperwork', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as UCGetPaperworkResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
   async createZ3Object(
     appointmentID: string,
     fileType: string,
@@ -503,42 +509,6 @@ class API {
       const response = await zambdaClient.executePublic('video-chat-waiting-room-notification', input);
       const jsonToUse = chooseJson(response);
       return jsonToUse as VideoChatNotificationResponse;
-    } catch (error: unknown) {
-      throw apiErrorToThrow(error);
-    }
-  }
-
-  getPracticeManagedPaperwork(
-    zambdaClient: ZambdaClient,
-    input: GetAllPracticeManagedPaperworkInput
-  ): Promise<GetAllPracticeManagedPaperworkOutput>;
-
-  getPracticeManagedPaperwork(
-    zambdaClient: ZambdaClient,
-    input: GetPracticeManagedPaperworkForQuestionnaireInput
-  ): Promise<GetPracticeManagedPaperworkForQuestionnaireOutput>;
-
-  async getPracticeManagedPaperwork(
-    zambdaClient: ZambdaClient,
-    input: GetPracticeManagedPaperworkInput
-  ): Promise<GetPracticeManagedPaperworkOutput> {
-    try {
-      const response = await zambdaClient.execute('get-practice-managed-paperwork', input);
-      const jsonToUse = chooseJson(response);
-      return jsonToUse as GetPracticeManagedPaperworkOutput;
-    } catch (error: unknown) {
-      throw apiErrorToThrow(error);
-    }
-  }
-
-  async savePracticeManagedPaperworkResponse(
-    zambdaClient: ZambdaClient,
-    input: SavePracticeManagedPaperworkResponseInput
-  ): Promise<SavePracticeManagedPaperworkResponseOutput> {
-    try {
-      const response = await zambdaClient.execute('save-practice-managed-paperwork-response', input);
-      const jsonToUse = chooseJson(response);
-      return jsonToUse as SavePracticeManagedPaperworkResponseOutput;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }

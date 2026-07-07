@@ -1,27 +1,26 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { Alert, Box, CircularProgress, Typography } from '@mui/material';
-import { QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { PaperworkContext, PaperworkProvider } from 'src/features/paperwork';
 import PagedQuestionnaire from 'src/features/paperwork/PagedQuestionnaire';
 import {
   APIError,
-  AppointmentSummary,
   convertQRItemToLinkIdMap,
   convertQuestionnaireItemToQRLinkIdMap,
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
+  getSelectors,
   IntakeQuestionnaireItem,
   isApiError,
-  mapQuestionnaireAndValueSetsToItemsList,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   QuestionnaireFormFields,
 } from 'utils';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
-import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
+import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
+import { usePaperworkStore } from './PaperworkPage';
 
 enum AuthedLoadingState {
   initial,
@@ -37,84 +36,106 @@ export function extractPageLinkIds(items: IntakeQuestionnaireItem[] = []): strin
 }
 
 export const StandaloneFormPage: FC = () => {
-  const { appointmentId, questionnaireId } = useParams();
+  const { questionnaireResponseId } = useParams();
   const zambdaClient = useUCZambdaClient({ tokenless: false });
 
-  const [questionnaireTitle, setQuestionnaireTitle] = useState<string | undefined>(undefined);
-  const [questionnaireItems, setQuestionnaireItems] = useState<QuestionnaireItem[] | null>(null);
-  const [questionnaireResponse, setQuestionnaireResponse] = useState<QuestionnaireResponse | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [authedFetchState, setAuthedFetchState] = useState(AuthedLoadingState.initial);
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
-  const methods = useForm();
+  const {
+    paperworkInProgress,
+    paperworkResponse,
+    updateTimestamp,
+    setResponse,
+    patchCompletedPaperwork,
+    saveProgress,
+    setContinueLabel,
+  } = getSelectors(usePaperworkStore, [
+    'paperworkInProgress',
+    'setResponse',
+    'paperworkResponse',
+    'updateTimestamp',
+    'patchCompletedPaperwork',
+    'saveProgress',
+    'setContinueLabel',
+  ]);
+
+  const { allItems, questionnaireResponse, appointment, patient, questionnaireTitle } = useMemo(() => {
+    if (paperworkResponse === undefined) {
+      return {
+        allItems: [] as IntakeQuestionnaireItem[],
+        questionnaireResponse: undefined,
+        appointment: undefined,
+        patient: undefined,
+        questionnaireTitle: '',
+      };
+    } else {
+      const { allItems, questionnaireResponse, appointment, patient, questionnaireTitle } = paperworkResponse;
+      return {
+        allItems: allItems ?? [],
+        questionnaireResponse,
+        appointment,
+        patient,
+        questionnaireTitle: questionnaireTitle ?? '',
+      };
+    }
+  }, [paperworkResponse]);
 
   useEffect(() => {
-    if (!zambdaClient || !appointmentId || authedFetchState !== AuthedLoadingState.initial || !questionnaireId) return;
-
-    const fetchManagedPaperwork = async (): Promise<void> => {
+    const fetchAuthedPaperwork = async (questionnaireResponseId: string, zambdaClient: ZambdaClient): Promise<void> => {
       try {
         setAuthedFetchState(AuthedLoadingState.loading);
-        const response = await api.getPracticeManagedPaperwork(zambdaClient, { appointmentId, questionnaireId });
-        const { practiceManagedPaperwork } = response;
-        setQuestionnaireTitle(practiceManagedPaperwork.questionnaireTitle);
-        setQuestionnaireItems(practiceManagedPaperwork.questionnaireItems);
-
-        if (practiceManagedPaperwork.questionnaireResponse) {
-          setQuestionnaireResponse(practiceManagedPaperwork.questionnaireResponse);
-        }
+        const paperworkResponse = await api.getStandAlonePaperwork(zambdaClient, { questionnaireResponseId });
+        setResponse(paperworkResponse);
+        setAuthedFetchState(AuthedLoadingState.complete);
       } catch (e) {
         if (isApiError(e)) {
           const apiError = e as APIError;
           if (apiError.code === NO_READ_ACCESS_TO_PATIENT_ERROR.code) {
             setAuthedFetchState(AuthedLoadingState.noReadAccess);
           }
+        } else {
+          setLoadError(true);
+          setAuthedFetchState(AuthedLoadingState.complete);
         }
-      } finally {
-        setAuthedFetchState(AuthedLoadingState.complete);
       }
     };
-
-    void fetchManagedPaperwork();
-  }, [zambdaClient, appointmentId, questionnaireId, authedFetchState, methods]);
-
-  const pages = useMemo<IntakeQuestionnaireItem[]>(() => {
-    const converted = mapQuestionnaireAndValueSetsToItemsList(questionnaireItems ?? [], []);
-    const groups = converted.filter((item) => item.type === 'group');
-    if (groups.length > 0) {
-      return groups;
+    if (zambdaClient && authedFetchState === AuthedLoadingState.initial && questionnaireResponseId) {
+      void fetchAuthedPaperwork(questionnaireResponseId, zambdaClient);
     }
-    // Flat questionnaire (no top-level group): wrap everything in one synthetic page so the answers
-    // round-trip under a stable page linkId.
-    if (converted.length > 0) {
-      return [
-        {
-          linkId: `${questionnaireId}-page`,
-          type: 'group',
-          text: questionnaireTitle,
-          item: converted,
-          acceptsMultipleAnswers: false,
-          alwaysFilter: false,
-        } as IntakeQuestionnaireItem,
-      ];
-    }
-    return [];
-  }, [questionnaireItems, questionnaireId, questionnaireTitle]);
+  }, [authedFetchState, setResponse, zambdaClient, setAuthedFetchState, questionnaireResponseId]);
 
-  const currentPage = pages[currentPageIndex];
-  const isLastPage = currentPageIndex === pages.length - 1;
-  const submitted = currentPageIndex > pages.length - 1;
+  const completedPaperwork: QuestionnaireResponseItem[] = useMemo(() => {
+    return questionnaireResponse?.item ?? [];
+  }, [questionnaireResponse?.item]);
 
-  // Per-page form seed: empty shells for every field, overlaid with any saved answers for this page.
-  const pageDefaults = useMemo<QuestionnaireFormFields>(() => {
-    if (!currentPage) return {};
-    const fieldShells = convertQuestionnaireItemToQRLinkIdMap(currentPage.item);
-    const savedPageItems = (questionnaireResponse?.item ?? []).find((i) => i.linkId === currentPage.linkId)?.item;
-    const saved = convertQRItemToLinkIdMap(savedPageItems);
-    return { ...fieldShells, ...saved };
-  }, [currentPage, questionnaireResponse]);
+  const pages = useMemo(() => {
+    return (allItems ?? []).filter((item) => {
+      return item.linkId;
+    });
+  }, [allItems]);
+
+  // One-off forms can't pull in credit card fields, so these fields are not needed at the moment
+
+  // const {
+  //   data: stripeSetupData,
+  //   isFetching: isSetupDataLoading,
+  //   refetch: refetchSetupData,
+  // } = useSetupPaymentMethod(patient?.id, appointment?.id);
+
+  // const {
+  //   data: cardData,
+  //   isFetching: cardsAreLoading,
+  //   refetch: refetchPaymentMethods,
+  // } = useGetPaymentMethods({
+  //   beneficiaryPatientId: patient?.id,
+  //   appointmentId: appointment?.id,
+  //   setupCompleted: Boolean(stripeSetupData),
+  // });
 
   // Standalone managed forms render outside the paperwork `<Outlet>`, so we supply the context that
   // PagedQuestionnaire and its child hooks read. Only `paperwork`, `allItems`, `questionnaireResponse`,
@@ -123,37 +144,90 @@ export const StandaloneFormPage: FC = () => {
   // for managed questionnaires.
   const paperworkContextValue = useMemo<PaperworkContext>(
     () => ({
-      paperwork: questionnaireResponse?.item ?? [],
-      allItems: flattenIntakeQuestionnaireItems(pages),
-      questionnaireResponse,
-      appointment: appointmentId ? ({ id: appointmentId } as AppointmentSummary) : undefined,
-      saveButtonDisabled,
-      setSaveButtonDisabled,
-      // Inert on the managed render path:
-      pageItems: pages,
+      appointment,
+      paperwork: completedPaperwork,
+      paperworkInProgress,
+      pageItems: allItems,
+      allItems: flattenIntakeQuestionnaireItems(allItems ?? []),
       pages,
-      paperworkInProgress: {},
-      patient: undefined,
-      updateTimestamp: undefined,
-      cardsAreLoading: false,
-      paymentMethodStateInitializing: false,
-      paymentMethods: [],
-      stripeSetupData: undefined,
-      setContinueLabel: () => {},
-      refetchPaymentMethods: (async () => ({ data: { cards: [] } })) as any,
-      refetchSetupData: (async () => ({})) as any,
-      findAnswerWithLinkId: (linkId: string) =>
-        findQuestionnaireResponseItemLinkId(linkId, questionnaireResponse?.item ?? []),
+      questionnaireResponse,
+      patient,
+      updateTimestamp,
+      saveButtonDisabled,
+      cardsAreLoading: false, // not relevant at the moment
+      paymentMethods: [], // not relevant at the moment
+      paymentMethodStateInitializing: false, // not relevant at the moment
+      stripeSetupData: undefined, // not relevant at the moment
+      setContinueLabel,
+      refetchPaymentMethods: (async () => ({ data: { cards: [] } })) as any, // not relevant at the moment
+      refetchSetupData: (async () => ({})) as any, // not relevant at the moment
+      setSaveButtonDisabled,
+      findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
+        return findQuestionnaireResponseItemLinkId(linkId, completedPaperwork);
+      },
     }),
-    [pages, questionnaireResponse, appointmentId, saveButtonDisabled]
+    [
+      appointment,
+      completedPaperwork,
+      paperworkInProgress,
+      allItems,
+      pages,
+      questionnaireResponse,
+      patient,
+      updateTimestamp,
+      saveButtonDisabled,
+      setContinueLabel,
+    ]
   );
+
+  const { currentPage, isLastPage, submitted } = useMemo(() => {
+    const currentPage = pages[currentPageIndex]; // this will be undefined when we finish the form
+    const isLastPage = currentPageIndex === pages.length - 1;
+    const submitted = currentPageIndex > pages.length - 1;
+
+    return { currentPage, isLastPage, submitted };
+  }, [pages, currentPageIndex]);
+
+  useEffect(() => {
+    if (isLastPage) {
+      setContinueLabel('Submit');
+    } else {
+      setContinueLabel(undefined);
+    }
+  }, [isLastPage, setContinueLabel]);
+
+  const paperworkGroupDefaults = useMemo(() => {
+    const currentPageFields = convertQuestionnaireItemToQRLinkIdMap(currentPage?.item);
+    const currentPageEntries = completedPaperwork.find((item) => item.linkId === currentPage?.linkId)?.item;
+    const inProgress = paperworkInProgress[currentPage?.linkId ?? ''] ?? {};
+    if (!currentPageEntries && !inProgress) {
+      return { ...currentPageFields };
+    }
+
+    const pageDefaults = convertQRItemToLinkIdMap(currentPageEntries);
+
+    return { ...currentPageFields, ...pageDefaults, ...inProgress };
+  }, [completedPaperwork, currentPage, paperworkInProgress]);
+
+  const errorPageMessage = useMemo(() => {
+    if (authedFetchState === AuthedLoadingState.noReadAccess) {
+      return 'Access Denied';
+    } else if (loadError) {
+      return 'Error loading this form.';
+    } else if (pages.length === 0) {
+      // i'm not sure we would ever hit this
+      return 'Form not found.';
+    }
+    return;
+  }, [loadError, pages, authedFetchState]);
 
   const finishPage = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
-      if (!zambdaClient || !questionnaireId || !appointmentId || !currentPage) return;
+      if (!zambdaClient || !currentPage || !questionnaireResponseId) return;
 
       setSaving(true);
       setSaveError(false);
+
       try {
         // The form state holds values for every visited field; only this page's answers may be
         // written into this page's response item (mirrors PaperworkPage.finishPaperworkPage).
@@ -167,16 +241,22 @@ export const StandaloneFormPage: FC = () => {
           // Group/empty items can leave a stale `answer: [null]`; normalize it away.
           .map((qrItem) => (qrItem?.answer?.[0] == undefined ? { ...qrItem, answer: undefined } : qrItem));
 
-        const pageAnswers: QuestionnaireResponseItem = { linkId: currentPage.linkId, item };
-
-        const { questionnaireResponse: updatedQR } = await api.savePracticeManagedPaperworkResponse(zambdaClient, {
-          pageAnswers,
-          questionnaireId,
-          complete: isLastPage,
-          appointmentId,
+        const updatedPaperwork = await api.patchPaperwork(zambdaClient, {
+          answers: { linkId: currentPage.linkId, item },
+          questionnaireResponseId,
+          appointmentId: appointment?.id,
         });
-        // Keep resume/defaults in sync so Back doesn't blank previously-entered answers.
-        setQuestionnaireResponse(updatedQR);
+
+        if (isLastPage) {
+          await api.submitPaperwork(zambdaClient, {
+            answers: updatedPaperwork.item ?? [],
+            questionnaireResponseId,
+            appointmentId: appointment?.id,
+          });
+        }
+
+        patchCompletedPaperwork(updatedPaperwork);
+        saveProgress(currentPage.linkId, undefined);
         setCurrentPageIndex((prev) => prev + 1);
       } catch (err) {
         // Stay on the page and tell the patient — a silent failure looks like a dead Submit button.
@@ -186,7 +266,16 @@ export const StandaloneFormPage: FC = () => {
         setSaving(false);
       }
     },
-    [zambdaClient, questionnaireId, appointmentId, currentPage, isLastPage]
+    [zambdaClient, questionnaireResponseId, appointment, currentPage, patchCompletedPaperwork, saveProgress, isLastPage]
+  );
+
+  const controlButtons = useMemo(
+    () => ({
+      backButton: currentPageIndex !== 0,
+      onBack: () => setCurrentPageIndex((prev) => prev - 1),
+      loading: saving,
+    }),
+    [currentPageIndex, saving]
   );
 
   if (authedFetchState === AuthedLoadingState.initial || authedFetchState === AuthedLoadingState.loading) {
@@ -199,25 +288,11 @@ export const StandaloneFormPage: FC = () => {
     );
   }
 
-  // todo sarah i think this should just redirect the user to the home page
-  // or maybe prompt them to log in again? i dunno
-  if (authedFetchState === AuthedLoadingState.noReadAccess) {
-    return (
-      <PageContainer>
-        <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography variant="h6" color="error" sx={{ mb: 2 }}>
-            Access Denied
-          </Typography>
-        </Box>
-      </PageContainer>
-    );
-  }
-
-  if (!questionnaireItems) {
+  if (errorPageMessage) {
     return (
       <PageContainer>
         <Typography color="error" sx={{ p: 3 }}>
-          Form not found.
+          {errorPageMessage}
         </Typography>
       </PageContainer>
     );
@@ -252,18 +327,9 @@ export const StandaloneFormPage: FC = () => {
           pageId={currentPage?.linkId ?? ''}
           pageItem={currentPage}
           pageSubtitle={questionnaireTitle}
-          options={{
-            controlButtons: {
-              // Back must be explicit — ControlButtons defaults `backButton` to true and would
-              // otherwise render a history-Back on page 1 that leaves the form.
-              backButton: currentPageIndex !== 0,
-              onBack: () => setCurrentPageIndex((prev) => prev - 1),
-              loading: saving,
-              submitLabel: isLastPage ? 'Submit' : 'Continue',
-            },
-          }}
+          options={{ controlButtons }}
           items={currentPage.item ?? []}
-          defaultValues={pageDefaults}
+          defaultValues={paperworkGroupDefaults}
           isSaving={saving}
           // Standalone forms persist per page; there is no in-progress store to flush on unload atm.
           saveProgress={() => {}}
