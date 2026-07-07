@@ -18,8 +18,6 @@ interface PatientInfoProps {
 
 export const ProgressNote: React.FC<PatientInfoProps> = () => {
   const {
-    appointment: appointmentResource,
-    encounter,
     resources: { appointment, patient },
     isAppointmentLoading,
     appointmentError,
@@ -45,7 +43,7 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <SendFaxButton appointment={appointmentResource} encounter={encounter} />
+          <SendFaxButton />
           <DischargeSummaryButton appointmentId={appointment?.id} patientId={patient?.id} />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>

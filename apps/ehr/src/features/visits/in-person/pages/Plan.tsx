@@ -1,4 +1,4 @@
-import { Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { DispositionCard } from '../../shared/components/DispositionCard';
@@ -7,6 +7,7 @@ import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { PatientEducationCard } from '../../shared/components/plan-tab/PatientEducationCard';
 import { PatientInstructionsCard } from '../../shared/components/plan-tab/PatientInstructionsCard';
+import { SendFaxButton } from '../../shared/components/review-tab/SendFaxButton';
 import { SchoolWorkExcuseCard } from '../../shared/components/SchoolWorkExcuseCard';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
@@ -30,7 +31,10 @@ export const Plan: FC<PlanProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Plan" showIntakeNotesButton={false} />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+        <PageTitle label="Plan" showIntakeNotesButton={false} />
+        <SendFaxButton />
+      </Box>
       {!isFollowUp && <PatientInstructionsCard />}
       {!isFollowUp && <DispositionCard />}
       {!isFollowUp && <PatientEducationCard />}

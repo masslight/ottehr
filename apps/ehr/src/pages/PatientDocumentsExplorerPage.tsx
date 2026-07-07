@@ -1,3 +1,4 @@
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -19,6 +20,7 @@ import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { getFullName, isSyntheticFolderId } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
+import { SendFaxDialog } from '../components/dialogs/SendFaxDialog';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { RoundedButton } from '../components/RoundedButton';
 import { ScannerModal } from '../components/ScannerModal';
@@ -68,6 +70,7 @@ const PatientDocumentsExplorerPage: FC = () => {
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
+  const [isSendFaxDialogOpen, setIsSendFaxDialogOpen] = useState<boolean>(false);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -424,6 +427,15 @@ const PatientDocumentsExplorerPage: FC = () => {
                   >
                     Scan
                   </RoundedButton>
+
+                  <RoundedButton
+                    disabled={!patient}
+                    variant="outlined"
+                    startIcon={<FaxOutlinedIcon fontSize="small" />}
+                    onClick={() => setIsSendFaxDialogOpen(true)}
+                  >
+                    Send Fax
+                  </RoundedButton>
                 </Box>
 
                 <PatientDocumentsExplorerTable
@@ -438,6 +450,9 @@ const PatientDocumentsExplorerPage: FC = () => {
       </Box>
 
       <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
+      {isSendFaxDialogOpen && (
+        <SendFaxDialog open={isSendFaxDialogOpen} onClose={() => setIsSendFaxDialogOpen(false)} patient={patient} />
+      )}
     </Box>
   );
 };

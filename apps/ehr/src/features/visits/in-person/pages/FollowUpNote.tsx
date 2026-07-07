@@ -16,8 +16,6 @@ interface FollowUpNoteProps {
 
 export const FollowUpNote: React.FC<FollowUpNoteProps> = () => {
   const {
-    appointment: appointmentResource,
-    encounter,
     resources: { appointment },
     isAppointmentLoading,
     appointmentError,
@@ -44,7 +42,7 @@ export const FollowUpNote: React.FC<FollowUpNoteProps> = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <SendFaxButton appointment={appointmentResource} encounter={encounter} />
+          <SendFaxButton />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <ReviewAndSignButton onSigned={refetch} />

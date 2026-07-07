@@ -84,6 +84,10 @@
     "MEDICAL_RECORD_EXPORTS": {
       "name": "#{var/PROJECT_ID}-medical-record-exports",
       "removalPolicy": "retain"
+    },
+    "FAXES": {
+      "name": "#{var/PROJECT_ID}-faxes",
+      "removalPolicy": "retain"
     }
   }
 }
