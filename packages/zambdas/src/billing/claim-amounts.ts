@@ -54,8 +54,9 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
 
   const allowedCodes: string[] = [ADJUDICATION_CODES.ALLOWED, ADJUDICATION_CODES.ALLOWED_X12];
   const allowedAdjudications = adjudications.filter((adj) => allowedCodes.includes(adjudicationCode(adj) ?? ''));
-  const allowed = allowedAdjudications.length > 0 ? sumAmounts(allowedAdjudications) : undefined;
-
+  const totalAllowed = claimResponse.total?.find((t) => t.category?.coding?.[0]?.code === ADJUDICATION_CODES.ALLOWED)
+    ?.amount?.value;
+  const allowed = allowedAdjudications.length > 0 ? sumAmounts(allowedAdjudications) : totalAllowed;
   const patientResp =
     adjudications.length > 0
       ? sumAmounts(adjudications.filter((adj) => adjudicationCode(adj) === ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY))
