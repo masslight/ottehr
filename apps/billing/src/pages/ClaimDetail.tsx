@@ -26,14 +26,12 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  AR_STAGE,
   BillingCoverageOption,
   BillingLocationOption,
   BillingPayerOption,
@@ -44,7 +42,6 @@ import {
   ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
-  FEATURE_FLAGS_CONFIG,
   formatClaimStatusValue,
   getApiError,
   UpdateBillingResourceInput,
@@ -58,7 +55,6 @@ import {
   searchBillingPayers,
   searchBillingProviders,
   searchBillingTags,
-  submitBillingClaims,
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
@@ -88,10 +84,6 @@ const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
 // EHR app base URL for the "View in EHR" backlink
 const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
-
-// With the flag on, Submit runs the pre-submission rules engine (which submits or holds) instead of
-// submitting directly.
-const rulesEngineEnabled = FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled;
 
 export default function ClaimDetail(): ReactElement {
   const { id } = useParams();
@@ -184,26 +176,16 @@ export default function ClaimDetail(): ReactElement {
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Submission goes through the pre-submission rules engine: it applies the configured rules, then
+  // submits — or holds — the claim in the background.
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !id) return;
     setSubmitting(true);
     try {
-      if (rulesEngineEnabled) {
-        // Submission goes through the pre-submission rules engine: it applies the configured rules,
-        // then submits — or holds — the claim in the background.
-        await runBillingRulesEngine(oystehrZambda, { claimId: id });
-        enqueueSnackbar('Rules engine started — it will submit or hold the claim shortly. Refresh to see the result.', {
-          variant: 'info',
-        });
-      } else {
-        const { results } = await submitBillingClaims(oystehrZambda, { claimIds: [id] });
-        const result = results[0];
-        if (result?.status === 'submitted') {
-          enqueueSnackbar('Claim submitted to payer', { variant: 'success' });
-        } else {
-          enqueueSnackbar(result?.error ?? 'Failed to submit claim', { variant: 'error' });
-        }
-      }
+      await runBillingRulesEngine(oystehrZambda, { claimId: id });
+      enqueueSnackbar('Rules engine started — it will submit or hold the claim shortly. Refresh to see the result.', {
+        variant: 'info',
+      });
     } catch (err) {
       enqueueSnackbar(
         getApiError({
@@ -243,7 +225,6 @@ export default function ClaimDetail(): ReactElement {
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
   // With the rules engine on, the engine owns submission eligibility (it can also fix fields, tag,
   // or hold claims that aren't submittable yet), so the button stays enabled.
-  const canSubmit = rulesEngineEnabled || arStageCode === AR_STAGE.insurancePayer;
 
   const startHeaderEdit = (): void => {
     setServiceDate(claim.serviceLines[0]?.serviceDate ?? claim.created);
@@ -376,19 +357,9 @@ export default function ClaimDetail(): ReactElement {
             </>
           )}
         </Box>
-        <Tooltip title={canSubmit ? '' : 'Only claims in Insurance Payer Accounts Receivable can be submitted'}>
-          <span>
-            <Button
-              variant="contained"
-              size="small"
-              disabled={!canSubmit}
-              onClick={() => setConfirmingSubmit(true)}
-              sx={{ mt: 0.5 }}
-            >
-              Submit claim
-            </Button>
-          </span>
-        </Tooltip>
+        <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
+          Submit claim
+        </Button>
         <Button
           size="small"
           variant="outlined"
@@ -526,9 +497,8 @@ export default function ClaimDetail(): ReactElement {
         onConfirm={() => void handleSubmit()}
         onCancel={() => setConfirmingSubmit(false)}
       >
-        {rulesEngineEnabled
-          ? 'Run the pre-submission rules engine on this claim? It applies the configured rules, then submits the claim to the payer — or holds it if a rule applies the Hold tag.'
-          : 'Submit this claim to the payer? This sends it for processing and sets its Insurance Accounts Receivable Status to Submitted.'}
+        Run the pre-submission rules engine on this claim? It applies the configured rules, then submits the claim to
+        the payer — or holds it if a rule applies the Hold tag.
       </ConfirmDialog>
     </Box>
   );

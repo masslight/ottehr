@@ -54,7 +54,6 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   CPT_CODE_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
-  FEATURE_FLAGS_CONFIG,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
   getCandidPlanTypeCodeFromCoverage,
@@ -548,15 +547,13 @@ export async function performEffect(
     throw InternalError;
   }
 
-  if (FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled) {
-    // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
-    // The claim is already committed, so a kickoff failure must not fail the request; the engine can
-    // be run on demand via run-billing-rules-engine.
-    try {
-      await billingOystehr.fhir.create<Task>(buildRulesEngineKickoffTask(createdClaim.id));
-    } catch (error) {
-      console.error(`Failed to enqueue rules-engine Task for Claim/${createdClaim.id}:`, error);
-    }
+  // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
+  // The claim is already committed, so a kickoff failure must not fail the request; the engine can
+  // be run on demand via run-billing-rules-engine.
+  try {
+    await billingOystehr.fhir.create<Task>(buildRulesEngineKickoffTask(createdClaim.id));
+  } catch (error) {
+    console.error(`Failed to enqueue rules-engine Task for Claim/${createdClaim.id}:`, error);
   }
 
   return { claimId: createdClaim.id };

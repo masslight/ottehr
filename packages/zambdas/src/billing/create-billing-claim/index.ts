@@ -26,7 +26,6 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
-  FEATURE_FLAGS_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
   getCandidPlanTypeCodeFromCoverage,
   getDefaultClaimSubmissionExtensions,
@@ -120,11 +119,11 @@ async function performEffect(
   return { claimId: created.id };
 }
 
-// Enqueue the pre-submission rules engine (flag-gated); a Subscription runs it asynchronously. The
-// claim already exists at this point, so a kickoff failure must not fail the request — a retry would
-// create a duplicate claim. The engine can be run on demand via run-billing-rules-engine.
+// Enqueue the pre-submission rules engine; a Subscription runs it asynchronously. The claim already
+// exists at this point, so a kickoff failure must not fail the request — a retry would create a
+// duplicate claim. The engine can be run on demand via run-billing-rules-engine.
 async function kickoffRulesEngine(oystehr: Oystehr, claimId: string | undefined): Promise<void> {
-  if (!FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled || !claimId) return;
+  if (!claimId) return;
   try {
     await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
   } catch (error) {

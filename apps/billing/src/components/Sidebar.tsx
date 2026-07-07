@@ -15,7 +15,6 @@ import {
 import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FEATURE_FLAGS_CONFIG } from 'utils';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { otherColors } from '../themes/ottehr/colors';
 
@@ -35,9 +34,7 @@ const navItems = [
   },
   { label: 'ERAs', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
   { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
-  ...(FEATURE_FLAGS_CONFIG.presubmissionRulesEngineEnabled
-    ? [{ label: 'Rules', path: '/rules', icon: <RuleIcon sx={{ fontSize: 18 }} /> }]
-    : []),
+  { label: 'Rules', path: '/rules', icon: <RuleIcon sx={{ fontSize: 18 }} /> },
 ];
 
 export const Sidebar: FC = () => {
