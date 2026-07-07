@@ -415,9 +415,9 @@ export class PagedQuestionnaireFlowHelper {
       await this.uploadDocs.fillInsuranceFront();
     } else if (linkId === 'insurance-card-back') {
       await this.uploadDocs.fillInsuranceBack();
-    } else if (linkId === 'secondary-insurance-card-front') {
+    } else if (linkId === 'insurance-card-front-2') {
       await this.uploadDocs.fillSecondaryInsuranceFront();
-    } else if (linkId === 'secondary-insurance-card-back') {
+    } else if (linkId === 'insurance-card-back-2') {
       await this.uploadDocs.fillSecondaryInsuranceBack();
     } else if (linkId === 'photo-id-front') {
       await this.uploadDocs.fillPhotoFrontID();
