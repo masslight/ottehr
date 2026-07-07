@@ -130,7 +130,8 @@ const makeFormInputPropsForItem = (item: StyledQuestionnaireItem): FormInputProp
 };
 
 const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): string | undefined => {
-  const errorKeys = Object.keys(errors);
+  const visibleLinkIds = new Set(items.map((i) => i.linkId));
+  const errorKeys = Object.keys(errors).filter((k) => visibleLinkIds.has(k));
   let numErrors = errorKeys.length;
   if (numErrors === 0) {
     return undefined;
