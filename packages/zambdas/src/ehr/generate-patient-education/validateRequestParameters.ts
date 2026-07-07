@@ -1,6 +1,6 @@
 import { GeneratePatientEducationInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const generatePatientEducationInputSchema: z.ZodType<GeneratePatientEducationInput> = z.object({
   icdCode: z.string().min(1, 'icdCode is required'),
@@ -13,7 +13,7 @@ export function validateRequestParameters(
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const parsed = safeValidate(generatePatientEducationInputSchema, JSON.parse(input.body));
+  const parsed = safeValidate(generatePatientEducationInputSchema, safeJsonParse(input.body));
 
   return {
     ...parsed,

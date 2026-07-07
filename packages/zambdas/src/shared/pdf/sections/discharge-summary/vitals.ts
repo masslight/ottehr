@@ -43,7 +43,7 @@ export const composeVitalsForDischargeSummary: DataComposer<
       weight: vitals?.['vital-weight']?.at(-1) ?? '',
       height: vitals?.['vital-height']?.at(-1) ?? '',
       vision: acuityDisplayLines.at(-1) ?? '',
-      dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening),
+      dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening, { includeDocument: true }),
       lastMenstrualPeriod: vitals?.['vital-last-menstrual-period']?.at(-1) ?? '',
     },
   };

@@ -13,7 +13,7 @@ import {
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export const addressStringFromAddress = (address: Address): string => {
   let addressString = '';
@@ -99,7 +99,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     address,
     telecom,
     reviewLink,
-  } = JSON.parse(input.body);
+  } = safeJsonParse(input.body);
   const createMode = Boolean(ownerId) && Boolean(ownerType);
 
   if (!scheduleId) {

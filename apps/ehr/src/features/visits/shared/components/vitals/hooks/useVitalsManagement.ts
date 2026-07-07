@@ -1,5 +1,8 @@
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { uploadDotVisionDocument } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 import {
   calculateBMI,
   getAbnormalVitals,
@@ -27,6 +30,10 @@ import { useOxygenSatLocalState } from '../oxygen-saturation/useOxygenSatLocalSt
 import { useRespirationRateLocalState } from '../respiration-rate/useRespirationRateLocalState';
 import { useTemperatureLocalState } from '../temperature/useTemperatureLocalState';
 import { VitalLocalState } from '../types';
+import {
+  DotVisionScreeningLocalState,
+  useDotVisionScreeningLocalState,
+} from '../vision/useDotVisionScreeningLocalState';
 import { useVisionLocalState } from '../vision/useVisionLocalState';
 import { useWeightLocalState } from '../weights/useWeightLocalState';
 import { useBatchSaveVitals } from './useBatchSaveVitals';
@@ -45,6 +52,14 @@ export interface VitalField<TypeObsDTO extends VitalsObservationDTO = VitalsObse
   current: TypeObsDTO[];
   historical: TypeObsDTO[];
   localState: LocalState;
+  /**
+   * DOT vision screening lives on the same `vital-vision` observation but is captured in its own
+   * sub-form (only wired up for the vision field). Kept here so the shared "Add all vitals" flow and
+   * the standalone DOT "Add" button save through the same state and document-finalization path.
+   */
+  dotState?: DotVisionScreeningLocalState;
+  saveDot?: () => Promise<void>;
+  isSavingDot?: boolean;
 }
 
 export interface UseVitalsManagementProps {
@@ -126,10 +141,40 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
   const weightState = useWeightLocalState();
   const heightState = useHeightLocalState();
   const visionState = useVisionLocalState();
+  const dotVisionState = useDotVisionScreeningLocalState();
   const lmpState = useLMPLocalState();
 
+  const { id: appointmentId } = useParams();
+  const { oystehrZambda } = useApiClients();
+
   const [isBatchSaving, setIsBatchSaving] = useState(false);
+  const [isSavingDot, setIsSavingDot] = useState(false);
   const [fieldSavingStates, setFieldSavingStates] = useState<Partial<Record<VitalFieldNames, boolean>>>({});
+
+  // Create the referral DocumentReference lazily, only when a DOT entry that carries an attached
+  // (but not-yet-persisted) file is saved, so an attached-then-discarded file never orphans a
+  // DocumentReference. Shared by both the standalone DOT "Add" and the "Add all vitals" flow.
+  const finalizeDotVisionDocument = useCallback(
+    async (dto: VitalsVisionObservationDTO): Promise<VitalsVisionObservationDTO> => {
+      const pendingDoc = dto.dotVisionScreening?.document;
+      if (pendingDoc?.url && !pendingDoc.documentReferenceId && appointmentId && oystehrZambda) {
+        const result = await uploadDotVisionDocument(oystehrZambda, {
+          appointmentID: appointmentId,
+          z3URL: pendingDoc.url,
+          title: pendingDoc.title,
+        });
+        return {
+          ...dto,
+          dotVisionScreening: {
+            ...dto.dotVisionScreening,
+            document: { documentReferenceId: result.documentRefId, url: result.url, title: result.title },
+          },
+        };
+      }
+      return dto;
+    },
+    [appointmentId, oystehrZambda]
+  );
 
   // Refs for all vital cards
   const temperatureCardRef = useRef<HTMLDivElement>(null);
@@ -149,6 +194,21 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     },
     [saveVitals, refetchEncounterVitals]
   );
+
+  const handleSaveDot = useCallback(async (): Promise<void> => {
+    const dto = dotVisionState.getDTO();
+    if (!dto) return;
+    try {
+      setIsSavingDot(true);
+      const finalized = await finalizeDotVisionDocument(dto);
+      await handleSaveVital(finalized);
+      dotVisionState.clearForm();
+    } catch {
+      enqueueSnackbar('Error saving DOT Vision Screening data', { variant: 'error' });
+    } finally {
+      setIsSavingDot(false);
+    }
+  }, [dotVisionState, finalizeDotVisionDocument, handleSaveVital]);
 
   // Saves a derived BMI when both inputs exist. Doesn't refetch; caller refetches once. Returns whether it saved.
   const saveBMI = useCallback(
@@ -233,20 +293,33 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       .map(([_, { state }]) => state.getDTO())
       .filter((dto): dto is NonNullable<typeof dto> => dto !== null);
 
+    // DOT vision screening is captured in its own sub-form (not part of fieldMap); fold it into the
+    // same batch so "Add all vitals" doesn't silently drop it.
+    const dotDtoToSave = dotVisionState.hasData && dotVisionState.isValid ? dotVisionState.getDTO() : null;
+    const dotInvalid = dotVisionState.hasData && !dotVisionState.isValid;
+
     // Save valid vitals
-    if (validVitals.length > 0) {
+    if (validVitals.length > 0 || dotDtoToSave) {
       setIsBatchSaving(true);
       try {
-        await batchSaveVitals(validVitals);
+        const vitalsToSave = [...validVitals];
+        if (dotDtoToSave) {
+          // Finalize the referral DocumentReference (if any) before persisting the observation.
+          vitalsToSave.push(await finalizeDotVisionDocument(dotDtoToSave));
+        }
+        await batchSaveVitals(vitalsToSave);
         const refetchResult = await refetchEncounterVitals();
 
         // Clear only the forms that were saved
         validVitalsEntries.forEach(([_, { state }]) => {
           state.clearForm();
         });
+        if (dotDtoToSave) {
+          dotVisionState.clearForm();
+        }
 
-        const vitalText = validVitals.length === 1 ? 'vital' : 'vitals';
-        enqueueSnackbar(`Successfully saved ${validVitals.length} ${vitalText}`, {
+        const vitalText = vitalsToSave.length === 1 ? 'vital' : 'vitals';
+        enqueueSnackbar(`Successfully saved ${vitalsToSave.length} ${vitalText}`, {
           variant: 'success',
         });
 
@@ -296,6 +369,13 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         variant: 'error',
       });
     }
+
+    // DOT invalid values (e.g. out-of-range degrees) are flagged inline on the inputs; also surface
+    // a message and bring the vision card into view.
+    if (dotInvalid) {
+      visionCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      enqueueSnackbar('DOT Vision Screening has invalid values', { variant: 'error' });
+    }
   }, [
     temperatureState,
     heartbeatState,
@@ -305,6 +385,8 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     weightState,
     heightState,
     visionState,
+    dotVisionState,
+    finalizeDotVisionDocument,
     lmpState,
     batchSaveVitals,
     refetchEncounterVitals,
@@ -510,6 +592,9 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       current: (encounterVitals?.[VitalFieldNames.VitalVision] as VitalsVisionObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalVision] as VitalsVisionObservationDTO[]) ?? [],
       localState: visionState,
+      dotState: dotVisionState,
+      saveDot: handleSaveDot,
+      isSavingDot,
     },
     lmp: {
       save: saveHandlers[VitalFieldNames.VitalLastMenstrualPeriod],
@@ -537,6 +622,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     (weightState.hasData && !weightState.isPatientRefusedSelected) ||
     heightState.hasData ||
     visionState.hasData ||
+    dotVisionState.hasData ||
     lmpState.hasData;
 
   const abnormalVitalsValues = useMemo(() => getAbnormalVitals(encounterVitals), [encounterVitals]);

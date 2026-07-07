@@ -1,5 +1,11 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+
+const DeleteProcedureCodeBodySchema = z.object({
+  feeScheduleId: z.string().uuid(),
+  index: z.number().int().min(0),
+});
 
 export interface DeleteProcedureCodeParams {
   feeScheduleId: string;
@@ -12,15 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): DeleteProcedureCo
     throw MISSING_REQUEST_BODY;
   }
 
-  const { feeScheduleId, index } = JSON.parse(input.body);
-
-  if (!feeScheduleId) {
-    throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
-  }
-
-  if (index == null || typeof index !== 'number' || index < 0) {
-    throw INVALID_INPUT_ERROR('"index" must be a non-negative number');
-  }
+  const { feeScheduleId, index } = safeValidate(DeleteProcedureCodeBodySchema, safeJsonParse(input.body));
 
   return {
     feeScheduleId,

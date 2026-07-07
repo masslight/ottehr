@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { AR_STAGE } from 'utils';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../../src/billing/set-billing-claim-status/validateRequestParameters';
@@ -5,7 +6,7 @@ import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 describe('set-billing-claim-status - validateRequestParameters', () => {
   const secrets = createMockSecrets();
-  const claimId = 'claim-123';
+  const claimId = randomUUID();
 
   test('returns validated params for a valid AR Stage update', () => {
     const input = createMockZambdaInput({ claimId, field: 'arStage', value: AR_STAGE.insurancePayer }, { secrets });

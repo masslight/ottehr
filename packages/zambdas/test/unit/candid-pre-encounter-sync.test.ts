@@ -1,4 +1,4 @@
-import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, PaymentVariant } from 'utils';
+import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, PaymentVariant, SERVICE_CATEGORY_SYSTEM } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
@@ -24,9 +24,13 @@ const ENCOUNTER_ID = 'encounter-123';
 const CANDID_PATIENT_ID = 'candid-patient-xyz';
 const CANDID_APPOINTMENT_ID = 'candid-appt-456';
 
-function makeMockOystehr(options?: { paymentVariant?: PaymentVariant }): any {
+function makeMockOystehr(options?: { paymentVariant?: PaymentVariant; serviceCategory?: string }): any {
   const encounterExtensions = options?.paymentVariant
     ? [{ url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, valueString: options.paymentVariant }]
+    : undefined;
+
+  const appointmentServiceCategory = options?.serviceCategory
+    ? [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: options.serviceCategory }] }]
     : undefined;
 
   return {
@@ -56,6 +60,7 @@ function makeMockOystehr(options?: { paymentVariant?: PaymentVariant }): any {
             status: 'fulfilled',
             start: '2026-04-22T10:00:00Z',
             participant: [],
+            serviceCategory: appointmentServiceCategory,
           },
           {
             resourceType: 'Encounter',
@@ -261,6 +266,52 @@ describe('performCandidPreEncounterSync – amountCents guard (real implementati
           payerName: 'Cash Pay',
           payerId: 'Cash Pay',
         }),
+      })
+    );
+  });
+
+  it('syncs WC insurance (not Cash Pay) for workers-comp visit even when payment variant is selfPay', async () => {
+    mockOystehr = makeMockOystehr({ paymentVariant: PaymentVariant.selfPay, serviceCategory: 'workers-comp' });
+    mockGetAccountAndCoverageResourcesForPatient.mockResolvedValue({
+      coverages: {
+        workersComp: {
+          payor: [{ reference: 'Organization/wc-org-1' }],
+          subscriberId: 'WC-MEMBER-001',
+          relationship: { coding: [{ code: 'other' }] },
+        },
+      },
+      insuranceOrgs: [
+        {
+          resourceType: 'Organization',
+          id: 'wc-org-1',
+          name: 'Workers Comp Insurer',
+          type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/organization-type', code: 'pay' }] }],
+          identifier: [
+            {
+              system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id',
+              value: 'wc-payer-1',
+            },
+          ],
+        },
+      ],
+      occupationalMedicineAccount: undefined,
+    });
+
+    await performCandidPreEncounterSync({
+      encounterId: ENCOUNTER_ID,
+      oystehr: mockOystehr,
+      candidApiClient: mockCandidApiClient,
+    });
+
+    expect(mockCandidApiClient.preEncounter.coverages.v1.create).toHaveBeenCalledTimes(1);
+    expect(mockCandidApiClient.preEncounter.coverages.v1.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        insurancePlan: expect.objectContaining({ payerName: 'Cash Pay' }),
+      })
+    );
+    expect(mockCandidApiClient.preEncounter.coverages.v1.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        insurancePlan: expect.objectContaining({ payerName: 'Workers Comp Insurer' }),
       })
     );
   });

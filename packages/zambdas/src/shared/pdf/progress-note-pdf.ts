@@ -31,6 +31,7 @@ import {
   composeRadiology,
   composeReviewOfSystems,
   composeRosObservations,
+  composeSignature,
   composeSurgicalHistory,
   composeUpcomingVisits,
   composeVitals,
@@ -61,6 +62,7 @@ import {
   createRadiologySection,
   createReviewOfSystemsSection,
   createRosObservationsSection,
+  createSignatureSection,
   createSurgicalHistorySection,
   createUpcomingVisitsSection,
   createVitalsSection,
@@ -71,14 +73,16 @@ import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './ty
 const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
   const { patient, encounter, questionnaireResponse, allChartData, appointmentPackage, upcomingFollowUps } = input;
 
+  const visit = composeProgressNoteVisitDetails({
+    allChartData,
+    appointmentPackage,
+    serviceCategories: input.serviceCategories,
+  });
+
   return {
     patient: composePatientInformation({ patient, questionnaireResponse }),
     encounter: composeEncounterData({ encounter }),
-    visit: composeProgressNoteVisitDetails({
-      allChartData,
-      appointmentPackage,
-      serviceCategories: input.serviceCategories,
-    }),
+    visit,
     chiefComplaint: composeChiefComplaint({
       allChartData,
       appointmentPackage,
@@ -174,6 +178,11 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     upcomingVisits: composeUpcomingVisits({ upcomingFollowUps }),
     followupCompleted: composeFollowupCompleted({
       appointmentPackage,
+    }),
+    signature: composeSignature({
+      appointmentPackage,
+      visit,
+      signatures: input.signatures,
     }),
   };
 };
@@ -360,6 +369,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createPlanSection(),
     createUpcomingVisitsSection(),
     createFollowupCompletedSection(),
+    createSignatureSection(),
   ],
 };
 
