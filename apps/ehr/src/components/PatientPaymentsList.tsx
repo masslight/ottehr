@@ -651,9 +651,14 @@ export default function PatientPaymentList({
     setPatientHasMedicaid(patientHasMedicaidFromResource);
   }, [patientHasMedicaidFromResource]);
 
+  // Deep-cloned on each call, so cache once per mount and reuse across toggles.
+  const patientRecordQuestionnaire = useMemo(() => PATIENT_RECORD_QUESTIONNAIRE(), []);
+
   const updatePatientHasMedicaid = useMutation({
     mutationFn: async (nextValue: boolean) => {
-      if (!apiClient || !patient?.id) return;
+      if (!apiClient || !patient?.id) {
+        throw new Error('Cannot update medicaid preference: apiClient or patient.id unavailable');
+      }
       // Route through the existing update-patient-account zambda instead
       // of patching Patient directly from the client. The zambda's harvest
       // layer already knows how to translate `patient-has-medicaid` into
@@ -661,7 +666,7 @@ export default function PatientPaymentList({
       // table — the same pipeline the intake credit-card page uses when
       // the patient checks the box during paperwork.
       const questionnaireResponse = structureQuestionnaireResponse(
-        PATIENT_RECORD_QUESTIONNAIRE(),
+        patientRecordQuestionnaire,
         { 'patient-has-medicaid': nextValue },
         patient.id,
         { 'patient-has-medicaid': true }
@@ -846,7 +851,7 @@ export default function PatientPaymentList({
         control={
           <Checkbox
             checked={patientHasMedicaid}
-            disabled={updatePatientHasMedicaid.isPending || !patient?.id}
+            disabled={updatePatientHasMedicaid.isPending || !patient?.id || !apiClient}
             onChange={(_e, checked) => updatePatientHasMedicaid.mutate(checked)}
             sx={{ p: 0.5, mr: 1 }}
           />
