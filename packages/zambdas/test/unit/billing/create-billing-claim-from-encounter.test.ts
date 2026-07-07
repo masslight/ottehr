@@ -20,6 +20,7 @@ import {
   APIError,
   AR_STAGE,
   BILLING_RESOURCE_TAG,
+  CANDID_PLAN_TYPE_SYSTEM,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   CLAIM_STATUS_TAG_SYSTEMS,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -27,14 +28,19 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
+  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_HL7_HCPCS,
+  CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   CPT_CODE_SYSTEM,
   ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  getDefaultClaimSubmissionExtensions,
   ICD_10_CODE_SYSTEM,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
@@ -199,7 +205,7 @@ const clinicalResources: {
       code: {
         coding: [
           {
-            system: ICD_10_CODE_SYSTEM,
+            system: CODE_SYSTEM_ICD_10,
             code: 'E08.10',
             display: 'Diabetes mellitus due to underlying condition with ketoacidosis without coma',
           },
@@ -215,7 +221,7 @@ const clinicalResources: {
       code: {
         coding: [
           {
-            system: ICD_10_CODE_SYSTEM,
+            system: CODE_SYSTEM_ICD_10,
             code: 'S06.1XAS',
             display: 'Traumatic cerebral edema with loss of consciousness status unknown, sequela',
           },
@@ -1244,6 +1250,49 @@ describe('create-billing-claim-from-encounter', () => {
     });
   });
 
+  describe('insurance type', () => {
+    const billingOystehr = {
+      rcm: {
+        constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
+      },
+    } as unknown as Oystehr;
+
+    const copiedCoverage = (coverage: Coverage): Coverage => {
+      const [ops] = copyCoverageAndSubscriber(billingOystehr, coverage, 'urn:uuid:patient', [oystehrResources.payor]);
+      return ops.find((o): o is BatchInputPostRequest<Coverage> => o.method === 'POST' && o.url === '/Coverage')!
+        .resource;
+    };
+
+    it('mirrors the candid plan type from the source coverage onto the copy extension and type', () => {
+      const result = copiedCoverage({
+        ...clinicalResources.coverage,
+        type: {
+          coding: [
+            {
+              system: CANDID_PLAN_TYPE_SYSTEM,
+              code: '12',
+            },
+          ],
+        },
+      });
+
+      expect(result.extension).toContainEqual({
+        url: EXTENSION_CLAIM_INSURANCE_TYPE,
+        valueString: '12',
+      });
+      expect(result.type?.coding).toContainEqual({
+        system: CANDID_PLAN_TYPE_SYSTEM,
+        code: '12',
+      });
+    });
+
+    it('adds no insurance type when the source coverage has no candid plan type', () => {
+      const result = copiedCoverage(clinicalResources.coverage);
+      expect(result.extension?.some((e) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBe(false);
+      expect(result.type?.coding?.some((c) => c.system === CANDID_PLAN_TYPE_SYSTEM)).toBeFalsy();
+    });
+  });
+
   describe('getClaimCoveragesForEncounter', () => {
     it('properly finds coverages for existing billing resources for urgent care', () => {
       const billingOystehr = {
@@ -1365,6 +1414,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -1378,6 +1431,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -1614,6 +1668,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -1627,6 +1685,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -1745,6 +1804,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -1758,6 +1821,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -1778,7 +1842,10 @@ describe('create-billing-claim-from-encounter', () => {
                   provider: { reference: 'Practitioner/billing-practitioner-123' },
                   role: {
                     coding: [
-                      { code: '82', system: 'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type' },
+                      {
+                        code: '82',
+                        system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type',
+                      },
                     ],
                   },
                   sequence: 1,
@@ -1893,6 +1960,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -1906,6 +1977,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -1995,6 +2067,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -2008,6 +2084,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2096,6 +2173,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -2109,6 +2190,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2218,6 +2300,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -2231,6 +2317,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2341,6 +2428,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -2355,6 +2446,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2470,6 +2562,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -2483,6 +2579,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2503,7 +2600,10 @@ describe('create-billing-claim-from-encounter', () => {
                   provider: { reference: 'Practitioner/billing-practitioner-123' },
                   role: {
                     coding: [
-                      { code: '82', system: 'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type' },
+                      {
+                        code: '82',
+                        system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type',
+                      },
                     ],
                   },
                   sequence: 1,
@@ -2571,6 +2671,10 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
               status: 'draft',
               meta: {
                 tag: [
@@ -2584,6 +2688,7 @@ describe('create-billing-claim-from-encounter', () => {
               type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
               use: 'claim',
               created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
@@ -2604,7 +2709,10 @@ describe('create-billing-claim-from-encounter', () => {
                   provider: { reference: 'Practitioner/billing-practitioner-123' },
                   role: {
                     coding: [
-                      { code: '82', system: 'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type' },
+                      {
+                        code: '82',
+                        system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type',
+                      },
                     ],
                   },
                   sequence: 1,
@@ -2648,6 +2756,315 @@ describe('create-billing-claim-from-encounter', () => {
                       },
                     ],
                   },
+                  net: {
+                    currency: 'USD',
+                    value: 0,
+                  },
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
+          },
+        ]),
+      });
+    });
+    it('swaps Oystehr-invalid HCPCS system URL for HL7 system URL', async () => {
+      const txFn = vi.fn().mockResolvedValue({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account],
+          appointment: clinicalResources.appointment,
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [...clinicalResources.conditions],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [
+            {
+              ...clinicalResources.procedure,
+              code: {
+                coding: [
+                  {
+                    system: CODE_SYSTEM_HCPCS,
+                    code: '12345',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+          billingService: undefined,
+        },
+      };
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
+      expect(result.claimId).toEqual('claim');
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
+            resource: {
+              resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
+              status: 'draft',
+              meta: {
+                tag: [
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
+                  { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
+                  { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
+                ],
+              },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
+              use: 'claim',
+              created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { display: 'Unknown' },
+              facility: undefined,
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-123' },
+                },
+              ],
+              careTeam: undefined,
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: {
+                currency: 'USD',
+                value: 0,
+              },
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: undefined,
+                  diagnosisSequence: [1],
+                  productOrService: {
+                    coding: [
+                      {
+                        // It has been swapped
+                        system: CODE_SYSTEM_HL7_HCPCS,
+                        code: '12345',
+                      },
+                    ],
+                  },
+                  modifier: undefined,
+                  servicedPeriod: {
+                    start: expect.any(String),
+                    end: undefined,
+                  },
+                  locationCodeableConcept: undefined,
+                  net: {
+                    currency: 'USD',
+                    value: 0,
+                  },
+                  quantity: { value: 1, unit: 'UN' },
+                },
+              ],
+            },
+          },
+        ]),
+      });
+    });
+    it('swaps incorrect ICD-10 system URL for correct ICD-10 system URL', async () => {
+      const txFn = vi.fn().mockResolvedValue({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account],
+          appointment: clinicalResources.appointment,
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [
+            clinicalResources.conditions[0],
+            {
+              ...clinicalResources.conditions[1],
+              code: {
+                coding: [
+                  {
+                    // Incorrect system
+                    system: ICD_10_CODE_SYSTEM,
+                    code: 'S06.1XAS',
+                    display: 'Traumatic cerebral edema with loss of consciousness status unknown, sequela',
+                  },
+                ],
+              },
+            },
+          ],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+          billingService: undefined,
+        },
+      };
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
+      expect(result.claimId).toEqual('claim');
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
+            resource: {
+              resourceType: 'Claim',
+              identifier: [
+                { system: ottehrIdentifierSystem('claim-encounter-id'), value: 'encounter-123' },
+                { system: ottehrIdentifierSystem('claim-appointment-id'), value: 'appointment-123' },
+              ],
+              status: 'draft',
+              meta: {
+                tag: [
+                  { system: CURRENT_STATUS_TAG_SYSTEM, code: 'open' },
+                  { system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional },
+                  { system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' },
+                  { system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.insurancePayer },
+                  { system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus, code: 'created' },
+                ],
+              },
+              type: { coding: [{ system: CODE_SYSTEM_CLAIM_TYPE, code: CODE_SYSTEM_CLAIM_TYPE_CODES.professional }] },
+              use: 'claim',
+              created: expect.any(String),
+              extension: getDefaultClaimSubmissionExtensions(),
+              patient: {
+                reference: 'urn:uuid:claim-patient',
+              },
+              provider: { display: 'Unknown' },
+              facility: undefined,
+              insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
+              insurance: [
+                {
+                  sequence: 1,
+                  focal: true,
+                  coverage: { reference: 'urn:uuid:claim-coverage-billing-coverage-coverage-123' },
+                },
+              ],
+              careTeam: undefined,
+              diagnosis: [
+                { sequence: 1, diagnosisCodeableConcept: clinicalResources.conditions[0].code },
+                // Corrected system
+                { sequence: 2, diagnosisCodeableConcept: clinicalResources.conditions[1].code },
+              ],
+              priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+              total: {
+                currency: 'USD',
+                value: 0,
+              },
+              item: [
+                {
+                  sequence: 1,
+                  careTeamSequence: undefined,
+                  diagnosisSequence: [1],
+                  productOrService: {
+                    coding: [
+                      {
+                        system: CODE_SYSTEM_CPT,
+                        code: '12345',
+                        extension: [
+                          {
+                            url: 'https://fhir.ottehr.com/Extension/cpt-code-modifier',
+                            valueCodeableConcept: {
+                              coding: [
+                                {
+                                  code: '25',
+                                  system: 'https://fhir.ottehr.com/CodeSystem/cpt-code-modifier',
+                                },
+                              ],
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  modifier: [
+                    {
+                      coding: [
+                        {
+                          code: '25',
+                          system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier',
+                        },
+                      ],
+                    },
+                  ],
+                  servicedPeriod: {
+                    start: expect.any(String),
+                    end: undefined,
+                  },
+                  locationCodeableConcept: undefined,
                   net: {
                     currency: 'USD',
                     value: 0,

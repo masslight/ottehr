@@ -27,6 +27,11 @@ import {
   buildCoverageSubscriberRelatedPerson,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
@@ -40,16 +45,20 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getClaimStatusValues,
   getPayerId,
   getPayerUrl,
   getSecret,
   getSubscriberRelationshipCodeableConcept,
   INVALID_INPUT_ERROR,
   isPayerUrl,
+  isValidClaimStatusValue,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
   SecretsKeys,
+  setCoveragePlanType,
+  withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 
@@ -76,6 +85,29 @@ export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/curren
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
+}
+
+export function assertValidClaimStatusField(field: ClaimStatusFieldKey, value: string | null): string {
+  const resolved = value ?? '';
+  if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[field], resolved)) {
+    throw INVALID_INPUT_ERROR(`Invalid value "${resolved}" for claim status field "${field}"`);
+  }
+  return resolved;
+}
+
+// The claim's full meta.tag array with one status field changed: current status values plus the
+// update (AR Stage entry runs the same stage-initialization rule used at claim creation), rebuilt
+// while preserving every non-status tag. Committing (with its history record) lives in
+// provenance.ts#applyClaimStatusField.
+export function buildUpdatedClaimStatusTags(claim: Claim, field: ClaimStatusFieldKey, value: string): Coding[] {
+  const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: value };
+  const updatedValues = field === 'arStage' ? withArStageInitialization(values) : values;
+
+  const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
+  return [
+    ...(claim.meta?.tag ?? []).filter((t) => !t.system || !statusSystems.has(t.system)),
+    ...claimStatusValuesToTags(updatedValues),
+  ];
 }
 
 export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable<Claim['insurance']> {
@@ -570,11 +602,12 @@ export function buildBillingCoverage(params: {
   memberId: string;
   status: Coverage['status'];
   insuranceType: BillingInsuranceType;
+  planType?: string;
   relationship: BillingSubscriberRelationship;
   // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
   subscriberReference: string;
 }): Coverage {
-  const coverage: Coverage = {
+  let coverage: Coverage = {
     resourceType: 'Coverage',
     status: params.status,
     beneficiary: { type: 'Patient', reference: `Patient/${params.patientId}` },
@@ -584,6 +617,9 @@ export function buildBillingCoverage(params: {
   };
   setCoveragePayer(coverage, params.payerOrg, params.memberId);
   setCoverageRelationship(coverage, params.relationship);
+  if (params.planType) {
+    coverage = setCoveragePlanType(coverage, params.planType);
+  }
   return coverage;
 }
 

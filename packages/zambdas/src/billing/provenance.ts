@@ -24,8 +24,10 @@ import {
   CLAIM_STATUS_FIELDS,
   ClaimFieldChange,
   ClaimProvenanceActivityKey,
+  ClaimStatusFieldKey,
   convertFhirNameToDisplayName,
   formatClaimStatusValue,
+  getCandidPlanTypeCodeFromCoverage,
   getClaimStatusValues,
   getNPI,
   getPatchBinary,
@@ -35,7 +37,15 @@ import {
   Secrets,
   userMe,
 } from 'utils';
-import { CLAIM_TAG_SYSTEM, fhirName, formatAddress, getClaimType, getTaxonomy, sortClaimInsurance } from './shared';
+import {
+  buildUpdatedClaimStatusTags,
+  CLAIM_TAG_SYSTEM,
+  fhirName,
+  formatAddress,
+  getClaimType,
+  getTaxonomy,
+  sortClaimInsurance,
+} from './shared';
 
 // ---------------------------------------------------------------------------
 // Claim history (Provenance) — design overview
@@ -138,6 +148,7 @@ function projectCoverage(c: Coverage): FieldProjection[] {
       label: 'Relationship',
       value: c.relationship?.coding?.[0]?.display ?? c.relationship?.coding?.[0]?.code ?? '',
     },
+    { field: 'planType', label: 'Plan Type', value: getCandidPlanTypeCodeFromCoverage(c) ?? '' },
     { field: 'status', label: 'Status', value: c.status ?? '' },
   ];
 }
@@ -470,4 +481,20 @@ export async function commitClaimMetaTagsWithProvenance(
   });
   const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
   await oystehr.fhir.transaction<FhirResource>({ requests });
+}
+
+/**
+ * Set (or clear) one claim-status field and record the change, atomically. The provenance-aware
+ * counterpart of shared.ts#buildUpdatedClaimStatusTags, used by every endpoint that moves a claim's
+ * status (set-billing-claim-status, submit-billing-claim, ...).
+ */
+export async function applyClaimStatusField(
+  oystehr: Oystehr,
+  claim: Claim,
+  field: ClaimStatusFieldKey,
+  value: string,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const updatedTags = buildUpdatedClaimStatusTags(claim, field, value);
+  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
 }

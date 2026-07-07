@@ -219,7 +219,8 @@
             "Zambda:Function:get-billing-era-detail",
             "Zambda:Function:create-billing-provider",
             "Zambda:Function:get-billing-patient-detail",
-            "Zambda:Function:delete-billing-tag"
+            "Zambda:Function:delete-billing-tag",
+            "Zambda:Function:import-era"
           ]
         }
       ]

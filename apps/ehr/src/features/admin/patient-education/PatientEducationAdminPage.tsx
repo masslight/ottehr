@@ -8,7 +8,6 @@ import {
   CircularProgress,
   IconButton,
   Link,
-  Paper,
   Stack,
   Table,
   TableBody,
@@ -23,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { ApprovedPatientEducationItem } from 'utils';
 import { ApprovedPatientEducationDialog } from './ApprovedPatientEducationDialog';
@@ -63,13 +63,12 @@ export const PatientEducationAdminPage = (): ReactElement => {
   const items: ApprovedPatientEducationItem[] = data?.items ?? [];
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        <Typography variant="h5">Approved Patient Education PDFs</Typography>
+    <Box>
+      <AdminHeaderActionSlot>
         <RoundedButton variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
           Add
         </RoundedButton>
-      </Stack>
+      </AdminHeaderActionSlot>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Approved PDFs are automatically used during charting whenever a patient's diagnosis matches one of the ICD codes
         listed below.
@@ -78,7 +77,7 @@ export const PatientEducationAdminPage = (): ReactElement => {
       {isLoading && <CircularProgress />}
 
       {isSuccess && (
-        <TableContainer component={Paper}>
+        <TableContainer>
           <Table>
             <TableHead>
               <TableRow>

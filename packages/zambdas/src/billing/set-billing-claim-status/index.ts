@@ -1,19 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
-import {
-  CLAIM_STATUS_FIELDS,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimStatusValues,
-  claimStatusValuesToTags,
-  getClaimStatusValues,
-  INVALID_INPUT_ERROR,
-  isValidClaimStatusValue,
-  withArStageInitialization,
-} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { applyClaimStatusField, resolveClaimActor } from '../provenance';
+import { assertValidClaimStatusField, createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -34,28 +24,8 @@ export async function performEffect(
   params: SetClaimStatusParams,
   agent: ProvenanceAgent
 ): Promise<{ ok: true }> {
-  const field = CLAIM_STATUS_FIELDS_BY_KEY[params.field];
-  // Empty/null clears the tag back to the field default.
-  const value = params.value ?? '';
-  if (!isValidClaimStatusValue(field, value)) {
-    throw INVALID_INPUT_ERROR(`Invalid value "${value}" for claim status field "${params.field}"`);
-  }
-
+  const value = assertValidClaimStatusField(params.field, params.value ?? null);
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
-
-  // Apply the change to the claim's current status values, then — when setting AR Stage — run the same
-  // stage-initialization rule used at claim creation so a freshly-entered stage doesn't sit at "None".
-  const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [params.field]: value };
-  const updatedValues = params.field === 'arStage' ? withArStageInitialization(values) : values;
-
-  // Rebuild this claim's status tags from the values while preserving every non-status tag.
-  const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
-  const updatedTags = [
-    ...(claim.meta?.tag ?? []).filter((t) => !t.system || !statusSystems.has(t.system)),
-    ...claimStatusValuesToTags(updatedValues),
-  ];
-
-  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
-
+  await applyClaimStatusField(oystehr, claim, params.field, value, agent);
   return { ok: true };
 }

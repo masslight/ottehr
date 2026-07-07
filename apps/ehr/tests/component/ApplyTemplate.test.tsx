@@ -51,6 +51,7 @@ const mockUseGetCreateExternalLabResources = vi.fn();
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCreateExternalLabResources: (...args: any[]) => mockUseGetCreateExternalLabResources(...args),
+  GET_MEDICATION_ORDERS_QUERY_KEY: 'telemed-get-medication-orders',
 }));
 
 let mockIsReadOnly = false;
