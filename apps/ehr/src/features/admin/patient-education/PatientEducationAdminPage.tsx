@@ -24,7 +24,7 @@ import { ReactElement, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
-import { ApprovedPatientEducationItem } from 'utils';
+import { ApprovedPatientEducationItem, PATIENT_EDUCATION_LANGUAGE_LABELS } from 'utils';
 import { ApprovedPatientEducationDialog } from './ApprovedPatientEducationDialog';
 import { EditApprovedPatientEducationCodesDialog } from './EditApprovedPatientEducationCodesDialog';
 
@@ -60,7 +60,9 @@ export const PatientEducationAdminPage = (): ReactElement => {
     },
   });
 
-  const items: ApprovedPatientEducationItem[] = data?.items ?? [];
+  const items: ApprovedPatientEducationItem[] = (data?.items ?? [])
+    .slice()
+    .sort((a, b) => a.title.localeCompare(b.title) || a.language.localeCompare(b.language));
 
   return (
     <Box>
@@ -82,6 +84,7 @@ export const PatientEducationAdminPage = (): ReactElement => {
             <TableHead>
               <TableRow>
                 <TableCell>Title</TableCell>
+                <TableCell>Language</TableCell>
                 <TableCell>Diagnosis</TableCell>
                 <TableCell>Alternative ICD-10 Codes</TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap', width: '1%' }}>
@@ -92,7 +95,7 @@ export const PatientEducationAdminPage = (): ReactElement => {
             <TableBody>
               {items.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} align="center">
+                  <TableCell colSpan={5} align="center">
                     <Typography color="text.secondary" sx={{ py: 2 }}>
                       No approved patient education PDFs yet.
                     </Typography>
@@ -114,6 +117,13 @@ export const PatientEducationAdminPage = (): ReactElement => {
                         <PictureAsPdfIcon fontSize="small" color="error" />
                         {item.title}
                       </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        color={item.language === 'es' ? 'info' : 'default'}
+                        label={PATIENT_EDUCATION_LANGUAGE_LABELS[item.language]}
+                      />
                     </TableCell>
                     <TableCell>
                       {primary && (
