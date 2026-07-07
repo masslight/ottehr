@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, useEffect, useState } from 'react';
+import { FC, ReactElement, ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
@@ -53,6 +53,11 @@ type InsuranceContainerProps = {
   isNew?: boolean;
   onCancelAdd?: () => void;
   renderWithoutSection?: boolean;
+  /**
+   * Visit-page-only: renders this coverage's compact card thumbnail at the top of the block,
+   * right-aligned. Called with the 0-based card ordinal (0 = primary, 1 = secondary).
+   */
+  renderInsuranceCardThumbnail?: (ordinal: number) => ReactNode;
 };
 
 export const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, StatusStyleObject> = {
@@ -133,6 +138,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   isNew,
   onCancelAdd,
   renderWithoutSection,
+  renderInsuranceCardThumbnail,
 }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
@@ -603,6 +609,14 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
               </Grid>
             ))}
           </Grid>
+        </Box>
+      )}
+      {/* Compact card thumbnail for THIS coverage (visit page only), rendered unconditionally just
+          above the coverage form fields, right-aligned; it enlarges into the floating preview or,
+          with no card image yet, offers a compact upload/scan affordance. */}
+      {renderInsuranceCardThumbnail && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+          {renderInsuranceCardThumbnail(ordinal - 1)}
         </Box>
       )}
       <PatientRecordFormField

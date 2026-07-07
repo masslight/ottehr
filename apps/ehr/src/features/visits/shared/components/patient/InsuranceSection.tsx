@@ -1,7 +1,7 @@
 import { Button } from '@mui/material';
 import { FormFieldItemRecord } from 'config-types';
 import { Coverage, Patient } from 'fhir/r4b';
-import { FC, useMemo } from 'react';
+import { FC, ReactNode, useMemo } from 'react';
 import { Section } from 'src/components/layout';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
@@ -42,6 +42,11 @@ export const InsuranceSection: FC<{
   onCloseAddInsurance: () => void;
   newInsuranceOrdinal: number;
   encounterId?: string;
+  /**
+   * Visit-page-only: renders a coverage's compact card thumbnail inside its insurance block.
+   * Called with the 0-based card ordinal (0 = primary, 1 = secondary).
+   */
+  renderInsuranceCardThumbnail?: (ordinal: number) => ReactNode;
 }> = ({
   coverages,
   patient,
@@ -54,6 +59,7 @@ export const InsuranceSection: FC<{
   onCloseAddInsurance,
   newInsuranceOrdinal,
   encounterId,
+  renderInsuranceCardThumbnail,
 }) => {
   const primary = getInsuranceSectionDefinition(0);
   const secondary = getInsuranceSectionDefinition(1);
@@ -98,6 +104,7 @@ export const InsuranceSection: FC<{
             coverage.resource.id !== undefined ? () => onRemoveCoverage(coverage.resource.id!) : undefined
           }
           renderWithoutSection
+          renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
         />
       ))}
       {isAddingInsurance && (
