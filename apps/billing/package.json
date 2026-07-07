@@ -1,6 +1,6 @@
 {
   "name": "billing-ui",
-"version": "1.38.0",
+  "version": "1.38.2",
   "private": true,
   "type": "module",
   "engines": {

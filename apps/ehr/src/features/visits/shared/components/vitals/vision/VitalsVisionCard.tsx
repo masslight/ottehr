@@ -1,13 +1,10 @@
 import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { uploadDotVisionDocument } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { getDotVisionScreeningLines, getVisionExtraOptionsFormattedString, VitalsVisionObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
@@ -18,7 +15,6 @@ import { useScreenDimensions } from '../hooks/useScreenDimensions';
 import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
 import { VitalsCardProps } from '../types';
 import DotVisionScreeningSection from './DotVisionScreeningSection';
-import { useDotVisionScreeningLocalState } from './useDotVisionScreeningLocalState';
 
 type VitalsVisionCardProps = VitalsCardProps<VitalsVisionObservationDTO>;
 const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyElementSkeletonText }): JSX.Element => {
@@ -27,7 +23,6 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
   const { isLargeScreen } = useScreenDimensions();
 
   const { id: appointmentId } = useParams();
-  const { oystehrZambda } = useApiClients();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
@@ -40,51 +35,27 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
     setIsDotCollapsed((prev) => !prev);
   }, []);
 
-  const dotState = useDotVisionScreeningLocalState();
-  const [isSavingDot, setIsSavingDot] = useState<boolean>(false);
-
-  const handleSaveDot = useCallback(async () => {
-    const dto = dotState.getDTO();
-    if (!dto || !field.saveWithDto) return;
-    try {
-      setIsSavingDot(true);
-      // Create the DocumentReference lazily, only now that the entry is being saved, so a file that
-      // was attached and then discarded never leaves an orphaned DocumentReference on the encounter.
-      const pendingDoc = dto.dotVisionScreening?.document;
-      if (pendingDoc?.url && !pendingDoc.documentReferenceId && appointmentId && oystehrZambda) {
-        const result = await uploadDotVisionDocument(oystehrZambda, {
-          appointmentID: appointmentId,
-          z3URL: pendingDoc.url,
-          title: pendingDoc.title,
-        });
-        dto.dotVisionScreening = {
-          ...dto.dotVisionScreening,
-          document: { documentReferenceId: result.documentRefId, url: result.url, title: result.title },
-        };
-      }
-      await field.saveWithDto(dto);
-      dotState.clearForm();
-    } catch {
-      enqueueSnackbar('Error saving DOT Vision Screening data', { variant: 'error' });
-    } finally {
-      setIsSavingDot(false);
-    }
-  }, [dotState, field, appointmentId, oystehrZambda]);
+  // DOT state/save live in useVitalsManagement so the standalone "Add" and "Add all vitals" share
+  // one source of truth and the same lazy document-finalization path.
+  const dotState = field.dotState;
+  const handleSaveDot = field.saveDot;
+  const isSavingDot = field.isSavingDot ?? false;
 
   const { localState } = field;
   const isCheckboxesDisabled = field.isSaving;
 
   const latestVisionValueLabel = (() => {
-    const latestHistoryEntry = field.current[0];
-    if (!latestHistoryEntry) return;
+    // Preview the latest Snellen acuity entry only; DOT screening entries have their own sub-section
+    // and must not leak into the "Vision" card title.
+    const latestAcuityEntry = field.current.find(
+      (entry) => getDotVisionScreeningLines(entry.dotVisionScreening).length === 0
+    );
+    if (!latestAcuityEntry) return;
     const parts: string[] = [];
-    if (latestHistoryEntry.leftEyeVisionText) parts.push(`Left eye: ${latestHistoryEntry.leftEyeVisionText}`);
-    if (latestHistoryEntry.rightEyeVisionText) parts.push(`Right eye: ${latestHistoryEntry.rightEyeVisionText}`);
-    if (latestHistoryEntry.bothEyesVisionText) parts.push(`Both eyes: ${latestHistoryEntry.bothEyesVisionText}`);
-    if (parts.length === 0 && getDotVisionScreeningLines(latestHistoryEntry.dotVisionScreening).length > 0) {
-      return 'DOT Vision Screening';
-    }
-    const visionOptionsLine = getVisionExtraOptionsFormattedString(latestHistoryEntry.extraVisionOptions);
+    if (latestAcuityEntry.leftEyeVisionText) parts.push(`Left eye: ${latestAcuityEntry.leftEyeVisionText}`);
+    if (latestAcuityEntry.rightEyeVisionText) parts.push(`Right eye: ${latestAcuityEntry.rightEyeVisionText}`);
+    if (latestAcuityEntry.bothEyesVisionText) parts.push(`Both eyes: ${latestAcuityEntry.bothEyesVisionText}`);
+    const visionOptionsLine = getVisionExtraOptionsFormattedString(latestAcuityEntry.extraVisionOptions);
     return `${parts.join('; ')}; ${visionOptionsLine ?? ''}`;
   })();
 
@@ -355,15 +326,17 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({ field, historyEleme
                     </Box>
                   </Grid>
                 </Grid>
-                <DotVisionScreeningSection
-                  state={dotState}
-                  collapsed={isDotCollapsed}
-                  onToggleCollapse={handleDotSectionCollapse}
-                  appointmentId={appointmentId}
-                  isReadOnly={isReadOnly}
-                  isSaving={isSavingDot}
-                  onSave={handleSaveDot}
-                />
+                {dotState && handleSaveDot && (
+                  <DotVisionScreeningSection
+                    state={dotState}
+                    collapsed={isDotCollapsed}
+                    onToggleCollapse={handleDotSectionCollapse}
+                    appointmentId={appointmentId}
+                    isReadOnly={isReadOnly}
+                    isSaving={isSavingDot}
+                    onSave={handleSaveDot}
+                  />
+                )}
               </>
             }
             rightColumn={renderRightColumn()}
