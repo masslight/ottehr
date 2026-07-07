@@ -14,11 +14,33 @@ import { PUBLIC_EXTENSION_BASE_URL, SLUG_SYSTEM } from './constants';
 import { getAllFhirSearchPages } from './getAllFhirSearchPages';
 import { getFullName } from './patient';
 
-export const isLocationFacilityGroup = (location: Location): boolean => {
-  return Boolean(
-    location.extension?.find((ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release')
-      ?.valueCoding?.code === 'si'
+export const LOCATION_FORM_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`;
+export const LOCATION_PHYSICAL_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/location-physical-type';
+export const LOCATION_VIRTUAL_CODE = 'vi';
+export const LOCATION_FACILITY_GROUP_CODE = 'si';
+// Project-specific "form" marker written on the same location-form extension.
+// It is NOT a real HL7 location-physical-type code (that value set has no
+// in-person member) — it mirrors the loose convention already used for
+// 'vi' (virtual) and 'si' (facility group), which lets a Location be tagged
+// as both virtual and in-person at once.
+export const LOCATION_IN_PERSON_CODE = 'in-person';
+
+// Marks a Location created through the EHR admin "Add location" UI, as opposed
+// to one provisioned by terraform / setup scripts. Manually-created Locations
+// get their slug auto-generated from the name at create time; the admin is then
+// allowed to edit that slug afterward (terraform-managed slugs stay read-only).
+export const LOCATION_MANUALLY_CREATED_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/location-manually-created`;
+
+export const isLocationManuallyCreated = (location: Location): boolean =>
+  Boolean(
+    location.extension?.some((ext) => ext.url === LOCATION_MANUALLY_CREATED_EXTENSION_URL && ext.valueBoolean === true)
   );
+
+const hasLocationFormCoding = (location: Location | Schedule, code: string): boolean =>
+  Boolean(location.extension?.some((ext) => ext.url === LOCATION_FORM_EXTENSION_URL && ext.valueCoding?.code === code));
+
+export const isLocationFacilityGroup = (location: Location): boolean => {
+  return hasLocationFormCoding(location, LOCATION_FACILITY_GROUP_CODE);
 };
 
 export async function getLocationResource(locationID: string, oystehr: Oystehr): Promise<Location | undefined> {
@@ -40,10 +62,25 @@ export async function getLocationResource(locationID: string, oystehr: Oystehr):
 }
 
 export const isLocationVirtual = (location: Location | Schedule): location is Location => {
-  return Boolean(
-    location.extension?.find((ext) => ext.url === `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`)?.valueCoding
-      ?.code === 'vi'
-  );
+  // Use `.some` rather than `.find(...)?.code === 'vi'`: a Location may now carry
+  // multiple codings on this URL (e.g. both virtual and in-person, plus a
+  // facility-group 'si'), and `.find` only inspects whichever coding happens to
+  // come first — which would silently break detection for dual-mode Locations.
+  return hasLocationFormCoding(location, LOCATION_VIRTUAL_CODE);
+};
+
+/**
+ * True when the Location should appear in in-person contexts (booking pick-lists,
+ * lab-ordering locations, etc.). A Location can be both virtual and in-person.
+ *
+ * Backward-compat: Locations created before the in-person flag existed have no
+ * explicit in-person coding, so they're treated as in-person unless they're
+ * virtual — preserving the legacy "no location-form coding = physical location"
+ * semantic. A virtual-only Location stays out of in-person lists until an admin
+ * explicitly marks it in-person.
+ */
+export const isLocationInPerson = (location: Location | Schedule): boolean => {
+  return hasLocationFormCoding(location, LOCATION_IN_PERSON_CODE) || !isLocationVirtual(location);
 };
 
 export const filterVirtualLocations = (resources: Resource[]): Location[] => {

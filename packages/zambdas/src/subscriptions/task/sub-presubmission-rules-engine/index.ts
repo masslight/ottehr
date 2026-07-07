@@ -1,13 +1,31 @@
-import Oystehr, { BatchInputPutRequest } from '@oystehr/sdk';
-import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practitioner, Resource, Task } from 'fhir/r4b';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import {
+  Claim,
+  Coverage,
+  FhirResource,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+  ProvenanceAgent,
+  Resource,
+  Task,
+} from 'fhir/r4b';
 import {
   executeRule,
   FHIR_RESOURCE_NOT_FOUND,
   getResourcesFromBatchInlineRequests,
   listToRules,
+  makeOptimisticLockIfMatchHeader,
   PreSubmissionRule,
   RulesEngineClaimModel,
 } from 'utils';
+import {
+  claimProvenanceRequest,
+  recordedNow,
+  resolveClaimActor,
+  versionedReference,
+} from '../../../billing/provenance';
 import {
   BILLING_WORKING_COPY_TAG,
   createBillingClient,
@@ -39,6 +57,9 @@ export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (in
   // billing workspace where the claim, its working copies, and the rules List live.
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
+  // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
+  // change the engine writes lands in the claim history attributed to it.
+  const agent = await resolveClaimActor(oystehr, undefined, secrets);
 
   try {
     console.log(`[rules-engine] starting for Claim/${claimId}`);
@@ -64,7 +85,7 @@ export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (in
     }
 
     // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
-    const written = await persistModel(oystehr, model, unchanged);
+    const written = await persistModel(oystehr, model, unchanged, agent);
     console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
 
     if (heldBy) {
@@ -75,14 +96,11 @@ export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (in
       };
     }
 
-    const submission = await submitClaim({ oystehr, model, secrets });
+    const submission = await submitClaim({ oystehr, model, agent });
     console.log(`[rules-engine] completed for Claim/${claimId}: ${submission.statusReason}`);
     return {
       taskStatus: 'completed' as const,
-      statusReason:
-        rules.length === 0
-          ? 'No rules configured; claim ready to submit (submission backend not yet wired).'
-          : submission.statusReason,
+      statusReason: submission.statusReason,
     };
   } catch (error) {
     // wrapTaskHandler logs the error generically and marks the Task failed; log here too so the
@@ -159,23 +177,28 @@ function modelResources(model: RulesEngineClaimModel): ModelResource[] {
   );
 }
 
-// Serialized state of each model resource as loaded, used to write back only what a rule changed.
-function snapshotModel(model: RulesEngineClaimModel): Map<string, string> {
-  return new Map(modelResources(model).map((r) => [`${r.resourceType}/${r.id}`, JSON.stringify(r)]));
+// Deep-cloned state of each model resource as loaded: the dirty check compares against it, and it is
+// the `before` of each change's history record.
+function snapshotModel(model: RulesEngineClaimModel): Map<string, ModelResource> {
+  return new Map(modelResources(model).map((r) => [`${r.resourceType}/${r.id}`, structuredClone(r)]));
 }
 
-// Write back the resources a rule actually changed, in one transaction, each guarded by ifMatch so a
-// concurrent edit fails the run (Task marked failed) instead of being clobbered. Returns the number
-// of resources written.
+// Write back the resources a rule actually changed — each with its claim-history Provenance — in one
+// transaction, guarded by ifMatch so a concurrent edit fails the run (Task marked failed) instead of
+// being clobbered. Returns the number of resources written.
 async function persistModel(
   oystehr: Oystehr,
   model: RulesEngineClaimModel,
-  unchanged: Map<string, string>
+  snapshot: Map<string, ModelResource>,
+  agent: ProvenanceAgent
 ): Promise<number> {
-  const requests: BatchInputPutRequest<FhirResource>[] = [];
+  const claimReference = `Claim/${model.claim.id}`;
+  const requests: BatchInputRequest<FhirResource>[] = [];
+  let written = 0;
   for (const resource of modelResources(model)) {
     const url = `${resource.resourceType}/${resource.id}`;
-    if (unchanged.get(url) === JSON.stringify(resource)) continue;
+    const before = snapshot.get(url);
+    if (before && JSON.stringify(before) === JSON.stringify(resource)) continue;
     // The engine may only edit the claim itself and its per-claim working copies. Legacy
     // encounter-created claims can still reference a shared provider/facility — refuse to write
     // those rather than corrupt them for every other claim.
@@ -186,13 +209,20 @@ async function persistModel(
       console.warn(`[rules-engine] skipping write to shared (non-working-copy) resource ${url}`);
       continue;
     }
-    requests.push({
-      method: 'PUT',
-      url,
-      resource,
-      ifMatch: resource.meta?.versionId ? `W/"${resource.meta.versionId}"` : undefined,
+    requests.push({ method: 'PUT', url, resource, ifMatch: makeOptimisticLockIfMatchHeader(resource) });
+    written += 1;
+    const provenance = claimProvenanceRequest({
+      targetReference: url,
+      claimReference,
+      before,
+      after: resource,
+      agent,
+      activity: 'update',
+      recorded: recordedNow(),
+      priorVersionReference: versionedReference(before),
     });
+    if (provenance) requests.push(provenance as BatchInputRequest<FhirResource>);
   }
   if (requests.length) await oystehr.fhir.transaction({ requests });
-  return requests.length;
+  return written;
 }

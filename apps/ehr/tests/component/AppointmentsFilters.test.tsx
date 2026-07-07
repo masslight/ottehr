@@ -17,6 +17,9 @@ vi.mock('../../src/components/input/SelectInput', () => ({
 vi.mock('../../src/components/input/DateInput', () => ({
   DateInput: () => <div data-testid="date-input" />,
 }));
+vi.mock('../../src/hooks/useMergedServiceCategories', () => ({
+  useMergedServiceCategories: () => [],
+}));
 import AppointmentsFilters, {
   LOCAL_STORAGE_FILTERS_KEY,
   SESSION_STORAGE_DATE_RANGE_KEY,

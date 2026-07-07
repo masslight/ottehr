@@ -1,8 +1,9 @@
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig } from '@oystehr/sdk';
 import {
   Account,
   Address,
   Basic,
+  ChargeItemDefinition,
   Claim,
   Coding,
   Coverage,
@@ -20,16 +21,23 @@ import {
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_INSURANCE_TYPE_LABELS,
+  BILLING_RESOURCE_TAG,
   BillingInsuranceType,
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
   CLAIM_TAG_SYSTEM,
-  CODE_SYSTEM_APPOINTMENT_TYPE_CODES,
-  CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -37,19 +45,25 @@ import {
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getClaimStatusValues,
   getPayerId,
   getPayerUrl,
+  getSecret,
   getSubscriberRelationshipCodeableConcept,
+  INVALID_INPUT_ERROR,
   isPayerUrl,
+  isValidClaimStatusValue,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PRESUBMISSION_RULES_LIST_CODE,
   RULES_ENGINE_TAG_SYSTEM,
   Secrets,
+  SecretsKeys,
+  setCoveragePlanType,
   setNpi,
+  withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
-import { createOystehrClient } from '../shared/helpers';
 
 // Type alias for resources relevant to billing
 export type BillingFhirResource =
@@ -64,11 +78,6 @@ export type BillingFhirResource =
   | RelatedPerson
   | Basic;
 
-export const BILLING_RESOURCE_TAG = {
-  system: 'https://fhir.ottehr.com/billing/resource-type',
-  code: 'billing-resource',
-};
-
 export const BILLING_WORKING_COPY_TAG = {
   system: 'https://fhir.ottehr.com/billing/resource-type',
   code: 'billing-working-copy',
@@ -79,6 +88,29 @@ export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/curren
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
+}
+
+export function assertValidClaimStatusField(field: ClaimStatusFieldKey, value: string | null): string {
+  const resolved = value ?? '';
+  if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[field], resolved)) {
+    throw INVALID_INPUT_ERROR(`Invalid value "${resolved}" for claim status field "${field}"`);
+  }
+  return resolved;
+}
+
+// The claim's full meta.tag array with one status field changed: current status values plus the
+// update (AR Stage entry runs the same stage-initialization rule used at claim creation), rebuilt
+// while preserving every non-status tag. Committing (with its history record) lives in
+// provenance.ts#applyClaimStatusField.
+export function buildUpdatedClaimStatusTags(claim: Claim, field: ClaimStatusFieldKey, value: string): Coding[] {
+  const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: value };
+  const updatedValues = field === 'arStage' ? withArStageInitialization(values) : values;
+
+  const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
+  return [
+    ...(claim.meta?.tag ?? []).filter((t) => !t.system || !statusSystems.has(t.system)),
+    ...claimStatusValuesToTags(updatedValues),
+  ];
 }
 
 export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable<Claim['insurance']> {
@@ -146,6 +178,15 @@ export async function resolvePayersByRef(
   return byRef;
 }
 
+// Payer display string used across billing: "Name (Payer ID)".
+export function payerDisplay(org: Organization | undefined): string | undefined {
+  if (!org) return undefined;
+  const name = org.name ?? '';
+  const payerId = getPayerId(org) ?? '';
+  if (name && payerId) return `${name} (${payerId})`;
+  return name || payerId || undefined;
+}
+
 // Provider role: one tag system  (a provider can bill and/or render).
 export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role';
 export const PROVIDER_ROLE_BILLING = 'billing';
@@ -185,14 +226,26 @@ export function sanitizeOverrides(overrides?: Record<string, unknown>): Record<s
 
 // Working copy visibility convention:
 // List pages (default view): exclude working copies (only show billing originals)
-// List pages (active search): include working copies via includeWorkingCopies param
+// List pages (active search): also exclude working copies
 // Autocomplete dropdowns (Create Claim, etc.): never include working copies
 export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
-export function createBillingClient(token: string, secrets: Secrets | null): Oystehr {
-  return createOystehrClient(token, secrets, { workspaceTag: BILLING_RESOURCE_TAG });
+export function createBillingClient(
+  token: string,
+  secrets: Secrets | null,
+  overrides?: Partial<OystehrConfig>
+): Oystehr {
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+      projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    },
+    ...overrides,
+    workspaceTag: BILLING_RESOURCE_TAG,
+  });
 }
 
 export async function fetchById<T extends FhirResource>(
@@ -321,6 +374,17 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
 export function fhirName(resource?: Patient | Practitioner): string {
   const name = resource?.name?.[0];
   return name ? convertFhirNameToDisplayName(name) : '';
+}
+
+// Friendly display name for any resource that can be referenced from a claim (undefined when the
+// resource has no usable name, so callers can set Reference.display without empty strings).
+export function resourceDisplayName(resource: Resource | undefined): string | undefined {
+  if (!resource) return undefined;
+  const name =
+    resource.resourceType === 'Practitioner' || resource.resourceType === 'Patient'
+      ? fhirName(resource as Practitioner | Patient)
+      : (resource as Organization | Location).name;
+  return name || undefined;
 }
 
 /**
@@ -453,15 +517,12 @@ export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CO
   return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };
 }
 
-export function getClaimAppointmentType(claim: Claim): keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined {
-  const code = claim.meta?.tag?.find((c) => c.system === CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM)?.code;
+export function getClaimService(claim: Claim): string | undefined {
+  const code = claim.meta?.tag?.find((c) => c.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM)?.code;
   if (!code) {
     return undefined;
   }
-  if (!Object.hasOwn(CODE_SYSTEM_APPOINTMENT_TYPE_CODES, code)) {
-    return undefined;
-  }
-  return code as keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES;
+  return code;
 }
 
 // --- Coverage / insurance helpers ---
@@ -516,11 +577,12 @@ export function buildBillingCoverage(params: {
   memberId: string;
   status: Coverage['status'];
   insuranceType: BillingInsuranceType;
+  planType?: string;
   relationship: BillingSubscriberRelationship;
   // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
   subscriberReference: string;
 }): Coverage {
-  const coverage: Coverage = {
+  let coverage: Coverage = {
     resourceType: 'Coverage',
     status: params.status,
     beneficiary: { type: 'Patient', reference: `Patient/${params.patientId}` },
@@ -530,6 +592,9 @@ export function buildBillingCoverage(params: {
   };
   setCoveragePayer(coverage, params.payerOrg, params.memberId);
   setCoverageRelationship(coverage, params.relationship);
+  if (params.planType) {
+    coverage = setCoveragePlanType(coverage, params.planType);
+  }
   return coverage;
 }
 
@@ -674,4 +739,27 @@ export function chargeItemDefinitionNameToUrl(type: 'charge-master' | 'fee-sched
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   return `urn:uuid:${type}:${slug}`;
+}
+
+export function getTypeForChargeItemDefinition(cid: ChargeItemDefinition): ChargeItemDefinitionType {
+  const typeCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_TYPE_SYSTEM)?.code;
+  const typeValue: ChargeItemDefinitionType | undefined =
+    typeCode && ['charge-master', 'fee-schedule'].includes(typeCode)
+      ? (typeCode as ChargeItemDefinitionType)
+      : undefined;
+  if (!typeValue) {
+    throw INVALID_INPUT_ERROR(`ChargeItemDefinition ${cid.id} does not have a valid type`);
+  }
+  return typeValue;
+}
+
+export function getDefaultSettingForChargeItemDefinition(
+  cid: ChargeItemDefinition
+): ChargeItemDefinitionDefault | undefined {
+  const defaultCode = cid.meta?.tag?.find((t) => t.system === CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM)?.code;
+  const defaultValue: ChargeItemDefinitionDefault | undefined =
+    defaultCode && ['insurance', 'self-pay'].includes(defaultCode)
+      ? (defaultCode as 'insurance' | 'self-pay')
+      : undefined;
+  return defaultValue;
 }

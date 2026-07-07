@@ -15,15 +15,14 @@ import { DateTime } from 'luxon';
 import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
 import {
   allLicensesForPractitioner,
+  BILLING_RESOURCE_TAG,
   CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
-  getCoding,
   getFullName,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   PROVIDER_TYPE_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
 } from '../fhir';
 import { CONSENT_FORMS_CONFIG } from '../ottehr-config';
@@ -48,6 +47,7 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectApiUrl: projectAPI,
+    ignoreTags: [BILLING_RESOURCE_TAG],
   };
   console.log('creating fhir client');
   return new Oystehr(CLIENT_CONFIG);
@@ -1783,33 +1783,42 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
 }
 
 export function makeAbbreviation(str: string): string {
-  return str.split(/[\s-]+/).reduce((previousValue: string, currentValue: string) => {
-    return previousValue + currentValue.charAt(0).toUpperCase();
-  }, '');
+  // Split on any non-letter run (whitespace, hyphens, parentheses, digits …) so
+  // tokens like "(renamed)" or "(30" don't leak punctuation into the result.
+  return str
+    .split(/[^a-zA-Z]+/)
+    .filter(Boolean)
+    .reduce((previousValue: string, currentValue: string) => {
+      return previousValue + currentValue.charAt(0).toUpperCase();
+    }, '');
 }
 
-export function getServiceCategoryAbbreviation(serviceCategory?: string): 'UC' | 'OM' | 'WC' | 'PO' | undefined {
-  if (!serviceCategory) return undefined;
-
-  const normalizedServiceCategory = serviceCategory
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z]/g, '');
-  const serviceCategoryMap: Record<string, 'UC' | 'OM' | 'WC' | 'PO'> = {
-    urgentcare: 'UC',
-    occupationalmedicine: 'OM',
-    workerscomp: 'WC',
-    preop: 'PO',
-  };
-
-  return serviceCategoryMap[normalizedServiceCategory];
-}
-
-export function getAppointmentServiceCategoryAbbreviation(
-  appointment?: Appointment
-): 'UC' | 'OM' | 'WC' | 'PO' | undefined {
-  const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
-  return getServiceCategoryAbbreviation(serviceCategoryCoding?.code ?? serviceCategoryCoding?.display);
+/**
+ * Resolve the short abbreviation shown for a service category on the Tracking
+ * Board, the patient's visit list, and the visit-details header.
+ *
+ * Prefers the admin-defined abbreviation stored on the FHIR-backed catalog
+ * entry (the "Abbreviation/Short Name" field on the Services admin page);
+ * otherwise derives one from the category's display name or code via
+ * makeAbbreviation. This replaces the legacy hard-coded UC/OM/WC/PO map so
+ * non-system categories (Massage, Wellness, …) get an abbreviation too.
+ *
+ * @param serviceCategoryCodeOrName the category's code or display name as
+ *   stored on the appointment/encounter — callers differ on which they hold,
+ *   so both are matched against the catalog.
+ * @param fhirCategories the FHIR-backed catalog (from listServiceCategories),
+ *   matched by code or name.
+ */
+export function resolveServiceCategoryAbbreviation(
+  serviceCategoryCodeOrName: string | undefined,
+  fhirCategories?: Array<{ code: string; name: string; abbreviation?: string }>
+): string | undefined {
+  const trimmed = serviceCategoryCodeOrName?.trim();
+  if (!trimmed) return undefined;
+  const match = fhirCategories?.find((c) => c.code === trimmed || c.name === trimmed);
+  const explicit = match?.abbreviation?.trim();
+  if (explicit) return explicit;
+  return makeAbbreviation(match?.name ?? trimmed) || undefined;
 }
 
 /**
@@ -1824,7 +1833,6 @@ export function getAppointmentServiceCategoryAbbreviation(
 export function formatZipcodeForDisplay(addressOrZip: string): string {
   const regexPattern = /\b(\d{5})(\d{4})$/;
   const zipMatch = addressOrZip.match(regexPattern);
-  console.log(`This is zipMatch ${JSON.stringify(zipMatch)}`);
   if (!zipMatch) return addressOrZip;
   return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
 }

@@ -21,6 +21,7 @@ import {
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
+  RADIOLOGY_REPORT_CODE,
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
@@ -32,6 +33,7 @@ import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
 export const PRIVATE_EXTENSION_BASE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions';
 export const PUBLIC_EXTENSION_BASE_URL = 'https://extensions.fhir.zapehr.com';
+export const OYSTEHR_EXTENSION_BASE_URL = 'https://extensions.fhir.oystehr.com';
 export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
@@ -50,6 +52,7 @@ export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 // https://terminology.hl7.org/en/NamingSystem-CLIA.html
 export const FHIR_IDENTIFIER_CLIA = 'urn:oid:2.16.840.1.113883.4.7';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+export const FHIR_IDENTIFIER_CODE_NPI = 'NPI';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
@@ -265,6 +268,20 @@ export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
 export const SLUG_REGEX = /^[a-zA-Z0-9-]+$/;
 export const SLUG_VALIDATION_MESSAGE = 'must be a URL-safe slug (letters, digits, hyphens)';
 export const isValidSlug = (slug: string): boolean => SLUG_REGEX.test(slug);
+
+/**
+ * Derive a URL-safe slug from a human-entered name. Any run of characters that
+ * isn't a letter/digit collapses to a single hyphen, and leading/trailing
+ * hyphens are trimmed — so the result always satisfies {@link isValidSlug}
+ * (or is empty when the name has no URL-safe characters at all, e.g. a purely
+ * non-Latin name). Case is preserved to match the existing slug convention
+ * (e.g. "NewYork-NY"). Callers must handle the empty-string case (invalid).
+ */
+export const slugFromName = (name: string): string =>
+  name
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
 /**
  * Optional admin-editable display name for a PractitionerRole-actored schedule.
@@ -569,6 +586,7 @@ export const BUCKET_NAMES = {
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
+  RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
   MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
@@ -656,6 +674,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.PATIENT_EDUCATION,
     display: 'Patient Education',
     documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
+  },
+  {
+    title: BUCKET_NAMES.RADIOLOGY_REPORTS,
+    display: 'Radiology Reports',
+    documentTypeCode: RADIOLOGY_REPORT_CODE,
   },
   {
     title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
@@ -967,6 +990,7 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
 export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-places-id'); // added when the pharmacy was selected with places search
+
 // docs.oystehr.com/oystehr/services/erx/patient-sync/#preferred-pharmacy
 export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
@@ -1076,3 +1100,10 @@ export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-mi
 export const CURRENT_EXAM_MIGRATION_VERSION = 2;
 export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
   "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";
+
+export const BILLING_RESOURCE_TAG = {
+  system: 'https://fhir.ottehr.com/billing/resource-type',
+  code: 'billing-resource',
+};
+
+export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';

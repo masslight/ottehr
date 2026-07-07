@@ -63,6 +63,7 @@
             "Z3:#{var/PROJECT_ID}-statements/*",
             "Z3:#{var/PROJECT_ID}-patient-education/*",
             "Z3:#{var/PROJECT_ID}-patient-education-admin/*",
+            "Z3:#{var/PROJECT_ID}-radiology-reports/*",
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
             "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
             "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*",
@@ -97,6 +98,11 @@
           "resource": ["eRx:Patient"]
         },
         {
+          "action": ["eRx:Check"],
+          "effect": "Allow",
+          "resource": ["eRx:Interaction"]
+        },
+        {
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow",
           "resource": ["Terminology:Code:*"]
@@ -105,6 +111,16 @@
           "action": ["RCM:SearchPayer", "RCM:GetPayer"],
           "effect": "Allow",
           "resource": ["RCM:Payer"]
+        },
+        {
+          "action": ["RCM:ReadClaim", "RCM:SubmitClaim"],
+          "effect": "Allow",
+          "resource": ["RCM:Claim"]
+        },
+        {
+          "action": ["RCM:ProcessEra"],
+          "effect": "Allow",
+          "resource": ["RCM:Era"]
         }
       ]
     },

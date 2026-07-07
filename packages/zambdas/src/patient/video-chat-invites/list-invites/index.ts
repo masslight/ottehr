@@ -75,7 +75,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return lambdaResponse(404, { message: 'Appointment is not found' });
   }
 
-  const encounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', oystehr);
+  if (!appointment.id) {
+    throw new Error(`Appointment resource returned without id for appointment ${appointmentId}`);
+  }
+
+  const encounter = await getVideoEncounterForAppointment(appointment.id, oystehr);
   if (!encounter || !encounter.id) {
     throw new Error('Encounter not found.'); // 500
   }

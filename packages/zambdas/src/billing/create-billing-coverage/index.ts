@@ -73,6 +73,7 @@ async function performEffect(oystehr: Oystehr, params: CreateBillingCoveragePara
     // Coverage status is not part of the billing product model; every coverage is active.
     status: 'active',
     insuranceType: params.insuranceType,
+    planType: params.planType,
     relationship: params.relationship,
     subscriberReference,
   });

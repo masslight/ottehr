@@ -196,6 +196,7 @@
             "Zambda:Function:save-billing-rules",
             "Zambda:Function:run-billing-rules-engine",
             "Zambda:Function:get-billing-claim-detail",
+            "Zambda:Function:get-billing-claim-history",
             "Zambda:Function:search-billing-service-facilities",
             "Zambda:Function:search-billing-tags",
             "Zambda:Function:search-billing-eras",
@@ -221,7 +222,8 @@
             "Zambda:Function:get-billing-era-detail",
             "Zambda:Function:create-billing-provider",
             "Zambda:Function:get-billing-patient-detail",
-            "Zambda:Function:delete-billing-tag"
+            "Zambda:Function:delete-billing-tag",
+            "Zambda:Function:import-era"
           ]
         }
       ]

@@ -1,6 +1,7 @@
 import { CreateLabPaymentMethod } from './labs/labs.types';
 
 export type TemplateSectionAction = 'skip' | 'overwrite' | 'append';
+export type ResolvedSectionActions = Record<TemplateSectionKey, TemplateSectionAction>;
 
 export type TemplateSectionKey =
   | 'hpi'
@@ -14,7 +15,8 @@ export type TemplateSectionKey =
   | 'emCode'
   | 'inHouseLabs'
   | 'externalLabs'
-  | 'procedures';
+  | 'procedures'
+  | 'inHouseMedications';
 
 export type TemplateSectionActions = Partial<Record<TemplateSectionKey, TemplateSectionAction>>;
 
@@ -31,6 +33,7 @@ export const TEMPLATE_SECTION_DEFAULT_ACTIONS: Record<TemplateSectionKey, Templa
   inHouseLabs: 'append',
   externalLabs: 'append',
   procedures: 'append',
+  inHouseMedications: 'append',
 };
 
 export const TEMPLATE_SECTIONS_NO_APPEND: ReadonlySet<TemplateSectionKey> = new Set<TemplateSectionKey>([
@@ -57,6 +60,7 @@ export const TEMPLATE_SECTIONS_IN_ORDER: readonly TemplateSectionDescriptor[] = 
   { key: 'inHouseLabs', label: 'In-House Lab Orders' },
   { key: 'externalLabs', label: 'External Lab Orders' },
   { key: 'procedures', label: 'Procedures' },
+  { key: 'inHouseMedications', label: 'In-House Medications' },
 ];
 // Lab orders (in-house and external) and in-office Procedures are additive
 // only - replacing existing entries on an encounter is destructive (lab orders
@@ -67,6 +71,7 @@ export const TEMPLATE_SECTIONS_NO_OVERWRITE: ReadonlySet<TemplateSectionKey> = n
   'inHouseLabs',
   'externalLabs',
   'procedures',
+  'inHouseMedications',
 ]);
 
 // Extra inputs collected by the preview dialog beyond the per-section actions.
@@ -94,7 +99,7 @@ export interface ApplyTemplateZambdaInput {
   externalLabs?: ExternalLabsInTemplate;
 }
 
-export interface ApplyTemplateWarning {
+export interface TemplateWarning {
   section: TemplateSectionKey;
   message: string;
 }
@@ -103,5 +108,5 @@ export interface ApplyTemplateWarning {
 // (e.g. an in-house lab plan whose ActivityDefinition no longer exists in this
 // environment was skipped) without blocking the rest of the template from applying.
 export interface ApplyTemplateZambdaOutput {
-  warnings?: ApplyTemplateWarning[];
+  warnings?: TemplateWarning[];
 }

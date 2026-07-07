@@ -2,9 +2,8 @@ import Oystehr, { ErxGetMedicationHistoryResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
 import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes, PrescribedMedicationDTO } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI } from '../../shared/ai';
-import { loadAndParseIcd10Data } from '../../shared/icd-10-search';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -121,7 +120,7 @@ export const index = wrapHandler(
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     const [emCodeOptions, erxMedicationHistoryContext] = await Promise.all([
       getEmCodes(oystehr),
       getErxMedicationHistoryContext(oystehr, patientId),
@@ -327,26 +326,38 @@ export const index = wrapHandler(
     const cptSuggestions: { code: string; description: string; reason: string }[] = [];
     const emCodeSuggestions: { code: string; description: string; upcodingSuggestion: string }[] = [];
 
-    // Validate ICD codes and get the descriptions for the codes
+    // Validate ICD codes and get the descriptions for the codes.
+    // Look the codes up concurrently but preserve the AI's original ordering: Promise.all
+    // keeps results in input order regardless of which lookup settles first.
     if (suggestions?.icdCodes) {
-      const allCodes = await loadAndParseIcd10Data();
-      suggestions.icdCodes.forEach((code) => {
-        const icdCode = allCodes.filter((codeTemp) => codeTemp.code === code.code);
-        if (icdCode.length === 1) {
-          icdSuggestions.push({
-            code: code.code,
-            description: icdCode[0].display,
-            reason: code.reason,
+      const validatedIcdCodes = await Promise.all(
+        suggestions.icdCodes.map(async (code) => {
+          const terminologyResponse = await oystehr.terminology.searchIcd10({
+            query: code.code,
+            searchType: 'code',
+            limit: 100,
+            strictMatch: true,
           });
-        } else {
+          if (terminologyResponse.codes.length === 1) {
+            return {
+              code: code.code,
+              description: terminologyResponse.codes[0].display,
+              reason: code.reason,
+            };
+          }
           console.log("Didn't get an ICD code", code.code);
-        }
-      });
+          return null;
+        })
+      );
+      for (const entry of validatedIcdCodes) {
+        if (entry) icdSuggestions.push(entry);
+      }
     }
 
-    // Validate CPT codes and get the descriptions for the codes
+    // Validate CPT codes and get the descriptions for the codes.
+    // Same as above: concurrent lookups, but keep the AI's original ordering.
     if (suggestions?.cptCodes) {
-      await Promise.all(
+      const validatedCptCodes = await Promise.all(
         suggestions.cptCodes.map(async (code) => {
           const cptCode = code.code.split('-')[0]; // Remove modifiers before lookup
           const terminologyResponse = await oystehr?.terminology.searchCpt({
@@ -363,23 +374,27 @@ export const index = wrapHandler(
               strictMatch: true,
             });
             if (hcpcsSearchResponse.codes.length === 1) {
-              cptSuggestions.push({
+              return {
                 code: cptCode,
                 description: hcpcsSearchResponse.codes[0].display,
                 reason: code.reason,
-              });
-            } else {
-              console.log("Didn't get an CPT or HCPCS code", cptCode);
+              };
             }
+            console.log("Didn't get an CPT or HCPCS code", cptCode);
+            return null;
           } else if (terminologyResponse.codes.length === 1) {
-            cptSuggestions.push({
+            return {
               code: cptCode,
               description: terminologyResponse.codes[0].display,
               reason: code.reason,
-            });
+            };
           }
+          return null;
         })
       );
+      for (const entry of validatedCptCodes) {
+        if (entry) cptSuggestions.push(entry);
+      }
     }
 
     // Validate E&M codes and get the descriptions for the codes

@@ -30,7 +30,8 @@ export type ProviderChartDataFieldsNames =
   | 'birth-history'
   | 'procedure'
   | typeof ERX_MEDICATION_META_TAG_CODE
-  | 'accident';
+  | 'accident'
+  | 'radiology';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 
@@ -60,6 +61,7 @@ export enum VitalFieldNames {
   VitalRespirationRate = 'vital-respiration-rate',
   VitalWeight = 'vital-weight',
   VitalHeight = 'vital-height',
+  VitalBMI = 'vital-bmi',
   VitalVision = 'vital-vision',
   VitalLastMenstrualPeriod = 'vital-last-menstrual-period',
 }

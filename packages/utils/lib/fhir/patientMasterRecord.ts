@@ -11,6 +11,7 @@ import {
   PATIENT_HEARING_IMPAIRED_RELAY_SERVICE_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_POINT_OF_DISCOVERY_URL,
   PATIENT_RACE_URL,
   PATIENT_RELEASE_OF_INFO_URL,
@@ -20,6 +21,7 @@ import {
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../types/constants';
 import { extractExtensionValue } from './helpers';
 
@@ -48,6 +50,7 @@ export const patientFieldPaths = {
   pcpFirstName: 'Patient/contained/0/name/0/given/0',
   pcpLastName: 'Patient/contained/0/name/0/family',
   pcpPhone: 'Patient/contained/0/telecom/0/value',
+  pcpFax: 'Patient/contained/0/telecom/1/value',
   pcpStreetAddress: 'Patient/contained/0/address/0/line/0',
   practiceName: `Patient/contained/0/extension/${PRACTICE_NAME_URL}`,
   pcpActive: 'Patient/contained/0/active',
@@ -89,6 +92,7 @@ export const patientFieldPaths = {
   deceasedDate: 'Patient/deceasedDateTime',
   deceasedNote: `Patient/extension/${PATIENT_DECEASED_NOTE_URL}`,
   preferredCommunicationMethod: `Patient/extension/${PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL}`,
+  noEmail: `Patient/extension/${PATIENT_NO_EMAIL_URL}`,
 };
 
 export const coverageFieldPaths = {
@@ -115,6 +119,7 @@ export const relatedPersonFieldPaths = {
   relationship: 'RelatedPerson/relationship/0/coding/0/display',
   birthDate: 'RelatedPerson/birthDate',
   sameAsPatientAddress: `RelatedPerson/extension/${RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL}`,
+  noEmail: `RelatedPerson/extension/${RESPONSIBLE_PARTY_NO_EMAIL_URL}`,
 };
 
 interface ExtensionConfig extends Extension {
@@ -193,6 +198,10 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
   preferredCommunicationMethod: {
     url: PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
     valueType: 'valueString',
+  },
+  patientNoEmail: {
+    url: PATIENT_NO_EMAIL_URL,
+    valueType: 'valueBoolean',
   },
 };
 
@@ -338,18 +347,26 @@ export function buildExtensionObject(url: string, value: string): Extension | un
     case 'valueCodeableConcept': {
       const mapping = CODEABLE_CONCEPT_MAPPINGS[url as keyof typeof CODEABLE_CONCEPT_MAPPINGS];
       if (mapping) {
-        const valueMapping = mapping[value as keyof typeof mapping] as Coding;
-        extensionValue = {
-          valueCodeableConcept: {
-            coding: [
-              {
-                system: valueMapping?.system,
-                code: valueMapping?.code,
-                display: valueMapping?.display,
-              },
-            ],
-          },
-        };
+        const valueMapping = mapping[value as keyof typeof mapping] as Coding | undefined;
+        // Only build the coding when the value is a known mapping key. An unmapped value
+        // would otherwise produce a coding of all-undefined fields that serializes to an
+        // empty `{}` — which violates FHIR constraint ele-1 and fails the whole patch.
+        // Leaving extensionValue undefined makes the caller skip this field entirely.
+        if (valueMapping) {
+          extensionValue = {
+            valueCodeableConcept: {
+              coding: [
+                {
+                  system: valueMapping.system,
+                  code: valueMapping.code,
+                  display: valueMapping.display,
+                },
+              ],
+            },
+          };
+        } else {
+          console.warn(`buildExtensionObject: no mapping for ${url} value "${value}"; skipping extension`);
+        }
       }
       break;
     }

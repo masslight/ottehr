@@ -1,6 +1,7 @@
 export * from './billing.constants';
 export * from './billing.schemas';
 export * from './billing.types';
+export * from './claim-history';
 export * from './claim-status';
 export * from './rules-engine.constants';
 export * from './rules-engine.schemas';
