@@ -28,6 +28,7 @@ import {
   fetchById,
   getClaimTypeCoding,
   prepareWorkingCopy,
+  setClia,
   setCoverageRelationship,
   setNpi,
   setTaxId,
@@ -82,12 +83,13 @@ export async function performEffect(
       return saveCoverageSubscriber(oystehr, coverage, params.resourceId, fields.relationship, fields.policyHolder);
     }
     case 'Location': {
-      const location = await fetchById<Location>(oystehr, 'Location', params.resourceId);
+      const facility = await fetchById<Location>(oystehr, 'Location', params.resourceId);
       const { fields } = params;
-      if (fields.name !== undefined) location.name = fields.name;
-      if (fields.npi !== undefined) setNpi(location, fields.npi);
-      if (fields.address !== undefined) location.address = buildAddress(fields.address);
-      return save(oystehr, location);
+      if (fields.name !== undefined) facility.name = fields.name;
+      if (fields.npi !== undefined) setNpi(facility, fields.npi);
+      if (fields.clia !== undefined) setClia(facility, fields.clia);
+      if (fields.address !== undefined) facility.address = buildAddress(fields.address);
+      return save(oystehr, facility);
     }
     case 'Organization': {
       const organization = await fetchById<Organization>(oystehr, 'Organization', params.resourceId);
