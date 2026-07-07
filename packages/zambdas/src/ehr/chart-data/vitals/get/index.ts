@@ -301,6 +301,7 @@ const parseVisionObservation = (
     leftEyeVisionText === undefined &&
     rightEyeVisionText === undefined &&
     bothEyesVisionText === undefined &&
+    (!visionOptions || visionOptions.length === 0) &&
     dotVisionScreening === undefined
   ) {
     return undefined;

@@ -9,7 +9,6 @@ import {
   InputLabel,
   MenuItem,
   OutlinedInput,
-  Paper,
   Select,
   SelectChangeEvent,
   Table,
@@ -25,6 +24,7 @@ import {
 import { Organization } from 'fhir/r4b';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useEmployersQuery } from 'src/rcm/state/employers';
 import EmployerDialog from './EmployerDialog';
 
@@ -67,10 +67,24 @@ export default function EmployersTab(): ReactElement {
   }, [filteredEmployers.length, pageNumber, rowsPerPage]);
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2 }}>
+    <Box>
+      <AdminHeaderActionSlot>
+        <Button
+          color="primary"
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setSelectedEmployer(null);
+            setIsDialogOpen(true);
+          }}
+        >
+          Add new
+        </Button>
+      </AdminHeaderActionSlot>
+
       <TableContainer>
         <Grid container spacing={2} display="flex" alignItems="center">
-          <Grid item xs={12} sm={5}>
+          <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
               label="Employer"
@@ -82,7 +96,7 @@ export default function EmployersTab(): ReactElement {
               margin="dense"
             />
           </Grid>
-          <Grid item xs={12} sm={5}>
+          <Grid item xs={12} sm={6}>
             <FormControl fullWidth>
               <InputLabel id="select-employer-status-filter">Status</InputLabel>
               <Select
@@ -99,25 +113,6 @@ export default function EmployersTab(): ReactElement {
                 <MenuItem value={EmployerActiveStatus.inactive}>Inactive</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={2} display={'flex'}>
-            <Button
-              sx={{
-                borderRadius: 100,
-                textTransform: 'none',
-                width: '100%',
-                fontWeight: 600,
-              }}
-              color="primary"
-              variant="contained"
-              onClick={() => {
-                setSelectedEmployer(null);
-                setIsDialogOpen(true);
-              }}
-            >
-              <AddIcon />
-              <Typography fontWeight="bold">Add new</Typography>
-            </Button>
           </Grid>
         </Grid>
 
@@ -195,6 +190,6 @@ export default function EmployersTab(): ReactElement {
           setSelectedEmployer(null);
         }}
       />
-    </Paper>
+    </Box>
   );
 }
