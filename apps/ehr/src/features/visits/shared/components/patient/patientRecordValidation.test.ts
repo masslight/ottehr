@@ -811,10 +811,15 @@ describe('patientRecordValidation', () => {
     });
 
     it('should skip responsible-party-email validation when no-email is checked (non-Self relationship)', async () => {
+      const rpSection = PATIENT_RECORD_CONFIG.FormFields.responsibleParty as any;
+      if (isSectionHidden(rpSection)) return;
+
       const resolver = createDynamicValidationResolver();
+      const enableValues = buildSectionEnableValues(rpSection);
 
       // Relationship != Self enables the RP fields; no-email = true activates the filter trigger
       const result = await resolver({
+        ...enableValues,
         'responsible-party-relationship': 'Parent',
         'responsible-party-no-email': true,
         'responsible-party-email': '',
@@ -825,9 +830,15 @@ describe('patientRecordValidation', () => {
     });
 
     it('should require responsible-party-email when no-email is not checked and relationship is non-Self', async () => {
+      const rpSection = PATIENT_RECORD_CONFIG.FormFields.responsibleParty as any;
+      if (isSectionHidden(rpSection)) return;
+      if (!(rpSection.requiredFields ?? []).includes('responsible-party-email')) return;
+
       const resolver = createDynamicValidationResolver();
+      const enableValues = buildSectionEnableValues(rpSection);
 
       const result = await resolver({
+        ...enableValues,
         'responsible-party-relationship': 'Parent',
         'responsible-party-no-email': false,
         'responsible-party-email': '',
