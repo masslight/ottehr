@@ -27,13 +27,18 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.5';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.6';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
 } as const;
 
-const hiddenFormSections: string[] = [];
+const hiddenFormSections: string[] = [
+  'current-medications-page',
+  'allergies-page',
+  'medical-history-page',
+  'surgical-history-page',
+];
 
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
