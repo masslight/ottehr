@@ -208,7 +208,6 @@ flowchart LR
   M -- yes --> MAKE["create Communication
   (task-category-created)
   + buffer for SMS"]
-  MAKE --> LOOP
 ```
 
 Matching predicate (`rowMatchesFilters` in the cron; the category engine calls it with
