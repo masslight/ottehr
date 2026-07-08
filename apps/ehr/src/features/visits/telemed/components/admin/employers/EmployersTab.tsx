@@ -3,6 +3,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
+  Chip,
   CircularProgress,
   FormControl,
   Grid,
@@ -19,6 +20,7 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Organization } from 'fhir/r4b';
@@ -26,6 +28,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useEmployersQuery } from 'src/rcm/state/employers';
+import { CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM } from 'src/rcm/state/employers/employers.api';
 import EmployerDialog from './EmployerDialog';
 
 enum EmployerActiveStatus {
@@ -125,10 +128,13 @@ export default function EmployersTab(): ReactElement {
             <Table sx={{ minWidth: 700 }} aria-label="Employers table">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', width: '45%' }}>Display name</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '35%' }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '40%' }}>Display name</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Category</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }} align="left">
                     Status
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="left">
+                    Candid
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -137,6 +143,10 @@ export default function EmployersTab(): ReactElement {
                   const isActive = employer.active !== false;
                   const isActiveLabel = isActive ? 'ACTIVE' : 'INACTIVE';
                   const category = employer.type?.[0]?.text || '—';
+
+                  const isCandidSynced = employer.identifier?.some(
+                    (id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM && id.value
+                  );
 
                   return (
                     <TableRow
@@ -153,12 +163,49 @@ export default function EmployersTab(): ReactElement {
                       <TableCell align="left">
                         <BooleanStateChip label={isActiveLabel} state={isActive} />
                       </TableCell>
+                      <TableCell align="left">
+                        {isCandidSynced ? (
+                          <Chip
+                            size="small"
+                            label="SYNCED"
+                            sx={{
+                              borderRadius: '4px',
+                              border: 'none',
+                              fontWeight: 500,
+                              fontSize: '12px',
+                              background: '#C8E6C9',
+                              color: '#1B5E20',
+                              padding: '0 2px',
+                              height: '18px',
+                            }}
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Tooltip title="This employer has not been synced to Candid Health">
+                            <Chip
+                              size="small"
+                              label="NOT SYNCED"
+                              sx={{
+                                borderRadius: '4px',
+                                border: 'none',
+                                fontWeight: 500,
+                                fontSize: '12px',
+                                background: '#FFF3E0',
+                                color: '#E65100',
+                                padding: '0 2px',
+                                height: '18px',
+                              }}
+                              variant="outlined"
+                            />
+                          </Tooltip>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {!isFetching && currentPageEmployers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} align="center">
+                    <TableCell colSpan={4} align="center">
                       <Typography color="text.secondary">No employers found.</Typography>
                     </TableCell>
                   </TableRow>
