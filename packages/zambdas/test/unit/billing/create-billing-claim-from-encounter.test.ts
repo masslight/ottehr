@@ -258,6 +258,14 @@ const clinicalResources: {
         },
       ],
     },
+    meta: {
+      tag: [
+        {
+          system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code',
+          code: 'cpt-code',
+        },
+      ],
+    },
   },
   billingProvider: {
     resourceType: 'Organization',
@@ -778,6 +786,103 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.coverage,
               ...clinicalResources.conditions,
               clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.coverage],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.billingProvider],
+          }),
+        billingOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: null,
+        expectedResult: {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [],
+            billingProvider: undefined,
+            coverages: [],
+            mainPatient: undefined,
+            person: undefined,
+            practitioners: [],
+            renderingProvider: undefined,
+            serviceFacility: undefined,
+            subscribers: [],
+            autoAccidentTag: undefined,
+            billingService: undefined,
+            chargeMaster: undefined,
+          },
+        },
+      },
+      {
+        name: 'filters out non-cpt-, non-em-code-tagged procedures',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.coverage,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+              {
+                resourceType: 'Procedure',
+                id: 'procedure-123',
+                status: 'completed',
+                subject: {
+                  reference: 'Patient/patient-123',
+                },
+                meta: {
+                  tag: [
+                    {
+                      system: 'some-system',
+                      code: 'some-code',
+                    },
+                  ],
+                },
+              },
             ],
           })
           .mockResolvedValueOnce({
