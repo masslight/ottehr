@@ -21,7 +21,7 @@ export interface NotificationRowPref {
   assignedTo: NotificationAssignedTo;
 }
 
-/** Stable ids for the 12 task categories shown in the settings table (ordered as in the design mock). */
+/** Stable ids for the task categories shown in the settings table. */
 export const UI_TASK_CATEGORY_IDS = [
   'externalLab',
   'inHouseLab',
@@ -142,36 +142,12 @@ export const normalizeNotificationPreferencesV2 = (
   };
 };
 
-/** Roll the per-row methods up to a single legacy `method` so old consumers keep a sane value. */
-export const rollupLegacyNotificationMethod = (
-  prefs: ProviderNotificationPreferencesV2
-): ProviderNotificationMethod => {
-  const enabledMethods: ProviderNotificationMethod[] = [
-    prefs.virtualVisitScheduled,
-    prefs.waitingRoom,
-    ...UI_TASK_CATEGORY_IDS.map((id) => prefs.taskCategories[id]),
-  ]
-    .filter((row) => row.enabled)
-    .map((row) => row.method);
-  const hasPhone = enabledMethods.some(
-    (m) => m === ProviderNotificationMethod.phone || m === ProviderNotificationMethod['phone and computer']
-  );
-  const hasComputer = enabledMethods.some(
-    (m) => m === ProviderNotificationMethod.computer || m === ProviderNotificationMethod['phone and computer']
-  );
-  if (hasPhone && hasComputer) return ProviderNotificationMethod['phone and computer'];
-  if (hasPhone) return ProviderNotificationMethod.phone;
-  if (hasComputer) return ProviderNotificationMethod.computer;
-  return ProviderNotificationMethod['phone and computer'];
-};
-
-/** Derive the legacy boolean flags (task/telemed enabled) from V2 preferences for backward compatibility. */
-export const deriveLegacyNotificationFlagsFromV2 = (
-  prefs: ProviderNotificationPreferencesV2
-): { taskNotificationsEnabled: boolean; telemedNotificationsEnabled: boolean } => ({
-  taskNotificationsEnabled: UI_TASK_CATEGORY_IDS.some((id) => prefs.taskCategories[id].enabled),
-  telemedNotificationsEnabled: prefs.waitingRoom.enabled || prefs.virtualVisitScheduled.enabled,
-});
+/** All notification rows in a V2 preferences object: the two telemed rows plus every task-category row. */
+export const getAllNotificationRows = (prefs: ProviderNotificationPreferencesV2): NotificationRowPref[] => [
+  prefs.virtualVisitScheduled,
+  prefs.waitingRoom,
+  ...UI_TASK_CATEGORY_IDS.map((id) => prefs.taskCategories[id]),
+];
 
 /**
  * Whether a notification row's location filter matches a given task/appointment location id.

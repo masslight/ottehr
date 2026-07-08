@@ -1,7 +1,7 @@
 import { Practitioner } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
-  deriveLegacyNotificationFlagsFromV2,
+  getAllNotificationRows,
   getUiTaskCategoryForCode,
   normalizeNotificationPreferencesV2,
   notificationRowMatchesLocation,
@@ -9,8 +9,6 @@ import {
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
-  ProviderNotificationPreferencesV2,
-  rollupLegacyNotificationMethod,
   UI_TASK_CATEGORY_IDS,
 } from '../types';
 import { getProviderNotificationPreferencesV2 } from './patient';
@@ -55,7 +53,7 @@ describe('notificationRowMatchesLocation', () => {
 });
 
 describe('normalizeNotificationPreferencesV2', () => {
-  it('fills in all 12 task categories and the two telemed top-level rows', () => {
+  it('fills in all task categories and the telemed top-level rows', () => {
     const normalized = normalizeNotificationPreferencesV2({});
     expect(Object.keys(normalized.taskCategories).sort()).toEqual([...UI_TASK_CATEGORY_IDS].sort());
     expect(normalized.virtualVisitScheduled).toBeDefined();
@@ -85,50 +83,23 @@ describe('normalizeNotificationPreferencesV2', () => {
   });
 });
 
-describe('deriveLegacyNotificationFlagsFromV2 / rollupLegacyNotificationMethod', () => {
-  const base = (): ProviderNotificationPreferencesV2 => normalizeNotificationPreferencesV2({});
-
-  it('reports task notifications enabled when any category is enabled', () => {
-    const prefs = base();
-    prefs.taskCategories.billing.enabled = true;
-    expect(deriveLegacyNotificationFlagsFromV2(prefs).taskNotificationsEnabled).toBe(true);
-    expect(deriveLegacyNotificationFlagsFromV2(prefs).telemedNotificationsEnabled).toBe(false);
+describe('getAllNotificationRows', () => {
+  it('returns the two telemed rows plus every task-category row', () => {
+    const prefs = normalizeNotificationPreferencesV2({});
+    expect(getAllNotificationRows(prefs)).toHaveLength(UI_TASK_CATEGORY_IDS.length + 2);
   });
 
-  it('reports telemed enabled when waiting-room or virtual-visit-scheduled is enabled', () => {
-    const prefs = base();
+  it('reflects each row’s enabled flag and method', () => {
+    const prefs = normalizeNotificationPreferencesV2({});
     prefs.waitingRoom.enabled = true;
-    expect(deriveLegacyNotificationFlagsFromV2(prefs).telemedNotificationsEnabled).toBe(true);
-  });
-
-  it('rolls a mix of phone and computer rows up to "phone and computer"', () => {
-    const prefs = base();
     prefs.taskCategories.billing = {
       ...prefs.taskCategories.billing,
       enabled: true,
       method: ProviderNotificationMethod.phone,
     };
-    prefs.taskCategories.coding = {
-      ...prefs.taskCategories.coding,
-      enabled: true,
-      method: ProviderNotificationMethod.computer,
-    };
-    expect(rollupLegacyNotificationMethod(prefs)).toBe(ProviderNotificationMethod['phone and computer']);
-  });
-
-  it('ignores disabled rows when rolling up the method', () => {
-    const prefs = base();
-    prefs.taskCategories.billing = {
-      ...prefs.taskCategories.billing,
-      enabled: false,
-      method: ProviderNotificationMethod.phone,
-    };
-    prefs.taskCategories.coding = {
-      ...prefs.taskCategories.coding,
-      enabled: true,
-      method: ProviderNotificationMethod.computer,
-    };
-    expect(rollupLegacyNotificationMethod(prefs)).toBe(ProviderNotificationMethod.computer);
+    const enabled = getAllNotificationRows(prefs).filter((row) => row.enabled);
+    expect(enabled).toHaveLength(2);
+    expect(enabled.some((row) => row.method === ProviderNotificationMethod.phone)).toBe(true);
   });
 });
 

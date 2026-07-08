@@ -9,13 +9,12 @@ import {
 } from 'src/features/notifications/notifications.queries';
 import NotificationSettingsTable from 'src/features/notifications/NotificationSettingsTable';
 import {
-  deriveLegacyNotificationFlagsFromV2,
   formatPhoneNumber,
+  getAllNotificationRows,
   getProviderNotificationPreferencesV2,
   isPhoneNumberValid,
   ProviderNotificationMethod,
   ProviderNotificationPreferencesV2,
-  rollupLegacyNotificationMethod,
   standardizePhoneNumber,
 } from 'utils';
 import useEvolveUser from '../hooks/useEvolveUser';
@@ -65,14 +64,13 @@ export default function EmployeeProfilePage(): JSX.Element {
 
   async function handleSave(): Promise<void> {
     if (!preferences) return;
-    const { taskNotificationsEnabled, telemedNotificationsEnabled } = deriveLegacyNotificationFlagsFromV2(preferences);
-    const anyEnabled = taskNotificationsEnabled || telemedNotificationsEnabled;
-    const rolledUpMethod = rollupLegacyNotificationMethod(preferences);
-    // Demand a phone number only when an enabled row uses a phone method — the rollup falls back to
-    // 'phone and computer' when nothing is enabled, which would block saving with everything off.
-    const phoneRequired =
-      anyEnabled &&
-      [ProviderNotificationMethod['phone'], ProviderNotificationMethod['phone and computer']].includes(rolledUpMethod);
+    // Demand a phone number only when an enabled row actually uses a phone-based method.
+    const phoneRequired = getAllNotificationRows(preferences).some(
+      (row) =>
+        row.enabled &&
+        (row.method === ProviderNotificationMethod['phone'] ||
+          row.method === ProviderNotificationMethod['phone and computer'])
+    );
     const isValidPhoneNumber = isPhoneNumberValid(phoneNumber);
     if (phoneRequired && (!phoneNumber || !isValidPhoneNumber)) {
       enqueueSnackbar('Please enter a valid phone number to receive notifications via phone', { variant: 'error' });

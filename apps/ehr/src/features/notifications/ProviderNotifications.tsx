@@ -1,17 +1,10 @@
 import { NotificationsOutlined } from '@mui/icons-material';
 import { alpha, Badge, Box, Button, Menu, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { EventHandler, FC, memo, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { EventHandler, FC, memo, MouseEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
-import {
-  getProviderNotificationSettingsForPractitioner,
-  ProviderNotificationMethod,
-  ProviderNotificationSettings,
-} from 'utils';
-import useEvolveUser from '../../hooks/useEvolveUser';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
-import { useProviderNotificationsStore } from './notifications.store';
 
 const MAX_NOTIFICATION_MESSAGE_LENGTH = 140;
 
@@ -26,26 +19,11 @@ type ProviderNotificationDisplay = {
 
 export const ProviderNotifications: FC = memo(() => {
   const theme = useTheme();
-  const user = useEvolveUser();
   const navigate = useNavigate();
   const { data: notificationsData } = useGetProviderNotifications();
   const updateNotifications = useUpdateProviderNotificationsMutation();
   const [notificationsOpen, setNotificationsOpen] = useState<boolean>(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
-
-  const {
-    method: notificationMethod,
-    taskNotificationsEnabled,
-    telemedNotificationsEnabled,
-  }: ProviderNotificationSettings = useMemo(
-    () =>
-      getProviderNotificationSettingsForPractitioner(user?.profileResource) || {
-        method: ProviderNotificationMethod['phone and computer'],
-        taskNotificationsEnabled: false,
-        telemedNotificationsEnabled: false,
-      },
-    [user?.profileResource]
-  );
 
   const notifications: ProviderNotificationDisplay[] = useMemo(() => {
     return (
@@ -70,14 +48,6 @@ export const ProviderNotifications: FC = memo(() => {
   }, [notificationsData]);
 
   const hasUnread = notifications.some((notification) => notification.isUnread);
-
-  useEffect(() => {
-    useProviderNotificationsStore.setState({
-      notificationMethod,
-      taskNotificationsEnabled,
-      telemedNotificationsEnabled,
-    });
-  }, [notificationMethod, taskNotificationsEnabled, telemedNotificationsEnabled]);
 
   const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = useCallback(() => {
     setNotificationsOpen(true);

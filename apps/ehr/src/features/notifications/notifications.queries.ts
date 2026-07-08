@@ -3,20 +3,16 @@ import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Extension, FhirResource, Location } from 'fhir/r4b';
 import {
   AppointmentProviderNotificationTypes,
-  deriveLegacyNotificationFlagsFromV2,
   getAllFhirSearchPages,
+  getAllNotificationRows,
   getPatchBinary,
-  getProviderNotificationSettingsForPractitioner,
+  getProviderNotificationPreferencesV2,
   isPhoneNumberValid,
-  PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-  PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
-  PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
   ProviderNotificationPreferencesV2,
-  rollupLegacyNotificationMethod,
 } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -33,8 +29,11 @@ export const useGetProviderNotifications = (
 ): UseQueryResult<ProviderNotification[], Error> => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
+  // "Phone only" (SMS, no bell) when every enabled row uses the Phone method — the bell has nothing to show.
+  const prefs = getProviderNotificationPreferencesV2(user?.profileResource);
+  const enabledRows = prefs ? getAllNotificationRows(prefs).filter((row) => row.enabled) : [];
   const isPhoneOnly =
-    getProviderNotificationSettingsForPractitioner(user?.profileResource)?.method === ProviderNotificationMethod.phone;
+    enabledRows.length > 0 && enabledRows.every((row) => row.method === ProviderNotificationMethod.phone);
   const queryResult = useQuery({
     queryKey: ['provider-notifications'],
 
@@ -147,18 +146,11 @@ export const useUpdateProviderNotificationPreferencesV2Mutation = (
     mutationFn: async ({ preferences, phoneNumber }: UpdateProviderNotificationPreferencesParams) => {
       if (!user?.profileResource) throw new Error('User practitioner profile not defined');
 
-      const { taskNotificationsEnabled, telemedNotificationsEnabled } =
-        deriveLegacyNotificationFlagsFromV2(preferences);
-      const method = rollupLegacyNotificationMethod(preferences);
-
+      // V2 blob is the sole source of truth. Legacy flat values (method/task/telemed flags) are no longer
+      // written; the un-migrated read path derives them on the fly (getProviderNotificationPreferencesV2).
       const newNotificationSettingsExtension: Extension = {
         url: PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-        extension: [
-          { url: PROVIDER_NOTIFICATION_METHOD_URL, valueString: method },
-          { url: PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL, valueBoolean: taskNotificationsEnabled },
-          { url: PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL, valueBoolean: telemedNotificationsEnabled },
-          { url: PROVIDER_NOTIFICATION_PREFERENCES_V2_URL, valueString: JSON.stringify(preferences) },
-        ],
+        extension: [{ url: PROVIDER_NOTIFICATION_PREFERENCES_V2_URL, valueString: JSON.stringify(preferences) }],
       };
 
       const notificationsExtIndex = (user.profileResource.extension || []).findIndex(
