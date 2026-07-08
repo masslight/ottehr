@@ -1,10 +1,10 @@
 import Stripe from 'stripe';
-import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SecretsKeys } from 'utils';
+import { getSecret, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys } from 'utils';
 import { getStripeClient, ZambdaInput } from '../../shared';
 
 export interface BillingStripeWebhookParams {
   event: Stripe.Event;
-  secrets: ZambdaInput['secrets'];
+  secrets: Secrets;
 }
 
 // constructEvent verifies the signature against the endpoint signing secret and needs the raw body.

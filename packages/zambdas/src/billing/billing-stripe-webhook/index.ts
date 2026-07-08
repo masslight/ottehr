@@ -7,6 +7,7 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   checkOrCreateM2MClientToken,
   getStripeClient,
+  shouldUseOttehrBilling,
   STRIPE_PAYMENT_ID_SYSTEM,
   wrapHandler,
   ZambdaInput,
@@ -22,6 +23,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   const { event } = params;
   console.log('Verified Stripe event:', event.id, event.type, 'connected account:', event.account ?? 'none');
+
+  // Acknowledge with 200 so Stripe doesn't retry or disable the endpoint.
+  if (!shouldUseOttehrBilling(params.secrets)) {
+    console.log('BILLING_INTEGRATION does not include ottehr; acknowledging event without processing');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({}),
+    };
+  }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
