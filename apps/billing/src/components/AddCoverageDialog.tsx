@@ -37,10 +37,13 @@ function insuranceTypeLabel(type: BillingInsuranceType): string {
   return BILLING_INSURANCE_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
 }
 
+const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
+
 export interface CoverageFormState {
   payer: BillingPayerOption | null;
   memberId: string;
   insuranceType: BillingInsuranceType;
+  planType: string;
   relationship: string;
   firstName: string;
   middleName: string;
@@ -59,6 +62,7 @@ export function emptyCoverageForm(insuranceType: BillingInsuranceType = 'primary
     payer: null,
     memberId: '',
     insuranceType,
+    planType: '',
     relationship: 'Self',
     firstName: '',
     middleName: '',
@@ -82,6 +86,7 @@ export function coverageFormFromOption(option: BillingCoverageOption): CoverageF
     payer: null,
     memberId: option.memberId ?? option.subscriberId ?? '',
     insuranceType: option.insuranceType ?? 'primary',
+    planType: option.planType ?? '',
     relationship: option.relationship || 'Self',
     firstName: ph?.firstName ?? '',
     middleName: ph?.middleName ?? '',
@@ -135,6 +140,7 @@ export function coverageToCreateInput(state: CoverageFormState, patientId: strin
     payerId: state.payer!.id,
     memberId: state.memberId.trim(),
     insuranceType: state.insuranceType,
+    planType: state.planType,
     relationship: state.relationship as CreateBillingCoverageInput['relationship'],
     ...(policyHolderPayload(state) ? { policyHolder: policyHolderPayload(state) } : {}),
   };
@@ -147,6 +153,7 @@ export function coverageToUpdateInput(state: CoverageFormState, coverageId: stri
     ...(state.payer ? { payerId: state.payer.id } : {}),
     memberId: state.memberId.trim(),
     insuranceType: state.insuranceType,
+    planType: state.planType,
     relationship: state.relationship as UpdateBillingCoverageInput['relationship'],
     ...(policyHolderPayload(state) ? { policyHolder: policyHolderPayload(state) } : {}),
   };
@@ -241,6 +248,31 @@ export function CoverageFormFields({
               <MenuItem key={o.value} value={o.value} disabled={unavailableTypes.includes(o.value)}>
                 {o.label}
                 {unavailableTypes.includes(o.value) ? ' (already on file)' : ''}
+              </MenuItem>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Plan type">
+          <Select
+            size="small"
+            fullWidth
+            displayEmpty
+            SelectDisplayProps={{ 'aria-label': 'Plan type' }}
+            value={value.planType}
+            onChange={(e) => set('planType', e.target.value)}
+            renderValue={
+              value.planType
+                ? undefined
+                : () => (
+                    <Box component="span" sx={{ color: 'text.disabled' }}>
+                      Select...
+                    </Box>
+                  )
+            }
+          >
+            {PLAN_TYPE_OPTIONS.map((option) => (
+              <MenuItem key={option.candidCode} value={option.candidCode}>
+                {option.label}
               </MenuItem>
             ))}
           </Select>

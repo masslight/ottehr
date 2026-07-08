@@ -70,6 +70,37 @@ describe('buildBillingCoverage', () => {
     expect(coverage.contained).toBeUndefined();
     expect(coverage.relationship?.coding?.[0]?.code).toBe('spouse');
   });
+
+  it('builds coverage with plan type', () => {
+    const coverage = buildBillingCoverage({
+      patientId: PATIENT_ID,
+      payerOrg,
+      memberId: 'M1',
+      status: 'active',
+      insuranceType: 'primary',
+      planType: '12',
+      relationship: 'Self',
+      subscriberReference: `Patient/${PATIENT_ID}`,
+    });
+
+    expect(coverage.resourceType).toBe('Coverage');
+    expect(coverage.type).toMatchObject({
+      coding: expect.arrayContaining([
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          code: '12',
+        },
+      ]),
+    });
+    expect(coverage.extension).toEqual(
+      expect.arrayContaining([
+        {
+          url: 'https://extensions.fhir.oystehr.com/rcm-claim-insurance-type',
+          valueString: '12',
+        },
+      ])
+    );
+  });
 });
 
 describe('buildSubscriberRelatedPerson', () => {

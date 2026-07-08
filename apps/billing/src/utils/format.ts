@@ -1,4 +1,4 @@
-import { CMS_PLACE_OF_SERVICE_CODES, ServiceFacilityItem } from 'utils';
+import { CMS_PLACE_OF_SERVICE_CODES, formatZipcodeForDisplay, ServiceFacilityItem } from 'utils';
 
 export const formatCurrency = (v: number): string => `$${v.toFixed(2)}`;
 
@@ -11,7 +11,7 @@ export function placeOfServiceLabel(code: string): string {
 }
 
 export function formatFacilityAddress(facility: ServiceFacilityItem): string {
-  const zip = facility.zipPlus4 ? `${facility.zip}-${facility.zipPlus4}` : facility.zip;
+  const zip = formatZipcodeForDisplay(facility.zip);
   return [facility.addressLine1, facility.addressLine2, facility.city, facility.state, zip].filter(Boolean).join(', ');
 }
 

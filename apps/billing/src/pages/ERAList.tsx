@@ -1,4 +1,4 @@
-import { Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -26,6 +26,7 @@ import {
 } from 'utils';
 import { searchBillingEras, searchBillingPatients, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { ImportEraDialog } from '../components/ImportEraDialog';
 import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
@@ -88,6 +89,7 @@ export default function ERAList(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   // ERA-level filters
   const [checkNumber, setCheckNumber] = useState('');
@@ -259,9 +261,14 @@ export default function ERAList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        ERAs
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
+          ERAs
+        </Typography>
+        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => setShowImportDialog(true)}>
+          Import
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -453,6 +460,7 @@ export default function ERAList(): ReactElement {
         slots={dataGridSlots}
         sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
       />
+      {showImportDialog && <ImportEraDialog onClose={() => setShowImportDialog(false)} />}
     </Box>
   );
 }

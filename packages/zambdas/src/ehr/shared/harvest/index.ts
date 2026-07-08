@@ -12,6 +12,7 @@ import {
   Account,
   AccountGuarantor,
   Address,
+  Appointment,
   Attachment,
   Bundle,
   CodeableConcept,
@@ -96,6 +97,7 @@ import {
   isFieldExplicitlyCleared,
   isoStringFromDateComponents,
   isPayerUrl,
+  isTelemedAppointment,
   isValidUUID,
   makeOptimisticLockIfMatchHeader,
   makeSSNIdentifier,
@@ -231,7 +233,7 @@ interface CreateConsentResourcesInput {
   questionnaireResponse: QuestionnaireResponse;
   patientResource: Patient;
   locationResource?: Location;
-  appointmentId: string;
+  appointment: Appointment;
   oystehrAccessToken: string;
   oystehr: Oystehr;
   secrets: Secrets | null;
@@ -243,12 +245,13 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     questionnaireResponse,
     patientResource,
     locationResource,
-    appointmentId,
+    appointment,
     oystehrAccessToken,
     oystehr,
     secrets,
     listResources,
   } = input;
+  const appointmentId = appointment.id!;
   console.log('Checking DocumentReferences for consent forms');
   const paperwork = questionnaireResponse.item ?? [];
 
@@ -369,12 +372,13 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   const nowIso = DateTime.now().setZone('UTC').toISO() || '';
 
-  const isVirtualLocation =
-    locationResource?.extension?.find(
-      (ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release'
-    )?.valueCoding?.code === 'vi';
+  // Key the facility label off the visit's service mode, not the Location's
+  // virtual flag: a Location can be both virtual and in-person (dual-mode), so
+  // an in-person visit at such a Location must still show its physical facility
+  // name rather than "Ottehr Telemedicine".
+  const isTelemedVisit = isTelemedAppointment(appointment);
 
-  const facilityName = isVirtualLocation
+  const facilityName = isTelemedVisit
     ? 'Ottehr Telemedicine'
     : locationResource?.identifier?.find(
         (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
@@ -4380,15 +4384,20 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
 
   const stripeCustomerAccountPairs = getAllStripeCustomerAccountPairs(account);
   for (const pair of stripeCustomerAccountPairs) {
-    await stripeClient.customers.update(
-      pair.customerId,
-      {
-        email,
-        name,
-        phone,
-      },
-      { stripeAccount: pair.stripeAccount }
-    );
+    try {
+      await stripeClient.customers.update(
+        pair.customerId,
+        { email, name, phone },
+        { stripeAccount: pair.stripeAccount }
+      );
+    } catch (stripeError: any) {
+      if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
+        console.warn(`Stripe rejected email for customer ${pair.customerId}, updating without email`);
+        await stripeClient.customers.update(pair.customerId, { name, phone }, { stripeAccount: pair.stripeAccount });
+      } else {
+        throw stripeError;
+      }
+    }
   }
 };
 

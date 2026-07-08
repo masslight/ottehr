@@ -39,3 +39,9 @@ variable "billing_cert_domain" {
   type        = string
   nullable    = true
 }
+
+variable "ehr_app_url" {
+  description = "Base URL of the EHR app, for billing -> clinical backlinks (like claim -> source visit)"
+  type        = string
+  nullable    = false
+}
