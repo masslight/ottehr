@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
@@ -29,7 +28,24 @@ const RESPONSE_SCHEMA = {
   required: ['code'],
 };
 
-const buildPrompt = (schema: object, request: string, conversation?: AdHocReportTurn[]): string => {
+const buildPrompt = (
+  schema: object,
+  request: string,
+  conversation?: AdHocReportTurn[],
+  previousAttempt?: { code: string; error: string }
+): string => {
+  // The client rendered a prior generation for this request in its sandboxed iframe and it failed at
+  // runtime (threw, or rendered nothing). Feed the failing code + error back so the regeneration is
+  // an actual fix, not a reroll of the same deterministic output.
+  const previousAttemptBlock = previousAttempt
+    ? `\nIMPORTANT — A PREVIOUS ATTEMPT AT THIS REQUEST FAILED when it ran in the browser. The failure was:\n` +
+      `"${previousAttempt.error}"\n` +
+      `The failing code was:\n${previousAttempt.code}\n` +
+      `Return corrected code that fixes this failure — it must RUN without throwing (guard against ` +
+      `null/undefined field values and variables used outside their scope) and must render visible ` +
+      `content into document.body — while otherwise fulfilling the same request.\n`
+    : '';
+
   const conversationBlock =
     conversation && conversation.length > 0
       ? `\nThis is a REFINEMENT of an earlier report. Prior turns (oldest first) — apply the new USER REQUEST\n` +
@@ -204,7 +220,7 @@ RULES:
 
 DATASET SCHEMA:
 ${JSON.stringify(schema, null, 2)}
-${conversationBlock}
+${conversationBlock}${previousAttemptBlock}
 USER REQUEST:
 """
 ${request}
@@ -215,10 +231,15 @@ Return JSON: { "title": "<short report title>", "code": "<the function-body Java
 };
 
 // Returns null if the code parses as a JS function body, or the SyntaxError message if not.
-// new Function only COMPILES the body (it never runs it), so this is a safe parse check — the same
-// parse the sandboxed iframe does via `new Function('data','schema','Chart', code)`. Catching it
-// here stops a malformed generation reaching the browser as a cryptic "Invalid or unexpected token".
-const jsSyntaxError = (code: string): string | null => {
+// new Function only COMPILES the body (it never runs it — the returned function is discarded,
+// never invoked), so this is a safe parse check — the same parse the sandboxed iframe does via
+// `new Function('data','schema','Chart', code)`. Catching it here stops a malformed generation
+// reaching the browser as a cryptic "Invalid or unexpected token".
+//
+// This is the ONLY thing the server ever does with the generated code besides string checks: no
+// path executes model output server-side. Runtime validation (does it actually render?) happens in
+// the client's sandboxed iframe, which feeds failures back via `previousAttempt` for regeneration.
+export const jsSyntaxError = (code: string): string | null => {
   try {
     new Function('data', 'schema', 'Chart', code);
     return null;
@@ -227,284 +248,19 @@ const jsSyntaxError = (code: string): string | null => {
   }
 };
 
-// Build a handful of type-plausible synthetic rows from the schema so generated code can be EXECUTED
-// (not just compiled) during validation. Values only need to be varied enough to exercise
-// grouping/charting; correctness vs the real data is not the goal. A few patientIds repeat across
-// near dates so visit-pairing reports (e.g. 72-hour returns) have something to find.
-//
-// NULL HOLES: the prompt's null-safety rule says "ANY field value may be null", so the synthetic
-// rows must actually contain nulls — otherwise code with an unguarded null access
-// (r.reason.toLowerCase()) sails through validation and only crashes on real data. After building
-// the rows, every field gets one null/undefined hole plus one type-shaped empty ([] / null; never
-// '', which the prompt's contract excludes from the value domain and would false-reject null-guarded code)
-// punched into rows 2..11: rows 0-1 stay fully populated so grouping/charting still has data, and
-// each field keeps at least 10 of its 12 values so the patientId-repeat pairing guarantee survives.
-export const synthSampleRows = (schema: {
-  fields?: Array<{ name?: string; type?: string; values?: unknown[]; min?: number }>;
-}): unknown[] => {
-  const fields = Array.isArray(schema?.fields) ? schema.fields : [];
-  const rows: Record<string, unknown>[] = [];
-  for (let i = 0; i < 12; i++) {
-    const row: Record<string, unknown> = {};
-    for (const f of fields) {
-      const name = f?.name;
-      if (!name) continue;
-      const vals = Array.isArray(f?.values) ? f!.values : [];
-      if (name === 'date' || f?.type === 'date')
-        row[name] = `2026-0${1 + (i % 6)}-${String(10 + (i % 18)).padStart(2, '0')}`;
-      else if (f?.type === 'number') row[name] = (typeof f?.min === 'number' ? f.min : 0) + (i % 5) + 1;
-      else if (f?.type === 'string[]') row[name] = [vals.length ? vals[i % vals.length] : `${name}-${i % 3}`];
-      else row[name] = vals.length ? vals[i % vals.length] : `${name}-${i % 4}`;
-    }
-    if (fields.some((f) => f?.name === 'patientId')) row.patientId = `p${i % 4}`;
-    rows.push(row);
-  }
-  // Punch the null holes (rows 2..11 only). The null/undefined hole is the one that makes an
-  // unguarded method call throw; the second hole is a plausible "empty" for the field's type.
-  // (j % 10) and ((j + 5) % 10) never coincide, so the two holes land in different rows.
-  const named = fields.filter((f): f is { name: string; type?: string } => typeof f?.name === 'string');
-  named.forEach((f, j) => {
-    rows[2 + (j % 10)][f.name] = j % 2 === 0 ? null : undefined;
-    rows[2 + ((j + 5) % 10)][f.name] = f.type === 'string[]' ? [] : null;
-  });
-  return rows;
-};
-
-const VM_TIMEOUT_MS = 4000;
-
-// The vm-based validation run, as a SELF-CONTAINED function (no captured module scope) so it can be
-// serialized via .toString() and executed inside an isolated child process — see runtimeError below.
-// node:vm is NOT a security boundary: model-emitted code like Math.constructor.constructor('return
-// process')() reaches the host realm's Function constructor and from there process.env. Everything
-// this function needs (the vm module, the code, the schema, the synthetic rows, the timeout) comes
-// in as parameters; it must never reference anything defined outside its own body.
-const sandboxRunner = (
-  vmMod: typeof import('node:vm'),
-  code: string,
-  schema: object,
-  rows: unknown[],
-  timeoutMs: number
-): string | null => {
-  const makeNode = (): unknown => {
-    const real: Record<string, unknown> = {
-      style: {},
-      children: [] as unknown[],
-      _attrs: {} as Record<string, unknown>,
-      previousElementSibling: null,
-      appendChild(c: unknown) {
-        (real.children as unknown[]).push(c);
-        return c;
-      },
-      insertBefore(c: unknown) {
-        (real.children as unknown[]).push(c);
-        return c;
-      },
-      removeChild(c: unknown) {
-        const a = real.children as unknown[];
-        const idx = a.indexOf(c);
-        if (idx >= 0) a.splice(idx, 1);
-      },
-      remove() {},
-      setAttribute(k: string, v: unknown) {
-        (real._attrs as Record<string, unknown>)[k] = v;
-      },
-      getAttribute(k: string) {
-        return (real._attrs as Record<string, unknown>)[k] ?? null;
-      },
-      addEventListener() {},
-      // Return a live node, not null — same reasoning as document.getElementById below: reports
-      // routinely set innerHTML on a container and then chain `container.querySelector('tbody')
-      // .appendChild(tr)`, which the browser resolves but a null-returning stub turns into a
-      // spurious "Cannot read properties of null (reading 'appendChild')" reject.
-      querySelector() {
-        return makeNode();
-      },
-      querySelectorAll() {
-        return [] as unknown[];
-      },
-      getContext() {
-        return { save() {}, restore() {}, clearRect() {}, canvas: {} };
-      },
-      get firstChild() {
-        return (real.children as unknown[])[0] ?? null;
-      },
-      set innerHTML(v: string) {
-        real._html = v;
-        if (v) (real.children as unknown[]).push(makeNode());
-      },
-      get innerHTML() {
-        return (real._html as string) ?? '';
-      },
-      set textContent(v: string) {
-        real._text = v;
-      },
-      get textContent() {
-        return (real._text as string) ?? '';
-      },
-    };
-    return new Proxy(real, {
-      get(t, p: string) {
-        return p in t ? (t as Record<string, unknown>)[p] : (): unknown => makeNode();
-      },
-      set(t, p: string, v) {
-        (t as Record<string, unknown>)[p] = v;
-        return true;
-      },
-    });
-  };
-  const body = makeNode() as { children: unknown[]; innerHTML: string };
-  const documentStub = {
-    body,
-    createElement: () => makeNode(),
-    createElementNS: () => makeNode(),
-    // Return a live node, not null: reports routinely set body.innerHTML with an `id="chart"` canvas
-    // and then `document.getElementById('chart').getContext(...)` — which the browser resolves but a
-    // null-returning stub turns into a spurious "Cannot read properties of null" reject. The stub node
-    // answers getContext/appendChild, so the chain runs as it would in the iframe.
-    getElementById: () => makeNode(),
-    querySelector: () => makeNode(),
-    querySelectorAll: () => [] as unknown[],
-    addEventListener() {},
-  };
-  // A Chart instance in the iframe exposes update()/resize()/destroy()/etc. and Chart has static
-  // register()/defaults; a bare no-op function makes `chart.update()` a TypeError and falsely fails
-  // valid reports. Return a stub carrying the common instance methods, and attach the static surface.
-  function ChartStub(this: Record<string, unknown>): void {
-    this.update = (): void => {};
-    this.resize = (): void => {};
-    this.destroy = (): void => {};
-    this.render = (): void => {};
-    this.reset = (): void => {};
-    this.stop = (): void => {};
-    this.data = {};
-    this.options = {};
-  }
-  (ChartStub as unknown as Record<string, unknown>).register = (): void => {};
-  (ChartStub as unknown as Record<string, unknown>).defaults = {};
-  // Deferred-render idioms (requestAnimationFrame(() => new Chart(...)), setTimeout(fn, 0)) are
-  // valid in the iframe; the vm must provide these globals or code using them fails with a
-  // ReferenceError and burns the whole retry budget. Run the callback SYNCHRONOUSLY so the render
-  // actually happens within this run (otherwise body stays empty → false "rendered nothing"), with
-  // a shared budget so a self-rescheduling animation loop can't spin until the 4s vm timeout.
-  let deferredBudget = 200;
-  const runDeferred = (fn: unknown): number => {
-    if (typeof fn === 'function' && deferredBudget > 0) {
-      deferredBudget -= 1;
-      (fn as () => void)();
-    }
-    return 0;
-  };
-  const sandbox: Record<string, unknown> = {
-    data: rows,
-    schema,
-    Chart: ChartStub,
-    document: documentStub,
-    Math,
-    JSON,
-    Date,
-    Object,
-    Array,
-    String,
-    Number,
-    Boolean,
-    parseInt,
-    parseFloat,
-    isNaN,
-    isFinite,
-    setTimeout: (fn: unknown) => runDeferred(fn),
-    setInterval: (fn: unknown) => runDeferred(fn),
-    requestAnimationFrame: (fn: unknown) => runDeferred(fn),
-    clearTimeout: (): void => {},
-    clearInterval: (): void => {},
-    cancelAnimationFrame: (): void => {},
-    console: { log() {}, warn() {}, error() {} },
-  };
-  sandbox.window = sandbox; // window.X resolves to the sandbox global, as in the iframe
-  // Wrap in a function exactly as the iframe runner does (new Function('data','schema','Chart', code)),
-  // so a top-level `return` in the report body is legal — it's a function body, not a script. Running
-  // the raw code as a vm SCRIPT instead rejects valid reports (a `if (!data.length) return;` guard is
-  // common) with "SyntaxError: Illegal return statement". The IIFE's free `document`/`Chart`/`window`
-  // resolve to the sandbox globals, and the renderReport()-declaration fallback runs in the same scope.
-  const wrapped =
-    '(function (data, schema, Chart) {\n' +
-    code +
-    '\n;if (typeof renderReport === "function" && !document.body.firstChild) { renderReport(data, schema, Chart); }\n' +
-    '})(data, schema, Chart);';
-  try {
-    vmMod.createContext(sandbox);
-    vmMod.runInContext(wrapped, sandbox, { timeout: timeoutMs });
-  } catch (e) {
-    return e instanceof Error ? e.message : String(e);
-  }
-  return body.children.length > 0 || (body.innerHTML && body.innerHTML.length > 0)
-    ? null
-    : 'the code ran without error but rendered nothing into document.body';
-};
-
-// EXECUTE the generated code headlessly (vm + a permissive DOM/Chart stub), exactly as the iframe
-// runner does — including the renderReport()-declaration fallback. Compile-checking alone misses
-// runtime faults (e.g. a ReferenceError from a loop var used out of scope) and no-op output (e.g. a
-// `function renderReport(){}` that's never called). Returns the error string, or null if it ran and
-// rendered something. Kept permissive (unknown DOM calls no-op) to avoid rejecting valid reports.
-//
-// SECURITY: the code under validation is untrusted model output (and the user's free-text request is
-// an indirect prompt-injection surface). node:vm alone is NOT a security boundary — sandboxed code
-// can climb intrinsic prototype chains (e.g. Math.constructor.constructor('return process')()) into
-// the host realm and read process.env, i.e. the Lambda's Vertex API key and other secrets. So the vm
-// run happens in a THROWAWAY CHILD PROCESS spawned with a scrubbed environment (env: {}): even a
-// full vm escape lands in a process whose env holds no secrets and whose memory holds nothing but
-// the code, the schema, and synthetic rows. The child is hard-killed (SIGKILL) shortly after the
-// vm's own timeout as a backstop against escapes that outlive the script (e.g. real timers).
-// {code, schema, rows} travel via stdin as JSON — never interpolated into the child program source.
-export const runtimeError = (code: string, schema: object): string | null => {
-  const childProgram =
-    // Shim esbuild's keepNames helper: some TS runners (tsx, vitest) transpile with keepNames, which
-    // injects __name(...) calls into function bodies — the serialized sandboxRunner must not crash
-    // on them when it runs outside its defining module.
-    'var __name = globalThis.__name || function (fn) { return fn; };\n' +
-    "var __fs = require('node:fs');\n" +
-    "var __input = JSON.parse(__fs.readFileSync(0, 'utf8'));\n" +
-    'var __run = (' +
-    sandboxRunner.toString() +
-    ');\n' +
-    'var __result;\n' +
-    "try { __result = __run(require('node:vm'), __input.code, __input.schema, __input.rows, __input.timeoutMs); }\n" +
-    'catch (e) { __result = e && e.message ? e.message : String(e); }\n' +
-    // writeSync + immediate exit: exit before any escaped code's real timers/handles can keep the
-    // child alive (which would otherwise turn every successful validation into a spawn timeout).
-    '__fs.writeSync(1, JSON.stringify({ error: __result === undefined ? null : __result }));\n' +
-    'process.exit(0);';
-
-  const child = spawnSync(process.execPath, ['-e', childProgram], {
-    input: JSON.stringify({ code, schema, rows: synthSampleRows(schema as { fields?: [] }), timeoutMs: VM_TIMEOUT_MS }),
-    env: {}, // scrubbed: no secrets reachable even if the vm realm is escaped
-    timeout: VM_TIMEOUT_MS + 2000, // backstop over the vm's own timeout (spawn + parse overhead)
-    killSignal: 'SIGKILL',
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-  });
-
-  if (child.error) {
-    return (child.error as NodeJS.ErrnoException).code === 'ETIMEDOUT'
-      ? `Script execution timed out after ${VM_TIMEOUT_MS}ms`
-      : `the validation runner failed to start (${child.error.message})`;
-  }
-  try {
-    const parsed = JSON.parse(child.stdout) as { error?: unknown };
-    return typeof parsed.error === 'string' ? parsed.error : null;
-  } catch {
-    return `the validation runner exited without a result (status ${child.status}${
-      child.stderr ? `: ${child.stderr.slice(0, 300)}` : ''
-    })`;
-  }
-};
-
-const MAX_ATTEMPTS = 3;
+// One real generation per request. The server NEVER executes the generated code — executing
+// untrusted model output server-side is an arbitrary-code-execution surface (the old vm/child-process
+// execute-validator was removed for exactly that reason). The only server-side gates are STATIC
+// (string checks + the compile-only parse above); "does it actually render?" is validated by the
+// CLIENT in its sandboxed iframe, which regenerates via `previousAttempt` on failure. The small
+// attempt budget here only covers those cheap static gates (and model-transport failures), so a
+// trivially malformed generation is retried once without a client round-trip.
+const MAX_ATTEMPTS = 2;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { schema, request, conversation, secrets } = validateRequestParameters(input);
+  const { schema, request, conversation, previousAttempt, secrets } = validateRequestParameters(input);
 
-  const basePrompt = buildPrompt(schema, request, conversation);
+  const basePrompt = buildPrompt(schema, request, conversation, previousAttempt);
   let lastError = '';
 
   // The model is effectively deterministic per prompt, so a plain retry would reproduce the same bad
@@ -556,10 +312,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // Retryable backstop: `innerHTML +=` re-serializes and re-parses every existing child, so an
-    // already-painted chart <canvas> comes back blank — the report silently loses its charts. The
-    // vm validation can't catch this (its fake-DOM innerHTML setter doesn't model the re-parse).
-    // Like the Math.random guard above, it's a problem the model can fix, so feed it back and
-    // regenerate.
+    // already-painted chart <canvas> comes back blank — the report silently loses its charts (no
+    // error is thrown, so even the client's render check can't see it). Like the Math.random guard
+    // above, it's a problem the model can fix, so feed it back and regenerate.
     if (/\.innerHTML\s*\+=/.test(parsed.code)) {
       lastError =
         'the code used `innerHTML +=`, which destroys previously-rendered chart canvases — build ' +
@@ -570,15 +325,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const syntaxError = jsSyntaxError(parsed.code);
     if (syntaxError) {
       lastError = `the code did not parse (${syntaxError})`;
-      continue;
-    }
-
-    // Execute-validate: compile-checking misses runtime faults (ReferenceErrors, calling undefined,
-    // a renderReport declaration that never runs). Run it headless over synthetic rows and reject if
-    // it throws or renders nothing, so the retry loop regenerates instead of saving broken code.
-    const runError = runtimeError(parsed.code, schema);
-    if (runError) {
-      lastError = `the code failed at runtime (${runError})`;
       continue;
     }
 

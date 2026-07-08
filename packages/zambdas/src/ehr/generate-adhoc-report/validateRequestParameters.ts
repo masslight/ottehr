@@ -13,7 +13,7 @@ export function validateRequestParameters(input: ZambdaInput): GenerateAdHocRepo
     throw MISSING_REQUEST_BODY;
   }
 
-  const { schema, request, conversation } = JSON.parse(input.body);
+  const { schema, request, conversation, previousAttempt } = JSON.parse(input.body);
 
   if (!schema || typeof schema !== 'object') {
     throw MISSING_REQUIRED_PARAMETERS(['schema']);
@@ -27,9 +27,19 @@ export function validateRequestParameters(input: ZambdaInput): GenerateAdHocRepo
     throw INVALID_INPUT_ERROR('conversation must be an array');
   }
 
+  if (
+    previousAttempt !== undefined &&
+    (typeof previousAttempt !== 'object' ||
+      previousAttempt === null ||
+      typeof previousAttempt.code !== 'string' ||
+      typeof previousAttempt.error !== 'string')
+  ) {
+    throw INVALID_INPUT_ERROR('previousAttempt must be an object with string "code" and "error" fields');
+  }
+
   if (!input.secrets) {
     throw MISSING_REQUEST_SECRETS;
   }
 
-  return { schema, request, conversation, secrets: input.secrets };
+  return { schema, request, conversation, previousAttempt, secrets: input.secrets };
 }

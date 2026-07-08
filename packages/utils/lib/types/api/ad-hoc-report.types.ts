@@ -15,6 +15,11 @@ export interface GenerateAdHocReportInput {
   request: string;
   /** Prior turns for refinement (e.g. user request + previously generated code, last error). */
   conversation?: AdHocReportTurn[];
+  /** The immediately-prior generation for this same request that FAILED when the client rendered it
+   *  in the sandboxed iframe (threw, or rendered nothing). The server never executes generated code;
+   *  the client drives the render→validate→regenerate loop and passes the failure back here so the
+   *  model regenerates with the runtime error as feedback. */
+  previousAttempt?: { code: string; error: string };
 }
 
 export interface GenerateAdHocReportOutput {

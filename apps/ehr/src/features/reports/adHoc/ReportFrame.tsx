@@ -222,9 +222,25 @@ const BOOTSTRAP = `
         );
         fn(msg.data, msg.schema, window.Chart);
         extractAndPublish(); // always — an empty list clears stale grids from the previous report
-        var h = measure();
-        lastH = h;
-        send({ type: 'rendered', height: h });
+        // Decide the render OUTCOME only after deferred renders have had a chance to run: reports
+        // legitimately defer chart creation (requestAnimationFrame(() => new Chart(...)),
+        // setTimeout(fn, 0)), so an immediate emptiness check would false-fail them. rAF + a
+        // zero-tick covers both idioms; the plain-timeout fallback covers a frame where rAF never
+        // fires (e.g. collapsed/hidden). First decision wins. Extracted tables are hidden but still
+        // body children, so a table-only report counts as rendered — "empty" means the code ran
+        // without error but produced no DOM at all.
+        var decided = false;
+        var decide = function () {
+          if (decided) return;
+          decided = true;
+          var h = measure();
+          lastH = h;
+          var empty =
+            document.body.children.length === 0 && ((document.body.textContent || '').trim().length === 0);
+          send({ type: 'rendered', height: h, empty: empty });
+        };
+        requestAnimationFrame(function () { setTimeout(decide, 0); });
+        setTimeout(decide, 300);
       } catch (e) {
         send({ type: 'error', message: (e && e.message) ? String(e.message) : String(e) });
       }
@@ -265,9 +281,11 @@ interface ReportFrameProps {
   code: string;
   data: AdHocRow[];
   schema: DatasetSchema;
+  /** Fired on a render FAILURE: the code threw, timed out, or ran but rendered nothing. The page
+   *  uses this to drive its regenerate-with-feedback loop. */
   onError: (message: string) => void;
-  /** Fired when the generated code renders without throwing — lets the page persist an auto-repaired
-   *  report so it doesn't crash-then-retry on every open. */
+  /** Fired when the generated code renders successfully (no throw, and it produced content) — lets
+   *  the page persist an auto-repaired report so it doesn't crash-then-retry on every open. */
   onRendered?: () => void;
   /** Report title — used to name the per-table CSV export. */
   reportTitle?: string;
@@ -332,6 +350,7 @@ export function ReportFrame({
         height?: number;
         message?: string;
         href?: string;
+        empty?: boolean;
         tables?: ExtractedTable[];
         hasNonTableContent?: boolean;
       };
@@ -347,7 +366,13 @@ export function ReportFrame({
       } else if (msg?.type === 'rendered') {
         if (timerRef.current) clearTimeout(timerRef.current);
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
-        onRenderedRef.current?.();
+        // "Rendered nothing" is a render FAILURE (the parent drives a regenerate on it) — report it
+        // through the same error channel a thrown error uses, not a separate one.
+        if (msg.empty) {
+          onError('the code ran without error but rendered nothing into the page');
+        } else {
+          onRenderedRef.current?.();
+        }
       } else if (msg?.type === 'resize') {
         if (typeof msg.height === 'number') setHeight(Math.min(Math.max(msg.height + 32, 160), 2400));
       } else if (msg?.type === 'tables') {

@@ -1,95 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { runtimeError, synthSampleRows } from '../src/ehr/generate-adhoc-report/index';
+import { jsSyntaxError } from '../src/ehr/generate-adhoc-report/index';
 
-// A schema shaped like the real encounters dataset (the generator passes the actual schema in, so the
-// validator runs against real field metadata + synthetic rows). Field 0 is a date with min/max so code
-// that reads schema.fields[0].min works exactly as it does in the browser.
+// The server must NEVER execute generated report code (executing untrusted model output server-side
+// is an arbitrary-code-execution surface — the old vm/child-process execute-validator was removed).
+// The only code-shaped check left is jsSyntaxError, which COMPILES the code as a function body via
+// `new Function(...)` without ever invoking it; runtime validation happens in the client's sandboxed
+// iframe. These tests pin both halves: it parses exactly what the iframe runner parses, and it never
+// runs anything.
 
-const SCHEMA: any = {
-  fields: [
-    { name: 'date', type: 'date', min: '2025-06-01', max: '2026-06-30' },
-    { name: 'patientId', type: 'string' },
-    { name: 'patientName', type: 'string' },
-    { name: 'visitStatus', type: 'string', values: ['completed', 'cancelled', 'no-show'] },
-    { name: 'visitType', type: 'string', values: ['walk-in', 'scheduled'] },
-    { name: 'attendingProvider', type: 'string' },
-    { name: 'primaryIcd', type: 'string' },
-    { name: 'dischargeDisposition', type: 'string' },
-    { name: 'totalCycleMinutes', type: 'number', min: 10, max: 240 },
-  ],
-};
-
-describe('generate-adhoc-report runtime validation', () => {
-  it('synthSampleRows produces type-plausible rows with repeated patientIds for visit-pairing', () => {
-    const rows = synthSampleRows(SCHEMA) as Record<string, unknown>[];
-    expect(rows.length).toBeGreaterThan(1);
-    expect(typeof rows[0].date).toBe('string');
-    expect(typeof rows[0].totalCycleMinutes).toBe('number');
-    // patientIds must repeat so reports that pair visits per patient have something to find
-    const ids = new Set(rows.map((r) => r.patientId));
-    expect(ids.size).toBeLessThan(rows.length);
-  });
-
-  it('passes ordinary inline code that renders into document.body', () => {
+describe('generate-adhoc-report jsSyntaxError (compile-only)', () => {
+  it('accepts ordinary code that renders into document.body', () => {
     const code = `
       const valid = data.filter(r => r.visitStatus !== 'cancelled');
-      document.body.innerHTML = '<table><tbody>' +
-        valid.map(r => '<tr><td>' + r.patientName + '</td></tr>').join('') + '</tbody></table>';
+      document.body.innerHTML = '<h2>' + valid.length + ' visits</h2>';
     `;
-    expect(runtimeError(code, SCHEMA)).toBeNull();
+    expect(jsSyntaxError(code)).toBeNull();
   });
 
-  it('passes code with a top-level return guard (legal in the runner function body, not as a script)', () => {
+  it('accepts a top-level return guard (legal in a function body, not as a script)', () => {
     // The iframe runs code via new Function('data','schema','Chart', code), so a top-level `return`
-    // is a normal early-exit — extremely common (empty-data guards). The validator must not reject it.
+    // is a normal early-exit — extremely common (empty-data guards). The check must not reject it.
     const code = `
       if (!data.length) { document.body.innerHTML = '<p>No data</p>'; return; }
       document.body.innerHTML = '<h2>' + data.length + ' visits</h2>';
     `;
-    expect(runtimeError(code, SCHEMA)).toBeNull();
+    expect(jsSyntaxError(code)).toBeNull();
   });
 
-  it('passes a renderReport() declaration that renders (runner invokes it as a fallback)', () => {
-    const code = `function renderReport(data, schema, Chart) {
-      document.body.innerHTML = '<h2>' + data.length + ' visits</h2>';
-    }`;
-    expect(runtimeError(code, SCHEMA)).toBeNull();
-  });
-
-  it('passes the innerHTML-then-getElementById(canvas).getContext chart pattern', () => {
-    // The canonical Chart.js wiring: write a canvas with an id into body, look it up, draw on it.
-    // A null-returning getElementById stub would reject this valid, browser-working code.
-    const code = `
-      document.body.innerHTML = '<h2>Volume</h2><canvas id="vol"></canvas>';
-      const ctx = document.getElementById('vol').getContext('2d');
-      new Chart(ctx, { type: 'bar', data: { labels: ['a'], datasets: [{ data: [1] }] } });
-    `;
-    expect(runtimeError(code, SCHEMA)).toBeNull();
-  });
-
-  it('catches an out-of-scope ReferenceError (the 72-Hour Return Analysis bug class)', () => {
-    // `r` is used at top level but only defined inside the forEach callback — exactly the real bug.
-    const code = `
-      const byPatient = {};
-      data.forEach(function (r) { (byPatient[r.patientId] = byPatient[r.patientId] || []).push(r); });
-      document.body.innerHTML = '<div>' + r.patientId + '</div>';
-    `;
-    const err = runtimeError(code, SCHEMA);
+  it('rejects code that does not parse, with the SyntaxError message', () => {
+    const err = jsSyntaxError('const x = {;');
     expect(err).not.toBeNull();
-    expect(err).toMatch(/r is not defined/);
+    expect(typeof err).toBe('string');
   });
 
-  it('catches a renderReport() declaration that is never invoked and renders nothing', () => {
-    // No top-level call and an empty body: compile-checking alone would pass this, but it renders
-    // nothing — the original blank-report bug class.
-    const code = `function renderReport(data, schema, Chart) { /* never wired up, no output */ }`;
-    const err = runtimeError(code, SCHEMA);
-    expect(err).not.toBeNull();
-    expect(err).toMatch(/rendered nothing/);
-  });
-
-  it('catches calling an undefined helper', () => {
-    const code = `document.body.appendChild(buildTable(data));`;
-    expect(runtimeError(code, SCHEMA)).not.toBeNull();
+  it('never EXECUTES the code — only compiles it', () => {
+    // Code with an unconditional throw and an observable side effect: if the check executed the
+    // code, the throw would surface as an error and the global would be set. It compiles fine, so
+    // the check must return null and leave the global untouched.
+    const globalKey = '__adhocExecProbe';
+    delete (globalThis as Record<string, unknown>)[globalKey];
+    const code = `globalThis.${globalKey} = true; throw new Error('must never run');`;
+    expect(jsSyntaxError(code)).toBeNull();
+    expect((globalThis as Record<string, unknown>)[globalKey]).toBeUndefined();
   });
 });

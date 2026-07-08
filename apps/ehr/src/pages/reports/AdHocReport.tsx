@@ -40,8 +40,12 @@ import PageContainer from '../../layout/PageContainer';
 
 type DateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-30-days' | 'custom' | 'customRange';
 
-// How many times to transparently regenerate after a runtime error before surfacing it to the user.
-const MAX_AUTO_RETRIES = 1;
+// How many times to transparently regenerate after a render failure (threw, or rendered nothing)
+// before surfacing it to the user. The server no longer execute-validates generated code (that was
+// an arbitrary-code-execution surface), so this client loop IS the runtime validation: render in the
+// sandboxed iframe, and on failure regenerate with the failing code + error as `previousAttempt`
+// feedback. Initial generation + 2 retries = 3 attempts, matching the old server-side budget.
+const MAX_AUTO_RETRIES = 2;
 
 // Pure version of the date-range computation (no component state) so the saved-report loader can
 // compute a range directly from stored criteria without waiting for setState to land.
@@ -139,6 +143,10 @@ export default function AdHocReport(): React.ReactElement {
   // Mirror of `conversation` for the stable render-error callback, and a per-request auto-fix budget.
   const conversationRef = useRef<AdHocReportTurn[]>([]);
   const autoRetryRef = useRef(0);
+  // The last generate call (message + conversation snapshot), so the render-failure loop can re-issue
+  // the SAME request with `previousAttempt` feedback. Null until something has been generated (or a
+  // saved report loaded), which also keeps the loop from firing for states it can't regenerate.
+  const lastGenerateRef = useRef<{ message: string; priorConversation: AdHocReportTurn[] } | null>(null);
   // True once the current code is an auto-repair of a crashed render — so a successful render can be
   // persisted back to the saved report (otherwise it crash-then-retries on every open).
   const autoFixedRef = useRef(false);
@@ -236,13 +244,15 @@ export default function AdHocReport(): React.ReactElement {
     async (
       message: string,
       priorConversation: AdHocReportTurn[],
-      useSchema: DatasetSchema
+      useSchema: DatasetSchema,
+      previousAttempt?: { code: string; error: string }
     ): Promise<{ needsLayers?: string[] } | null> => {
       if (!oystehrZambda) return null;
       const result = await generateAdHocReport(oystehrZambda, {
         schema: useSchema,
         request: message,
         conversation: priorConversation.length ? priorConversation : undefined,
+        previousAttempt,
       });
       setGeneratedCode(result.code);
       setGeneratedTitle(result.title);
@@ -265,11 +275,17 @@ export default function AdHocReport(): React.ReactElement {
   // once. `infer` is true for a fresh request and false for a refinement (which reuses the loaded
   // data, but still auto-fetches if the refinement introduces a new concept).
   const orchestrate = useCallback(
-    async (message: string, priorConversation: AdHocReportTurn[], infer: boolean): Promise<void> => {
+    async (
+      message: string,
+      priorConversation: AdHocReportTurn[],
+      infer: boolean,
+      previousAttempt?: { code: string; error: string }
+    ): Promise<void> => {
       if (!oystehrZambda) return;
       setGenerating(true);
       setGenerateError(null);
       setRenderError(null);
+      lastGenerateRef.current = { message, priorConversation };
       try {
         let activeOpts = datasetOptions;
         let activeSchema = schema;
@@ -284,7 +300,7 @@ export default function AdHocReport(): React.ReactElement {
           activeSchema = fetched.schema;
         }
 
-        const result = await callGenerate(message, priorConversation, activeSchema);
+        const result = await callGenerate(message, priorConversation, activeSchema, previousAttempt);
 
         // Safety net: the report named layers it needs that weren't loaded — fetch them and regenerate.
         const wanted = (result?.needsLayers ?? []).filter((id) => id in activeOpts && !activeOpts[id]);
@@ -292,7 +308,7 @@ export default function AdHocReport(): React.ReactElement {
           const merged = { ...activeOpts };
           wanted.forEach((id) => (merged[id] = true));
           const refetched = await fetchWithOptions(merged);
-          if (refetched) await callGenerate(message, priorConversation, refetched.schema);
+          if (refetched) await callGenerate(message, priorConversation, refetched.schema, previousAttempt);
         }
       } catch (e) {
         setGenerateError(e instanceof Error ? e.message : 'Failed to generate report');
@@ -309,6 +325,11 @@ export default function AdHocReport(): React.ReactElement {
     if (!request.trim()) return;
     autoRetryRef.current = 0;
     setGeneratedCode(null);
+    // A fresh request is a new report — de-link any previously saved report so the save dialog
+    // doesn't carry the old name onto this one (or silently overwrite the old one via "Update").
+    setLoadedSavedId(null);
+    setSavedName('');
+    setSavedDescription('');
     void orchestrate(request, [], true);
   }, [request, orchestrate]);
 
@@ -334,29 +355,36 @@ export default function AdHocReport(): React.ReactElement {
     setConversation([]);
     setRefineText('');
     setLoadedSavedId(null);
+    setSavedName('');
+    setSavedDescription('');
     conversationRef.current = [];
+    lastGenerateRef.current = null;
     autoRetryRef.current = 0;
     autoFixedRef.current = false;
   }, []);
 
-  // When the generated code throws at runtime, transparently feed the error back and regenerate once
-  // (e.g. a missing null-guard). This self-corrects the common runtime bugs instead of dead-ending on
-  // the user; after the budget is spent, surface the error and the manual refine bar.
+  // The render→validate→regenerate loop. The sandboxed iframe reports the render outcome; on a
+  // failure (the code threw, timed out, or rendered nothing) transparently re-issue the SAME request
+  // with the failing code + error as `previousAttempt`, so the model regenerates with the runtime
+  // failure as feedback. After the budget is spent, surface the failure and the manual refine bar.
   const handleRenderError = useCallback(
     (message: string): void => {
-      if (autoRetryRef.current < MAX_AUTO_RETRIES) {
+      const last = lastGenerateRef.current;
+      if (last && generatedCode && autoRetryRef.current < MAX_AUTO_RETRIES) {
         autoRetryRef.current += 1;
         autoFixedRef.current = true;
-        const fix =
-          `The previous code threw at runtime: "${message}". Return corrected code that fixes this — ` +
-          `guard against null/undefined values (some fields are null for some rows) — and otherwise ` +
-          `fulfils the same request.`;
-        void orchestrate(fix, conversationRef.current, false);
+        void orchestrate(last.message, last.priorConversation, false, { code: generatedCode, error: message });
         return;
       }
       setRenderError(message);
+      if (last) {
+        setGenerateError(
+          `Could not generate a valid report after ${MAX_AUTO_RETRIES + 1} attempts. Please rephrase your ` +
+            `request and try again.`
+        );
+      }
     },
-    [orchestrate]
+    [orchestrate, generatedCode]
   );
 
   // Open from a saved tile (?saved=<id>): load the definition, set the controls from its criteria,
@@ -414,6 +442,11 @@ export default function AdHocReport(): React.ReactElement {
         ];
         conversationRef.current = conv;
         setConversation(conv);
+        // Arm the render-failure loop for the stored code too: if it crashes on today's data, the
+        // saved request is regenerated with the failing code as `previousAttempt` (and the fixed
+        // code is persisted back — see handleRendered). Empty prior conversation: the failing code
+        // travels in previousAttempt, so repeating it as an assistant turn would be redundant.
+        lastGenerateRef.current = { message: saved.request, priorConversation: [] };
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load saved report');
       } finally {
