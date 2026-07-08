@@ -1,8 +1,16 @@
+import { DocumentReference } from 'fhir/r4b';
+import {
+  CODE_SYSTEM_ICD_10,
+  PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
+  PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
+  PatientEducationLanguage,
+} from 'utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildEducationPrompt } from '../../src/ehr/generate-patient-education/helpers';
 import { validateRequestParameters as validateGeneratePatientEducation } from '../../src/ehr/generate-patient-education/validateRequestParameters';
 import { validateRequestParameters as validateSaveApprovedPatientEducation } from '../../src/ehr/save-approved-patient-education/validateRequestParameters';
 import { validateRequestParameters as validateSavePatientEducationPdf } from '../../src/ehr/save-patient-education-pdf/validateRequestParameters';
+import { findConflictingApprovedEducationIcdCodes } from '../../src/ehr/shared/approved-patient-education-helpers';
 import type { ZambdaInput } from '../../src/shared';
 import { fetchMedlineLinks } from '../../src/shared/medlineplus';
 
@@ -112,6 +120,60 @@ describe('patient education language validation', () => {
         })
       )
     ).toThrow();
+  });
+});
+
+describe('findConflictingApprovedEducationIcdCodes — language-scoped duplicate check', () => {
+  const approvedDocRef = (id: string, icdCodes: string[], language?: PatientEducationLanguage): DocumentReference => ({
+    resourceType: 'DocumentReference',
+    id,
+    status: 'current',
+    type: { coding: [{ code: PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE }] },
+    content: [{ attachment: { url: `https://z3/${id}.pdf`, ...(language ? { language } : {}) } }],
+    extension: [
+      {
+        url: PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
+        extension: icdCodes.map((code) => ({
+          url: 'icdCode',
+          valueCoding: { system: CODE_SYSTEM_ICD_10, code, display: code },
+        })),
+      },
+    ],
+  });
+
+  const icd = (code: string): { code: string; display: string } => ({ code, display: code });
+
+  it('does NOT flag a code used by an approved PDF of the OTHER language (EN and ES coexist)', () => {
+    // QA repro: an English PDF for A98.0 exists; editing the Spanish PDF back to A98.0 must be allowed.
+    const spanishTarget = approvedDocRef('es-doc', ['A98.8'], 'es');
+    const englishDoc = approvedDocRef('en-doc', ['A98.0'], 'en');
+
+    expect(findConflictingApprovedEducationIcdCodes(spanishTarget, [englishDoc], [icd('A98.0')])).toEqual([]);
+  });
+
+  it('flags a code already used by another approved PDF of the SAME language', () => {
+    const spanishTarget = approvedDocRef('es-doc', ['A98.8'], 'es');
+    const otherSpanishDoc = approvedDocRef('es-doc-2', ['A98.0'], 'es');
+
+    expect(findConflictingApprovedEducationIcdCodes(spanishTarget, [otherSpanishDoc], [icd('A98.0')])).toEqual([
+      'A98.0',
+    ]);
+  });
+
+  it('treats legacy PDFs without a language tag as English', () => {
+    const legacyDoc = approvedDocRef('legacy-doc', ['A98.0']);
+
+    const englishTarget = approvedDocRef('en-doc', ['B01.9'], 'en');
+    expect(findConflictingApprovedEducationIcdCodes(englishTarget, [legacyDoc], [icd('A98.0')])).toEqual(['A98.0']);
+
+    const spanishTarget = approvedDocRef('es-doc', ['B01.9'], 'es');
+    expect(findConflictingApprovedEducationIcdCodes(spanishTarget, [legacyDoc], [icd('A98.0')])).toEqual([]);
+  });
+
+  it('ignores the target itself when it appears in the search results', () => {
+    const target = approvedDocRef('es-doc', ['A98.0'], 'es');
+
+    expect(findConflictingApprovedEducationIcdCodes(target, [target], [icd('A98.0')])).toEqual([]);
   });
 });
 
