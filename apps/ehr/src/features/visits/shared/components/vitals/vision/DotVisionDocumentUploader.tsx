@@ -7,13 +7,17 @@ import { createZ3Object } from 'src/api/api';
 import ImageUploader from 'src/components/ImageUploader';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { GetPresignedFileURLInput, VitalsDotVisionScreeningDocument } from 'utils';
+import { GetPresignedFileURLInput, MIME_TYPES, VitalsDotVisionScreeningDocument } from 'utils';
+import { useOpenDotVisionDocument } from './useOpenDotVisionDocument';
 
 // Reuses the patient-photo presigned-URL flow purely for the Z3 byte upload. The file bytes are
 // uploaded to Z3 here, but the DocumentReference is created lazily (only when the DOT screening
 // entry is saved) by the upload-dot-vision-document zambda, so a discarded attachment never leaves
 // an orphaned DocumentReference behind.
 const DOT_VISION_FILE_TYPE: GetPresignedFileURLInput['fileType'] = 'patient-photo-dot-vision';
+
+// Referral documentation is commonly a PDF, so allow it alongside the default image types.
+const DOT_VISION_ACCEPTED_FILE_TYPES = [MIME_TYPES.PDF, MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG].join(', ');
 
 interface DotVisionDocumentUploaderProps {
   appointmentId: string;
@@ -31,6 +35,7 @@ export const DotVisionDocumentUploader: FC<DotVisionDocumentUploaderProps> = ({
   onRemove,
 }) => {
   const { oystehrZambda } = useApiClients();
+  const { openDocument, isOpening } = useOpenDotVisionDocument();
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -85,13 +90,15 @@ export const DotVisionDocumentUploader: FC<DotVisionDocumentUploaderProps> = ({
         }}
       >
         <FileIcon fontSize="small" color="primary" />
-        {document.url ? (
-          <Link href={document.url} target="_blank" rel="noopener" sx={{ flexGrow: 1, fontWeight: 500 }}>
-            {document.title}
-          </Link>
-        ) : (
-          <Typography sx={{ flexGrow: 1, fontWeight: 500 }}>{document.title}</Typography>
-        )}
+        <Link
+          component="button"
+          type="button"
+          onClick={() => void openDocument(document)}
+          disabled={isOpening}
+          sx={{ flexGrow: 1, fontWeight: 500, textAlign: 'left' }}
+        >
+          {document.title}
+        </Link>
         {!disabled && (
           <IconButton size="small" aria-label="remove document" onClick={onRemove}>
             <DeleteIcon fontSize="small" />
@@ -111,6 +118,7 @@ export const DotVisionDocumentUploader: FC<DotVisionDocumentUploaderProps> = ({
         isUploading={isUploading}
         submitAttachment={handleSubmitAttachment}
         onScanClick={() => setScannerOpen(true)}
+        acceptedFileTypes={DOT_VISION_ACCEPTED_FILE_TYPES}
       />
       <ScannerModal open={scannerOpen} onClose={() => setScannerOpen(false)} onScanComplete={handleScanComplete} />
       {isUploading && (

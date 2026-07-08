@@ -42,6 +42,7 @@ import {
   BODY_SITE_SYSTEM,
   BooleanValueDTO,
   ClinicalImpressionDTO,
+  CODE_SYSTEM_ICD_10,
   CommunicationDTO,
   CPT_CODE_SYSTEM,
   CPTCodeDTO,
@@ -62,7 +63,6 @@ import {
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
-  ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
   isNoteEdited,
   isVitalObservation,
@@ -148,7 +148,7 @@ export function makeConditionResource(
       ? {
           coding: [
             {
-              system: ICD_10_CODE_SYSTEM,
+              system: CODE_SYSTEM_ICD_10,
               version: '2019',
               code: dto.code,
               display: dto.display,
@@ -1137,7 +1137,7 @@ export function makeDiagnosisConditionResource(
     code: {
       coding: [
         {
-          system: ICD_10_CODE_SYSTEM,
+          system: CODE_SYSTEM_ICD_10,
           code: data.code,
           display: data.display,
         },

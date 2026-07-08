@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  Link,
   MenuItem,
   Select,
   Switch,
@@ -181,6 +182,13 @@ export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: Add
                   value={taxonomyCode}
                   onChange={(e) => setTaxonomyCode(e.target.value)}
                 />
+                <Typography variant="caption">
+                  Look up taxonomy codes{' '}
+                  <Link target="_blank" href="https://npiregistry.cms.hhs.gov/search">
+                    here
+                  </Link>
+                  .
+                </Typography>
               </Field>
             </Box>
 

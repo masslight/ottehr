@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { adminSidebarItem } from '../utils/adminNav';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
@@ -45,7 +46,8 @@ export class EmployersPage {
   }
 
   async verifyEmployersTabSelected(): Promise<void> {
-    await expect(this.page.getByRole('tab', { name: 'Employers' })).toHaveAttribute('aria-selected', 'true');
+    // The admin nav is now a sidebar; the active item carries MUI's selected class.
+    await expect(adminSidebarItem(this.page, '/admin/billing/employers', true)).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async verifyNoEmployersFound(): Promise<void> {
