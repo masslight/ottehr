@@ -1,7 +1,7 @@
 # Provider / Staff Notifications
 
-This document describes the staff-notification system after the move to **per-notification-type
-registration**, where each staff member subscribes to individual notification types (telemed events and
+This document describes the staff-notification system after the move to per-notification-type
+registration, where each staff member subscribes to individual notification types (telemed events and
 task categories) and, per type, chooses a delivery method, a set of locations, and an "assigned to"
 filter.
 
@@ -223,12 +223,12 @@ match(row, taskLocationId, isAssignedToMe) =
 taskLocationId = getTaskLocation(task)?.id   // from meta.tag system 'task-location'
 ```
 
-- **Audience:** all active (non-Inactive) staff with a Practitioner profile, not just providers, so
+- Audience: all active (non-Inactive) staff with a Practitioner profile, not just providers, so
   Billing/Coding/Charting reach non-provider staff. Access control is the subscription itself, not the role.
-- **Idempotency:** a task is stamped with `category-notified` (system `CATEGORY_NOTIFICATION_TAG_SYSTEM`)
+- Idempotency: a task is stamped with `category-notified` (system `CATEGORY_NOTIFICATION_TAG_SYSTEM`)
   the first time it's scanned and recognized, even if nobody was subscribed. This avoids re-scanning it on
   every subsequent 5-minute run.
-- **New-task gate:** the search window uses `_lastUpdated` (indexed), which also re-surfaces old tasks the
+- New-task gate: the search window uses `_lastUpdated` (indexed), which also re-surfaces old tasks the
   first time they're edited after this feature ships (they carry no tag yet). Those are tagged silently,
   `isTaskNewlyCreated` (authoredOn within the window) gates the actual notification, so a merely-edited
   months-old task never fires "New … task". A task with no `authoredOn` at all is treated as not-new.
@@ -249,14 +249,14 @@ visit status:         'pending'               'arrived'
               pref: virtualVisitScheduled    pref: waitingRoom
 ```
 
-- **Audience:** active providers (`activeProvidersMap`), matched against each provider's
+- Audience: active providers (`activeProvidersMap`), matched against each provider's
   `virtualVisitScheduled` / `waitingRoom` row (location + `assignedTo`, where `assignedTo='me'` means the
   provider is a participant on the encounter).
-- **Location guard:** the booking path keeps the original `location.address.state` guard; the waiting-room
+- Location guard: the booking path keeps the original `location.address.state` guard; the waiting-room
   path does NOT require a location state: the previous check-in delivery (the waiting-room Task fan-out) never
   had one, and a misconfigured Location must not silently swallow "your patient is waiting" (a task with no
   resolvable location then matches only `allLocations` rows).
-- **Deploy transition:** older deploys stamped `provider-notifications-tag` / `'patient waiting'`
+- Deploy transition: older deploys stamped `provider-notifications-tag` / `'patient waiting'`
   on the appointment at booking time. The booking path treats that legacy tag as "already notified", so
   in-flight appointments don't get a duplicate booking notification; the waiting-room path uses its own
   fresh tag system, so those same appointments still get their check-in notification. (Patients already
@@ -406,7 +406,7 @@ double-texted anyone (an SMS send failure after the commit is logged, not retrie
 | Task without `authoredOn` | Never treated as newly created → no creation notification (tagged silently); an assignment still notifies via the assignment engine. |
 | Task assigned after creation | The creation round is over (task already tagged), so the assignment engine notifies the new owner, for `'me'` rows and `'anyone'` rows ([§4.3](#43-task-assignment-engine)). Reassignments after the first `task-assigned` tag do not re-fire (pre-existing single-shot behavior). |
 | Uncategorized task (unknown `groupIdentifier.value`) | Skipped by the category engine; assignments fall back to the legacy `taskNotificationsEnabled` flag. |
-| Telemed waiting-room task (`VIDEO_CHAT_WAITING_ROOM…`) | Excluded from both task engines; check-ins are delivered solely by the appointment `arrived` path ([§4.2](#42-telemed-engine-scheduled--waiting-room-split)). **Known trade-off:** delivery is therefore gated on the appointment actually reaching `arrived`, if a waiting-room Task were created while the appointment status patch failed/lagged, no notification fires until the status catches up (the old task fan-out fired regardless of appointment status). Accepted: check-in sets the status in the same flow, and a visit whose status never updates is broken more broadly than notifications. |
+| Telemed waiting-room task (`VIDEO_CHAT_WAITING_ROOM…`) | Excluded from both task engines; check-ins are delivered solely by the appointment `arrived` path ([§4.2](#42-telemed-engine-scheduled--waiting-room-split)). Known trade-off: delivery is therefore gated on the appointment actually reaching `arrived`, if a waiting-room Task were created while the appointment status patch failed/lagged, no notification fires until the status catches up (the old task fan-out fired regardless of appointment status). Accepted: check-in sets the status in the same flow, and a visit whose status never updates is broken more broadly than notifications. |
 | Telemed Location missing `address.state` | Booking notification is skipped (original guard); the waiting-room notification still fires (no state requirement, see [§4.2](#42-telemed-engine-scheduled--waiting-room-split)). |
 | Category enabled after a task was created | The task is already tagged `category-notified` (mark-on-scan) → the late subscriber won't get a retroactive creation notification. Trade-off chosen for performance. (They are still notified if the task is later assigned to them.) |
 | No `sms` telecom on the practitioner | SMS is skipped even for Phone/Phone+Computer rows; in-app still works for Computer/both. |
