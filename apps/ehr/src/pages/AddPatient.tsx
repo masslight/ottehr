@@ -16,11 +16,11 @@ import {
 import Oystehr from '@oystehr/sdk';
 import { useQuery } from '@tanstack/react-query';
 import type { ServiceCategoryConfig } from 'config-types';
-import { Location, Schedule, Slot } from 'fhir/r4b';
+import { Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
@@ -32,6 +32,9 @@ import {
   CreateSlotParams,
   FollowUpOptions,
   getAppointmentDurationFromSlot,
+  getFirstName,
+  getLastName,
+  getMiddleName,
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
@@ -145,6 +148,8 @@ export const getPostAppointmentSnackbar = ({
 
 export default function AddPatient(): JSX.Element {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const patientIdFromUrl = searchParams.get('patientId') ?? undefined;
   const followUpState = location.state as
     | {
         followUpOptions?: FollowUpOptions;
@@ -207,7 +212,7 @@ export default function AddPatient(): JSX.Element {
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
   const [showFields, setShowFields] = useState<AddVisitFormState>(
-    isScheduledFollowUp ? 'existingPatientSelected' : 'initialPatientSearch'
+    isScheduledFollowUp || !!patientIdFromUrl ? 'existingPatientSelected' : 'initialPatientSearch'
   );
 
   useEffect(() => {
@@ -230,7 +235,30 @@ export default function AddPatient(): JSX.Element {
   }, [showFields, reasonForVisitOptions.length]);
   // general variables
   const navigate = useNavigate();
-  const { oystehrZambda } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
+
+  const { data: patientFromUrl } = useQuery({
+    queryKey: ['add-visit-patient-prefill', patientIdFromUrl],
+    queryFn: () => oystehr!.fhir.get<Patient>({ resourceType: 'Patient', id: patientIdFromUrl! }),
+    enabled: !!oystehr && !!patientIdFromUrl,
+  });
+
+  useEffect(() => {
+    if (!patientFromUrl) return;
+    setPatientInfo({
+      id: patientFromUrl.id,
+      newPatient: false,
+      firstName: getFirstName(patientFromUrl),
+      middleName: getMiddleName(patientFromUrl),
+      lastName: getLastName(patientFromUrl),
+      dateOfBirth: patientFromUrl.birthDate,
+      sex: patientFromUrl.gender,
+      phoneNumber: patientFromUrl.telecom?.find((t) => t.system === 'phone')?.value?.replace('+1', ''),
+    });
+    setBirthDate(patientFromUrl.birthDate ? DateTime.fromISO(patientFromUrl.birthDate) : null);
+    setShowFields('existingPatientSelected');
+  }, [patientFromUrl]);
+
   const copyChartDataToFollowupMutation = useCopyChartDataToFollowup();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
 
