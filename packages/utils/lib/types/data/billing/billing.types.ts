@@ -310,6 +310,7 @@ export interface ClaimDetailResponse {
     postalCode: string;
   };
   serviceFacilityNpi: string;
+  serviceFacilityClia?: string;
   diagnoses: { sequence: number; code: string; display: string }[];
   serviceLines: {
     sequence: number;

@@ -120,6 +120,11 @@
           "action": ["RCM:ProcessEra"],
           "effect": "Allow",
           "resource": ["RCM:Era"]
+        },
+        {
+          "action": ["RCM:SubmitClaim"],
+          "effect": "Allow",
+          "resource": ["RCM:Claim"]
         }
       ]
     },

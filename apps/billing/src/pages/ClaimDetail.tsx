@@ -78,6 +78,7 @@ import { claimStatusValueColor, formatAntCaseString } from '../constants/claimSt
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
+import { validateServiceFacilityFields } from '../utils/validation';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
@@ -1057,6 +1058,7 @@ function FacilitySection({
 
   const [name, setName] = useState(claim.serviceFacility);
   const [npi, setNpi] = useState(claim.serviceFacilityNpi);
+  const [clia, setClia] = useState(claim.serviceFacilityClia);
   const [line1, setLine1] = useState(claim.serviceFacilityAddressParts.line1);
   const [line2, setLine2] = useState(claim.serviceFacilityAddressParts.line2);
   const [city, setCity] = useState(claim.serviceFacilityAddressParts.city);
@@ -1070,6 +1072,7 @@ function FacilitySection({
   const resetFields = useCallback((): void => {
     setName(claim.serviceFacility);
     setNpi(claim.serviceFacilityNpi);
+    setClia(claim.serviceFacilityClia);
     setLine1(claim.serviceFacilityAddressParts.line1);
     setLine2(claim.serviceFacilityAddressParts.line2);
     setCity(claim.serviceFacilityAddressParts.city);
@@ -1099,10 +1102,13 @@ function FacilitySection({
       return updateResource('Claim', claim.id, { facilityId: selected.id });
     }
     if (!hasFacility) return 'Choose a facility';
+    const validationError = validateServiceFacilityFields({ npi, clia, zip });
+    if (validationError) return validationError;
     const address = buildAddressInput(line1, line2, city, state, zip);
     return updateResource('Location', claim.facilityFhirId, {
       name,
       npi: npi.trim(),
+      clia: clia ? clia.trim() : null,
       ...(address ? { address } : {}),
     });
   };
@@ -1153,6 +1159,9 @@ function FacilitySection({
               <Field label="NPI">
                 <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
               </Field>
+              <Field label="CLIA">
+                <TextField size="small" fullWidth value={clia} onChange={(e) => setClia(e.target.value)} />
+              </Field>
               <Field label="Address line 1">
                 <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
               </Field>
@@ -1184,6 +1193,7 @@ function FacilitySection({
       <Row label="Facility" value={claim.serviceFacility} />
       <Row label="Address" value={claim.serviceFacilityAddress} />
       <Row label="NPI" value={claim.serviceFacilityNpi} />
+      {claim.serviceFacilityClia ? <Row label="CLIA" value={claim.serviceFacilityClia} /> : <></>}
     </EditableSection>
   );
 }

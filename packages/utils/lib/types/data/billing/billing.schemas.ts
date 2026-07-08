@@ -475,7 +475,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     resourceId: nonEmptyString,
     fields: z.object({
       name: z.string().optional(),
-      npi: z.string().optional(),
+      npi: z.string().nullable().optional(),
+      clia: z.string().nullable().optional(),
       address: updatableAddressSchema,
     }),
   }),

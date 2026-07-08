@@ -76,6 +76,7 @@ import {
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   assertDefined,
+  chartDataResourceHasMetaTagByCode,
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
   sendErrors,
@@ -820,7 +821,12 @@ async function getClinicalResources(
     ];
   }
 
-  const procedures = resources.filter((r): r is Procedure => r.resourceType === 'Procedure');
+  // Filter out extra procedure data attached to the Encounter
+  const procedures = resources.filter(
+    (r): r is Procedure =>
+      r.resourceType === 'Procedure' &&
+      (chartDataResourceHasMetaTagByCode(r, 'cpt-code') || chartDataResourceHasMetaTagByCode(r, 'em-code'))
+  );
   if (!procedures.length) throw FHIR_RESOURCE_NOT_FOUND('Procedure');
 
   // Manually look up coverages because FHIR doesn't support Account:coverage include
