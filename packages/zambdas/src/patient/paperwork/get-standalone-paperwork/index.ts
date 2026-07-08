@@ -14,6 +14,7 @@ import {
   extractHealthcareServiceAndSupportingLocations,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getLastUpdateTimestampForResource,
+  getQuestionnaireViaUrlFromQR,
   MANAGED_QUESTIONNAIRE_ERROR,
   mapQuestionnaireAndValueSetsToItemsList,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
@@ -32,7 +33,6 @@ import {
   formatPatientSexForPaperwork,
   getPaperworkSupportingInfoForUserWithAccess,
   GetPaperworkSupportingInfoInput,
-  getQuestionnaireViaUrlFromQR,
 } from '../sharedHelpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

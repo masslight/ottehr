@@ -84,3 +84,24 @@ export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): Qu
     );
   }) as QuestionnaireResponse | undefined;
 };
+
+export const getQuestionnaireViaUrlFromQR = async (
+  qr: QuestionnaireResponse,
+  oystehr: Oystehr
+): Promise<Questionnaire> => {
+  const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr.questionnaire?.split('|') ?? [null, null];
+
+  if (!sourceQuestionnaireUrl || !sourceQuestionnaireVersion) {
+    throw new Error(
+      `Questionnaire for QR is not well defined: ${sourceQuestionnaireUrl}|${sourceQuestionnaireVersion}`
+    );
+  }
+  console.log('currentQuestionnaireUrl', sourceQuestionnaireUrl, sourceQuestionnaireVersion);
+
+  const questionnaire = await getCanonicalQuestionnaire(
+    { version: sourceQuestionnaireVersion, url: sourceQuestionnaireUrl },
+    oystehr
+  );
+
+  return questionnaire;
+};

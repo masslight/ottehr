@@ -37,7 +37,6 @@ import {
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
-  getPracticeManagedPaperwork,
   getVisitFaxHistory,
   listServiceCategories,
   updatePatientVisitDetails,
@@ -47,6 +46,7 @@ import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import ImageUploader from 'src/components/ImageUploader';
 import PatientBalances from 'src/components/PatientBalances';
+import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -54,7 +54,6 @@ import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPa
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
-import { QuestionnaireResponseViewer } from 'ui-components';
 import {
   BOOKING_CONFIG,
   DocumentInfo,
@@ -280,20 +279,6 @@ export default function VisitDetailsPage(): ReactElement {
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
 
-  // Fetch practice-managed questionnaire responses for this visit
-  const { data: practiceManagedData } = useQuery({
-    queryKey: ['practice-managed-questionnaires', appointmentID],
-    queryFn: async () => {
-      if (!oystehrZambda || !appointmentID) return { practiceManagedPaperwork: [] };
-      const response = await getPracticeManagedPaperwork(oystehrZambda, { appointmentId: appointmentID });
-
-      console.log('huh', response); // todo sarah clean up
-
-      return response;
-    },
-    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
-  });
-
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
 
   const { fullCardPdfs, consentPdfUrls } = imageFileData || {
@@ -492,6 +477,7 @@ export default function VisitDetailsPage(): ReactElement {
   const patient = visitDetailsData?.patient;
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
+  const standAloneForms = visitDetailsData?.standAloneForms;
 
   const { data: faxData, isLoading: faxLoading } = useQuery({
     queryKey: ['get-visit-fax-history', appointmentID],
@@ -1389,20 +1375,14 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
-                    {(practiceManagedData?.practiceManagedPaperwork || []).length > 0 ? (
-                      (practiceManagedData?.practiceManagedPaperwork || []).map((paperwork, idx) => (
-                        <Grid item key={`${paperwork.questionnaireId}-${idx}`}>
+                    {standAloneForms && standAloneForms.length > 0 ? (
+                      standAloneForms.map((form, idx) => (
+                        <Grid item key={`${form.questionnaireId}-${idx}`}>
                           <Paper sx={{ mt: 2, p: 3 }}>
                             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
-                              {paperwork.questionnaireTitle}
+                              {form.questionnaireTitle}
                             </Typography>
-                            <QuestionnaireResponseViewer
-                              questionnaire={{
-                                item: paperwork.questionnaireItems,
-                                title: paperwork.questionnaireTitle,
-                              }}
-                              responseItems={paperwork.questionnaireResponse.item ?? []}
-                            />
+                            <QuestionnaireResponseViewer form={form} />
                           </Paper>
                         </Grid>
                       ))

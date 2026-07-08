@@ -32,10 +32,6 @@ export const PracticeManagedQuestionnaireUpdateStatusSchema = z.object({
   newStatus: z.enum(['draft', 'active', 'retired', 'unknown']),
 });
 
-export const GetAllPracticeManagedPaperworkInputSchema = z.object({
-  appointmentId: z.string().uuid(),
-});
-
 export const GetStandAlonePaperworkInputSchema = z.object({
   questionnaireResponseId: z.string().uuid(),
 });

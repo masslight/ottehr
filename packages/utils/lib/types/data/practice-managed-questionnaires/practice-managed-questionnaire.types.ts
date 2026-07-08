@@ -1,18 +1,13 @@
 import { QuestionnaireDataTypes } from 'config-types';
-import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
+import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
-import { PRIVATE_EXTENSION_BASE_URL } from '../../../fhir';
+import { QAndQRResponse } from '../paperwork';
 import {
-  GetAllPracticeManagedPaperworkInputSchema,
   GetStandAlonePaperworkInputSchema,
   PracticeManagedQuestionnaireItemSchema,
   PracticeManagedQuestionnaireSchema,
   PracticeManagedQuestionnaireUpdateStatusSchema,
 } from './practice-managed-questionnaire.schema';
-
-// todo sarah these are defined in OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS
-export const DATA_TYPE_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/data-type`;
-export const INPUT_WIDTH_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/input-width`;
 
 export type QuestionnaireItemType = Exclude<
   QuestionnaireItem['type'],
@@ -62,16 +57,14 @@ export type PracticeManagedQuestionnaireUpdateStatusData = z.infer<
   typeof PracticeManagedQuestionnaireUpdateStatusSchema
 >;
 
-export type PracticeManagedPaperworkDTO = {
-  questionnaireTitle: string;
+export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
   questionnaireId: string;
-  questionnaireItems: QuestionnaireItem[]; // todo sarah update
-  questionnaireResponse: QuestionnaireResponse;
+  questionnaireTitle: string;
 };
 
 // ============= api input / output types ===============
 
-// get managed questionnaire
+// get practice managed questionnaire
 export type PracticeManagedQuestionnaireDetailInput = {
   questionnaireId: string;
 };
@@ -82,7 +75,7 @@ export type PracticeManagedQuestionnaireListOutput = {
   practiceManagedQuestionnaires: PracticeManagedQuestionnaire[];
 };
 
-// update managed questionnaire
+// update practice managed questionnaire
 export type PracticeManagedQuestionnaireUpdateStatus = {
   updateType: 'update-status';
   data: PracticeManagedQuestionnaireUpdateStatusData;
@@ -101,13 +94,6 @@ export type PracticeManagedQuestionnaireCreateInput = {
 };
 export type PracticeManagedQuestionnaireCreateOutput = {
   questionnaireId: string;
-};
-
-// get standalone paperwork
-// todo sarah this is getting replaced
-export type GetAllPracticeManagedPaperworkInput = z.infer<typeof GetAllPracticeManagedPaperworkInputSchema>;
-export type GetAllPracticeManagedPaperworkOutput = {
-  practiceManagedPaperwork: PracticeManagedPaperworkDTO[]; // might make more sense to use QAndQRResponse
 };
 
 // used for patient app rendering custom, standalone forms

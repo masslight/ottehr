@@ -53,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Could not find the encounter resource for Appointment/${appointmentId}`);
   }
 
-  let questionnaireResponseId = questionnaireResponses?.[0].id;
+  let questionnaireResponseId = questionnaireResponses?.[0]?.id;
 
   if (!questionnaireResponseId) {
     console.log('no existing form found, creating a new one');

@@ -8,6 +8,7 @@ import {
   Flag,
   Location,
   Patient,
+  Questionnaire,
   QuestionnaireResponse,
   RelatedPerson,
   Schedule,
@@ -24,16 +25,20 @@ import {
   getEmailForIndividual,
   getFullestAvailableName,
   getNameFromScheduleResource,
+  getQuestionnaireViaUrlFromQR,
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
   isAnnotationFollowupEncounter,
+  isPracticeManagedQr,
   isValidUUID,
+  mapQuestionnaireAndValueSetsToItemsList,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PersistedFhirResource,
   ScheduleOwnerFhirResource,
   Secrets,
   selectIntakeQuestionnaireResponse,
+  StandaloneFormDTO,
   Timezone,
   TIMEZONES,
 } from 'utils';
@@ -65,8 +70,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = (input: EffectInput): EHRVisitDetails => {
-  const { appointment, patient, encounter, flags, consents, qr, location, schedule, scheduleOwner, guarantorResource } =
-    input;
+  const {
+    appointment,
+    patient,
+    encounter,
+    flags,
+    consents,
+    qr,
+    location,
+    schedule,
+    scheduleOwner,
+    guarantorResource,
+    standAloneForms,
+  } = input;
 
   const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
 
@@ -100,6 +116,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     responsiblePartyName,
     responsiblePartyEmail,
     consentIsAttested,
+    standAloneForms,
   };
 
   if (schedule) {
@@ -127,6 +144,7 @@ interface EffectInput {
   scheduleOwner?: ScheduleOwnerFhirResource;
   location?: Location;
   guarantorResource?: Patient | RelatedPerson | undefined;
+  standAloneForms?: StandaloneFormDTO[];
 }
 
 const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
@@ -198,7 +216,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     }
   }
 
-  const [docRefsAndConsents, accountResources] = await Promise.all([
+  const [docRefsAndConsents, accountResources, standAloneForms] = await Promise.all([
     getConsentAndRelatedDocRefsForAppointment(
       {
         appointmentId,
@@ -207,6 +225,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
       oystehr
     ),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
+    getStandaloneFormsForAppointment(appointment, oystehr),
   ]);
   const { guarantorResource } = accountResources;
   return {
@@ -220,6 +239,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     scheduleOwner,
     guarantorResource,
     ...docRefsAndConsents,
+    standAloneForms,
   };
 };
 
@@ -291,5 +311,51 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     secrets,
     userToken,
     appointmentId,
+  };
+};
+
+const getStandaloneFormsForAppointment = async (
+  appointment: Appointment,
+  oystehr: Oystehr
+): Promise<StandaloneFormDTO[] | undefined> => {
+  const appointmentId = appointment.id!;
+
+  const resources = (
+    await oystehr.fhir.search<Encounter | QuestionnaireResponse>({
+      resourceType: 'Encounter',
+      params: [
+        { name: 'appointment', value: appointmentId },
+        { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
+      ],
+    })
+  ).unbundle();
+
+  const questionnaireResponses = resources
+    .filter((r) => r.resourceType === 'QuestionnaireResponse')
+    .filter((qr) => isPracticeManagedQr(qr));
+
+  if (!questionnaireResponses || questionnaireResponses.length === 0) return;
+
+  return Promise.all(
+    questionnaireResponses.map(async (qr) => {
+      const questionnaire = await getQuestionnaireViaUrlFromQR(qr, oystehr);
+      return makeStandaloneFormDTO(questionnaire, qr);
+    })
+  );
+};
+
+const makeStandaloneFormDTO = (
+  questionnaire: Questionnaire,
+  questionnaireResponse: QuestionnaireResponse
+): StandaloneFormDTO => {
+  const questionnaireTitle = questionnaire.title ?? 'A form';
+  const questionnaireId = questionnaire.id ?? '';
+  const allItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+
+  return {
+    allItems,
+    questionnaireResponse,
+    questionnaireTitle,
+    questionnaireId,
   };
 };

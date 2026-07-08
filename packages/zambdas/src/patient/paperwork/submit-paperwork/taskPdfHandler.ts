@@ -1,21 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import {
-  Encounter,
-  List,
-  Location,
-  Patient,
-  Questionnaire,
-  QuestionnaireResponse,
-  QuestionnaireResponseItem,
-} from 'fhir/r4b';
+import { Encounter, List, Location, Patient, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { StandardFonts } from 'pdf-lib';
 import {
   BUCKET_NAMES,
   createFilesDocumentReferences,
   EXPORTED_QUESTIONNAIRE_CODE,
+  formatQuestionnaireItemValueToString,
   getFullestAvailableName,
+  getQuestionnaireViaUrlFromQR,
   getSecret,
   MANAGED_QUESTIONNAIRE_ERROR,
   MANUAL_TASK,
@@ -29,7 +23,6 @@ import { createPdfClient } from '../../../shared/pdf/pdf-utils';
 import { TextStyle } from '../../../shared/pdf/types';
 import { makeZ3Url } from '../../../shared/presigned-file-urls';
 import { createTask } from '../../../shared/tasks';
-import { getQuestionnaireViaUrlFromQR } from '../sharedHelpers';
 
 type HandleReviewTaskAndPdfInput = {
   questionnaireResponse: QuestionnaireResponse;
@@ -106,7 +99,7 @@ export const handleReviewTaskAndPdf = async (input: HandleReviewTaskAndPdfInput)
     const patientName = getFullestAvailableName(patient);
 
     const task = createTask({
-      category: MANUAL_TASK.category.patientFollowUp, // todo sarah i think this needs its own category
+      category: MANUAL_TASK.category.patientFollowUp,
       title: `${patientName} completed ${title}`,
       encounterId: encounterId,
       location: locationForTask ? { id: locationForTask.id || '', name: locationForTask.name || '' } : undefined,
@@ -249,7 +242,7 @@ export async function renderQrPdf(
       const qItem = qItemByLinkId.get(child.linkId);
       if (isHidden(qItem)) continue;
       const label = qItem?.text || child.linkId;
-      const value = formatAnswer(child);
+      const value = formatQuestionnaireItemValueToString(child);
       drawIndented(label, textStyles.label, 10);
       drawIndented(value, textStyles.value, 10);
     }
@@ -257,19 +250,6 @@ export async function renderQrPdf(
   }
 
   return pdfClient.save();
-}
-
-function formatAnswer(item: QuestionnaireResponseItem): string {
-  const a = item.answer?.[0];
-  if (!a) return '';
-  if (a.valueCoding?.display) return a.valueCoding.display;
-  if (a.valueString !== undefined) return a.valueString;
-  if (a.valueBoolean !== undefined) return a.valueBoolean ? 'Positive' : 'Negative';
-  if (a.valueInteger !== undefined) return String(a.valueInteger);
-  if (a.valueDecimal !== undefined) return String(a.valueDecimal);
-  if (a.valueDate) return a.valueDate;
-  if (a.valueDateTime) return a.valueDateTime;
-  return '';
 }
 
 function sanitizeForWinAnsi(text: string): string {

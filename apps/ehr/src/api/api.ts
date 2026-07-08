@@ -106,8 +106,6 @@ import {
   EHRVisitDetails,
   EmCodeOutput,
   GetAllergyQuickPicksResponse,
-  GetAllPracticeManagedPaperworkInput,
-  GetAllPracticeManagedPaperworkOutput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -351,7 +349,6 @@ const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-lis
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
 const SEND_PATIENT_FORM = 'send-patient-form';
-const GET_PRACTICE_MANAGED_PAPERWORK = 'get-practice-managed-paperwork';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -2928,23 +2925,6 @@ export const sendPatientForm = async (
     throw apiErrorToThrow(error);
   }
 };
-
-// todo sarah absorb this into get visit details, no need to have its own thing
-export async function getPracticeManagedPaperwork(
-  oystehr: Oystehr,
-  parameters: GetAllPracticeManagedPaperworkInput
-): Promise<GetAllPracticeManagedPaperworkOutput> {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: GET_PRACTICE_MANAGED_PAPERWORK,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw apiErrorToThrow(error);
-  }
-}
 
 // ── Service Categories (FHIR-backed bookable appointment categories) ──
 

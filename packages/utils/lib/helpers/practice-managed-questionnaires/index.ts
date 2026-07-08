@@ -1,16 +1,27 @@
-import { Extension, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
-import { isEqual } from 'lodash-es';
-import { PRACTICE_MANAGED_QR_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from '../../fhir';
 import {
-  DATA_TYPE_EXTENSION_URL,
+  Extension,
+  Questionnaire,
+  QuestionnaireItem,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+} from 'fhir/r4b';
+import { isEqual } from 'lodash-es';
+import {
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
+  PRACTICE_MANAGED_QR_TAG,
+  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+} from '../../fhir';
+import {
   DataTypeSchema,
-  INPUT_WIDTH_EXTENSION_URL,
   InputWidthSchema,
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
   PracticeManagedQuestionnaireItemSchema,
   PracticeManagedQuestionnaireSchema,
 } from '../../types';
+
+const DATA_TYPE_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.dataType;
+const INPUT_WIDTH_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.inputWidth;
 
 /**
  * Mainly massages the item property, PracticeManagedQuestionnaireItem has a few fields that are custom / needed only for front end
@@ -36,7 +47,7 @@ const PracticeManagedQuestionnaireItemToFhir = (item: PracticeManagedQuestionnai
 
   // convert custom defined managed questionnaire item fields to extensions
   if (item.dataType) {
-    extension.push({ url: DATA_TYPE_EXTENSION_URL, valueString: item.dataType });
+    extension.push({ url: INPUT_WIDTH_EXTENSION_URL, valueString: item.dataType });
   }
 
   if (item.inputWidth) {
@@ -147,3 +158,18 @@ export function isPracticeManagedQr(qr: QuestionnaireResponse | undefined): bool
   const { system, code } = PRACTICE_MANAGED_QR_TAG;
   return Boolean(qr.meta?.tag?.some((t) => t.code === code && t.system === system));
 }
+
+export const formatQuestionnaireItemValueToString = (item: QuestionnaireResponseItem | undefined): string => {
+  if (!item) return '';
+
+  const a = item.answer?.[0];
+  if (!a) return '';
+  if (a.valueCoding?.display) return a.valueCoding.display;
+  if (a.valueString !== undefined) return a.valueString;
+  if (a.valueBoolean !== undefined) return a.valueBoolean ? 'Positive' : 'Negative';
+  if (a.valueInteger !== undefined) return String(a.valueInteger);
+  if (a.valueDecimal !== undefined) return String(a.valueDecimal);
+  if (a.valueDate) return a.valueDate;
+  if (a.valueDateTime) return a.valueDateTime;
+  return '';
+};

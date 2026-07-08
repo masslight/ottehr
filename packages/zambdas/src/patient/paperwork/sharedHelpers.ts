@@ -1,23 +1,11 @@
 import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
-import {
-  Appointment,
-  Coding,
-  Encounter,
-  Flag,
-  HealthcareService,
-  Location,
-  Patient,
-  Practitioner,
-  Questionnaire,
-  QuestionnaireResponse,
-} from 'fhir/r4b';
+import { Appointment, Coding, Encounter, Flag, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
 import {
   AppointmentSummary,
   AvailableLocationInformation,
   checkEncounterIsVirtual,
   Closure,
   formatPhoneNumberDisplay,
-  getCanonicalQuestionnaire,
   getPatchBinary,
   getScheduleExtension,
   HealthcareServiceWithLocationContext,
@@ -263,25 +251,4 @@ export function getPaperworkSupportingInfoForUserWithAccess(
 export const formatPatientSexForPaperwork = (value: string): PersonSex | undefined => {
   const sex = Object.keys(PersonSex).find((key) => PersonSex[key as keyof typeof PersonSex] === value);
   return sex as PersonSex | undefined;
-};
-
-export const getQuestionnaireViaUrlFromQR = async (
-  qr: QuestionnaireResponse,
-  oystehr: Oystehr
-): Promise<Questionnaire> => {
-  const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr.questionnaire?.split('|') ?? [null, null];
-
-  if (!sourceQuestionnaireUrl || !sourceQuestionnaireVersion) {
-    throw new Error(
-      `Questionnaire for QR is not well defined: ${sourceQuestionnaireUrl}|${sourceQuestionnaireVersion}`
-    );
-  }
-  console.log('currentQuestionnaireUrl', sourceQuestionnaireUrl, sourceQuestionnaireVersion);
-
-  const questionnaire = await getCanonicalQuestionnaire(
-    { version: sourceQuestionnaireVersion, url: sourceQuestionnaireUrl },
-    oystehr
-  );
-
-  return questionnaire;
 };
