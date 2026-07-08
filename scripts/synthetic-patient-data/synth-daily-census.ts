@@ -242,10 +242,13 @@ async function catchUp(): Promise<void> {
   const appts = [...new Map(found.map((a) => [a.id, a])).values()];
   const poolSize = Math.min(Math.max(1, CONCURRENCY), 8);
   console.log(
-    `[catch-up] ${appts.length} prior-day synth-cron visits to sign (concurrency ${poolSize})${DRY ? '  [DRY]' : ''}`
+    `[catch-up] ${
+      appts.length
+    } prior-day synth-cron candidate(s) — already-signed are skipped (concurrency ${poolSize})${DRY ? '  [DRY]' : ''}`
   );
   let signed = 0;
   let failed = 0;
+  let skipped = 0; // candidates already at visit-status 'completed' (signed on a prior run)
   let resulted = 0;
   let administered = 0;
   // Preload each prior day's scenario-authored lab results (approach A) ONCE,
@@ -279,7 +282,10 @@ async function catchUp(): Promise<void> {
     // 'fulfilled' appointments are in the query (in-progress exam-stage visits
     // carry that status) — but one already at visit-status 'completed' is signed
     // and done; skip so we don't re-process visits from a prior catch-up.
-    if (curOtt === 'completed') return;
+    if (curOtt === 'completed') {
+      skipped++;
+      return;
+    }
     if (DRY) {
       signed++;
       return;
@@ -387,6 +393,7 @@ async function catchUp(): Promise<void> {
   await Promise.all(Array.from({ length: Math.min(poolSize, Math.max(appts.length, 1)) }, () => worker()));
   console.log(
     `[catch-up] signed ${signed}` +
+      `${skipped ? `, skipped ${skipped} already-signed` : ''}` +
       `${failed ? `, FAILED ${failed}` : ''}` +
       `${resulted ? `, finalized ${resulted} lab/radiology order(s)` : ''}` +
       `${administered ? `, administered ${administered} med/immunization order(s)` : ''}.`
