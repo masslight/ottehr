@@ -8,7 +8,7 @@ import {
   useRosterState,
 } from 'amazon-chime-sdk-component-library-react';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { getSelectors, selectActiveParticipant } from 'utils';
+import { getSelectors, isRecordingBotParticipant, selectActiveParticipant } from 'utils';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useVideoCallStore, VideoControls } from '.';
 
@@ -29,7 +29,10 @@ export const VideoRoom: FC = () => {
 
   const participants = useMemo<Participant[]>(() => {
     return Object.keys(roster)
-      .filter((participantId) => participantId !== localAttendeeId)
+      .filter(
+        (participantId) =>
+          participantId !== localAttendeeId && !isRecordingBotParticipant(roster[participantId].externalUserId)
+      )
       .map((participantId) => ({
         ...roster[participantId],
         tileId: attendeeIdToTileId[participantId],

@@ -21,7 +21,7 @@ export const useResetAppointmentStore = (): void => {
     if (appointmentId && lastResetForAppointmentId !== appointmentId) {
       resetExamObservationsStore();
       resetRosObservationsStore();
-      useVideoCallStore.setState({ meetingData: null });
+      useVideoCallStore.setState({ meetingData: null, wasMeetingEnded: false });
       useAppTelemedLocalStore.setState(APP_TELEMED_LOCAL_INITIAL);
       lastResetForAppointmentId = appointmentId;
     }

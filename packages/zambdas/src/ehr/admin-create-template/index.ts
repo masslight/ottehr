@@ -18,10 +18,10 @@ import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
   chartDataTagSystem,
+  CODE_SYSTEM_ICD_10,
   examConfig,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
-  ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   INTERACTIONS_UNAVAILABLE,
   isExternalLabServiceRequest,
@@ -48,9 +48,13 @@ import {
   hasTemplateRelevantTag,
   isDiagnosisCondition,
   isInHouseLabRepeatTestCptCode,
+  isPatientEducationCommunication,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -613,6 +617,11 @@ export const filterEntriesToTemplateContent = (
     // we don't write the repeat tests themselves to the templates, so don't take their cpt codes either
     if (isInHouseLabRepeatTestCptCode(resource)) return false;
 
+    // filter out pdf patient education here -- captured as a communication resource
+    // with the patient-instruction tag
+    // template todo: this will change when we decide to include patient education in templates
+    if (isPatientEducationCommunication(resource)) return false;
+
     return hasTemplateRelevantTag(resource);
   });
 };
@@ -741,7 +750,12 @@ export const collectMedicationsForTemplate = (params: {
       if (!condId) return [];
       const cond = params.diagnosisConditionById.get(condId);
       if (!cond) return [];
-      const icdCoding = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM);
+      const icdCoding = cond.code?.coding?.find(
+        (c) =>
+          c.system === CODE_SYSTEM_ICD_10 ||
+          // legacy system
+          c.system === ICD_10_CODE_SYSTEM
+      );
       if (!icdCoding) return [];
       return [{ coding: [icdCoding], text: icdCoding.display }];
     });

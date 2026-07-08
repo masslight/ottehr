@@ -20,8 +20,8 @@ import {
   getTimezone,
   getWaitingMinutesAtSchedule,
   isBookingConfigServiceCategoryCode,
+  isLocationInPerson,
   isLocationOpen,
-  isLocationVirtual,
   PickableLocation,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
@@ -360,7 +360,9 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     },
     oystehr
   );
-  if (scheduleOwner.resourceType === 'Location' && !isLocationVirtual(scheduleOwner as Location)) {
+  // In-person Location owners (including dual-mode Locations that are also
+  // virtual) surface any telemed slots configured on the schedule.
+  if (scheduleOwner.resourceType === 'Location' && isLocationInPerson(scheduleOwner as Location)) {
     telemedAvailable.push(...tmSlots);
   }
   availableSlots.push(...regularSlots);

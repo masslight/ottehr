@@ -130,7 +130,8 @@ const makeFormInputPropsForItem = (item: StyledQuestionnaireItem): FormInputProp
 };
 
 const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): string | undefined => {
-  const errorKeys = Object.keys(errors);
+  const visibleLinkIds = new Set(items.map((i) => i.linkId));
+  const errorKeys = Object.keys(errors).filter((k) => visibleLinkIds.has(k));
   let numErrors = errorKeys.length;
   if (numErrors === 0) {
     return undefined;
@@ -304,7 +305,8 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const { isSubmitting, isLoading, errors } = formState;
 
-  const errorMessage = makeFormErrorMessage(items, errors);
+  const visibleItems = useStyledItems({ formItems: items });
+  const errorMessage = makeFormErrorMessage(visibleItems, errors);
   const { formValues } = useQRState();
 
   // Only run credit-card auto-save when the current page actually contains a Credit Card input.
