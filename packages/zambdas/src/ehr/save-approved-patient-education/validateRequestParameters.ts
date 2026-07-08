@@ -1,4 +1,9 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SaveApprovedPatientEducationInput } from 'utils';
+import {
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  PATIENT_EDUCATION_LANGUAGES,
+  SaveApprovedPatientEducationInput,
+} from 'utils';
 import { z } from 'zod';
 import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
@@ -11,6 +16,7 @@ const saveApprovedPatientEducationInputSchema: z.ZodType<SaveApprovedPatientEduc
   pdfBase64: z.string().min(1, 'pdfBase64 is required'),
   title: z.string().min(1, 'title is required'),
   icdCodes: z.array(icdCodeSchema).min(1, 'icdCodes must be a non-empty array'),
+  language: z.enum(PATIENT_EDUCATION_LANGUAGES).optional(),
 });
 
 export function validateRequestParameters(

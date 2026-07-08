@@ -9,6 +9,7 @@ import {
   GetBookableItemListParams,
   getSecret,
   getSlugForBookableResource,
+  isLocationInPerson,
   isLocationVirtual,
   SecretsKeys,
   ServiceMode,
@@ -126,7 +127,9 @@ async function getPhysicalLocations(oystehr: Oystehr): Promise<BookableItem[]> {
     oystehr
   );
 
-  const physicalLocations = allLocations.filter((location) => !isLocationVirtual(location));
+  // Include Locations explicitly marked in-person even when they're also virtual
+  // (dual-mode); legacy non-virtual Locations still qualify via the isLocationInPerson default.
+  const physicalLocations = allLocations.filter((location) => isLocationInPerson(location));
 
   console.log('physical locations found', physicalLocations);
 

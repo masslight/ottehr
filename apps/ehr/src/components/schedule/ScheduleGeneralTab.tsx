@@ -3,6 +3,8 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { LoadingButton } from '@mui/lab';
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
   Checkbox,
@@ -50,6 +52,9 @@ export default function ScheduleGeneralTab({
   // Slug and timezone live on the General tab, not here — keeping them
   // editable here would let this tab's save overwrite General-tab edits.
   const [isVirtual, setIsVirtual] = useState<boolean>(Boolean(item.owner.isVirtual));
+  // Legacy Locations have no explicit in-person marker; get-schedule already
+  // defaults `isInPerson` to `!isVirtual`, so this reflects the effective state.
+  const [isInPerson, setIsInPerson] = useState<boolean>(Boolean(item.owner.isInPerson));
   const [stripeAccountId, setStripeAccountId] = useState<string>(item.owner.stripeAccountId ?? '');
   const [advapacsLocationId, setAdvapacsLocationId] = useState<string>(item.owner.advapacsLocationId ?? '');
   type RoomEntry = { id: string; value: string };
@@ -80,6 +85,7 @@ export default function ScheduleGeneralTab({
 
   useEffect(() => {
     setIsVirtual(Boolean(item.owner.isVirtual));
+    setIsInPerson(Boolean(item.owner.isInPerson));
     setStripeAccountId(item.owner.stripeAccountId ?? '');
     setAdvapacsLocationId(item.owner.advapacsLocationId ?? '');
     setRooms(toRoomEntries(item.owner.rooms ?? []));
@@ -105,6 +111,36 @@ export default function ScheduleGeneralTab({
     }
     return '';
   }, [item.owner.type, item.owner.isVirtual, item.owner.slug]);
+
+  // What (if anything) keeps this Location out of the patient booking selects.
+  // Mirrors the hard requirements enforced by the list-bookables zambda:
+  //  - status active, and a slug           → both modes
+  //  - address.city                        → in-person (list-bookables searches
+  //                                            `address-city:missing=false`)
+  //  - address.state                       → virtual (patients pick by state)
+  // Based on the persisted DTO (`item.owner`) so it reflects real bookability,
+  // and refreshes after each save.
+  const patientVisibilityIssues = useMemo<string[]>(() => {
+    if (!isLocation) {
+      return [];
+    }
+    const issues: string[] = [];
+    if (!item.owner.active) {
+      issues.push('Set the location to Active (toggle above).');
+    }
+    if (!item.owner.slug?.trim()) {
+      issues.push('Set a Permalink (slug) on the General tab.');
+    }
+    const hasCity = Boolean(item.owner.address?.city?.trim());
+    const hasState = Boolean(item.owner.address?.state?.trim());
+    if (item.owner.isInPerson && !hasCity) {
+      issues.push('Add a City to the address — in-person locations without a city never appear in patient booking.');
+    }
+    if (item.owner.isVirtual && !hasState) {
+      issues.push('Add a State to the address — virtual locations need a state for patients to select.');
+    }
+    return issues;
+  }, [isLocation, item.owner]);
 
   const setActiveStatus = async (isActive: boolean): Promise<void> => {
     if (!oystehr || !item?.id) {
@@ -173,13 +209,20 @@ export default function ScheduleGeneralTab({
     };
   };
 
+  const noLocationModeSelected = isLocation && !isVirtual && !isInPerson;
+
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
+    if (noLocationModeSelected) {
+      enqueueSnackbar('Select at least one of "Virtual" or "In person".', { variant: 'warning' });
+      return;
+    }
     const params: UpdateScheduleParams = {
       scheduleId: item.id,
     };
     if (isLocation) {
       params.isVirtual = isVirtual;
+      params.isInPerson = isInPerson;
       params.rooms = rooms.map((room) => room.value.trim()).filter((value) => value !== '');
       params.description = description.trim();
       params.address = buildAddressPayload();
@@ -220,6 +263,18 @@ export default function ScheduleGeneralTab({
         </Box>
         <hr />
         <br />
+
+        {isLocation && patientVisibilityIssues.length > 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <AlertTitle>Not yet visible to patients</AlertTitle>
+            To make this location appear in patient booking selects:
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              {patientVisibilityIssues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </Alert>
+        )}
 
         <form onSubmit={(e) => void handleSubmit(e)}>
           <TextField
@@ -263,10 +318,21 @@ export default function ScheduleGeneralTab({
 
           {isLocation && (
             <Box sx={{ marginTop: 3 }}>
-              <FormControlLabel
-                control={<Checkbox checked={isVirtual} onChange={(event) => setIsVirtual(event.target.checked)} />}
-                label="Telemed location"
-              />
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <FormControlLabel
+                  control={<Checkbox checked={isVirtual} onChange={(event) => setIsVirtual(event.target.checked)} />}
+                  label="Virtual (Telemed)"
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={isInPerson} onChange={(event) => setIsInPerson(event.target.checked)} />}
+                  label="In person"
+                />
+                {noLocationModeSelected && (
+                  <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+                    Select at least one of "Virtual" or "In person". A location may be both.
+                  </Typography>
+                )}
+              </Box>
 
               <Box sx={{ marginTop: 2, display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 500 }}>
                 <TextField
@@ -419,7 +485,13 @@ export default function ScheduleGeneralTab({
           )}
 
           <Box>
-            <LoadingButton type="submit" loading={isSaving} variant="contained" sx={{ marginTop: 3 }}>
+            <LoadingButton
+              type="submit"
+              loading={isSaving}
+              disabled={noLocationModeSelected}
+              variant="contained"
+              sx={{ marginTop: 3 }}
+            >
               Save
             </LoadingButton>
           </Box>

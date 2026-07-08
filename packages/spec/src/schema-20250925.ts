@@ -202,10 +202,27 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const bucketResources: { resource: { oystehr_z3_bucket: { [key: string]: any } } } = {
       resource: { oystehr_z3_bucket: {} },
     };
+    if (Object.keys(this.resources.buckets).length && !this.vars.ENVIRONMENT) {
+      throw new Error('ENVIRONMENT must be set to resolve bucket removal policies');
+    }
     for (const [bucketName, bucket] of Object.entries(this.resources.buckets)) {
+      if ('removalPolicy' in bucket) {
+        throw new Error(
+          `Bucket "${bucketName}" uses the removed "removalPolicy" field; use "retainInEnvironments" instead`
+        );
+      }
+      const rawRetain: unknown = bucket.retainInEnvironments ?? [];
+      if (!Array.isArray(rawRetain) || rawRetain.some((env) => typeof env !== 'string')) {
+        throw new Error(
+          `Bucket "${bucketName}" has an invalid "retainInEnvironments"; expected an array of environment name strings`
+        );
+      }
+      const retainInEnvironments: string[] = rawRetain;
+      const shouldRetain = retainInEnvironments.includes(this.vars.ENVIRONMENT);
       bucketResources.resource.oystehr_z3_bucket[bucketName] = {
         name: this.getValue(bucket.name, this.resources),
-        removal_policy: this.getValue(bucket.removalPolicy, this.resources),
+        removal_policy: shouldRetain ? 'retain' : 'delete',
+        force_destroy: shouldRetain ? undefined : true,
       };
     }
     if (Object.keys(bucketResources.resource.oystehr_z3_bucket).length) {
