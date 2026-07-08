@@ -16,6 +16,7 @@ import { saveBillingServiceFacility } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { validateServiceFacilityFields } from '../utils/validation';
 import { Field } from './Field';
+import { ZipInput } from './input/ZipInput';
 
 interface AddServiceFacilityDialogProps {
   open: boolean;
@@ -32,7 +33,6 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
-  const [zipPlus4, setZipPlus4] = useState('');
   const [npi, setNpi] = useState('');
   const [clia, setClia] = useState('');
   const [posCode, setPosCode] = useState('');
@@ -47,7 +47,6 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
     setCity('');
     setState('');
     setZip('');
-    setZipPlus4('');
     setNpi('');
     setClia('');
     setPosCode('');
@@ -59,7 +58,7 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
 
   const handleSave = async (): Promise<void> => {
     if (!oystehrZambda || !canSave) return;
-    const validationError = validateServiceFacilityFields({ npi, clia, zip, zipPlus4 });
+    const validationError = validateServiceFacilityFields({ npi, clia, zip });
     if (validationError) {
       setError(validationError);
       return;
@@ -74,7 +73,6 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
         city: city.trim(),
         state,
         zip: zip.trim(),
-        ...(zipPlus4.trim() ? { zipPlus4: zipPlus4.trim() } : {}),
         ...(npi.trim() ? { npi: npi.trim() } : {}),
         ...(clia.trim() ? { clia: clia.trim() } : {}),
         ...(posCode ? { posCode } : {}),
@@ -163,10 +161,7 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
                 />
               </Field>
               <Field label="Zip" sx={{ flex: 1 }}>
-                <TextField size="small" fullWidth value={zip} onChange={(e) => setZip(e.target.value)} />
-              </Field>
-              <Field label="Zip+4" optional sx={{ flex: 1 }}>
-                <TextField size="small" fullWidth value={zipPlus4} onChange={(e) => setZipPlus4(e.target.value)} />
+                <ZipInput value={zip} onChange={setZip} />
               </Field>
             </Box>
           </Box>

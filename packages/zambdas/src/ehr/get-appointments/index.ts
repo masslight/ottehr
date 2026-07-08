@@ -18,6 +18,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  APPOINTMENT_SEARCH_TOO_BROAD_ERROR,
   appointmentAttendanceTypeAppointment,
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
@@ -62,6 +63,7 @@ import { getPersonPhone } from '../patient-account/get-login-phone-numbers';
 import {
   getAppointmentQueryInput,
   getTimezoneResourceIdFromAppointment,
+  isResponseSizeExceededError,
   makeEncounterSearchParams,
   makeResourceCacheKey,
   mergeResources,
@@ -210,8 +212,15 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
         const { group } = appointmentRequestInput;
 
-        const appointmentBundle =
-          await oystehr.fhir.searchAndGetAllPages<AppointmentRelatedResources>(appointmentRequest);
+        let appointmentBundle;
+        try {
+          appointmentBundle = await oystehr.fhir.searchAndGetAllPages<AppointmentRelatedResources>(appointmentRequest);
+        } catch (error) {
+          if (isResponseSizeExceededError(error)) {
+            throw APPOINTMENT_SEARCH_TOO_BROAD_ERROR;
+          }
+          throw error;
+        }
 
         const appointments = (appointmentBundle.entry?.map((entry) => entry.resource).filter(isTruthy) ?? []).filter(
           (resource) => !isNonPaperworkQuestionnaireResponse(resource)

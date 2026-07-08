@@ -1,7 +1,9 @@
 import {
   ArrowBack as ArrowBackIcon,
   DeleteOutline as DeleteOutlineIcon,
+  Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -24,11 +26,14 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  AR_STAGE,
   BillingCoverageOption,
   BillingLocationOption,
   BillingPayerOption,
@@ -37,9 +42,12 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimDetailResponse,
   ClaimStatusFieldKey,
+  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
+  CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
   formatClaimStatusValue,
   getApiError,
   UpdateBillingResourceInput,
+  VALUE_SETS,
 } from 'utils';
 import {
   getBillingClaimDetail,
@@ -48,13 +56,16 @@ import {
   searchBillingPayers,
   searchBillingProviders,
   searchBillingTags,
+  submitBillingClaims,
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
+import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { Field } from '../components/Field';
 import {
@@ -73,6 +84,9 @@ type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string
 
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
+// EHR app base URL for the "View in EHR" backlink
+const EHR_URL = import.meta.env.VITE_APP_EHR_URL;
+
 export default function ClaimDetail(): ReactElement {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -83,6 +97,12 @@ export default function ClaimDetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
+  const [editingHeader, setEditingHeader] = useState(false);
+  const [savingHeader, setSavingHeader] = useState(false);
+  const [headerError, setHeaderError] = useState<string | null>(null);
+  const [serviceDate, setServiceDate] = useState('');
+  const [claimType, setClaimType] = useState('');
+  const [service, setService] = useState('');
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -104,16 +124,21 @@ export default function ClaimDetail(): ReactElement {
 
   const updateResource = useCallback(
     async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
-      if (!oystehrZambda) return 'Client not ready';
+      if (!oystehrZambda || !id) return 'Client not ready';
       try {
-        await updateBillingResource(oystehrZambda, { resourceType, resourceId, fields } as UpdateBillingResourceInput);
+        await updateBillingResource(oystehrZambda, {
+          resourceType,
+          resourceId,
+          claimId: id,
+          fields,
+        } as UpdateBillingResourceInput);
       } catch (err) {
         return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
       await fetchDetail();
       return null;
     },
-    [oystehrZambda, fetchDetail]
+    [oystehrZambda, fetchDetail, id]
   );
 
   const handleTagAction = useCallback(
@@ -150,6 +175,35 @@ export default function ClaimDetail(): ReactElement {
     [oystehrZambda, id, fetchDetail]
   );
 
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || !id) return;
+    setSubmitting(true);
+    try {
+      const { results } = await submitBillingClaims(oystehrZambda, { claimIds: [id] });
+      const result = results[0];
+      if (result?.status === 'submitted') {
+        enqueueSnackbar('Claim submitted to payer', { variant: 'success' });
+      } else {
+        enqueueSnackbar(result?.error ?? 'Failed to submit claim', { variant: 'error' });
+      }
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to submit claim',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setSubmitting(false);
+      setConfirmingSubmit(false);
+      await fetchDetail();
+    }
+  }, [oystehrZambda, id, fetchDetail]);
+
   if (loading && !claim) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -172,6 +226,35 @@ export default function ClaimDetail(): ReactElement {
   const arStageCode = claim.statuses.arStage;
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
+  const canSubmit = arStageCode === AR_STAGE.insurancePayer;
+
+  const startHeaderEdit = (): void => {
+    setServiceDate(claim.serviceLines[0]?.serviceDate ?? claim.created);
+    setClaimType(claim.type);
+    setService(claim.service ?? '');
+    setHeaderError(null);
+    setEditingHeader(true);
+  };
+
+  const saveHeader = async (): Promise<void> => {
+    const fields: { type?: string; service?: string; serviceDate?: string } = {};
+    if (claimType && claimType !== claim.type) fields.type = claimType;
+    if (service && service !== claim.service) fields.service = service;
+    if (serviceDate && serviceDate !== dos) fields.serviceDate = serviceDate;
+    if (Object.keys(fields).length === 0) {
+      setEditingHeader(false);
+      return;
+    }
+    setSavingHeader(true);
+    setHeaderError(null);
+    const err = await updateResource('Claim', claim.id, fields);
+    setSavingHeader(false);
+    if (err) {
+      setHeaderError(err);
+      return;
+    }
+    setEditingHeader(false);
+  };
 
   return (
     <Box sx={{ p: 0 }}>
@@ -180,17 +263,115 @@ export default function ClaimDetail(): ReactElement {
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="h5" color="primary.dark" fontWeight={600}>
-            {claim.patientName}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
-            <Meta label="Date of Service" value={dos} />
-            <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
-            <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
-            <Meta label="Service" value={formatAntCaseString(claim.service)} />
-            <Meta label="Patient DOB" value={claim.patientDob} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" color="primary.dark" fontWeight={600}>
+              {claim.patientName}
+            </Typography>
+            {!editingHeader && (
+              <Button size="small" startIcon={<EditIcon fontSize="small" />} onClick={startHeaderEdit}>
+                Edit
+              </Button>
+            )}
           </Box>
+          {!editingHeader ? (
+            <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
+              <Meta label="Date of Service" value={dos} />
+              <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+              <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
+              <Meta label="Service" value={formatAntCaseString(claim.service)} />
+              <Meta label="Patient DOB" value={claim.patientDob} />
+            </Box>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', gap: 2.5, mt: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Date of Service
+                  </Typography>
+                  <TextField
+                    type="date"
+                    size="small"
+                    value={serviceDate}
+                    onChange={(e) => setServiceDate(e.target.value)}
+                    sx={{ width: 165 }}
+                  />
+                </Box>
+                <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Claim Type
+                  </Typography>
+                  <Select
+                    size="small"
+                    value={claimType}
+                    onChange={(e) => setClaimType(e.target.value)}
+                    sx={{ width: 165 }}
+                  >
+                    {CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES.map((code) => (
+                      <MenuItem key={code} value={code}>
+                        {formatAntCaseString(code)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Service
+                  </Typography>
+                  <Select
+                    size="small"
+                    displayEmpty
+                    value={service}
+                    onChange={(e) => setService(e.target.value)}
+                    sx={{ width: 185 }}
+                    renderValue={
+                      service
+                        ? undefined
+                        : () => (
+                            <Box component="span" sx={{ color: 'text.disabled' }}>
+                              Select...
+                            </Box>
+                          )
+                    }
+                  >
+                    {CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES.map((code) => (
+                      <MenuItem key={code} value={code}>
+                        {formatAntCaseString(code)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+                <Meta label="Patient DOB" value={claim.patientDob} />
+              </Box>
+              {headerError && (
+                <Alert severity="error" sx={{ mt: 1.5, maxWidth: 680 }}>
+                  {headerError}
+                </Alert>
+              )}
+              <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
+                <Button size="small" onClick={() => setEditingHeader(false)} disabled={savingHeader}>
+                  Cancel
+                </Button>
+                <Button size="small" variant="contained" onClick={saveHeader} disabled={savingHeader}>
+                  {savingHeader ? 'Saving...' : 'Save'}
+                </Button>
+              </Box>
+            </>
+          )}
         </Box>
+        <Tooltip title={canSubmit ? '' : 'Only claims in Insurance Payer Accounts Receivable can be submitted'}>
+          <span>
+            <Button
+              variant="contained"
+              size="small"
+              disabled={!canSubmit}
+              onClick={() => setConfirmingSubmit(true)}
+              sx={{ mt: 0.5 }}
+            >
+              Submit claim
+            </Button>
+          </span>
+        </Tooltip>
         <Button
           size="small"
           variant="outlined"
@@ -201,6 +382,19 @@ export default function ClaimDetail(): ReactElement {
           Export X12
         </Button>
       </Box>
+      {EHR_URL && claim.appointmentId && (
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<OpenInNewIcon />}
+          href={`${EHR_URL}/visit/${claim.appointmentId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{ mt: 0.5, flexShrink: 0 }}
+        >
+          View in EHR
+        </Button>
+      )}
 
       <ExportX12Dialog
         open={exportOpen}
@@ -267,6 +461,7 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Write offs & Patient payments" value="3" />
             <Tab label="Other claims" value="4" />
+            <Tab label="History" value="5" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -299,8 +494,24 @@ export default function ClaimDetail(): ReactElement {
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <OtherClaimsSection claims={claim.otherClaims} navigate={navigate} />
           </TabPanel>
+
+          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
+            <ClaimHistory claimId={claim.id} />
+          </TabPanel>
         </TabContext>
       </Box>
+
+      <ConfirmDialog
+        open={confirmingSubmit}
+        title="Submit claim"
+        confirmLabel="Submit"
+        loading={submitting}
+        onConfirm={() => void handleSubmit()}
+        onCancel={() => setConfirmingSubmit(false)}
+      >
+        Submit this claim to the payer? This sends it for processing and sets its Insurance Accounts Receivable Status
+        to Submitted.
+      </ConfirmDialog>
     </Box>
   );
 }
@@ -425,7 +636,11 @@ function PatientSection({
   );
 }
 
-function InsuranceSection({
+const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
+const planTypeLabel = (candidCode: string): string =>
+  PLAN_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
+
+export function InsuranceSection({
   claim,
   updateResource,
 }: {
@@ -438,6 +653,7 @@ function InsuranceSection({
   const [payer, setPayer] = useState<BillingPayerOption | null>(null);
   const [memberId, setMemberId] = useState(claim.memberId);
   const [status, setStatus] = useState(claim.coverageStatus);
+  const [planType, setPlanType] = useState(claim.planType);
   const [policyHolder, setPolicyHolder] = useState<PolicyHolderState>(() =>
     policyHolderStateFromSummary(claim.relationship, claim.policyHolder)
   );
@@ -454,6 +670,7 @@ function InsuranceSection({
     setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
     setMemberId(claim.memberId);
     setStatus(claim.coverageStatus);
+    setPlanType(claim.planType);
     setPolicyHolder(policyHolderStateFromSummary(claim.relationship, claim.policyHolder));
     setSelectedCoverage(null);
   }, [claim]);
@@ -489,8 +706,11 @@ function InsuranceSection({
     if (!hasCoverage) return 'Choose a coverage';
     const policyHolderError = validatePolicyHolder(policyHolder);
     if (policyHolderError) return policyHolderError;
-    if (payer?.id && payer.id !== claim.payorFhirId) {
-      const err = await updateResource('Claim', claim.id, { payerId: payer.id });
+    const claimFields: { payerId?: string; planType?: string } = {};
+    if (payer?.id && payer.id !== claim.payorFhirId) claimFields.payerId = payer.id;
+    if (planType && planType !== claim.planType) claimFields.planType = planType;
+    if (Object.keys(claimFields).length > 0) {
+      const err = await updateResource('Claim', claim.id, claimFields);
       if (err) return err;
     }
     const policyHolderInput = policyHolderPayload(policyHolder);
@@ -586,6 +806,31 @@ function InsuranceSection({
                   <MenuItem value="entered-in-error">Entered in error</MenuItem>
                 </Select>
               </Field>
+              <Field label="Plan type">
+                <Select
+                  size="small"
+                  fullWidth
+                  displayEmpty
+                  SelectDisplayProps={{ 'aria-label': 'Plan type' }}
+                  value={planType}
+                  onChange={(e) => setPlanType(e.target.value)}
+                  renderValue={
+                    planType
+                      ? undefined
+                      : () => (
+                          <Box component="span" sx={{ color: 'text.disabled' }}>
+                            Select...
+                          </Box>
+                        )
+                  }
+                >
+                  {PLAN_TYPE_OPTIONS.map((option) => (
+                    <MenuItem key={option.candidCode} value={option.candidCode}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Field>
             </Box>
           )}
           {hasCoverage && !selectedCoverage && <PolicyHolderFields value={policyHolder} onChange={setPolicyHolder} />}
@@ -605,6 +850,7 @@ function InsuranceSection({
             />
           )}
           <Row label="Coverage Status" value={claim.coverageStatus} />
+          <Row label="Plan type" value={planTypeLabel(claim.planType)} />
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>

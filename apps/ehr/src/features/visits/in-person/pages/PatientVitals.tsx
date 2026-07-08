@@ -6,6 +6,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import VitalsNotesCard from 'src/features/visits/shared/components/patient-info/VitalsNotesCard';
 import VitalsBloodPressureCard from 'src/features/visits/shared/components/vitals/blood-pressure/VitalsBloodPressureCard';
+import VitalsBMICard from 'src/features/visits/shared/components/vitals/bmi/VitalsBMICard';
 import VitalsHeartbeatCard from 'src/features/visits/shared/components/vitals/heartbeat/VitalsHeartbeatCard';
 import VitalsHeightCard from 'src/features/visits/shared/components/vitals/heights/VitalsHeightCard';
 import { useVitalsManagement } from 'src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
@@ -73,6 +74,11 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
       <Box ref={vitals.refs.height}>
         <VitalsHeightCard field={vitals.fields.height} />
       </Box>
+      <VitalsBMICard
+        current={vitals.fields.bmi.current}
+        historical={vitals.fields.bmi.historical}
+        onDelete={vitals.fields.bmi.delete}
+      />
       <Box ref={vitals.refs.vision}>
         <VitalsVisionCard field={vitals.fields.vision} />
       </Box>
