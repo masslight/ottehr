@@ -6,6 +6,7 @@ import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } fr
 import { useFormContext } from 'react-hook-form';
 import { convertHeicToJpegIfNeeded } from 'ui-components';
 import { addContentTypeToAttachment } from 'utils';
+import { downscaleImageForUpload } from 'utils/lib/frontend';
 import { ottehrApi } from '../../../../api';
 import { useUCZambdaClient, ZambdaClient } from '../../../../hooks/useUCZambdaClient';
 import { PaperworkContext } from '../../context';
@@ -164,7 +165,11 @@ const FileInput: FC<FileInputProps> = ({
       if (files && files.length > 0) {
         // Even though files is an array we know there is always only one file because we don't set the `multiple` attribute on the file input
         const rawFile = files[0];
-        const file = attachmentType === 'image' ? await convertHeicToJpegIfNeeded(rawFile) : rawFile;
+        // dimension-cap oversized images (long edge 2000px) before the MB-based compression safety net below
+        const file =
+          attachmentType === 'image'
+            ? await downscaleImageForUpload(await convertHeicToJpegIfNeeded(rawFile))
+            : rawFile;
         let finalFile = file;
         setSaveButtonDisabled(true);
         if (attachmentType === 'image') {
