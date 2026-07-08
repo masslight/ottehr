@@ -216,6 +216,59 @@ export async function invokeChatbotVertexAI(
   return text;
 }
 
+// Structured-output via Anthropic. Mirrors invokeChatbotVertexAI's contract: same text input +
+// JSON Schema, same "return the JSON as a string" result. We force a single tool call whose
+// input_schema IS the response schema — Claude's equivalent of Vertex's responseSchema — so the
+// model can only reply with a schema-valid object, which we stringify back to the caller.
+export async function invokeClaudeStructured(
+  input: MessageContentComplex[],
+  secrets: Secrets | null,
+  responseSchema: object,
+  model = 'claude-sonnet-5',
+  maxTokens = 8192
+): Promise<string> {
+  const ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
+  const content = input.map((part) =>
+    typeof part === 'object' && part != null && 'text' in part
+      ? { type: 'text', text: (part as { text: string }).text }
+      : (part as unknown as Record<string, unknown>)
+  );
+  const TOOL_NAME = 'emit_result';
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      // No temperature: current Claude models (sonnet-5 and up) reject non-default sampling params.
+      // Thinking is on-by-default for sonnet-5; this is a deterministic forced-tool extraction, so
+      // disable it to keep the call cheap and reliable.
+      thinking: { type: 'disabled' },
+      tools: [{ name: TOOL_NAME, description: 'Return the structured result.', input_schema: responseSchema }],
+      tool_choice: { type: 'tool', name: TOOL_NAME },
+      messages: [{ role: 'user', content }],
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    const err = new Error(`Anthropic error ${response.status}: ${body.slice(0, 200)}`);
+    captureException(err);
+    throw err;
+  }
+  const json = await response.json();
+  if (json.stop_reason === 'max_tokens') {
+    // A tool_use input cut mid-generation is truncated JSON — not usable output.
+    throw new Error(`Anthropic output truncated (max_tokens, ${model})`);
+  }
+  const toolUse = (json.content ?? []).find((b: { type?: string }) => b.type === 'tool_use');
+  if (!toolUse) throw new Error('Anthropic returned no tool_use block');
+  return JSON.stringify(toolUse.input);
+}
+
 export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets | null): Promise<AIMessageChunk> {
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   if (chatbot == null) {
