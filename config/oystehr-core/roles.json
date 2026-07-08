@@ -326,7 +326,7 @@
           "effect": "Allow"
         },
         {
-          "action": ["Telemed:JoinMeeting"],
+          "action": ["Telemed:JoinMeeting", "Telemed:EndMeeting"],
           "effect": "Allow",
           "resource": ["Telemed:Meeting:*"]
         },
@@ -426,7 +426,7 @@
           "resource": ["Telemed:Room"]
         },
         {
-          "action": ["Telemed:JoinMeeting"],
+          "action": ["Telemed:JoinMeeting", "Telemed:EndMeeting"],
           "effect": "Allow",
           "resource": ["Telemed:Meeting:*"]
         },
@@ -642,7 +642,7 @@
           "effect": "Allow"
         },
         {
-          "action": ["Telemed:JoinMeeting"],
+          "action": ["Telemed:JoinMeeting", "Telemed:EndMeeting"],
           "effect": "Allow",
           "resource": ["Telemed:Meeting:*"]
         },
