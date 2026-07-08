@@ -8,6 +8,8 @@ import {
   chooseJson,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateCardDocumentReferenceInput,
+  CreateCardDocumentReferenceResponse,
   CreateSlotParams,
   GetAppointmentDetailsResponse,
   GetBookingQuestionnaireParams,
@@ -59,6 +61,7 @@ const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = 'telemed-get-appointments';
 const IN_PERSON_GET_APPOINTMENTS_ZAMBDA_ID = 'intake-get-appointments';
 const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
 const GET_PRESIGNED_FILE_URL = 'get-presigned-file-url';
+const CREATE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID = 'create-card-document-reference';
 const GET_APPOINTMENT_DETAILS = 'get-appointment-details';
 const PATCH_PAPERWORK_ZAMBDA_ID = 'patch-paperwork';
 const SUBMIT_PAPERWORK_ZAMBDA_ID = 'submit-paperwork';
@@ -372,6 +375,27 @@ class API {
         appointmentID,
         fileType,
         fileFormat,
+      });
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  // creates the card DocumentReference right after a successful card image upload so the
+  // OCR extraction subscriptions fire while the patient is still in the paperwork wizard
+  async createCardDocumentReference(
+    params: CreateCardDocumentReferenceInput,
+    zambdaClient: ZambdaClient
+  ): Promise<CreateCardDocumentReferenceResponse> {
+    try {
+      const { appointmentID, cardType, z3URL } = params;
+
+      const response = await zambdaClient.executePublic(CREATE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID, {
+        appointmentID,
+        cardType,
+        z3URL,
       });
       const jsonToUse = chooseJson(response);
       return jsonToUse;

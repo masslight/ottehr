@@ -537,6 +537,13 @@
       "src": "src/patient/get-presigned-file-url/index",
       "zip": ".dist/zips/get-presigned-file-url.zip"
     },
+    "CREATE-CARD-DOCUMENT-REFERENCE": {
+      "name": "create-card-document-reference",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/create-card-document-reference/index",
+      "zip": ".dist/zips/create-card-document-reference.zip"
+    },
     "GET-APPOINTMENT-DETAILS": {
       "name": "get-appointment-details",
       "type": "http_open",

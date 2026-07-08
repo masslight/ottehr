@@ -5,7 +5,8 @@ import { DateTime } from 'luxon';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { convertHeicToJpegIfNeeded } from 'ui-components';
-import { addContentTypeToAttachment } from 'utils';
+import { addContentTypeToAttachment, isCardDocumentFileType } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../../../../api';
 import { useUCZambdaClient, ZambdaClient } from '../../../../hooks/useUCZambdaClient';
 import { PaperworkContext } from '../../context';
@@ -136,6 +137,20 @@ const FileInput: FC<FileInputProps> = ({
         setZ3UploadState(UploadState.complete);
         setPendingZ3Upload(undefined);
         setSaveButtonDisabled(false);
+        // for insurance card / photo ID images, create the DocumentReference now (rather than at
+        // page save) so card OCR extraction starts while the patient is still in the wizard.
+        // failure here is non-fatal: the paperwork harvest creates the doc at page save anyway
+        if (attachmentType === 'image' && isCardDocumentFileType(fileName)) {
+          try {
+            await ottehrApi.createCardDocumentReference(
+              { appointmentID: appointmentId, cardType: fileName, z3URL },
+              client
+            );
+          } catch (docRefError) {
+            console.error('error creating card document reference', docRefError);
+            safelyCaptureException(docRefError);
+          }
+        }
       } catch (e) {
         console.error(e);
         setZ3UploadState(UploadState.failed);
@@ -153,6 +168,7 @@ const FileInput: FC<FileInputProps> = ({
     appointment?.id,
     z3UploadState,
     fileName,
+    attachmentType,
     onChange,
     setSaveButtonDisabled,
   ]);
