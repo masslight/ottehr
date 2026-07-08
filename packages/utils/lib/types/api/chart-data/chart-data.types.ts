@@ -174,6 +174,7 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   prescriptionId?: string;
   encounterId?: string;
   isRenewal?: boolean;
+  pharmacyId?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {
