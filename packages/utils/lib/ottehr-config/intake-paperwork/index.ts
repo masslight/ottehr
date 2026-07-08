@@ -30,7 +30,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.4';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.5';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
@@ -189,6 +189,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           key: 'mobile-opt-in',
           label: `Yes! I would like to receive helpful text messages from ${BRANDING_CONFIG.projectName} regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.`,
           type: 'boolean',
+          hideControlLabel: true,
         },
       },
       hiddenFields: [],
@@ -396,6 +397,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           label: "Can't find? Add manually",
           type: 'boolean',
           element: 'Link',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'pharmacy-collection.pharmacy-places-saved',
@@ -723,6 +725,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           label: "Policy holder address is the same as patient's address",
           type: 'boolean',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -955,6 +958,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           label: 'Add secondary insurance',
           type: 'boolean',
           element: 'Button',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1042,6 +1046,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               key: 'policy-holder-address-as-patient-2',
               label: "Policy holder address is the same as patient's address",
               type: 'boolean',
+              hideControlLabel: true,
             },
             policyHolderAddress: {
               key: 'policy-holder-address-2',
@@ -1271,6 +1276,12 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           type: 'display',
           element: 'p',
         },
+        patientHasMedicaid: {
+          key: 'patient-has-medicaid',
+          label: 'I have Medicaid insurance coverage, credit card information not required',
+          type: 'boolean',
+          hideControlLabel: true,
+        },
       },
       hiddenFields: [],
       requiredFields: [],
@@ -1374,6 +1385,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           key: 'responsible-party-address-as-patient',
           label: "Responsible party's address is the same as patient's address",
           type: 'boolean',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
@@ -1716,6 +1728,7 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           key: 'emergency-contact-address-as-patient',
           label: "Same as patient's address",
           type: 'boolean',
+          hideControlLabel: true,
         },
         streetAddress: {
           key: 'emergency-contact-address',

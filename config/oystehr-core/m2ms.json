@@ -78,6 +78,11 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Z3:#{var/PROJECT_ID}-TelemedRecordings/*"],
+          "action": ["Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
           "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
           "resource": ["*"]
@@ -88,7 +93,7 @@
           "resource": ["RCM:InsuranceEligibility"]
         },
         {
-          "action": ["eRx:SearchPharmacy"],
+          "action": ["eRx:SearchPharmacy", "eRx:GetPharmacy"],
           "effect": "Allow",
           "resource": ["eRx:Pharmacy"]
         },
