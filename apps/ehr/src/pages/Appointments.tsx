@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { Box, Button, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -10,7 +11,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { InPersonAppointmentInformation, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
+import { APIErrorCode, InPersonAppointmentInformation, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -96,26 +97,37 @@ export default function Appointments(): ReactElement {
         dateToParam &&
         visitType
       ) {
-        const searchResults = await getAppointments(client, {
-          searchDateFrom: dateFromParam,
-          searchDateTo: dateToParam,
-          timezone: DateTime.now().zoneName,
-          locationIds: locations,
-          providerIds: providers,
-          serviceCategories,
-          visitType,
-          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
-        });
+        try {
+          const searchResults = await getAppointments(client, {
+            searchDateFrom: dateFromParam,
+            searchDateTo: dateToParam,
+            timezone: DateTime.now().zoneName,
+            locationIds: locations,
+            providerIds: providers,
+            serviceCategories,
+            visitType,
+            supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+          });
 
-        // drives refetch for apis not using react hook query yet
-        setAppointmentsVersion(Date.now());
-        // drives refetch for apis using react hook query
-        void refetchOrders();
+          // drives refetch for apis not using react hook query yet
+          setAppointmentsVersion(Date.now());
+          // drives refetch for apis using react hook query
+          void refetchOrders();
 
-        debounce(() => {
-          setSearchResults(searchResults || []);
+          debounce(() => {
+            setSearchResults(searchResults || []);
+            setLoadingState({ status: 'loaded', id: queryId });
+          });
+        } catch (error) {
+          console.error('error fetching appointments', error);
+          const sdkError = error as Oystehr.OystehrSdkError;
+          const message =
+            sdkError?.code === APIErrorCode.APPOINTMENT_SEARCH_TOO_BROAD
+              ? sdkError.message
+              : 'Failed to load visits. Please try again in a moment.';
+          enqueueSnackbar(message, { variant: 'error', preventDuplicate: true });
           setLoadingState({ status: 'loaded', id: queryId });
-        });
+        }
       }
     };
     if (

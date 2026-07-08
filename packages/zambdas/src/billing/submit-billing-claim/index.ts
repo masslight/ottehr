@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim } from 'fhir/r4b';
+import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import {
   AR_STAGE,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -9,7 +9,8 @@ import {
   SubmitBillingClaimsResponse,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { applyClaimStatusField, assertValidClaimStatusField, createBillingClient, fetchById } from '../shared';
+import { applyClaimStatusField, resolveClaimActor } from '../provenance';
+import { assertValidClaimStatusField, createBillingClient, fetchById } from '../shared';
 import { SubmitBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -24,9 +25,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
+  const agent = await resolveClaimActor(oystehr, input.headers?.Authorization, secrets);
 
   console.group('performEffect');
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, params, agent);
   console.groupEnd();
   console.debug('performEffect success', response);
 
@@ -38,7 +40,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect(
   oystehr: Oystehr,
-  params: SubmitBillingClaimsParams
+  params: SubmitBillingClaimsParams,
+  agent: ProvenanceAgent
 ): Promise<SubmitBillingClaimsResponse> {
   const results: SubmitBillingClaimResult[] = [];
 
@@ -60,7 +63,7 @@ export async function performEffect(
       try {
         const value = assertValidClaimStatusField('insuranceArStatus', 'submitted');
         const submitted = await fetchById<Claim>(oystehr, 'Claim', claimId);
-        await applyClaimStatusField(oystehr, submitted, 'insuranceArStatus', value);
+        await applyClaimStatusField(oystehr, submitted, 'insuranceArStatus', value, agent);
       } catch (statusErr) {
         console.error(`Claim ${claimId} submitted but failed to set insurance AR status:`, statusErr);
       }

@@ -95,35 +95,19 @@ export function assertValidClaimStatusField(field: ClaimStatusFieldKey, value: s
   return resolved;
 }
 
-export async function applyClaimStatusField(
-  oystehr: Oystehr,
-  claim: Claim,
-  field: ClaimStatusFieldKey,
-  value: string
-): Promise<void> {
+// The claim's full meta.tag array with one status field changed: current status values plus the
+// update (AR Stage entry runs the same stage-initialization rule used at claim creation), rebuilt
+// while preserving every non-status tag. Committing (with its history record) lives in
+// provenance.ts#applyClaimStatusField.
+export function buildUpdatedClaimStatusTags(claim: Claim, field: ClaimStatusFieldKey, value: string): Coding[] {
   const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: value };
   const updatedValues = field === 'arStage' ? withArStageInitialization(values) : values;
 
   const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
-  const updatedTags = [
+  return [
     ...(claim.meta?.tag ?? []).filter((t) => !t.system || !statusSystems.has(t.system)),
     ...claimStatusValuesToTags(updatedValues),
   ];
-
-  await oystehr.fhir.patch(
-    {
-      resourceType: 'Claim',
-      id: claim.id!,
-      operations: [
-        {
-          op: 'add',
-          path: '/meta/tag',
-          value: updatedTags,
-        },
-      ],
-    },
-    claim.meta?.versionId ? { optimisticLockingVersionId: claim.meta.versionId } : undefined
-  );
 }
 
 export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable<Claim['insurance']> {
@@ -189,6 +173,15 @@ export async function resolvePayersByRef(
     })
   );
   return byRef;
+}
+
+// Payer display string used across billing: "Name (Payer ID)".
+export function payerDisplay(org: Organization | undefined): string | undefined {
+  if (!org) return undefined;
+  const name = org.name ?? '';
+  const payerId = getPayerId(org) ?? '';
+  if (name && payerId) return `${name} (${payerId})`;
+  return name || payerId || undefined;
 }
 
 // Provider role: one tag system  (a provider can bill and/or render).
@@ -406,6 +399,17 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
 export function fhirName(resource?: Patient | Practitioner): string {
   const name = resource?.name?.[0];
   return name ? convertFhirNameToDisplayName(name) : '';
+}
+
+// Friendly display name for any resource that can be referenced from a claim (undefined when the
+// resource has no usable name, so callers can set Reference.display without empty strings).
+export function resourceDisplayName(resource: Resource | undefined): string | undefined {
+  if (!resource) return undefined;
+  const name =
+    resource.resourceType === 'Practitioner' || resource.resourceType === 'Patient'
+      ? fhirName(resource as Practitioner | Patient)
+      : (resource as Organization | Location).name;
+  return name || undefined;
 }
 
 /**

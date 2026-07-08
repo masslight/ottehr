@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.4';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.5';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -184,6 +184,7 @@ function buildFormFields(
           key: 'mobile-opt-in',
           label: `Yes! I would like to receive helpful text messages from ${BRANDING_CONFIG.projectName} regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.`,
           type: 'boolean',
+          hideControlLabel: true,
         },
       },
       hiddenFields: [],
@@ -391,6 +392,7 @@ function buildFormFields(
           type: 'boolean',
           element: 'Link',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'pharmacy-collection.pharmacy-places-saved',
@@ -985,6 +987,7 @@ function buildFormFields(
           label: "Policy holder address is the same as patient's address",
           type: 'boolean',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1218,6 +1221,7 @@ function buildFormFields(
           type: 'boolean',
           element: 'Button',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1305,6 +1309,7 @@ function buildFormFields(
               key: 'policy-holder-address-as-patient-2',
               label: "Policy holder address is the same as patient's address",
               type: 'boolean',
+              hideControlLabel: true,
             },
             policyHolderAddress: {
               key: 'policy-holder-address-2',
@@ -1637,6 +1642,7 @@ function buildFormFields(
           label: "Responsible party's address is the same as patient's address",
           type: 'boolean',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
@@ -1978,6 +1984,7 @@ function buildFormFields(
           key: 'emergency-contact-address-as-patient',
           label: "Same as patient's address",
           type: 'boolean',
+          hideControlLabel: true,
         },
         streetAddress: {
           key: 'emergency-contact-address',

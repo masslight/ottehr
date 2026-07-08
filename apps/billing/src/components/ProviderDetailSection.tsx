@@ -1,4 +1,4 @@
-import { Autocomplete, Box, FormControlLabel, Switch, TextField } from '@mui/material';
+import { Autocomplete, Box, FormControlLabel, Link, Switch, TextField, Typography } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import {
   BillingProviderOption,
@@ -140,6 +140,13 @@ export function ProviderDetailSection({
           )}
           <Field label="Taxonomy code">
             <TextField size="small" fullWidth value={taxonomyCode} onChange={(e) => setTaxonomyCode(e.target.value)} />
+            <Typography variant="caption">
+              Look up taxonomy codes{' '}
+              <Link target="_blank" href="https://npiregistry.cms.hhs.gov/search">
+                here
+              </Link>
+              .
+            </Typography>
           </Field>
           <Field label="Address line 1">
             <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
