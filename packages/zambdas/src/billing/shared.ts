@@ -788,8 +788,8 @@ export function getDefaultSettingForChargeItemDefinition(
   return defaultValue;
 }
 
-// Links PaymentNotices the stripe webhook stored before this claim existed — their request holds only a
-// logical reference (the claim-encounter-id identifier). Oystehr matches request:identifier by VALUE only;
+// Links notices the stripe webhook stored before the claim existed. Oystehr matches
+// request:identifier by value only, the system|value form returns nothing.
 export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
   const encounterId = claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value;
   if (!claim.id || !encounterId) return;

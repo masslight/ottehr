@@ -7,8 +7,7 @@ export interface BillingStripeWebhookParams {
   secrets: Secrets;
 }
 
-// constructEvent verifies the signature against the endpoint signing secret and needs the raw body.
-// API Gateway preserves the Stripe-Signature header casing; the local express server lower-cases it.
+// API Gateway keeps the Stripe-Signature casing, the local express server lower-cases it
 export function validateRequestParameters(input: ZambdaInput): BillingStripeWebhookParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;

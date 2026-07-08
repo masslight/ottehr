@@ -44,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParams): Promise<void> => {
+export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParams): Promise<void> => {
   const { event, secrets } = params;
   switch (event.type) {
     case 'charge.succeeded':
@@ -55,7 +55,7 @@ const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParam
       break;
     }
     case 'charge.refunded': {
-      // refund accounting happens via the refund.* events; re-upserting the gross amount adds nothing
+      // refunds are recorded via the refund.* events
       const charge = event.data.object as Stripe.Charge;
       console.log(`Ignoring charge.refunded for ${charge.id}`);
       break;
@@ -124,8 +124,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     request: claimRequestFor(claim, encounterId),
     created,
     amount: paymentAmount,
-    // Charge id first: refunds point at charges. The payment intent id is kept alongside for parity
-    // with the clinical PaymentNotices, which are keyed by payment intent.
+    // charge id is the dedup key, the payment intent id matches how clinical notices are keyed
     identifier: [
       { system: STRIPE_PAYMENT_ID_SYSTEM, value: charge.id },
       ...(paymentIntentId ? [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: paymentIntentId }] : []),
@@ -136,12 +135,10 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     recipient: { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` },
   };
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, secrets);
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId);
 };
 
-// Payments usually precede claim creation: until the claim exists, request carries only a logical
-// reference (the claim-encounter-id identifier) and reconcilePaymentNoticesForClaim adds the literal
-// reference once the claim is born.
+// before the claim exists this is a logical reference only, reconciled once the claim is created
 const claimRequestFor = (claim: Claim | undefined, encounterId: string): Reference => ({
   type: 'Claim',
   identifier: { system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId },
@@ -153,23 +150,26 @@ const persistPaymentNoticeUpsert = async (
   desiredNotice: PaymentNotice,
   dedupStripeId: string,
   claim: Claim | undefined,
-  encounterId: string,
-  secrets: ZambdaInput['secrets']
+  encounterId: string
 ): Promise<void> => {
-  const existing = await conditionalCreatePaymentNotice(desiredNotice, dedupStripeId, secrets);
-  if (existing?.id) {
-    // already existed — rebuild, but never strip an existing link when this run's claim search missed
-    const reference = claim?.id ? `Claim/${claim.id}` : existing.request?.reference;
-    await oystehr.fhir.update<PaymentNotice>({
-      ...desiredNotice,
-      id: existing.id,
-      request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
-    });
-  }
+  // tag scoped because clinical PaymentNotices use the same identifier system
+  const returned = await oystehr.fhir.create<PaymentNotice>(desiredNotice, {
+    ifNoneExist: [
+      { name: 'identifier', value: `${STRIPE_PAYMENT_ID_SYSTEM}|${dedupStripeId}` },
+      { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
+    ],
+  });
+
+  // refresh the notice but keep an existing link if the claim search missed
+  const reference = claim?.id ? `Claim/${claim.id}` : returned.request?.reference;
+  await oystehr.fhir.update<PaymentNotice>({
+    ...desiredNotice,
+    id: returned.id,
+    request: { ...desiredNotice.request, ...(reference ? { reference } : {}) },
+  });
 
   if (!claim) {
-    // the claim may have been created while the notice was being persisted: the other half of this
-    // race is create-billing-claim-from-encounter reconciling right after it creates the claim
+    // the claim may have appeared while the notice was being stored
     const lateClaim = await findBillingClaimForEncounter(oystehr, encounterId);
     if (lateClaim) {
       await reconcilePaymentNoticesForClaim(oystehr, lateClaim);
@@ -188,7 +188,7 @@ const upsertPaymentNoticeForRefund = async (
     console.warn(`Refund ${refund.id} has no charge; skipping PaymentNotice upsert`);
     return;
   }
-  // refunds carry no metadata — the charge holds the encounter linkage
+  // refunds carry no metadata, the charge has the encounter id
   const charge = await getStripeClient(secrets).charges.retrieve(chargeId, undefined, { stripeAccount });
 
   const encounterId = charge.metadata?.oystehr_encounter_id ?? charge.metadata?.encounterId;
@@ -197,14 +197,14 @@ const upsertPaymentNoticeForRefund = async (
     return;
   }
 
-  // the refund may arrive before (or without) the charge's own webhook delivery
+  // covers refunds whose charge event was never delivered
   await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, secrets);
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
   const created = new Date(refund.created * 1000).toISOString();
   const failed = refund.status === 'failed' || refund.status === 'canceled';
 
-  // negative amount: a claim's patient AR is the plain sum over its notices
+  // negative so patient AR is a plain sum over a claim's notices
   const refundAmount: Money = {
     value: -((refund.amount ?? 0) / 100),
     currency: (refund.currency ?? 'usd').toUpperCase(),
@@ -223,8 +223,7 @@ const upsertPaymentNoticeForRefund = async (
 
   const desiredNotice: PaymentNotice = {
     resourceType: 'PaymentNotice',
-    // Patient AR = sum of PaymentNotice.amount where status === 'active'. Failed/canceled refunds are
-    // cancelled so they never count; readers must filter on status.
+    // failed refunds are cancelled and must not count toward patient AR
     status: failed ? 'cancelled' : 'active',
     request: claimRequestFor(claim, encounterId),
     created,
@@ -236,59 +235,5 @@ const upsertPaymentNoticeForRefund = async (
     recipient: { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` },
   };
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId, secrets);
-};
-
-// The @oystehr/sdk transaction helper strips ifNoneExist (see rcm produce-outreach-tasks.ts), so the
-// conditional create goes straight to the FHIR API. Raw calls skip the SDK workspace tagging (tag added
-// manually) and the match query is tag-scoped because clinical PaymentNotices share this identifier system.
-const conditionalCreatePaymentNotice = async (
-  notice: PaymentNotice,
-  stripeObjectId: string,
-  secrets: ZambdaInput['secrets']
-): Promise<PaymentNotice | undefined> => {
-  const fhirApiUrl = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
-  const ifNoneExist = [
-    `identifier=${encodeURIComponent(`${STRIPE_PAYMENT_ID_SYSTEM}|${stripeObjectId}`)}`,
-    `_tag=${encodeURIComponent(`${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`)}`,
-  ].join('&');
-
-  const taggedNotice: PaymentNotice = {
-    ...notice,
-    meta: { ...notice.meta, tag: [...(notice.meta?.tag ?? []), BILLING_RESOURCE_TAG] },
-  };
-
-  const res = await fetch(`${fhirApiUrl}/`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${m2mToken}`,
-      'content-type': 'application/fhir+json',
-      accept: 'application/fhir+json',
-    },
-    body: JSON.stringify({
-      resourceType: 'Bundle',
-      type: 'transaction',
-      entry: [{ resource: taggedNotice, request: { method: 'POST', url: 'PaymentNotice', ifNoneExist } }],
-    }),
-  });
-
-  if (res.status === 412) {
-    console.log(`Conditional create matched multiple PaymentNotices for ${stripeObjectId}, skipping`);
-    return undefined;
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Conditional create for PaymentNotice failed: HTTP ${res.status} ${text.slice(0, 300)}`);
-  }
-
-  const bundle = (await res.json()) as { entry?: { resource?: PaymentNotice; response?: { status?: string } }[] };
-  const entry = bundle.entry?.[0];
-  if (!entry?.resource) {
-    throw new Error('Conditional create for PaymentNotice returned no resource in the transaction response');
-  }
-  // 201 = newly created; 200 = matched an existing notice
-  if (entry.response?.status?.startsWith('201')) {
-    return undefined;
-  }
-  return entry.resource;
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
 };
