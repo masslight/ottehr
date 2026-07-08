@@ -9,6 +9,7 @@ import { isEqual } from 'lodash-es';
 import {
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QR_TAG,
+  PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
 } from '../../fhir';
 import {
@@ -19,6 +20,7 @@ import {
   PracticeManagedQuestionnaireItemSchema,
   PracticeManagedQuestionnaireSchema,
 } from '../../types';
+import { slugify } from '../slugify';
 
 const DATA_TYPE_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.dataType;
 const INPUT_WIDTH_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.inputWidth;
@@ -73,6 +75,7 @@ const addPracticeManagedQuestionnaireTag = (
   const existingMeta = questionnaire.meta || { tag: [] };
   const existingTags = existingMeta.tag ?? [];
 
+  // if the tag is already there just return
   if (existingTags.some((t) => isEqual(t, PRACTICE_MANAGED_QUESTIONNAIRE_TAG))) {
     return questionnaire;
   }
@@ -83,6 +86,25 @@ const addPracticeManagedQuestionnaireTag = (
 
   return questionnaire;
 };
+
+export function addPracticeManagedQuestionnaireLatestTag(
+  questionnaire: PracticeManagedQuestionnaire
+): PracticeManagedQuestionnaire;
+export function addPracticeManagedQuestionnaireLatestTag(questionnaire: Questionnaire): Questionnaire {
+  const existingMeta = questionnaire.meta || { tag: [] };
+  const existingTags = existingMeta.tag ?? [];
+
+  // if the tag is already there just return
+  if (existingTags.some((t) => isEqual(t, PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG))) {
+    return questionnaire;
+  }
+
+  questionnaire.meta = {
+    tag: [...existingTags, PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG],
+  };
+
+  return questionnaire;
+}
 
 /**
  * ensures fields ottehr excepts to be present on Questionnaire are indeed there
@@ -96,7 +118,15 @@ export const fhirQuestionnaireToPracticeManaged = (questionnaire: Questionnaire)
   // add keys to questionnaire item
   const managedItems = questionnaire.item?.map(fhirQuestionnaireItemToManaged);
 
-  const result = PracticeManagedQuestionnaireSchema.safeParse({ ...questionnaire, item: managedItems });
+  // if no version is given we give it 1
+  const version = questionnaire.version ?? '1';
+
+  // if no title is provided, safeParse will fail so just temp falling back to form
+  const slug = slugify(questionnaire.title ?? 'form', { maxLength: 60 });
+  // if no url is provided, we will make one
+  const url = questionnaire.url ?? makePracticeManagedUrl(slug);
+
+  const result = PracticeManagedQuestionnaireSchema.safeParse({ ...questionnaire, item: managedItems, version, url });
   if (!result.success) {
     throw new Error(`Questionnaire is missing required fields: ${result.error.message}`);
   } else {
@@ -172,4 +202,8 @@ export const formatQuestionnaireItemValueToString = (item: QuestionnaireResponse
   if (a.valueDate) return a.valueDate;
   if (a.valueDateTime) return a.valueDateTime;
   return '';
+};
+
+export const makePracticeManagedUrl = (slug: string): string => {
+  return `https://ottehr.com/FHIR/Questionnaire/${slug}`;
 };

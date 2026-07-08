@@ -182,6 +182,7 @@ import {
   PracticeManagedQuestionnaireDetailOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
+  PracticeManagedQuestionnaireUpdateOutput,
   PresignUploadUrlResponse,
   ProcedureQuickPickData,
   QuickPickRemoveResponse,
@@ -2881,7 +2882,7 @@ export async function practiceManagedQuestionnaireList(
 export const practiceManagedQuestionnaireUpdate = async (
   oystehr: Oystehr,
   parameters: PracticeManagedQuestionnaireUpdateInput
-): Promise<void> => {
+): Promise<PracticeManagedQuestionnaireUpdateOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID,

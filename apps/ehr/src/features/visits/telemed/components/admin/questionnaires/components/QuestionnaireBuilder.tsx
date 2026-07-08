@@ -8,6 +8,7 @@ import { FC, useCallback, useMemo, useReducer, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
+  makePracticeManagedUrl,
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
   practiceManagedQuestionnaireToFhir,
@@ -39,7 +40,8 @@ const makeCanonicalFields = (
   } else {
     const { title } = input;
     const slug = toSlug(title);
-    return { url: `https://ottehr.com/FHIR/Questionnaire/${slug}`, name: slug };
+    const url = makePracticeManagedUrl(slug);
+    return { name: slug, url };
   }
 };
 
@@ -92,15 +94,19 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
   const questionnaire = useMemo<PracticeManagedQuestionnaire>(() => {
     const canonicalFields = makeCanonicalFields(initial ? { initial } : { title });
     const status: Questionnaire['status'] = initial ? initial.status : 'active';
+    const version = initial?.version ?? '1';
+    const metaTags = initial?.meta?.tag;
 
     const questionnaire: PracticeManagedQuestionnaire = {
       resourceType: 'Questionnaire',
       status,
       ...(initial?.id && { id: initial.id }),
       ...canonicalFields,
+      version,
       title,
       ...(description && { description }),
       item: ensureUniqueLinkIds(items),
+      ...(metaTags && { meta: { tag: metaTags } }),
     };
     return questionnaire;
   }, [initial, title, description, items]);

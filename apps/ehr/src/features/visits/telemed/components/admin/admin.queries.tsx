@@ -68,6 +68,7 @@ import {
   PracticeManagedQuestionnaireDetailOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
+  PracticeManagedQuestionnaireUpdateOutput,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
   UpdateEmCodeInput,
@@ -778,7 +779,7 @@ export const usePracticeManagedQuestionnaireList = (): UseQueryResult<
 
 export const usePracticeManagedQuestionnaireUpdate = (
   questionnaireId?: string
-): UseMutationResult<void, Error, PracticeManagedQuestionnaireUpdateInput> => {
+): UseMutationResult<PracticeManagedQuestionnaireUpdateOutput, Error, PracticeManagedQuestionnaireUpdateInput> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 

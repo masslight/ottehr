@@ -5,6 +5,7 @@ import {
   fhirQuestionnaireToPracticeManaged,
   getAllFhirSearchPages,
   MANAGED_QUESTIONNAIRE_ERROR,
+  PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   PracticeManagedQuestionnaireDetailOutput,
   PracticeManagedQuestionnaireListOutput,
@@ -57,6 +58,7 @@ async function getQuestionnaire(
   const searchParams: SearchParam[] = [
     { name: '_sort', value: 'title' },
     { name: '_tag', value: PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code },
+    { name: '_tag', value: PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG.code },
   ];
 
   if (questionnaireId) searchParams.push({ name: '_id', value: questionnaireId });

@@ -30,17 +30,20 @@ export const QuestionnaireDetail: FC = () => {
 
   const questionnaire = data?.practiceManagedQuestionnaires;
 
-  console.log('questionnaire', questionnaire);
-
   const handleSave = useCallback(
     async (questionnaire: PracticeManagedQuestionnaire) => {
-      await updateQuestionnaire({
+      const { questionnaireId: updatedQuestionnaireId } = await updateQuestionnaire({
         updateType: 'update-questionnaire',
         data: questionnaire,
       });
       enqueueSnackbar('Questionnaire saved', { variant: 'success' });
+
+      // editing creates a new versioned resource, so navigate to its id
+      if (updatedQuestionnaireId && updatedQuestionnaireId !== questionnaireId) {
+        navigate(`/admin/questionnaires/${updatedQuestionnaireId}`, { replace: true });
+      }
     },
-    [updateQuestionnaire]
+    [updateQuestionnaire, navigate, questionnaireId]
   );
 
   if (isFetching) {

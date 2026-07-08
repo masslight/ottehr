@@ -88,6 +88,12 @@ export type PracticeManagedQuestionnaireUpdateInput =
   | PracticeManagedQuestionnaireUpdateStatus
   | PracticeManagedQuestionnaireUpdateQuestionnaire;
 
+// updating a questionnaire's content creates a new resource (a new version), so the
+// caller needs the new id back; updating status patches in place, so there is no new id
+export type PracticeManagedQuestionnaireUpdateOutput = {
+  questionnaireId: string | undefined;
+};
+
 // create managed questionnaire
 export type PracticeManagedQuestionnaireCreateInput = {
   practiceManagedQuestionnaire: PracticeManagedQuestionnaire;

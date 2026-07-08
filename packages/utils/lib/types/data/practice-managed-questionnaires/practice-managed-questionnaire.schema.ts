@@ -21,11 +21,9 @@ export const PracticeManagedQuestionnaireItemSchema = z
   })
   .passthrough();
 
-export const PracticeManagedQuestionnaireSchema = QuestionnaireBaseSchema.omit({ version: true })
-  .extend({
-    item: PracticeManagedQuestionnaireItemSchema.array(),
-  })
-  .passthrough();
+export const PracticeManagedQuestionnaireSchema = QuestionnaireBaseSchema.extend({
+  item: PracticeManagedQuestionnaireItemSchema.array(),
+}).passthrough();
 
 export const PracticeManagedQuestionnaireUpdateStatusSchema = z.object({
   questionnaireId: z.string().uuid(),

@@ -440,6 +440,12 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
+/** Facilitates easier querying of versioned managed questionnaires */
+export const PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG = {
+  system: ottehrCodeSystemUrl('managed-questionnaire-tag'),
+  code: 'latest',
+};
+
 /** meta.tag identifying a QuestionnaireResponse to a practice-managed form. */
 export const PRACTICE_MANAGED_QR_TAG = {
   system: ottehrCodeSystemUrl('questionnaire-response-type'),
