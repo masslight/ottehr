@@ -3,7 +3,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
-  Chip,
   CircularProgress,
   FormControl,
   Grid,
@@ -26,6 +25,7 @@ import {
 import { Organization } from 'fhir/r4b';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { StatusChip } from 'src/components/StatusChip';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useEmployersQuery } from 'src/rcm/state/employers';
 import { CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM } from 'src/rcm/state/employers/employers.api';
@@ -144,8 +144,8 @@ export default function EmployersTab(): ReactElement {
                   const isActiveLabel = isActive ? 'ACTIVE' : 'INACTIVE';
                   const category = employer.type?.[0]?.text || '—';
 
-                  const isCandidSynced = employer.identifier?.some(
-                    (id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM && id.value
+                  const isCandidSynced = Boolean(
+                    employer.identifier?.find((id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM)?.value
                   );
 
                   return (
@@ -165,38 +165,12 @@ export default function EmployersTab(): ReactElement {
                       </TableCell>
                       <TableCell align="left">
                         {isCandidSynced ? (
-                          <Chip
-                            size="small"
-                            label="SYNCED"
-                            sx={{
-                              borderRadius: '4px',
-                              border: 'none',
-                              fontWeight: 500,
-                              fontSize: '12px',
-                              background: '#C8E6C9',
-                              color: '#1B5E20',
-                              padding: '0 2px',
-                              height: '18px',
-                            }}
-                            variant="outlined"
-                          />
+                          <StatusChip status="Synced" style="green" />
                         ) : (
                           <Tooltip title="This employer has not been synced to Candid Health">
-                            <Chip
-                              size="small"
-                              label="NOT SYNCED"
-                              sx={{
-                                borderRadius: '4px',
-                                border: 'none',
-                                fontWeight: 500,
-                                fontSize: '12px',
-                                background: '#FFF3E0',
-                                color: '#E65100',
-                                padding: '0 2px',
-                                height: '18px',
-                              }}
-                              variant="outlined"
-                            />
+                            <span>
+                              <StatusChip status="Not Synced" style="orange" />
+                            </span>
                           </Tooltip>
                         )}
                       </TableCell>
