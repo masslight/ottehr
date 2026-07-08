@@ -28,7 +28,6 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
-  CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_PROCESS_PRIORITY,
@@ -70,6 +69,9 @@ import {
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
 } from '../../../src/billing/shared';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
 const clinicalResources: {
   encounter: Encounter;
