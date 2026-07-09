@@ -1,9 +1,10 @@
-import { Close as CloseIcon } from '@mui/icons-material';
+import { Close as CloseIcon, Save as SaveIcon } from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -448,7 +449,7 @@ export function AddCoverageDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 680, maxWidth: '95vw' } }}>
       <DialogTitle sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        Add insurance coverage
+        <Typography variant="h5">Add Insurance Coverage</Typography>
         <IconButton size="small" onClick={onClose} aria-label="Close">
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -467,7 +468,12 @@ export function AddCoverageDialog({
         <Button onClick={onClose} sx={{ color: 'text.secondary' }}>
           Cancel
         </Button>
-        <Button variant="contained" onClick={() => void handleSave()} disabled={saving}>
+        <Button
+          variant="contained"
+          startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+          onClick={() => void handleSave()}
+          disabled={saving}
+        >
           {saving ? 'Saving...' : 'Save coverage'}
         </Button>
       </DialogActions>

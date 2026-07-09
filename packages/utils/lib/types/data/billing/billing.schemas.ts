@@ -7,7 +7,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
-import { taxIdRegex, zipRegex } from '../../../validation';
+import { fullZipRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -203,10 +203,7 @@ export const SaveServiceFacilityInputSchema = z.object({
   addressLine2: z.string().trim().optional(),
   city: nonEmptyString,
   state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
-  zip: z
-    .string()
-    .trim()
-    .regex(/^\d{9}$/, 'ZIP must be 9 digits'),
+  zip: z.string().trim().regex(fullZipRegex, 'ZIP code must be 5 digits, with a 4-digit extension'),
   npi: z
     .string()
     .trim()

@@ -13,14 +13,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Default to a plain <input> so most tests don't fight react-imask. One test
 // flips this back to the real component to exercise the ZIP unmask round-trip.
 let useRealInputMask = false;
-vi.mock('../../src/components/InputMask', async () => {
+vi.mock('ui-components', async () => {
   const React = await import('react');
-  const Real = await vi.importActual<typeof import('../../src/components/InputMask')>('../../src/components/InputMask');
+  const Real = await vi.importActual<typeof import('ui-components')>('../../src/components/InputMask');
   return {
-    default: React.forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { unmask?: boolean }>(
+    ...Real,
+    InputMask: React.forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { unmask?: boolean }>(
       ({ onChange, value, unmask: _unmask, ...rest }, ref) => {
         if (useRealInputMask) {
-          const RealComponent = Real.default as unknown as React.ComponentType<any>;
+          const RealComponent = Real.InputMask as unknown as React.ComponentType<any>;
           return <RealComponent {...rest} value={value} onChange={onChange} ref={ref} unmask={_unmask} />;
         }
         return <input ref={ref} {...rest} onChange={onChange} value={value as string | undefined} />;
