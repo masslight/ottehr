@@ -30,6 +30,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { fetchErxPharmacies } from '../../../shared/erx';
 import { getEncounterSignatures } from '../../../shared/pdf/get-encounter-signatures';
 import { getUpcomingFollowUps } from '../../../shared/pdf/get-upcoming-follow-ups';
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
@@ -160,6 +161,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Check if we should skip making visit note visible in patient portal
       const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
+      const erxPharmacies = await fetchErxPharmacies(oystehr, additionalChartData?.prescribedMedications);
+
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
         {
@@ -174,6 +177,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           appointmentPackage: visitResources,
           questionnaireResponse: visitResources.questionnaireResponse,
           upcomingFollowUps,
+          erxPharmacies,
           signatures,
         },
         secrets,

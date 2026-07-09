@@ -767,6 +767,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-ssn': patientFieldPaths.ssn,
   'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
   'patient-no-email': patientFieldPaths.noEmail,
+  'patient-has-medicaid': patientFieldPaths.patientHasMedicaid,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'insurance-additional-information': coverageFieldPaths.additionalInformation,

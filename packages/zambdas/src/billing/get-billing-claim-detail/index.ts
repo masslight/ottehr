@@ -26,6 +26,7 @@ import {
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
+import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_TAG_SYSTEM,
   claimHasRealCoverage,
@@ -209,6 +210,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     serviceFacilityAddress: formatAddress(facility?.address),
     serviceFacilityAddressParts: toAddressParts(facility?.address),
     serviceFacilityNpi: facility ? getNPI(facility) ?? '' : '',
+    serviceFacilityClia: facility ? getCLIA(facility) ?? '' : '',
     diagnoses: (claim.diagnosis ?? []).map((dx) => ({
       sequence: dx.sequence,
       code: dx.diagnosisCodeableConcept?.coding?.[0]?.code ?? '',

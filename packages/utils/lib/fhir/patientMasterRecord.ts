@@ -8,6 +8,7 @@ import {
   PATIENT_FILLING_OUT_AS_URL,
   PATIENT_GENDER_IDENTITY_DETAILS_URL,
   PATIENT_GENDER_IDENTITY_URL,
+  PATIENT_HAS_MEDICAID_URL,
   PATIENT_HEARING_IMPAIRED_RELAY_SERVICE_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -93,6 +94,7 @@ export const patientFieldPaths = {
   deceasedNote: `Patient/extension/${PATIENT_DECEASED_NOTE_URL}`,
   preferredCommunicationMethod: `Patient/extension/${PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL}`,
   noEmail: `Patient/extension/${PATIENT_NO_EMAIL_URL}`,
+  patientHasMedicaid: `Patient/extension/${PATIENT_HAS_MEDICAID_URL}`,
 };
 
 export const coverageFieldPaths = {
@@ -201,6 +203,10 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
   },
   patientNoEmail: {
     url: PATIENT_NO_EMAIL_URL,
+    valueType: 'valueBoolean',
+  },
+  patientHasMedicaid: {
+    url: PATIENT_HAS_MEDICAID_URL,
     valueType: 'valueBoolean',
   },
 };
