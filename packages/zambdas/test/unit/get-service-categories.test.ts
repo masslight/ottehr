@@ -10,6 +10,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   buildCatalog,
+  buildFhirCatalog,
   filterByOfferedCodes,
   getGroupOfferedCodes,
 } from '../../src/patient/booking/get-service-categories/helpers';
@@ -127,6 +128,49 @@ describe('buildCatalog', () => {
     const result = buildCatalog(fhir);
     const fhirNames = result.filter((r) => r.source === 'fhir').map((r) => r.name);
     expect(fhirNames).toEqual(['Acne', 'Botox', 'Massage', 'Zenith Service']);
+  });
+});
+
+// ── buildFhirCatalog tests ───────────────────────────────────────────────────
+
+describe('buildFhirCatalog', () => {
+  it('returns an empty array when given no FHIR resources', () => {
+    expect(buildFhirCatalog([])).toEqual([]);
+  });
+
+  it('converts each FHIR resource to a record tagged source: fhir', () => {
+    const result = buildFhirCatalog([makeFhirCategory('wellness', 'Wellness')]);
+    expect(result.length).toBe(1);
+    expect(result[0].code).toBe('wellness');
+    expect(result[0].source).toBe('fhir');
+    expect(result[0].id).toBe('hs-wellness');
+  });
+
+  it('does not include any BOOKING_CONFIG entries', () => {
+    const result = buildFhirCatalog([makeFhirCategory('wellness', 'Wellness')]);
+    for (const code of BOOKING_CONFIG_CODES) {
+      expect(result.find((r) => r.code === code)).toBeUndefined();
+    }
+  });
+
+  it('sorts entries alphabetically by name', () => {
+    const result = buildFhirCatalog([
+      makeFhirCategory('zenith', 'Zenith Service'),
+      makeFhirCategory('botox', 'Botox'),
+      makeFhirCategory('acne', 'Acne'),
+    ]);
+    expect(result.map((r) => r.name)).toEqual(['Acne', 'Botox', 'Zenith Service']);
+  });
+
+  it('skips malformed entries but keeps well-formed siblings', () => {
+    const bad: HealthcareService = {
+      resourceType: 'HealthcareService',
+      id: 'bad',
+      active: true,
+      meta: { tag: [SERVICE_CATEGORY_TAG] },
+    };
+    const result = buildFhirCatalog([bad, makeFhirCategory('wellness', 'Wellness')]);
+    expect(result.map((r) => r.code)).toEqual(['wellness']);
   });
 });
 
