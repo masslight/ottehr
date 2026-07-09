@@ -1,6 +1,4 @@
-# External Labs — Component & Zambda Flow Map
-
-## External Labs Module Overview
+# External Labs Module Overview & Flow
 
 The External Labs Module is responsible for lab ordering flows and result flows. The module is a combination of **Ottehr** (frontend EHR) UI, **zambdas** (frontend EHR backed) and **Oystehr** (services backend) calls. The data layer consists of various FHIR resources including (but not limited to): Patient, ServiceRequest, DiagnosticReport, Observation, Location, Organization, Task, Coverage, Account, and DocumentReference.
 
@@ -131,10 +129,10 @@ Labs will occasionally send results that do not correspond to an order number/re
 At a high level:
 
 1. The Oystehr Lab Service receives an unsolicited result and writes the appropriate FHIR resources.
-2. The `handle-lab-order` zambda is triggered.
+2. The `handle-lab-result` zambda is triggered.
 3. A new task to match the result to a patient is created and is available in the `<UnsolicitedResultsInbox>`
 4. A provider matches the result to an existing order if applicable, or to a patient. If no match can be made, the provider rejects the result.
-5. The `handle-lab-order` zambda is triggered again due to the update. Task resources are updated as necessary, and the result form PDF is created.
+5. The `handle-lab-result` zambda is triggered again due to the update. Task resources are updated as necessary, and the result form PDF is created.
 6. Provider reviews the result.
 
 ## Ordering via Lab Sets
@@ -231,7 +229,7 @@ Ottehr makes available a fake lab capable of receiving orders and transmitting r
 
 ---
 
-## Flow 1: External Lab Orders (from `ExternalLabOrdersListPage`)
+## Flow: Solicited External Lab Orders and Results (from `ExternalLabOrdersListPage`)
 
 ### Pages
 
@@ -309,7 +307,7 @@ Ottehr makes available a fake lab capable of receiving orders and transmitting r
 
 ---
 
-## Flow 2: Unsolicited Results Inbox (from `UnsolicitedResultsInbox`)
+## Flow: Unsolicited Results Inbox (from `UnsolicitedResultsInbox`)
 
 ### Pages
 
@@ -367,7 +365,7 @@ The following components power the **patient record** lab view (entry point: `Pa
 
 ## Zambda Directory Reference
 
-All external-lab zambdas live under `packages/zambdas/src/ehr/lab/external/`:
+HTTP zambdas for external lab ordering and unsolicited results live under `packages/zambdas/src/ehr/lab/external/`:
 
 ```
 packages/zambdas/src/ehr/lab/external/
@@ -378,6 +376,22 @@ packages/zambdas/src/ehr/lab/external/
 ├── get-unsolicited-results-resources/
 ├── submit-lab-order/
 └── update-lab-order-resources/
+```
+
+Lab sets admin zambdas live under `packages/zambdas/src/ehr/lab/lab-sets/`:
+
+```
+packages/zambdas/src/ehr/lab/lab-sets/
+├── admin-add-lab-set/
+├── admin-get-lab-sets/
+└── admin-update-lab-set/
+```
+
+The results-handling subscription zambda lives separately:
+
+```
+packages/zambdas/src/subscriptions/diagnostic-report/
+└── handle-lab-result/
 ```
 
 ---
