@@ -9,10 +9,11 @@ Before running any setup scripts, complete these two manual steps:
 Set the S3 bucket that will store Terraform state for this project:
 
 ```hcl
-bucket = "<your-project>-terraform-state"
-region = "us-east-1"
-profile = "hosted-ottehr"
-key    = "terraform.tfstate"
+bucket       = "<your-project>-terraform-state"
+region       = "us-east-1"
+profile      = "hosted-ottehr"
+key          = "terraform.tfstate"
+use_lockfile = true
 ```
 
 Use a unique bucket name per project (e.g. `{project-name}-terraform-state`). The bucket must already exist in AWS.
