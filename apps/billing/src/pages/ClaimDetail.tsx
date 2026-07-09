@@ -1630,6 +1630,7 @@ function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): R
                 <TableCell sx={thSx}>Payer</TableCell>
                 <TableCell sx={thSx}>Status</TableCell>
                 <TableCell sx={thSx}>ERA Status</TableCell>
+                <TableCell sx={thSx}>Adjustments</TableCell>
                 <TableCell sx={thSx} align="right">
                   Allowed
                 </TableCell>
@@ -1639,34 +1640,21 @@ function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): R
                 <TableCell sx={thSx} align="right">
                   Patient Resp
                 </TableCell>
-                <TableCell sx={thSx}>Adjustments</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {remits.map((remit) => (
                 <TableRow key={remit.claimResponseId}>
-                  <TableCell>{formatDate(remit.date) || '—'}</TableCell>
-                  <TableCell>{remit.payerName || '—'}</TableCell>
+                  <TableCell>{formatDate(remit.date) || '-'}</TableCell>
+                  <TableCell>{remit.payerName || '-'}</TableCell>
+                  <TableCell>{remit.status || '-'}</TableCell>
                   <TableCell>
-                    {remit.status ? (
-                      <Chip
-                        label={remit.status}
-                        color={remit.status === 'complete' ? 'success' : 'warning'}
-                        variant="outlined"
-                        size="small"
-                        sx={{ borderRadius: '4px' }}
-                      />
-                    ) : (
-                      '—'
-                    )}
+                    {remit.eraStatusCode ? ERA_STATUS_LABELS[remit.eraStatusCode] ?? remit.eraStatusCode : '-'}
                   </TableCell>
-                  <TableCell>
-                    {remit.eraStatusCode ? ERA_STATUS_LABELS[remit.eraStatusCode] ?? remit.eraStatusCode : '—'}
-                  </TableCell>
+                  <TableCell>{remit.adjustments.map(formatAdjustment).join(', ') || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(remit.allowed)}</TableCell>
                   <TableCell align="right">{formatCurrency(remit.paid)}</TableCell>
                   <TableCell align="right">{formatCurrency(remit.patientResp)}</TableCell>
-                  <TableCell>{remit.adjustments.map(formatAdjustment).join(', ') || '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
