@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, ClaimResponseItemAdjudication } from 'fhir/r4b';
+import { ClaimRemitAdjustment } from 'utils';
 import { fetchAllPages } from '../shared';
 import { ERA_ID_SYSTEM, getEraIdValue } from './shared';
 
@@ -67,6 +68,18 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
     allowed,
     patientResp,
   };
+}
+
+// CAS adjustments as written by both ERA converters: category = group code (system
+// X12_ADJUSTMENT_GROUP_SYSTEM), reason = CARC reason code, amount = the adjusted amount.
+export function extractRemitAdjustments(claimResponse: ClaimResponse): ClaimRemitAdjustment[] {
+  return allAdjudications(claimResponse)
+    .filter((adj) => adj.category?.coding?.[0]?.system === X12_ADJUSTMENT_GROUP_SYSTEM)
+    .map((adj) => ({
+      groupCode: adjudicationCode(adj) ?? '',
+      reasonCode: adj.reason?.coding?.[0]?.code ?? '',
+      amount: adj.amount?.value ?? 0,
+    }));
 }
 
 export function sortClaimResponsesByRecency(claimResponses: ClaimResponse[]): ClaimResponse[] {

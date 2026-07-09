@@ -199,6 +199,8 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
+// CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
+export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
 
 export function getEraIdValue(resource: { identifier?: Identifier[] }): string | undefined {
   return resource.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value;

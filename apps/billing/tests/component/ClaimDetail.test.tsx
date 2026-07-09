@@ -104,6 +104,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   patientResp: 0,
   patientPaid: 0,
   balance: 0,
+  remits: [],
   otherClaims: [],
   tags: [],
 });
@@ -117,6 +118,61 @@ function renderDetail(): void {
     </MemoryRouter>
   );
 }
+
+describe('ClaimDetail — remits', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('renders remit rows with payment details and adjustment codes', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.insurancePayer),
+      remits: [
+        {
+          claimResponseId: 'cr-1',
+          date: '2026-07-08T18:20:39.029Z',
+          payerName: 'Test Payer',
+          status: 'complete',
+          eraStatusCode: '1',
+          allowed: 80,
+          paid: 60,
+          patientResp: 20,
+          adjustments: [
+            {
+              groupCode: 'PR',
+              reasonCode: '1',
+              amount: 15,
+            },
+            {
+              groupCode: 'CO',
+              reasonCode: '45',
+              amount: 20,
+            },
+          ],
+        },
+      ],
+    });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+
+    expect(await screen.findByText('07/08/2026')).toBeInTheDocument();
+    expect(screen.getByText('Test Payer')).toBeInTheDocument();
+    expect(screen.getByText('complete')).toBeInTheDocument();
+    expect(screen.getByText('Primary')).toBeInTheDocument();
+    expect(screen.getByText('$60.00')).toBeInTheDocument();
+    expect(screen.getByText('PR-1 $15.00, CO-45 $20.00')).toBeInTheDocument();
+  });
+
+  it('shows the empty state when the claim has no remits', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+
+    expect(await screen.findByText('No remits yet')).toBeInTheDocument();
+  });
+});
 
 describe('ClaimDetail — submit claim', () => {
   beforeEach(() => {

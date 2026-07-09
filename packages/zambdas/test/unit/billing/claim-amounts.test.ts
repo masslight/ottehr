@@ -4,6 +4,7 @@ import {
   ADJUDICATION_CODES,
   countEraClaims,
   extractClaimResponseAmounts,
+  extractRemitAdjustments,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
   sortClaimResponsesByRecency,
@@ -30,8 +31,21 @@ const adjudication = (
   },
 });
 
-const casAdjustment = (group: string, amount: number): ClaimResponseItemAdjudication =>
-  adjudication(group, amount, X12_ADJUSTMENT_GROUP_SYSTEM);
+const casAdjustment = (group: string, amount: number, reasonCode?: string): ClaimResponseItemAdjudication => ({
+  ...adjudication(group, amount, X12_ADJUSTMENT_GROUP_SYSTEM),
+  ...(reasonCode
+    ? {
+        reason: {
+          coding: [
+            {
+              system: 'https://x12.org/codes/claim-adjustment-reason-codes',
+              code: reasonCode,
+            },
+          ],
+        },
+      }
+    : {}),
+});
 
 const claimResponse = (
   created: string,
@@ -169,6 +183,61 @@ const processEraClaimResponse = (created = '2026-01-01'): ClaimResponse =>
     ],
     addItemAdjudications: [[casAdjustment('PR', 5)]],
   });
+
+describe('extractRemitAdjustments', () => {
+  it('returns CAS adjustments with group, reason, and amount, skipping payment adjudications', () => {
+    const cr = claimResponse('2026-01-01', {
+      itemAdjudications: [
+        [
+          adjudication('charge', 100),
+          adjudication(ADJUDICATION_CODES.PAID, 60),
+          adjudication(ADJUDICATION_CODES.ALLOWED, 80),
+          casAdjustment('PR', 15, '1'),
+          casAdjustment('CO', 20, '45'),
+        ],
+      ],
+      addItemAdjudications: [[casAdjustment('PR', 5, '3')]],
+    });
+    expect(extractRemitAdjustments(cr)).toEqual([
+      {
+        groupCode: 'PR',
+        reasonCode: '1',
+        amount: 15,
+      },
+      {
+        groupCode: 'CO',
+        reasonCode: '45',
+        amount: 20,
+      },
+      {
+        groupCode: 'PR',
+        reasonCode: '3',
+        amount: 5,
+      },
+    ]);
+  });
+
+  it('returns an empty reason code when the adjustment carries none', () => {
+    const cr = claimResponse('2026-01-01', {
+      itemAdjudications: [[casAdjustment('OA', 10)]],
+    });
+    expect(extractRemitAdjustments(cr)).toEqual([
+      {
+        groupCode: 'OA',
+        reasonCode: '',
+        amount: 10,
+      },
+    ]);
+  });
+
+  it('returns empty when the response has no CAS adjustments', () => {
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60)]],
+    });
+    expect(extractRemitAdjustments(cr)).toEqual([]);
+  });
+});
 
 describe('extractClaimResponseAmounts', () => {
   it('reads paid from the total, allowed and PR from item adjudications (Claim.MD shape)', () => {

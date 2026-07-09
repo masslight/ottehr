@@ -41,6 +41,7 @@ import {
   BillingTag,
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimDetailResponse,
+  ClaimRemitAdjustment,
   ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
@@ -78,7 +79,7 @@ import {
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
-import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
+import { buildAddressInput, formatCurrency, formatDate, splitDisplayName } from '../utils/format';
 import { validateServiceFacilityFields } from '../utils/validation';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
@@ -483,7 +484,7 @@ export default function ClaimDetail(): ReactElement {
           <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
             <DiagnosesSection claim={claim} updateResource={updateResource} />
             <ServiceLinesSection claim={claim} updateResource={updateResource} />
-            <ReadOnlySection title="Remits">No remits yet</ReadOnlySection>
+            <RemitsSection remits={claim.remits} />
             <ReadOnlySection title="Insurance Payments">No insurance payments yet</ReadOnlySection>
           </TabPanel>
 
@@ -1600,6 +1601,79 @@ function OtherClaimsSection({
         </Table>
       </TableContainer>
     </Card>
+  );
+}
+
+// CLP02 claim status codes worth naming; anything else renders as the raw code
+const ERA_STATUS_LABELS: Record<string, string> = {
+  '1': 'Primary',
+  '2': 'Secondary',
+  '3': 'Tertiary',
+  '4': 'Denied',
+  '22': 'Reversal',
+};
+
+const formatAdjustment = (adj: ClaimRemitAdjustment): string =>
+  `${adj.groupCode}${adj.reasonCode ? `-${adj.reasonCode}` : ''} ${formatCurrency(adj.amount)}`;
+
+function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): ReactElement {
+  return (
+    <ReadOnlySection title="Remits">
+      {remits.length === 0 ? (
+        'No remits yet'
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>Date</TableCell>
+                <TableCell sx={thSx}>Payer</TableCell>
+                <TableCell sx={thSx}>Status</TableCell>
+                <TableCell sx={thSx}>ERA Status</TableCell>
+                <TableCell sx={thSx} align="right">
+                  Allowed
+                </TableCell>
+                <TableCell sx={thSx} align="right">
+                  Paid
+                </TableCell>
+                <TableCell sx={thSx} align="right">
+                  Patient Resp
+                </TableCell>
+                <TableCell sx={thSx}>Adjustments</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {remits.map((remit) => (
+                <TableRow key={remit.claimResponseId}>
+                  <TableCell>{formatDate(remit.date) || '—'}</TableCell>
+                  <TableCell>{remit.payerName || '—'}</TableCell>
+                  <TableCell>
+                    {remit.status ? (
+                      <Chip
+                        label={remit.status}
+                        color={remit.status === 'complete' ? 'success' : 'warning'}
+                        variant="outlined"
+                        size="small"
+                        sx={{ borderRadius: '4px' }}
+                      />
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {remit.eraStatusCode ? ERA_STATUS_LABELS[remit.eraStatusCode] ?? remit.eraStatusCode : '—'}
+                  </TableCell>
+                  <TableCell align="right">{formatCurrency(remit.allowed)}</TableCell>
+                  <TableCell align="right">{formatCurrency(remit.paid)}</TableCell>
+                  <TableCell align="right">{formatCurrency(remit.patientResp)}</TableCell>
+                  <TableCell>{remit.adjustments.map(formatAdjustment).join(', ') || '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </ReadOnlySection>
   );
 }
 

@@ -25,12 +25,19 @@ import {
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
+import {
+  extractClaimResponseAmounts,
+  extractRemitAdjustments,
+  fetchClaimResponsesByClaimIds,
+  sortClaimResponsesByRecency,
+  summarizeClaimPayments,
+} from '../claim-amounts';
 import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_TAG_SYSTEM,
   claimHasRealCoverage,
   createBillingClient,
+  ERA_STATUS_CODE_EXTENSION,
   fhirName,
   findRef,
   formatAddress,
@@ -126,24 +133,41 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       | undefined;
   }
 
-  // Resolve primary and secondary payers from the Oystehr payer list
+  // Other claims via Person lookup, plus this claim's ERA adjudications
+  const [otherClaims, claimResponsesByClaimId] = await Promise.all([
+    fetchOtherClaims(oystehr, patient?.id, claimId),
+    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
+  ]);
+  const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
+
+  // Resolve primary, secondary, and remit payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [
     claim.insurer?.reference,
     secondaryCoverage?.payor?.[0]?.reference,
+    ...claimResponses.map((cr) => cr.insurer?.reference),
   ]);
   const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
   const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
     ? payersByRef.get(secondaryCoverage.payor[0].reference)
     : undefined;
 
-  // Other claims via Person lookup, plus this claim's ERA adjudications
-  const [otherClaims, claimResponsesByClaimId] = await Promise.all([
-    fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
-  ]);
-
   const billed = claim.total?.value ?? 0;
-  const payments = summarizeClaimPayments(claimResponsesByClaimId.get(claimId) ?? [], billed);
+  const payments = summarizeClaimPayments(claimResponses, billed);
+  const remits = [...claimResponses].reverse().map((cr) => {
+    const amounts = extractClaimResponseAmounts(cr);
+    const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
+    return {
+      claimResponseId: cr.id ?? '',
+      date: cr.created ?? '',
+      payerName: payer?.name ?? cr.insurer?.display ?? '',
+      status: cr.outcome ?? '',
+      eraStatusCode: cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString ?? '',
+      allowed: amounts.allowed ?? 0,
+      paid: amounts.paid,
+      patientResp: amounts.patientResp ?? 0,
+      adjustments: extractRemitAdjustments(cr),
+    };
+  });
   const status = getClaimStatus(claim);
   const patientAddr = patient?.address?.[0];
 
@@ -234,6 +258,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
     balance: payments.balance,
+    remits,
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

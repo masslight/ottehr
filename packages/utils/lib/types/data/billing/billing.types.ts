@@ -242,6 +242,28 @@ export interface PatientDetailResponse {
   >[];
 }
 
+// One X12 CAS adjustment carried on a remit: group code (PR/CO/OA/PI) + CARC reason code
+// (e.g. 1 = deductible, 2 = coinsurance, 3 = copay, 45 = exceeds fee schedule).
+export interface ClaimRemitAdjustment {
+  groupCode: string;
+  reasonCode: string;
+  amount: number;
+}
+
+// One ERA adjudication (ClaimResponse) posted against a claim.
+export interface ClaimRemit {
+  claimResponseId: string;
+  date: string;
+  payerName: string;
+  status: string;
+  // CLP02 claim status code from the ERA (1 = primary, 2 = secondary, 4 = denied, 22 = reversal)
+  eraStatusCode: string;
+  allowed: number;
+  paid: number;
+  patientResp: number;
+  adjustments: ClaimRemitAdjustment[];
+}
+
 export interface ClaimDetailResponse {
   id: string;
   // Clinical Encounter this claim was generated from (from the claim's claim-encounter-id identifier).
@@ -328,6 +350,7 @@ export interface ClaimDetailResponse {
   patientResp: number;
   patientPaid: number;
   balance: number;
+  remits: ClaimRemit[];
   otherClaims: {
     id: string;
     status: string;
