@@ -42,15 +42,18 @@ async function performEffect(oystehr: Oystehr, params: ImportEraParams): Promise
   // oystehr creates the era resources untagged. don't throw on failure
   try {
     const untaggedResources = untaggedEraResources(bundle);
-    await Promise.all(
-      untaggedResources.map((resource) =>
-        oystehr.fhir.patch({
-          resourceType: resource.resourceType,
-          id: resource.id ?? '',
-          operations: [addBillingTagOperation(resource)],
-        })
-      )
-    );
+    const CONCURRENCY = 10;
+    for (let i = 0; i < untaggedResources.length; i += CONCURRENCY) {
+      await Promise.all(
+        untaggedResources.slice(i, i + CONCURRENCY).map((resource) =>
+          oystehr.fhir.patch({
+            resourceType: resource.resourceType,
+            id: resource.id!,
+            operations: [addBillingTagOperation(resource)],
+          })
+        )
+      );
+    }
     console.log(`Tagged ${untaggedResources.length} imported ERA resource(s)`);
   } catch (error) {
     console.error('Failed to tag imported ERA resources:', error);
