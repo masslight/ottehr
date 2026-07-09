@@ -345,21 +345,58 @@ export default function AddPatient(): JSX.Element {
       .sort((a, b) => a.display.localeCompare(b.display));
   }, [mergedSourcedCategories, visitType]);
 
+  // Symmetric filter on the visit-type dropdown: when a service category is
+  // picked first, only offer visit types the category actually supports. This
+  // is what makes the "pick service first, then modality" flow discoverable,
+  // and — combined with the invalidation effects below — prevents the form
+  // from silently swapping the user's service pick when they later change
+  // visit type. With no service category picked (or one we can't find in the
+  // merged catalog) we fall back to the full option list.
+  const filteredVisitTypes = useMemo(() => {
+    const picked = serviceCategory
+      ? mergedSourcedCategories.find((sc) => sc.category.code === serviceCategory)
+      : undefined;
+    if (!picked) return BOOKING_CONFIG.ehrBookingOptions;
+    return BOOKING_CONFIG.ehrBookingOptions.filter((opt) => {
+      const ctx = visitTypeContext[opt.id as VisitType];
+      if (!ctx) return true;
+      return serviceCategorySupportsContext(picked, ctx.mode, ctx.visitCtx);
+    });
+  }, [mergedSourcedCategories, serviceCategory]);
+
   // When visit type changes, drop a stale category that's no longer offered.
   // Keep the selection if it's still valid (avoid yanking the user's choice
   // when they switch between two visit types that share a category). When
-  // the selection becomes invalid, fall back to the first remaining filtered
-  // option — NOT to `defaultServiceCategory`, which is itself just "the only
-  // BOOKING_CONFIG entry" when there's exactly one and may also be filtered
-  // out by the visit-type context. Resetting to a filtered-out value would
-  // leave the dropdown displaying nothing usable while the form sat in an
-  // invalid state.
+  // the selection becomes invalid, CLEAR it rather than substituting the
+  // first remaining option — silently swapping the user's service pick was
+  // the confusing behavior reported in OTR-2721 (pick "Crystal Therapy",
+  // pick In-person walk-in → service jumps to "Acne Facial"). Clearing
+  // forces a re-pick and makes the constraint visible.
+  //
+  // Skip when `defaultServiceCategory` locks the dropdown: there's exactly
+  // one BOOKING_CONFIG entry, it's pre-selected, and the dropdown is
+  // disabled — clearing would strand the form in an invalid state the user
+  // can't recover from. That single BOOKING_CONFIG entry gets the empty-
+  // arrays-supports-all pass anyway, so it won't be filtered out in practice.
   useEffect(() => {
-    if (!serviceCategory) return;
+    if (!serviceCategory || defaultServiceCategory !== '') return;
     if (!filteredServiceCategories.some((sc) => sc.code === serviceCategory)) {
-      setServiceCategory(filteredServiceCategories[0]?.code ?? '');
+      setServiceCategory('');
     }
   }, [filteredServiceCategories, serviceCategory]);
+
+  // Mirror of the effect above: when the service-category pick makes the
+  // current visit type unsupported, clear the visit type (and any slot tied
+  // to it). Together these guarantee the form never silently swaps one of
+  // the two anchor selections in response to a change in the other — the
+  // invalidated selection is cleared, and the user re-picks.
+  useEffect(() => {
+    if (!visitType) return;
+    if (!filteredVisitTypes.some((opt) => opt.id === visitType)) {
+      setVisitType(undefined);
+      setSlot(undefined);
+    }
+  }, [filteredVisitTypes, visitType]);
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
@@ -636,7 +673,7 @@ export default function AddPatient(): JSX.Element {
                       setVisitType(event.target.value as VisitType);
                     }}
                   >
-                    {BOOKING_CONFIG.ehrBookingOptions.map((option) => (
+                    {filteredVisitTypes.map((option) => (
                       <MenuItem value={option.id} key={option.id}>
                         {option.label}
                       </MenuItem>
