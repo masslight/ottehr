@@ -31,14 +31,12 @@ import {
   Reference,
   RelatedPerson,
   Resource,
-  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
   BILLING_RESOURCE_TAG,
-  buildRulesEngineKickoffTask,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   ChargeItemDefinitionDefault,
   claimStatusValuesToTags,
@@ -97,6 +95,7 @@ import {
   ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
+  kickoffRulesEngine,
   payerDisplay,
   prepareCopy,
   prepareWorkingCopy,
@@ -186,6 +185,8 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
 
   const response = await performEffect(billingOystehr, cvo, agent);
+  // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
+  await kickoffRulesEngine(billingOystehr, response.claimId, params.secrets);
   return { statusCode: 200, body: JSON.stringify(response) };
 }
 
@@ -545,15 +546,6 @@ export async function performEffect(
   if (!createdClaim || !createdClaim.id) {
     console.log('Claim not created');
     throw InternalError;
-  }
-
-  // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
-  // The claim is already committed, so a kickoff failure must not fail the request; the engine can
-  // be run on demand via run-billing-rules-engine.
-  try {
-    await billingOystehr.fhir.create<Task>(buildRulesEngineKickoffTask(createdClaim.id));
-  } catch (error) {
-    console.error(`Failed to enqueue rules-engine Task for Claim/${createdClaim.id}:`, error);
   }
 
   return { claimId: createdClaim.id };

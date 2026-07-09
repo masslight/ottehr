@@ -16,8 +16,19 @@ export const RULE_OPERATORS = ['eq', 'neq', 'in', 'notIn', 'contains', 'notConta
 export type RuleOperator = (typeof RULE_OPERATORS)[number];
 export const RuleOperatorSchema = z.enum(RULE_OPERATORS);
 
+// Operator groupings shared by the evaluator and the rule-builder UI.
+export const NO_VALUE_OPERATORS: readonly RuleOperator[] = ['exists', 'notExists'];
+export const MULTI_VALUE_OPERATORS: readonly RuleOperator[] = ['in', 'notIn'];
+export const operatorNeedsValue = (op: RuleOperator): boolean => !NO_VALUE_OPERATORS.includes(op);
+export const operatorIsMultiValue = (op: RuleOperator): boolean => MULTI_VALUE_OPERATORS.includes(op);
+
 export const RULE_LOGIC = ['and', 'or'] as const;
 export type RuleLogic = (typeof RULE_LOGIC)[number];
+
+// Discriminator values, named so consumers (schemas, evaluator, UI) don't sprinkle raw strings.
+export const RULE_CONDITION_TYPE = { all: 'all', field: 'field', group: 'group' } as const;
+export const RULE_ACTION_TYPE = { setField: 'setField', applyTag: 'applyTag', noop: 'noop' } as const;
+export const RULE_OUTCOME_TYPE = { actions: 'actions', conditional: 'conditional', noop: 'noop' } as const;
 
 // A condition's comparison value: a scalar (eq/neq/contains), a list (in/notIn), or absent
 // (exists/notExists). The evaluator coerces per operator.
@@ -32,15 +43,15 @@ export type RuleCondition =
 
 export const RuleConditionSchema: z.ZodType<RuleCondition> = z.lazy(() =>
   z.discriminatedUnion('type', [
-    z.object({ type: z.literal('all') }),
+    z.object({ type: z.literal(RULE_CONDITION_TYPE.all) }),
     z.object({
-      type: z.literal('field'),
+      type: z.literal(RULE_CONDITION_TYPE.field),
       field: z.string().min(1),
       operator: RuleOperatorSchema,
       value: ConditionValueSchema.optional(),
     }),
     z.object({
-      type: z.literal('group'),
+      type: z.literal(RULE_CONDITION_TYPE.group),
       logic: z.enum(RULE_LOGIC),
       conditions: z.array(RuleConditionSchema),
     }),
@@ -62,9 +73,9 @@ const tagNameSchema = z
   .transform((tag) => (tag.toLowerCase() === HOLD_TAG_NAME.toLowerCase() ? HOLD_TAG_NAME : tag));
 
 export const RuleActionSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('setField'), field: z.string().min(1), value: z.string().nullable() }),
-  z.object({ type: z.literal('applyTag'), tag: tagNameSchema }),
-  z.object({ type: z.literal('noop') }),
+  z.object({ type: z.literal(RULE_ACTION_TYPE.setField), field: z.string().min(1), value: z.string().nullable() }),
+  z.object({ type: z.literal(RULE_ACTION_TYPE.applyTag), tag: tagNameSchema }),
+  z.object({ type: z.literal(RULE_ACTION_TYPE.noop) }),
 ]);
 
 // --- Outcome / Branch / Conditional (mutually recursive) ---
@@ -85,9 +96,9 @@ export interface RuleConditional {
 
 export const RuleOutcomeSchema: z.ZodType<RuleOutcome> = z.lazy(() =>
   z.discriminatedUnion('type', [
-    z.object({ type: z.literal('actions'), actions: z.array(RuleActionSchema) }),
-    z.object({ type: z.literal('conditional'), conditional: RuleConditionalSchema }),
-    z.object({ type: z.literal('noop') }),
+    z.object({ type: z.literal(RULE_OUTCOME_TYPE.actions), actions: z.array(RuleActionSchema) }),
+    z.object({ type: z.literal(RULE_OUTCOME_TYPE.conditional), conditional: RuleConditionalSchema }),
+    z.object({ type: z.literal(RULE_OUTCOME_TYPE.noop) }),
   ])
 );
 
@@ -114,13 +125,20 @@ export const PreSubmissionRuleSchema = z.object({
 });
 export type PreSubmissionRule = z.output<typeof PreSubmissionRuleSchema>;
 
+// Save input variant: a new rule arrives without an id — save-billing-rules assigns one server-side,
+// so the backend owns rule identifiers.
+export const PreSubmissionRuleInputSchema = PreSubmissionRuleSchema.extend({
+  id: z.string().min(1).optional(),
+});
+export type PreSubmissionRuleInput = z.output<typeof PreSubmissionRuleInputSchema>;
+
 // --- CRUD API contract (save-billing-rules / get-billing-rules) ---
 
 // The whole ordered rule set is saved at once (the rules live in a single FHIR List), so create,
 // edit, reorder, and delete are all expressed as "save this full ordered array".
 export const SaveBillingRulesInputSchema = z
   .object({
-    rules: z.array(PreSubmissionRuleSchema),
+    rules: z.array(PreSubmissionRuleInputSchema),
     // Optimistic-locking guard: the List versionId the client last read. When provided, the save is
     // rejected if the rules List changed in the meantime.
     expectedVersionId: z.string().optional(),
@@ -128,6 +146,7 @@ export const SaveBillingRulesInputSchema = z
   .superRefine((data, ctx) => {
     const seen = new Set<string>();
     data.rules.forEach((rule, index) => {
+      if (rule.id == null) return; // new rules get their ids assigned server-side
       if (seen.has(rule.id)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

@@ -1,20 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  Claim,
-  Coverage,
-  Location,
-  Organization,
-  Patient,
-  Person,
-  Practitioner,
-  RelatedPerson,
-  Resource,
-} from 'fhir/r4b';
+import { Claim, Person, RelatedPerson } from 'fhir/r4b';
 import {
   BillingPolicyHolderSummary,
   ClaimDetailResponse,
-  FHIR_RESOURCE_NOT_FOUND,
   genderMap,
   getClaimStatusValues,
   getCoveragePlanType,
@@ -29,15 +18,14 @@ import {
   CLAIM_TAG_SYSTEM,
   claimHasRealCoverage,
   createBillingClient,
+  fetchClaimGraph,
   fhirName,
-  findRef,
   formatAddress,
   getClaimService,
   getClaimStatus,
   getClaimType,
   getTaxonomy,
   resolvePayersByRef,
-  sortClaimInsurance,
   SOURCE_IDENTIFIER_SYSTEM,
   toAddressParts,
 } from '../shared';
@@ -58,71 +46,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Promise<ClaimDetailResponse> {
   const { claimId } = params;
-  const bundle = await oystehr.fhir.search<Claim>({
-    resourceType: 'Claim',
-    params: [
-      { name: '_id', value: claimId },
-      { name: '_include', value: 'Claim:patient' },
-      { name: '_include', value: 'Claim:provider' },
-      { name: '_include', value: 'Claim:facility' },
-    ],
-  });
-  const resources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
+  // One shared fetch of the claim + its referenced working copies (also used by the rules engine).
+  const graph = await fetchClaimGraph(oystehr, claimId);
+  const { claim, patient, billingProvider: provider, serviceFacility: facility, renderingProvider } = graph;
 
-  const claim = resources.find((r) => r.resourceType === 'Claim' && r.id === claimId) as Claim | undefined;
-  if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
-
-  const patient = findRef<Patient>(resources, claim.patient?.reference);
-  const provider = findRef<Practitioner | Organization>(resources, claim.provider?.reference);
-  const facility = findRef<Location>(resources, claim.facility?.reference);
-
-  // Batch-fetch coverage, rendering practitioner, and secondary insurance
-  const sortedInsurance = sortClaimInsurance(claim);
-
-  const followUpQueries: string[] = [];
-  const coverageRef = sortedInsurance[0]?.coverage?.reference;
-  if (coverageRef) {
-    followUpQueries.push(`/Coverage?_id=${coverageRef.replace('Coverage/', '')}&_include=Coverage:subscriber`);
-  }
-  const renderingRef = claim.careTeam?.[0]?.provider?.reference;
-  if (renderingRef?.startsWith('Practitioner/') || renderingRef?.startsWith('Organization/')) {
-    const [renderingType, renderingId] = renderingRef.split('/');
-    followUpQueries.push(`/${renderingType}?_id=${renderingId}`);
-  }
-  const secCovRef = sortedInsurance[1]?.coverage?.reference;
-  if (secCovRef) {
-    followUpQueries.push(`/Coverage?_id=${secCovRef.replace('Coverage/', '')}`);
-  }
-
-  const followUp =
-    followUpQueries.length > 0 ? await getResourcesFromBatchInlineRequests(oystehr, followUpQueries) : [];
-
-  const coverage = coverageRef
-    ? (followUp.find((r) => r.resourceType === 'Coverage' && r.id === coverageRef.replace('Coverage/', '')) as
-        | Coverage
-        | undefined)
-    : undefined;
-
+  // Coverages come back focal-first: the focal coverage is the claim's primary insurance.
+  const [coverage, secondaryCoverage] = graph.coverages;
   const subscriberRef = coverage?.subscriber?.reference;
   const subscriber = subscriberRef?.startsWith('RelatedPerson/')
-    ? findRef<RelatedPerson>(followUp, subscriberRef)
+    ? graph.subscribers.find((s) => s.id === subscriberRef.replace('RelatedPerson/', ''))
     : undefined;
   const policyHolder = extractPolicyHolder(subscriber);
-
-  const renderingId = renderingRef?.split('/')[1];
-  const renderingProvider = renderingId
-    ? (followUp.find(
-        (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
-      ) as Practitioner | Organization | undefined)
-    : undefined;
-
-  let secondaryCoverage: Coverage | undefined;
-  if (secCovRef) {
-    const secCovId = secCovRef.replace('Coverage/', '');
-    secondaryCoverage = followUp.find((r) => r.resourceType === 'Coverage' && r.id === secCovId) as
-      | Coverage
-      | undefined;
-  }
 
   // Resolve primary and secondary payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [

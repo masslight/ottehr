@@ -9,7 +9,7 @@ import {
 import { Alert, Box, Button, Chip, CircularProgress, IconButton, Switch, Typography } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getApiError, PreSubmissionRule } from 'utils';
+import { getApiError, PreSubmissionRuleInput } from 'utils';
 import { getBillingRules, saveBillingRules } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -18,7 +18,9 @@ export default function Rules(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [rules, setRules] = useState<PreSubmissionRule[]>([]);
+  // Rules loaded from the server always carry ids; a just-duplicated rule has none until the save
+  // round-trips (the backend owns rule ids).
+  const [rules, setRules] = useState<PreSubmissionRuleInput[]>([]);
   const [versionId, setVersionId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -44,7 +46,7 @@ export default function Rules(): ReactElement {
   }, [fetchRules]);
 
   // Every change (reorder, enable/disable, duplicate, delete) persists the full ordered list.
-  const persist = async (next: PreSubmissionRule[]): Promise<void> => {
+  const persist = async (next: PreSubmissionRuleInput[]): Promise<void> => {
     if (!oystehrZambda) return;
     setSaving(true);
     setError(null);
@@ -72,22 +74,23 @@ export default function Rules(): ReactElement {
     void persist(next);
   };
 
-  const toggleEnabled = (rule: PreSubmissionRule): void =>
-    void persist(rules.map((r) => (r.id === rule.id ? { ...r, enabled: !r.enabled } : r)));
+  const toggleEnabled = (index: number): void =>
+    void persist(rules.map((r, i) => (i === index ? { ...r, enabled: !r.enabled } : r)));
 
-  const duplicate = (rule: PreSubmissionRule, index: number): void => {
-    const copy: PreSubmissionRule = { ...rule, id: crypto.randomUUID(), name: `${rule.name} (copy)` };
+  const duplicate = (rule: PreSubmissionRuleInput, index: number): void => {
+    // The copy is saved without an id; save-billing-rules assigns one and echoes it back.
+    const copy: PreSubmissionRuleInput = { ...rule, id: undefined, name: `${rule.name} (copy)` };
     const next = [...rules];
     next.splice(index + 1, 0, copy);
     void persist(next);
   };
 
-  const remove = (rule: PreSubmissionRule): void => {
+  const remove = (rule: PreSubmissionRuleInput, index: number): void => {
     if (!window.confirm(`Delete rule "${rule.name}"? This cannot be undone.`)) return;
-    void persist(rules.filter((r) => r.id !== rule.id));
+    void persist(rules.filter((_, i) => i !== index));
   };
 
-  const summarize = (rule: PreSubmissionRule): string => {
+  const summarize = (rule: PreSubmissionRuleInput): string => {
     const count = rule.conditional.branches.length;
     return `${count} branch${count === 1 ? '' : 'es'}${rule.conditional.otherwise ? ' + else' : ''}`;
   };
@@ -135,7 +138,7 @@ export default function Rules(): ReactElement {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {rules.map((rule, index) => (
             <Box
-              key={rule.id}
+              key={rule.id ?? `unsaved-${index}`}
               draggable
               onDragStart={() => (dragIndex.current = index)}
               onDragOver={(e) => e.preventDefault()}
@@ -157,7 +160,10 @@ export default function Rules(): ReactElement {
               <Typography variant="body2" color="text.secondary" sx={{ width: 24, textAlign: 'right' }}>
                 {index + 1}
               </Typography>
-              <Box sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => navigate(`/rules/${rule.id}`)}>
+              <Box
+                sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                onClick={() => rule.id && navigate(`/rules/${rule.id}`)}
+              >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography fontWeight={600} noWrap>
                     {rule.name || 'Untitled rule'}
@@ -174,11 +180,16 @@ export default function Rules(): ReactElement {
               <Switch
                 size="small"
                 checked={rule.enabled}
-                onChange={() => toggleEnabled(rule)}
+                onChange={() => toggleEnabled(index)}
                 disabled={saving}
                 inputProps={{ 'aria-label': 'Enabled' }}
               />
-              <IconButton size="small" onClick={() => navigate(`/rules/${rule.id}`)} aria-label="Edit">
+              <IconButton
+                size="small"
+                onClick={() => rule.id && navigate(`/rules/${rule.id}`)}
+                disabled={!rule.id}
+                aria-label="Edit"
+              >
                 <EditIcon fontSize="small" />
               </IconButton>
               <IconButton size="small" onClick={() => duplicate(rule, index)} disabled={saving} aria-label="Duplicate">
@@ -186,7 +197,7 @@ export default function Rules(): ReactElement {
               </IconButton>
               <IconButton
                 size="small"
-                onClick={() => remove(rule)}
+                onClick={() => remove(rule, index)}
                 disabled={saving}
                 aria-label="Delete"
                 sx={{ '&:hover': { color: 'error.dark' } }}

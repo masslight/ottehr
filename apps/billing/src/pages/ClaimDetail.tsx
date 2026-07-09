@@ -34,7 +34,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   BillingCoverageOption,
   BillingLocationOption,
-  BillingPayerOption,
   BillingProviderOption,
   BillingTag,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -52,7 +51,6 @@ import {
   getPatientCoverages,
   runBillingRulesEngine,
   searchBillingLocations,
-  searchBillingPayers,
   searchBillingProviders,
   searchBillingTags,
   tagBillingClaim,
@@ -66,6 +64,7 @@ import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceL
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { Field } from '../components/Field';
+import { PayerSelect } from '../components/PayerSelect';
 import {
   PolicyHolderFields,
   policyHolderPayload,
@@ -223,8 +222,6 @@ export default function ClaimDetail(): ReactElement {
   const arStageCode = claim.statuses.arStage;
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
-  // With the rules engine on, the engine owns submission eligibility (it can also fix fields, tag,
-  // or hold claims that aren't submittable yet), so the button stays enabled.
 
   const startHeaderEdit = (): void => {
     setServiceDate(claim.serviceLines[0]?.serviceDate ?? claim.created);
@@ -638,7 +635,7 @@ export function InsuranceSection({
   const { oystehrZambda } = useApiClients();
   const hasCoverage = !!claim.coverageFhirId;
 
-  const [payer, setPayer] = useState<BillingPayerOption | null>(null);
+  const [selectedPayerId, setSelectedPayerId] = useState(claim.payorFhirId);
   const [memberId, setMemberId] = useState(claim.memberId);
   const [status, setStatus] = useState(claim.coverageStatus);
   const [planType, setPlanType] = useState(claim.planType);
@@ -646,16 +643,14 @@ export function InsuranceSection({
     policyHolderStateFromSummary(claim.relationship, claim.policyHolder)
   );
 
-  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [coverageOptions, setCoverageOptions] = useState<BillingCoverageOption[]>([]);
   const [selectedCoverage, setSelectedCoverage] = useState<BillingCoverageOption | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
   const resetFields = useCallback((): void => {
-    setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
+    setSelectedPayerId(claim.payorFhirId);
     setMemberId(claim.memberId);
     setStatus(claim.coverageStatus);
     setPlanType(claim.planType);
@@ -666,18 +661,6 @@ export function InsuranceSection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const searchPayers = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
-        setPayerOptions(res.payers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
 
   const loadCoverages = useCallback((): void => {
     if (!oystehrZambda || !claim.patientOriginalId) return;
@@ -695,7 +678,7 @@ export function InsuranceSection({
     const policyHolderError = validatePolicyHolder(policyHolder);
     if (policyHolderError) return policyHolderError;
     const claimFields: { payerId?: string; planType?: string } = {};
-    if (payer?.id && payer.id !== claim.payorFhirId) claimFields.payerId = payer.id;
+    if (selectedPayerId && selectedPayerId !== claim.payorFhirId) claimFields.payerId = selectedPayerId;
     if (planType && planType !== claim.planType) claimFields.planType = planType;
     if (Object.keys(claimFields).length > 0) {
       const err = await updateResource('Claim', claim.id, claimFields);
@@ -756,31 +739,14 @@ export function InsuranceSection({
           {hasCoverage && !selectedCoverage && (
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
               <Field label="Payer">
-                <Autocomplete
-                  size="small"
-                  options={payerOptions}
-                  value={payer}
-                  onChange={(_, v) => setPayer(v)}
-                  onInputChange={(_, val, reason) => {
-                    if (reason === 'input') searchPayers(val || undefined);
-                  }}
-                  onOpen={() => searchPayers()}
-                  filterOptions={(x) => x}
-                  getOptionLabel={(o) => o.name}
-                  renderOption={(props, o) => (
-                    <Box component="li" {...props} key={o.id}>
-                      <Box>
-                        <Typography variant="body2" fontWeight={500}>
-                          {o.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Payer ID: {o.payerId}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                  renderInput={(p) => <TextField {...p} size="small" placeholder="Choose payer..." />}
-                  isOptionEqualToValue={(o, v) => o.id === v.id}
+                <PayerSelect
+                  multiple={false}
+                  value={selectedPayerId}
+                  onChange={(v) => setSelectedPayerId(typeof v === 'string' ? v : v[0] ?? '')}
+                  label=""
+                  initialOptions={
+                    claim.payorFhirId ? [{ id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId }] : []
+                  }
                 />
               </Field>
               <Field label="Member / Subscriber ID">

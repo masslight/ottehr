@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Task } from 'fhir/r4b';
-import { buildRulesEngineKickoffTask, RunBillingRulesEngineResponse } from 'utils';
+import { buildRulesEngineKickoffTask, InternalError, RunBillingRulesEngineResponse } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient, fetchById } from '../shared';
 import { RunBillingRulesEngineParams, validateRequestParameters } from './validateRequestParameters';
@@ -18,16 +18,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
+  await complexValidation(oystehr, params);
   const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
+
+// Confirm the claim exists so the caller gets a clear error rather than a silently orphaned Task.
+async function complexValidation(oystehr: Oystehr, params: RunBillingRulesEngineParams): Promise<Claim> {
+  return fetchById<Claim>(oystehr, 'Claim', params.claimId);
+}
 
 async function performEffect(
   oystehr: Oystehr,
   params: RunBillingRulesEngineParams
 ): Promise<RunBillingRulesEngineResponse> {
-  // Confirm the claim exists first so the caller gets a clear error rather than a silently orphaned Task.
-  await fetchById<Claim>(oystehr, 'Claim', params.claimId);
   const task = await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(params.claimId));
-  return { taskId: task.id ?? '' };
+  if (!task.id) throw InternalError;
+  return { taskId: task.id };
 }

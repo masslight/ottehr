@@ -405,6 +405,9 @@ export interface ClaimResourceChange {
   activity?: ClaimProvenanceActivityKey;
   // Change entries the projection diff can't see (e.g. policy-holder edits folded into the Coverage).
   extraChanges?: ClaimFieldChange[];
+  // Optimistic-locking header for the PUT; a concurrent edit then fails the transaction instead of
+  // being clobbered.
+  ifMatch?: string;
 }
 
 /**
@@ -412,7 +415,7 @@ export interface ClaimResourceChange {
  * when composing a larger transaction; use commitClaimResourceChange to commit directly.
  */
 export function claimResourceChangeRequests(change: ClaimResourceChange): BatchInputRequest<FhirResource>[] {
-  const { resource, before, agent, claimReference, activity, extraChanges } = change;
+  const { resource, before, agent, claimReference, activity, extraChanges, ifMatch } = change;
   const provenance = claimProvenanceRequest({
     targetReference: `${resource.resourceType}/${resource.id}`,
     claimReference,
@@ -425,7 +428,7 @@ export function claimResourceChangeRequests(change: ClaimResourceChange): BatchI
     extraChanges,
   });
   return [
-    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource },
+    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource, ...(ifMatch ? { ifMatch } : {}) },
     ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
   ];
 }

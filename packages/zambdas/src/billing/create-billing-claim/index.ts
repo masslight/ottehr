@@ -13,10 +13,8 @@ import {
   ProvenanceAgent,
   RelatedPerson,
   Resource,
-  Task,
 } from 'fhir/r4b';
 import {
-  buildRulesEngineKickoffTask,
   ClaimStatusValues,
   claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -42,6 +40,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   ensureClaimInsurance,
   findRef,
+  kickoffRulesEngine,
   payerDisplay,
   prepareWorkingCopy,
   resolvePayersByRef,
@@ -114,21 +113,9 @@ async function performEffect(
   const created = (tx.entry ?? []).map((e) => e.resource).find((r): r is Claim => r?.resourceType === 'Claim');
   if (!created?.id) throw InternalError;
 
-  await kickoffRulesEngine(oystehr, created.id);
+  await kickoffRulesEngine(oystehr, created.id, params.secrets);
 
   return { claimId: created.id };
-}
-
-// Enqueue the pre-submission rules engine; a Subscription runs it asynchronously. The claim already
-// exists at this point, so a kickoff failure must not fail the request — a retry would create a
-// duplicate claim. The engine can be run on demand via run-billing-rules-engine.
-async function kickoffRulesEngine(oystehr: Oystehr, claimId: string | undefined): Promise<void> {
-  if (!claimId) return;
-  try {
-    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
-  } catch (error) {
-    console.error(`Failed to enqueue rules-engine Task for Claim/${claimId}:`, error);
-  }
 }
 
 async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promise<OriginalResources> {

@@ -14,16 +14,23 @@ import { ReactElement } from 'react';
 import {
   getRuleFieldDef,
   HOLD_TAG_NAME,
+  operatorIsMultiValue,
+  operatorNeedsValue,
+  RULE_ACTION_TYPE,
+  RULE_CONDITION_TYPE,
   RULE_FIELD_CATALOG,
+  RULE_LOGIC,
   RULE_OPERATORS,
+  RULE_OUTCOME_TYPE,
   RuleAction,
   RuleCondition,
   RuleConditional,
+  RuleLogic,
   RuleOperator,
   RuleOutcome,
 } from 'utils';
 import { otherColors } from '../../themes/ottehr/colors';
-import { PayerSelect } from './PayerSelect';
+import { PayerSelect } from '../PayerSelect';
 
 // ---------------------------------------------------------------------------
 // Recursive editor for a rule's if / else-if / else conditional tree. Each editor is fully
@@ -47,8 +54,10 @@ const OPERATOR_LABELS: Record<RuleOperator, string> = {
   notExists: 'is empty',
 };
 
-const operatorNeedsValue = (op: RuleOperator): boolean => op !== 'exists' && op !== 'notExists';
-const operatorIsMultiValue = (op: RuleOperator): boolean => op === 'in' || op === 'notIn';
+const LOGIC_LABELS: Record<RuleLogic, string> = {
+  and: 'All (AND)',
+  or: 'Any (OR)',
+};
 
 const valueToText = (value: string | string[] | null | undefined): string =>
   Array.isArray(value) ? value.join(', ') : value ?? '';
@@ -59,9 +68,14 @@ const textToList = (text: string): string[] =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-const newFieldCondition = (): RuleCondition => ({ type: 'field', field: FIRST_FIELD_ID, operator: 'eq', value: '' });
-const newAction = (): RuleAction => ({ type: 'setField', field: FIRST_SETTABLE_ID, value: '' });
-const newOutcome = (): RuleOutcome => ({ type: 'actions', actions: [newAction()] });
+const newFieldCondition = (): RuleCondition => ({
+  type: RULE_CONDITION_TYPE.field,
+  field: FIRST_FIELD_ID,
+  operator: 'eq',
+  value: '',
+});
+const newAction = (): RuleAction => ({ type: RULE_ACTION_TYPE.setField, field: FIRST_SETTABLE_ID, value: '' });
+const newOutcome = (): RuleOutcome => ({ type: RULE_OUTCOME_TYPE.actions, actions: [newAction()] });
 const newBranch = (): RuleConditional['branches'][number] => ({
   condition: newFieldCondition(),
   outcome: newOutcome(),
@@ -117,18 +131,18 @@ function ConditionEditor({
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleCondition['type'];
-            if (next === 'all') onChange({ type: 'all' });
-            else if (next === 'field') onChange(newFieldCondition());
-            else onChange({ type: 'group', logic: 'and', conditions: [newFieldCondition()] });
+            if (next === RULE_CONDITION_TYPE.all) onChange({ type: RULE_CONDITION_TYPE.all });
+            else if (next === RULE_CONDITION_TYPE.field) onChange(newFieldCondition());
+            else onChange({ type: RULE_CONDITION_TYPE.group, logic: 'and', conditions: [newFieldCondition()] });
           }}
         >
-          <MenuItem value="all">All claims</MenuItem>
-          <MenuItem value="field">Claim property</MenuItem>
-          <MenuItem value="group">Group (AND / OR)</MenuItem>
+          <MenuItem value={RULE_CONDITION_TYPE.all}>All claims</MenuItem>
+          <MenuItem value={RULE_CONDITION_TYPE.field}>Claim property</MenuItem>
+          <MenuItem value={RULE_CONDITION_TYPE.group}>Group (AND / OR)</MenuItem>
         </Select>
       </FormControl>
-      {value.type === 'field' && <FieldConditionEditor value={value} onChange={onChange} />}
-      {value.type === 'group' && <GroupConditionEditor value={value} onChange={onChange} />}
+      {value.type === RULE_CONDITION_TYPE.field && <FieldConditionEditor value={value} onChange={onChange} />}
+      {value.type === RULE_CONDITION_TYPE.group && <GroupConditionEditor value={value} onChange={onChange} />}
     </Box>
   );
 }
@@ -137,7 +151,7 @@ function FieldConditionEditor({
   value,
   onChange,
 }: {
-  value: Extract<RuleCondition, { type: 'field' }>;
+  value: Extract<RuleCondition, { type: typeof RULE_CONDITION_TYPE.field }>;
   onChange: (next: RuleCondition) => void;
 }): ReactElement {
   const def = getRuleFieldDef(value.field);
@@ -195,7 +209,7 @@ function GroupConditionEditor({
   value,
   onChange,
 }: {
-  value: Extract<RuleCondition, { type: 'group' }>;
+  value: Extract<RuleCondition, { type: typeof RULE_CONDITION_TYPE.group }>;
   onChange: (next: RuleCondition) => void;
 }): ReactElement {
   const setConditionAt = (index: number, next: RuleCondition): void =>
@@ -209,10 +223,13 @@ function GroupConditionEditor({
         <Select
           label="Match"
           value={value.logic}
-          onChange={(e) => onChange({ ...value, logic: e.target.value as 'and' | 'or' })}
+          onChange={(e) => onChange({ ...value, logic: e.target.value as RuleLogic })}
         >
-          <MenuItem value="and">All (AND)</MenuItem>
-          <MenuItem value="or">Any (OR)</MenuItem>
+          {RULE_LOGIC.map((logic) => (
+            <MenuItem key={logic} value={logic}>
+              {LOGIC_LABELS[logic]}
+            </MenuItem>
+          ))}
         </Select>
       </FormControl>
       {value.conditions.map((condition, index) => (
@@ -248,17 +265,17 @@ function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next:
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleAction['type'];
-            if (next === 'setField') onChange(newAction());
-            else if (next === 'applyTag') onChange({ type: 'applyTag', tag: '' });
-            else onChange({ type: 'noop' });
+            if (next === RULE_ACTION_TYPE.setField) onChange(newAction());
+            else if (next === RULE_ACTION_TYPE.applyTag) onChange({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
+            else onChange({ type: RULE_ACTION_TYPE.noop });
           }}
         >
-          <MenuItem value="setField">Set a property</MenuItem>
-          <MenuItem value="applyTag">Apply a tag</MenuItem>
-          <MenuItem value="noop">Do nothing</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.setField}>Set a property</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.applyTag}>Apply a tag</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
         </Select>
       </FormControl>
-      {value.type === 'setField' && (
+      {value.type === RULE_ACTION_TYPE.setField && (
         <>
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel>Property</InputLabel>
@@ -283,7 +300,7 @@ function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next:
           />
         </>
       )}
-      {value.type === 'applyTag' && (
+      {value.type === RULE_ACTION_TYPE.applyTag && (
         <TextField
           size="small"
           label="Tag name"
@@ -306,7 +323,7 @@ function OutcomeEditor({
   value: RuleOutcome;
   onChange: (next: RuleOutcome) => void;
 }): ReactElement {
-  const actions = value.type === 'actions' ? value.actions : [];
+  const actions = value.type === RULE_OUTCOME_TYPE.actions ? value.actions : [];
   return (
     <Box>
       <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -316,17 +333,18 @@ function OutcomeEditor({
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleOutcome['type'];
-            if (next === 'actions') onChange(newOutcome());
-            else if (next === 'conditional') onChange({ type: 'conditional', conditional: newRuleConditional() });
-            else onChange({ type: 'noop' });
+            if (next === RULE_OUTCOME_TYPE.actions) onChange(newOutcome());
+            else if (next === RULE_OUTCOME_TYPE.conditional)
+              onChange({ type: RULE_OUTCOME_TYPE.conditional, conditional: newRuleConditional() });
+            else onChange({ type: RULE_OUTCOME_TYPE.noop });
           }}
         >
-          <MenuItem value="actions">Take action(s)</MenuItem>
-          <MenuItem value="conditional">Branch further (if / else)</MenuItem>
-          <MenuItem value="noop">Do nothing</MenuItem>
+          <MenuItem value={RULE_OUTCOME_TYPE.actions}>Take action(s)</MenuItem>
+          <MenuItem value={RULE_OUTCOME_TYPE.conditional}>Branch further (if / else)</MenuItem>
+          <MenuItem value={RULE_OUTCOME_TYPE.noop}>Do nothing</MenuItem>
         </Select>
       </FormControl>
-      {value.type === 'actions' && (
+      {value.type === RULE_OUTCOME_TYPE.actions && (
         <Box sx={{ mt: 1, ...indentSx }}>
           {actions.map((action, index) => (
             <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
@@ -334,13 +352,18 @@ function OutcomeEditor({
                 <ActionEditor
                   value={action}
                   onChange={(next) =>
-                    onChange({ type: 'actions', actions: actions.map((a, i) => (i === index ? next : a)) })
+                    onChange({
+                      type: RULE_OUTCOME_TYPE.actions,
+                      actions: actions.map((a, i) => (i === index ? next : a)),
+                    })
                   }
                 />
               </Box>
               <IconButton
                 size="small"
-                onClick={() => onChange({ type: 'actions', actions: actions.filter((_, i) => i !== index) })}
+                onClick={() =>
+                  onChange({ type: RULE_OUTCOME_TYPE.actions, actions: actions.filter((_, i) => i !== index) })
+                }
                 disabled={actions.length <= 1}
               >
                 <DeleteIcon fontSize="small" />
@@ -350,17 +373,17 @@ function OutcomeEditor({
           <Button
             size="small"
             startIcon={<AddIcon />}
-            onClick={() => onChange({ type: 'actions', actions: [...actions, newAction()] })}
+            onClick={() => onChange({ type: RULE_OUTCOME_TYPE.actions, actions: [...actions, newAction()] })}
           >
             Add action
           </Button>
         </Box>
       )}
-      {value.type === 'conditional' && (
+      {value.type === RULE_OUTCOME_TYPE.conditional && (
         <Box sx={{ mt: 1, ...indentSx }}>
           <ConditionalEditor
             value={value.conditional}
-            onChange={(next) => onChange({ type: 'conditional', conditional: next })}
+            onChange={(next) => onChange({ type: RULE_OUTCOME_TYPE.conditional, conditional: next })}
           />
         </Box>
       )}

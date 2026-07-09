@@ -43,7 +43,10 @@ export function ruleToContainedBasic(rule: PreSubmissionRule): Basic {
   };
 }
 
-export function containedBasicToRule(basic: Basic): PreSubmissionRule {
+// Utils has no Sentry access; callers that do (the zambdas) pass `onMalformed` to report the error.
+export type MalformedRuleHandler = (error: unknown, context: { ruleId: string; ruleName: string }) => void;
+
+export function containedBasicToRule(basic: Basic, onMalformed?: MalformedRuleHandler): PreSubmissionRule {
   const ext = (url: string): Extension | undefined => basic.extension?.find((e) => e.url === url);
   const name = ext(RULE_NAME_EXTENSION_URL)?.valueString ?? basic.code?.text ?? '';
   const description = ext(RULE_DESCRIPTION_EXTENSION_URL)?.valueString ?? '';
@@ -57,6 +60,7 @@ export function containedBasicToRule(basic: Basic): PreSubmissionRule {
     // read it). Surface it as a disabled no-op — not a skip, which the next full-list save would
     // silently delete.
     console.error(`[rules-engine] unparseable rule "${name}" (Basic/${basic.id}):`, error);
+    onMalformed?.(error, { ruleId: basic.id ?? '', ruleName: name });
     return {
       id: basic.id ?? '',
       name: name || 'Unparseable rule',
@@ -80,7 +84,7 @@ export function rulesToList(rules: PreSubmissionRule[]): List {
   };
 }
 
-export function listToRules(list: List): PreSubmissionRule[] {
+export function listToRules(list: List, onMalformed?: MalformedRuleHandler): PreSubmissionRule[] {
   const containedById = new Map<string, Basic>();
   for (const resource of list.contained ?? []) {
     if (resource.resourceType === 'Basic' && resource.id) containedById.set(resource.id, resource);
@@ -90,7 +94,7 @@ export function listToRules(list: List): PreSubmissionRule[] {
     const reference = entry.item?.reference;
     if (!reference || !reference.startsWith('#')) continue;
     const basic = containedById.get(reference.slice(1));
-    if (basic) rules.push(containedBasicToRule(basic));
+    if (basic) rules.push(containedBasicToRule(basic, onMalformed));
   }
   return rules;
 }

@@ -2,13 +2,13 @@ import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { Alert, Box, Button, CircularProgress, FormControlLabel, Switch, TextField, Typography } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getApiError, PreSubmissionRule } from 'utils';
+import { getApiError, PreSubmissionRule, PreSubmissionRuleInput } from 'utils';
 import { getBillingRules, saveBillingRules } from '../api/api';
 import { ConditionalEditor, newRuleConditional } from '../components/rules/RuleBuilder';
 import { useApiClients } from '../hooks/useAppClients';
 
-const blankRule = (): PreSubmissionRule => ({
-  id: crypto.randomUUID(),
+// A new rule has no id: save-billing-rules assigns one when the rule is first saved.
+const blankRule = (): PreSubmissionRuleInput => ({
   name: '',
   description: '',
   enabled: true,
@@ -23,7 +23,7 @@ export default function RuleDetail(): ReactElement {
 
   const [allRules, setAllRules] = useState<PreSubmissionRule[]>([]);
   const [versionId, setVersionId] = useState<string | undefined>();
-  const [rule, setRule] = useState<PreSubmissionRule | null>(null);
+  const [rule, setRule] = useState<PreSubmissionRuleInput | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +68,10 @@ export default function RuleDetail(): ReactElement {
     setError(null);
     try {
       const trimmed = { ...rule, name: rule.name.trim(), description: rule.description.trim() };
-      const exists = allRules.some((r) => r.id === trimmed.id);
-      const nextRules = exists ? allRules.map((r) => (r.id === trimmed.id ? trimmed : r)) : [...allRules, trimmed];
+      const exists = trimmed.id != null && allRules.some((r) => r.id === trimmed.id);
+      const nextRules: PreSubmissionRuleInput[] = exists
+        ? allRules.map((r) => (r.id === trimmed.id ? trimmed : r))
+        : [...allRules, trimmed];
       await saveBillingRules(oystehrZambda, { rules: nextRules, expectedVersionId: versionId });
       navigate('/rules');
     } catch (err) {

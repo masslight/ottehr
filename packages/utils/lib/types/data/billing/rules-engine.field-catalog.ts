@@ -117,9 +117,6 @@ export const getRuleFieldDef = (id: string): RuleFieldDef | undefined => RULE_FI
 
 const primaryCoverage = (m: RulesEngineClaimModel): Coverage | undefined => m.coverages[0];
 
-const getPlanClassValue = (coverage?: Coverage): string | undefined =>
-  coverage?.class?.find((c) => c.type?.coding?.some((tc) => tc.code === 'plan'))?.value;
-
 const getProviderFamily = (p?: Practitioner | Organization): string | undefined => {
   if (!p) return undefined;
   if (p.resourceType === 'Organization') return p.name;
@@ -135,12 +132,9 @@ const getClaimTagCodes = (claim: Claim): string[] =>
 type FieldReader = (m: RulesEngineClaimModel) => string | string[] | undefined;
 
 const READERS: Record<string, FieldReader> = {
-  payerId: (m) => {
-    const coverage = primaryCoverage(m);
-    // The payer is the payor reference on the working-copy Coverage (a payer URL encoding the id).
-    // Fall back to the stored plan-class value for older claims whose payor isn't a payer URL.
-    return extractPayerIdFromUrl(coverage?.payor?.[0]?.reference) ?? getPlanClassValue(coverage);
-  },
+  // The payer is the payor reference on the working-copy Coverage — always an Oystehr payer URL
+  // encoding the id in the billing workspace.
+  payerId: (m) => extractPayerIdFromUrl(primaryCoverage(m)?.payor?.[0]?.reference),
   'patient.firstName': (m) => m.patient?.name?.[0]?.given?.[0],
   'patient.lastName': (m) => m.patient?.name?.[0]?.family,
   'patient.birthDate': (m) => m.patient?.birthDate,
@@ -157,8 +151,13 @@ export const readField = (model: RulesEngineClaimModel, fieldId: string): string
   READERS[fieldId]?.(model);
 
 // --- writers ---
+//
+// Every writer returns whether the value was actually applied. A write can fail because the target
+// resource is missing from the model (e.g. no rendering provider on the claim) or the value is
+// invalid — the engine must treat that as a rule failure, never a silent no-op, because nobody
+// reviews the claim between the rules run and submission.
 
-const PATIENT_GENDERS = ['male', 'female', 'other', 'unknown'] as const;
+const PATIENT_GENDERS: NonNullable<Patient['gender']>[] = ['male', 'female', 'other', 'unknown'];
 
 const ensurePatientName = (patient?: Patient): NonNullable<Patient['name']>[number] | undefined => {
   if (!patient) return undefined;
@@ -168,74 +167,91 @@ const ensurePatientName = (patient?: Patient): NonNullable<Patient['name']>[numb
 
 // Re-point the primary coverage's payor and the claim's insurer. No RCM lookup is needed —
 // getPayerUrl builds the payer reference directly from the id.
-const setPayerId = (model: RulesEngineClaimModel, value: string | null): void => {
-  if (!value) return;
+const setPayerId = (model: RulesEngineClaimModel, value: string | null): boolean => {
+  if (!value) return false;
   const coverage = primaryCoverage(model);
-  if (!coverage) return;
+  if (!coverage) return false;
   const payerUrl = getPayerUrl(value);
   coverage.payor = [{ reference: payerUrl }];
   model.claim.insurer = { reference: payerUrl };
+  return true;
 };
 
-const setProviderFamily = (p: Practitioner | Organization | undefined, value: string | null): void => {
-  if (!p) return;
+const setProviderFamily = (p: Practitioner | Organization | undefined, value: string | null): boolean => {
+  if (!p) return false;
   if (p.resourceType === 'Organization') {
     p.name = value ?? undefined;
-    return;
+    return true;
   }
   if (!p.name || p.name.length === 0) p.name = [{}];
   p.name[0].family = value ?? undefined;
+  return true;
 };
 
-const setGender = (patient: Patient | undefined, value: string | null): void => {
-  if (!patient) return;
+const setGender = (patient: Patient | undefined, value: string | null): boolean => {
+  if (!patient) return false;
   if (!value) {
     patient.gender = undefined;
-    return;
+    return true;
   }
-  if ((PATIENT_GENDERS as readonly string[]).includes(value)) patient.gender = value as Patient['gender'];
+  const match = PATIENT_GENDERS.find((g) => g === value);
+  if (!match) return false;
+  patient.gender = match;
+  return true;
 };
 
-const setLocationState = (loc: Location | undefined, value: string | null): void => {
-  if (!loc) return;
+const setLocationState = (loc: Location | undefined, value: string | null): boolean => {
+  if (!loc) return false;
   loc.address = loc.address ?? {};
   loc.address.state = value ?? undefined;
+  return true;
 };
 
-type FieldWriter = (m: RulesEngineClaimModel, value: string | null) => void;
+type FieldWriter = (m: RulesEngineClaimModel, value: string | null) => boolean;
 
 const WRITERS: Record<string, FieldWriter> = {
   payerId: (m, v) => setPayerId(m, v),
   'patient.firstName': (m, v) => {
     const name = ensurePatientName(m.patient);
-    if (name) name.given = v ? [v] : undefined;
+    if (!name) return false;
+    name.given = v ? [v] : undefined;
+    return true;
   },
   'patient.lastName': (m, v) => {
     const name = ensurePatientName(m.patient);
-    if (name) name.family = v ?? undefined;
+    if (!name) return false;
+    name.family = v ?? undefined;
+    return true;
   },
   'patient.birthDate': (m, v) => {
-    if (m.patient) m.patient.birthDate = v ?? undefined;
+    if (!m.patient) return false;
+    m.patient.birthDate = v ?? undefined;
+    return true;
   },
   'patient.gender': (m, v) => setGender(m.patient, v),
   'serviceFacility.name': (m, v) => {
-    if (m.serviceFacility) m.serviceFacility.name = v ?? undefined;
+    if (!m.serviceFacility) return false;
+    m.serviceFacility.name = v ?? undefined;
+    return true;
   },
   'serviceFacility.npi': (m, v) => {
-    if (m.serviceFacility) setNpi(m.serviceFacility, v);
+    if (!m.serviceFacility) return false;
+    setNpi(m.serviceFacility, v);
+    return true;
   },
   'serviceFacility.state': (m, v) => setLocationState(m.serviceFacility, v),
   'renderingProvider.npi': (m, v) => {
-    if (m.renderingProvider) setNpi(m.renderingProvider, v);
+    if (!m.renderingProvider) return false;
+    setNpi(m.renderingProvider, v);
+    return true;
   },
   'renderingProvider.lastName': (m, v) => setProviderFamily(m.renderingProvider, v),
 };
 
-// Apply a setField value to the model. Returns false when the field id has no writer (unknown or
-// read-only field) so the caller can surface/log the no-op.
+// Apply a setField value to the model. Returns false when the field has no writer (unknown or
+// read-only field) or the writer could not apply the value; the engine holds the claim in that case.
 export const writeField = (model: RulesEngineClaimModel, fieldId: string, value: string | null): boolean => {
   const writer = WRITERS[fieldId];
   if (!writer) return false;
-  writer(model, value);
-  return true;
+  return writer(model, value);
 };

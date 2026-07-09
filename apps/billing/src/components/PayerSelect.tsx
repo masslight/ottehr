@@ -1,9 +1,9 @@
 import { Autocomplete, AutocompleteInputChangeReason, AutocompleteRenderInputParams, TextField } from '@mui/material';
 import { HTMLAttributes, ReactElement, SyntheticEvent, useState } from 'react';
 import { BillingPayerOption } from 'utils';
-import { searchBillingPayers } from '../../api/api';
-import { useApiClients } from '../../hooks/useAppClients';
-import { useDebounce } from '../../hooks/useDebounce';
+import { searchBillingPayers } from '../api/api';
+import { useApiClients } from '../hooks/useAppClients';
+import { useDebounce } from '../hooks/useDebounce';
 
 // Searchable payer picker backed by the Oystehr payer list (search-billing-payers). It displays the
 // human-friendly payer name + clearinghouse payer id, but stores the RCM payer `id` — the same token
@@ -15,13 +15,16 @@ interface PayerSelectProps {
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
+  // Options the caller already knows (e.g. the claim's current payer), so a stored id shows its
+  // display name before any search has run.
+  initialOptions?: BillingPayerOption[];
 }
 
 const optionLabel = (o: BillingPayerOption): string => (o.name ? `${o.name} (${o.payerId})` : o.id);
 
 // Debounced server-side search plus a memory of payers we've seen, so a selected payer keeps its
 // label even after the option list changes (or on edit, once it shows up in a search).
-function usePayerSearch(): {
+function usePayerSearch(initialOptions?: BillingPayerOption[]): {
   options: BillingPayerOption[];
   known: Record<string, BillingPayerOption>;
   search: (query?: string) => void;
@@ -29,7 +32,9 @@ function usePayerSearch(): {
   const { oystehrZambda } = useApiClients();
   const { debounce } = useDebounce(300);
   const [options, setOptions] = useState<BillingPayerOption[]>([]);
-  const [known, setKnown] = useState<Record<string, BillingPayerOption>>({});
+  const [known, setKnown] = useState<Record<string, BillingPayerOption>>(() =>
+    Object.fromEntries((initialOptions ?? []).filter((o) => o.id).map((o) => [o.id, o]))
+  );
 
   const runSearch = async (query?: string): Promise<void> => {
     if (!oystehrZambda) return;
@@ -57,8 +62,14 @@ const resolve = (
   options: BillingPayerOption[]
 ): BillingPayerOption => known[id] ?? options.find((o) => o.id === id) ?? { id, name: '', payerId: id };
 
-export function PayerSelect({ multiple, value, onChange, label = 'Payer' }: PayerSelectProps): ReactElement {
-  const { options, known, search } = usePayerSearch();
+export function PayerSelect({
+  multiple,
+  value,
+  onChange,
+  label = 'Payer',
+  initialOptions,
+}: PayerSelectProps): ReactElement {
+  const { options, known, search } = usePayerSearch(initialOptions);
 
   // Props shared by the single- and multi-select variants. Callbacks are typed with their own
   // (narrower) signatures so the object is assignable to both Autocomplete generic instantiations.

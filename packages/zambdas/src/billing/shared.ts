@@ -17,6 +17,7 @@ import {
   Practitioner,
   RelatedPerson,
   Resource,
+  Task,
 } from 'fhir/r4b';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
@@ -26,6 +27,7 @@ import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
+  buildRulesEngineKickoffTask,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
   CLAIM_STATUS_FIELDS,
@@ -48,14 +50,17 @@ import {
   getClaimStatusValues,
   getPayerId,
   getPayerUrl,
+  getResourcesFromBatchInlineRequests,
   getSecret,
   getSubscriberRelationshipCodeableConcept,
   INVALID_INPUT_ERROR,
   isPayerUrl,
   isValidClaimStatusValue,
   isValidUUID,
+  listToRules,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PRESUBMISSION_RULES_LIST_CODE,
+  PreSubmissionRule,
   RULES_ENGINE_TAG_SYSTEM,
   Secrets,
   SecretsKeys,
@@ -64,6 +69,7 @@ import {
   withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
+import { sendErrors } from '../shared';
 
 // Type alias for resources relevant to billing
 export type BillingFhirResource =
@@ -266,6 +272,96 @@ export async function findPresubmissionRulesList(oystehr: Oystehr): Promise<List
     params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${PRESUBMISSION_RULES_LIST_CODE}` }],
   });
   return result.unbundle()[0];
+}
+
+// listToRules with malformed-rule observability: each unparseable rule (returned as a disabled
+// placeholder) is also reported to Sentry.
+export async function listToRulesReportingMalformed(list: List, env: string): Promise<PreSubmissionRule[]> {
+  const failures: Error[] = [];
+  const rules = listToRules(list, (error, { ruleId, ruleName }) =>
+    failures.push(new Error(`Unparseable pre-submission rule "${ruleName}" (Basic/${ruleId}): ${error}`))
+  );
+  await Promise.all(failures.map((failure) => sendErrors(failure, env)));
+  return rules;
+}
+
+// Enqueue the pre-submission rules engine for a claim; a Subscription runs it asynchronously. The
+// claim is already committed when this runs, so a kickoff failure must not fail the request (a retry
+// would create a duplicate claim) — it is logged and reported to Sentry instead. The engine can be
+// run on demand via run-billing-rules-engine.
+export async function kickoffRulesEngine(oystehr: Oystehr, claimId: string, secrets: Secrets | null): Promise<void> {
+  try {
+    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
+  } catch (error) {
+    console.error(`Failed to enqueue rules-engine Task for Claim/${claimId}:`, error);
+    await sendErrors(
+      new Error(`Failed to enqueue rules-engine Task for Claim/${claimId}: ${error}`),
+      getSecret(SecretsKeys.ENVIRONMENT, secrets)
+    );
+  }
+}
+
+// The claim plus the working-copy resources it references, resolved from the claim's own references.
+// Shared by the claim detail endpoint and the rules engine so "what makes up a claim" is fetched one
+// way. Coverages are ordered focal-first (the focal entry is the authoritative primary).
+export interface ClaimGraph {
+  claim: Claim;
+  patient?: Patient;
+  billingProvider?: Practitioner | Organization;
+  serviceFacility?: Location;
+  coverages: Coverage[];
+  renderingProvider?: Practitioner | Organization;
+  // Working-copy subscriber RelatedPersons of the fetched coverages.
+  subscribers: RelatedPerson[];
+}
+
+export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promise<ClaimGraph> {
+  const bundle = await oystehr.fhir.search<Claim>({
+    resourceType: 'Claim',
+    params: [
+      { name: '_id', value: claimId },
+      { name: '_include', value: 'Claim:patient' },
+      { name: '_include', value: 'Claim:provider' },
+      { name: '_include', value: 'Claim:facility' },
+    ],
+  });
+  const resources = bundle.unbundle() as Resource[];
+  const claim = resources.find((r) => r.resourceType === 'Claim' && r.id === claimId) as Claim | undefined;
+  if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
+
+  const patient = findRef<Patient>(resources, claim.patient?.reference);
+  const billingProvider = findRef<Practitioner | Organization>(resources, claim.provider?.reference);
+  const serviceFacility = findRef<Location>(resources, claim.facility?.reference);
+
+  // Coverages (with their subscribers) and the rendering provider live behind references the
+  // initial _include can't follow, so they are fetched in one follow-up batch.
+  const coverageRefs = [...sortClaimInsurance(claim)]
+    .sort((a, b) => (b.focal ? 1 : 0) - (a.focal ? 1 : 0))
+    .map((entry) => entry.coverage?.reference)
+    .filter((ref): ref is string => !!ref && ref.startsWith('Coverage/'));
+  const renderingRef = claim.careTeam?.[0]?.provider?.reference;
+
+  const queries = coverageRefs.map(
+    (ref) => `/Coverage?_id=${ref.replace('Coverage/', '')}&_include=Coverage:subscriber`
+  );
+  if (renderingRef && (renderingRef.startsWith('Practitioner/') || renderingRef.startsWith('Organization/'))) {
+    const [type, id] = renderingRef.split('/');
+    queries.push(`/${type}?_id=${id}`);
+  }
+  const followUp = queries.length ? await getResourcesFromBatchInlineRequests(oystehr, queries) : [];
+
+  const coverages = coverageRefs
+    .map((ref) => followUp.find((r) => r.resourceType === 'Coverage' && r.id === ref.replace('Coverage/', '')))
+    .filter((c): c is Coverage => !!c);
+  const renderingId = renderingRef?.split('/')[1];
+  const renderingProvider = renderingId
+    ? (followUp.find(
+        (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
+      ) as Practitioner | Organization | undefined)
+    : undefined;
+  const subscribers = followUp.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
+
+  return { claim, patient, billingProvider, serviceFacility, coverages, renderingProvider, subscribers };
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {

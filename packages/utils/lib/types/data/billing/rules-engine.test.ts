@@ -1,7 +1,7 @@
 import { Basic, Claim } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { FHIR_IDENTIFIER_NPI } from '../../../fhir/constants';
-import { CODE_SYSTEM_COVERAGE_CLASS } from '../../../helpers/rcm/constants';
+import { getPayerUrl } from '../../../helpers/helpers';
 import { CLAIM_TAG_SYSTEM } from './billing.constants';
 import {
   HOLD_TAG_NAME,
@@ -37,10 +37,7 @@ const makeModel = (): RulesEngineClaimModel => ({
       resourceType: 'Coverage',
       status: 'active',
       beneficiary: { reference: 'Patient/p1' },
-      payor: [],
-      class: [
-        { type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] }, value: '123456', name: 'Acme' },
-      ],
+      payor: [{ reference: getPayerUrl('123456') }],
     },
   ],
   renderingProvider: {
@@ -207,6 +204,36 @@ describe('rules-engine evaluator', () => {
     expect(executeRule(disabled, m2).held).toBe(false);
     expect(claimTags(m2)).toEqual([]);
   });
+
+  it('stops with an error when a setField action cannot be applied', () => {
+    const m = makeModel();
+    m.renderingProvider = undefined; // the action's target is missing from the claim
+    const rule: PreSubmissionRule = {
+      id: 'r-bad',
+      name: 'Set rendering NPI',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                { type: 'setField', field: 'renderingProvider.npi', value: '5555555555' },
+                { type: 'setField', field: 'patient.lastName', value: 'ShouldNotApply' },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.error).toContain('renderingProvider.npi');
+    expect(result.held).toBe(false);
+    // The run stops at the failed action; later actions must not apply.
+    expect(readField(m, 'patient.lastName')).toBe('Doe');
+  });
 });
 
 describe('rules-engine serialization', () => {
@@ -307,5 +334,12 @@ describe('SaveBillingRulesInputSchema', () => {
 
   it('rejects duplicate rule ids', () => {
     expect(SaveBillingRulesInputSchema.safeParse({ rules: [rule('a'), rule('a')] }).success).toBe(false);
+  });
+
+  it('accepts new rules without ids — the backend assigns them on save', () => {
+    const { id: _a, ...newRuleA } = rule('a');
+    const { id: _b, ...newRuleB } = rule('b');
+    const parsed = SaveBillingRulesInputSchema.safeParse({ rules: [newRuleA, newRuleB, rule('c')] });
+    expect(parsed.success).toBe(true);
   });
 });

@@ -1,11 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import { Basic, List } from 'fhir/r4b';
-import { BillingRulesResponse, HOLD_TAG_DESCRIPTION, HOLD_TAG_NAME, listToRules, rulesToList } from 'utils';
+import {
+  BillingRulesResponse,
+  getSecret,
+  HOLD_TAG_DESCRIPTION,
+  HOLD_TAG_NAME,
+  PreSubmissionRule,
+  rulesToList,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createBillingClient,
   findPresubmissionRulesList,
+  listToRulesReportingMalformed,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
@@ -23,13 +33,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const existing = await complexValidation(oystehr);
+  const response = await performEffect(oystehr, params, existing, getSecret(SecretsKeys.ENVIRONMENT, params.secrets));
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: SaveBillingRulesParams): Promise<BillingRulesResponse> {
-  const existing = await findPresubmissionRulesList(oystehr);
-  const newList = rulesToList(params.rules);
+async function complexValidation(oystehr: Oystehr): Promise<List | undefined> {
+  return findPresubmissionRulesList(oystehr);
+}
+
+async function performEffect(
+  oystehr: Oystehr,
+  params: SaveBillingRulesParams,
+  existing: List | undefined,
+  env: string
+): Promise<BillingRulesResponse> {
+  // The backend owns rule identifiers: rules arriving without an id (newly created) get one here.
+  const rules: PreSubmissionRule[] = params.rules.map((rule) => ({ ...rule, id: rule.id ?? randomUUID() }));
+  const newList = rulesToList(rules);
 
   let saved: List;
   if (existing?.id) {
@@ -44,7 +65,7 @@ async function performEffect(oystehr: Oystehr, params: SaveBillingRulesParams): 
     await ensureHoldTag(oystehr);
   }
 
-  return { rules: listToRules(saved), versionId: saved.meta?.versionId };
+  return { rules: await listToRulesReportingMalformed(saved, env), versionId: saved.meta?.versionId };
 }
 
 // Best-effort: create the Hold system tag definition if it doesn't already exist. Never fails the save.

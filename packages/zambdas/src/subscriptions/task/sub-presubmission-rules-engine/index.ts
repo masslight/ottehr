@@ -8,31 +8,34 @@ import {
   Patient,
   Practitioner,
   ProvenanceAgent,
-  Resource,
   Task,
 } from 'fhir/r4b';
 import {
+  applyAction,
+  CLAIM_TAG_SYSTEM,
   executeRule,
-  FHIR_RESOURCE_NOT_FOUND,
-  getResourcesFromBatchInlineRequests,
-  listToRules,
+  getSecret,
+  HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
   PreSubmissionRule,
+  resourceHasTag,
+  RULE_ACTION_TYPE,
   RulesEngineClaimModel,
+  SecretsKeys,
 } from 'utils';
 import {
-  claimProvenanceRequest,
-  recordedNow,
+  claimResourceChangeRequests,
+  commitClaimMetaTagsWithProvenance,
   resolveClaimActor,
-  versionedReference,
 } from '../../../billing/provenance';
 import {
   BILLING_WORKING_COPY_TAG,
   createBillingClient,
+  fetchById,
+  fetchClaimGraph,
   findPresubmissionRulesList,
-  findRef,
   hasTag,
-  sortClaimInsurance,
+  listToRulesReportingMalformed,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared';
 import { wrapTaskHandler } from '../helpers';
@@ -60,55 +63,105 @@ export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (in
   // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
   // change the engine writes lands in the claim history attributed to it.
   const agent = await resolveClaimActor(oystehr, undefined, secrets);
+  const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
   try {
-    console.log(`[rules-engine] starting for Claim/${claimId}`);
-    const [rules, model] = await Promise.all([loadRules(oystehr), loadClaimModel(oystehr, claimId)]);
-    console.log(
-      `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
-        `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
-        `serviceFacility=${model.serviceFacility?.id ?? 'none'}`
-    );
-    const unchanged = snapshotModel(model);
-
-    let heldBy: PreSubmissionRule | undefined;
-    for (const rule of rules) {
-      const { held, appliedActions } = executeRule(rule, model);
-      console.log(
-        `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
-          `${held ? ' — applied Hold, stopping' : ''}`
-      );
-      if (held) {
-        heldBy = rule;
-        break;
-      }
-    }
-
-    // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
-    const written = await persistModel(oystehr, model, unchanged, agent);
-    console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
-
-    if (heldBy) {
-      console.log(`[rules-engine] Claim/${claimId} held by rule "${heldBy.name}"`);
-      return {
-        taskStatus: 'failed' as const,
-        statusReason: `Held by rule "${heldBy.name}": claim was not submitted and requires review.`,
-      };
-    }
-
-    const submission = await submitClaim({ oystehr, model, agent });
-    console.log(`[rules-engine] completed for Claim/${claimId}: ${submission.statusReason}`);
-    return {
-      taskStatus: 'completed' as const,
-      statusReason: submission.statusReason,
-    };
+    const validated = await complexValidation(oystehr, claimId, env);
+    return await performEffect(oystehr, validated, agent);
   } catch (error) {
-    // wrapTaskHandler logs the error generically and marks the Task failed; log here too so the
-    // failure carries the claim context.
+    // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
+    // the claim context, and make sure the claim ends up held — a failed run must never leave the
+    // claim looking submittable.
     console.error(`[rules-engine] failed for Claim/${claimId}:`, error);
+    await ensureClaimHeld(oystehr, claimId, agent);
     throw error;
   }
 });
+
+interface ValidatedRulesRun {
+  claimId: string;
+  rules: PreSubmissionRule[];
+  model: RulesEngineClaimModel;
+}
+
+async function complexValidation(oystehr: Oystehr, claimId: string, env: string): Promise<ValidatedRulesRun> {
+  console.log(`[rules-engine] starting for Claim/${claimId}`);
+  const [rules, model] = await Promise.all([loadRules(oystehr, env), loadClaimModel(oystehr, claimId)]);
+  console.log(
+    `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
+      `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
+      `serviceFacility=${model.serviceFacility?.id ?? 'none'}`
+  );
+  return { claimId, rules, model };
+}
+
+async function performEffect(
+  oystehr: Oystehr,
+  { claimId, rules, model }: ValidatedRulesRun,
+  agent: ProvenanceAgent
+): Promise<{ taskStatus: Task['status']; statusReason: string }> {
+  const unchanged = snapshotModel(model);
+
+  let heldBy: PreSubmissionRule | undefined;
+  let failure: { rule: PreSubmissionRule; error: string } | undefined;
+  for (const rule of rules) {
+    const { held, appliedActions, error } = executeRule(rule, model);
+    console.log(
+      `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
+        `${held ? ' — applied Hold, stopping' : ''}${error ? ` — failed: ${error}` : ''}`
+    );
+    if (error) {
+      // A rule whose action can't be applied must not fail quietly — the claim would submit with
+      // the wrong data. Hold it and stop the run.
+      failure = { rule, error };
+      applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+      break;
+    }
+    if (held) {
+      heldBy = rule;
+      break;
+    }
+  }
+
+  // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
+  const written = await persistModel(oystehr, model, unchanged, agent);
+  console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
+
+  if (failure) {
+    console.log(`[rules-engine] Claim/${claimId} held after rule "${failure.rule.name}" failed`);
+    return {
+      taskStatus: 'failed',
+      statusReason: `Rule "${failure.rule.name}" failed: ${failure.error}. The claim was held for review.`,
+    };
+  }
+
+  if (heldBy) {
+    console.log(`[rules-engine] Claim/${claimId} held by rule "${heldBy.name}"`);
+    return {
+      taskStatus: 'failed',
+      statusReason: `Held by rule "${heldBy.name}": claim was not submitted and requires review.`,
+    };
+  }
+
+  const submission = await submitClaim({ oystehr, model, agent });
+  console.log(`[rules-engine] completed for Claim/${claimId}: ${submission.statusReason}`);
+  return { taskStatus: 'completed', statusReason: submission.statusReason };
+}
+
+// Backstop for the catch path: whatever went wrong (load, persist, submission), the claim must end
+// up carrying the Hold tag so the failure is visible on the claim itself, not just the Task. Never
+// throws — the original error is the one that matters.
+async function ensureClaimHeld(oystehr: Oystehr, claimId: string, agent: ProvenanceAgent): Promise<void> {
+  try {
+    const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
+    if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME })) return;
+    const updatedTags = [...(claim.meta?.tag ?? []), { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME }];
+    await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'tagChange', agent);
+    console.log(`[rules-engine] applied Hold tag to Claim/${claimId} after failure`);
+  } catch (holdError) {
+    console.error(`[rules-engine] could not apply Hold tag to Claim/${claimId} after failure:`, holdError);
+  }
+}
 
 function extractClaimId(task: Task): string {
   const ref = task.focus?.reference;
@@ -118,55 +171,21 @@ function extractClaimId(task: Task): string {
   return ref.replace('Claim/', '');
 }
 
-async function loadRules(oystehr: Oystehr): Promise<PreSubmissionRule[]> {
+async function loadRules(oystehr: Oystehr, env: string): Promise<PreSubmissionRule[]> {
   const list = await findPresubmissionRulesList(oystehr);
-  return list ? listToRules(list) : [];
+  return list ? listToRulesReportingMalformed(list, env) : [];
 }
 
-// Assemble the claim plus the working-copy resources its rules can read/write.
+// The rules' view of the claim: the shared claim graph narrowed to the resources rules can read/write.
 async function loadClaimModel(oystehr: Oystehr, claimId: string): Promise<RulesEngineClaimModel> {
-  const bundle = await oystehr.fhir.search<Claim>({
-    resourceType: 'Claim',
-    params: [
-      { name: '_id', value: claimId },
-      { name: '_include', value: 'Claim:patient' },
-      { name: '_include', value: 'Claim:facility' },
-    ],
-  });
-  const resources = bundle.unbundle() as Resource[];
-  const claim = resources.find((r) => r.resourceType === 'Claim' && r.id === claimId) as Claim | undefined;
-  if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
-
-  const patient = findRef<Patient>(resources, claim.patient?.reference);
-  const serviceFacility = findRef<Location>(resources, claim.facility?.reference);
-
-  // Coverages and the rendering provider are fetched in a follow-up batch. The focal insurance entry
-  // is ordered first (claims created here keep focal at sequence 1, but focal is the authoritative
-  // primary marker).
-  const coverageRefs = [...sortClaimInsurance(claim)]
-    .sort((a, b) => (b.focal ? 1 : 0) - (a.focal ? 1 : 0))
-    .map((entry) => entry.coverage?.reference)
-    .filter((ref): ref is string => !!ref && ref.startsWith('Coverage/'));
-  const renderingRef = claim.careTeam?.[0]?.provider?.reference;
-
-  const queries = coverageRefs.map((ref) => `/Coverage?_id=${ref.replace('Coverage/', '')}`);
-  if (renderingRef && (renderingRef.startsWith('Practitioner/') || renderingRef.startsWith('Organization/'))) {
-    const [type, id] = renderingRef.split('/');
-    queries.push(`/${type}?_id=${id}`);
-  }
-  const followUp = queries.length ? await getResourcesFromBatchInlineRequests(oystehr, queries) : [];
-
-  const coverages = coverageRefs
-    .map((ref) => followUp.find((r) => r.resourceType === 'Coverage' && r.id === ref.replace('Coverage/', '')))
-    .filter((c): c is Coverage => !!c);
-  const renderingId = renderingRef?.split('/')[1];
-  const renderingProvider = renderingId
-    ? (followUp.find(
-        (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
-      ) as Practitioner | Organization | undefined)
-    : undefined;
-
-  return { claim, patient, coverages, renderingProvider, serviceFacility };
+  const graph = await fetchClaimGraph(oystehr, claimId);
+  return {
+    claim: graph.claim,
+    patient: graph.patient,
+    coverages: graph.coverages,
+    renderingProvider: graph.renderingProvider,
+    serviceFacility: graph.serviceFacility,
+  };
 }
 
 type ModelResource = Claim | Patient | Coverage | Practitioner | Organization | Location;
@@ -209,19 +228,16 @@ async function persistModel(
       console.warn(`[rules-engine] skipping write to shared (non-working-copy) resource ${url}`);
       continue;
     }
-    requests.push({ method: 'PUT', url, resource, ifMatch: makeOptimisticLockIfMatchHeader(resource) });
+    requests.push(
+      ...claimResourceChangeRequests({
+        resource,
+        before,
+        agent,
+        claimReference,
+        ifMatch: makeOptimisticLockIfMatchHeader(resource),
+      })
+    );
     written += 1;
-    const provenance = claimProvenanceRequest({
-      targetReference: url,
-      claimReference,
-      before,
-      after: resource,
-      agent,
-      activity: 'update',
-      recorded: recordedNow(),
-      priorVersionReference: versionedReference(before),
-    });
-    if (provenance) requests.push(provenance as BatchInputRequest<FhirResource>);
   }
   if (requests.length) await oystehr.fhir.transaction({ requests });
   return written;
