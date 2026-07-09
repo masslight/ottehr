@@ -1,6 +1,4 @@
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
-import { FormControl, InputLabel, ListItemText, MenuItem, Select } from '@mui/material';
+import { Checkbox, FormControl, InputLabel, ListItemText, MenuItem, Select } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { DataEntryTestItem } from 'utils';
@@ -87,16 +85,12 @@ export const InHouseLabSelect: React.FC<InHouseLabSelectProps> = ({
           PaperProps: { 'data-testid': dataTestIds.orderInHouseLabPage.testTypeList },
         }}
       >
-        {availableTests.map((test) => {
-          const selected = pendingTestNames.includes(test.name);
-          const SelectionIcon = selected ? CheckBoxIcon : CheckBoxOutlineBlankIcon;
-          return (
-            <MenuItem key={`${test.name}-${test.adId}`} value={test.name}>
-              <SelectionIcon fontSize="small" style={{ marginRight: 8, padding: 9, boxSizing: 'content-box' }} />
-              <ListItemText primary={test.name} />
-            </MenuItem>
-          );
-        })}
+        {availableTests.map((test) => (
+          <MenuItem key={`${test.name}-${test.adId}`} value={test.name}>
+            <Checkbox checked={pendingTestNames.includes(test.name)} />
+            <ListItemText primary={test.name} />
+          </MenuItem>
+        ))}
       </Select>
     </FormControl>
   );
