@@ -444,7 +444,6 @@ export default function PaymentLocationDetailPage(): ReactElement {
           <CustomBreadcrumbs
             chain={[
               { link: '/admin', children: 'Admin' },
-              { link: BILLING_URL, children: 'Billing Configuration' },
               { link: `${BILLING_URL}/payment-locations`, children: 'Payment Locations' },
               { link: '#', children: 'Not Found' },
             ]}
@@ -477,7 +476,6 @@ export default function PaymentLocationDetailPage(): ReactElement {
         <CustomBreadcrumbs
           chain={[
             { link: '/admin', children: 'Admin' },
-            { link: BILLING_URL, children: 'Billing Configuration' },
             { link: `${BILLING_URL}/payment-locations`, children: 'Payment Locations' },
             { link: '#', children: location.name || 'Unnamed Location' },
           ]}
