@@ -1,6 +1,7 @@
 import { Operation } from 'fast-json-patch';
 import {
   ActivityDefinition,
+  Communication,
   Condition,
   Encounter,
   EncounterDiagnosis,
@@ -10,8 +11,8 @@ import {
 } from 'fhir/r4b';
 import {
   chartDataTagSystem,
+  CODE_SYSTEM_ICD_10,
   DiagnosisDTO,
-  ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
@@ -185,7 +186,7 @@ const makeDxCondition = (id: string, icdCode: string): Condition => ({
   id,
   subject: { reference: 'Patient/pat-1' },
   meta: { tag: [{ system: chartDataTagSystem('diagnosis'), code: 'diagnosis' }] },
-  code: { coding: [{ system: ICD_10_CODE_SYSTEM, code: icdCode }] },
+  code: { coding: [{ system: CODE_SYSTEM_ICD_10, code: icdCode }] },
 });
 
 const makeTemplateList = (
@@ -971,7 +972,7 @@ const makeExternalLabPlan = (id: string, icdCodes: string[]): ServiceRequest => 
   subject: { reference: '#stub-patient' },
   meta: { tag: [{ system: chartDataTagSystem('external-lab-template-plan') }] },
   reasonCode: icdCodes.map((code) => ({
-    coding: [{ system: ICD_10_CODE_SYSTEM, code, display: `Display ${code}` }],
+    coding: [{ system: CODE_SYSTEM_ICD_10, code, display: `Display ${code}` }],
   })),
 });
 
@@ -985,7 +986,7 @@ const makeInHouseLabPlan = (id: string, icdCodes: string[]): ServiceRequest => (
   instantiatesCanonical: ['https://example.com/test-ad/1'],
   code: { coding: [{ system: IN_HOUSE_TEST_CODE_SYSTEM, code: 'TEST-1' }] },
   reasonCode: icdCodes.map((code) => ({
-    coding: [{ system: ICD_10_CODE_SYSTEM, code, display: `Display ${code}` }],
+    coding: [{ system: CODE_SYSTEM_ICD_10, code, display: `Display ${code}` }],
   })),
 });
 
@@ -1262,5 +1263,98 @@ describe('makeCreateRequests — lab-claimed Dx', () => {
     );
     expect(conditionPosts).toHaveLength(0);
     expect(getEncounterDiagnosisPatchOperations(requests)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// makeCreateRequests — patient education Communication filtering
+// ---------------------------------------------------------------------------
+
+const makePatientEduComm = (id: string): Communication => ({
+  resourceType: 'Communication',
+  id,
+  status: 'completed',
+  meta: { tag: [{ system: chartDataTagSystem('patient-instruction'), code: 'patient-instruction' }] },
+  about: [{ reference: 'DocumentReference/doc-1' }],
+});
+
+const makeRegularPatientInstruction = (id: string): Communication => ({
+  resourceType: 'Communication',
+  id,
+  status: 'completed',
+  meta: { tag: [{ system: chartDataTagSystem('patient-instruction'), code: 'patient-instruction' }] },
+});
+
+const makeCommTemplateList = (comms: Communication[]): List => ({
+  resourceType: 'List',
+  id: 'comm-template',
+  status: 'current',
+  mode: 'working',
+  entry: comms.map((c) => ({ item: { reference: `#${c.id}` } })),
+  contained: [
+    ...comms,
+    {
+      resourceType: 'Encounter',
+      id: 'stub-enc',
+      status: 'unknown',
+      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+    } as Encounter,
+  ],
+});
+
+const getCommunicationPostRequests = (
+  requests: ReturnType<typeof makeCreateRequests>
+): Array<{ method: 'POST'; resource: Communication }> =>
+  requests.filter(
+    (r): r is { method: 'POST'; url: string; resource: Communication } =>
+      r.method === 'POST' && (r as any).resource?.resourceType === 'Communication'
+  );
+
+describe('makeCreateRequests — patient education Communication filtering', () => {
+  test('a patient education Communication in an old template is skipped — no POST request created', () => {
+    const eduComm = makePatientEduComm('comm-edu-1');
+    const templateList = makeCommTemplateList([eduComm]);
+    const actions = makeActions({ patientInstructions: 'append' });
+
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set(), new Set(), []);
+
+    expect(getCommunicationPostRequests(requests)).toHaveLength(0);
+  });
+
+  test('a regular patient instruction Communication (no about) is still applied', () => {
+    const instr = makeRegularPatientInstruction('comm-instr-1');
+    const templateList = makeCommTemplateList([instr]);
+    const actions = makeActions({ patientInstructions: 'append' });
+
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set(), new Set(), []);
+
+    const commPosts = getCommunicationPostRequests(requests);
+    expect(commPosts).toHaveLength(1);
+    // id is stripped when creating — verify it's a regular instruction (no DocumentReference about)
+    expect(commPosts[0].resource.about).toBeUndefined();
+  });
+
+  test('mixed template: patient education Communication is skipped while regular instruction is applied', () => {
+    const eduComm = makePatientEduComm('comm-edu');
+    const instr = makeRegularPatientInstruction('comm-instr');
+    const templateList = makeCommTemplateList([eduComm, instr]);
+    const actions = makeActions({ patientInstructions: 'append' });
+
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set(), new Set(), []);
+
+    const commPosts = getCommunicationPostRequests(requests);
+    expect(commPosts).toHaveLength(1);
+    // The only Communication that got through has no DocumentReference about — it's the regular instruction
+    expect(commPosts[0].resource.about?.some((a) => a.reference?.startsWith('DocumentReference/'))).toBeFalsy();
+  });
+
+  test('patientInstructions=skip: no Communications are applied regardless of type', () => {
+    const instr = makeRegularPatientInstruction('comm-instr-1');
+    const templateList = makeCommTemplateList([instr]);
+    const actions = makeActions({ patientInstructions: 'skip' });
+
+    const requests = makeCreateRequests(makeSimpleCptEncounter(), templateList, [], actions, new Set(), new Set(), []);
+
+    expect(getCommunicationPostRequests(requests)).toHaveLength(0);
   });
 });

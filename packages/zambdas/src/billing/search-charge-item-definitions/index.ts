@@ -40,7 +40,7 @@ export async function performEffect(
     { name: '_count', value: String(params.pageSize) },
     { name: '_offset', value: String(params.offset) },
     { name: '_sort', value: 'title' },
-    { name: '_total', value: 'exact' },
+    { name: '_total', value: 'accurate' },
   ];
 
   if (params.name) {

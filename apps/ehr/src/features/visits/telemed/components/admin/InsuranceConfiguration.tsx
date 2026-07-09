@@ -2,7 +2,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BILLING_INSURANCE_URL } from 'src/App';
+import { BILLING_INSURANCE_URL } from 'src/features/admin/adminRoutes';
 import InsuranceList from './InsuranceList';
 import InsuranceNotesList from './InsuranceNotesList';
 import PatientInsuranceList from './PatientInsuranceList';

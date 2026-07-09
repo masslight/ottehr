@@ -163,6 +163,7 @@ export function ServiceFacilitiesList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         slots={dataGridSlots}
+        pagination={true}
         sx={{
           ...dataGridSx,
           height: 'calc(100vh - 310px)',
