@@ -42,7 +42,6 @@ import {
   claimStatusValuesToTags,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
-  CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
@@ -78,6 +77,7 @@ import {
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   assertDefined,
+  chartDataResourceHasMetaTagByCode,
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
   sendErrors,
@@ -108,6 +108,9 @@ import {
   TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // used by Ottehr clinical in-house meds
 
 export type ComplexValidationOutput = { clinicalResources: ClinicalResources; billingResources: BillingResources };
 
@@ -858,7 +861,12 @@ async function getClinicalResources(
     ];
   }
 
-  const procedures = resources.filter((r): r is Procedure => r.resourceType === 'Procedure');
+  // Filter out extra procedure data attached to the Encounter
+  const procedures = resources.filter(
+    (r): r is Procedure =>
+      r.resourceType === 'Procedure' &&
+      (chartDataResourceHasMetaTagByCode(r, 'cpt-code') || chartDataResourceHasMetaTagByCode(r, 'em-code'))
+  );
   if (!procedures.length) throw FHIR_RESOURCE_NOT_FOUND('Procedure');
 
   // Manually look up coverages because FHIR doesn't support Account:coverage include
@@ -1237,7 +1245,7 @@ function buildClaim(resources: ClaimResources): Claim {
     item: resources.procedures
       ? resources.procedures.map<ClaimItem>((p, i) => {
           const procedureCode = assertDefined(p.code, 'Procedure code');
-          // Swap Ottehr's custom HCPCS code system for HL7's
+          // Swap Ottehr's legacy HCPCS code system for HL7's
           procedureCode.coding = [
             ...(procedureCode.coding ?? [])
               .filter((coding) => coding.system === CODE_SYSTEM_HCPCS)

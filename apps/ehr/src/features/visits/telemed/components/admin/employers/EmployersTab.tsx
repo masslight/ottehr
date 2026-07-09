@@ -19,13 +19,16 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Organization } from 'fhir/r4b';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { StatusChip } from 'src/components/StatusChip';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useEmployersQuery } from 'src/rcm/state/employers';
+import { CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM } from 'src/rcm/state/employers/employers.api';
 import EmployerDialog from './EmployerDialog';
 
 enum EmployerActiveStatus {
@@ -125,10 +128,13 @@ export default function EmployersTab(): ReactElement {
             <Table sx={{ minWidth: 700 }} aria-label="Employers table">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', width: '45%' }}>Display name</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '35%' }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '40%' }}>Display name</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Category</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }} align="left">
                     Status
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="left">
+                    Candid
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -137,6 +143,10 @@ export default function EmployersTab(): ReactElement {
                   const isActive = employer.active !== false;
                   const isActiveLabel = isActive ? 'ACTIVE' : 'INACTIVE';
                   const category = employer.type?.[0]?.text || '—';
+
+                  const isCandidSynced = Boolean(
+                    employer.identifier?.find((id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM)?.value
+                  );
 
                   return (
                     <TableRow
@@ -153,12 +163,23 @@ export default function EmployersTab(): ReactElement {
                       <TableCell align="left">
                         <BooleanStateChip label={isActiveLabel} state={isActive} />
                       </TableCell>
+                      <TableCell align="left">
+                        {isCandidSynced ? (
+                          <StatusChip status="Synced" style="green" />
+                        ) : (
+                          <Tooltip title="This employer has not been synced to Candid Health">
+                            <span>
+                              <StatusChip status="Not Synced" style="orange" />
+                            </span>
+                          </Tooltip>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {!isFetching && currentPageEmployers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} align="center">
+                    <TableCell colSpan={4} align="center">
                       <Typography color="text.secondary">No employers found.</Typography>
                     </TableCell>
                   </TableRow>

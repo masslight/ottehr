@@ -28,7 +28,6 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
-  CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_PROCESS_PRIORITY,
@@ -41,7 +40,6 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
   getDefaultClaimSubmissionExtensions,
-  ICD_10_CODE_SYSTEM,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
@@ -71,6 +69,9 @@ import {
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
 } from '../../../src/billing/shared';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
 const clinicalResources: {
   encounter: Encounter;
@@ -254,6 +255,14 @@ const clinicalResources: {
               },
             },
           ],
+        },
+      ],
+    },
+    meta: {
+      tag: [
+        {
+          system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code',
+          code: 'cpt-code',
         },
       ],
     },
@@ -777,6 +786,103 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.coverage,
               ...clinicalResources.conditions,
               clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.coverage],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.billingProvider],
+          }),
+        billingOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: null,
+        expectedResult: {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [],
+            billingProvider: undefined,
+            coverages: [],
+            mainPatient: undefined,
+            person: undefined,
+            practitioners: [],
+            renderingProvider: undefined,
+            serviceFacility: undefined,
+            subscribers: [],
+            autoAccidentTag: undefined,
+            billingService: undefined,
+            chargeMaster: undefined,
+          },
+        },
+      },
+      {
+        name: 'filters out non-cpt-, non-em-code-tagged procedures',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.coverage,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+              {
+                resourceType: 'Procedure',
+                id: 'procedure-123',
+                status: 'completed',
+                subject: {
+                  reference: 'Patient/patient-123',
+                },
+                meta: {
+                  tag: [
+                    {
+                      system: 'some-system',
+                      code: 'some-code',
+                    },
+                  ],
+                },
+              },
             ],
           })
           .mockResolvedValueOnce({
@@ -2946,7 +3052,7 @@ describe('create-billing-claim-from-encounter', () => {
                 coding: [
                   {
                     // Incorrect system
-                    system: ICD_10_CODE_SYSTEM,
+                    system: CODE_SYSTEM_ICD_10,
                     code: 'S06.1XAS',
                     display: 'Traumatic cerebral edema with loss of consciousness status unknown, sequela',
                   },

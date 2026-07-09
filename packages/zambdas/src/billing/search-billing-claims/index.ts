@@ -61,7 +61,7 @@ async function performEffect(
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
-    { name: '_total', value: 'exact' },
+    { name: '_total', value: 'accurate' },
   ];
 
   if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });

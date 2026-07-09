@@ -390,6 +390,13 @@
       "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
       "zip": ".dist/zips/handle-lab-result.zip"
     },
+    "PROCESS-TELEMED-RECORDING": {
+      "name": "process-telemed-recording",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/document-reference/process-telemed-recording/index",
+      "zip": ".dist/zips/process-telemed-recording.zip"
+    },
     "PAPERWORK-TO-PDF": {
       "name": "paperwork-to-pdf",
       "type": "http_auth",
@@ -922,6 +929,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/send-for-final-read/index",
       "zip": ".dist/zips/radiology-send-for-final-read.zip"
+    },
+    "RADIOLOGY-UPDATE-ORDER": {
+      "name": "radiology-update-order",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/update-order/index",
+      "zip": ".dist/zips/radiology-update-order.zip"
     },
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
@@ -2150,6 +2164,24 @@
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-LAB-RESULT/id}"
         }
+      }
+    },
+    "PROCESS_TELEMED_RECORDING_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Telemed audio recording ready - generate Ambient Scribe AI chart recommendations",
+        "criteria": "DocumentReference?type=http://loinc.org|56444-3&contenttype=audio/mp4",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/PROCESS-TELEMED-RECORDING/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
       }
     },
     "COMMUNICATION_SUBSCRIPTION": {
