@@ -671,7 +671,11 @@ export default function PatientPaymentList({
         patient.id,
         { 'patient-has-medicaid': true }
       );
-      await apiClient.updatePatientAccount({ questionnaireResponse });
+      // Single-field edit: only the `patient-has-medicaid` field is submitted, so
+      // ask the zambda to validate just that field. Without this the shared
+      // required siblings in `patient-additional-details-section` (ethnicity/race)
+      // would reject the toggle.
+      await apiClient.updatePatientAccount({ questionnaireResponse, onlyValidateProvidedFields: true });
       await queryClient.invalidateQueries({ queryKey: ['get-visit-details'] });
     },
     onError: (e, _next, previous) => {
