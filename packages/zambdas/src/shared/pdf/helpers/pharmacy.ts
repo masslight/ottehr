@@ -1,13 +1,19 @@
 import { ErxGetPharmacyResponse } from '@oystehr/sdk';
-import { PrescribedMedicationDTO } from 'utils';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay, PrescribedMedicationDTO } from 'utils';
 import { pharmacyInfo } from '../types';
 
 export const toPharmacyInfo = (pharmacy: ErxGetPharmacyResponse): pharmacyInfo => ({
   name: pharmacy.name,
-  address: [pharmacy.address1, pharmacy.address2, pharmacy.city, pharmacy.state, pharmacy.zipCode]
+  address: [
+    pharmacy.address1,
+    pharmacy.address2,
+    pharmacy.city,
+    pharmacy.state,
+    pharmacy.zipCode ? formatZipcodeForDisplay(pharmacy.zipCode) : undefined,
+  ]
     .filter(Boolean)
     .join(', '),
-  phone: pharmacy.phone,
+  phone: formatPhoneNumberDisplay(pharmacy.phone),
 });
 
 export const groupPrescriptionsByPharmacy = (
