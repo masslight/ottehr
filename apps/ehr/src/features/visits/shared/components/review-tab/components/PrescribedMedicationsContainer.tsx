@@ -57,7 +57,7 @@ export const PrescribedMedicationsContainer: FC = () => {
                   pharmacy.city,
                   pharmacy.state,
                   pharmacy.zipCode ? formatZipcodeForDisplay(pharmacy.zipCode) : undefined,
-                  pharmacy.phone ? formatPhoneNumberDisplay(pharmacy.phone) : undefined,
+                  formatPhoneNumberDisplay(pharmacy.phone),
                 ]
                   .filter(Boolean)
                   .join(', ')}

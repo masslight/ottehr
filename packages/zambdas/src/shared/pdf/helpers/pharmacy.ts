@@ -13,7 +13,7 @@ export const toPharmacyInfo = (pharmacy: ErxGetPharmacyResponse): pharmacyInfo =
   ]
     .filter(Boolean)
     .join(', '),
-  phone: pharmacy.phone ? formatPhoneNumberDisplay(pharmacy.phone) : undefined,
+  phone: formatPhoneNumberDisplay(pharmacy.phone),
 });
 
 export const groupPrescriptionsByPharmacy = (
