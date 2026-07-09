@@ -631,9 +631,11 @@ describe('AddVisit', () => {
       // visit-type dimension with any non-empty tag list) survive the filter.
       expect(within(listbox).getByText(prebookInPersonLabel!)).toBeInTheDocument();
       // Walk-in (in-person + walk-in) and the two virtual modes are excluded.
-      expect(within(listbox).queryByText(walkInInPersonLabel!)).not.toBeInTheDocument();
-      expect(within(listbox).queryByText(virtualScheduledLabel!)).not.toBeInTheDocument();
-      expect(within(listbox).queryByText(virtualOnDemandLabel!)).not.toBeInTheDocument();
+      // Guard each assertion: if the label isn't in BOOKING_CONFIG for this instance,
+      // the visit type can't be rendered, so the assertion is trivially satisfied.
+      if (walkInInPersonLabel) expect(within(listbox).queryByText(walkInInPersonLabel)).not.toBeInTheDocument();
+      if (virtualScheduledLabel) expect(within(listbox).queryByText(virtualScheduledLabel)).not.toBeInTheDocument();
+      if (virtualOnDemandLabel) expect(within(listbox).queryByText(virtualOnDemandLabel)).not.toBeInTheDocument();
     });
 
     it('shows all Visit Type options when the picked Service Category supports every modality', async () => {
