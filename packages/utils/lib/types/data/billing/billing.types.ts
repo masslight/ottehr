@@ -258,9 +258,9 @@ export interface ClaimRemit {
   status: string;
   // CLP02 claim status code from the ERA (1 = primary, 2 = secondary, 4 = denied, 22 = reversal)
   eraStatusCode: string;
-  allowed: number;
+  allowed: number | null;
   paid: number;
-  patientResp: number;
+  patientResp: number | null;
   adjustments: ClaimRemitAdjustment[];
 }
 

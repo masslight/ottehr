@@ -1652,9 +1652,11 @@ function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): R
                     {remit.eraStatusCode ? ERA_STATUS_LABELS[remit.eraStatusCode] ?? remit.eraStatusCode : '-'}
                   </TableCell>
                   <TableCell>{remit.adjustments.map(formatAdjustment).join(', ') || '-'}</TableCell>
-                  <TableCell align="right">{formatCurrency(remit.allowed)}</TableCell>
+                  <TableCell align="right">{remit.allowed === null ? '-' : formatCurrency(remit.allowed)}</TableCell>
                   <TableCell align="right">{formatCurrency(remit.paid)}</TableCell>
-                  <TableCell align="right">{formatCurrency(remit.patientResp)}</TableCell>
+                  <TableCell align="right">
+                    {remit.patientResp === null ? '-' : formatCurrency(remit.patientResp)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

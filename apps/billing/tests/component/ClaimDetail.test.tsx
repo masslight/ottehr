@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AR_STAGE, ClaimDetailResponse, emptyClaimStatusValues } from 'utils';
@@ -162,6 +162,35 @@ describe('ClaimDetail — remits', () => {
     expect(screen.getByText('Primary')).toBeInTheDocument();
     expect(screen.getByText('$60.00')).toBeInTheDocument();
     expect(screen.getByText('PR-1 $15.00, CO-45 $20.00')).toBeInTheDocument();
+  });
+
+  it('renders dashes, not $0.00, for amounts the remit does not carry', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.insurancePayer),
+      remits: [
+        {
+          claimResponseId: 'cr-2',
+          date: '2026-07-09T10:00:00.000Z',
+          payerName: 'Aetna',
+          status: 'complete',
+          eraStatusCode: '',
+          allowed: null,
+          paid: 10,
+          patientResp: null,
+          adjustments: [],
+        },
+      ],
+    });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+
+    const row = (await screen.findByText('Aetna')).closest('tr');
+    expect(row).not.toBeNull();
+    const cells = within(row as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(cells).toEqual(['07/09/2026', 'Aetna', 'complete', '-', '-', '-', '$10.00', '-']);
   });
 
   it('shows the empty state when the claim has no remits', async () => {

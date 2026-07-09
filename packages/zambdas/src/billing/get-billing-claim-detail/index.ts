@@ -162,9 +162,9 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       payerName: payer?.name ?? cr.insurer?.display ?? '',
       status: cr.outcome ?? '',
       eraStatusCode: cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString ?? '',
-      allowed: amounts.allowed ?? 0,
+      allowed: amounts.allowed ?? null,
       paid: amounts.paid,
-      patientResp: amounts.patientResp ?? 0,
+      patientResp: amounts.patientResp ?? null,
       adjustments: extractRemitAdjustments(cr),
     };
   });
