@@ -291,7 +291,7 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
 // claim is already committed when this runs, so a kickoff failure must not fail the request (a retry
 // would create a duplicate claim) — it is logged and reported to Sentry instead. The engine can be
 // run on demand via run-billing-rules-engine.
-export async function kickoffRulesEngine(oystehr: Oystehr, claimId: string, secrets: Secrets | null): Promise<void> {
+export async function kickOffRulesEngine(oystehr: Oystehr, claimId: string, secrets: Secrets | null): Promise<void> {
   try {
     await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
   } catch (error) {

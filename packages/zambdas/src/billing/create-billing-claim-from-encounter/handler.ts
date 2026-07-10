@@ -95,7 +95,7 @@ import {
   ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
-  kickoffRulesEngine,
+  kickOffRulesEngine,
   payerDisplay,
   prepareCopy,
   prepareWorkingCopy,
@@ -189,7 +189,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 
   const response = await performEffect(billingOystehr, cvo, agent);
   // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
-  await kickoffRulesEngine(billingOystehr, response.claimId, params.secrets);
+  await kickOffRulesEngine(billingOystehr, response.claimId, params.secrets);
   return { statusCode: 200, body: JSON.stringify(response) };
 }
 
