@@ -5,6 +5,7 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import api from 'src/api/ottehrApi';
+import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import { PaperworkContext } from 'ui-components';
 import { PagedQuestionnaire } from 'ui-components';
@@ -105,6 +106,8 @@ export const PatientInfoCollection: FC = () => {
   }, [allItems, currentPageIndex, prepopulatedQuestionnaire]);
   const currentPageId = allItems?.[currentPageIndex]?.linkId;
 
+  const paperworkComponentHelpers = usePaperworkComponentHelpers();
+
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       paperwork: [], // todo
@@ -133,9 +136,18 @@ export const PatientInfoCollection: FC = () => {
       refetchSetupData: () => {
         throw new Error('Function not implemented.');
       },
-      // todo sarah define PaperworkComponentHelpers here too
+      paperworkComponentHelpers,
     };
-  }, [allItems, contextItems, currentPageId, defaultValues, pages, questionnaireResponse, saveButtonDisabled]);
+  }, [
+    allItems,
+    contextItems,
+    currentPageId,
+    defaultValues,
+    pages,
+    questionnaireResponse,
+    saveButtonDisabled,
+    paperworkComponentHelpers,
+  ]);
 
   useEffect(() => {
     if (isSuccess) {

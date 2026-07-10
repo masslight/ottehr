@@ -5,12 +5,28 @@ import { useOutletContext } from 'react-router-dom';
 import {
   AppointmentSummary,
   CreditCardInfo,
+  HandleAnswerInput,
   IntakeQuestionnaireItem,
   PaperworkPatient,
   PaymentMethodSetupZambdaOutput,
   QuestionnaireFormFields,
+  SearchPlacesInput,
+  SearchPlacesOutput,
+  StartInterviewInput,
   UCGetPaperworkResponse,
 } from 'utils';
+export interface PaperworkComponentHelpers {
+  /** PharmacyCollection */
+  handleSearchPlaces: ((input: SearchPlacesInput) => Promise<SearchPlacesOutput>) | undefined;
+  /** FileInput */
+  createZ3Object:
+    | ((input: { appointmentID: string; fileType: string; fileFormat: string; file: File }) => Promise<any>)
+    | undefined;
+  /** AiInterview */
+  aIInterviewStart: ((input: StartInterviewInput) => Promise<QuestionnaireResponse>) | undefined;
+  /** AiInterview */
+  aIInterviewHandleAnswer: ((input: HandleAnswerInput) => Promise<QuestionnaireResponse>) | undefined;
+}
 
 export interface PaperworkContext
   extends Omit<UCGetPaperworkResponse, 'patient' | 'appointment' | 'questionnaireResponse'> {
@@ -26,6 +42,7 @@ export interface PaperworkContext
   paymentMethods: CreditCardInfo[];
   stripeSetupData: PaymentMethodSetupZambdaOutput | undefined;
   setContinueLabel?: (label: string | undefined) => void;
+  continueLabel?: string;
   saveButtonDisabled?: boolean;
   refetchPaymentMethods: (options?: RefetchOptions | undefined) => Promise<
     QueryObserverResult<
@@ -40,6 +57,7 @@ export interface PaperworkContext
   ) => Promise<QueryObserverResult<PaymentMethodSetupZambdaOutput, Error>>;
   setSaveButtonDisabled: (newVal: boolean) => void;
   findAnswerWithLinkId: (linkId: string) => QuestionnaireResponseItem | undefined;
+  paperworkComponentHelpers: PaperworkComponentHelpers;
 }
 
 // The main intake paperwork flow supplies this context through the router `<Outlet context={...}>`.

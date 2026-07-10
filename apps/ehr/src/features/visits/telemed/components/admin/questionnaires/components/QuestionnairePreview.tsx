@@ -8,9 +8,8 @@ import {
   convertQuestionnaireItemToQRLinkIdMap,
   makeStandaloneFormDTO,
   QuestionnaireFormFields,
-  stubPaperworkContext,
-  stubPaperworkResponseForPreview,
 } from 'utils';
+import { stubPaperworkContext, stubPaperworkResponseForPreview } from '../questionnaire-utils';
 
 // todo sarah fix
 // Ottehr intake color palette

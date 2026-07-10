@@ -1,6 +1,6 @@
 import { Box, Button, Typography } from '@mui/material';
-import { CustomDialog } from 'lib/components/intake/CustomDialog';
 import { FC } from 'react';
+import { CustomDialog } from '../../../intake/CustomDialog';
 import { useCreditCardStore } from '../../hooks/useCreditCardStore';
 
 interface CardErrorDialogProps {

@@ -14,14 +14,14 @@ import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
+import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
+import { useCreditCardContext } from 'ui-components/lib/components/paperwork/hooks/useCreditCardContext';
+import { useCreditCardStore } from 'ui-components/lib/components/paperwork/hooks/useCreditCardStore';
 import { CreditCardInfo, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
-import { usePaperworkContext } from '../context';
-import { useCreditCardContext } from '../hooks/useCreditCardContext';
-import { useCreditCardStore } from '../stores/useCreditCardStore';
 
 interface CreditCardVerificationProps {
   fieldId: string;

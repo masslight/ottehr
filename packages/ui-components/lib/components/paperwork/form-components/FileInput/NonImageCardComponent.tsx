@@ -1,7 +1,7 @@
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { Box, IconButton, Link } from '@mui/material';
-import { usePaperworkOtherColors } from 'lib/main';
 import { FC } from 'react';
+import { usePaperworkOtherColors } from '../../theme';
 
 interface NonImageCardComponentProps {
   fileName?: string;

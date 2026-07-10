@@ -3,8 +3,8 @@ import { Alert, Box, CircularProgress, Typography } from '@mui/material';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { PaperworkContext, PaperworkProvider } from 'src/features/paperwork';
-import { PagedQuestionnaire } from 'ui-components';
+import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
+import { PagedQuestionnaire, PaperworkContext, PaperworkProvider } from 'ui-components';
 import {
   APIError,
   convertQRItemToLinkIdMap,
@@ -137,6 +137,8 @@ export const StandaloneFormPage: FC = () => {
   //   setupCompleted: Boolean(stripeSetupData),
   // });
 
+  const paperworkComponentHelpers = usePaperworkComponentHelpers();
+
   // Standalone managed forms render outside the paperwork `<Outlet>`, so we supply the context that
   // PagedQuestionnaire and its child hooks read. Only `paperwork`, `allItems`, `questionnaireResponse`,
   // `appointment.id`, and `saveButtonDisabled`/`setSaveButtonDisabled` are consumed on the vanilla +
@@ -165,6 +167,7 @@ export const StandaloneFormPage: FC = () => {
       findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
         return findQuestionnaireResponseItemLinkId(linkId, completedPaperwork);
       },
+      paperworkComponentHelpers,
     }),
     [
       appointment,
@@ -177,6 +180,7 @@ export const StandaloneFormPage: FC = () => {
       updateTimestamp,
       saveButtonDisabled,
       setContinueLabel,
+      paperworkComponentHelpers,
     ]
   );
 

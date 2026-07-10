@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { TermsAndConditions } from 'src/components/TermsAndConditions';
+import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import {
   convertQRItemToLinkIdMap,
   evalEnableWhen,
@@ -23,7 +24,7 @@ import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
-import { FormValidationErrorObject, getFormValidationErrors, usePaperworkContext } from '../features/paperwork';
+import { FormValidationErrorObject, getFormValidationErrors } from '../features/paperwork';
 import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
 import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';

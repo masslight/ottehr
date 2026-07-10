@@ -2,12 +2,13 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import imageCompression from 'browser-image-compression';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { describe, expect, test, vi } from 'vitest';
-import FileInput, {
+import { PaperworkContext } from 'ui-components';
+import {
   COMPRESS_TARGET_MB,
   COMPRESS_THRESHOLD_MB,
-} from '../../src/features/paperwork/components/FileInput';
-import { PaperworkContext } from '../../src/features/paperwork/context';
+  FileInput,
+} from 'ui-components/lib/components/paperwork/form-components';
+import { describe, expect, test, vi } from 'vitest';
 
 vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),

@@ -299,7 +299,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const { questionnaireResponse, saveButtonDisabled, continueLabel } = usePaperworkContext();
 
-  console.log('huh', continueLabel);
+  console.log('huh', continueLabel); // todo sarah remove
 
   const { handleSubmit, formState } = useFormContext();
 

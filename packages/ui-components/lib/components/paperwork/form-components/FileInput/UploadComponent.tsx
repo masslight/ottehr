@@ -1,9 +1,9 @@
 import { Box, Button, Container, Typography, useTheme } from '@mui/material';
-import { usePaperworkOtherColors } from 'lib/main';
 import { ChangeEvent, FC, RefObject } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { MIME_TYPES } from 'utils';
+import { usePaperworkOtherColors } from '../../theme';
 import { DescriptionRenderer } from '../DescriptionRenderer';
 import { AttachmentType } from '.';
 

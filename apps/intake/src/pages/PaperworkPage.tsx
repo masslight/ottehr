@@ -18,6 +18,7 @@ import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
 import { useGetPaymentMethods, useSetupPaymentMethod } from 'src/telemed/features/paperwork';
 import { PagedQuestionnaire } from 'ui-components';
 import { PaperworkContext } from 'ui-components';
@@ -230,6 +231,8 @@ export const PaperworkHome: FC = () => {
     setupCompleted: Boolean(stripeSetupData),
   });
 
+  const paperworkComponentHelpers = usePaperworkComponentHelpers();
+
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       appointment,
@@ -254,7 +257,7 @@ export const PaperworkHome: FC = () => {
       findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
         return findQuestionnaireResponseItemLinkId(linkId, completedPaperwork);
       },
-      // todo sarah add additional PaperworkComponentHelpers
+      paperworkComponentHelpers,
     };
   }, [
     appointment,
@@ -273,6 +276,7 @@ export const PaperworkHome: FC = () => {
     setContinueLabel,
     refetchPaymentMethods,
     refetchSetupData,
+    paperworkComponentHelpers,
   ]);
 
   const redirectTarget = useMemo(() => {

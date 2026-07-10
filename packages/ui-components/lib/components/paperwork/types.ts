@@ -3,8 +3,6 @@
 // if they are being used else where
 
 import { SxProps } from '@mui/system';
-import { QuestionnaireResponse } from 'fhir/r4b';
-import { HandleAnswerInput, SearchPlacesInput, SearchPlacesOutput, StartInterviewInput } from 'utils';
 
 export interface ControlButtonsProps {
   submitLabel?: string;
@@ -26,16 +24,3 @@ export type RadioStyling = {
   label?: SxProps;
   height?: string;
 };
-
-export interface PaperworkComponentHelpers {
-  /** PharmacyCollection */
-  handleSearchPlaces: ((input: SearchPlacesInput) => Promise<SearchPlacesOutput>) | undefined;
-  /** FileInput */
-  createZ3Object:
-    | ((input: { appointmentID: string; fileType: string; fileFormat: string; file: File }) => Promise<any>)
-    | undefined;
-  /** AiInterview */
-  aIInterviewStart: ((input: StartInterviewInput) => Promise<QuestionnaireResponse>) | undefined;
-  /** AiInterview */
-  aIInterviewHandleAnswer: ((input: HandleAnswerInput) => Promise<QuestionnaireResponse>) | undefined;
-}

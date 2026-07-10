@@ -1,7 +1,7 @@
 import { Box, Button, Skeleton, useTheme } from '@mui/material';
-import { usePaperworkOtherColors } from 'lib/main';
-import { dataTestIds } from 'lib/main';
 import { FC } from 'react';
+import { dataTestIds } from '../../data-test-ids';
+import { usePaperworkOtherColors } from '../../theme';
 
 interface CardDisplayProps {
   name: string;

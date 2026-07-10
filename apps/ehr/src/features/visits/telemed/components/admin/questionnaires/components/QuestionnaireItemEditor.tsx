@@ -31,15 +31,15 @@ import {
 import { FC, useState } from 'react';
 import {
   DATA_TYPES_BY_ITEM_TYPE,
-  ManagedQuestionnaireItem,
   OTTEHR_INPUT_WIDTHS,
+  PracticeManagedQuestionnaireItem,
   QUESTIONNAIRE_ITEM_TYPES,
 } from 'utils';
 import { ItemAction } from '../questionnaire.reducer';
 import { AnswerOptionEditor } from './AnswerOptionEditor';
 
 interface QuestionnaireItemEditorProps {
-  item: ManagedQuestionnaireItem;
+  item: PracticeManagedQuestionnaireItem;
   dispatch: React.Dispatch<ItemAction>;
   depth?: number;
 }
@@ -63,7 +63,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   reference: <LinkIcon sx={iconSx} />,
 };
 
-const ItemActions: FC<{ item: ManagedQuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({
+const ItemActions: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({
   item,
   dispatch,
 }) => (
@@ -86,13 +86,13 @@ const ItemActions: FC<{ item: ManagedQuestionnaireItem; dispatch: React.Dispatch
   </Box>
 );
 
-const ItemFields: FC<{ item: ManagedQuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({
+const ItemFields: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.Dispatch<ItemAction> }> = ({
   item,
   dispatch,
 }) => {
   const isChoice = item.type === 'choice' || item.type === 'open-choice';
   const isGroup = item.type === 'group';
-  const showMaxLength = item.type === 'string' || item.type === 'text' || item.type === 'url';
+  const showMaxLength = item.type === 'string' || item.type === 'text';
   const isDisplay = item.type === 'display';
   const availableDataTypes = DATA_TYPES_BY_ITEM_TYPE[item.type] || [];
 
