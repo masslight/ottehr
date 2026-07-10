@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement } from 'react';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
   getRuleFieldDef,
   HOLD_TAG_NAME,
@@ -33,10 +34,13 @@ import { otherColors } from '../../themes/ottehr/colors';
 import { PayerSelect } from '../PayerSelect';
 
 // ---------------------------------------------------------------------------
-// Recursive editor for a rule's if / else-if / else conditional tree. Each editor is fully
-// controlled (value + onChange) and produces an immutably-updated copy on change. Components are
-// declared (hoisted) so the mutual recursion (Conditional -> Outcome -> Conditional, Condition ->
-// group -> Condition) resolves cleanly.
+// Recursive editor for a rule's if / else-if / else conditional tree, wired to react-hook-form by
+// field path (`name`) — it must render inside a FormProvider whose values contain the conditional
+// at that path. Each editor reads its node with useWatch and writes structural edits (add/remove a
+// branch, switch a condition/outcome/action type) back as an immutably-updated node via setValue.
+// Leaf inputs the save schema constrains (a tag name) register through Controller with validation
+// rules, so submitting an invalid rule highlights the exact field and focuses it instead of
+// round-tripping to the server.
 // ---------------------------------------------------------------------------
 
 const SETTABLE_FIELDS = RULE_FIELD_CATALOG.filter((f) => f.settable);
@@ -84,6 +88,13 @@ export const newRuleConditional = (): RuleConditional => ({ branches: [newBranch
 
 const indentSx = { borderLeft: `2px solid ${otherColors.lightDivider}`, pl: 2, ml: 0.5 };
 
+// The node at `name` plus a setter that replaces it with an immutably-updated copy.
+function useNode<T>(name: string): { value: T; replace: (next: T) => void } {
+  const { setValue } = useFormContext();
+  const value = useWatch({ name }) as T;
+  return { value, replace: (next: T) => setValue(name, next, { shouldDirty: true }) };
+}
+
 // Field-aware value input, dispatched on the catalog's valueType so new typed fields (gender
 // dropdowns, date pickers, more payer-like fields) only need a catalog entry plus a branch here.
 function FieldValueInput({
@@ -115,13 +126,9 @@ function FieldValueInput({
 
 // --- Condition ---
 
-function ConditionEditor({
-  value,
-  onChange,
-}: {
-  value: RuleCondition;
-  onChange: (next: RuleCondition) => void;
-}): ReactElement {
+function ConditionEditor({ name }: { name: string }): ReactElement | null {
+  const { value, replace } = useNode<RuleCondition>(name);
+  if (!value) return null;
   return (
     <Box>
       <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -131,9 +138,9 @@ function ConditionEditor({
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleCondition['type'];
-            if (next === RULE_CONDITION_TYPE.all) onChange({ type: RULE_CONDITION_TYPE.all });
-            else if (next === RULE_CONDITION_TYPE.field) onChange(newFieldCondition());
-            else onChange({ type: RULE_CONDITION_TYPE.group, logic: 'and', conditions: [newFieldCondition()] });
+            if (next === RULE_CONDITION_TYPE.all) replace({ type: RULE_CONDITION_TYPE.all });
+            else if (next === RULE_CONDITION_TYPE.field) replace(newFieldCondition());
+            else replace({ type: RULE_CONDITION_TYPE.group, logic: 'and', conditions: [newFieldCondition()] });
           }}
         >
           <MenuItem value={RULE_CONDITION_TYPE.all}>All claims</MenuItem>
@@ -141,19 +148,15 @@ function ConditionEditor({
           <MenuItem value={RULE_CONDITION_TYPE.group}>Group (AND / OR)</MenuItem>
         </Select>
       </FormControl>
-      {value.type === RULE_CONDITION_TYPE.field && <FieldConditionEditor value={value} onChange={onChange} />}
-      {value.type === RULE_CONDITION_TYPE.group && <GroupConditionEditor value={value} onChange={onChange} />}
+      {value.type === RULE_CONDITION_TYPE.field && <FieldConditionEditor name={name} />}
+      {value.type === RULE_CONDITION_TYPE.group && <GroupConditionEditor name={name} />}
     </Box>
   );
 }
 
-function FieldConditionEditor({
-  value,
-  onChange,
-}: {
-  value: Extract<RuleCondition, { type: typeof RULE_CONDITION_TYPE.field }>;
-  onChange: (next: RuleCondition) => void;
-}): ReactElement {
+function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
+  const { value, replace } = useNode<Extract<RuleCondition, { type: typeof RULE_CONDITION_TYPE.field }>>(name);
+  if (!value) return null;
   const def = getRuleFieldDef(value.field);
   const operators = def?.operators ?? [...RULE_OPERATORS];
   return (
@@ -169,7 +172,7 @@ function FieldConditionEditor({
             const operator =
               nextDef && !nextDef.operators.includes(value.operator) ? nextDef.operators[0] : value.operator;
             // Reset the value: it's meaningless across a property change (e.g. payer id -> gender).
-            onChange({ ...value, field, operator, value: '' });
+            replace({ ...value, field, operator, value: '' });
           }}
         >
           {RULE_FIELD_CATALOG.map((f) => (
@@ -184,7 +187,7 @@ function FieldConditionEditor({
         <Select
           label="Operator"
           value={value.operator}
-          onChange={(e) => onChange({ ...value, operator: e.target.value as RuleOperator })}
+          onChange={(e) => replace({ ...value, operator: e.target.value as RuleOperator })}
         >
           {operators.map((op) => (
             <MenuItem key={op} value={op}>
@@ -198,24 +201,18 @@ function FieldConditionEditor({
           fieldId={value.field}
           multiple={operatorIsMultiValue(value.operator)}
           value={value.value}
-          onChange={(v) => onChange({ ...value, value: v })}
+          onChange={(v) => replace({ ...value, value: v })}
         />
       )}
     </Box>
   );
 }
 
-function GroupConditionEditor({
-  value,
-  onChange,
-}: {
-  value: Extract<RuleCondition, { type: typeof RULE_CONDITION_TYPE.group }>;
-  onChange: (next: RuleCondition) => void;
-}): ReactElement {
-  const setConditionAt = (index: number, next: RuleCondition): void =>
-    onChange({ ...value, conditions: value.conditions.map((c, i) => (i === index ? next : c)) });
+function GroupConditionEditor({ name }: { name: string }): ReactElement | null {
+  const { value, replace } = useNode<Extract<RuleCondition, { type: typeof RULE_CONDITION_TYPE.group }>>(name);
+  if (!value) return null;
   const removeAt = (index: number): void =>
-    onChange({ ...value, conditions: value.conditions.filter((_, i) => i !== index) });
+    replace({ ...value, conditions: value.conditions.filter((_, i) => i !== index) });
   return (
     <Box sx={{ mt: 1, ...indentSx }}>
       <FormControl size="small" sx={{ minWidth: 120, mb: 1 }}>
@@ -223,7 +220,7 @@ function GroupConditionEditor({
         <Select
           label="Match"
           value={value.logic}
-          onChange={(e) => onChange({ ...value, logic: e.target.value as RuleLogic })}
+          onChange={(e) => replace({ ...value, logic: e.target.value as RuleLogic })}
         >
           {RULE_LOGIC.map((logic) => (
             <MenuItem key={logic} value={logic}>
@@ -232,10 +229,10 @@ function GroupConditionEditor({
           ))}
         </Select>
       </FormControl>
-      {value.conditions.map((condition, index) => (
+      {value.conditions.map((_, index) => (
         <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
           <Box sx={{ flex: 1 }}>
-            <ConditionEditor value={condition} onChange={(next) => setConditionAt(index, next)} />
+            <ConditionEditor name={`${name}.conditions.${index}`} />
           </Box>
           <IconButton size="small" onClick={() => removeAt(index)} disabled={value.conditions.length <= 1}>
             <DeleteIcon fontSize="small" />
@@ -245,7 +242,7 @@ function GroupConditionEditor({
       <Button
         size="small"
         startIcon={<AddIcon />}
-        onClick={() => onChange({ ...value, conditions: [...value.conditions, newFieldCondition()] })}
+        onClick={() => replace({ ...value, conditions: [...value.conditions, newFieldCondition()] })}
       >
         Add condition
       </Button>
@@ -255,9 +252,12 @@ function GroupConditionEditor({
 
 // --- Action ---
 
-function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next: RuleAction) => void }): ReactElement {
+function ActionEditor({ name }: { name: string }): ReactElement | null {
+  const { control } = useFormContext();
+  const { value, replace } = useNode<RuleAction>(name);
+  if (!value) return null;
   return (
-    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <FormControl size="small" sx={{ minWidth: 150 }}>
         <InputLabel>Action</InputLabel>
         <Select
@@ -265,9 +265,9 @@ function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next:
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleAction['type'];
-            if (next === RULE_ACTION_TYPE.setField) onChange(newAction());
-            else if (next === RULE_ACTION_TYPE.applyTag) onChange({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
-            else onChange({ type: RULE_ACTION_TYPE.noop });
+            if (next === RULE_ACTION_TYPE.setField) replace(newAction());
+            else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
+            else replace({ type: RULE_ACTION_TYPE.noop });
           }}
         >
           <MenuItem value={RULE_ACTION_TYPE.setField}>Set a property</MenuItem>
@@ -282,7 +282,7 @@ function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next:
             <Select
               label="Property"
               value={value.field}
-              onChange={(e) => onChange({ ...value, field: e.target.value, value: '' })}
+              onChange={(e) => replace({ ...value, field: e.target.value, value: '' })}
             >
               {SETTABLE_FIELDS.map((f) => (
                 <MenuItem key={f.id} value={f.id}>
@@ -295,19 +295,28 @@ function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next:
             fieldId={value.field}
             multiple={false}
             value={value.value}
-            onChange={(v) => onChange({ ...value, value: typeof v === 'string' ? v : v[0] ?? '' })}
+            onChange={(v) => replace({ ...value, value: typeof v === 'string' ? v : v[0] ?? '' })}
             label="New value"
           />
         </>
       )}
       {value.type === RULE_ACTION_TYPE.applyTag && (
-        <TextField
-          size="small"
-          label="Tag name"
-          value={value.tag}
-          onChange={(e) => onChange({ ...value, tag: e.target.value })}
-          helperText={`Applying the "${HOLD_TAG_NAME}" tag holds the claim and stops the engine.`}
-          sx={{ minWidth: 240 }}
+        <Controller
+          name={`${name}.tag`}
+          control={control}
+          rules={{ validate: (tag: string) => (tag ?? '').trim().length > 0 || 'Tag name is required' }}
+          render={({ field: { ref, ...field }, fieldState: { error } }) => (
+            <TextField
+              {...field}
+              value={field.value ?? ''}
+              inputRef={ref}
+              size="small"
+              label="Tag name"
+              error={!!error}
+              helperText={error?.message ?? `Applying the "${HOLD_TAG_NAME}" tag holds the claim and stops the engine.`}
+              sx={{ minWidth: 240 }}
+            />
+          )}
         />
       )}
     </Box>
@@ -316,13 +325,9 @@ function ActionEditor({ value, onChange }: { value: RuleAction; onChange: (next:
 
 // --- Outcome ---
 
-function OutcomeEditor({
-  value,
-  onChange,
-}: {
-  value: RuleOutcome;
-  onChange: (next: RuleOutcome) => void;
-}): ReactElement {
+function OutcomeEditor({ name }: { name: string }): ReactElement | null {
+  const { value, replace } = useNode<RuleOutcome>(name);
+  if (!value) return null;
   const actions = value.type === RULE_OUTCOME_TYPE.actions ? value.actions : [];
   return (
     <Box>
@@ -333,10 +338,10 @@ function OutcomeEditor({
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleOutcome['type'];
-            if (next === RULE_OUTCOME_TYPE.actions) onChange(newOutcome());
+            if (next === RULE_OUTCOME_TYPE.actions) replace(newOutcome());
             else if (next === RULE_OUTCOME_TYPE.conditional)
-              onChange({ type: RULE_OUTCOME_TYPE.conditional, conditional: newRuleConditional() });
-            else onChange({ type: RULE_OUTCOME_TYPE.noop });
+              replace({ type: RULE_OUTCOME_TYPE.conditional, conditional: newRuleConditional() });
+            else replace({ type: RULE_OUTCOME_TYPE.noop });
           }}
         >
           <MenuItem value={RULE_OUTCOME_TYPE.actions}>Take action(s)</MenuItem>
@@ -346,23 +351,15 @@ function OutcomeEditor({
       </FormControl>
       {value.type === RULE_OUTCOME_TYPE.actions && (
         <Box sx={{ mt: 1, ...indentSx }}>
-          {actions.map((action, index) => (
+          {actions.map((_, index) => (
             <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
               <Box sx={{ flex: 1 }}>
-                <ActionEditor
-                  value={action}
-                  onChange={(next) =>
-                    onChange({
-                      type: RULE_OUTCOME_TYPE.actions,
-                      actions: actions.map((a, i) => (i === index ? next : a)),
-                    })
-                  }
-                />
+                <ActionEditor name={`${name}.actions.${index}`} />
               </Box>
               <IconButton
                 size="small"
                 onClick={() =>
-                  onChange({ type: RULE_OUTCOME_TYPE.actions, actions: actions.filter((_, i) => i !== index) })
+                  replace({ type: RULE_OUTCOME_TYPE.actions, actions: actions.filter((_, i) => i !== index) })
                 }
                 disabled={actions.length <= 1}
               >
@@ -373,7 +370,7 @@ function OutcomeEditor({
           <Button
             size="small"
             startIcon={<AddIcon />}
-            onClick={() => onChange({ type: RULE_OUTCOME_TYPE.actions, actions: [...actions, newAction()] })}
+            onClick={() => replace({ type: RULE_OUTCOME_TYPE.actions, actions: [...actions, newAction()] })}
           >
             Add action
           </Button>
@@ -381,10 +378,7 @@ function OutcomeEditor({
       )}
       {value.type === RULE_OUTCOME_TYPE.conditional && (
         <Box sx={{ mt: 1, ...indentSx }}>
-          <ConditionalEditor
-            value={value.conditional}
-            onChange={(next) => onChange({ type: RULE_OUTCOME_TYPE.conditional, conditional: next })}
-          />
+          <ConditionalEditor name={`${name}.conditional`} />
         </Box>
       )}
     </Box>
@@ -393,19 +387,13 @@ function OutcomeEditor({
 
 // --- Conditional (top-level entry point) ---
 
-export function ConditionalEditor({
-  value,
-  onChange,
-}: {
-  value: RuleConditional;
-  onChange: (next: RuleConditional) => void;
-}): ReactElement {
-  const setBranchAt = (index: number, next: RuleConditional['branches'][number]): void =>
-    onChange({ ...value, branches: value.branches.map((b, i) => (i === index ? next : b)) });
+export function ConditionalEditor({ name }: { name: string }): ReactElement | null {
+  const { value, replace } = useNode<RuleConditional>(name);
+  if (!value) return null;
 
   return (
     <Box>
-      {value.branches.map((branch, index) => (
+      {value.branches.map((_, index) => (
         <Box
           key={index}
           sx={{
@@ -422,27 +410,24 @@ export function ConditionalEditor({
             </Typography>
             <IconButton
               size="small"
-              onClick={() => onChange({ ...value, branches: value.branches.filter((_, i) => i !== index) })}
+              onClick={() => replace({ ...value, branches: value.branches.filter((_, i) => i !== index) })}
               disabled={value.branches.length <= 1}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Box>
-          <ConditionEditor
-            value={branch.condition}
-            onChange={(condition) => setBranchAt(index, { ...branch, condition })}
-          />
+          <ConditionEditor name={`${name}.branches.${index}.condition`} />
           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1.5, mb: 0.5 }}>
             THEN
           </Typography>
-          <OutcomeEditor value={branch.outcome} onChange={(outcome) => setBranchAt(index, { ...branch, outcome })} />
+          <OutcomeEditor name={`${name}.branches.${index}.outcome`} />
         </Box>
       ))}
 
       <Button
         size="small"
         startIcon={<AddIcon />}
-        onClick={() => onChange({ ...value, branches: [...value.branches, newBranch()] })}
+        onClick={() => replace({ ...value, branches: [...value.branches, newBranch()] })}
         sx={{ mb: 1 }}
       >
         Add else-if branch
@@ -450,7 +435,7 @@ export function ConditionalEditor({
 
       <Box sx={{ mt: 1 }}>
         {value.otherwise === undefined ? (
-          <Button size="small" startIcon={<AddIcon />} onClick={() => onChange({ ...value, otherwise: newOutcome() })}>
+          <Button size="small" startIcon={<AddIcon />} onClick={() => replace({ ...value, otherwise: newOutcome() })}>
             Add ELSE
           </Button>
         ) : (
@@ -466,11 +451,11 @@ export function ConditionalEditor({
               <Typography variant="subtitle2" color="primary.dark" fontWeight={600}>
                 ELSE
               </Typography>
-              <IconButton size="small" onClick={() => onChange({ ...value, otherwise: undefined })}>
+              <IconButton size="small" onClick={() => replace({ ...value, otherwise: undefined })}>
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Box>
-            <OutcomeEditor value={value.otherwise} onChange={(otherwise) => onChange({ ...value, otherwise })} />
+            <OutcomeEditor name={`${name}.otherwise`} />
           </Box>
         )}
       </Box>
