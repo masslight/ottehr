@@ -1,5 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { BRANDING_CONFIG, fitWrappedTextToBanner, PatientEducationSection } from 'utils';
+import { BRANDING_CONFIG, fitWrappedTextToBanner, PatientEducationLanguage, PatientEducationSection } from 'utils';
 import { rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
 export type { PatientEducationSection };
@@ -18,7 +18,10 @@ const WARNING_RE = /seek.*(?:emergency|immediate|urgent)|call\s+911|go\s+to\s+(?
 const MARKDOWN_HEADING_PREFIX_RE = /^#{1,3}\s*/;
 const MARKDOWN_BOLD_RE = /\*\*/g;
 
-export async function createPatientEducationPdf(sections: PatientEducationSection[]): Promise<Uint8Array> {
+export async function createPatientEducationPdf(
+  sections: PatientEducationSection[],
+  language: PatientEducationLanguage = 'en'
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -134,16 +137,26 @@ export async function createPatientEducationPdf(sections: PatientEducationSectio
       font: helveticaOblique,
       color: styles.colors.textLight,
     });
-    const formattedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    page.drawText(`Generated: ${formattedDate}  |  Source: MedlinePlus`, {
+    const formattedDate = new Date().toLocaleDateString(language === 'es' ? 'es-US' : 'en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const sourceText =
+      language === 'es'
+        ? `Generado: ${formattedDate}  |  Fuente: MedlinePlus`
+        : `Generated: ${formattedDate}  |  Source: MedlinePlus`;
+    page.drawText(sourceText, {
       x: styles.page.margin,
       y: styles.page.margin - styles.footer.secondaryLineOffset,
       size: styles.fontSize.footer,
       font: helvetica,
       color: styles.colors.textLight,
     });
-    page.drawText(`Page ${pageNum} of ${totalPages}`, {
-      x: styles.page.width - styles.page.margin - styles.footer.pageNumberRightInset,
+    const pageNumberText =
+      language === 'es' ? `Página ${pageNum} de ${totalPages}` : `Page ${pageNum} of ${totalPages}`;
+    page.drawText(pageNumberText, {
+      x: styles.page.width - styles.page.margin - helvetica.widthOfTextAtSize(pageNumberText, styles.fontSize.footer),
       y: styles.page.margin - styles.footer.primaryLineOffset,
       size: styles.fontSize.footer,
       font: helvetica,

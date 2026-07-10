@@ -4,10 +4,11 @@ import { FhirResource, Practitioner, PractitionerQualification, Resource } from 
 import { DateTime } from 'luxon';
 import {
   EmployeeDetails,
+  getAllNotificationRows,
   GetEmployeesResponse,
   getFirstName,
   getLastName,
-  getProviderNotificationSettingsForPractitioner,
+  getProviderNotificationPreferencesV2,
   getResourcesFromBatchInlineRequests,
   PractitionerLicense,
   PractitionerQualificationCode,
@@ -147,7 +148,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       });
     }
 
-    const notificationSettings = lite ? undefined : getProviderNotificationSettingsForPractitioner(practitioner);
+    const notificationPreferences = lite ? undefined : getProviderNotificationPreferencesV2(practitioner);
     return {
       id: employee.id,
       profile: employee.profile,
@@ -162,8 +163,9 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       phoneNumber: phone ? standardizePhoneNumber(phone)! : '',
       licenses: licenses,
       seenPatientRecently: recentlyActivePractitioners.includes(employee.profile),
-      gettingAlerts:
-        notificationSettings?.taskNotificationsEnabled || notificationSettings?.telemedNotificationsEnabled || false,
+      gettingAlerts: notificationPreferences
+        ? getAllNotificationRows(notificationPreferences).some((row) => row.enabled)
+        : false,
       needsReview: !hasPractitionerProfile,
     };
   });

@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { render, screen, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VisitType } from 'config-types';
 import { ReactNode } from 'react';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import AddPatient from '../../src/pages/AddPatient';
 
@@ -69,7 +69,7 @@ const mockOystehr = {
     }),
   },
 };
-const mockApiClients = {
+const mockApiClients: { oystehr: typeof mockOystehr; oystehrZambda: unknown } = {
   oystehr: mockOystehr,
   oystehrZambda: null,
 };
@@ -532,6 +532,128 @@ describe('AddVisit', () => {
           // Click to close the service category dropdown
           await user.keyboard('{Escape}');
         }
+      }
+    });
+  });
+
+  // OTR-2721: When staff pick a service that doesn't offer walk-in and then
+  // try to pick a walk-in visit type, the old form silently substituted the
+  // service to the first walk-in-compatible one (Acne Facial in the reporter's
+  // repro). The fix filters the Visit Type dropdown by the picked service so
+  // unsupported modalities aren't offered in the first place.
+  describe('Service Category ↔ Visit Type coupling (OTR-2721)', () => {
+    const walkInInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonWalkIn)?.label;
+    const prebookInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonPreBook)
+      ?.label;
+    const virtualScheduledLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualScheduled)
+      ?.label;
+    const virtualOnDemandLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualOnDemand)
+      ?.label;
+
+    // FHIR-sourced categories go through the strict path in
+    // serviceCategorySupportsContext: empty arrays = "supports nothing". So
+    // tagging visitTypes:['prebook'] here excludes walk-in and lets us test
+    // the filter behavior without adding new BOOKING_CONFIG entries. Kept
+    // in-person-only so the virtual visit types drop out on the mode axis
+    // (rather than accidentally passing the empty-arrays-supports-all
+    // BOOKING_CONFIG rule).
+    const prebookOnlyFhirCategory = {
+      id: 'fhir-svc-prebook-only',
+      name: 'Crystal Therapy (Test)',
+      code: 'crystal-therapy-test',
+      active: true,
+      config: {
+        serviceModes: ['in-person'],
+        visitTypes: ['prebook'],
+        reasonsForVisit: [{ label: 'Consultation', value: 'consultation' }],
+      },
+    };
+
+    const mockOystehrZambda = {
+      zambda: {
+        execute: vi.fn(),
+        // Referenced by getLocations via oystehr.zambda.executePublic. Never
+        // fires in these tests (we don't set selectedBookable) but stub it so
+        // any incidental call resolves cleanly.
+        executePublic: vi.fn().mockResolvedValue({ output: null }),
+      },
+    };
+
+    beforeEach(() => {
+      mockOystehrZambda.zambda.execute.mockReset();
+      mockOystehrZambda.zambda.execute.mockResolvedValue({
+        output: { serviceCategories: [prebookOnlyFhirCategory] },
+      });
+      mockApiClients.oystehrZambda = mockOystehrZambda;
+    });
+
+    afterEach(() => {
+      mockApiClients.oystehrZambda = null;
+    });
+
+    const openVisitTypeDropdown = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+      const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
+      const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
+      await user.click(visitTypeButton!);
+    };
+
+    const pickPrebookOnlyServiceCategory = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+      const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
+      const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
+      await user.click(serviceCategoryButton!);
+      // findByText polls until the option renders, which covers both "menu is
+      // open" and "React Query has resolved and the FHIR-sourced entry is in
+      // the merged catalog."
+      const option = await screen.findByText(prebookOnlyFhirCategory.name);
+      await user.click(option);
+    };
+
+    it('filters the Visit Type dropdown to only modalities the picked Service Category supports', async () => {
+      // With a prebook-only in-person FHIR service picked, walk-in and both
+      // virtual options must drop out of the Visit Type dropdown. This is the
+      // "option (b)" fix from OTR-2721: hide the incompatible modalities up
+      // front so staff never reach the state where the old code silently
+      // swapped the service.
+      const user = userEvent.setup();
+      render(
+        <TestProviders>
+          <AddPatient />
+        </TestProviders>
+      );
+
+      // The zambda mock was set in beforeEach; nothing to await here — the
+      // helper below opens the dropdown and polls until the FHIR entry lands.
+      await pickPrebookOnlyServiceCategory(user);
+      await openVisitTypeDropdown(user);
+
+      const listbox = await screen.findByRole('listbox');
+      // Prebook + PostTelemed (in-person, visitCtx undefined → passes the
+      // visit-type dimension with any non-empty tag list) survive the filter.
+      expect(within(listbox).getByText(prebookInPersonLabel!)).toBeInTheDocument();
+      // Walk-in (in-person + walk-in) and the two virtual modes are excluded.
+      expect(within(listbox).queryByText(walkInInPersonLabel!)).not.toBeInTheDocument();
+      expect(within(listbox).queryByText(virtualScheduledLabel!)).not.toBeInTheDocument();
+      expect(within(listbox).queryByText(virtualOnDemandLabel!)).not.toBeInTheDocument();
+    });
+
+    it('shows all Visit Type options when the picked Service Category supports every modality', async () => {
+      // Sanity check that the filter only kicks in when the picked category
+      // actually restricts modalities. BOOKING_CONFIG entries have empty
+      // serviceModes/visitTypes arrays, which the helper treats as "supports
+      // all" — so all 5 booking options must still render.
+      const user = userEvent.setup();
+      render(
+        <TestProviders>
+          <AddPatient />
+        </TestProviders>
+      );
+
+      await selectServiceCategory(user, screen);
+      await openVisitTypeDropdown(user);
+
+      const listbox = await screen.findByRole('listbox');
+      for (const option of BOOKING_CONFIG.ehrBookingOptions) {
+        expect(within(listbox).getByText(option.label)).toBeInTheDocument();
       }
     });
   });

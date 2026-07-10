@@ -43,11 +43,21 @@ export const combineMultipleValuesForSave = (
 ): string | undefined => {
   if (!values?.length && !otherValue) return undefined;
 
+  const hasOther = values?.includes(OTHER);
+  const hasOtherDetail = Boolean(otherValue?.trim());
+
   // "Other: <text>" must come last: parseWithOther treats everything after "Other:" as free text.
   const result = (values ?? []).filter((value) => value !== OTHER);
 
-  if (values?.includes(OTHER) && otherValue?.trim()) {
-    result.push(`${OTHER}: ${otherValue.trim()}`);
+  // consolidate other and other detail
+  if (hasOther && hasOtherDetail) {
+    result.push(`${OTHER}: ${otherValue?.trim()}`);
+  }
+
+  // we do not want to lose Other if no detail is provided
+  // still want to move other to the end of the values
+  if (hasOther && !hasOtherDetail) {
+    result.push(OTHER);
   }
 
   return result.join(', ');
@@ -57,10 +67,12 @@ export const combineMultipleValuesForSave = (
 export const splitOtherForQuickPick = (
   values: string[] | undefined,
   otherText: string | undefined
-): { values: string[] | undefined; other: string | undefined } => ({
-  values: values?.filter((value) => value !== OTHER),
-  other: values?.includes(OTHER) ? otherText?.trim() : undefined,
-});
+): { values: string[] | undefined; other: string | undefined } => {
+  const otherDetailsProvided = Boolean(otherText?.trim());
+  const valuesToReturn = otherDetailsProvided ? values?.filter((value) => value !== OTHER) : values;
+
+  return { values: valuesToReturn, other: values?.includes(OTHER) ? otherText?.trim() : undefined };
+};
 
 /** Rebuild a multi-select state array from quick-pick storage, re-adding the "Other" chip. */
 export const mergeOtherFromQuickPick = (

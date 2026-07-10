@@ -1,3 +1,4 @@
+import { ErxGetPharmacyResponse } from '@oystehr/sdk';
 import {
   Appointment,
   Coding,
@@ -540,7 +541,7 @@ export interface RosObservations extends PdfData {
 }
 
 export interface Prescriptions extends PdfData {
-  prescriptions: string[];
+  pharmacyGroups: { pharmacy?: pharmacyInfo; prescriptions: string[] }[];
 }
 
 export interface EmCode extends PdfData {
@@ -645,6 +646,7 @@ export interface PrimaryCarePhysician extends PdfData {
   pcpPracticeName: string;
   pcpAddress: string;
   pcpPhone: string;
+  pcpFax: string;
 }
 
 export interface Documents extends PdfData {
@@ -894,7 +896,7 @@ export interface RadiologyData extends PdfData {
 }
 
 export interface ErxMedicationsData extends PdfData {
-  medications: PrescribedMedication[];
+  pharmacyGroups: { pharmacy?: pharmacyInfo; medications: PrescribedMedication[] }[];
 }
 
 export interface PatientInstructionsData extends PdfData {
@@ -1039,6 +1041,7 @@ export interface ProgressNoteInput {
   questionnaireResponse?: QuestionnaireResponse;
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
+  erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
   signatures?: ProgressNoteSignatures;
 }
 
@@ -1082,6 +1085,7 @@ export interface DischargeSummaryInput {
   appointmentPackage: FullAppointmentResourcePackage;
   upcomingFollowUps: UpcomingFollowUp[];
   serviceCategories?: ServiceCategoryCatalogEntry[];
+  erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
 }
 
 export interface DischargeSummaryData extends PdfData {

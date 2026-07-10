@@ -1,10 +1,16 @@
-import { GeneratePatientEducationInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import {
+  GeneratePatientEducationInput,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  PATIENT_EDUCATION_LANGUAGES,
+} from 'utils';
 import { z } from 'zod';
 import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const generatePatientEducationInputSchema: z.ZodType<GeneratePatientEducationInput> = z.object({
   icdCode: z.string().min(1, 'icdCode is required'),
   icdDescription: z.string().min(1, 'icdDescription is required'),
+  language: z.enum(PATIENT_EDUCATION_LANGUAGES).optional(),
 });
 
 export function validateRequestParameters(
