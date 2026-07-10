@@ -52,6 +52,7 @@ import { getUCInputType } from '../../helpers/paperworkUtils';
 import { otherColors } from '../../IntakeThemeProvider';
 import { ControlButtonsProps } from '../../types';
 import AIInterview from './components/AIInterview';
+import { AiFilledBadge, CardAutofillSlotNote, CarrierHintNote } from './components/CardAutofillNotes';
 import { CardErrorDialog } from './components/CardErrorDialog';
 import { CreditCardVerification } from './components/CreditCardVerification';
 import DateInput from './components/DateInput';
@@ -65,6 +66,8 @@ import { PharmacyCollection } from './components/PharmacyCollection';
 import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
+import { isExtractableCardSlot } from './hooks/cardAutofillEngine';
+import { useCardAutofill } from './hooks/useCardAutofill';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useAutoFillValues } from './useAutofill';
 import { useDisplayFilteredOptions, useFilterAnswersOptions } from './useFilterAnswersOptions';
@@ -235,6 +238,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     <FormProvider {...methods}>
       {pageItem && pageSubtitle ? <PaperworkPageTitle pageItem={pageItem} pageSubtitle={pageSubtitle} /> : null}
       <PaperworkFormRoot
+        pageId={pageId}
         pageItem={pageItem}
         items={items}
         onSubmit={onSubmit}
@@ -276,6 +280,7 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitl
 };
 
 interface PaperworkRootInput {
+  pageId: string;
   pageItem?: IntakeQuestionnaireItem;
   items: IntakeQuestionnaireItem[];
   onSubmit: (data: QuestionnaireFormFields) => void;
@@ -284,6 +289,7 @@ interface PaperworkRootInput {
   parentIsSaving?: boolean;
 }
 const PaperworkFormRoot: FC<PaperworkRootInput> = ({
+  pageId,
   pageItem,
   items,
   onSubmit,
@@ -306,6 +312,9 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const errorMessage = makeFormErrorMessage(items, errors);
   const { formValues } = useQRState();
+
+  // auto-fill engine: OCR of card images uploaded this session → carrier/member-id/address fields
+  useCardAutofill({ items, pageId });
 
   // Only run credit-card auto-save when the current page actually contains a Credit Card input.
   // The credit card store is module-scoped and survives across navigations, so without this guard
@@ -532,6 +541,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
                 item.text
               )}
             </BoldPurpleInputLabel>
+            <AiFilledBadge linkId={item.linkId} />
             <FormInputField
               renderProps={renderProps}
               itemProps={props}
@@ -539,6 +549,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
               parentItem={parentItem}
               fieldId={fieldId}
             />
+            <CarrierHintNote linkId={item.linkId} />
             {item.secondaryInfoText ? (
               <LightToolTip
                 title={item.secondaryInfoText}
@@ -801,15 +812,18 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         );
       case 'Attachment':
         return (
-          <FileInput
-            fileName={item.linkId}
-            fieldName={fieldId}
-            attachmentType={attachmentType}
-            value={unwrappedValue}
-            onChange={smartOnChange}
-            description={item.attachmentText ?? ''}
-            usePaperworkContext={usePaperworkContext}
-          />
+          <>
+            <FileInput
+              fileName={item.linkId}
+              fieldName={fieldId}
+              attachmentType={attachmentType}
+              value={unwrappedValue}
+              onChange={smartOnChange}
+              description={item.attachmentText ?? ''}
+              usePaperworkContext={usePaperworkContext}
+            />
+            {isExtractableCardSlot(item.linkId) && <CardAutofillSlotNote slotLinkId={item.linkId} />}
+          </>
         );
       case 'Group':
         // will this ever be reached??
