@@ -14,7 +14,7 @@ import {
   ServiceVisitType,
   SLUG_SYSTEM,
 } from 'utils';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 interface ServiceCategoryResponseEntry {
@@ -104,7 +104,11 @@ describe('get-service-categories integration', () => {
       name: `PR Test Location ${opts.slug}`,
       meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
     });
-    if (location.id) providerFixtureCleanup.push({ resourceType: 'Location', id: location.id });
+    // Assert ids immediately: FHIR create() returns typed `id?: string`
+    // so a missing id would otherwise silently produce `Location/undefined`
+    // references downstream and leak the resource past cleanup.
+    assert(location.id, 'Location fixture missing id');
+    providerFixtureCleanup.push({ resourceType: 'Location', id: location.id });
 
     const practitioner = await oystehrAdmin.fhir.create<Practitioner>({
       resourceType: 'Practitioner',
@@ -112,7 +116,8 @@ describe('get-service-categories integration', () => {
       name: [{ family: 'Provider', given: [`PR Test ${opts.slug}`] }],
       meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
     });
-    if (practitioner.id) providerFixtureCleanup.push({ resourceType: 'Practitioner', id: practitioner.id });
+    assert(practitioner.id, 'Practitioner fixture missing id');
+    providerFixtureCleanup.push({ resourceType: 'Practitioner', id: practitioner.id });
 
     const pr = await oystehrAdmin.fhir.create<PractitionerRole>({
       resourceType: 'PractitionerRole',
@@ -126,7 +131,8 @@ describe('get-service-categories integration', () => {
         : {}),
       meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
     });
-    if (pr.id) providerFixtureCleanup.push({ resourceType: 'PractitionerRole', id: pr.id });
+    assert(pr.id, 'PractitionerRole fixture missing id');
+    providerFixtureCleanup.push({ resourceType: 'PractitionerRole', id: pr.id });
     return pr;
   };
 

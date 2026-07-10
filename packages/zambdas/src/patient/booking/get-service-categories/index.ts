@@ -73,16 +73,22 @@ export const index = wrapHandler(
     // zambda (admin-list-service-categories) and is unaffected. Skipping
     // the FHIR search when off also saves a roundtrip per call.
     //
-    // The flag gates the general/location/group catalog. The provider case
-    // ignores it and always fetches FHIR resources: a provider deeplink is
-    // by construction bookable only against the categories the PR is
-    // credentialed for, and PR credentialing lives in FHIR (there's no
-    // BOOKING_CONFIG code a PR can legitimately opt into — get-schedule
-    // hard-excludes PR-owned schedules from BOOKING_CONFIG categories).
-    // Honoring the flag here would return an empty picker in the common
-    // "flag off but the site uses provider deeplinks" configuration.
+    // The flag gates the general/location/group catalog. Provider-scoped
+    // requests (scheduleType==='provider' && bookingOn) ignore it and always
+    // fetch FHIR resources: a provider deeplink is by construction bookable
+    // only against the categories the PR is credentialed for, and PR
+    // credentialing lives in FHIR (there's no BOOKING_CONFIG code a PR can
+    // legitimately opt into — get-schedule hard-excludes PR-owned schedules
+    // from BOOKING_CONFIG categories). Honoring the flag here would return
+    // an empty picker in the common "flag off but the site uses provider
+    // deeplinks" configuration. Gating on both parts of the scoped condition
+    // matters: `scheduleType==='provider'` alone (no bookingOn) falls through
+    // to the general fullCatalog branch below, and letting the FHIR fetch
+    // fire there would let a caller bypass the flag by sending an incomplete
+    // provider request.
+    const isProviderScoped = scheduleType === 'provider' && Boolean(bookingOn);
     const fhirResources =
-      FEATURE_FLAGS_CONFIG.dynamicServiceCategoriesEnabled || scheduleType === 'provider'
+      FEATURE_FLAGS_CONFIG.dynamicServiceCategoriesEnabled || isProviderScoped
         ? (
             await oystehr.fhir.search<HealthcareService>({
               resourceType: 'HealthcareService',
@@ -95,7 +101,7 @@ export const index = wrapHandler(
         : [];
     const fullCatalog = buildCatalog(fhirResources);
 
-    if (scheduleType === 'provider' && bookingOn) {
+    if (isProviderScoped) {
       const prMatches = (
         await oystehr.fhir.search<PractitionerRole>({
           resourceType: 'PractitionerRole',

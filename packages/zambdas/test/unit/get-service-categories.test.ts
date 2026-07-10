@@ -146,10 +146,18 @@ describe('buildFhirCatalog', () => {
     expect(result[0].id).toBe('hs-wellness');
   });
 
-  it('does not include any BOOKING_CONFIG entries', () => {
-    const result = buildFhirCatalog([makeFhirCategory('wellness', 'Wellness')]);
-    for (const code of BOOKING_CONFIG_CODES) {
-      expect(result.find((r) => r.code === code)).toBeUndefined();
+  it('never synthesizes booking-config records — every returned record is sourced from the input', () => {
+    // The helper's guarantee is purely input-driven: given N well-formed
+    // FHIR resources, it returns N records all tagged source: 'fhir'. It
+    // does not know about BOOKING_CONFIG and does not add compiled-in
+    // entries. (BOOKING_CONFIG-collision handling lives in buildCatalog +
+    // the provider-scope caller in index.ts, not in this helper.)
+    const input = [makeFhirCategory('wellness', 'Wellness'), makeFhirCategory('botox', 'Botox')];
+    const result = buildFhirCatalog(input);
+    expect(result.length).toBe(input.length);
+    for (const r of result) {
+      expect(r.source).toBe('fhir');
+      expect(input.some((hs) => hs.id === r.id)).toBe(true);
     }
   });
 
