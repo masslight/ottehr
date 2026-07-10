@@ -558,6 +558,13 @@
       "src": "src/patient/get-appointment-details/index",
       "zip": ".dist/zips/get-appointment-details.zip"
     },
+    "GET-CARD-EXTRACTION": {
+      "name": "get-card-extraction",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-card-extraction/index",
+      "zip": ".dist/zips/get-card-extraction.zip"
+    },
     "PAYMENT-METHODS-LIST": {
       "name": "payment-methods-list",
       "type": "http_auth",

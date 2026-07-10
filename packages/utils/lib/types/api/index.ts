@@ -19,6 +19,7 @@ export * from './visits-overview-report.types';
 export * from './user-activation.types';
 export * from './encounter.types';
 export * from './get-appointments.types';
+export * from './get-card-extraction';
 export * from './get-employees';
 export * from './get-conversation.types';
 export * from './get-patient-profile-photo-url.types';

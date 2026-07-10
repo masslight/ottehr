@@ -16,6 +16,8 @@ import {
   GetAppointmentDetailsResponse,
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireResponse,
+  GetCardExtractionInput,
+  GetCardExtractionResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
@@ -65,6 +67,7 @@ const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
 const GET_PRESIGNED_FILE_URL = 'get-presigned-file-url';
 const CREATE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID = 'create-card-document-reference';
 const DELETE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID = 'delete-card-document-reference';
+const GET_CARD_EXTRACTION_ZAMBDA_ID = 'get-card-extraction';
 const GET_APPOINTMENT_DETAILS = 'get-appointment-details';
 const PATCH_PAPERWORK_ZAMBDA_ID = 'patch-paperwork';
 const SUBMIT_PAPERWORK_ZAMBDA_ID = 'submit-paperwork';
@@ -427,6 +430,27 @@ class API {
       throw apiErrorToThrow(error);
     }
   }
+  // reads the card OCR extraction the extract-* subscriptions store asynchronously on the
+  // upload-time card DocumentReference (created by createCardDocumentReference); returns
+  // status 'pending' while the extraction is still in flight, so callers poll
+  async getCardExtraction(
+    params: GetCardExtractionInput,
+    zambdaClient: ZambdaClient
+  ): Promise<GetCardExtractionResponse> {
+    try {
+      const { appointmentID, cardType } = params;
+
+      const response = await zambdaClient.executePublic(GET_CARD_EXTRACTION_ZAMBDA_ID, {
+        appointmentID,
+        cardType,
+      });
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
   async getEligibility(input: GetEligibilityParameters, zambdaClient: ZambdaClient): Promise<GetEligibilityResponse> {
     try {
       if (GET_ELIGIBILITY_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
