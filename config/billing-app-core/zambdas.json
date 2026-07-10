@@ -309,7 +309,9 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-presubmission-rules-engine/index",
       "zip": ".dist/zips/sub-presubmission-rules-engine.zip"
-    },
+    }
+  },
+  "fhirResources": {
     "SUB_PRESUBMISSION_RULES_ENGINE_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
