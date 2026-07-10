@@ -544,6 +544,13 @@
       "src": "src/patient/create-card-document-reference/index",
       "zip": ".dist/zips/create-card-document-reference.zip"
     },
+    "DELETE-CARD-DOCUMENT-REFERENCE": {
+      "name": "delete-card-document-reference",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/delete-card-document-reference/index",
+      "zip": ".dist/zips/delete-card-document-reference.zip"
+    },
     "GET-APPOINTMENT-DETAILS": {
       "name": "get-appointment-details",
       "type": "http_open",

@@ -4,24 +4,22 @@ import { randomUUID } from 'crypto';
 import { List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  BUCKET_NAMES,
   CardDocumentFileType,
   CreateCardDocumentReferenceResponse,
   createFilesDocumentReferences,
-  getAppointmentResourceById,
-  getSecret,
   INSURANCE_CARD_CODE,
-  INVALID_INPUT_ERROR,
   LOINC_SYSTEM,
   OTTEHR_MODULE,
-  PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
-  PHOTO_ID_FRONT_ID,
   Secrets,
-  SecretsKeys,
 } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  createClinicalOystehrClient,
+  getAuth0Token,
+  resolveCardDocumentContext,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let oystehrToken: string;
@@ -65,33 +63,15 @@ export const createCardDocumentReference = async ({
   secrets: Secrets | null;
   oystehr: Oystehr;
 }): Promise<CreateCardDocumentReferenceResponse> => {
-  console.log(`getting appointment with id ${appointmentID}`);
-  const appointment = await getAppointmentResourceById(appointmentID, oystehr);
-  if (!appointment) {
-    throw APPOINTMENT_NOT_FOUND_ERROR;
-  }
-  const patient = appointment.participant.find(
-    (participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/')
-  )?.actor?.reference;
-  if (!patient) {
-    throw new Error('Patient is not found');
-  }
-  const patientID = patient.replace('Patient/', '');
-
-  const isPhotoId = cardType === PHOTO_ID_FRONT_ID || cardType === PHOTO_ID_BACK_ID;
-  const bucketName = isPhotoId ? BUCKET_NAMES.PHOTO_ID_CARDS : BUCKET_NAMES.INSURANCE_CARDS;
-
-  // the client echoes back the z3 url minted by get-presigned-file-url; only accept an image url
-  // inside this patient's own card bucket folder with the `<date>-<unix ts>-<cardType>.<ext>`
-  // file name that zambda generates (see makeZ3Url)
-  const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
-  const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const expectedPrefix = `${projectApi}/z3/${projectId}-${bucketName}/${patientID}/`;
-  const fileName = z3URL.startsWith(expectedPrefix) ? z3URL.slice(expectedPrefix.length) : undefined;
-  const fileNamePattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-\\d+-${cardType}\\.(jpg|jpeg|png)$`);
-  if (!fileName || !fileNamePattern.test(fileName)) {
-    throw INVALID_INPUT_ERROR(`z3URL is not a ${cardType} image upload url for this appointment's patient`);
-  }
+  // re-derive the Patient from the appointment and reject a z3 url outside this patient's own
+  // card bucket folder (shared trust model with delete-card-document-reference)
+  const { patientID, isPhotoId } = await resolveCardDocumentContext({
+    appointmentID,
+    cardType,
+    z3URL,
+    secrets,
+    oystehr,
+  });
 
   // lists are passed so the new DocumentReference lands in the patient's document folder List,
   // exactly as harvest would have done at page save

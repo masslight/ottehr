@@ -11,6 +11,8 @@ import {
   CreateCardDocumentReferenceInput,
   CreateCardDocumentReferenceResponse,
   CreateSlotParams,
+  DeleteCardDocumentReferenceInput,
+  DeleteCardDocumentReferenceResponse,
   GetAppointmentDetailsResponse,
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireResponse,
@@ -62,6 +64,7 @@ const IN_PERSON_GET_APPOINTMENTS_ZAMBDA_ID = 'intake-get-appointments';
 const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
 const GET_PRESIGNED_FILE_URL = 'get-presigned-file-url';
 const CREATE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID = 'create-card-document-reference';
+const DELETE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID = 'delete-card-document-reference';
 const GET_APPOINTMENT_DETAILS = 'get-appointment-details';
 const PATCH_PAPERWORK_ZAMBDA_ID = 'patch-paperwork';
 const SUBMIT_PAPERWORK_ZAMBDA_ID = 'submit-paperwork';
@@ -393,6 +396,27 @@ class API {
       const { appointmentID, cardType, z3URL } = params;
 
       const response = await zambdaClient.executePublic(CREATE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID, {
+        appointmentID,
+        cardType,
+        z3URL,
+      });
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  // removes the upload-time card DocumentReference when the patient clears the card image before
+  // saving the page, so the orphaned doc doesn't linger in the EHR's visit files or get OCR'd
+  async deleteCardDocumentReference(
+    params: DeleteCardDocumentReferenceInput,
+    zambdaClient: ZambdaClient
+  ): Promise<DeleteCardDocumentReferenceResponse> {
+    try {
+      const { appointmentID, cardType, z3URL } = params;
+
+      const response = await zambdaClient.executePublic(DELETE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID, {
         appointmentID,
         cardType,
         z3URL,

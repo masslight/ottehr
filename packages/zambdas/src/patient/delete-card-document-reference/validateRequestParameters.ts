@@ -1,7 +1,7 @@
-import { CreateCardDocumentReferenceInput, MISSING_REQUEST_BODY, Secrets } from 'utils';
+import { DeleteCardDocumentReferenceInput, MISSING_REQUEST_BODY, Secrets } from 'utils';
 import { cardDocumentReferenceRequestSchema, safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): CreateCardDocumentReferenceInput & {
+export function validateRequestParameters(input: ZambdaInput): DeleteCardDocumentReferenceInput & {
   secrets: Secrets | null;
 } {
   if (!input.body) {
@@ -13,7 +13,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateCardDocumen
 
   return {
     appointmentID,
-    cardType: cardType as CreateCardDocumentReferenceInput['cardType'],
+    cardType: cardType as DeleteCardDocumentReferenceInput['cardType'],
     z3URL,
     secrets: input.secrets,
   };

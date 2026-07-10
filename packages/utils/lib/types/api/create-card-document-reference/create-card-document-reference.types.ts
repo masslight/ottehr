@@ -34,3 +34,12 @@ export interface CreateCardDocumentReferenceInput {
 export interface CreateCardDocumentReferenceResponse {
   documentReferenceID: string;
 }
+
+// delete mirrors create's trust inputs: the zambda re-derives the Patient from the appointment
+// and re-validates the z3 url before touching anything
+export type DeleteCardDocumentReferenceInput = CreateCardDocumentReferenceInput;
+
+export interface DeleteCardDocumentReferenceResponse {
+  // false means there was nothing to delete (already deleted / never created) — still success
+  deleted: boolean;
+}

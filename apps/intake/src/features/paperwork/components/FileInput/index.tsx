@@ -85,6 +85,7 @@ const FileInput: FC<FileInputProps> = ({
     setZ3UploadState(UploadState.initial);
     setPreviewUrl(null);
     setExistingValueCleared(true);
+    const clearedUrl = value?.url;
     if (attachmentType === 'pdf') {
       // for pdfs, we don't offer the 're-upload' option, so we just clear the value and that will allow ths user to re-upload
       // this could result in an image showing up in the EHR that the user believes they "removed", but we can address that later if necessary
@@ -92,7 +93,30 @@ const FileInput: FC<FileInputProps> = ({
     } else {
       onChange(defaultVal);
     }
-  }, [attachmentType, defaultVal, onChange]);
+    // for card images uploaded this session (the defaultVal check excludes the previously saved
+    // image, which clearing restores rather than removes), delete the upload-time
+    // DocumentReference created by createCardDocumentReference so the removed image doesn't
+    // linger in the EHR's visit files or get OCR'd. failure here is non-fatal: the clear itself
+    // must always succeed
+    if (
+      attachmentType === 'image' &&
+      isCardDocumentFileType(fileName) &&
+      clearedUrl &&
+      clearedUrl !== defaultVal?.url &&
+      appointment?.id &&
+      tokenlessZambdaClient
+    ) {
+      try {
+        await ottehrApi.deleteCardDocumentReference(
+          { appointmentID: appointment.id, cardType: fileName, z3URL: clearedUrl },
+          tokenlessZambdaClient
+        );
+      } catch (docRefError) {
+        console.error('error deleting card document reference', docRefError);
+        safelyCaptureException(docRefError);
+      }
+    }
+  }, [attachmentType, defaultVal, onChange, value?.url, fileName, appointment?.id, tokenlessZambdaClient]);
 
   const uploadDescription = useMemo(() => {
     const defaultVal = value; //((defaultValues ?? {})[name]);
