@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 let useRealInputMask = false;
 vi.mock('ui-components', async () => {
   const React = await import('react');
-  const Real = await vi.importActual<typeof import('ui-components')>('../../src/components/InputMask');
+  const Real = await vi.importActual<typeof import('ui-components')>('ui-components');
   return {
     ...Real,
     InputMask: React.forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { unmask?: boolean }>(

@@ -1,5 +1,5 @@
 import { ExpandLess as ExpandLessIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { Box, Button, FormControl, FormHelperText, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import {
   CLAIM_STATUS_FIELDS,
@@ -39,7 +39,9 @@ export function ClaimStatusFields({ values, onChange, title, requireArStage }: C
     const label = `${field.label}${field.key === 'arStage' ? ' *' : ''}`;
     return (
       <FormControl size="small" fullWidth>
-        <InputLabel id={`${field.key}-label`}>{label}</InputLabel>
+        <InputLabel id={`${field.key}-label`} error={showError}>
+          {label}
+        </InputLabel>
         <Select
           size="small"
           fullWidth
@@ -47,6 +49,7 @@ export function ClaimStatusFields({ values, onChange, title, requireArStage }: C
           value={value}
           label={label}
           labelId={`${field.key}-label`}
+          aria-describedby={`${field.key}-helper-text`}
           onChange={(e) => onChange(field.key, e.target.value)}
           renderValue={
             value
@@ -70,6 +73,13 @@ export function ClaimStatusFields({ values, onChange, title, requireArStage }: C
             </MenuItem>
           ))}
         </Select>
+        {showError ? (
+          <FormHelperText id={`${field.key}-helper-text`} error={true}>
+            This field is required
+          </FormHelperText>
+        ) : (
+          <></>
+        )}
       </FormControl>
     );
   };
