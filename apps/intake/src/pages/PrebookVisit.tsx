@@ -340,18 +340,19 @@ const PrebookVisit: FC = () => {
   // keeps the back button pointed at the referring page (not a no-op
   // booking page the patient never saw).
   //
-  // Scope the useServiceCategories call only for group deeplinks. The hook's
-  // loading-state fallback gates on `isScoped = scheduleType && bookingOn`
-  // (returns [] for scoped, BOOKING_CONFIG for unscoped) — passing both
-  // unconditionally for non-group cases produces an empty-list window
-  // before the network resolves, delaying the redirect decision past the
-  // initial render. The zambda only narrows by allow-list for the group
-  // case anyway; location/provider deeplinks get the same full catalog
-  // either way, so the unscoped call here is semantically identical and
-  // gives us the BOOKING_CONFIG fallback synchronously on first render.
-  const isGroupDeeplink = scheduleType === ScheduleType.group && Boolean(bookingOn);
+  // Scope the useServiceCategories call for group- and provider-owned
+  // deeplinks so the picker-redirect below decides against what the
+  // owner actually offers, not the system-wide catalog. Location deeplinks
+  // stay unscoped: the zambda doesn't narrow by Location, so passing scope
+  // would only add a network round-trip during which the hook's fallback
+  // returns [] (delaying the redirect decision past the initial render)
+  // instead of the synchronous BOOKING_CONFIG fallback. The redirect
+  // effect below already gates on `scopedServiceCategoriesLoading` so
+  // scoped requests don't fire the redirect prematurely.
+  const isScopedDeeplink =
+    (scheduleType === ScheduleType.group || scheduleType === ScheduleType.provider) && Boolean(bookingOn);
   const { serviceCategories: scopedServiceCategories, isLoading: scopedServiceCategoriesLoading } =
-    useServiceCategories(isGroupDeeplink ? { scheduleType, bookingOn: bookingOn ?? undefined } : {});
+    useServiceCategories(isScopedDeeplink ? { scheduleType, bookingOn: bookingOn ?? undefined } : {});
   useEffect(() => {
     if (serviceCategoryCode) return;
     if (scopedServiceCategoriesLoading) return;
