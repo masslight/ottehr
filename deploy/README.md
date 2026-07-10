@@ -57,7 +57,6 @@ If you are setting up in order to try out Ottehr by running locally, start with 
   - S3 backend
     - Create an S3 bucket for your terraform state (example: ottehr-terraform-state).
     - Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
-    - State locking is enabled out of the box via Terraform's native S3 lockfile (`use_lockfile = true`) — no DynamoDB table or other extra infrastructure is required. See [State Locking](#state-locking).
 - Configure your local env Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)). For local usage, skip configuring the optional AWS and GCP variables. To deploy the front-end apps to AWS or GCP, configure the appropriate variables.
 - Configure your application variables ([`config/.env/${env}.json`](/config/.env/local.template.json)) following the [config/.env README](/config/.env/README.md):
   - AUTH0_CLIENT
@@ -105,16 +104,6 @@ The [Terraform backend](https://developer.hashicorp.com/terraform/language/backe
 There is a placeholder [partial configuration](https://developer.hashicorp.com/terraform/language/backend#partial-configuration) for [using AWS S3 as a Terraform backend](https://developer.hashicorp.com/terraform/language/backend/s3) and a template in [`deploy/backend.config.template`](/deploy/backend.config.template).
 
 Using S3 as a backend allows you to share state between developers and between a developer computer and your CI/CD process. If you only need to store state on a single computer and it doesn't need to be shared, you can replace the backend configuration with a [local one](https://developer.hashicorp.com/terraform/language/backend/local). You can also use any of the other state providers listed in the Terraform documentation.
-
-#### State Locking
-
-Because S3 state is shared, two people (or a person and CI) running `terraform apply` against the same workspace at the same time could corrupt the state. To prevent this, the S3 backend is configured with `use_lockfile = true`, which enables [Terraform's native S3 state locking](https://developer.hashicorp.com/terraform/language/backend/s3#state-locking) (available since Terraform 1.10, so it is covered by this project's required Terraform version). While a state operation is running, Terraform holds a lock by writing a `<key>.tflock` object next to the state object in the bucket (e.g. `env:/staging/terraform.tfstate.tflock` for the `staging` workspace); a second run against the same workspace fails immediately with a lock error instead of racing the first. No DynamoDB table is needed — DynamoDB-based locking is deprecated in modern Terraform in favor of the lockfile.
-
-Notes:
-
-- No new IAM permissions are usually required: locking needs `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` on the lock object paths, which any principal that can already read and write the state objects will have. If your state IAM policy is scoped to exact object keys, extend it to cover the `*.tflock` keys.
-- **Existing checkouts**: adding `use_lockfile` changes the backend configuration, so a checkout that has already run `terraform init` will fail with `Backend configuration changed`. Run `terraform init -reconfigure --backend-config=./backend.config` once from `deploy/` (or `npm run terraform-switch`, which reinitializes from scratch). This only re-records the backend settings — the state itself is untouched.
-- If Terraform is killed mid-run it can leave the lock behind. After confirming no other run is in progress, release it with `terraform force-unlock <lock-id>` (the lock ID is printed in the error message).
 
 ### Terraform Variables
 
