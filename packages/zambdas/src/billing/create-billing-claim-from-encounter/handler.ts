@@ -152,16 +152,12 @@ interface ClaimResources {
   // Only patient is required, everything else will prompt for data before claim submission in the UI
   /** Ordered list of coverages. First entry is the target of the claim. */
   coverageRefs: CoverageRefs;
+  // The per-claim working copies (their ids are urn:uuid placeholders the transaction resolves), so
+  // the claim references the copies and later edits (UI, rules engine) never touch the shared originals.
   serviceFacility?: Location;
   // Only rendering and billing providers handled now
   renderingProvider?: Practitioner;
   billingProvider?: Organization;
-  // References the claim should carry for the above — the per-claim working copies. The resource
-  // objects are still used for data derivation (timezone, place of service); the references must
-  // point at the copies so later edits (UI, rules engine) never mutate the shared originals.
-  renderingProviderRef?: Reference;
-  serviceFacilityRef?: Reference;
-  billingProviderRef?: Reference;
   chargeMaster?: ChargeItemDefinition;
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
@@ -471,14 +467,9 @@ export async function performEffect(
     diagnoses: clinicalResources.diagnoses,
     procedures: clinicalResources.procedures,
     coverageRefs: getClaimCoveragesForEncounter(appointmentService, mainPatientAccounts, claimCoverages),
-    renderingProvider: billingResources.renderingProvider,
-    serviceFacility: billingResources.serviceFacility,
-    billingProvider: billingResources.billingProvider,
-    renderingProviderRef: claimRenderingProvider
-      ? uuidOrUrnReference('Practitioner', claimRenderingProvider.id!)
-      : undefined,
-    serviceFacilityRef: claimServiceFacility ? uuidOrUrnReference('Location', claimServiceFacility.id!) : undefined,
-    billingProviderRef: claimBillingProvider ? uuidOrUrnReference('Organization', claimBillingProvider.id!) : undefined,
+    renderingProvider: claimRenderingProvider,
+    serviceFacility: claimServiceFacility,
+    billingProvider: claimBillingProvider,
     billingTags,
     chargeMaster: billingResources.chargeMaster,
   });
@@ -1198,13 +1189,13 @@ function buildClaim(resources: ClaimResources): Claim {
     patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
       ? {
-          ...(resources.billingProviderRef ?? { reference: `Organization/${resources.billingProvider.id}` }),
+          ...uuidOrUrnReference('Organization', resources.billingProvider.id),
           display: resourceDisplayName(resources.billingProvider),
         }
       : { display: 'Unknown' },
-    facility: resources.serviceFacility
+    facility: resources.serviceFacility?.id
       ? {
-          ...(resources.serviceFacilityRef ?? { reference: `Location/${resources.serviceFacility.id}` }),
+          ...uuidOrUrnReference('Location', resources.serviceFacility.id),
           display: resourceDisplayName(resources.serviceFacility),
         }
       : undefined,
@@ -1220,12 +1211,12 @@ function buildClaim(resources: ClaimResources): Claim {
         coverage: cov.coverageRef,
       }))
     ),
-    careTeam: resources.renderingProvider
+    careTeam: resources.renderingProvider?.id
       ? [
           {
             sequence: 1,
             provider: {
-              ...(resources.renderingProviderRef ?? { reference: `Practitioner/${resources.renderingProvider.id}` }),
+              ...uuidOrUrnReference('Practitioner', resources.renderingProvider.id),
               display: resourceDisplayName(resources.renderingProvider),
             },
             role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },

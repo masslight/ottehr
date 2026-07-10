@@ -571,7 +571,8 @@ const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
     'class',
     'type',
   ],
-  Location: ['resourceType', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
+  // extension carries the CMS place-of-service and timezone, which claim building derives from.
+  Location: ['resourceType', 'extension', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
   Organization: ['resourceType', 'identifier', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
   Patient: ['resourceType', 'name', 'active', 'gender', 'address', 'telecom', 'birthDate'],
   Practitioner: [
