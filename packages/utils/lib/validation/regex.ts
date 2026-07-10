@@ -1,5 +1,6 @@
 export const emailRegex = /^\S+@\S+\.\S+$/;
 export const zipRegex = /^\d{5}(?:-?\d{4})?$/;
+export const fullZipRegex = /^\d{5}(?:-\d{4})$/;
 export const npiRegex = /^\d{10}$/;
 export const taxIdRegex = /^\d{9}$/;
 export const phoneRegex = /^\(\d{3}\) \d{3}-\d{4}$/;
