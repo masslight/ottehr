@@ -89,9 +89,12 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
   const [titleError, setTitleError] = useState(false);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
 
+  const [currentPreviewPageIndex, setCurrentPreviewPageIndex] = useState(0);
+  const [previewCompleted, setPreviewCompleted] = useState(false);
+
   const navigate = useNavigate();
 
-  const questionnaire = useMemo<PracticeManagedQuestionnaire>(() => {
+  const { questionnaire, fhirQuestionnaire, jsonPreview } = useMemo(() => {
     const canonicalFields = makeCanonicalFields(initial ? { initial } : { title });
     const status: Questionnaire['status'] = initial ? initial.status : 'active';
     const version = initial?.version ?? '1';
@@ -108,15 +111,12 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
       item: ensureUniqueLinkIds(items),
       ...(metaTags && { meta: { tag: metaTags } }),
     };
-    return questionnaire;
-  }, [initial, title, description, items]);
 
-  const { fhirQuestionnaire, jsonPreview } = useMemo(() => {
     const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(questionnaire);
     const jsonPreview = JSON.stringify(fhirQuestionnaire, null, 2);
 
-    return { fhirQuestionnaire, jsonPreview };
-  }, [questionnaire]);
+    return { questionnaire, fhirQuestionnaire, jsonPreview };
+  }, [initial, title, description, items]);
 
   const handleCopyJson = useCallback(() => {
     void navigator.clipboard.writeText(jsonPreview).then(() => {
@@ -217,12 +217,20 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
                 Test Form
               </RoundedButton>
             </Box>
-            <QuestionnairePreview questionnaire={questionnaire} />
+            <QuestionnairePreview
+              questionnaire={fhirQuestionnaire}
+              setCurrentPageIndex={setCurrentPreviewPageIndex}
+              currentPageIndex={currentPreviewPageIndex}
+              completed={previewCompleted}
+              setCompleted={setPreviewCompleted}
+              previewMode={'ui-only'}
+            />
           </Paper>
           <QuestionnaireTestDialog
             open={testDialogOpen}
             onClose={() => setTestDialogOpen(false)}
             questionnaire={fhirQuestionnaire}
+            totalPages={items.length}
           />
 
           <Paper

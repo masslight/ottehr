@@ -16,6 +16,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.4.0",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
     "heic-to": "^1.5.2",

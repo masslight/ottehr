@@ -4,7 +4,7 @@ import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { PaperworkContext, PaperworkProvider } from 'src/features/paperwork';
-import PagedQuestionnaire from 'src/features/paperwork/PagedQuestionnaire';
+import { PagedQuestionnaire } from 'ui-components';
 import {
   APIError,
   convertQRItemToLinkIdMap,
@@ -192,7 +192,7 @@ export const StandaloneFormPage: FC = () => {
     if (isLastPage) {
       setContinueLabel('Submit');
     } else {
-      setContinueLabel(undefined);
+      setContinueLabel(undefined); // allows control buttons to fall back to the default
     }
   }, [isLastPage, setContinueLabel]);
 
@@ -333,6 +333,7 @@ export const StandaloneFormPage: FC = () => {
           isSaving={saving}
           // Standalone forms persist per page; there is no in-progress store to flush on unload atm.
           saveProgress={() => {}}
+          skipValidation={false}
         />
       </PaperworkProvider>
     </PageContainer>

@@ -15,6 +15,7 @@ import {
   uuidRegex,
   VisitType,
 } from 'utils';
+import { i18n } from 'utils/lib/frontend';
 import { ValidationError } from 'yup';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import api from '../api/ottehrApi';
@@ -32,7 +33,6 @@ import { useGetFullName } from '../hooks/useGetFullName';
 import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import i18n from '../lib/i18n';
 import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { ReviewItem } from '../types';

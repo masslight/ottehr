@@ -5,9 +5,10 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import api from 'src/api/ottehrApi';
-import { PaperworkContext, usePaperworkContext } from 'src/features/paperwork/context';
-import PagedQuestionnaire from 'src/features/paperwork/PagedQuestionnaire';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
+import { PaperworkContext } from 'ui-components';
+import { PagedQuestionnaire } from 'ui-components';
+import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import {
   convertQRItemToLinkIdMap,
   convertQuestionnaireItemToQRLinkIdMap,
@@ -132,6 +133,7 @@ export const PatientInfoCollection: FC = () => {
       refetchSetupData: () => {
         throw new Error('Function not implemented.');
       },
+      // todo sarah define PaperworkComponentHelpers here too
     };
   }, [allItems, contextItems, currentPageId, defaultValues, pages, questionnaireResponse, saveButtonDisabled]);
 
@@ -290,6 +292,7 @@ const PatientInformation = (): JSX.Element => {
               sessionStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({ [pageId]: data }));
             }
           }}
+          skipValidation={false}
         />
       )}
       <ErrorDialog

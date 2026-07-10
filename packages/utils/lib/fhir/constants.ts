@@ -440,7 +440,7 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
-/** Facilitates easier querying of versioned managed questionnaires */
+/** Facilitates easier querying of versioned practice managed questionnaires */
 export const PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG = {
   system: ottehrCodeSystemUrl('managed-questionnaire-tag'),
   code: 'latest',

@@ -8,7 +8,6 @@ import {
   Flag,
   Location,
   Patient,
-  Questionnaire,
   QuestionnaireResponse,
   RelatedPerson,
   Schedule,
@@ -31,7 +30,7 @@ import {
   isAnnotationFollowupEncounter,
   isPracticeManagedQr,
   isValidUUID,
-  mapQuestionnaireAndValueSetsToItemsList,
+  makeStandaloneFormDTO,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PersistedFhirResource,
@@ -342,20 +341,4 @@ const getStandaloneFormsForAppointment = async (
       return makeStandaloneFormDTO(questionnaire, qr);
     })
   );
-};
-
-const makeStandaloneFormDTO = (
-  questionnaire: Questionnaire,
-  questionnaireResponse: QuestionnaireResponse
-): StandaloneFormDTO => {
-  const questionnaireTitle = questionnaire.title ?? 'A form';
-  const questionnaireId = questionnaire.id ?? '';
-  const allItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
-
-  return {
-    allItems,
-    questionnaireResponse,
-    questionnaireTitle,
-    questionnaireId,
-  };
 };

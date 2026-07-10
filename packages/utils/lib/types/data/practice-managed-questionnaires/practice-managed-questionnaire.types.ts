@@ -35,8 +35,6 @@ export const OTTEHR_DATA_TYPES = QuestionnaireDataTypes.filter(
 export type OttehrDataType = (typeof OTTEHR_DATA_TYPES)[number];
 
 // Which OttehrDataType are valid for each FHIR QuestionnaireItemType
-// Used to validate fields TODO SARAH - need to double check the difference between leaving these validations black or selecting one of the below
-// like what happens if i just add a date field with no DOB validation? what about vice versa
 export const DATA_TYPES_BY_ITEM_TYPE: Partial<Record<QuestionnaireItemType, OttehrDataType[]>> = {
   string: ['Phone Number', 'Email', 'ZIP', 'SSN', 'Signature'],
   date: ['DOB'],
