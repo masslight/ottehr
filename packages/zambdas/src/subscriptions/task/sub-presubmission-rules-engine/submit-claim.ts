@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue, RulesEngineClaimModel } from 'utils';
+import { AR_STAGE, CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils';
 import { applyClaimStatusField } from '../../../billing/provenance';
+import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
 
 export interface SubmitClaimInput {

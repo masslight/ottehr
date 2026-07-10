@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Task } from 'fhir/r4b';
-import { buildRulesEngineKickoffTask, InternalError, RunBillingRulesEngineResponse } from 'utils';
+import { InternalError, RunBillingRulesEngineResponse } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { buildRulesEngineKickoffTask } from '../rules-engine/serialization';
 import { createBillingClient, fetchById } from '../shared';
 import { RunBillingRulesEngineParams, validateRequestParameters } from './validateRequestParameters';
 

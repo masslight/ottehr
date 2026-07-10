@@ -2,16 +2,10 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Basic, List } from 'fhir/r4b';
-import {
-  BillingRulesResponse,
-  getSecret,
-  HOLD_TAG_DESCRIPTION,
-  HOLD_TAG_NAME,
-  PreSubmissionRule,
-  rulesToList,
-  SecretsKeys,
-} from 'utils';
+import { BillingRulesResponse, getSecret, HOLD_TAG_NAME, PreSubmissionRule, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { HOLD_TAG_DESCRIPTION } from '../rules-engine/constants';
+import { rulesToList } from '../rules-engine/serialization';
 import {
   createBillingClient,
   findPresubmissionRulesList,

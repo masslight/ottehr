@@ -11,16 +11,13 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
-  applyAction,
   CLAIM_TAG_SYSTEM,
-  executeRule,
   getSecret,
   HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
   PreSubmissionRule,
   resourceHasTag,
   RULE_ACTION_TYPE,
-  RulesEngineClaimModel,
   SecretsKeys,
 } from 'utils';
 import {
@@ -28,6 +25,8 @@ import {
   commitClaimMetaTagsWithProvenance,
   resolveClaimActor,
 } from '../../../billing/provenance';
+import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
+import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
 import {
   BILLING_WORKING_COPY_TAG,
   createBillingClient,

@@ -1,4 +1,5 @@
 import { Basic, Extension, List, Task } from 'fhir/r4b';
+import { PreSubmissionRule, PreSubmissionRuleSchema, RuleConditional, RuleConditionalSchema } from 'utils';
 import {
   PRESUBMISSION_RULE_CODE,
   PRESUBMISSION_RULES_LIST_CODE,
@@ -10,13 +11,7 @@ import {
   RULE_ENABLED_EXTENSION_URL,
   RULE_NAME_EXTENSION_URL,
   RULES_ENGINE_TAG_SYSTEM,
-} from './rules-engine.constants';
-import {
-  PreSubmissionRule,
-  PreSubmissionRuleSchema,
-  RuleConditional,
-  RuleConditionalSchema,
-} from './rules-engine.schemas';
+} from './constants';
 
 // ---------------------------------------------------------------------------
 // Serialization between the rule domain model and FHIR.
@@ -43,7 +38,8 @@ export function ruleToContainedBasic(rule: PreSubmissionRule): Basic {
   };
 }
 
-// Utils has no Sentry access; callers that do (the zambdas) pass `onMalformed` to report the error.
+// Sentry lives at the zambda entrypoint layer; callers pass `onMalformed` to report the error
+// (see shared.ts#listToRulesReportingMalformed).
 export type MalformedRuleHandler = (error: unknown, context: { ruleId: string; ruleName: string }) => void;
 
 export function containedBasicToRule(basic: Basic, onMalformed?: MalformedRuleHandler): PreSubmissionRule {

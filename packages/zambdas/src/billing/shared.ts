@@ -27,7 +27,6 @@ import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
-  buildRulesEngineKickoffTask,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
   CLAIM_STATUS_FIELDS,
@@ -59,11 +58,8 @@ import {
   isPayerUrl,
   isValidClaimStatusValue,
   isValidUUID,
-  listToRules,
   PATIENT_BILLING_ACCOUNT_TYPE,
-  PRESUBMISSION_RULES_LIST_CODE,
   PreSubmissionRule,
-  RULES_ENGINE_TAG_SYSTEM,
   Secrets,
   SecretsKeys,
   setCoveragePlanType,
@@ -72,6 +68,8 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { sendErrors } from '../shared';
+import { PRESUBMISSION_RULES_LIST_CODE, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
+import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
 // Type alias for resources relevant to billing
 export type BillingFhirResource =

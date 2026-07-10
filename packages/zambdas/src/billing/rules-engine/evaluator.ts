@@ -1,9 +1,8 @@
-import { resourceHasTag } from '../../../fhir/helpers';
-import { CLAIM_TAG_SYSTEM } from './billing.constants';
-import { HOLD_TAG_NAME } from './rules-engine.constants';
-import { readField, RulesEngineClaimModel, writeField } from './rules-engine.field-catalog';
 import {
+  CLAIM_TAG_SYSTEM,
+  HOLD_TAG_NAME,
   PreSubmissionRule,
+  resourceHasTag,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
   RULE_OUTCOME_TYPE,
@@ -13,7 +12,8 @@ import {
   RuleConditionValue,
   RuleOperator,
   RuleOutcome,
-} from './rules-engine.schemas';
+} from 'utils';
+import { readField, RulesEngineClaimModel, writeField } from './claim-model';
 
 // ---------------------------------------------------------------------------
 // Pure evaluator
@@ -120,7 +120,7 @@ export function resolveOutcomeActions(outcome: RuleOutcome, model: RulesEngineCl
 export const isHoldAction = (action: RuleAction): boolean =>
   action.type === RULE_ACTION_TYPE.applyTag && action.tag === HOLD_TAG_NAME;
 
-// Mutate the model by applying a single action. setField delegates to the field-catalog writer;
+// Mutate the model by applying a single action. setField delegates to the claim-model writer;
 // applyTag adds the tag to Claim.meta.tag (deduped); noop does nothing. Returns an error message
 // when the action could not be applied — the engine holds the claim rather than submit it with a
 // silently skipped change.
