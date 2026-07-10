@@ -6,6 +6,7 @@ import {
   Bundle,
   ChargeItemDefinition,
   Claim,
+  ClaimResponse,
   Coding,
   Coverage,
   FhirResource,
@@ -13,6 +14,7 @@ import {
   Location,
   Organization,
   Patient,
+  PaymentReconciliation,
   Person,
   Practitioner,
   RelatedPerson,
@@ -201,9 +203,37 @@ export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
+// claim responses on payment reconciliation resource
+export const PAYMENT_RECONCILIATION_CLAIM_RESPONSES_EXTENSION =
+  'https://extensions.fhir.oystehr.com/rcm-claim-responses';
+// payment reconciliation on claim response resource
+export const CLAIM_RESPONSE_PAYMENT_RECONCILIATION_EXTENSION =
+  'https://extensions.fhir.oystehr.com/rcm-payment-reconciliation';
+
+export function getLinkedClaimResponseIds(paymentReconciliation: Pick<PaymentReconciliation, 'extension'>): string[] {
+  return (paymentReconciliation.extension ?? [])
+    .filter((ext) => ext.url === PAYMENT_RECONCILIATION_CLAIM_RESPONSES_EXTENSION)
+    .map((ext) => ext.valueReference?.reference ?? '')
+    .filter((reference) => reference.startsWith('ClaimResponse/'))
+    .map((reference) => reference.replace('ClaimResponse/', ''));
+}
+
+export function getLinkedPaymentReconciliationId(claimResponse: Pick<ClaimResponse, 'extension'>): string | undefined {
+  const reference = claimResponse.extension?.find((ext) => ext.url === CLAIM_RESPONSE_PAYMENT_RECONCILIATION_EXTENSION)
+    ?.valueReference?.reference;
+  return reference?.startsWith('PaymentReconciliation/') ? reference.replace('PaymentReconciliation/', '') : undefined;
+}
 
 export function getEraIdValue(resource: { identifier?: Identifier[] }): string | undefined {
   return resource.identifier?.find((id) => id.system === ERA_ID_SYSTEM)?.value;
+}
+
+// Claim.MD stamps the check number as a searchable identifier; process-era only sets
+// paymentIdentifier.
+export function getEraCheckNumber(
+  pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>
+): string | undefined {
+  return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
 }
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';

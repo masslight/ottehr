@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimResponse, ClaimResponseItemAdjudication } from 'fhir/r4b';
+import { ClaimResponse, ClaimResponseItemAdjudication, PaymentReconciliation } from 'fhir/r4b';
 import { ClaimRemitAdjustment } from 'utils';
 import { fetchAllPages } from '../shared';
-import { ERA_ID_SYSTEM, getEraIdValue } from './shared';
+import { ERA_ID_SYSTEM, getEraIdValue, getLinkedClaimResponseIds, getLinkedPaymentReconciliationId } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
 export const X12_ADJUSTMENT_GROUP_SYSTEM = 'https://x12.org/codes/claim-adjustment-group-codes';
@@ -220,4 +220,109 @@ export async function fetchClaimResponsesByEraIds(
     }),
     (claimResponse) => getEraIdValue(claimResponse)
   );
+}
+
+export async function fetchClaimResponsesByPaymentReconciliations(
+  oystehr: Oystehr,
+  paymentReconciliations: PaymentReconciliation[]
+): Promise<Map<string, ClaimResponse[]>> {
+  const linkedIdsByPrId = new Map<string, string[]>();
+  const eraIdByPrId = new Map<string, string>();
+  for (const pr of paymentReconciliations) {
+    if (!pr.id) continue;
+    const eraIdValue = getEraIdValue(pr);
+    if (eraIdValue) {
+      eraIdByPrId.set(pr.id, eraIdValue);
+      continue;
+    }
+    const linkedIds = getLinkedClaimResponseIds(pr);
+    if (linkedIds.length > 0) linkedIdsByPrId.set(pr.id, linkedIds);
+  }
+
+  const [byId, byEraId] = await Promise.all([
+    fetchClaimResponsesGrouped(
+      oystehr,
+      [...linkedIdsByPrId.values()].flat(),
+      (batch) => ({
+        name: '_id',
+        value: batch.join(','),
+      }),
+      (claimResponse) => claimResponse.id
+    ),
+    fetchClaimResponsesByEraIds(oystehr, [...eraIdByPrId.values()]),
+  ]);
+
+  const grouped = new Map<string, ClaimResponse[]>();
+  for (const [prId, linkedIds] of linkedIdsByPrId) {
+    grouped.set(
+      prId,
+      linkedIds.flatMap((id) => byId.get(id) ?? [])
+    );
+  }
+  for (const [prId, eraIdValue] of eraIdByPrId) {
+    grouped.set(prId, byEraId.get(eraIdValue) ?? []);
+  }
+  return grouped;
+}
+
+export async function fetchPaymentReconciliationsByClaimResponses(
+  oystehr: Oystehr,
+  claimResponses: ClaimResponse[]
+): Promise<PaymentReconciliation[]> {
+  const eraIds = new Set<string>();
+  const prIds = new Set<string>();
+  for (const cr of claimResponses) {
+    const eraIdValue = getEraIdValue(cr);
+    if (eraIdValue) {
+      eraIds.add(eraIdValue);
+      continue;
+    }
+    const prId = getLinkedPaymentReconciliationId(cr);
+    if (prId) prIds.add(prId);
+  }
+
+  const searchParamsList: { name: string; value: string }[][] = [];
+  if (eraIds.size > 0) {
+    searchParamsList.push([
+      {
+        name: 'identifier',
+        value: [...eraIds].map((v) => `${ERA_ID_SYSTEM}|${v}`).join(','),
+      },
+    ]);
+  }
+  if (prIds.size > 0) {
+    searchParamsList.push([
+      {
+        name: '_id',
+        value: [...prIds].join(','),
+      },
+    ]);
+  }
+
+  const bundles = await Promise.all(
+    searchParamsList.map((params) =>
+      oystehr.fhir.search<PaymentReconciliation>({
+        resourceType: 'PaymentReconciliation',
+        params: [
+          ...params,
+          {
+            name: '_count',
+            value: '1000',
+          },
+        ],
+      })
+    )
+  );
+  const paymentReconciliations = bundles.flatMap((bundle) => bundle.unbundle());
+  return [...new Map(paymentReconciliations.map((pr) => [pr.id, pr])).values()];
+}
+
+// check era-id, fallback to payment reconciliation id match
+export function claimResponseBelongsToEra(
+  claimResponse: ClaimResponse,
+  paymentReconciliation: PaymentReconciliation
+): boolean {
+  const eraIdValue = getEraIdValue(paymentReconciliation);
+  if (eraIdValue) return getEraIdValue(claimResponse) === eraIdValue;
+  return !!paymentReconciliation.id && getLinkedPaymentReconciliationId(claimResponse) === paymentReconciliation.id;
 }
