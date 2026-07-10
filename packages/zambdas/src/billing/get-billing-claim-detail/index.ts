@@ -6,6 +6,7 @@ import {
   Location,
   Organization,
   Patient,
+  PaymentReconciliation,
   Person,
   Practitioner,
   RelatedPerson,
@@ -26,9 +27,11 @@ import {
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  claimResponseBelongsToEra,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
   fetchClaimResponsesByClaimIds,
+  fetchPaymentReconciliationsByClaimResponses,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
 } from '../claim-amounts';
@@ -44,6 +47,7 @@ import {
   getClaimService,
   getClaimStatus,
   getClaimType,
+  getEraCheckNumber,
   getTaxonomy,
   resolvePayersByRef,
   sortClaimInsurance,
@@ -139,12 +143,14 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     fetchClaimResponsesByClaimIds(oystehr, [claimId]),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
+  const paymentReconciliations = await fetchPaymentReconciliationsByClaimResponses(oystehr, claimResponses);
 
-  // Resolve primary, secondary, and remit payers from the Oystehr payer list
+  // Resolve primary, secondary, remit, and insurance payment payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [
     claim.insurer?.reference,
     secondaryCoverage?.payor?.[0]?.reference,
     ...claimResponses.map((cr) => cr.insurer?.reference),
+    ...paymentReconciliations.map((pr) => pr.paymentIssuer?.reference),
   ]);
   const insurer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
   const secondaryInsurer = secondaryCoverage?.payor?.[0]?.reference
@@ -168,6 +174,24 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       adjustments: extractRemitAdjustments(cr),
     };
   });
+  const paymentDateOf = (pr: PaymentReconciliation): string => (pr.paymentDate ?? pr.created ?? '').slice(0, 10);
+  const insurancePayments = [...paymentReconciliations]
+    .sort((a, b) => paymentDateOf(b).localeCompare(paymentDateOf(a)))
+    .map((pr) => {
+      // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
+      // of this ERA's ClaimResponses
+      const linkedCr = claimResponses.find((cr) => claimResponseBelongsToEra(cr, pr));
+      const payerRef = pr.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
+      const payer = payerRef ? payersByRef.get(payerRef) : undefined;
+      return {
+        paymentReconciliationId: pr.id ?? '',
+        checkNumber: getEraCheckNumber(pr) ?? '',
+        paymentDate: pr.paymentDate ?? pr.created ?? '',
+        paymentAmount: pr.paymentAmount?.value ?? 0,
+        payerName: payer?.name ?? pr.paymentIssuer?.display ?? '',
+        status: pr.outcome ?? pr.status ?? '',
+      };
+    });
   const status = getClaimStatus(claim);
   const patientAddr = patient?.address?.[0];
 
@@ -259,6 +283,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     patientPaid: payments.patientPaid,
     balance: payments.balance,
     remits,
+    insurancePayments,
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

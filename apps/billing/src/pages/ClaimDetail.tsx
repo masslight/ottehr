@@ -485,7 +485,7 @@ export default function ClaimDetail(): ReactElement {
             <DiagnosesSection claim={claim} updateResource={updateResource} />
             <ServiceLinesSection claim={claim} updateResource={updateResource} />
             <RemitsSection remits={claim.remits} />
-            <ReadOnlySection title="Insurance Payments">No insurance payments yet</ReadOnlySection>
+            <InsurancePaymentsSection payments={claim.insurancePayments} navigate={navigate} />
           </TabPanel>
 
           <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
@@ -1657,6 +1657,53 @@ function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): R
                   <TableCell align="right">
                     {remit.patientResp === null ? '-' : formatCurrency(remit.patientResp)}
                   </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </ReadOnlySection>
+  );
+}
+
+function InsurancePaymentsSection({
+  payments,
+  navigate,
+}: {
+  payments: ClaimDetailResponse['insurancePayments'];
+  navigate: (path: string) => void;
+}): ReactElement {
+  return (
+    <ReadOnlySection title="Insurance Payments">
+      {payments.length === 0 ? (
+        'No insurance payments yet'
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>Date</TableCell>
+                <TableCell sx={thSx}>Payer</TableCell>
+                <TableCell sx={thSx}>Check Number</TableCell>
+                <TableCell sx={thSx}>Status</TableCell>
+                <TableCell sx={thSx} align="right">
+                  Check Amount
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow
+                  key={payment.paymentReconciliationId}
+                  sx={{ cursor: 'pointer', '&:hover': { bgcolor: otherColors.apptHover } }}
+                  onClick={() => navigate(`/eras/${payment.paymentReconciliationId}`)}
+                >
+                  <TableCell>{formatDate(payment.paymentDate) || '-'}</TableCell>
+                  <TableCell>{payment.payerName || '-'}</TableCell>
+                  <TableCell>{payment.checkNumber || '-'}</TableCell>
+                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell align="right">{formatCurrency(payment.paymentAmount)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

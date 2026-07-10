@@ -105,6 +105,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   patientPaid: 0,
   balance: 0,
   remits: [],
+  insurancePayments: [],
   otherClaims: [],
   tags: [],
 });
@@ -114,6 +115,7 @@ function renderDetail(): void {
     <MemoryRouter initialEntries={['/claims/claim-1']}>
       <Routes>
         <Route path="/claims/:id" element={<ClaimDetail />} />
+        <Route path="/eras/:id" element={<div>ERA page</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -200,6 +202,42 @@ describe('ClaimDetail — remits', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
 
     expect(await screen.findByText('No remits yet')).toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail — insurance payments', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('lists insurance payments and navigates to the ERA on row click', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.insurancePayer),
+      insurancePayments: [
+        {
+          paymentReconciliationId: 'pr-1',
+          checkNumber: 'ERA0000000001',
+          paymentDate: '2026-07-08',
+          paymentAmount: 350,
+          payerName: 'CIGNA',
+          status: 'active',
+        },
+      ],
+    });
+    renderDetail();
+
+    const remitsTab = await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' });
+    fireEvent.click(remitsTab);
+
+    const row = (await screen.findByText('ERA0000000001')).closest('tr');
+    expect(row).not.toBeNull();
+    const cells = within(row as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(cells).toEqual(['07/08/2026', 'CIGNA', 'ERA0000000001', 'active', '$350.00']);
+
+    fireEvent.click(row as HTMLElement);
+    expect(await screen.findByText('ERA page')).toBeInTheDocument();
   });
 });
 
