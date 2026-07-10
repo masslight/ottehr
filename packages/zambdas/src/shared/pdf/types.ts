@@ -948,6 +948,7 @@ export interface VitalsDataInDischargeSummary extends PdfData {
     oxygenSat?: string;
     weight?: string;
     height?: string;
+    bmi?: string;
     vision?: string;
     dotVisionScreening?: string[];
     lastMenstrualPeriod?: string;
