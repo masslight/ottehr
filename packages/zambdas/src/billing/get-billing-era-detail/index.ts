@@ -5,12 +5,19 @@ import { EraDetailResponse, FHIR_RESOURCE_NOT_FOUND } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   countEraClaims,
-  fetchClaimResponsesByEraIds,
+  fetchClaimResponsesByPaymentReconciliations,
   isMatchedToClaim,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
 } from '../claim-amounts';
-import { createBillingClient, ERA_CHECK_SYSTEM, fhirName, findRef, getEraIdValue, resolvePayersByRef } from '../shared';
+import {
+  createBillingClient,
+  fhirName,
+  findRef,
+  getEraCheckNumber,
+  getEraIdValue,
+  resolvePayersByRef,
+} from '../shared';
 import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -33,14 +40,20 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
   const pr = bundle.unbundle().find((r) => r.id === params.eraId);
   if (!pr) throw FHIR_RESOURCE_NOT_FOUND('PaymentReconciliation');
 
-  const payersByRef = await resolvePayersByRef(oystehr, [pr.paymentIssuer?.reference]);
-  const payerOrg = pr.paymentIssuer?.reference ? payersByRef.get(pr.paymentIssuer.reference) : undefined;
-
-  // Find ClaimResponses linked via ERA identifier
+  // ClaimResponses linked via the era-id identifier, with rcm link extension fallback
   const eraIdValue = getEraIdValue(pr);
-  const claimResponses: ClaimResponse[] = eraIdValue
-    ? (await fetchClaimResponsesByEraIds(oystehr, [eraIdValue])).get(eraIdValue) ?? []
-    : [];
+  const claimResponses: ClaimResponse[] =
+    (await fetchClaimResponsesByPaymentReconciliations(oystehr, [pr])).get(pr.id ?? '') ?? [];
+
+  // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on the
+  // ClaimResponses
+  const payersByRef = await resolvePayersByRef(oystehr, [
+    pr.paymentIssuer?.reference,
+    ...claimResponses.map((cr) => cr.insurer?.reference),
+  ]);
+  const payerRef =
+    pr.paymentIssuer?.reference ?? claimResponses.find((cr) => cr.insurer?.reference)?.insurer?.reference;
+  const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
 
   // Group matched responses by claim id; an ERA can adjudicate the same claim more than once
   // (reversal + correction), and unmatched responses only carry a contained '#request' claim so
@@ -91,7 +104,7 @@ async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Prom
     };
   });
 
-  const checkNumber = pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? '';
+  const checkNumber = getEraCheckNumber(pr) ?? '';
   const counts = countEraClaims(claimResponses);
 
   return {
