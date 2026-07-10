@@ -99,7 +99,6 @@ export const index = wrapHandler(
             })
           ).unbundle()
         : [];
-    const fullCatalog = buildCatalog(fhirResources);
 
     if (isProviderScoped) {
       const prMatches = (
@@ -164,6 +163,12 @@ export const index = wrapHandler(
         body: JSON.stringify({ serviceCategories: providerCatalog }),
       };
     }
+
+    // fullCatalog is only used by the group/default branches below — the
+    // provider branch above returns early and never touches it. Building it
+    // here keeps it out of provider deeplinks (a hot path) while staying DRY
+    // across the two branches that do consume it.
+    const fullCatalog = buildCatalog(fhirResources);
 
     if (scheduleType === 'group' && bookingOn) {
       const groupMatches = (

@@ -313,9 +313,13 @@ describe('get-service-categories integration', () => {
       const otherCode = uniq('pr-other');
       const offered = await createServiceCategory(offeredCode, 'Provider Offered');
       await createServiceCategory(otherCode, 'Provider Other');
+      // Assert the id early so the PR fixture doesn't silently construct
+      // itself with `healthcareServiceIds: []` when the create response is
+      // typed `id?: string` — that would make the test pass vacuously.
+      assert(offered.id, 'createServiceCategory returned no id');
 
       const slug = uniq('pr-scoped');
-      await createPractitionerRoleFixture({ slug, healthcareServiceIds: offered.id ? [offered.id] : [] });
+      await createPractitionerRoleFixture({ slug, healthcareServiceIds: [offered.id] });
 
       const result = await callZambda({ scheduleType: 'provider', bookingOn: slug });
       const returned = result.serviceCategories.map((c) => c.code).sort();
@@ -331,9 +335,10 @@ describe('get-service-categories integration', () => {
     it('does not surface any BOOKING_CONFIG entries in the response', async () => {
       const offeredCode = uniq('pr-no-bc');
       const offered = await createServiceCategory(offeredCode, 'PR No BC');
+      assert(offered.id, 'createServiceCategory returned no id');
 
       const slug = uniq('pr-no-bc-slug');
-      await createPractitionerRoleFixture({ slug, healthcareServiceIds: offered.id ? [offered.id] : [] });
+      await createPractitionerRoleFixture({ slug, healthcareServiceIds: [offered.id] });
 
       const result = await callZambda({ scheduleType: 'provider', bookingOn: slug });
       for (const code of BOOKING_CONFIG_CODES) {
