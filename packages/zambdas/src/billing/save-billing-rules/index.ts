@@ -32,11 +32,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function complexValidation(oystehr: Oystehr): Promise<List | undefined> {
+export async function complexValidation(oystehr: Oystehr): Promise<List | undefined> {
   return findPresubmissionRulesList(oystehr);
 }
 
-async function performEffect(
+export async function performEffect(
   oystehr: Oystehr,
   params: SaveBillingRulesParams,
   existing: List | undefined,

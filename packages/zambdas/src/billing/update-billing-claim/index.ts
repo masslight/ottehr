@@ -25,6 +25,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
   setCoveragePlanType,
+  setNpi,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -48,7 +49,6 @@ import {
   resourceDisplayName,
   setClia,
   setCoverageRelationship,
-  setNpi,
   setTaxId,
   setTaxonomy,
 } from '../shared';

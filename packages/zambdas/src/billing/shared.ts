@@ -31,7 +31,6 @@ import {
   ChargeItemDefinitionType,
   CLAIM_STATUS_FIELDS,
   CLAIM_STATUS_FIELDS_BY_KEY,
-  CLAIM_TAG_SYSTEM,
   ClaimStatusFieldKey,
   ClaimStatusValues,
   claimStatusValuesToTags,
@@ -63,7 +62,6 @@ import {
   Secrets,
   SecretsKeys,
   setCoveragePlanType,
-  setNpi,
   withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
@@ -207,8 +205,6 @@ export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
-// Re-exported from utils for the existing billing-zambda imports.
-export { CLAIM_TAG_SYSTEM, setNpi };
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
@@ -275,29 +271,29 @@ export async function findPresubmissionRulesList(oystehr: Oystehr): Promise<List
 }
 
 // listToRules with malformed-rule observability: each unparseable rule (returned as a disabled
-// placeholder) is also reported to Sentry.
+// placeholder) is also reported to Sentry, with the rule's identity as event tags.
 export async function listToRulesReportingMalformed(list: List, env: string): Promise<PreSubmissionRule[]> {
-  const failures: Error[] = [];
+  const failures: { error: unknown; tags: Record<string, string> }[] = [];
   const rules = listToRules(list, (error, { ruleId, ruleName }) =>
-    failures.push(new Error(`Unparseable pre-submission rule "${ruleName}" (Basic/${ruleId}): ${error}`))
+    failures.push({ error, tags: { ruleId, ruleName } })
   );
-  await Promise.all(failures.map((failure) => sendErrors(failure, env)));
+  await Promise.all(failures.map(({ error, tags }) => sendErrors(error, env, tags)));
   return rules;
 }
 
 // Enqueue the pre-submission rules engine for a claim; a Subscription runs it asynchronously. The
 // claim is already committed when this runs, so a kickoff failure must not fail the request (a retry
-// would create a duplicate claim) — it is logged and reported to Sentry instead. The engine can be
-// run on demand via run-billing-rules-engine.
+// would create a duplicate claim) — that is why the catch lives here rather than in the callers: the
+// failure is logged and reported to Sentry, and the engine can be run on demand via
+// run-billing-rules-engine.
 export async function kickOffRulesEngine(oystehr: Oystehr, claimId: string, secrets: Secrets | null): Promise<void> {
+  // Resolved before the try so the best-effort catch cannot itself throw on a missing secret.
+  const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   try {
     await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
   } catch (error) {
     console.error(`Failed to enqueue rules-engine Task for Claim/${claimId}:`, error);
-    await sendErrors(
-      new Error(`Failed to enqueue rules-engine Task for Claim/${claimId}: ${error}`),
-      getSecret(SecretsKeys.ENVIRONMENT, secrets)
-    );
+    await sendErrors(error, env, { claimId });
   }
 }
 

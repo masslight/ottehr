@@ -77,13 +77,13 @@ export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (in
   }
 });
 
-interface ValidatedRulesRun {
+export interface ValidatedRulesRun {
   claimId: string;
   rules: PreSubmissionRule[];
   model: RulesEngineClaimModel;
 }
 
-async function complexValidation(oystehr: Oystehr, claimId: string, env: string): Promise<ValidatedRulesRun> {
+export async function complexValidation(oystehr: Oystehr, claimId: string, env: string): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, env), loadClaimModel(oystehr, claimId)]);
   console.log(
@@ -94,7 +94,7 @@ async function complexValidation(oystehr: Oystehr, claimId: string, env: string)
   return { claimId, rules, model };
 }
 
-async function performEffect(
+export async function performEffect(
   oystehr: Oystehr,
   { claimId, rules, model }: ValidatedRulesRun,
   agent: ProvenanceAgent
@@ -150,7 +150,7 @@ async function performEffect(
 // Backstop for the catch path: whatever went wrong (load, persist, submission), the claim must end
 // up carrying the Hold tag so the failure is visible on the claim itself, not just the Task. Never
 // throws — the original error is the one that matters.
-async function ensureClaimHeld(oystehr: Oystehr, claimId: string, agent: ProvenanceAgent): Promise<void> {
+export async function ensureClaimHeld(oystehr: Oystehr, claimId: string, agent: ProvenanceAgent): Promise<void> {
   try {
     const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
     if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME })) return;
@@ -197,14 +197,14 @@ function modelResources(model: RulesEngineClaimModel): ModelResource[] {
 
 // Deep-cloned state of each model resource as loaded: the dirty check compares against it, and it is
 // the `before` of each change's history record.
-function snapshotModel(model: RulesEngineClaimModel): Map<string, ModelResource> {
+export function snapshotModel(model: RulesEngineClaimModel): Map<string, ModelResource> {
   return new Map(modelResources(model).map((r) => [`${r.resourceType}/${r.id}`, structuredClone(r)]));
 }
 
 // Write back the resources a rule actually changed — each with its claim-history Provenance — in one
 // transaction, guarded by ifMatch so a concurrent edit fails the run (Task marked failed) instead of
 // being clobbered. Returns the number of resources written.
-async function persistModel(
+export async function persistModel(
   oystehr: Oystehr,
   model: RulesEngineClaimModel,
   snapshot: Map<string, ModelResource>,
@@ -217,9 +217,9 @@ async function persistModel(
     const url = `${resource.resourceType}/${resource.id}`;
     const before = snapshot.get(url);
     if (before && JSON.stringify(before) === JSON.stringify(resource)) continue;
-    // The engine may only edit the claim itself and its per-claim working copies. Legacy
-    // encounter-created claims can still reference a shared provider/facility — refuse to write
-    // those rather than corrupt them for every other claim.
+    // Safety guard: the engine only ever edits the claim itself and its per-claim working copies.
+    // Should a claim ever reference a shared (non-working-copy) resource, skip the write rather
+    // than mutate a record other claims may share.
     if (
       resource.resourceType !== 'Claim' &&
       !hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)

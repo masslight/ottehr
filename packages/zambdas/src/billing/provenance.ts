@@ -22,6 +22,7 @@ import {
   CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   CLAIM_STATUS_FIELDS,
+  CLAIM_TAG_SYSTEM,
   ClaimFieldChange,
   ClaimProvenanceActivityKey,
   ClaimStatusFieldKey,
@@ -39,7 +40,6 @@ import {
 } from 'utils';
 import {
   buildUpdatedClaimStatusTags,
-  CLAIM_TAG_SYSTEM,
   fhirName,
   formatAddress,
   getClaimType,

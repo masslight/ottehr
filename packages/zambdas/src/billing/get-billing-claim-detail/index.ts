@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Person, RelatedPerson } from 'fhir/r4b';
 import {
   BillingPolicyHolderSummary,
+  CLAIM_TAG_SYSTEM,
   ClaimDetailResponse,
   genderMap,
   getClaimStatusValues,
@@ -16,7 +17,6 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { getCLIA } from '../service-facility.helpers';
 import {
-  CLAIM_TAG_SYSTEM,
   claimHasRealCoverage,
   createBillingClient,
   fetchClaimGraph,

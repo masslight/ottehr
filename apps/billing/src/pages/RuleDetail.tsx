@@ -1,14 +1,23 @@
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { Alert, Box, Button, CircularProgress, FormControlLabel, Switch, TextField, Typography } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getApiError, PreSubmissionRule, PreSubmissionRuleInput } from 'utils';
+import { getApiError, PreSubmissionRule, PreSubmissionRuleInput, RuleConditional } from 'utils';
 import { getBillingRules, saveBillingRules } from '../api/api';
+import { TextInput } from '../components/input/TextInput';
 import { ConditionalEditor, newRuleConditional } from '../components/rules/RuleBuilder';
 import { useApiClients } from '../hooks/useAppClients';
 
-// A new rule has no id: save-billing-rules assigns one when the rule is first saved.
-const blankRule = (): PreSubmissionRuleInput => ({
+// The rule id is not a form field: a new rule is saved without one and save-billing-rules assigns it.
+interface RuleFormValues {
+  name: string;
+  description: string;
+  enabled: boolean;
+  conditional: RuleConditional;
+}
+
+const blankForm = (): RuleFormValues => ({
   name: '',
   description: '',
   enabled: true,
@@ -23,10 +32,13 @@ export default function RuleDetail(): ReactElement {
 
   const [allRules, setAllRules] = useState<PreSubmissionRule[]>([]);
   const [versionId, setVersionId] = useState<string | undefined>();
-  const [rule, setRule] = useState<PreSubmissionRuleInput | null>(null);
+  const [found, setFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const methods = useForm<RuleFormValues>({ defaultValues: blankForm() });
+  const { control, handleSubmit, reset } = methods;
 
   const load = useCallback(async () => {
     if (!oystehrZambda) return;
@@ -37,14 +49,17 @@ export default function RuleDetail(): ReactElement {
       setAllRules(data.rules);
       setVersionId(data.versionId);
       if (isNew) {
-        setRule(blankRule());
+        reset(blankForm());
+        setFound(true);
       } else {
-        const found = data.rules.find((r) => r.id === id);
-        if (!found) {
+        const existing = data.rules.find((r) => r.id === id);
+        if (!existing) {
           setError('Rule not found. It may have been deleted.');
-          setRule(null);
+          setFound(false);
         } else {
-          setRule(found);
+          const { name, description, enabled, conditional } = existing;
+          reset({ name, description, enabled, conditional });
+          setFound(true);
         }
       }
     } catch (err) {
@@ -52,26 +67,28 @@ export default function RuleDetail(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [oystehrZambda, id, isNew]);
+  }, [oystehrZambda, id, isNew, reset]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const handleSave = async (): Promise<void> => {
-    if (!oystehrZambda || !rule) return;
-    if (!rule.name.trim()) {
-      setError('Rule name is required.');
-      return;
-    }
+  const onSave = handleSubmit(async (values) => {
+    if (!oystehrZambda) return;
     setSaving(true);
     setError(null);
     try {
-      const trimmed = { ...rule, name: rule.name.trim(), description: rule.description.trim() };
-      const exists = trimmed.id != null && allRules.some((r) => r.id === trimmed.id);
+      const rule: PreSubmissionRuleInput = {
+        ...(isNew ? {} : { id }),
+        name: values.name.trim(),
+        description: values.description.trim(),
+        enabled: values.enabled,
+        conditional: values.conditional,
+      };
+      const exists = !isNew && allRules.some((r) => r.id === id);
       const nextRules: PreSubmissionRuleInput[] = exists
-        ? allRules.map((r) => (r.id === trimmed.id ? trimmed : r))
-        : [...allRules, trimmed];
+        ? allRules.map((r) => (r.id === id ? rule : r))
+        : [...allRules, rule];
       await saveBillingRules(oystehrZambda, { rules: nextRules, expectedVersionId: versionId });
       navigate('/rules');
     } catch (err) {
@@ -79,7 +96,7 @@ export default function RuleDetail(): ReactElement {
     } finally {
       setSaving(false);
     }
-  };
+  });
 
   return (
     <Box>
@@ -106,49 +123,55 @@ export default function RuleDetail(): ReactElement {
             </Alert>
           )}
 
-          {rule && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 900 }}>
-              <TextField
-                label="Name"
-                size="small"
-                value={rule.name}
-                onChange={(e) => setRule({ ...rule, name: e.target.value })}
-                fullWidth
-              />
-              <TextField
-                label="Description"
-                size="small"
-                value={rule.description}
-                onChange={(e) => setRule({ ...rule, description: e.target.value })}
-                placeholder="What is this rule for?"
-                multiline
-                rows={2}
-                fullWidth
-              />
-              <FormControlLabel
-                control={
-                  <Switch checked={rule.enabled} onChange={(e) => setRule({ ...rule, enabled: e.target.checked })} />
-                }
-                label="Enabled"
-              />
+          {found && (
+            <FormProvider {...methods}>
+              <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 900 }}>
+                <TextInput name="name" label="Name" required fullWidth />
+                <Controller
+                  name="description"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Description"
+                      size="small"
+                      placeholder="What is this rule for?"
+                      multiline
+                      rows={2}
+                      fullWidth
+                    />
+                  )}
+                />
+                <Controller
+                  name="enabled"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                      label="Enabled"
+                    />
+                  )}
+                />
 
-              <Typography variant="h6" color="primary.dark" fontWeight={600} sx={{ mt: 1 }}>
-                Logic
-              </Typography>
-              <ConditionalEditor
-                value={rule.conditional}
-                onChange={(conditional) => setRule({ ...rule, conditional })}
-              />
+                <Typography variant="h6" color="primary.dark" fontWeight={600} sx={{ mt: 1 }}>
+                  Logic
+                </Typography>
+                <Controller
+                  name="conditional"
+                  control={control}
+                  render={({ field }) => <ConditionalEditor value={field.value} onChange={field.onChange} />}
+                />
 
-              <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                <Button variant="contained" onClick={() => void handleSave()} disabled={saving || !rule.name.trim()}>
-                  {saving ? 'Saving…' : 'Save rule'}
-                </Button>
-                <Button onClick={() => navigate('/rules')} disabled={saving}>
-                  Cancel
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                  <Button variant="contained" onClick={() => void onSave()} disabled={saving}>
+                    {saving ? 'Saving…' : 'Save rule'}
+                  </Button>
+                  <Button onClick={() => navigate('/rules')} disabled={saving}>
+                    Cancel
+                  </Button>
+                </Box>
               </Box>
-            </Box>
+            </FormProvider>
           )}
         </>
       )}
