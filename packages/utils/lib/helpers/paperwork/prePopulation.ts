@@ -248,6 +248,12 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           if (linkId === 'reason-for-visit' && normalizedReasonForVisit) {
             answer = makeAnswer(normalizedReasonForVisit);
           }
+          if (linkId === 'photo-id-front' && photoIdFrontDocumentReference) {
+            answer = makeAnswer(photoIdFront, 'Attachment');
+          }
+          if (linkId === 'photo-id-back' && photoIdBackDocumentReference) {
+            answer = makeAnswer(photoIdBack, 'Attachment');
+          }
 
           return {
             linkId,
@@ -335,22 +341,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapAttorneyToQuestionnaireResponseItems({
           items: itemItems,
           attorneyRelatedPerson: accountInfo?.attorneyRelatedPerson,
-        });
-      } else if (item.linkId === 'photo-id-page') {
-        return itemItems.map((item) => {
-          let answer: QuestionnaireResponseItemAnswer[] | undefined;
-          const { linkId } = item;
-          if (linkId === 'photo-id-front' && photoIdFrontDocumentReference) {
-            answer = makeAnswer(photoIdFront, 'Attachment');
-          }
-          if (linkId === 'photo-id-back' && photoIdBackDocumentReference) {
-            answer = makeAnswer(photoIdBack, 'Attachment');
-          }
-
-          return {
-            linkId,
-            answer,
-          };
         });
       }
 

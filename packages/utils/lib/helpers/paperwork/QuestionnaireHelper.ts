@@ -205,7 +205,7 @@ export class QuestionnaireHelper {
    * Checks if a page has any required fields in the virtual questionnaire.
    * Returns true if at least one field in the page is required.
    *
-   * @param pageLinkId - The linkId of the page to check (e.g., 'photo-id-page')
+   * @param pageLinkId - The linkId of the page to check (e.g., 'payment-option-page')
    * @returns true if the page has at least one required field, false otherwise
    */
   static virtualPageHasRequiredFields(pageLinkId: string): boolean {
@@ -226,7 +226,7 @@ export class QuestionnaireHelper {
    * Checks if a page has any required fields in the in-person questionnaire.
    * Returns true if at least one field in the page is required.
    *
-   * @param pageLinkId - The linkId of the page to check (e.g., 'photo-id-page')
+   * @param pageLinkId - The linkId of the page to check (e.g., 'payment-option-page')
    * @returns true if the page has at least one required field, false otherwise
    */
   static inPersonPageHasRequiredFields(pageLinkId: string): boolean {

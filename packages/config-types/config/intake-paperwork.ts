@@ -66,7 +66,7 @@ export type HarvestStrategy =
  * Pages not present in this map require no incremental harvesting.
  */
 export const pageHarvestStrategy: Record<string, HarvestStrategy[]> = {
-  'contact-information-page': ['master-record', 'erx-contact'],
+  'contact-information-page': ['master-record', 'erx-contact', 'documents'],
   'patient-details-page': ['master-record'],
   'primary-care-physician-page': ['master-record'],
   'pharmacy-page': ['pharmacy'],
@@ -77,7 +77,6 @@ export const pageHarvestStrategy: Record<string, HarvestStrategy[]> = {
   'employer-information-page': ['account-coverage'],
   'emergency-contact-page': ['account-coverage'],
   'attorney-mva-page': ['account-coverage'],
-  'photo-id-page': ['documents'],
   'patient-condition-page': ['documents'],
   'school-work-note-page': ['documents'],
   'consent-forms-page': ['consent'],

@@ -176,16 +176,6 @@ const ReviewPaperwork = (): JSX.Element => {
       console.log('pagesWithError', pagesWithError);
     }
 
-    // Only check photo-id-page if it's enabled
-    if (validationState['photo-id-page'] !== undefined) {
-      const photoIdFront = pickFirstValueFromAnswerItem(findAnswerWithLinkId('photo-id-front'), 'attachment');
-      console.log('photoIdFront', photoIdFront, findAnswerWithLinkId('photo-id-front'));
-      // this is a strange one-off; it is optional in the schema but we communicate to the user that it is required
-      if (photoIdFront === undefined) {
-        validationState['photo-id-page'] = false;
-      }
-    }
-
     // Only check medical-history-page if it's enabled (and only for in-person)
     if (validationState['medical-history-page'] !== undefined) {
       if (
