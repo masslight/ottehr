@@ -49,7 +49,7 @@ interface Filters {
 }
 
 const columns: GridColDef[] = [
-  { field: 'checkNumber', headerName: 'Check No.', width: 120 },
+  { field: 'checkNumber', headerName: 'Check No.', width: 150 },
   { field: 'paymentDate', headerName: 'Check Date', width: 120 },
   {
     field: 'paymentAmount',
