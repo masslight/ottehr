@@ -1,5 +1,6 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import type { X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 
@@ -242,10 +243,10 @@ export interface PatientDetailResponse {
   >[];
 }
 
-// One X12 CAS adjustment carried on a remit: group code (PR/CO/OA/PI) + CARC reason code
-// (e.g. 1 = deductible, 2 = coinsurance, 3 = copay, 45 = exceeds fee schedule).
+// One X12 CAS adjustment carried on a remit: group code (X12_ADJUSTMENT_GROUP_CODE) + CARC reason
+// code (e.g. 1 = deductible, 2 = coinsurance, 3 = copay, 45 = exceeds fee schedule).
 export interface ClaimRemitAdjustment {
-  groupCode: string;
+  groupCode: X12AdjustmentGroupCode;
   reasonCode: string;
   amount: number;
 }
@@ -267,7 +268,8 @@ export interface ClaimRemit {
   date: string;
   payerName: string;
   status: string;
-  // CLP02 claim status code from the ERA (1 = primary, 2 = secondary, 4 = denied, 22 = reversal)
+  // CLP02 claim status code from the ERA (ERA_CLAIM_STATUS_CODE) left as a string because the ERA
+  // can carry other CLP02 codes, which the UI renders raw
   eraStatusCode: string;
   allowed: number | null;
   paid: number;

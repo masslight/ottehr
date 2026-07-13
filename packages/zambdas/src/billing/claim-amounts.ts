@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, ClaimResponseItemAdjudication, PaymentReconciliation } from 'fhir/r4b';
-import { ClaimRemitAdjustment } from 'utils';
+import { ClaimRemitAdjustment, X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils';
 import { fetchAllPages } from '../shared';
 import { ERA_ID_SYSTEM, getEraIdValue, getLinkedClaimResponseIds, getLinkedPaymentReconciliationId } from './shared';
 
@@ -11,7 +11,7 @@ export const ADJUDICATION_CODES = {
   ALLOWED: 'allowed',
   ALLOWED_X12: 'B6',
 } as const;
-export const ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY = 'PR';
+export const ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY = X12_ADJUSTMENT_GROUP_CODE.patientResponsibility;
 
 export interface ClaimResponseAmounts {
   paid: number;
@@ -74,9 +74,9 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
 // X12_ADJUSTMENT_GROUP_SYSTEM), reason = CARC reason code, amount = the adjusted amount.
 export function extractRemitAdjustments(claimResponse: ClaimResponse): ClaimRemitAdjustment[] {
   return allAdjudications(claimResponse)
-    .filter((adj) => adj.category?.coding?.[0]?.system === X12_ADJUSTMENT_GROUP_SYSTEM)
+    .filter((adj) => adj.category?.coding?.[0]?.system === X12_ADJUSTMENT_GROUP_SYSTEM && adjudicationCode(adj) != null)
     .map((adj) => ({
-      groupCode: adjudicationCode(adj) ?? '',
+      groupCode: adjudicationCode(adj) as X12AdjustmentGroupCode,
       reasonCode: adj.reason?.coding?.[0]?.code ?? '',
       amount: adj.amount?.value ?? 0,
     }));

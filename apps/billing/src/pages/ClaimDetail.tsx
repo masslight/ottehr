@@ -42,6 +42,7 @@ import {
   ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
+  ERA_CLAIM_STATUS_CODE,
   formatClaimStatusValue,
   getApiError,
   UpdateBillingResourceInput,
@@ -1560,11 +1561,11 @@ function OtherClaimsSection({
 
 // CLP02 claim status codes worth naming; anything else renders as the raw code
 const ERA_STATUS_LABELS: Record<string, string> = {
-  '1': 'Primary',
-  '2': 'Secondary',
-  '3': 'Tertiary',
-  '4': 'Denied',
-  '22': 'Reversal',
+  [ERA_CLAIM_STATUS_CODE.primary]: 'Primary',
+  [ERA_CLAIM_STATUS_CODE.secondary]: 'Secondary',
+  [ERA_CLAIM_STATUS_CODE.tertiary]: 'Tertiary',
+  [ERA_CLAIM_STATUS_CODE.denied]: 'Denied',
+  [ERA_CLAIM_STATUS_CODE.reversal]: 'Reversal',
 };
 
 const formatAdjustment = (adj: ClaimRemitAdjustment): string =>
