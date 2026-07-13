@@ -20,7 +20,6 @@ import {
   chunkThings,
   CODE_SYSTEM_ICD_10,
   DiagnosisDTO,
-  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   ResolvedSectionActions,
   resourceHasTagSystem,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
@@ -33,6 +32,7 @@ import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
+  findHolderList,
   getTemplateEncounterBundle,
   hasTemplateRelevantTag,
   isDiagnosisCondition,
@@ -89,43 +89,41 @@ const complexValidation = async (
 ): Promise<ComplexValidationOutput> => {
   const { templateName, encounterId } = validatedInput;
 
-  // The template List search and the encounter bundle fetch are independent, so run them in
-  // parallel. The encounter bundle search (by _id) also returns the Encounter itself, so we
-  // pull it from there instead of issuing a separate Encounter GET.
-  const [lists, encounterBundle] = await Promise.all([
+  // Run three independent reads in parallel: the template Lists by title, the global
+  // template holder List (located by its meta tag — fast indexed lookup, only one exists),
+  // and the encounter bundle. The previous approach used _revinclude: 'List:item' to pull
+  // in the holder List in a single search, but that reverse-scan grows more expensive as
+  // the List table grows and consistently exceeds the 14-second FHIR SDK timeout.
+  const [candidateLists, holderList, encounterBundle] = await Promise.all([
     oystehr.fhir
       .search<List>({
         resourceType: 'List',
-        params: [
-          { name: 'title', value: templateName },
-          { name: '_revinclude', value: 'List:item' },
-        ],
+        params: [{ name: 'title', value: templateName }],
       })
       .then((bundle) => bundle.unbundle()),
+    findHolderList(oystehr),
     getTemplateEncounterBundle(oystehr, encounterId),
   ]);
 
-  const globalTemplatesHolders = lists.filter(
-    (list) => list.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
-  );
-
-  if (globalTemplatesHolders.length === 0) {
-    // By searching on the template name, and not finding the global templates List on revinclude
-    // We demonstrated that even if there is a List with that title, it's not a global template.
+  if (!holderList) {
     throw new Error(`No global template found with title: ${templateName}`);
   }
 
-  // Collect IDs referenced by any global template holder
+  // Collect IDs referenced by the holder List
   const templateListIds = new Set<string>();
-  for (const holder of globalTemplatesHolders) {
-    for (const entry of holder.entry || []) {
-      const listId = entry.item?.reference?.replace('List/', '');
-      if (listId) templateListIds.add(listId);
-    }
+  for (const entry of holderList.entry || []) {
+    const listId = entry.item?.reference?.replace('List/', '');
+    if (listId) templateListIds.add(listId);
   }
 
   // Only consider templates that match the title AND are referenced by the holder
-  const templateLists = lists.filter((list) => list.title === templateName && list.id && templateListIds.has(list.id));
+  const templateLists = candidateLists.filter(
+    (list) => list.title === templateName && list.id && templateListIds.has(list.id)
+  );
+
+  if (templateLists.length === 0) {
+    throw new Error(`No global template found with title: ${templateName}`);
+  }
 
   if (templateLists.length !== 1) {
     throw new Error(
