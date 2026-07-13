@@ -30,10 +30,11 @@ export function TextInput({
       name={name}
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
-      render={({ field, fieldState: { error } }) => (
+      render={({ field: { ref, ...field }, fieldState: { error } }) => (
         <TextField
           {...field}
           value={field.value ?? ''}
+          inputRef={ref}
           size="small"
           type={type ?? 'text'}
           label={label}

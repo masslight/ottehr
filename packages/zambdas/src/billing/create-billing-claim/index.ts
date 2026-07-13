@@ -40,6 +40,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   ensureClaimInsurance,
   findRef,
+  kickOffRulesEngine,
   payerDisplay,
   prepareWorkingCopy,
   resolvePayersByRef,
@@ -111,6 +112,8 @@ async function performEffect(
   const tx = await oystehr.fhir.transaction<FhirResource>({ requests });
   const created = (tx.entry ?? []).map((e) => e.resource).find((r): r is Claim => r?.resourceType === 'Claim');
   if (!created?.id) throw InternalError;
+
+  await kickOffRulesEngine(oystehr, created.id, params.secrets);
 
   return { claimId: created.id };
 }

@@ -4,6 +4,7 @@ import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resourc
 import {
   BillingClaimItem,
   CLAIM_STATUS_TAG_SYSTEMS,
+  CLAIM_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   getClaimStatusValues,
@@ -12,7 +13,6 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
-  CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   fhirName,
@@ -61,7 +61,7 @@ async function performEffect(
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
-    { name: '_total', value: 'exact' },
+    { name: '_total', value: 'accurate' },
   ];
 
   if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });

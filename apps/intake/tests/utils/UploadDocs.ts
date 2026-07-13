@@ -42,6 +42,19 @@ export class UploadDocs {
     const reuploadLink = fieldContainer.getByText('Click to re-upload');
     const hasReupload = (await reuploadLink.count()) > 0;
 
+    // If the field is already uploaded in this session (CardDisplay renders instead
+    // of an Upload button), the Clear button will be present. Refilling is a no-op —
+    // return the existing image without re-invoking the file chooser (which would
+    // time out looking for the missing Upload button).
+    const clearButton = fieldContainer.getByTestId(dataTestIds.fileCardClearButton);
+    const alreadyUploaded = (await clearButton.count()) > 0;
+
+    if (alreadyUploaded && !hasReupload) {
+      const existing = fieldContainer.locator('img').first();
+      await expect(existing).toBeVisible({ timeout: 5000 });
+      return existing;
+    }
+
     if (hasReupload) {
       // File already uploaded, use reupload helper
       await FileUploadHelpers.reuploadFile(this.page, locator, filePath);

@@ -922,6 +922,13 @@
       "src": "src/ehr/radiology/send-for-final-read/index",
       "zip": ".dist/zips/radiology-send-for-final-read.zip"
     },
+    "RADIOLOGY-UPDATE-ORDER": {
+      "name": "radiology-update-order",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/update-order/index",
+      "zip": ".dist/zips/radiology-update-order.zip"
+    },
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
       "type": "http_auth",

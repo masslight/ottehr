@@ -282,3 +282,6 @@ export const CODE_SYSTEM_SERVICE_CATEGORY_CODES = {
   'workers-comp': 'workers-comp',
   'pre-op': 'pre-op',
 } as const;
+
+export const CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE =
+  'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-secondary-identifier-type';

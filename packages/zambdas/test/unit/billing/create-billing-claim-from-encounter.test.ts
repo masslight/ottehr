@@ -23,6 +23,7 @@ import {
   CANDID_PLAN_TYPE_SYSTEM,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   CLAIM_STATUS_TAG_SYSTEMS,
+  CLAIM_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -63,7 +64,6 @@ import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   buildNoCoverageStub,
-  CLAIM_TAG_SYSTEM,
   CURRENT_STATUS_TAG_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
@@ -255,6 +255,14 @@ const clinicalResources: {
               },
             },
           ],
+        },
+      ],
+    },
+    meta: {
+      tag: [
+        {
+          system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code',
+          code: 'cpt-code',
         },
       ],
     },
@@ -778,6 +786,103 @@ describe('create-billing-claim-from-encounter', () => {
               clinicalResources.coverage,
               ...clinicalResources.conditions,
               clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.coverage],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.billingProvider],
+          }),
+        billingOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: null,
+        expectedResult: {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [],
+            billingProvider: undefined,
+            coverages: [],
+            mainPatient: undefined,
+            person: undefined,
+            practitioners: [],
+            renderingProvider: undefined,
+            serviceFacility: undefined,
+            subscribers: [],
+            autoAccidentTag: undefined,
+            billingService: undefined,
+            chargeMaster: undefined,
+          },
+        },
+      },
+      {
+        name: 'filters out non-cpt-, non-em-code-tagged procedures',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.coverage,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+              {
+                resourceType: 'Procedure',
+                id: 'procedure-123',
+                status: 'completed',
+                subject: {
+                  reference: 'Patient/patient-123',
+                },
+                meta: {
+                  tag: [
+                    {
+                      system: 'some-system',
+                      code: 'some-code',
+                    },
+                  ],
+                },
+              },
             ],
           })
           .mockResolvedValueOnce({
@@ -1826,9 +1931,11 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              // The claim references its own per-claim working copies, never the shared billing
+              // provider/facility/practitioner originals.
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -1840,7 +1947,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {
@@ -2584,9 +2691,9 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -2598,7 +2705,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {
@@ -2693,9 +2800,9 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -2707,7 +2814,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {

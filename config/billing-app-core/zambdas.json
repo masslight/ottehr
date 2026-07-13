@@ -190,6 +190,27 @@
       "src": "src/billing/delete-billing-tag/index",
       "zip": ".dist/zips/delete-billing-tag.zip"
     },
+    "GET-BILLING-RULES": {
+      "name": "get-billing-rules",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-rules/index",
+      "zip": ".dist/zips/get-billing-rules.zip"
+    },
+    "SAVE-BILLING-RULES": {
+      "name": "save-billing-rules",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-rules/index",
+      "zip": ".dist/zips/save-billing-rules.zip"
+    },
+    "RUN-BILLING-RULES-ENGINE": {
+      "name": "run-billing-rules-engine",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/run-billing-rules-engine/index",
+      "zip": ".dist/zips/run-billing-rules-engine.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
@@ -287,6 +308,33 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/billing-stripe-webhook/index",
       "zip": ".dist/zips/billing-stripe-webhook.zip"
+    "SUB-PRESUBMISSION-RULES-ENGINE": {
+      "name": "sub-presubmission-rules-engine",
+      "type": "subscription",
+      "timeout": "870",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-presubmission-rules-engine/index",
+      "zip": ".dist/zips/sub-presubmission-rules-engine.zip"
+    }
+  },
+  "fhirResources": {
+    "SUB_PRESUBMISSION_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing pre-submission rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-presubmission-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PRESUBMISSION-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
     }
   }
 }

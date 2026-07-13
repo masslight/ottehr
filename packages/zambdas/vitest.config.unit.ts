@@ -6,6 +6,7 @@ export default defineConfig({
     environment: 'node',
     silent: false,
     testTimeout: 30000,
+    hookTimeout: 30000,
     include: ['test/unit/**/*.test.ts'],
     setupFiles: ['./vitest.setup.ts'],
     server: {

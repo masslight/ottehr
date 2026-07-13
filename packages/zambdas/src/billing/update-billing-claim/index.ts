@@ -25,6 +25,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
   setCoveragePlanType,
+  setNpi,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -46,8 +47,8 @@ import {
   prepareWorkingCopy,
   resolvePayersByRef,
   resourceDisplayName,
+  setClia,
   setCoverageRelationship,
-  setNpi,
   setTaxId,
   setTaxonomy,
 } from '../shared';
@@ -117,13 +118,14 @@ export async function performEffect(
       });
     }
     case 'Location': {
-      const location = await fetchById<Location>(oystehr, 'Location', params.resourceId);
-      const before = structuredClone(location);
+      const facility = await fetchById<Location>(oystehr, 'Location', params.resourceId);
+      const before = structuredClone(facility);
       const { fields } = params;
-      if (fields.name !== undefined) location.name = fields.name;
-      if (fields.npi !== undefined) setNpi(location, fields.npi);
-      if (fields.address !== undefined) location.address = buildAddress(fields.address);
-      return commitClaimResourceChange(oystehr, { resource: location, before, agent, claimReference });
+      if (fields.name !== undefined) facility.name = fields.name;
+      if (fields.npi !== undefined) setNpi(facility, fields.npi);
+      if (fields.clia !== undefined) setClia(facility, fields.clia);
+      if (fields.address !== undefined) facility.address = buildAddress(fields.address);
+      return commitClaimResourceChange(oystehr, { resource: facility, before, agent, claimReference });
     }
     case 'Organization': {
       const organization = await fetchById<Organization>(oystehr, 'Organization', params.resourceId);

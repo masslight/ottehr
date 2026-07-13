@@ -93,7 +93,7 @@
           "resource": ["RCM:InsuranceEligibility"]
         },
         {
-          "action": ["eRx:SearchPharmacy"],
+          "action": ["eRx:SearchPharmacy", "eRx:GetPharmacy"],
           "effect": "Allow",
           "resource": ["eRx:Pharmacy"]
         },
@@ -126,6 +126,11 @@
           "action": ["RCM:ProcessEra"],
           "effect": "Allow",
           "resource": ["RCM:Era"]
+        },
+        {
+          "action": ["RCM:SubmitClaim"],
+          "effect": "Allow",
+          "resource": ["RCM:Claim"]
         }
       ]
     },

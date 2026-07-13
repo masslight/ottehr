@@ -26,17 +26,14 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  AR_STAGE,
   BillingCoverageOption,
   BillingLocationOption,
-  BillingPayerOption,
   BillingProviderOption,
   BillingTag,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -52,11 +49,10 @@ import {
 import {
   getBillingClaimDetail,
   getPatientCoverages,
+  runBillingRulesEngine,
   searchBillingLocations,
-  searchBillingPayers,
   searchBillingProviders,
   searchBillingTags,
-  submitBillingClaims,
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
@@ -68,6 +64,7 @@ import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceL
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { Field } from '../components/Field';
+import { PayerSelect } from '../components/PayerSelect';
 import {
   PolicyHolderFields,
   policyHolderPayload,
@@ -79,6 +76,7 @@ import { claimStatusValueColor, formatAntCaseString } from '../constants/claimSt
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
+import { validateServiceFacilityFields } from '../utils/validation';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
@@ -178,17 +176,16 @@ export default function ClaimDetail(): ReactElement {
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Submission goes through the pre-submission rules engine: it applies the configured rules, then
+  // submits — or holds — the claim in the background.
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !id) return;
     setSubmitting(true);
     try {
-      const { results } = await submitBillingClaims(oystehrZambda, { claimIds: [id] });
-      const result = results[0];
-      if (result?.status === 'submitted') {
-        enqueueSnackbar('Claim submitted to payer', { variant: 'success' });
-      } else {
-        enqueueSnackbar(result?.error ?? 'Failed to submit claim', { variant: 'error' });
-      }
+      await runBillingRulesEngine(oystehrZambda, { claimId: id });
+      enqueueSnackbar('Rules engine started — it will submit or hold the claim shortly. Refresh to see the result.', {
+        variant: 'info',
+      });
     } catch (err) {
       enqueueSnackbar(
         getApiError({
@@ -226,7 +223,6 @@ export default function ClaimDetail(): ReactElement {
   const arStageCode = claim.statuses.arStage;
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
-  const canSubmit = arStageCode === AR_STAGE.insurancePayer;
 
   const startHeaderEdit = (): void => {
     setServiceDate(claim.serviceLines[0]?.serviceDate ?? claim.created);
@@ -359,19 +355,9 @@ export default function ClaimDetail(): ReactElement {
             </>
           )}
         </Box>
-        <Tooltip title={canSubmit ? '' : 'Only claims in Insurance Payer Accounts Receivable can be submitted'}>
-          <span>
-            <Button
-              variant="contained"
-              size="small"
-              disabled={!canSubmit}
-              onClick={() => setConfirmingSubmit(true)}
-              sx={{ mt: 0.5 }}
-            >
-              Submit claim
-            </Button>
-          </span>
-        </Tooltip>
+        <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
+          Submit claim
+        </Button>
         <Button
           size="small"
           variant="outlined"
@@ -509,8 +495,8 @@ export default function ClaimDetail(): ReactElement {
         onConfirm={() => void handleSubmit()}
         onCancel={() => setConfirmingSubmit(false)}
       >
-        Submit this claim to the payer? This sends it for processing and sets its Insurance Accounts Receivable Status
-        to Submitted.
+        Run the pre-submission rules engine on this claim? It applies the configured rules, then submits the claim to
+        the payer — or holds it if a rule applies the Hold tag.
       </ConfirmDialog>
     </Box>
   );
@@ -650,7 +636,7 @@ export function InsuranceSection({
   const { oystehrZambda } = useApiClients();
   const hasCoverage = !!claim.coverageFhirId;
 
-  const [payer, setPayer] = useState<BillingPayerOption | null>(null);
+  const [selectedPayerId, setSelectedPayerId] = useState(claim.payorFhirId);
   const [memberId, setMemberId] = useState(claim.memberId);
   const [status, setStatus] = useState(claim.coverageStatus);
   const [planType, setPlanType] = useState(claim.planType);
@@ -658,16 +644,14 @@ export function InsuranceSection({
     policyHolderStateFromSummary(claim.relationship, claim.policyHolder)
   );
 
-  const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [coverageOptions, setCoverageOptions] = useState<BillingCoverageOption[]>([]);
   const [selectedCoverage, setSelectedCoverage] = useState<BillingCoverageOption | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
   const resetFields = useCallback((): void => {
-    setPayer(claim.payorFhirId ? { id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId } : null);
+    setSelectedPayerId(claim.payorFhirId);
     setMemberId(claim.memberId);
     setStatus(claim.coverageStatus);
     setPlanType(claim.planType);
@@ -678,18 +662,6 @@ export function InsuranceSection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const searchPayers = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingPayers(oystehrZambda, query ? { name: query } : {});
-        setPayerOptions(res.payers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
 
   const loadCoverages = useCallback((): void => {
     if (!oystehrZambda || !claim.patientOriginalId) return;
@@ -707,7 +679,7 @@ export function InsuranceSection({
     const policyHolderError = validatePolicyHolder(policyHolder);
     if (policyHolderError) return policyHolderError;
     const claimFields: { payerId?: string; planType?: string } = {};
-    if (payer?.id && payer.id !== claim.payorFhirId) claimFields.payerId = payer.id;
+    if (selectedPayerId && selectedPayerId !== claim.payorFhirId) claimFields.payerId = selectedPayerId;
     if (planType && planType !== claim.planType) claimFields.planType = planType;
     if (Object.keys(claimFields).length > 0) {
       const err = await updateResource('Claim', claim.id, claimFields);
@@ -768,31 +740,14 @@ export function InsuranceSection({
           {hasCoverage && !selectedCoverage && (
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
               <Field label="Payer">
-                <Autocomplete
-                  size="small"
-                  options={payerOptions}
-                  value={payer}
-                  onChange={(_, v) => setPayer(v)}
-                  onInputChange={(_, val, reason) => {
-                    if (reason === 'input') searchPayers(val || undefined);
-                  }}
-                  onOpen={() => searchPayers()}
-                  filterOptions={(x) => x}
-                  getOptionLabel={(o) => o.name}
-                  renderOption={(props, o) => (
-                    <Box component="li" {...props} key={o.id}>
-                      <Box>
-                        <Typography variant="body2" fontWeight={500}>
-                          {o.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Payer ID: {o.payerId}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                  renderInput={(p) => <TextField {...p} size="small" placeholder="Choose payer..." />}
-                  isOptionEqualToValue={(o, v) => o.id === v.id}
+                <PayerSelect
+                  multiple={false}
+                  value={selectedPayerId}
+                  onChange={(v) => setSelectedPayerId(typeof v === 'string' ? v : v[0] ?? '')}
+                  label=""
+                  initialOptions={
+                    claim.payorFhirId ? [{ id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId }] : []
+                  }
                 />
               </Field>
               <Field label="Member / Subscriber ID">
@@ -1068,6 +1023,7 @@ function FacilitySection({
 
   const [name, setName] = useState(claim.serviceFacility);
   const [npi, setNpi] = useState(claim.serviceFacilityNpi);
+  const [clia, setClia] = useState(claim.serviceFacilityClia);
   const [line1, setLine1] = useState(claim.serviceFacilityAddressParts.line1);
   const [line2, setLine2] = useState(claim.serviceFacilityAddressParts.line2);
   const [city, setCity] = useState(claim.serviceFacilityAddressParts.city);
@@ -1081,6 +1037,7 @@ function FacilitySection({
   const resetFields = useCallback((): void => {
     setName(claim.serviceFacility);
     setNpi(claim.serviceFacilityNpi);
+    setClia(claim.serviceFacilityClia);
     setLine1(claim.serviceFacilityAddressParts.line1);
     setLine2(claim.serviceFacilityAddressParts.line2);
     setCity(claim.serviceFacilityAddressParts.city);
@@ -1110,10 +1067,13 @@ function FacilitySection({
       return updateResource('Claim', claim.id, { facilityId: selected.id });
     }
     if (!hasFacility) return 'Choose a facility';
+    const validationError = validateServiceFacilityFields({ npi, clia, zip });
+    if (validationError) return validationError;
     const address = buildAddressInput(line1, line2, city, state, zip);
     return updateResource('Location', claim.facilityFhirId, {
       name,
       npi: npi.trim(),
+      clia: clia ? clia.trim() : null,
       ...(address ? { address } : {}),
     });
   };
@@ -1164,6 +1124,9 @@ function FacilitySection({
               <Field label="NPI">
                 <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
               </Field>
+              <Field label="CLIA">
+                <TextField size="small" fullWidth value={clia} onChange={(e) => setClia(e.target.value)} />
+              </Field>
               <Field label="Address line 1">
                 <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
               </Field>
@@ -1195,6 +1158,7 @@ function FacilitySection({
       <Row label="Facility" value={claim.serviceFacility} />
       <Row label="Address" value={claim.serviceFacilityAddress} />
       <Row label="NPI" value={claim.serviceFacilityNpi} />
+      {claim.serviceFacilityClia ? <Row label="CLIA" value={claim.serviceFacilityClia} /> : <></>}
     </EditableSection>
   );
 }
