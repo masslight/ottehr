@@ -1,6 +1,6 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
-import type { X12AdjustmentGroupCode } from './billing.constants';
+import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 
@@ -268,9 +268,8 @@ export interface ClaimRemit {
   date: string;
   payerName: string;
   status: string;
-  // CLP02 claim status code from the ERA (ERA_CLAIM_STATUS_CODE) left as a string because the ERA
-  // can carry other CLP02 codes, which the UI renders raw
-  eraStatusCode: string;
+  // CLP02 claim status code from the ERA (ERA_CLAIM_STATUS_CODE)
+  eraStatusCode: EraClaimStatusCode | '';
   allowed: number | null;
   paid: number;
   patientResp: number | null;

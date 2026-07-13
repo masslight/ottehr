@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  asEraClaimStatusCode,
   BillingPolicyHolderSummary,
   CLAIM_TAG_SYSTEM,
   ClaimDetailResponse,
@@ -101,7 +102,9 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       date: cr.created ?? '',
       payerName: payer?.name ?? cr.insurer?.display ?? '',
       status: cr.outcome ?? '',
-      eraStatusCode: cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString ?? '',
+      eraStatusCode: asEraClaimStatusCode(
+        cr.extension?.find((ext) => ext.url === ERA_STATUS_CODE_EXTENSION)?.valueString
+      ),
       allowed: amounts.allowed ?? null,
       paid: amounts.paid,
       patientResp: amounts.patientResp ?? null,

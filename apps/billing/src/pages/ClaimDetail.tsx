@@ -43,6 +43,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
   ERA_CLAIM_STATUS_CODE,
+  EraClaimStatusCode,
   formatClaimStatusValue,
   getApiError,
   UpdateBillingResourceInput,
@@ -1559,13 +1560,18 @@ function OtherClaimsSection({
   );
 }
 
-// CLP02 claim status codes worth naming; anything else renders as the raw code
-const ERA_STATUS_LABELS: Record<string, string> = {
+// Human labels for CLP02 claim status codes the ERA can carry.
+const ERA_STATUS_LABELS: Record<EraClaimStatusCode, string> = {
   [ERA_CLAIM_STATUS_CODE.primary]: 'Primary',
   [ERA_CLAIM_STATUS_CODE.secondary]: 'Secondary',
   [ERA_CLAIM_STATUS_CODE.tertiary]: 'Tertiary',
   [ERA_CLAIM_STATUS_CODE.denied]: 'Denied',
+  [ERA_CLAIM_STATUS_CODE.primaryForwarded]: 'Primary (forwarded)',
+  [ERA_CLAIM_STATUS_CODE.secondaryForwarded]: 'Secondary (forwarded)',
+  [ERA_CLAIM_STATUS_CODE.tertiaryForwarded]: 'Tertiary (forwarded)',
   [ERA_CLAIM_STATUS_CODE.reversal]: 'Reversal',
+  [ERA_CLAIM_STATUS_CODE.notOurClaimForwarded]: 'Not our claim (forwarded)',
+  [ERA_CLAIM_STATUS_CODE.predetermination]: 'Predetermination',
 };
 
 const formatAdjustment = (adj: ClaimRemitAdjustment): string =>
@@ -1603,9 +1609,7 @@ function RemitsSection({ remits }: { remits: ClaimDetailResponse['remits'] }): R
                   <TableCell>{formatDate(remit.date) || '-'}</TableCell>
                   <TableCell>{remit.payerName || '-'}</TableCell>
                   <TableCell>{remit.status || '-'}</TableCell>
-                  <TableCell>
-                    {remit.eraStatusCode ? ERA_STATUS_LABELS[remit.eraStatusCode] ?? remit.eraStatusCode : '-'}
-                  </TableCell>
+                  <TableCell>{remit.eraStatusCode ? ERA_STATUS_LABELS[remit.eraStatusCode] : '-'}</TableCell>
                   <TableCell>{remit.adjustments.map(formatAdjustment).join(', ') || '-'}</TableCell>
                   <TableCell align="right">{remit.allowed === null ? '-' : formatCurrency(remit.allowed)}</TableCell>
                   <TableCell align="right">{formatCurrency(remit.paid)}</TableCell>
