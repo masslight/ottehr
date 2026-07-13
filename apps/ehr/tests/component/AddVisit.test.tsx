@@ -597,25 +597,35 @@ describe('AddVisit', () => {
       await user.click(visitTypeButton!);
     };
 
+    const getServiceCategoryButton = (): Element | null => {
+      const dropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
+      return dropdown.querySelector('[role="combobox"]');
+    };
+
     const pickPrebookOnlyServiceCategory = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-      const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
-      const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
       // Wait until the merged catalog has settled: either the picker becomes
       // enabled (≥2 entries — merged BOOKING_CONFIG + our FHIR mock), or it
       // stays disabled AND auto-selects Crystal Therapy (the case where
       // BOOKING_CONFIG contributes zero entries for this project). Guarding
       // for both shapes keeps the test insensitive to BOOKING_CONFIG count.
+      //
+      // The combobox node is re-queried inside waitFor and again after —
+      // if MUI's Select re-renders (react-query resolution swaps its option
+      // set), the earlier DOM reference could be a detached node that never
+      // reflects the settled state.
       await waitFor(() => {
-        const disabled = serviceCategoryButton?.getAttribute('aria-disabled') === 'true';
-        const displayed = serviceCategoryButton?.textContent ?? '';
+        const btn = getServiceCategoryButton();
+        const disabled = btn?.getAttribute('aria-disabled') === 'true';
+        const displayed = btn?.textContent ?? '';
         expect(!disabled || displayed.includes(prebookOnlyFhirCategory.name)).toBe(true);
       });
-      if (serviceCategoryButton?.getAttribute('aria-disabled') === 'true') {
-        // Locked picker → verified above that Crystal Therapy is the pick.
+      const settledButton = getServiceCategoryButton();
+      if (settledButton?.getAttribute('aria-disabled') === 'true') {
+        // Locked picker → the wait verified Crystal Therapy is the pick.
         // No dropdown to open.
         return;
       }
-      await user.click(serviceCategoryButton!);
+      await user.click(settledButton!);
       const option = await screen.findByText(prebookOnlyFhirCategory.name);
       await user.click(option);
     };

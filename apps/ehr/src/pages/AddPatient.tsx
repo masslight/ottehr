@@ -371,14 +371,17 @@ export default function AddPatient(): JSX.Element {
   // pick between them.
   const isPickerLocked = mergedSourcedCategories.length <= 1;
 
-  // Auto-select when the merged catalog resolves to a single entry that
-  // isn't already picked. Covers the (rare) case where BOOKING_CONFIG is
-  // empty and the sole option arrives via FHIR — without this the form
-  // would render with no selection and no way to make one.
+  // When the merged catalog resolves to exactly one entry, force the pick to
+  // that entry's code. Covers two shapes that would otherwise strand the
+  // form: (a) BOOKING_CONFIG is empty and the sole option arrives via FHIR —
+  // without this the form renders with no selection; (b) the current pick is
+  // no longer in the merged catalog (e.g., an admin deleted the FHIR service
+  // after the user selected it), and the picker is now locked so the cleanup
+  // effect below skips — nothing else can rescue the stale selection.
   useEffect(() => {
-    if (serviceCategory || mergedSourcedCategories.length !== 1) return;
+    if (mergedSourcedCategories.length !== 1) return;
     const only = mergedSourcedCategories[0]?.category.code;
-    if (only) setServiceCategory(only);
+    if (only && serviceCategory !== only) setServiceCategory(only);
   }, [mergedSourcedCategories, serviceCategory]);
 
   // When visit type changes, drop a stale category that's no longer offered.
