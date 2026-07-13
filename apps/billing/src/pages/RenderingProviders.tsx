@@ -13,13 +13,14 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BillingProviderOption, getApiError } from 'utils';
+import { getApiError } from 'utils';
 import { deleteBillingProvider, searchBillingProviders } from '../api/api';
 import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ProviderDetailSection } from '../components/ProviderDetailSection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
+import { useProvider } from '../hooks/useProvider';
 
 interface ProviderRow {
   id: string;
@@ -169,26 +170,9 @@ export function RenderingProviderDetail(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [provider, setProvider] = useState<BillingProviderOption | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchDetail = useCallback(async () => {
-    if (!oystehrZambda || !id) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await searchBillingProviders(oystehrZambda, {
-        providerType: 'rendering',
-        providerId: id,
-      });
-      setProvider((data.providers ?? [])[0] ?? null);
-    } catch (err) {
-      setError(getApiError({ error: err, defaultError: 'Failed to load provider' }));
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda, id]);
+  const [provider, refetch] = useProvider({ type: 'rendering', id: id!, onLoading: setLoading, onError: setError });
 
   const handleDelete = async (): Promise<void> => {
     if (!oystehrZambda || !provider) return;
@@ -200,10 +184,6 @@ export function RenderingProviderDetail(): ReactElement {
       setError(getApiError({ error: err, defaultError: 'Failed to delete provider' }));
     }
   };
-
-  useEffect(() => {
-    void fetchDetail();
-  }, [fetchDetail]);
 
   if (loading && !provider) {
     return (
@@ -243,7 +223,7 @@ export function RenderingProviderDetail(): ReactElement {
           </Button>
         )}
       </Box>
-      <ProviderDetailSection provider={provider} onSaved={fetchDetail} />
+      <ProviderDetailSection provider={provider} role="rendering" onSaved={refetch} />
     </Box>
   );
 }

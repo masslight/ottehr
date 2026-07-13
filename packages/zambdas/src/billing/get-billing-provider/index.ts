@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
-import { BillingProviderOption } from 'utils';
+import { BillingProviderOption, FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createBillingClient,
@@ -11,10 +11,10 @@ import {
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
 } from '../shared';
-import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
+import { GetBillingProviderParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'search-billing-providers';
+const ZAMBDA_NAME = 'get-billing-provider';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
@@ -25,22 +25,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(
-  oystehr: Oystehr,
-  params: SearchBillingProvidersParams
-): Promise<{ providers: BillingProviderOption[]; total: number; offset: number; pageSize: number }> {
-  const pageSize = params.pageSize ?? 50;
-  const offset = params.offset ?? 0;
-
+async function performEffect(oystehr: Oystehr, params: GetBillingProviderParams): Promise<BillingProviderOption> {
   // Role is a meta.tag (one system, code per role), independent of resource type: a provider
   // (Practitioner or Organization) can bill and/or render.
   const roleCode = params.providerType === 'rendering' ? PROVIDER_ROLE_RENDERING : PROVIDER_ROLE_BILLING;
   const baseParams: { name: string; value: string }[] = [
-    { name: '_tag', value: `${PROVIDER_ROLE_TAG}|${roleCode}` },
-    ...EXCLUDE_WORKING_COPIES_PARAMS,
+    { name: '_tag', value: `${PROVIDER_ROLE_TAG}|${roleCode}`, ...EXCLUDE_WORKING_COPIES_PARAMS },
   ];
-  if (params.providerId) baseParams.push({ name: '_id', value: params.providerId });
-  if (params.name) baseParams.push({ name: 'name', value: params.name });
+  baseParams.push({ name: '_id', value: params.providerId });
 
   // FHIR paginates per resource type, so to return one sorted, paginated list across both we fetch
   // all matches and sort/paginate in memory. Provider counts are small; the two fetches run in parallel.
@@ -66,5 +58,8 @@ async function performEffect(
   ]);
 
   const all = [...practitioners, ...organizations].map(mapProvider).sort((a, b) => a.name.localeCompare(b.name));
-  return { providers: all.slice(offset, offset + pageSize), total: all.length, offset, pageSize };
+  if (!all.length) {
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Could not find billing provider');
+  }
+  return all[0];
 }

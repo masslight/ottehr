@@ -29,11 +29,10 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   BillingCoverageOption,
-  BillingLocationOption,
   BillingProviderOption,
   BillingTag,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -42,44 +41,54 @@ import {
   ClaimStatusFieldKey,
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
+  CreateBillingProviderInput,
   ERA_CLAIM_STATUS_CODE,
   EraClaimStatusCode,
   formatClaimStatusValue,
+  formatDate,
   getApiError,
+  SaveServiceFacilityInput,
+  ServiceFacilityItem,
+  UpdateBillingPatientInput,
+  UpdateBillingProviderInput,
   UpdateBillingResourceInput,
   VALUE_SETS,
 } from 'utils';
 import {
+  createBillingCoverage,
+  createBillingProvider,
   getBillingClaimDetail,
   getPatientCoverages,
   runBillingRulesEngine,
-  searchBillingLocations,
+  saveBillingServiceFacility,
   searchBillingProviders,
+  searchBillingServiceFacilities,
   searchBillingTags,
   tagBillingClaim,
+  updateBillingPatient,
+  updateBillingProvider,
   updateBillingResource,
 } from '../api/api';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
-import { EditableSection } from '../components/claim/EditableSection';
+import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { CoverageFields } from '../components/CoverageFields';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
-import { Field } from '../components/Field';
-import { PayerSelect } from '../components/PayerSelect';
-import {
-  PolicyHolderFields,
-  policyHolderPayload,
-  PolicyHolderState,
-  policyHolderStateFromSummary,
-  validatePolicyHolder,
-} from '../components/PolicyHolderFields';
+import { ProviderDetailForm } from '../components/ProviderDetailSection';
+import { Row } from '../components/Row';
+import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
+import { CoverageForm, coverageToCreateInput, defaultCoverageFormValues } from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';
+import { usePatient } from '../hooks/usePatient';
+import { useProvider } from '../hooks/useProvider';
+import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
-import { buildAddressInput, formatCurrency, formatDate, splitDisplayName } from '../utils/format';
-import { validateServiceFacilityFields } from '../utils/validation';
+import { buildAddressInput, formatCurrency } from '../utils/format';
+import { PatientDemographicsSection } from './PatientDetail';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
@@ -454,7 +463,7 @@ export default function ClaimDetail(): ReactElement {
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
-            <PatientSection claim={claim} updateResource={updateResource} />
+            <PatientSection claim={claim} />
             <InsuranceSection claim={claim} updateResource={updateResource} />
             {claim.secondaryPayerName && (
               <ReadOnlySection title="Secondary Insurance">
@@ -505,130 +514,36 @@ export default function ClaimDetail(): ReactElement {
   );
 }
 
-function PatientSection({
-  claim,
-  updateResource,
-}: {
-  claim: ClaimDetailResponse;
-  updateResource: UpdateFn;
-}): ReactElement {
-  const initialName = splitDisplayName(claim.patientName);
-  const [firstName, setFirstName] = useState(initialName.firstName);
-  const [lastName, setLastName] = useState(initialName.lastName);
-  const [dob, setDob] = useState(claim.patientDob);
-  const [gender, setGender] = useState(claim.patientGender);
-  const [line1, setLine1] = useState(claim.patientAddressParts.line1);
-  const [line2, setLine2] = useState(claim.patientAddressParts.line2);
-  const [city, setCity] = useState(claim.patientAddressParts.city);
-  const [state, setState] = useState(claim.patientAddressParts.state);
-  const [zip, setZip] = useState(claim.patientAddressParts.postalCode);
+function PatientSection({ claim }: { claim: ClaimDetailResponse }): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const [patient, refetchPatient] = usePatient({ id: claim.patientId });
 
-  const resetFields = useCallback((): void => {
-    const name = splitDisplayName(claim.patientName);
-    setFirstName(name.firstName);
-    setLastName(name.lastName);
-    setDob(claim.patientDob);
-    setGender(claim.patientGender);
-    setLine1(claim.patientAddressParts.line1);
-    setLine2(claim.patientAddressParts.line2);
-    setCity(claim.patientAddressParts.city);
-    setState(claim.patientAddressParts.state);
-    setZip(claim.patientAddressParts.postalCode);
-  }, [claim]);
-
-  useEffect(() => {
-    resetFields();
-  }, [resetFields]);
-
-  const handleSave = async (): Promise<string | null> => {
-    if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
-    const address = buildAddressInput(line1, line2, city, state, zip);
-    return updateResource('Patient', claim.patientId, {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      dob,
-      gender,
-      ...(address ? { address } : {}),
-    });
+  const handleSave = async (payload: UpdateBillingPatientInput): Promise<string | null> => {
+    if (!oystehrZambda) return 'Client not ready';
+    await updateBillingPatient(oystehrZambda, payload);
+    await refetchPatient();
+    return null;
   };
 
-  return (
-    <EditableSection
-      title="Patient"
-      onSave={handleSave}
-      onCancel={resetFields}
-      editForm={
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-          <Field label="First name">
-            <TextField size="small" fullWidth value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          </Field>
-          <Field label="Last name">
-            <TextField size="small" fullWidth value={lastName} onChange={(e) => setLastName(e.target.value)} />
-          </Field>
-          <Field label="Date of birth">
-            <TextField size="small" fullWidth type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-          </Field>
-          <Field label="Gender">
-            <Select
-              size="small"
-              fullWidth
-              displayEmpty
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              renderValue={
-                gender
-                  ? undefined
-                  : () => (
-                      <Box component="span" sx={{ color: 'text.disabled' }}>
-                        Select...
-                      </Box>
-                    )
-              }
-            >
-              <MenuItem value="male">Male</MenuItem>
-              <MenuItem value="female">Female</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
-              <MenuItem value="unknown">Unknown</MenuItem>
-            </Select>
-          </Field>
-          <Field label="Address line 1">
-            <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
-          </Field>
-          <Field label="Address line 2">
-            <TextField size="small" fullWidth value={line2} onChange={(e) => setLine2(e.target.value)} />
-          </Field>
-          <Field label="City">
-            <TextField size="small" fullWidth value={city} onChange={(e) => setCity(e.target.value)} />
-          </Field>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-            <Field label="State">
-              <TextField
-                size="small"
-                fullWidth
-                value={state}
-                onChange={(e) => setState(e.target.value)}
-                inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
-              />
-            </Field>
-            <Field label="ZIP">
-              <TextField size="small" fullWidth value={zip} onChange={(e) => setZip(e.target.value)} />
-            </Field>
-          </Box>
-        </Box>
-      }
-    >
-      <Row label="Patient" value={claim.patientName} />
-      <Row label="Date of Birth" value={claim.patientDob} />
-      <Row label="Gender" value={claim.patientGender} />
-      <Row label="Address" value={claim.patientAddress} />
-    </EditableSection>
-  );
+  if (!patient) {
+    return <EditableSectionSkeleton title="Patient" />;
+  }
+
+  return <PatientDemographicsSection title="Patient" patient={patient} onSave={handleSave} />;
 }
 
 const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
 const planTypeLabel = (candidCode: string): string =>
   PLAN_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
 
+/**
+ * This needs to support several cases:
+ *  1. claim does not have insurance, user selects one and optionally makes edits, submit should add coverage w/ edits
+ *  2. claim does not have insurance, user manually configures, submit should add coverage
+ *  3. claim has insurance, user makes edits, submit should persist edits
+ *  4. claim has insurance, user selects a different coverage and optionally makes edits, submit should persist edits
+ *  5. claim has insurance but it no longer matches user's coverage list, user can still make edits
+ */
 export function InsuranceSection({
   claim,
   updateResource,
@@ -639,14 +554,6 @@ export function InsuranceSection({
   const { oystehrZambda } = useApiClients();
   const hasCoverage = !!claim.coverageFhirId;
 
-  const [selectedPayerId, setSelectedPayerId] = useState(claim.payorFhirId);
-  const [memberId, setMemberId] = useState(claim.memberId);
-  const [status, setStatus] = useState(claim.coverageStatus);
-  const [planType, setPlanType] = useState(claim.planType);
-  const [policyHolder, setPolicyHolder] = useState<PolicyHolderState>(() =>
-    policyHolderStateFromSummary(claim.relationship, claim.policyHolder)
-  );
-
   const [coverageOptions, setCoverageOptions] = useState<BillingCoverageOption[]>([]);
   const [selectedCoverage, setSelectedCoverage] = useState<BillingCoverageOption | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -654,17 +561,21 @@ export function InsuranceSection({
   const [removeError, setRemoveError] = useState<string | null>(null);
 
   const resetFields = useCallback((): void => {
-    setSelectedPayerId(claim.payorFhirId);
-    setMemberId(claim.memberId);
-    setStatus(claim.coverageStatus);
-    setPlanType(claim.planType);
-    setPolicyHolder(policyHolderStateFromSummary(claim.relationship, claim.policyHolder));
     setSelectedCoverage(null);
+    // include claim to handle edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claim]);
 
   useEffect(() => {
     resetFields();
   }, [resetFields]);
+
+  const defaultValues = useMemo(() => {
+    if (selectedCoverage) {
+      return defaultCoverageFormValues(selectedCoverage);
+    }
+    return defaultCoverageFormValues(claim);
+  }, [selectedCoverage, claim]);
 
   const loadCoverages = useCallback((): void => {
     if (!oystehrZambda || !claim.patientOriginalId) return;
@@ -674,26 +585,46 @@ export function InsuranceSection({
     })();
   }, [oystehrZambda, claim.patientOriginalId]);
 
-  const handleSave = async (): Promise<string | null> => {
-    if (selectedCoverage?.id) {
-      return updateResource('Claim', claim.id, { coverageId: selectedCoverage.id });
-    }
-    if (!hasCoverage) return 'Choose a coverage';
-    const policyHolderError = validatePolicyHolder(policyHolder);
-    if (policyHolderError) return policyHolderError;
+  const handleSave = async (data: CoverageForm): Promise<string | null> => {
+    if (!oystehrZambda) return null;
     const claimFields: { payerId?: string; planType?: string } = {};
-    if (selectedPayerId && selectedPayerId !== claim.payorFhirId) claimFields.payerId = selectedPayerId;
-    if (planType && planType !== claim.planType) claimFields.planType = planType;
+    // By default, update existing coverage below
+    let coverageId = claim.coverageFhirId;
+    if (!coverageId) {
+      if (selectedCoverage?.id) {
+        // Selected from some base, add it to claim and update below
+        await updateResource('Claim', claim.id, { coverageId: selectedCoverage.id });
+        const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
+        coverageId = updatedClaim.coverageFhirId;
+      } else {
+        // No base selected, make a new one and attach it
+        const result = await createBillingCoverage(oystehrZambda, coverageToCreateInput(data, claim.patientId));
+        return updateResource('Claim', claim.id, { coverageId: result.id });
+      }
+    }
+    if (data.payerId && data.payerId !== claim.payorFhirId) claimFields.payerId = data.payerId;
+    if (data.planType && data.planType !== claim.planType) claimFields.planType = data.planType;
     if (Object.keys(claimFields).length > 0) {
       const err = await updateResource('Claim', claim.id, claimFields);
       if (err) return err;
     }
-    const policyHolderInput = policyHolderPayload(policyHolder);
-    return updateResource('Coverage', claim.coverageFhirId, {
-      subscriberId: memberId,
-      status,
-      relationship: policyHolder.relationship,
-      ...(policyHolderInput ? { policyHolder: policyHolderInput } : {}),
+    const address = buildAddressInput(data.line1, data.line2, data.city, data.state, data.zip);
+    return updateResource('Coverage', coverageId, {
+      subscriberId: data.memberId,
+      status: 'active',
+      relationship: data.relationship,
+      ...(data.relationship !== 'Self'
+        ? {
+            policyHolder: {
+              firstName: data.firstName!.trim(),
+              ...(data.middleName?.trim() ? { middleName: data.middleName.trim() } : {}),
+              lastName: data.lastName!.trim(),
+              dob: data.dob,
+              gender: data.gender,
+              ...(address ? { address } : {}),
+            },
+          }
+        : {}),
     });
   };
 
@@ -709,89 +640,37 @@ export function InsuranceSection({
   return (
     <EditableSection
       title="Primary Insurance"
+      defaultValues={defaultValues}
       onSave={handleSave}
       onCancel={resetFields}
       editForm={
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-          <Field label={hasCoverage ? 'Change coverage' : 'Choose coverage'}>
-            <Autocomplete
-              size="small"
-              options={coverageOptions}
-              value={selectedCoverage}
-              onChange={(_, v) => setSelectedCoverage(v)}
-              onOpen={loadCoverages}
-              getOptionLabel={(o) => o.payorName || o.id || ''}
-              renderOption={(props, o) => (
-                <Box component="li" {...props} key={o.id}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {o.payorName || o.id}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Member ID: {o.subscriberId} | {o.status}
-                    </Typography>
-                  </Box>
+          <Autocomplete
+            size="small"
+            options={coverageOptions}
+            value={selectedCoverage}
+            onChange={(_, v) => setSelectedCoverage(v)}
+            onOpen={loadCoverages}
+            getOptionLabel={(o) => o.payorName || o.id || ''}
+            renderOption={(props, o) => (
+              <Box component="li" {...props} key={o.id}>
+                <Box>
+                  <Typography variant="body2" fontWeight={500}>
+                    {o.payorName || o.id}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Member ID: {o.subscriberId} | {o.status}
+                  </Typography>
                 </Box>
-              )}
-              renderInput={(p) => (
-                <TextField {...p} size="small" placeholder={claim.payerName || 'Choose coverage...'} />
-              )}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
-              sx={{ maxWidth: 480 }}
-            />
-          </Field>
-          {hasCoverage && !selectedCoverage && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-              <Field label="Payer">
-                <PayerSelect
-                  multiple={false}
-                  value={selectedPayerId}
-                  onChange={(v) => setSelectedPayerId(typeof v === 'string' ? v : v[0] ?? '')}
-                  label=""
-                  initialOptions={
-                    claim.payorFhirId ? [{ id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId }] : []
-                  }
-                />
-              </Field>
-              <Field label="Member / Subscriber ID">
-                <TextField size="small" fullWidth value={memberId} onChange={(e) => setMemberId(e.target.value)} />
-              </Field>
-              <Field label="Coverage status">
-                <Select size="small" fullWidth value={status} onChange={(e) => setStatus(e.target.value)}>
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="cancelled">Cancelled</MenuItem>
-                  <MenuItem value="draft">Draft</MenuItem>
-                  <MenuItem value="entered-in-error">Entered in error</MenuItem>
-                </Select>
-              </Field>
-              <Field label="Plan type">
-                <Select
-                  size="small"
-                  fullWidth
-                  displayEmpty
-                  SelectDisplayProps={{ 'aria-label': 'Plan type' }}
-                  value={planType}
-                  onChange={(e) => setPlanType(e.target.value)}
-                  renderValue={
-                    planType
-                      ? undefined
-                      : () => (
-                          <Box component="span" sx={{ color: 'text.disabled' }}>
-                            Select...
-                          </Box>
-                        )
-                  }
-                >
-                  {PLAN_TYPE_OPTIONS.map((option) => (
-                    <MenuItem key={option.candidCode} value={option.candidCode}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </Field>
-            </Box>
-          )}
-          {hasCoverage && !selectedCoverage && <PolicyHolderFields value={policyHolder} onChange={setPolicyHolder} />}
+              </Box>
+            )}
+            renderInput={(p) => (
+              <TextField {...p} size="small" label={claim.payerName ? 'Replace coverage' : 'Choose coverage'} />
+            )}
+            isOptionEqualToValue={(o, v) => o.id === v.id}
+            sx={{ maxWidth: 480 }}
+          />
+          <CoverageFields unavailableTypes={[]} />
         </Box>
       }
     >
@@ -808,7 +687,7 @@ export function InsuranceSection({
             />
           )}
           <Row label="Coverage Status" value={claim.coverageStatus} />
-          <Row label="Plan type" value={planTypeLabel(claim.planType)} />
+          <Row label="Plan type" value={planTypeLabel(claim.planType)} hideBorder />
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
@@ -864,28 +743,24 @@ function RenderingProviderSection({
   updateResource: UpdateFn;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const hasProvider = !!claim.renderingProviderId;
-  const isOrganization = claim.renderingProviderType === 'Organization';
 
-  const initialName = splitDisplayName(claim.renderingProvider);
-  const [name, setName] = useState(claim.renderingProvider);
-  const [firstName, setFirstName] = useState(initialName.firstName);
-  const [lastName, setLastName] = useState(initialName.lastName);
-  const [npi, setNpi] = useState(claim.renderingNpi);
-  const [taxonomy, setTaxonomy] = useState(claim.renderingTaxonomy);
+  const setLoading = useCallback(() => {}, []);
+  const setError = useCallback(() => {}, []);
+  const [claimProvider, refetchClaimProvider] = useProvider({
+    type: 'rendering',
+    id: claim.renderingProviderId,
+    onLoading: setLoading,
+    onError: setError,
+  });
 
   const [options, setOptions] = useState<BillingProviderOption[]>([]);
-  const [selected, setSelected] = useState<BillingProviderOption | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<BillingProviderOption | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
-    const parsed = splitDisplayName(claim.renderingProvider);
-    setName(claim.renderingProvider);
-    setFirstName(parsed.firstName);
-    setLastName(parsed.lastName);
-    setNpi(claim.renderingNpi);
-    setTaxonomy(claim.renderingTaxonomy);
-    setSelected(null);
+    setSelectedProvider(null);
+    // include claim to handle edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claim]);
 
   useEffect(() => {
@@ -907,110 +782,64 @@ function RenderingProviderSection({
     [oystehrZambda]
   );
 
-  const handleSave = async (): Promise<string | null> => {
-    if (selected) {
-      return updateResource('Claim', claim.id, {
-        renderingProvider: {
-          id: selected.id,
-          type: selected.kind === 'organization' ? 'Organization' : 'Practitioner',
-        },
-      });
+  const handleSave = async (
+    payload: CreateBillingProviderInput | UpdateBillingProviderInput
+  ): Promise<string | null> => {
+    if (!oystehrZambda) return null;
+    try {
+      // By default, update existing provider below, taking into account that the payload
+      // may include the selected provider's ID at this point
+      let providerId =
+        'providerId' in payload && payload.providerId
+          ? selectedProvider
+            ? claim.renderingProviderId
+            : payload.providerId
+          : undefined;
+      if (!providerId) {
+        if (selectedProvider?.id) {
+          // Selected from some base, add it to claim and update below
+          await updateResource('Claim', claim.id, {
+            renderingProvider: {
+              id: selectedProvider.id,
+              type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+            },
+          });
+          const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
+          providerId = updatedClaim.renderingProviderId;
+        } else {
+          // No base selected, make a new one and attach it, returning early
+          const result = await createBillingProvider(oystehrZambda, payload);
+          return updateResource('Claim', claim.id, {
+            renderingProvider: {
+              id: result.id,
+              type: payload.kind === 'individual' ? 'Practitioner' : 'Organization',
+            },
+          });
+        }
+      }
+      // Update provider
+      await updateBillingProvider(oystehrZambda, { ...payload, providerId });
+      resetFields();
+      await refetchClaimProvider();
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
     }
-    if (!hasProvider) return 'Choose a rendering provider';
-    if (isOrganization) {
-      return updateResource('Organization', claim.renderingProviderId, {
-        name,
-        npi: npi.trim(),
-        taxonomyCode: taxonomy.trim(),
-      });
-    }
-    if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
-    return updateResource('Practitioner', claim.renderingProviderId, {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      npi: npi.trim(),
-      taxonomyCode: taxonomy.trim(),
-    });
   };
 
   return (
-    <EditableSection
-      title="Rendering Provider"
+    <ProviderDetailForm
+      provider={selectedProvider ?? claimProvider}
+      role="billing"
       onSave={handleSave}
       onCancel={resetFields}
-      editForm={
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-          <Field label={hasProvider ? 'Change provider' : 'Choose provider'}>
-            <Autocomplete
-              size="small"
-              options={options}
-              value={selected}
-              onChange={(_, v) => setSelected(v)}
-              onInputChange={(_, val, reason) => {
-                if (reason === 'input') searchProviders(val || undefined);
-              }}
-              onOpen={() => searchProviders()}
-              filterOptions={(x) => x}
-              getOptionLabel={(o) => o.name}
-              renderOption={(props, o) => (
-                <Box component="li" {...props} key={o.id}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {o.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      NPI: {o.npi} | TIN: {o.taxId}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              renderInput={(p) => (
-                <TextField
-                  {...p}
-                  size="small"
-                  placeholder={claim.renderingProvider || 'Choose rendering provider...'}
-                />
-              )}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
-              sx={{ maxWidth: 480 }}
-            />
-          </Field>
-          {hasProvider && !selected && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-              {isOrganization ? (
-                <Field label="Organization name">
-                  <TextField size="small" fullWidth value={name} onChange={(e) => setName(e.target.value)} />
-                </Field>
-              ) : (
-                <>
-                  <Field label="First name">
-                    <TextField
-                      size="small"
-                      fullWidth
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Last name">
-                    <TextField size="small" fullWidth value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                  </Field>
-                </>
-              )}
-              <Field label="NPI">
-                <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
-              </Field>
-              <Field label="Taxonomy Code">
-                <TextField size="small" fullWidth value={taxonomy} onChange={(e) => setTaxonomy(e.target.value)} />
-              </Field>
-            </Box>
-          )}
-        </Box>
-      }
-    >
-      <Row label="Provider" value={claim.renderingProvider} />
-      <Row label="NPI" value={claim.renderingNpi} />
-      <Row label="Taxonomy Code" value={claim.renderingTaxonomy} />
-    </EditableSection>
+      selector={{
+        options,
+        selectedOption: selectedProvider,
+        onSelectOption: setSelectedProvider,
+        fetchOptions: searchProviders,
+      }}
+    />
   );
 }
 
@@ -1022,147 +851,83 @@ function FacilitySection({
   updateResource: UpdateFn;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const hasFacility = !!claim.facilityFhirId;
 
-  const [name, setName] = useState(claim.serviceFacility);
-  const [npi, setNpi] = useState(claim.serviceFacilityNpi);
-  const [clia, setClia] = useState(claim.serviceFacilityClia);
-  const [line1, setLine1] = useState(claim.serviceFacilityAddressParts.line1);
-  const [line2, setLine2] = useState(claim.serviceFacilityAddressParts.line2);
-  const [city, setCity] = useState(claim.serviceFacilityAddressParts.city);
-  const [state, setState] = useState(claim.serviceFacilityAddressParts.state);
-  const [zip, setZip] = useState(claim.serviceFacilityAddressParts.postalCode);
+  const [serviceFacility, refetchServiceFacility] = useServiceFacility({
+    id: claim.serviceFacilityId,
+  });
 
-  const [options, setOptions] = useState<BillingLocationOption[]>([]);
-  const [selected, setSelected] = useState<BillingLocationOption | null>(null);
+  const [options, setOptions] = useState<ServiceFacilityItem[]>([]);
+  const [selected, setSelected] = useState<ServiceFacilityItem | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
-    setName(claim.serviceFacility);
-    setNpi(claim.serviceFacilityNpi);
-    setClia(claim.serviceFacilityClia);
-    setLine1(claim.serviceFacilityAddressParts.line1);
-    setLine2(claim.serviceFacilityAddressParts.line2);
-    setCity(claim.serviceFacilityAddressParts.city);
-    setState(claim.serviceFacilityAddressParts.state);
-    setZip(claim.serviceFacilityAddressParts.postalCode);
     setSelected(null);
-  }, [claim]);
+  }, []);
 
   useEffect(() => {
     resetFields();
   }, [resetFields]);
 
-  const searchLocations = useCallback(
+  const searchServiceFacilities = useCallback(
     (query?: string): void => {
       if (!oystehrZambda) return;
       if (searchTimer.current) clearTimeout(searchTimer.current);
       searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingLocations(oystehrZambda, query ? { name: query } : {});
-        setOptions(res.locations ?? []);
+        const res = await searchBillingServiceFacilities(oystehrZambda, query ? { name: query } : {});
+        setOptions(res.facilities ?? []);
       }, 300);
     },
     [oystehrZambda]
   );
 
-  const handleSave = async (): Promise<string | null> => {
-    if (selected?.id) {
-      return updateResource('Claim', claim.id, { facilityId: selected.id });
+  const handleSave = async (payload: SaveServiceFacilityInput): Promise<string | null> => {
+    if (!oystehrZambda) return null;
+    try {
+      // By default, update existing facility below, taking into account that the payload
+      // may include the selected facility's ID at this point
+      let facilityId = payload.facilityId ? (selected ? claim.serviceFacilityId : payload.facilityId) : undefined;
+      if (!facilityId) {
+        if (selected?.id) {
+          // Selected from some base, add it to claim and update below
+          await updateResource('Claim', claim.id, {
+            serviceFacility: {
+              id: selected.id,
+            },
+          });
+          const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
+          facilityId = updatedClaim.serviceFacilityId;
+        } else {
+          // No base selected, make a new one and attach it, returning early
+          const result = await saveBillingServiceFacility(oystehrZambda, payload);
+          return updateResource('Claim', claim.id, {
+            serviceFacility: {
+              id: result.id,
+            },
+          });
+        }
+      }
+      // Update provider
+      await saveBillingServiceFacility(oystehrZambda, { ...payload, facilityId });
+      resetFields();
+      await refetchServiceFacility();
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
     }
-    if (!hasFacility) return 'Choose a facility';
-    const validationError = validateServiceFacilityFields({ npi, clia, zip });
-    if (validationError) return validationError;
-    const address = buildAddressInput(line1, line2, city, state, zip);
-    return updateResource('Location', claim.facilityFhirId, {
-      name,
-      npi: npi.trim(),
-      clia: clia ? clia.trim() : null,
-      ...(address ? { address } : {}),
-    });
   };
 
   return (
-    <EditableSection
-      title="Service Facility"
+    <ServiceFacilityDetailForm
+      facility={selected ?? serviceFacility}
       onSave={handleSave}
       onCancel={resetFields}
-      editForm={
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-          <Field label={hasFacility ? 'Change facility' : 'Choose facility'}>
-            <Autocomplete
-              size="small"
-              options={options}
-              value={selected}
-              onChange={(_, v) => setSelected(v)}
-              onInputChange={(_, val, reason) => {
-                if (reason === 'input') searchLocations(val || undefined);
-              }}
-              onOpen={() => searchLocations()}
-              filterOptions={(x) => x}
-              getOptionLabel={(o) => o.name}
-              renderOption={(props, o) => (
-                <Box component="li" {...props} key={o.id}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {o.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      NPI: {o.npi} | {o.address}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              renderInput={(p) => (
-                <TextField {...p} size="small" placeholder={claim.serviceFacility || 'Choose facility...'} />
-              )}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
-              sx={{ maxWidth: 480 }}
-            />
-          </Field>
-          {hasFacility && !selected && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-              <Field label="Facility name">
-                <TextField size="small" fullWidth value={name} onChange={(e) => setName(e.target.value)} />
-              </Field>
-              <Field label="NPI">
-                <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
-              </Field>
-              <Field label="CLIA">
-                <TextField size="small" fullWidth value={clia} onChange={(e) => setClia(e.target.value)} />
-              </Field>
-              <Field label="Address line 1">
-                <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
-              </Field>
-              <Field label="Address line 2">
-                <TextField size="small" fullWidth value={line2} onChange={(e) => setLine2(e.target.value)} />
-              </Field>
-              <Field label="City">
-                <TextField size="small" fullWidth value={city} onChange={(e) => setCity(e.target.value)} />
-              </Field>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <Field label="State">
-                  <TextField
-                    size="small"
-                    fullWidth
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
-                  />
-                </Field>
-                <Field label="ZIP">
-                  <TextField size="small" fullWidth value={zip} onChange={(e) => setZip(e.target.value)} />
-                </Field>
-              </Box>
-            </Box>
-          )}
-        </Box>
-      }
-    >
-      <Row label="Facility" value={claim.serviceFacility} />
-      <Row label="Address" value={claim.serviceFacilityAddress} />
-      <Row label="NPI" value={claim.serviceFacilityNpi} />
-      {claim.serviceFacilityClia ? <Row label="CLIA" value={claim.serviceFacilityClia} /> : <></>}
-    </EditableSection>
+      selector={{
+        options,
+        selectedOption: selected,
+        onSelectOption: setSelected,
+        fetchOptions: searchServiceFacilities,
+      }}
+    />
   );
 }
 
@@ -1174,30 +939,24 @@ function BillingProviderSection({
   updateResource: UpdateFn;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const hasProvider = !!claim.billingProviderFhirId;
-  const isPractitioner = claim.billingProviderType === 'Practitioner';
 
-  const initialName = splitDisplayName(claim.billingProvider);
-  const [name, setName] = useState(claim.billingProvider);
-  const [firstName, setFirstName] = useState(initialName.firstName);
-  const [lastName, setLastName] = useState(initialName.lastName);
-  const [npi, setNpi] = useState(claim.billingNpi);
-  const [tin, setTin] = useState(claim.billingTin);
-  const [taxonomy, setTaxonomy] = useState(claim.billingTaxonomy);
+  const setLoading = useCallback(() => {}, []);
+  const setError = useCallback(() => {}, []);
+  const [claimProvider, refetchClaimProvider] = useProvider({
+    type: 'billing',
+    id: claim.billingProviderFhirId,
+    onLoading: setLoading,
+    onError: setError,
+  });
 
   const [options, setOptions] = useState<BillingProviderOption[]>([]);
-  const [selected, setSelected] = useState<BillingProviderOption | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<BillingProviderOption | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
-    const parsed = splitDisplayName(claim.billingProvider);
-    setName(claim.billingProvider);
-    setFirstName(parsed.firstName);
-    setLastName(parsed.lastName);
-    setNpi(claim.billingNpi);
-    setTin(claim.billingTin);
-    setTaxonomy(claim.billingTaxonomy);
-    setSelected(null);
+    setSelectedProvider(null);
+    // include claim to handle edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claim]);
 
   useEffect(() => {
@@ -1219,112 +978,64 @@ function BillingProviderSection({
     [oystehrZambda]
   );
 
-  const handleSave = async (): Promise<string | null> => {
-    if (selected) {
-      return updateResource('Claim', claim.id, {
-        billingProvider: {
-          id: selected.id,
-          type: selected.kind === 'organization' ? 'Organization' : 'Practitioner',
-        },
-      });
+  const handleSave = async (
+    payload: CreateBillingProviderInput | UpdateBillingProviderInput
+  ): Promise<string | null> => {
+    if (!oystehrZambda) return null;
+    try {
+      // By default, update existing provider below, taking into account that the payload
+      // may include the selected provider's ID at this point
+      let providerId =
+        'providerId' in payload && payload.providerId
+          ? selectedProvider
+            ? claim.billingProviderFhirId
+            : payload.providerId
+          : undefined;
+      if (!providerId) {
+        if (selectedProvider?.id) {
+          // Selected from some base, add it to claim and update below
+          await updateResource('Claim', claim.id, {
+            billingProvider: {
+              id: selectedProvider.id,
+              type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+            },
+          });
+          const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
+          providerId = updatedClaim.billingProviderFhirId;
+        } else {
+          // No base selected, make a new one and attach it, returning early
+          const result = await createBillingProvider(oystehrZambda, payload);
+          return updateResource('Claim', claim.id, {
+            billingProvider: {
+              id: result.id,
+              type: payload.kind === 'individual' ? 'Practitioner' : 'Organization',
+            },
+          });
+        }
+      }
+      // Update provider
+      await updateBillingProvider(oystehrZambda, { ...payload, providerId });
+      resetFields();
+      await refetchClaimProvider();
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
     }
-    if (!hasProvider) return 'Choose a billing provider';
-    if (isPractitioner) {
-      if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
-      return updateResource('Practitioner', claim.billingProviderFhirId, {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        npi: npi.trim(),
-        taxId: tin.trim(),
-        taxonomyCode: taxonomy.trim(),
-      });
-    }
-    return updateResource('Organization', claim.billingProviderFhirId, {
-      name,
-      npi: npi.trim(),
-      taxId: tin.trim(),
-      taxonomyCode: taxonomy.trim(),
-    });
   };
 
   return (
-    <EditableSection
-      title="Billing Provider"
+    <ProviderDetailForm
+      provider={selectedProvider ?? claimProvider}
+      role="billing"
       onSave={handleSave}
       onCancel={resetFields}
-      editForm={
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-          <Field label={hasProvider ? 'Change provider' : 'Choose provider'}>
-            <Autocomplete
-              size="small"
-              options={options}
-              value={selected}
-              onChange={(_, v) => setSelected(v)}
-              onInputChange={(_, val, reason) => {
-                if (reason === 'input') searchProviders(val || undefined);
-              }}
-              onOpen={() => searchProviders()}
-              filterOptions={(x) => x}
-              getOptionLabel={(o) => o.name}
-              renderOption={(props, o) => (
-                <Box component="li" {...props} key={o.id}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      {o.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      NPI: {o.npi} | TIN: {o.taxId}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              renderInput={(p) => (
-                <TextField {...p} size="small" placeholder={claim.billingProvider || 'Choose billing provider...'} />
-              )}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
-              sx={{ maxWidth: 480 }}
-            />
-          </Field>
-          {hasProvider && !selected && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-              {isPractitioner ? (
-                <>
-                  <Field label="First name">
-                    <TextField
-                      size="small"
-                      fullWidth
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Last name">
-                    <TextField size="small" fullWidth value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                  </Field>
-                </>
-              ) : (
-                <Field label="Organization name">
-                  <TextField size="small" fullWidth value={name} onChange={(e) => setName(e.target.value)} />
-                </Field>
-              )}
-              <Field label="NPI">
-                <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
-              </Field>
-              <Field label="Tax ID">
-                <TextField size="small" fullWidth value={tin} onChange={(e) => setTin(e.target.value)} />
-              </Field>
-              <Field label="Taxonomy Code">
-                <TextField size="small" fullWidth value={taxonomy} onChange={(e) => setTaxonomy(e.target.value)} />
-              </Field>
-            </Box>
-          )}
-        </Box>
-      }
-    >
-      <Row label="Provider" value={claim.billingProvider} />
-      <Row label="NPI" value={claim.billingNpi} />
-      <Row label="Tax ID" value={claim.billingTin} />
-      <Row label="Taxonomy Code" value={claim.billingTaxonomy} />
-    </EditableSection>
+      selector={{
+        options,
+        selectedOption: selectedProvider,
+        onSelectOption: setSelectedProvider,
+        fetchOptions: searchProviders,
+      }}
+    />
   );
 }
 
@@ -1721,17 +1432,6 @@ function Amount({ label, sublabel, value }: { label: string; sublabel?: string; 
       <Typography variant="body1" fontWeight={600}>
         {formatCurrency(value)}
       </Typography>
-    </Box>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }): ReactElement {
-  return (
-    <Box sx={{ display: 'flex', py: 0.75, borderBottom: `1px solid ${otherColors.lightDivider}` }}>
-      <Typography variant="body2" color="primary.dark" sx={{ width: 180, flexShrink: 0, fontWeight: 500 }}>
-        {label}
-      </Typography>
-      <Typography variant="body2">{value || '-'}</Typography>
     </Box>
   );
 }

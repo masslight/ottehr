@@ -2,70 +2,98 @@ import {
   BillingCoverageOption,
   BillingInsuranceType,
   BillingSubscriberRelationship,
+  ClaimDetailResponse,
   CreateBillingCoverageInput,
   UpdateBillingCoverageInput,
 } from 'utils';
 import { buildAddressInput } from '../utils/format';
 
 export interface CoverageForm {
-  payerId: string | null;
-  memberId: string | null;
-  insuranceType: BillingInsuranceType | null;
-  planType: string | null;
-  relationship: BillingSubscriberRelationship | null;
-  firstName: string | null;
-  middleName: string | null;
-  lastName: string | null;
-  dob: string | null;
-  gender: string | null;
-  line1: string | null;
-  line2: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
+  payerId: string;
+  memberId: string;
+  insuranceType: BillingInsuranceType;
+  planType: string;
+  relationship: BillingSubscriberRelationship;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  dob: string;
+  gender: string;
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  zip: string;
 }
 
 export function emptyCoverageForm(insuranceType: BillingInsuranceType = 'primary'): CoverageForm {
   return {
-    payerId: null,
-    memberId: null,
+    payerId: '',
+    memberId: '',
     insuranceType,
-    planType: null,
+    planType: '',
     relationship: 'Self',
-    firstName: null,
-    middleName: null,
-    lastName: null,
-    dob: null,
-    gender: null,
-    line1: null,
-    line2: null,
-    city: null,
-    state: null,
-    zip: null,
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    dob: '',
+    gender: '',
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    zip: '',
   };
+}
+
+function isBillingCoverageOption(
+  dataSource?: BillingCoverageOption | ClaimDetailResponse | null
+): dataSource is BillingCoverageOption {
+  return !!dataSource && Object.hasOwn(dataSource, 'insuranceType');
 }
 
 // Prefill a form from an existing coverage. The payer autocomplete starts empty (placeholder shows the
 // current payer); a payer is only re-pointed when the user explicitly picks one.
-export function defaultCoverageFormValues(option?: BillingCoverageOption): CoverageForm {
-  const ph = option?.policyHolder;
+export function defaultCoverageFormValues(
+  dataSource?: BillingCoverageOption | ClaimDetailResponse | null
+): CoverageForm {
+  const ph = dataSource?.policyHolder;
   const addr = ph?.addressParts;
+  if (isBillingCoverageOption(dataSource)) {
+    return {
+      payerId: dataSource?.payorId ?? '',
+      memberId: dataSource?.memberId ?? dataSource?.subscriberId ?? '',
+      insuranceType: dataSource?.insuranceType ?? 'primary',
+      planType: dataSource?.planType ?? '',
+      relationship: dataSource?.relationship || 'Self',
+      firstName: ph?.firstName ?? '',
+      middleName: ph?.middleName ?? '',
+      lastName: ph?.lastName ?? '',
+      dob: ph?.dob ?? '',
+      gender: ph?.gender || '',
+      line1: addr?.line1 ?? '',
+      line2: addr?.line2 ?? '',
+      city: addr?.city ?? '',
+      state: addr?.state ?? '',
+      zip: addr?.postalCode ?? '',
+    };
+  }
   return {
-    payerId: option?.payorId ?? null,
-    memberId: option?.memberId ?? option?.subscriberId ?? null,
-    insuranceType: option?.insuranceType ?? 'primary',
-    planType: option?.planType ?? null,
-    relationship: option?.relationship || 'Self',
-    firstName: ph?.firstName ?? null,
-    middleName: ph?.middleName ?? null,
-    lastName: ph?.lastName ?? null,
-    dob: ph?.dob ?? null,
-    gender: ph?.gender || null,
-    line1: addr?.line1 ?? null,
-    line2: addr?.line2 ?? null,
-    city: addr?.city ?? null,
-    state: addr?.state ?? null,
-    zip: addr?.postalCode ?? null,
+    payerId: dataSource?.payerId ?? '',
+    memberId: dataSource?.memberId ?? dataSource?.subscriberId ?? '',
+    insuranceType: 'primary',
+    planType: dataSource?.planType ?? '',
+    relationship: dataSource?.relationship || 'Self',
+    firstName: ph?.firstName ?? '',
+    middleName: ph?.middleName ?? '',
+    lastName: ph?.lastName ?? '',
+    dob: ph?.dob ?? '',
+    gender: ph?.gender || '',
+    line1: addr?.line1 ?? '',
+    line2: addr?.line2 ?? '',
+    city: addr?.city ?? '',
+    state: addr?.state ?? '',
+    zip: addr?.postalCode ?? '',
   };
 }
 
