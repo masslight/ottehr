@@ -331,7 +331,7 @@ function getExtensionString(extensions: Extension[] | undefined, url: string): s
   return extensions?.find((extension: Extension) => extension.url === url)?.valueString;
 }
 
-function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
+export function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
   const isPrimary = (encounterDiagnosis: EncounterDiagnosis): boolean => (encounterDiagnosis.rank ?? -1) === 1;
   // Process the primary diagnosis first so that if the same code is also entered as a secondary
   // diagnosis, the primary wins the code-based dedup below and is not dropped (which would otherwise
