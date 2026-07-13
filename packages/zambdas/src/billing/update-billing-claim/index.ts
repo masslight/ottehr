@@ -5,17 +5,15 @@ import { Claim, Coverage, FhirResource, Location, Organization, Patient, Practit
 import {
   BillingPolicyHolderInput,
   BillingSubscriberRelationship,
-  clearClaimPlanType,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
-  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
-  setClaimPlanType,
   setCoveragePlanType,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -30,6 +28,7 @@ import {
   fetchById,
   getClaimTypeCoding,
   prepareWorkingCopy,
+  setClia,
   setCoverageRelationship,
   setNpi,
   setTaxId,
@@ -84,12 +83,13 @@ export async function performEffect(
       return saveCoverageSubscriber(oystehr, coverage, params.resourceId, fields.relationship, fields.policyHolder);
     }
     case 'Location': {
-      const location = await fetchById<Location>(oystehr, 'Location', params.resourceId);
+      const facility = await fetchById<Location>(oystehr, 'Location', params.resourceId);
       const { fields } = params;
-      if (fields.name !== undefined) location.name = fields.name;
-      if (fields.npi !== undefined) setNpi(location, fields.npi);
-      if (fields.address !== undefined) location.address = buildAddress(fields.address);
-      return save(oystehr, location);
+      if (fields.name !== undefined) facility.name = fields.name;
+      if (fields.npi !== undefined) setNpi(facility, fields.npi);
+      if (fields.clia !== undefined) setClia(facility, fields.clia);
+      if (fields.address !== undefined) facility.address = buildAddress(fields.address);
+      return save(oystehr, facility);
     }
     case 'Organization': {
       const organization = await fetchById<Organization>(oystehr, 'Organization', params.resourceId);
@@ -183,7 +183,7 @@ async function attachClaimResources(
       {
         sequence: 1,
         provider: { reference: `${fields.renderingProvider.type}/${copy.id}` },
-        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }] },
+        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
       },
       ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
     ];
@@ -232,7 +232,6 @@ async function attachClaimResources(
     // Make the claim self-pay; ensureClaimInsurance restores the no-coverage stub below.
     claim.insurance = [];
     delete claim.insurer;
-    clearClaimPlanType(claim);
   }
 
   if (fields.diagnoses) {
@@ -256,10 +255,10 @@ async function attachClaimResources(
       sequence: i + 1,
       careTeamSequence: hasRenderingProvider ? [1] : undefined,
       diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
-      productOrService: { coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }] },
+      productOrService: { coding: [{ system: CODE_SYSTEM_HL7_HCPCS, code: line.cptCode }] },
       modifier: line.modifiers?.length
         ? line.modifiers.map((m) => ({
-            coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER, code: m }],
+            coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER, code: m }],
           }))
         : undefined,
       servicedPeriod: { start: line.serviceDate },
@@ -290,8 +289,6 @@ async function attachClaimResources(
   // Guarantee the Claim.insurance invariant regardless of which fields changed: keep the no-coverage
   // stub when there's no real coverage, and re-add it if a coverage was ever removed.
   claim.insurance = ensureClaimInsurance(claim.insurance);
-
-  if (fields.planType) setClaimPlanType(claim, fields.planType);
 
   if (fields.payerId || fields.planType) {
     const payerUrl = fields.payerId ? getPayerUrl(fields.payerId) : undefined;

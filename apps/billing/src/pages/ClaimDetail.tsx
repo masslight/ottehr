@@ -26,11 +26,14 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  AR_STAGE,
   BillingCoverageOption,
   BillingLocationOption,
   BillingPayerOption,
@@ -53,6 +56,7 @@ import {
   searchBillingPayers,
   searchBillingProviders,
   searchBillingTags,
+  submitBillingClaims,
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
@@ -60,6 +64,7 @@ import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { Field } from '../components/Field';
 import {
@@ -73,6 +78,7 @@ import { claimStatusValueColor, formatAntCaseString } from '../constants/claimSt
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
+import { validateServiceFacilityFields } from '../utils/validation';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
@@ -164,6 +170,35 @@ export default function ClaimDetail(): ReactElement {
     [oystehrZambda, id, fetchDetail]
   );
 
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || !id) return;
+    setSubmitting(true);
+    try {
+      const { results } = await submitBillingClaims(oystehrZambda, { claimIds: [id] });
+      const result = results[0];
+      if (result?.status === 'submitted') {
+        enqueueSnackbar('Claim submitted to payer', { variant: 'success' });
+      } else {
+        enqueueSnackbar(result?.error ?? 'Failed to submit claim', { variant: 'error' });
+      }
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to submit claim',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setSubmitting(false);
+      setConfirmingSubmit(false);
+      await fetchDetail();
+    }
+  }, [oystehrZambda, id, fetchDetail]);
+
   if (loading && !claim) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
@@ -186,6 +221,7 @@ export default function ClaimDetail(): ReactElement {
   const arStageCode = claim.statuses.arStage;
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
+  const canSubmit = arStageCode === AR_STAGE.insurancePayer;
 
   const startHeaderEdit = (): void => {
     setServiceDate(claim.serviceLines[0]?.serviceDate ?? claim.created);
@@ -318,6 +354,19 @@ export default function ClaimDetail(): ReactElement {
             </>
           )}
         </Box>
+        <Tooltip title={canSubmit ? '' : 'Only claims in Insurance Payer Accounts Receivable can be submitted'}>
+          <span>
+            <Button
+              variant="contained"
+              size="small"
+              disabled={!canSubmit}
+              onClick={() => setConfirmingSubmit(true)}
+              sx={{ mt: 0.5 }}
+            >
+              Submit claim
+            </Button>
+          </span>
+        </Tooltip>
         <Button
           size="small"
           variant="outlined"
@@ -441,6 +490,18 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
         </TabContext>
       </Box>
+
+      <ConfirmDialog
+        open={confirmingSubmit}
+        title="Submit claim"
+        confirmLabel="Submit"
+        loading={submitting}
+        onConfirm={() => void handleSubmit()}
+        onCancel={() => setConfirmingSubmit(false)}
+      >
+        Submit this claim to the payer? This sends it for processing and sets its Insurance Accounts Receivable Status
+        to Submitted.
+      </ConfirmDialog>
     </Box>
   );
 }
@@ -565,9 +626,9 @@ function PatientSection({
   );
 }
 
-const INSURANCE_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
+const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
 const planTypeLabel = (candidCode: string): string =>
-  INSURANCE_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
+  PLAN_TYPE_OPTIONS.find((option) => option.candidCode === candidCode)?.label ?? '';
 
 export function InsuranceSection({
   claim,
@@ -735,12 +796,12 @@ export function InsuranceSection({
                   <MenuItem value="entered-in-error">Entered in error</MenuItem>
                 </Select>
               </Field>
-              <Field label="Insurance type">
+              <Field label="Plan type">
                 <Select
                   size="small"
                   fullWidth
                   displayEmpty
-                  SelectDisplayProps={{ 'aria-label': 'Insurance type' }}
+                  SelectDisplayProps={{ 'aria-label': 'Plan type' }}
                   value={planType}
                   onChange={(e) => setPlanType(e.target.value)}
                   renderValue={
@@ -753,7 +814,7 @@ export function InsuranceSection({
                         )
                   }
                 >
-                  {INSURANCE_TYPE_OPTIONS.map((option) => (
+                  {PLAN_TYPE_OPTIONS.map((option) => (
                     <MenuItem key={option.candidCode} value={option.candidCode}>
                       {option.label}
                     </MenuItem>
@@ -779,7 +840,7 @@ export function InsuranceSection({
             />
           )}
           <Row label="Coverage Status" value={claim.coverageStatus} />
-          <Row label="Insurance type" value={planTypeLabel(claim.planType)} />
+          <Row label="Plan type" value={planTypeLabel(claim.planType)} />
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
@@ -997,6 +1058,7 @@ function FacilitySection({
 
   const [name, setName] = useState(claim.serviceFacility);
   const [npi, setNpi] = useState(claim.serviceFacilityNpi);
+  const [clia, setClia] = useState(claim.serviceFacilityClia);
   const [line1, setLine1] = useState(claim.serviceFacilityAddressParts.line1);
   const [line2, setLine2] = useState(claim.serviceFacilityAddressParts.line2);
   const [city, setCity] = useState(claim.serviceFacilityAddressParts.city);
@@ -1010,6 +1072,7 @@ function FacilitySection({
   const resetFields = useCallback((): void => {
     setName(claim.serviceFacility);
     setNpi(claim.serviceFacilityNpi);
+    setClia(claim.serviceFacilityClia);
     setLine1(claim.serviceFacilityAddressParts.line1);
     setLine2(claim.serviceFacilityAddressParts.line2);
     setCity(claim.serviceFacilityAddressParts.city);
@@ -1039,10 +1102,13 @@ function FacilitySection({
       return updateResource('Claim', claim.id, { facilityId: selected.id });
     }
     if (!hasFacility) return 'Choose a facility';
+    const validationError = validateServiceFacilityFields({ npi, clia, zip });
+    if (validationError) return validationError;
     const address = buildAddressInput(line1, line2, city, state, zip);
     return updateResource('Location', claim.facilityFhirId, {
       name,
       npi: npi.trim(),
+      clia: clia ? clia.trim() : null,
       ...(address ? { address } : {}),
     });
   };
@@ -1093,6 +1159,9 @@ function FacilitySection({
               <Field label="NPI">
                 <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
               </Field>
+              <Field label="CLIA">
+                <TextField size="small" fullWidth value={clia} onChange={(e) => setClia(e.target.value)} />
+              </Field>
               <Field label="Address line 1">
                 <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
               </Field>
@@ -1124,6 +1193,7 @@ function FacilitySection({
       <Row label="Facility" value={claim.serviceFacility} />
       <Row label="Address" value={claim.serviceFacilityAddress} />
       <Row label="NPI" value={claim.serviceFacilityNpi} />
+      {claim.serviceFacilityClia ? <Row label="CLIA" value={claim.serviceFacilityClia} /> : <></>}
     </EditableSection>
   );
 }

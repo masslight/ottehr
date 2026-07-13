@@ -30,7 +30,7 @@ export const ALLOWED_BILLING_RESOURCE_TYPES = [
 // --- Input schemas ---
 
 export const GetClaimDetailInputSchema = z.object({
-  claimId: nonEmptyString,
+  claimId: z.string().uuid(),
 });
 
 export const ExportClaimX12InputSchema = z.object({
@@ -71,7 +71,7 @@ export const DeleteBillingTagInputSchema = z.object({
 });
 
 export const TagBillingClaimInputSchema = z.object({
-  claimId: nonEmptyString,
+  claimId: z.string().uuid(),
   action: z.enum(['add', 'remove']),
   tagName: nonEmptyString,
 });
@@ -79,7 +79,7 @@ export const TagBillingClaimInputSchema = z.object({
 // Set (or clear, when value is null/empty) one claim-status meta.tag.
 export const SetClaimStatusInputSchema = z
   .object({
-    claimId: nonEmptyString,
+    claimId: z.string().uuid(),
     field: z.enum(CLAIM_STATUS_FIELD_KEYS),
     value: z.string().nullable().optional(),
   })
@@ -93,6 +93,12 @@ export const SetClaimStatusInputSchema = z
       });
     }
   });
+
+export const MAX_SUBMIT_BILLING_CLAIMS = 20;
+
+export const SubmitBillingClaimsInputSchema = z.object({
+  claimIds: z.array(z.string().uuid()).min(1).max(MAX_SUBMIT_BILLING_CLAIMS),
+});
 
 // Status indicators keyed by ClaimStatusFieldKey; unknown keys are rejected and each provided value
 // must be a valid option for its field.
@@ -199,12 +205,7 @@ export const SaveServiceFacilityInputSchema = z.object({
   zip: z
     .string()
     .trim()
-    .regex(/^\d{5}$/, 'ZIP must be 5 digits'),
-  zipPlus4: z
-    .string()
-    .trim()
-    .regex(/^\d{4}$/, 'ZIP+4 must be 4 digits')
-    .optional(),
+    .regex(/^\d{9}$/, 'ZIP must be 9 digits'),
   npi: z
     .string()
     .trim()
@@ -373,6 +374,7 @@ export const CreateBillingCoverageInputSchema = z
     payerId: nonEmptyString,
     memberId: nonEmptyString,
     insuranceType: insuranceTypeSchema,
+    planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
     policyHolder: billingPolicyHolderSchema.optional(),
   })
@@ -392,6 +394,7 @@ export const UpdateBillingCoverageInputSchema = z
     payerId: nonEmptyString.optional(),
     memberId: nonEmptyString.optional(),
     insuranceType: insuranceTypeSchema.optional(),
+    planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema.optional(),
     policyHolder: billingPolicyHolderSchema.optional(),
   })
@@ -472,7 +475,8 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     resourceId: nonEmptyString,
     fields: z.object({
       name: z.string().optional(),
-      npi: z.string().optional(),
+      npi: z.string().nullable().optional(),
+      clia: z.string().nullable().optional(),
       address: updatableAddressSchema,
     }),
   }),
@@ -585,6 +589,7 @@ export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;
 export type TagBillingClaimInput = z.output<typeof TagBillingClaimInputSchema>;
 export type SetClaimStatusInput = z.output<typeof SetClaimStatusInputSchema>;
+export type SubmitBillingClaimsInput = z.output<typeof SubmitBillingClaimsInputSchema>;
 export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;

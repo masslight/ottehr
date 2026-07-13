@@ -17,15 +17,17 @@ import {
   claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
-  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   FHIR_RESOURCE_NOT_FOUND,
+  getCandidPlanTypeCodeFromCoverage,
   getDefaultClaimSubmissionExtensions,
   getResourcesFromBatchInlineRequests,
   InternalError,
+  setCoveragePlanType,
   withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -116,7 +118,9 @@ async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResource
   order.push('patient');
 
   if (originals.coverage) {
-    const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
+    let copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
+    const planTypeCode = getCandidPlanTypeCodeFromCoverage(originals.coverage);
+    if (planTypeCode) copy = setCoveragePlanType(copy, planTypeCode);
     copy.beneficiary = { reference: patientUrn };
     // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved on
     // the working copy. Self coverages have no separate subscriber and stay pointed at the patient.
@@ -218,7 +222,7 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
         sequence: 1,
         provider: { reference: `${copies.renderingProvider.resourceType}/${copies.renderingProvider.id}` },
         role: {
-          coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }],
+          coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }],
         },
       },
     ];
@@ -247,11 +251,11 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
       careTeamSequence: copies.renderingProvider ? [1] : undefined,
       diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
       productOrService: {
-        coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }],
+        coding: [{ system: CODE_SYSTEM_HL7_HCPCS, code: line.cptCode }],
       },
       modifier: line.modifiers?.length
         ? line.modifiers.map((m) => ({
-            coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER, code: m }],
+            coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER, code: m }],
           }))
         : undefined,
       servicedPeriod: { start: line.serviceDate },

@@ -93,7 +93,7 @@ describe('update-billing-claim validateRequestParameters', () => {
 });
 
 describe('update-billing-claim performEffect', () => {
-  it('writes the plan type to the claim extension and the focal coverage type', async () => {
+  it('mirrors the plan type onto the focal coverage extension and type', async () => {
     const search = vi
       .fn()
       .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
@@ -117,24 +117,27 @@ describe('update-billing-claim performEffect', () => {
 
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
-        resourceType: 'Claim',
+        resourceType: 'Coverage',
+        id: 'cov-1',
         extension: expect.arrayContaining([
           {
             url: EXTENSION_CLAIM_INSURANCE_TYPE,
             valueString: '12',
           },
         ]),
+        type: expect.objectContaining({
+          coding: expect.arrayContaining([
+            {
+              system: CANDID_PLAN_TYPE_SYSTEM,
+              code: '12',
+            },
+          ]),
+        }),
       })
     );
-    const coverageUpdate = update.mock.calls.find(([r]) => r.resourceType === 'Coverage')?.[0] as Coverage;
-    expect(coverageUpdate.type?.coding).toContainEqual({
-      system: CANDID_PLAN_TYPE_SYSTEM,
-      code: '12',
-    });
-    expect(coverageUpdate.extension?.some((e) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBeFalsy();
   });
 
-  it('applies payer and plan type in a single coverage fetch/update, with the plan type on the claim', async () => {
+  it('applies payer and plan type to the focal coverage in a single fetch and update', async () => {
     const search = vi
       .fn()
       .mockResolvedValueOnce({ unbundle: () => [structuredClone(claim)] })
@@ -157,7 +160,7 @@ describe('update-billing-claim performEffect', () => {
       secrets: {},
     });
 
-    // Focal coverage is read once and written once, carrying the payer and the candid type coding.
+    // Focal coverage is read once and written once, carrying both the payer and the plan type.
     expect(search).toHaveBeenCalledTimes(2);
     const coverageUpdates = update.mock.calls.filter(([resource]) => resource.resourceType === 'Coverage');
     expect(coverageUpdates).toHaveLength(1);
@@ -169,6 +172,12 @@ describe('update-billing-claim performEffect', () => {
             reference: getPayerUrl('PAYER1'),
           },
         ],
+        extension: expect.arrayContaining([
+          {
+            url: EXTENSION_CLAIM_INSURANCE_TYPE,
+            valueString: '12',
+          },
+        ]),
         type: expect.objectContaining({
           coding: expect.arrayContaining([
             {
@@ -177,20 +186,6 @@ describe('update-billing-claim performEffect', () => {
             },
           ]),
         }),
-      })
-    );
-    expect(
-      coverageUpdates[0][0].extension?.some((e: { url?: string }) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)
-    ).toBeFalsy();
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        resourceType: 'Claim',
-        extension: expect.arrayContaining([
-          {
-            url: EXTENSION_CLAIM_INSURANCE_TYPE,
-            valueString: '12',
-          },
-        ]),
       })
     );
   });
@@ -215,37 +210,5 @@ describe('update-billing-claim performEffect', () => {
     expect(search).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Claim' }));
     expect(update).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Coverage' }));
-  });
-
-  it('clears the plan type extension when coverage is removed (self-pay)', async () => {
-    const insuredClaim: Claim = {
-      ...structuredClone(claim),
-      extension: [
-        {
-          url: EXTENSION_CLAIM_INSURANCE_TYPE,
-          valueString: '12',
-        },
-      ],
-    };
-    const search = vi.fn().mockResolvedValueOnce({ unbundle: () => [insuredClaim] });
-    const update = vi.fn().mockImplementation((resource) => Promise.resolve(resource));
-    const oystehr = {
-      fhir: {
-        search,
-        update,
-      },
-    } as unknown as Oystehr;
-
-    await performEffect(oystehr, {
-      resourceType: 'Claim',
-      resourceId: 'claim-1',
-      fields: {
-        removeCoverage: true,
-      },
-      secrets: {},
-    });
-
-    const claimUpdate = update.mock.calls.find(([r]) => r.resourceType === 'Claim')?.[0] as Claim;
-    expect(claimUpdate.extension?.some((e: { url?: string }) => e.url === EXTENSION_CLAIM_INSURANCE_TYPE)).toBeFalsy();
   });
 });

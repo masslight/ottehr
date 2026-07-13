@@ -16,9 +16,8 @@ import {
   ClaimDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
   genderMap,
-  getCandidPlanTypeCodeFromCoverage,
-  getClaimPlanType,
   getClaimStatusValues,
+  getCoveragePlanType,
   getNPI,
   getPayerId,
   getResourcesFromBatchInlineRequests,
@@ -26,6 +25,7 @@ import {
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_TAG_SYSTEM,
   claimHasRealCoverage,
@@ -171,7 +171,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
     coverageStatus: coverage?.status ?? '',
-    planType: getClaimPlanType(claim) ?? (coverage ? getCandidPlanTypeCodeFromCoverage(coverage) : undefined) ?? '',
+    planType: getCoveragePlanType(coverage) ?? '',
     relationship: coverage?.relationship?.coding?.[0]?.display ?? '',
     policyHolder,
     responsibleParty: 'Primary',
@@ -205,6 +205,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     serviceFacilityAddress: formatAddress(facility?.address),
     serviceFacilityAddressParts: toAddressParts(facility?.address),
     serviceFacilityNpi: facility ? getNPI(facility) ?? '' : '',
+    serviceFacilityClia: facility ? getCLIA(facility) ?? '' : '',
     diagnoses: (claim.diagnosis ?? []).map((dx) => ({
       sequence: dx.sequence,
       code: dx.diagnosisCodeableConcept?.coding?.[0]?.code ?? '',

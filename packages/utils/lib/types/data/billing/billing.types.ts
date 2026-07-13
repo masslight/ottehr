@@ -67,6 +67,7 @@ export interface BillingCoverageOption {
   payorId: string;
   payorFhirId: string;
   insuranceType?: BillingInsuranceType;
+  planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
@@ -89,7 +90,6 @@ export interface ServiceFacilityItem {
   city: string;
   state: string;
   zip: string;
-  zipPlus4: string;
   npi: string;
   clia: string;
   posCode: string;
@@ -310,6 +310,7 @@ export interface ClaimDetailResponse {
     postalCode: string;
   };
   serviceFacilityNpi: string;
+  serviceFacilityClia?: string;
   diagnoses: { sequence: number; code: string; display: string }[];
   serviceLines: {
     sequence: number;
@@ -408,6 +409,16 @@ export interface ExportClaimX12Response {
 
 export interface CreatedClaimResponse {
   claimId: string;
+}
+
+export interface SubmitBillingClaimResult {
+  claimId: string;
+  status: 'submitted' | 'error';
+  error?: string;
+}
+
+export interface SubmitBillingClaimsResponse {
+  results: SubmitBillingClaimResult[];
 }
 
 export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';

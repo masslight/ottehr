@@ -1833,7 +1833,6 @@ export function resolveServiceCategoryAbbreviation(
 export function formatZipcodeForDisplay(addressOrZip: string): string {
   const regexPattern = /\b(\d{5})(\d{4})$/;
   const zipMatch = addressOrZip.match(regexPattern);
-  console.log(`This is zipMatch ${JSON.stringify(zipMatch)}`);
   if (!zipMatch) return addressOrZip;
   return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
 }

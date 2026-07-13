@@ -27,12 +27,19 @@ import {
   buildCoverageSubscriberRelatedPerson,
   ChargeItemDefinitionDefault,
   ChargeItemDefinitionType,
+  CLAIM_STATUS_FIELDS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
+  FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -40,16 +47,20 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getClaimStatusValues,
   getPayerId,
   getPayerUrl,
   getSecret,
   getSubscriberRelationshipCodeableConcept,
   INVALID_INPUT_ERROR,
   isPayerUrl,
+  isValidClaimStatusValue,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
   SecretsKeys,
+  setCoveragePlanType,
+  withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 
@@ -76,6 +87,45 @@ export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/curren
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
+}
+
+export function assertValidClaimStatusField(field: ClaimStatusFieldKey, value: string | null): string {
+  const resolved = value ?? '';
+  if (!isValidClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY[field], resolved)) {
+    throw INVALID_INPUT_ERROR(`Invalid value "${resolved}" for claim status field "${field}"`);
+  }
+  return resolved;
+}
+
+export async function applyClaimStatusField(
+  oystehr: Oystehr,
+  claim: Claim,
+  field: ClaimStatusFieldKey,
+  value: string
+): Promise<void> {
+  const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: value };
+  const updatedValues = field === 'arStage' ? withArStageInitialization(values) : values;
+
+  const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
+  const updatedTags = [
+    ...(claim.meta?.tag ?? []).filter((t) => !t.system || !statusSystems.has(t.system)),
+    ...claimStatusValuesToTags(updatedValues),
+  ];
+
+  await oystehr.fhir.patch(
+    {
+      resourceType: 'Claim',
+      id: claim.id!,
+      operations: [
+        {
+          op: 'add',
+          path: '/meta/tag',
+          value: updatedTags,
+        },
+      ],
+    },
+    claim.meta?.versionId ? { optimisticLockingVersionId: claim.meta.versionId } : undefined
+  );
 }
 
 export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable<Claim['insurance']> {
@@ -233,8 +283,12 @@ export function hasTag(resource: Resource, system: string, code: string): boolea
 // Taxonomy is stored as a ZZ-typed identifier
 export function getTaxonomy(resource: Practitioner | Organization): string {
   return (
-    resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === FHIR_IDENTIFIER_CODE_TAXONOMY))?.value ??
-    ''
+    resource.identifier?.find(
+      (id) =>
+        id.type?.coding?.some(
+          (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+        )
+    )?.value ?? ''
   );
 }
 
@@ -275,7 +329,7 @@ export function buildAddress(parts: {
   };
 }
 
-export function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
+export function setNpi(resource: Practitioner | Organization | Location, npi: string | null): void {
   const identifier = resource.identifier ?? [];
 
   // The `system|value` identifier is used for search
@@ -338,20 +392,36 @@ export function setTaxId(resource: Practitioner | Organization, taxId: string): 
 
 export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode: string): void {
   const isTaxonomy = (id: Identifier): boolean =>
-    !!id.type?.coding?.some((tc) => tc.code === FHIR_IDENTIFIER_CODE_TAXONOMY);
+    !!id.type?.coding?.some(
+      (tc) => tc.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && tc.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+    );
   const identifier = resource.identifier ?? [];
   const existing = identifier.find(isTaxonomy);
   if (taxonomyCode) {
     if (existing) existing.value = taxonomyCode;
     else {
       identifier.push({
-        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
+        type: {
+          coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_TAXONOMY }],
+        },
         value: taxonomyCode,
       });
     }
     resource.identifier = identifier;
   } else if (existing) {
     resource.identifier = identifier.filter((id) => !isTaxonomy(id));
+  }
+}
+
+export function setClia(resource: Location, clia: string | null): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_CLIA);
+  if (clia) {
+    if (existing) existing.value = clia;
+    else identifier.push({ system: FHIR_IDENTIFIER_CLIA, value: clia });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
   }
 }
 
@@ -550,11 +620,12 @@ export function buildBillingCoverage(params: {
   memberId: string;
   status: Coverage['status'];
   insuranceType: BillingInsuranceType;
+  planType?: string;
   relationship: BillingSubscriberRelationship;
   // 'Patient/{id}' for self, or 'RelatedPerson/{id}' for a standalone policy-holder subscriber.
   subscriberReference: string;
 }): Coverage {
-  const coverage: Coverage = {
+  let coverage: Coverage = {
     resourceType: 'Coverage',
     status: params.status,
     beneficiary: { type: 'Patient', reference: `Patient/${params.patientId}` },
@@ -564,6 +635,9 @@ export function buildBillingCoverage(params: {
   };
   setCoveragePayer(coverage, params.payerOrg, params.memberId);
   setCoverageRelationship(coverage, params.relationship);
+  if (params.planType) {
+    coverage = setCoveragePlanType(coverage, params.planType);
+  }
   return coverage;
 }
 
