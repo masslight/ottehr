@@ -371,7 +371,19 @@ export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: Add
             </Box>
 
             {/* Right: address */}
-            <AddressFields />
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+                borderLeft: 1,
+                borderColor: 'divider',
+                pl: 5,
+              }}
+            >
+              <AddressFields />
+            </Box>
           </Box>
         </FormProvider>
       </DialogContent>
