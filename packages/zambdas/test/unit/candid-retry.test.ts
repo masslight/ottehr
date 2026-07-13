@@ -156,6 +156,14 @@ describe('recoverCandidEncounterAfter422', () => {
     };
   }
 
+  function makeUniquenessErrorResponse(): any {
+    return {
+      ok: false as const,
+      error: { errorName: 'EncounterExternalIdUniquenessError' },
+      rawResponse: { status: 422 },
+    };
+  }
+
   it('returns the candidEncounterId when the encounter is found by externalId', async () => {
     const client = makeMockClient({
       ok: true,
@@ -164,7 +172,7 @@ describe('recoverCandidEncounterAfter422', () => {
       },
     });
 
-    const result = await recoverCandidEncounterAfter422('fhir-enc-1', client);
+    const result = await recoverCandidEncounterAfter422('fhir-enc-1', client, makeUniquenessErrorResponse());
 
     expect(result).toBe('candid-enc-abc');
     expect(client.encounters.v4.getAll).toHaveBeenCalledWith(expect.objectContaining({ limit: 1 }));
@@ -173,7 +181,7 @@ describe('recoverCandidEncounterAfter422', () => {
   it('throws EncounterExternalIdUniquenessError when getAll returns !ok', async () => {
     const client = makeMockClient({ ok: false, error: { message: 'Not found' } });
 
-    await expect(recoverCandidEncounterAfter422('fhir-enc-1', client)).rejects.toThrow(
+    await expect(recoverCandidEncounterAfter422('fhir-enc-1', client, makeUniquenessErrorResponse())).rejects.toThrow(
       'EncounterExternalIdUniquenessError'
     );
   });
@@ -181,7 +189,7 @@ describe('recoverCandidEncounterAfter422', () => {
   it('throws EncounterExternalIdUniquenessError when getAll returns empty items', async () => {
     const client = makeMockClient({ ok: true, body: { items: [] } });
 
-    await expect(recoverCandidEncounterAfter422('fhir-enc-1', client)).rejects.toThrow(
+    await expect(recoverCandidEncounterAfter422('fhir-enc-1', client, makeUniquenessErrorResponse())).rejects.toThrow(
       'EncounterExternalIdUniquenessError'
     );
   });
@@ -194,7 +202,7 @@ describe('recoverCandidEncounterAfter422', () => {
       },
     });
 
-    const result = await recoverCandidEncounterAfter422('fhir-enc-1', client);
+    const result = await recoverCandidEncounterAfter422('fhir-enc-1', client, makeUniquenessErrorResponse());
 
     expect(result).toBeUndefined();
   });
@@ -202,6 +210,22 @@ describe('recoverCandidEncounterAfter422', () => {
   it('includes the fhirEncounterId in the error message when lookup fails', async () => {
     const client = makeMockClient({ ok: false, error: {} });
 
-    await expect(recoverCandidEncounterAfter422('fhir-enc-99', client)).rejects.toThrow('fhir-enc-99');
+    await expect(recoverCandidEncounterAfter422('fhir-enc-99', client, makeUniquenessErrorResponse())).rejects.toThrow(
+      'fhir-enc-99'
+    );
+  });
+
+  it('returns undefined without calling getAll when errorName is not EncounterExternalIdUniquenessError', async () => {
+    const client = makeMockClient({ ok: true, body: { items: [] } });
+    const otherErrorResponse: any = {
+      ok: false as const,
+      error: { errorName: 'SomeOtherError' },
+      rawResponse: { status: 422 },
+    };
+
+    const result = await recoverCandidEncounterAfter422('fhir-enc-1', client, otherErrorResponse);
+
+    expect(result).toBeUndefined();
+    expect(client.encounters.v4.getAll).not.toHaveBeenCalled();
   });
 });
