@@ -201,7 +201,19 @@ export function AddServiceFacilityDialog({ open, onClose, onCreated }: AddServic
             </Box>
 
             {/* Right: address */}
-            <AddressFields requireFullZip />
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+                borderLeft: 1,
+                borderColor: 'divider',
+                pl: 5,
+              }}
+            >
+              <AddressFields requireFullZip />
+            </Box>
           </Box>
         </FormProvider>
       </DialogContent>

@@ -8,22 +8,17 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
-  FormHelperText,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
   Typography,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { CreateBillingPatientInput, getApiError, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { FormProvider, useForm } from 'react-hook-form';
+import { CreateBillingPatientInput, getApiError } from 'utils';
 import { createBillingPatient } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { buildAddressInput } from '../utils/format';
 import { AddressFields } from './AddressFields';
+import { DemographicFields } from './DemographicFields';
 
 // The create screen only picks references — patient, coverage, and providers are chosen as-is.
 // Tweaking their underlying details (names, NPIs, addresses, etc.) is done afterward in the claim
@@ -34,6 +29,7 @@ interface AddPatientForm {
   dob: string | null;
   gender: string | null;
   phone: string | null;
+  email: string | null;
   line1: string | null;
   line2: string | null;
   city: string | null;
@@ -47,6 +43,7 @@ const defaultValues: AddPatientForm = {
   dob: null,
   gender: null,
   phone: null,
+  email: null,
   line1: null,
   line2: null,
   city: null,
@@ -64,7 +61,6 @@ export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogP
   const { oystehrZambda } = useApiClients();
   const methods = useForm<AddPatientForm>({ defaultValues });
   const {
-    control,
     handleSubmit,
     reset,
     formState: { isSubmitting },
@@ -89,6 +85,7 @@ export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogP
         ...(data.dob ? { dob: data.dob } : {}),
         ...(data.gender ? { gender: data.gender as CreateBillingPatientInput['gender'] } : {}),
         ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
+        ...(data.email?.trim() ? { phone: data.email.trim() } : {}),
         ...(address ? { address } : {}),
       };
       const result = await createBillingPatient(oystehrZambda, payload);
@@ -117,118 +114,22 @@ export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogP
         <FormProvider {...methods}>
           <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
             {/* Left: demographics */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25, mt: 0.5 }}>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Controller
-                  name="firstName"
-                  control={control}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                  render={({ field, fieldState: { error: fieldError } }) => (
-                    <TextField
-                      label="First name *"
-                      size="small"
-                      fullWidth
-                      autoFocus
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      error={!!fieldError}
-                      helperText={fieldError?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  name="lastName"
-                  control={control}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                  render={({ field, fieldState: { error: fieldError } }) => (
-                    <TextField
-                      label="Last name *"
-                      size="small"
-                      fullWidth
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      error={!!fieldError}
-                      helperText={fieldError?.message}
-                    />
-                  )}
-                />
-              </Box>
-
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Controller
-                  name="dob"
-                  control={control}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                  render={({ field, fieldState: { error: fieldError } }) => (
-                    <TextField
-                      label="Date of birth *"
-                      size="small"
-                      fullWidth
-                      type="date"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      error={!!fieldError}
-                      helperText={fieldError?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  name="gender"
-                  control={control}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                  render={({ field, fieldState: { error: fieldError } }) => (
-                    <FormControl size="small" fullWidth>
-                      <InputLabel id="gender-select-label" error={!!fieldError}>
-                        Gender *
-                      </InputLabel>
-                      <Select
-                        aria-describedby={fieldError ? 'gender-helper-text' : undefined}
-                        label="Gender *"
-                        labelId="gender-select-label"
-                        size="small"
-                        fullWidth
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.value)}
-                        error={!!fieldError}
-                      >
-                        <MenuItem value="male">Male</MenuItem>
-                        <MenuItem value="female">Female</MenuItem>
-                        <MenuItem value="other">Other</MenuItem>
-                        <MenuItem value="unknown">Unknown</MenuItem>
-                      </Select>
-                      {fieldError ? (
-                        <FormHelperText id={`gender-helper-text`} error={true}>
-                          {fieldError?.message}
-                        </FormHelperText>
-                      ) : (
-                        <></>
-                      )}
-                    </FormControl>
-                  )}
-                />
-              </Box>
-
-              <Controller
-                name="phone"
-                control={control}
-                render={({ field, fieldState: { error: fieldError } }) => (
-                  <TextField
-                    label="Phone number"
-                    size="small"
-                    fullWidth
-                    placeholder="(555) 000-0000"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                    error={!!fieldError}
-                    helperText={fieldError?.message}
-                  />
-                )}
-              />
-            </Box>
+            <DemographicFields />
 
             {/* Right: address */}
-            <AddressFields />
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+                borderLeft: 1,
+                borderColor: 'divider',
+                pl: 5,
+              }}
+            >
+              <AddressFields />
+            </Box>
           </Box>
         </FormProvider>
       </DialogContent>
