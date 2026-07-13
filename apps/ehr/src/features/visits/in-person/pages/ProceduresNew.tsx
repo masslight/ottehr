@@ -1,3 +1,4 @@
+import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
 import {
   Autocomplete,
   Backdrop,
@@ -14,12 +15,14 @@ import {
   FormControlLabel,
   FormHelperText,
   FormLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Radio,
   RadioGroup,
   Select,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
@@ -30,7 +33,7 @@ import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tan
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -70,6 +73,7 @@ import {
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
 } from 'utils';
+import { AiSectionContainer } from '../../shared/components/AiSection';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
@@ -80,7 +84,6 @@ import {
   useRecommendBillingCodes,
 } from '../../shared/stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
-import AiSuggestion from '../components/AiSuggestion';
 import { InfoAlert } from '../components/InfoAlert';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 import {
@@ -551,6 +554,74 @@ export default function ProceduresNew(): ReactElement {
     debounce(() => {
       setDebouncedSearchTerm(data);
     });
+  };
+
+  const existingCptCodeSet = useMemo(() => new Set(state.cptCodes?.map((cptCode) => cptCode.code)), [state.cptCodes]);
+
+  const addRecommendedCptCode = (suggestion: ProcedureSuggestion): void =>
+    updateState((state) => {
+      if (!state.cptCodes?.some((cptCode) => cptCode.code === suggestion.code)) {
+        state.cptCodes = [...(state.cptCodes ?? []), { code: suggestion.code, display: suggestion.description }];
+      }
+    });
+
+  const renderRecommendedCptActions = (value: ProcedureSuggestion): ReactElement => (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+      <Tooltip title={value.useWhen}>
+        <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
+          <InfoOutlined sx={{ fontSize: '17px' }} />
+        </IconButton>
+      </Tooltip>
+      {existingCptCodeSet.has(value.code) ? (
+        <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
+          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+        </IconButton>
+      ) : (
+        <Tooltip title="Add CPT code">
+          <IconButton
+            size="small"
+            aria-label={`Add CPT code ${value.code}`}
+            onClick={() => addRecommendedCptCode(value)}
+            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
+          >
+            <AddCircleOutline sx={{ fontSize: '17px' }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+
+  const recommendedCptCodesContent = (): ReactNode => {
+    if (loadingSuggestions) {
+      return null;
+    }
+
+    if (!formValues.procedureType) {
+      return <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>;
+    }
+
+    // Suggestions not fetched yet.
+    if (!recommendedBillingCodes) {
+      return null;
+    }
+
+    if (recommendedBillingCodes.length === 0) {
+      return <Typography color="secondary.light">No suggestions</Typography>;
+    }
+
+    return (
+      <ActionsList
+        data={recommendedBillingCodes}
+        getKey={(value) => value.code}
+        renderItem={(value) => (
+          <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
+            <strong>{value.code}</strong> &ndash; {value.description}
+          </Typography>
+        )}
+        renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
+        divider
+      />
+    );
   };
 
   const cptWidget = (): ReactElement => {
@@ -1127,13 +1198,7 @@ export default function ProceduresNew(): ReactElement {
             <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
-            {recommendedBillingCodes && (
-              <AiSuggestion
-                title="Recommended CPT Codes"
-                procedureSuggestions={recommendedBillingCodes}
-                loading={loadingSuggestions}
-              />
-            )}
+            <AiSectionContainer isLoading={loadingSuggestions}>{recommendedCptCodesContent()}</AiSectionContainer>
             {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
               <Container
                 style={{

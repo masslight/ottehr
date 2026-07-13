@@ -5,14 +5,14 @@ import { AR_STAGE, ClaimDetailResponse, emptyClaimStatusValues } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ClaimDetail from '../../src/pages/ClaimDetail';
 
-const { getBillingClaimDetailMock, submitBillingClaimsMock } = vi.hoisted(() => ({
+const { getBillingClaimDetailMock, runBillingRulesEngineMock } = vi.hoisted(() => ({
   getBillingClaimDetailMock: vi.fn(),
-  submitBillingClaimsMock: vi.fn(),
+  runBillingRulesEngineMock: vi.fn(),
 }));
 
 vi.mock('../../src/api/api', () => ({
   getBillingClaimDetail: getBillingClaimDetailMock,
-  submitBillingClaims: submitBillingClaimsMock,
+  runBillingRulesEngine: runBillingRulesEngineMock,
   getPatientCoverages: vi.fn(),
   searchBillingLocations: vi.fn(),
   searchBillingPayers: vi.fn(),
@@ -121,38 +121,32 @@ function renderDetail(): void {
 describe('ClaimDetail — submit claim', () => {
   beforeEach(() => {
     getBillingClaimDetailMock.mockReset();
-    submitBillingClaimsMock.mockReset();
+    runBillingRulesEngineMock.mockReset();
     enqueueSnackbarMock.mockReset();
   });
 
-  it('disables Submit claim when the claim is not in Insurance Payer AR', async () => {
+  it('keeps Submit claim enabled outside Insurance Payer AR — the rules engine guards submission', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
     renderDetail();
 
-    expect(await screen.findByRole('button', { name: 'Submit claim' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Submit claim' })).toBeEnabled();
   });
 
-  it('submits the claim through the confirm dialog when in Insurance Payer AR', async () => {
+  it('runs the rules engine through the confirm dialog', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
-    submitBillingClaimsMock.mockResolvedValue({
-      results: [
-        {
-          claimId: 'claim-1',
-          status: 'submitted',
-        },
-      ],
-    });
+    runBillingRulesEngineMock.mockResolvedValue({ taskId: 'task-1' });
     renderDetail();
 
     const submitButton = await screen.findByRole('button', { name: 'Submit claim' });
-    expect(submitButton).toBeEnabled();
-
     fireEvent.click(submitButton);
 
     const confirmButton = await screen.findByRole('button', { name: 'Submit' });
     fireEvent.click(confirmButton);
 
-    await waitFor(() => expect(submitBillingClaimsMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
-    expect(enqueueSnackbarMock).toHaveBeenCalledWith('Claim submitted to payer', { variant: 'success' });
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimId: 'claim-1' }));
+    expect(enqueueSnackbarMock).toHaveBeenCalledWith(
+      'Rules engine started — it will submit or hold the claim shortly. Refresh to see the result.',
+      { variant: 'info' }
+    );
   });
 });

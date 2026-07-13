@@ -59,12 +59,10 @@ export default function PatientsList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const hasSearch = filters.name || filters.dob || filters.identifier || filters.uuid;
         const params: SearchBillingPatientsInput = {
           offset: page * pageSize,
           pageSize,
         };
-        if (hasSearch) params.includeWorkingCopies = true;
         if (filters.name) params.name = filters.name;
         if (filters.dob) params.dob = filters.dob;
         if (filters.identifier) params.identifier = filters.identifier;

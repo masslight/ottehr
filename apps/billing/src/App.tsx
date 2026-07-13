@@ -23,6 +23,8 @@ import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
+import RuleDetail from './pages/RuleDetail';
+import Rules from './pages/Rules';
 import { ServiceFacilitiesList, ServiceFacilityDetail } from './pages/ServiceFacilities';
 import Tags from './pages/Tags';
 import { theme } from './themes/ottehr';
@@ -88,6 +90,8 @@ export default function App(): ReactElement {
               <Route path="/eras" element={<ERAList />} />
               <Route path="/eras/:id" element={<ERADetail />} />
               <Route path="/tags" element={<Tags />} />
+              <Route path="/rules" element={<Rules />} />
+              <Route path="/rules/:id" element={<RuleDetail />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Route>
           )}

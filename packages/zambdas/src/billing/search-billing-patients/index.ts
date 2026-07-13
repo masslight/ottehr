@@ -29,8 +29,8 @@ async function performEffect(
     { name: '_offset', value: String(offset) },
     { name: '_sort', value: 'family' },
     { name: '_total', value: 'accurate' },
+    ...EXCLUDE_WORKING_COPIES_PARAMS,
   ];
-  if (!params.includeWorkingCopies) searchParams.push(...EXCLUDE_WORKING_COPIES_PARAMS);
   if (params.uuid) searchParams.push({ name: '_id', value: params.uuid });
   if (params.name) searchParams.push({ name: 'name', value: params.name });
   if (params.dob) searchParams.push({ name: 'birthdate', value: params.dob });

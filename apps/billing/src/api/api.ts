@@ -3,6 +3,7 @@ import {
   apiErrorToThrow,
   BillingChargeItemDefinition,
   BillingCodeOption,
+  BillingRulesResponse,
   chooseJson,
   ClaimDetailResponse,
   CreateBillingClaimInputSchema,
@@ -23,12 +24,17 @@ import {
   ExportClaimX12Response,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
+  GetClaimHistoryInputSchema,
+  GetClaimHistoryResponse,
   GetEraDetailInputSchema,
   GetPatientCoveragesInputSchema,
   GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
   ImportEraInputSchema,
   PatientDetailResponse,
+  RunBillingRulesEngineInputSchema,
+  RunBillingRulesEngineResponse,
+  SaveBillingRulesInputSchema,
   SaveBillingTagInputSchema,
   SavedResourceResponse,
   SaveServiceFacilityInputSchema,
@@ -76,6 +82,21 @@ async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?
   }
 }
 
+// --- Pre-submission rules engine ---
+
+export const getBillingRules = (oystehr: Oystehr): Promise<BillingRulesResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-rules');
+
+export const saveBillingRules = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveBillingRulesInputSchema>
+): Promise<BillingRulesResponse> => executeBillingZambda(oystehr, 'save-billing-rules', parameters);
+
+export const runBillingRulesEngine = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RunBillingRulesEngineInputSchema>
+): Promise<RunBillingRulesEngineResponse> => executeBillingZambda(oystehr, 'run-billing-rules-engine', parameters);
+
 // --- Patients ---
 
 export const createBillingPatient = (
@@ -114,6 +135,11 @@ export const getBillingClaimDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetClaimDetailInputSchema>
 ): Promise<ClaimDetailResponse> => executeBillingZambda(oystehr, 'get-billing-claim-detail', parameters);
+
+export const getBillingClaimHistory = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetClaimHistoryInputSchema>
+): Promise<GetClaimHistoryResponse> => executeBillingZambda(oystehr, 'get-billing-claim-history', parameters);
 
 export const exportClaimX12 = (
   oystehr: Oystehr,

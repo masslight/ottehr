@@ -71,7 +71,7 @@ export function RenderingProvidersList(): ReactElement {
           providerType: 'rendering',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
-          ...(name ? { name, includeWorkingCopies: true } : {}),
+          ...(name ? { name } : {}),
         });
         setProviders(data.providers ?? []);
         setTotalRows(data.total ?? 0);
@@ -181,7 +181,6 @@ export function RenderingProviderDetail(): ReactElement {
       const data = await searchBillingProviders(oystehrZambda, {
         providerType: 'rendering',
         providerId: id,
-        includeWorkingCopies: true,
       });
       setProvider((data.providers ?? [])[0] ?? null);
     } catch (err) {

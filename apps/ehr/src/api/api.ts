@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { HealthcareService, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { createClinicalOystehrClient } from 'ui-components';
 import {
   AdminAddInHouseLabInput,
@@ -220,6 +220,8 @@ import {
   UpdateProcedureQuickPickResponse,
   UpdateProgressNoteConfigInput,
   UpdateQuickTextQuickPickResponse,
+  UpdateRadiologyOrderZambdaInput,
+  UpdateRadiologyOrderZambdaOutput,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
   UpdateUserParams,
@@ -327,6 +329,8 @@ const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
 const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
 const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
 const ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID = 'admin-set-practitioner-role-active';
+const ADMIN_SET_SCHEDULE_OWNER_ACTIVE_ZAMBDA_ID = 'admin-set-schedule-owner-active';
+const ADMIN_UPDATE_GROUP_ZAMBDA_ID = 'admin-update-group';
 const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
 const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
 const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
@@ -1209,6 +1213,22 @@ export const sendForFinalRead = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-send-for-final-read',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateRadiologyOrder = async (
+  oystehr: Oystehr,
+  parameters: UpdateRadiologyOrderZambdaInput
+): Promise<UpdateRadiologyOrderZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-update-order',
       ...parameters,
     });
     return chooseJson(response);
@@ -2970,6 +2990,37 @@ export const setPractitionerRoleActive = async (
 ): Promise<{ active: boolean }> => {
   const response = await oystehr.zambda.execute({
     id: ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const setScheduleOwnerActive = async (
+  oystehr: Oystehr,
+  input: { scheduleId: string; active: boolean }
+): Promise<{ active: boolean; owner: { resourceType: 'Location' | 'Practitioner'; id: string } }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_SET_SCHEDULE_OWNER_ACTIVE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const updateGroup = async (
+  oystehr: Oystehr,
+  input: {
+    groupId: string;
+    name?: string;
+    /** Empty string clears the slug identifier entirely. */
+    slug?: string;
+    locationIds?: string[];
+    supportedCategoryHsIds?: string[];
+    assignmentMode?: 'anonymous' | 'provider';
+    allLocations?: boolean;
+  }
+): Promise<{ group: HealthcareService }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_UPDATE_GROUP_ZAMBDA_ID,
     ...input,
   } as any);
   return chooseJson(response);

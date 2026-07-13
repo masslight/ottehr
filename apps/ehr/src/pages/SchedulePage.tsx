@@ -384,10 +384,17 @@ export default function SchedulePage(): ReactElement {
 
   const isLocationOwner = item?.owner?.type === 'Location';
 
-  // The permalink is only editable for non-Location owners. A non-empty slug
-  // must match the URL-safe shape the patient side enforces, otherwise the
-  // save succeeds here but booking by slug fails later with a validation error.
-  const slugError = !isLocationOwner && !!slug && !isValidSlug(slug);
+  // Location slugs are normally managed by terraform and shown read-only. The
+  // exception is a Location created through the "Add location" UI — it carries
+  // the manually-created marker, so the admin is allowed to edit the slug the
+  // create flow auto-derived from the name. Non-Location owners (Provider /
+  // Group) are always editable.
+  const slugEditable = !isLocationOwner || item?.owner?.isManuallyCreated === true;
+
+  // A non-empty slug must match the URL-safe shape the patient side enforces,
+  // otherwise the save succeeds here but booking by slug fails later with a
+  // validation error.
+  const slugError = slugEditable && !!slug && !isValidSlug(slug);
 
   async function onSaveSchedule(params: UpdateScheduleParams): Promise<void> {
     if (!oystehrZambda) {
@@ -694,10 +701,11 @@ export default function SchedulePage(): ReactElement {
                       <TextField
                         label="Permalink"
                         value={slug}
-                        // Location slugs are managed elsewhere and shown read-only here;
-                        // Provider (PractitionerRole) and Group (HealthcareService)
-                        // schedules can edit the permalink from this tab.
-                        {...(isLocationOwner
+                        // Terraform-managed Location slugs stay read-only; a
+                        // manually-created Location, plus Provider
+                        // (PractitionerRole) and Group (HealthcareService)
+                        // schedules, can edit the permalink from this tab.
+                        {...(!slugEditable
                           ? { InputProps: { readOnly: true }, disabled: true }
                           : {
                               onChange: (event) => setSlug(event.target.value),

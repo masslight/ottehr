@@ -70,6 +70,7 @@ export const ensureStripeCustomerId = async (
 ): Promise<{
   updatedAccount: Account;
   customerId: string;
+  createdWithoutEmail: boolean;
 }> => {
   const { guarantorResource: guarantor, account, patientId, stripeClient, stripeAccount } = params;
   if (!account.id) {
@@ -79,19 +80,29 @@ export const ensureStripeCustomerId = async (
   let customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined;
 
   let updatedAccount = account;
+  let createdWithoutEmail = false;
   if (customerId === undefined) {
-    const customer = await stripeClient.customers.create(
-      {
-        email: guarantor ? getEmailForIndividual(guarantor) : undefined,
-        name: guarantor ? getFullName(guarantor) : undefined,
-        metadata: {
-          oystehr_patient_id: patientId,
-        },
-      },
-      {
-        stripeAccount, // Connected account ID if any
+    const email = guarantor ? getEmailForIndividual(guarantor) : undefined;
+    createdWithoutEmail = !email;
+    const name = guarantor ? getFullName(guarantor) : undefined;
+    let customer: Stripe.Customer;
+    try {
+      customer = await stripeClient.customers.create(
+        { email, name, metadata: { oystehr_patient_id: patientId } },
+        { stripeAccount }
+      );
+    } catch (stripeError: any) {
+      if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
+        console.warn(`Stripe rejected email for patient ${patientId}, creating customer without email`);
+        customer = await stripeClient.customers.create(
+          { name, metadata: { oystehr_patient_id: patientId } },
+          { stripeAccount }
+        );
+        createdWithoutEmail = true;
+      } else {
+        throw stripeError;
       }
-    );
+    }
     const op = 'add';
     let value: Identifier | Identifier[] = makeStripeCustomerId(customer.id, stripeAccount);
     let path = '/identifier/-';
@@ -112,5 +123,5 @@ export const ensureStripeCustomerId = async (
     });
     customerId = customer.id;
   }
-  return { updatedAccount, customerId };
+  return { updatedAccount, customerId, createdWithoutEmail };
 };
