@@ -94,9 +94,6 @@ export interface LocationWithWalkinSchedule extends Location {
   walkinSchedule: Schedule | undefined;
 }
 
-const defaultServiceCategory =
-  BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0]?.category.code : '';
-
 // todo: this lives in the util folder and is redundantly declared here - should be consolidated
 enum VisitType {
   InPersonWalkIn = 'in-person-walk-in',
@@ -189,6 +186,8 @@ export default function AddPatient(): JSX.Element {
   const [otherReason, setOtherReason] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
+  const defaultServiceCategory =
+    BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0]?.category.code : '';
   const [serviceCategory, setServiceCategory] = useState<string>(defaultServiceCategory);
   const [slot, setSlot] = useState<Slot | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
@@ -383,7 +382,7 @@ export default function AddPatient(): JSX.Element {
     if (!filteredServiceCategories.some((sc) => sc.code === serviceCategory)) {
       setServiceCategory('');
     }
-  }, [filteredServiceCategories, serviceCategory]);
+  }, [defaultServiceCategory, filteredServiceCategories, serviceCategory]);
 
   // Mirror of the effect above: when the service-category pick makes the
   // current visit type unsupported, clear the visit type (and any slot tied

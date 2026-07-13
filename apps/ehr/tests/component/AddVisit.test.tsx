@@ -542,13 +542,10 @@ describe('AddVisit', () => {
   // repro). The fix filters the Visit Type dropdown by the picked service so
   // unsupported modalities aren't offered in the first place.
   describe('Service Category ↔ Visit Type coupling (OTR-2721)', () => {
-    const walkInInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonWalkIn)?.label;
-    const prebookInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonPreBook)
-      ?.label;
-    const virtualScheduledLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualScheduled)
-      ?.label;
-    const virtualOnDemandLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualOnDemand)
-      ?.label;
+    let walkInInPersonLabel: string | undefined;
+    let prebookInPersonLabel: string | undefined;
+    let virtualScheduledLabel: string | undefined;
+    let virtualOnDemandLabel: string | undefined;
 
     // FHIR-sourced categories go through the strict path in
     // serviceCategorySupportsContext: empty arrays = "supports nothing". So
@@ -580,6 +577,38 @@ describe('AddVisit', () => {
     };
 
     beforeEach(() => {
+      // Inject 2 BOOKING_CONFIG service categories so defaultServiceCategory = ''
+      // and the service category dropdown is enabled (not disabled). Also inject
+      // 5 ehrBookingOptions matching the VisitType enum so label assertions work
+      // regardless of what the host instance's real BOOKING_CONFIG contains.
+      (window as any).__TEST_BOOKING_CONFIG__ = {
+        serviceCategories: [
+          {
+            category: { code: 'test-cat-a', display: 'Test Category A', system: '' },
+            serviceModes: [],
+            visitTypes: [],
+            reasonsForVisit: { default: [] },
+          },
+          {
+            category: { code: 'test-cat-b', display: 'Test Category B', system: '' },
+            serviceModes: [],
+            visitTypes: [],
+            reasonsForVisit: { default: [] },
+          },
+        ],
+        ehrBookingOptions: [
+          { id: VisitType.InPersonWalkIn, label: 'Walk-in In Person Visit' },
+          { id: VisitType.InPersonPreBook, label: 'Pre-Booked In Person Visit' },
+          { id: VisitType.InPersonPostTelemed, label: 'Post-Telemed In Person Visit' },
+          { id: VisitType.VirtualOnDemand, label: 'Virtual On Demand Visit' },
+          { id: VisitType.VirtualScheduled, label: 'Virtual Scheduled Visit' },
+        ],
+      };
+      walkInInPersonLabel = 'Walk-in In Person Visit';
+      prebookInPersonLabel = 'Pre-Booked In Person Visit';
+      virtualScheduledLabel = 'Virtual Scheduled Visit';
+      virtualOnDemandLabel = 'Virtual On Demand Visit';
+
       mockOystehrZambda.zambda.execute.mockReset();
       mockOystehrZambda.zambda.execute.mockResolvedValue({
         output: { serviceCategories: [prebookOnlyFhirCategory] },
@@ -588,6 +617,7 @@ describe('AddVisit', () => {
     });
 
     afterEach(() => {
+      delete (window as any).__TEST_BOOKING_CONFIG__;
       mockApiClients.oystehrZambda = null;
     });
 
