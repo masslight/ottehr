@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   BillingPolicyHolderSummary,
   CLAIM_TAG_SYSTEM,
@@ -107,9 +108,10 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
       adjustments: extractRemitAdjustments(cr),
     };
   });
-  const paymentDateOf = (pr: PaymentReconciliation): string => (pr.paymentDate ?? pr.created ?? '').slice(0, 10);
+  const paymentMillis = (pr: PaymentReconciliation): number =>
+    DateTime.fromISO(pr.paymentDate ?? pr.created ?? '').toMillis() || 0;
   const insurancePayments = [...paymentReconciliations]
-    .sort((a, b) => paymentDateOf(b).localeCompare(paymentDateOf(a)))
+    .sort((a, b) => paymentMillis(b) - paymentMillis(a))
     .map((pr) => {
       // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
       // of this ERA's ClaimResponses
