@@ -52,6 +52,7 @@ import {
   Condition,
   Coverage,
   Encounter,
+  EncounterDiagnosis,
   Extension,
   Identifier,
   Location,
@@ -331,8 +332,13 @@ function getExtensionString(extensions: Extension[] | undefined, url: string): s
 }
 
 function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
+  const isPrimary = (encounterDiagnosis: EncounterDiagnosis): boolean => (encounterDiagnosis.rank ?? -1) === 1;
+  // Process the primary diagnosis first so that if the same code is also entered as a secondary
+  // diagnosis, the primary wins the code-based dedup below and is not dropped (which would otherwise
+  // cause the send-claim flow to fail with "Primary diagnosis is absent").
+  const orderedDiagnoses = [...(encounter.diagnosis ?? [])].sort((a, b) => Number(isPrimary(b)) - Number(isPrimary(a)));
   const seenCodes = new Set<string>();
-  return (encounter.diagnosis ?? []).flatMap<DiagnosisCreate>((encounterDiagnosis) => {
+  return orderedDiagnoses.flatMap<DiagnosisCreate>((encounterDiagnosis) => {
     const diagnosisResourceId = encounterDiagnosis.condition.reference?.split('/')[1];
     const diagnosisResource = diagnoses.find((resource) => resource.id === diagnosisResourceId);
     const diagnosisCode = diagnosisResource?.code?.coding?.[0].code;
@@ -342,7 +348,7 @@ function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): Di
     seenCodes.add(diagnosisCode);
     return [
       {
-        codeType: (encounterDiagnosis.rank ?? -1) === 1 ? DiagnosisTypeCode.Abk : DiagnosisTypeCode.Abf,
+        codeType: isPrimary(encounterDiagnosis) ? DiagnosisTypeCode.Abk : DiagnosisTypeCode.Abf,
         code: diagnosisCode,
       },
     ];
