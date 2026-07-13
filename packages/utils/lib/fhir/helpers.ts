@@ -1084,8 +1084,10 @@ export interface CoverageSubscriberInput {
   middleName?: string;
   lastName?: string;
   dob?: string;
-  birthSex?: BirthSex;
   address?: Address;
+  // Either birthSex or gender can be passed into this and we want to accept either
+  birthSex?: BirthSex;
+  gender?: string;
 }
 
 // CodeableConcept for Coverage.relationship.
@@ -1110,7 +1112,9 @@ export const buildCoverageSubscriberRelatedPerson = (
   resourceType: 'RelatedPerson',
   name: createFhirHumanName(subscriber.firstName, subscriber.middleName, subscriber.lastName),
   birthDate: subscriber.dob,
-  gender: mapBirthSexToGender(subscriber.birthSex),
+  gender: subscriber.birthSex
+    ? mapBirthSexToGender(subscriber.birthSex)
+    : (subscriber.gender as (RelatedPerson | Patient)['gender']) ?? 'unknown',
   patient: { reference: `Patient/${patientId}` },
   address: subscriber.address ? [subscriber.address] : undefined,
   relationship: [
