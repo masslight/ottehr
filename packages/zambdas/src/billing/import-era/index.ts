@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle } from 'fhir/r4b';
 import {
   ERA_IMPORT_FAILED_ERROR,
+  getPatchBinary,
   ImportEraInput,
   ImportEraInputSchema,
   MISSING_REQUEST_BODY,
@@ -42,19 +43,17 @@ async function performEffect(oystehr: Oystehr, params: ImportEraParams): Promise
   // oystehr creates the era resources untagged. don't throw on failure
   try {
     const untaggedResources = untaggedEraResources(bundle);
-    const CONCURRENCY = 10;
-    for (let i = 0; i < untaggedResources.length; i += CONCURRENCY) {
-      await Promise.all(
-        untaggedResources.slice(i, i + CONCURRENCY).map((resource) =>
-          oystehr.fhir.patch({
-            resourceType: resource.resourceType,
-            id: resource.id!,
-            operations: [addBillingTagOperation(resource)],
-          })
-        )
+    if (untaggedResources.length > 0) {
+      const requests = untaggedResources.map((resource) =>
+        getPatchBinary({
+          resourceType: resource.resourceType,
+          resourceId: resource.id!,
+          patchOperations: [addBillingTagOperation(resource)],
+        })
       );
+      await oystehr.fhir.transaction({ requests });
+      console.log(`Tagged ${untaggedResources.length} imported ERA resource(s)`);
     }
-    console.log(`Tagged ${untaggedResources.length} imported ERA resource(s)`);
   } catch (error) {
     console.error('Failed to tag imported ERA resources:', error);
   }
