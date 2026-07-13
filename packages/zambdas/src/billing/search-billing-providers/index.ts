@@ -42,7 +42,8 @@ async function performEffect(
   // (Practitioner or Organization) can bill and/or render.
   const roleCode = params.providerType === 'rendering' ? PROVIDER_ROLE_RENDERING : PROVIDER_ROLE_BILLING;
   const baseParams: { name: string; value: string }[] = [
-    { name: '_tag', value: `${PROVIDER_ROLE_TAG}|${roleCode}`, ...EXCLUDE_WORKING_COPIES_PARAMS },
+    { name: '_tag', value: `${PROVIDER_ROLE_TAG}|${roleCode}` },
+    ...EXCLUDE_WORKING_COPIES_PARAMS,
   ];
   if (params.providerId) baseParams.push({ name: '_id', value: params.providerId });
   if (params.name) baseParams.push({ name: 'name', value: params.name });

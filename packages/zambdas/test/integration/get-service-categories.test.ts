@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { HealthcareService } from 'fhir/r4b';
+import { HealthcareService, Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import {
   FEATURE_FLAGS_CONFIG,
   INTEGRATION_TEST_TAG_SYSTEM,
   M2MClientMockType,
+  PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   SERVICE_CATEGORIES_AVAILABLE,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
@@ -13,7 +14,7 @@ import {
   ServiceVisitType,
   SLUG_SYSTEM,
 } from 'utils';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 interface ServiceCategoryResponseEntry {
@@ -84,6 +85,57 @@ describe('get-service-categories integration', () => {
     return created;
   };
 
+  // Practitioner/PractitionerRole/Location cleanup uses a different resource
+  // type than the main HealthcareService pool, so track separately and sweep
+  // in afterAll.
+  const providerFixtureCleanup: Array<{ resourceType: 'Practitioner' | 'PractitionerRole' | 'Location'; id: string }> =
+    [];
+
+  interface CreatePrOpts {
+    slug: string;
+    healthcareServiceIds?: string[];
+    allCategories?: boolean;
+  }
+
+  const createPractitionerRoleFixture = async (opts: CreatePrOpts): Promise<PractitionerRole> => {
+    const location = await oystehrAdmin.fhir.create<Location>({
+      resourceType: 'Location',
+      status: 'active',
+      name: `PR Test Location ${opts.slug}`,
+      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+    });
+    // Assert ids immediately: FHIR create() returns typed `id?: string`
+    // so a missing id would otherwise silently produce `Location/undefined`
+    // references downstream and leak the resource past cleanup.
+    assert(location.id, 'Location fixture missing id');
+    providerFixtureCleanup.push({ resourceType: 'Location', id: location.id });
+
+    const practitioner = await oystehrAdmin.fhir.create<Practitioner>({
+      resourceType: 'Practitioner',
+      active: true,
+      name: [{ family: 'Provider', given: [`PR Test ${opts.slug}`] }],
+      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+    });
+    assert(practitioner.id, 'Practitioner fixture missing id');
+    providerFixtureCleanup.push({ resourceType: 'Practitioner', id: practitioner.id });
+
+    const pr = await oystehrAdmin.fhir.create<PractitionerRole>({
+      resourceType: 'PractitionerRole',
+      active: true,
+      practitioner: { reference: `Practitioner/${practitioner.id}` },
+      location: [{ reference: `Location/${location.id}` }],
+      identifier: [{ system: SLUG_SYSTEM, value: opts.slug }],
+      healthcareService: (opts.healthcareServiceIds ?? []).map((id) => ({ reference: `HealthcareService/${id}` })),
+      ...(opts.allCategories
+        ? { extension: [{ url: PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL, valueBoolean: true }] }
+        : {}),
+      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+    });
+    assert(pr.id, 'PractitionerRole fixture missing id');
+    providerFixtureCleanup.push({ resourceType: 'PractitionerRole', id: pr.id });
+    return pr;
+  };
+
   const callZambda = async (
     params: { scheduleType?: string; bookingOn?: string } = {}
   ): Promise<GetServiceCategoriesResponse> => {
@@ -104,6 +156,23 @@ describe('get-service-categories integration', () => {
   }, 60_000);
 
   afterAll(async () => {
+    // PractitionerRole first (it references the other two), then Practitioner
+    // + Location. Order matters if the FHIR server enforces reference
+    // integrity on delete.
+    const providerOrder: Array<'PractitionerRole' | 'Practitioner' | 'Location'> = [
+      'PractitionerRole',
+      'Practitioner',
+      'Location',
+    ];
+    for (const rt of providerOrder) {
+      for (const entry of providerFixtureCleanup.filter((e) => e.resourceType === rt)) {
+        try {
+          await oystehrAdmin.fhir.delete({ resourceType: entry.resourceType, id: entry.id });
+        } catch {
+          // Best-effort cleanup; ignore individual deletion failures.
+        }
+      }
+    }
     for (const id of createdResourceIds) {
       try {
         await oystehrAdmin.fhir.delete({ resourceType: 'HealthcareService', id });
@@ -221,6 +290,96 @@ describe('get-service-categories integration', () => {
       bookingOn: `nonexistent-${randomUUID()}`,
     });
     expect(result.serviceCategories).toEqual([]);
+  });
+
+  // Provider scope: for scheduleType='provider' + bookingOn=<PR slug>, the
+  // returned catalog must intersect the PR's healthcareService[] refs. The
+  // scoping is FHIR-driven (no BOOKING_CONFIG entries can validly appear on a
+  // PR-owned schedule; get-schedule hard-excludes them). These tests pin:
+  //   - only the PR's referenced categories are returned
+  //   - unreferenced categories (even active FHIR ones in the catalog) are
+  //     dropped
+  //   - BOOKING_CONFIG entries never appear, regardless of PR state
+  //   - the allCategories toggle returns every FHIR-backed category
+  //   - unknown/misrouted slugs return an empty list, not a fallback
+  //
+  // Provider scoping always fetches FHIR resources regardless of the
+  // dynamicServiceCategoriesEnabled flag, because the flag gates the general
+  // patient catalog but a provider deeplink is by construction scoped to a
+  // FHIR-credentialed provider. So these tests run on both flag branches.
+  describe('provider scope', () => {
+    it('returns only the categories referenced by the PR healthcareService[]', async () => {
+      const offeredCode = uniq('pr-offered');
+      const otherCode = uniq('pr-other');
+      const offered = await createServiceCategory(offeredCode, 'Provider Offered');
+      await createServiceCategory(otherCode, 'Provider Other');
+      // Assert the id early so the PR fixture doesn't silently construct
+      // itself with `healthcareServiceIds: []` when the create response is
+      // typed `id?: string` — that would make the test pass vacuously.
+      assert(offered.id, 'createServiceCategory returned no id');
+
+      const slug = uniq('pr-scoped');
+      await createPractitionerRoleFixture({ slug, healthcareServiceIds: [offered.id] });
+
+      const result = await callZambda({ scheduleType: 'provider', bookingOn: slug });
+      const returned = result.serviceCategories.map((c) => c.code).sort();
+
+      // Assert: exactly the offered code, tagged source: fhir. Explicitly
+      // check the sibling code was created but is absent — narrower than
+      // "list length is 1" against a shared FHIR pool.
+      expect(returned).toContain(offeredCode);
+      expect(returned).not.toContain(otherCode);
+      expect(result.serviceCategories.find((c) => c.code === offeredCode)?.source).toBe('fhir');
+    });
+
+    it('does not surface any BOOKING_CONFIG entries in the response', async () => {
+      const offeredCode = uniq('pr-no-bc');
+      const offered = await createServiceCategory(offeredCode, 'PR No BC');
+      assert(offered.id, 'createServiceCategory returned no id');
+
+      const slug = uniq('pr-no-bc-slug');
+      await createPractitionerRoleFixture({ slug, healthcareServiceIds: [offered.id] });
+
+      const result = await callZambda({ scheduleType: 'provider', bookingOn: slug });
+      for (const code of BOOKING_CONFIG_CODES) {
+        expect(result.serviceCategories.find((c) => c.code === code)).toBeUndefined();
+      }
+    });
+
+    it('returns an empty list when the PR references no HealthcareServices and allCategories is off', async () => {
+      const slug = uniq('pr-empty');
+      await createPractitionerRoleFixture({ slug });
+
+      const result = await callZambda({ scheduleType: 'provider', bookingOn: slug });
+      expect(result.serviceCategories).toEqual([]);
+    });
+
+    it('returns every FHIR-backed category when the PR has allCategories=true', async () => {
+      const codeA = uniq('all-a');
+      const codeB = uniq('all-b');
+      await createServiceCategory(codeA, 'All A');
+      await createServiceCategory(codeB, 'All B');
+
+      const slug = uniq('pr-all-cats');
+      await createPractitionerRoleFixture({ slug, allCategories: true });
+
+      const result = await callZambda({ scheduleType: 'provider', bookingOn: slug });
+      const returned = result.serviceCategories.map((c) => c.code);
+      expect(returned).toContain(codeA);
+      expect(returned).toContain(codeB);
+      // BOOKING_CONFIG stays excluded even for allCategories PRs.
+      for (const code of BOOKING_CONFIG_CODES) {
+        expect(returned).not.toContain(code);
+      }
+    });
+
+    it('returns an empty list when the provider slug does not resolve', async () => {
+      const result = await callZambda({
+        scheduleType: 'provider',
+        bookingOn: `nonexistent-${randomUUID()}`,
+      });
+      expect(result.serviceCategories).toEqual([]);
+    });
   });
 
   // bookingOn is interpolated raw into a FHIR `identifier` search as
