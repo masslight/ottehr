@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitForElementToBeRemoved, within } from '@testing-library/react';
+import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VisitType } from 'config-types';
 import { ReactNode } from 'react';
@@ -600,10 +600,22 @@ describe('AddVisit', () => {
     const pickPrebookOnlyServiceCategory = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
       const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
       const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
+      // Wait until the merged catalog has settled: either the picker becomes
+      // enabled (≥2 entries — merged BOOKING_CONFIG + our FHIR mock), or it
+      // stays disabled AND auto-selects Crystal Therapy (the case where
+      // BOOKING_CONFIG contributes zero entries for this project). Guarding
+      // for both shapes keeps the test insensitive to BOOKING_CONFIG count.
+      await waitFor(() => {
+        const disabled = serviceCategoryButton?.getAttribute('aria-disabled') === 'true';
+        const displayed = serviceCategoryButton?.textContent ?? '';
+        expect(!disabled || displayed.includes(prebookOnlyFhirCategory.name)).toBe(true);
+      });
+      if (serviceCategoryButton?.getAttribute('aria-disabled') === 'true') {
+        // Locked picker → verified above that Crystal Therapy is the pick.
+        // No dropdown to open.
+        return;
+      }
       await user.click(serviceCategoryButton!);
-      // findByText polls until the option renders, which covers both "menu is
-      // open" and "React Query has resolved and the FHIR-sourced entry is in
-      // the merged catalog."
       const option = await screen.findByText(prebookOnlyFhirCategory.name);
       await user.click(option);
     };
@@ -627,13 +639,28 @@ describe('AddVisit', () => {
       await openVisitTypeDropdown(user);
 
       const listbox = await screen.findByRole('listbox');
+      // Each check is guarded on the label existing in the profile's
+      // ehrBookingOptions — some profiles omit virtual entirely (anycare,
+      // umc) or offer only walk-in (pedi-q). A visit type the profile
+      // doesn't offer at all is trivially absent from the filtered list;
+      // asserting against `undefined` would throw before the meaningful
+      // check even runs.
+      //
       // Prebook + PostTelemed (in-person, visitCtx undefined → passes the
       // visit-type dimension with any non-empty tag list) survive the filter.
-      expect(within(listbox).getByText(prebookInPersonLabel!)).toBeInTheDocument();
+      if (prebookInPersonLabel) {
+        expect(within(listbox).getByText(prebookInPersonLabel)).toBeInTheDocument();
+      }
       // Walk-in (in-person + walk-in) and the two virtual modes are excluded.
-      expect(within(listbox).queryByText(walkInInPersonLabel!)).not.toBeInTheDocument();
-      expect(within(listbox).queryByText(virtualScheduledLabel!)).not.toBeInTheDocument();
-      expect(within(listbox).queryByText(virtualOnDemandLabel!)).not.toBeInTheDocument();
+      if (walkInInPersonLabel) {
+        expect(within(listbox).queryByText(walkInInPersonLabel)).not.toBeInTheDocument();
+      }
+      if (virtualScheduledLabel) {
+        expect(within(listbox).queryByText(virtualScheduledLabel)).not.toBeInTheDocument();
+      }
+      if (virtualOnDemandLabel) {
+        expect(within(listbox).queryByText(virtualOnDemandLabel)).not.toBeInTheDocument();
+      }
     });
 
     it('shows all Visit Type options when the picked Service Category supports every modality', async () => {

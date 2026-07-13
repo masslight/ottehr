@@ -364,6 +364,23 @@ export default function AddPatient(): JSX.Element {
     });
   }, [mergedSourcedCategories, serviceCategory]);
 
+  // The picker is locked when the merged catalog has ≤1 entry — nothing to
+  // choose between, so we disable the Select and treat that single entry as
+  // the fixed pick. Merged, not BOOKING_CONFIG-only: a project with one
+  // compiled-in category plus admin-created FHIR services must let staff
+  // pick between them.
+  const isPickerLocked = mergedSourcedCategories.length <= 1;
+
+  // Auto-select when the merged catalog resolves to a single entry that
+  // isn't already picked. Covers the (rare) case where BOOKING_CONFIG is
+  // empty and the sole option arrives via FHIR — without this the form
+  // would render with no selection and no way to make one.
+  useEffect(() => {
+    if (serviceCategory || mergedSourcedCategories.length !== 1) return;
+    const only = mergedSourcedCategories[0]?.category.code;
+    if (only) setServiceCategory(only);
+  }, [mergedSourcedCategories, serviceCategory]);
+
   // When visit type changes, drop a stale category that's no longer offered.
   // Keep the selection if it's still valid (avoid yanking the user's choice
   // when they switch between two visit types that share a category). When
@@ -373,17 +390,17 @@ export default function AddPatient(): JSX.Element {
   // pick In-person walk-in → service jumps to "Acne Facial"). Clearing
   // forces a re-pick and makes the constraint visible.
   //
-  // Skip when `defaultServiceCategory` locks the dropdown: there's exactly
-  // one BOOKING_CONFIG entry, it's pre-selected, and the dropdown is
-  // disabled — clearing would strand the form in an invalid state the user
-  // can't recover from. That single BOOKING_CONFIG entry gets the empty-
-  // arrays-supports-all pass anyway, so it won't be filtered out in practice.
+  // Skip when the picker is locked: the single available entry is the pick
+  // and the dropdown is disabled — clearing would strand the form in an
+  // invalid state the user can't recover from. That single entry gets the
+  // empty-arrays-supports-all pass anyway when it's a BOOKING_CONFIG entry,
+  // so it won't be filtered out in practice.
   useEffect(() => {
-    if (!serviceCategory || defaultServiceCategory !== '') return;
+    if (!serviceCategory || isPickerLocked) return;
     if (!filteredServiceCategories.some((sc) => sc.code === serviceCategory)) {
       setServiceCategory('');
     }
-  }, [filteredServiceCategories, serviceCategory]);
+  }, [filteredServiceCategories, serviceCategory, isPickerLocked]);
 
   // Mirror of the effect above: when the service-category pick makes the
   // current visit type unsupported, clear the visit type (and any slot tied
@@ -691,7 +708,7 @@ export default function AddPatient(): JSX.Element {
                     value={serviceCategory || ''}
                     label="Service category *"
                     required
-                    disabled={defaultServiceCategory !== ''}
+                    disabled={isPickerLocked}
                     onChange={(event) => {
                       setServiceCategory(event.target.value);
                     }}
