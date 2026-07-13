@@ -3,6 +3,7 @@ import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCi
 import {
   Box,
   Collapse,
+  Divider,
   Drawer,
   IconButton,
   List,
@@ -74,7 +75,7 @@ export const AdminSidebar: FC<AdminSidebarProps> = ({ children }) => {
               <ListItemIcon
                 sx={{
                   minWidth: 0,
-                  mr: open ? 2 : 'auto',
+                  mr: open ? 0.75 : 'auto',
                   justifyContent: 'center',
                   color: active ? theme.palette.primary.main : theme.palette.text.secondary,
                 }}
@@ -86,13 +87,14 @@ export const AdminSidebar: FC<AdminSidebarProps> = ({ children }) => {
                 sx={{ opacity: open ? 1 : 0, m: 0 }}
                 primaryTypographyProps={{
                   fontSize: 14,
-                  fontWeight: active ? 700 : 500,
-                  color: active ? theme.palette.primary.main : theme.palette.text.primary,
+                  fontWeight: 500,
+                  color: active ? theme.palette.primary.main : theme.palette.text.secondary,
                   noWrap: true,
                 }}
               />
             </ListItemButton>
           </Tooltip>
+          <Divider />
         </Link>
       </ListItem>
     );

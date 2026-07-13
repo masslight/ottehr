@@ -49,7 +49,7 @@ export interface BillingPolicyHolderSummary {
   middleName: string;
   lastName: string;
   dob: string;
-  birthSex: 'Male' | 'Female' | 'Intersex' | '';
+  gender: string;
   addressParts: {
     line1: string;
     line2: string;

@@ -30,6 +30,13 @@ export interface PatientAccountResponse extends PatientAccountAndCoverageResourc
 
 export interface UpdatePatientAccountInput {
   questionnaireResponse: QuestionnaireResponse;
+  // Opt into validating only the fields present in the submission rather than
+  // each submitted section in full. Use for single-field edits (e.g. the EHR
+  // Medicaid toggle) where enforcing required siblings the caller never touched
+  // would wrongly reject the update. Leave unset for section saves that must be
+  // validated as an atomic unit — insurance/coverage sections in particular
+  // can't be safely processed field-by-field.
+  onlyValidateProvidedFields?: boolean;
 }
 
 export interface UpdatePatientAccountResponse {

@@ -44,8 +44,6 @@ describe('set-billing-claim-status', () => {
     });
     createdClaimIds.push(claim.id!);
 
-    console.log('colin test fhir api url', oystehr.config.services?.fhirApiUrl);
-    console.log('colin test created claim id', claim.id);
     await oystehr.zambda.execute({
       id: 'set-billing-claim-status',
       claimId: claim.id,
