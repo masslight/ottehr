@@ -21,7 +21,7 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
 };
 
 const validateBody = (input: ZambdaInput): UpdateRadiologyOrderZambdaInput => {
-  const { serviceRequestId, consentObtained } = validateJsonBody(input);
+  const { serviceRequestId, consentObtained, edit } = validateJsonBody(input);
 
   if (!serviceRequestId) {
     throw new Error('serviceRequestId is required');
@@ -35,9 +35,15 @@ const validateBody = (input: ZambdaInput): UpdateRadiologyOrderZambdaInput => {
     throw new Error('consentObtained must be a boolean');
   }
 
+  if (edit != null && (typeof edit !== 'object' || Array.isArray(edit))) {
+    throw new Error('edit must be an object');
+  }
+
+  // Detailed validation of the edit payload (terminology lookups etc.) happens in performEffect.
   return {
     serviceRequestId,
     consentObtained,
+    edit: edit as UpdateRadiologyOrderZambdaInput['edit'],
   };
 };
 

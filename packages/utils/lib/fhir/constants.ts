@@ -228,6 +228,15 @@ export const FHIR_EXTENSION = {
     consentObtained: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
     },
+    externalRadiologyOrder: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/external-radiology-order`,
+    },
+    radiologyTimeWindow: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/radiology-time-window`,
+    },
+    radiologySafetyFlag: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/radiology-safety-flag`,
+    },
   },
   RelatedPerson: {
     responsiblePartyRelationship: {

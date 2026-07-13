@@ -84,7 +84,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
-  const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(primaryDiagnosis ? primaryDiagnosis : undefined);
+  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>();
   const [stat, setStat] = useState<boolean>(false);
   const [studyName, setStudyName] = useState<string | undefined>();
@@ -242,13 +242,14 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
         ? { display: LATERALITY_SELECTORS[laterality].modifierDescription, code: laterality }
         : undefined;
 
-    const paramsSatisfied = orderDx && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
+    const paramsSatisfied =
+      orderDx.length > 0 && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
 
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
         await addAdditionalDxToEncounter();
         const res = await createRadiologyOrder(oystehrZambda, {
-          diagnosisCode: orderDx.code,
+          diagnosisCodes: orderDx.map((dx) => dx.code),
           cptCode: orderCpt.code,
           lateralityModifier,
           encounterId: encounter.id,
@@ -274,7 +275,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
-      if (!orderDx) errorMessage.push('Please enter a diagnosis to continue');
+      if (orderDx.length === 0) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (!clinicalHistory) errorMessage.push('Please enter clinical history to continue');
       if (clinicalHistory && clinicalHistory.length > 255)
@@ -286,17 +287,17 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   };
 
   const addAdditionalDxToEncounter = async (): Promise<void> => {
-    if (orderDx === undefined) return;
+    if (orderDx.length === 0) return;
 
-    const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === orderDx.code);
-    if (alreadyExistsOnEncounter) {
+    const newDx = orderDx.filter((dx) => !diagnosis?.some((d) => d.code === dx.code));
+    if (newDx.length === 0) {
       return;
     }
 
     await new Promise<void>((resolve, reject) => {
       saveChartData(
         {
-          diagnosis: [orderDx],
+          diagnosis: newDx,
         },
         {
           onSuccess: (data) => {
@@ -351,17 +352,19 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 </Grid>
                 <Grid item xs={12}>
                   <Autocomplete
-                    blurOnSelect
+                    multiple
+                    disableCloseOnSelect
                     id="select-dx"
                     size="small"
                     fullWidth
                     filterOptions={(x) => x}
+                    filterSelectedOptions
                     noOptionsText={
                       dxDebouncedSearchTerm && icdSearchOptions.length === 0
                         ? 'Nothing found for this search criteria'
                         : 'Start typing to load results'
                     }
-                    value={orderDx || null}
+                    value={orderDx}
                     isOptionEqualToValue={(option, value) => value.code === option.code}
                     onChange={(_event: any, selectedDx: any) => {
                       setOrderDx(selectedDx);

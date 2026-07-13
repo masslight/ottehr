@@ -929,6 +929,20 @@
       "src": "src/ehr/radiology/update-order/index",
       "zip": ".dist/zips/radiology-update-order.zip"
     },
+    "RADIOLOGY-GET-ORDER-PDF": {
+      "name": "radiology-get-order-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/get-order-pdf/index",
+      "zip": ".dist/zips/radiology-get-order-pdf.zip"
+    },
+    "RADIOLOGY-SEND-FAX": {
+      "name": "radiology-send-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/send-fax/index",
+      "zip": ".dist/zips/radiology-send-fax.zip"
+    },
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
       "type": "http_auth",

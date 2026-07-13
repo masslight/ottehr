@@ -138,6 +138,8 @@ import {
   GetQuickTextQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
+  GetRadiologyOrderPdfZambdaInput,
+  GetRadiologyOrderPdfZambdaOutput,
   GetRadiologyQuickPicksResponse,
   GetScheduleParams,
   GetScheduleRequestParams,
@@ -197,6 +199,8 @@ import {
   SearchLegacyRecordsOutput,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
+  SendRadiologyOrderFaxZambdaInput,
+  SendRadiologyOrderFaxZambdaOutput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -1229,6 +1233,38 @@ export const updateRadiologyOrder = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-update-order',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getRadiologyOrderPdf = async (
+  oystehr: Oystehr,
+  parameters: GetRadiologyOrderPdfZambdaInput
+): Promise<GetRadiologyOrderPdfZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-get-order-pdf',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const sendRadiologyOrderFax = async (
+  oystehr: Oystehr,
+  parameters: SendRadiologyOrderFaxZambdaInput
+): Promise<SendRadiologyOrderFaxZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-send-fax',
       ...parameters,
     });
     return chooseJson(response);
