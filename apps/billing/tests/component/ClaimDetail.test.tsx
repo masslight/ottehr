@@ -166,7 +166,7 @@ describe('ClaimDetail — remits', () => {
     expect(screen.getByText('PR-1 $15.00, CO-45 $20.00')).toBeInTheDocument();
   });
 
-  it('renders dashes, not $0.00, for amounts the remit does not carry', async () => {
+  it('renders each amount by state: missing as a dash, zero as $0.00, positive as currency', async () => {
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.insurancePayer),
       remits: [
@@ -177,8 +177,8 @@ describe('ClaimDetail — remits', () => {
           status: 'complete',
           eraStatusCode: '',
           allowed: null,
-          paid: 10,
-          patientResp: null,
+          paid: 0,
+          patientResp: 20,
           adjustments: [],
         },
       ],
@@ -192,7 +192,7 @@ describe('ClaimDetail — remits', () => {
     const cells = within(row as HTMLElement)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect(cells).toEqual(['07/09/2026', 'Aetna', 'complete', '-', '-', '-', '$10.00', '-']);
+    expect(cells).toEqual(['07/09/2026', 'Aetna', 'complete', '-', '-', '-', '$0.00', '$20.00']);
   });
 
   it('shows the empty state when the claim has no remits', async () => {
