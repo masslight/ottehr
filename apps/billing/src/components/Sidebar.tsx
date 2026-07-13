@@ -10,6 +10,7 @@ import {
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
   Receipt as ReceiptIcon,
+  Rule as RuleIcon,
 } from '@mui/icons-material';
 import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC } from 'react';
@@ -33,6 +34,7 @@ const navItems = [
   },
   { label: 'ERAs', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
   { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
+  { label: 'Rules', path: '/rules', icon: <RuleIcon sx={{ fontSize: 18 }} /> },
 ];
 
 export const Sidebar: FC = () => {

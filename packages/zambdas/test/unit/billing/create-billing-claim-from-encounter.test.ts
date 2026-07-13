@@ -23,6 +23,7 @@ import {
   CANDID_PLAN_TYPE_SYSTEM,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   CLAIM_STATUS_TAG_SYSTEMS,
+  CLAIM_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -63,7 +64,6 @@ import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   buildNoCoverageStub,
-  CLAIM_TAG_SYSTEM,
   CURRENT_STATUS_TAG_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
@@ -1931,9 +1931,11 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              // The claim references its own per-claim working copies, never the shared billing
+              // provider/facility/practitioner originals.
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -1945,7 +1947,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {
@@ -2689,9 +2691,9 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -2703,7 +2705,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {
@@ -2798,9 +2800,9 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -2812,7 +2814,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {
