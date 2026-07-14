@@ -35,10 +35,7 @@ const INPUT_WIDTH_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.inputWidth
  * @returns Fhir Questionnaire
  */
 export const practiceManagedQuestionnaireToFhir = (questionnaire: PracticeManagedQuestionnaire): Questionnaire => {
-  console.log('questionnaire.item here', questionnaire.item);
   const fhirItems = questionnaire.item?.map(PracticeManagedQuestionnaireItemToFhir);
-
-  console.log('are these right?', fhirItems);
 
   const questionnaireWithTag = addPracticeManagedQuestionnaireTag(questionnaire);
 
@@ -61,17 +58,23 @@ const PracticeManagedQuestionnaireItemToFhir = (item: PracticeManagedQuestionnai
     extension.push({ url: INPUT_WIDTH_EXTENSION_URL, valueString: item.inputWidth });
   }
 
-  // the front end reducer automatically assigns text as an empty string to make updates easier
-  // this is technically valid for typescript but if you send the object to oystehr for create or update with an empty string it will error
-  if (item.text === '') delete item.text;
-
-  const { _key, dataType: _dataType, inputWidth: _inputWidth, ...fhirItem } = item;
+  const fhirItem = omitManagedFields(item);
 
   return {
     ...fhirItem,
     item: managedNestedItems,
     ...(extension.length > 0 ? { extension } : { extension: undefined }),
   };
+};
+
+const omitManagedFields = (item: PracticeManagedQuestionnaireItem): QuestionnaireItem => {
+  // the front end reducer automatically assigns text as an empty string to make updates easier
+  // this is technically valid for typescript but if you send the object to oystehr for create or update with an empty string it will error
+  if (item.text === '') delete item.text;
+
+  const { _key, _dataType, _inputWidth, ...fhirItem } = item;
+
+  return fhirItem;
 };
 
 const addPracticeManagedQuestionnaireTag = (

@@ -651,6 +651,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
             aria-describedby={`${item.linkId}-helper-text`}
             inputProps={{
               ...inputBaseProps,
+              maxLength: item.maxLength,
               inputMode:
                 inputMode ??
                 (item.type === 'decimal'
