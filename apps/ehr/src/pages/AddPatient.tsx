@@ -378,8 +378,8 @@ export default function AddPatient(): JSX.Element {
   // communicates that something is wrong. In practice merged.length===0
   // means both BOOKING_CONFIG is empty AND the FHIR query returned nothing
   // or failed — a config/environment bug rather than normal operation.
-const isPickerLocked = mergedSourcedCategories.length === 1;
-const isPickerEmpty = mergedSourcedCategories.length === 0 && (fhirServiceCategories !== undefined || !oystehrZambda);
+  const isPickerLocked = mergedSourcedCategories.length === 1;
+  const isPickerEmpty = mergedSourcedCategories.length === 0 && (fhirServiceCategories !== undefined || !oystehrZambda);
 
   // When the merged catalog resolves to exactly one entry, force the pick to
   // that entry's code. Covers two shapes that would otherwise strand the
