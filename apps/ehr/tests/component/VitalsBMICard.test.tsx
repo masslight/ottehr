@@ -110,7 +110,9 @@ describe('VitalsBMICard', () => {
 
     it('keeps the add-Weight-and-Height prompt alongside the weight-declined warning', () => {
       render(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} isWeightRefused />);
-      expect(screen.getByText(/Please add and save Weight and Height to calculate BMI/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Please enter your weight and height for today to calculate your BMI/)
+      ).toBeInTheDocument();
       expect(screen.getByText(/BMI not calculated, weight declined by patient/)).toBeInTheDocument();
     });
 
