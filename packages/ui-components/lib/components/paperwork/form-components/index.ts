@@ -19,3 +19,4 @@ export { default as AIInterview } from './AIInterview';
 export { default as MultiAnswerHeader } from './group/MultiAnswerHeader';
 export { default as GroupContainer } from './group/GroupContainer';
 export * from './credit-card/CardErrorDialog';
+export * from './credit-card/CreditCardVerification';

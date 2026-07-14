@@ -1,13 +1,15 @@
 import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
-import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { QuestionnaireItemAnswerOption, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { createContext, useContext } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   AppointmentSummary,
   CreditCardInfo,
+  GetAnswerOptionsRequest,
   HandleAnswerInput,
   IntakeQuestionnaireItem,
   PaperworkPatient,
+  PaymentMethodSetDefaultParameters,
   PaymentMethodSetupZambdaOutput,
   QuestionnaireFormFields,
   SearchPlacesInput,
@@ -26,6 +28,10 @@ export interface PaperworkComponentHelpers {
   aIInterviewStart: ((input: StartInterviewInput) => Promise<QuestionnaireResponse>) | undefined;
   /** AiInterview */
   aIInterviewHandleAnswer: ((input: HandleAnswerInput) => Promise<QuestionnaireResponse>) | undefined;
+  /** CreditCardVerification */
+  setDefaultPaymentMethod: ((input: PaymentMethodSetDefaultParameters) => Promise<unknown>) | undefined;
+  /** FreeMultiSelectInput */
+  getAnswerOptions: ((input: GetAnswerOptionsRequest) => Promise<QuestionnaireItemAnswerOption[]>) | undefined;
 }
 
 export interface PaperworkContext

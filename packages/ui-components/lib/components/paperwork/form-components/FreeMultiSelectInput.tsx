@@ -1,10 +1,10 @@
 import { Autocomplete, MenuItem, SelectProps, TextField, useTheme } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, ReactNode, useCallback, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { AnswerLoadingOptions, GetAnswerOptionsRequest } from 'utils';
-// todo sarah
-// import { useAnswerOptionsQuery } from '../../../telemed/features/paperwork';
+import { usePaperworkContext } from '../context';
 import { usePaperworkOtherColors } from '../theme';
 import { VirtualizedListbox } from './VirtualizedListbox';
 
@@ -64,8 +64,13 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   const usesDynamicOptions = fetchOptionsInput !== undefined;
   const valueType = dynamicAnswerOptions?.answerSource !== undefined ? 'Reference' : 'String';
 
-  // todo sarah
-  // const { data } = useAnswerOptionsQuery(name, usesDynamicOptions, fetchOptionsInput);
+  const { paperworkComponentHelpers } = usePaperworkContext();
+
+  const { data } = useQuery({
+    queryKey: [name, fetchOptionsInput],
+    queryFn: () => paperworkComponentHelpers.getAnswerOptions?.(fetchOptionsInput as GetAnswerOptionsRequest),
+    enabled: usesDynamicOptions && paperworkComponentHelpers.getAnswerOptions !== undefined,
+  });
 
   const { getValues } = useFormContext();
 
@@ -104,9 +109,7 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   const options = useMemo(() => {
     let baseOptions: QuestionnaireItemAnswerOption[] = [];
     if (usesDynamicOptions) {
-      // todo sarah
-      // baseOptions = data ?? [];
-      baseOptions = [];
+      baseOptions = data ?? [];
     } else {
       baseOptions = staticOptions;
     }
@@ -138,7 +141,7 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
     });
 
     return moveOtherOptionToEnd(filteredOptions);
-  }, [usesDynamicOptions, multiple, otherProps.value, staticOptions, valueType]);
+  }, [usesDynamicOptions, data, multiple, otherProps.value, staticOptions, valueType]);
 
   return (
     <Autocomplete

@@ -13,15 +13,13 @@ import {
 import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { AddCreditCardForm, CreditCardBrandIcon, loadStripe } from 'ui-components';
+import { AddCreditCardForm, CreditCardBrandIcon, loadStripe, usePaperworkOtherColors } from 'ui-components';
+import { dataTestIds } from 'ui-components';
 import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import { useCreditCardContext } from 'ui-components/lib/components/paperwork/hooks/useCreditCardContext';
 import { useCreditCardStore } from 'ui-components/lib/components/paperwork/hooks/useCreditCardStore';
 import { CreditCardInfo, PaymentMethodSetupZambdaOutput } from 'utils';
-import { BoldPurpleInputLabel } from '../../../components/form';
-import { dataTestIds } from '../../../helpers/data-test-ids';
-import { otherColors } from '../../../IntakeThemeProvider';
-import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
+import { BoldPurpleInputLabel } from '../BoldPurpleInputLabel';
 
 interface CreditCardVerificationProps {
   fieldId: string;
@@ -40,13 +38,19 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldI
     stripeSetupData: setupData,
     paymentMethodStateInitializing,
     cardsAreLoading,
+    paperworkComponentHelpers,
   } = usePaperworkContext();
+
+  const { setDefaultPaymentMethod } = paperworkComponentHelpers;
 
   useCreditCardContext({ fieldId, onChange, required, value, hasSavedCards: cards.length > 0 });
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
   const [pendingSelection, setPendingSelection] = useState<string | undefined>(undefined);
+  const [isSetDefaultLoading, setIsSetDefaultLoading] = useState(false);
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
+
+  const otherColors = usePaperworkOtherColors();
 
   const stripePromise = useMemo(
     () => loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount),
@@ -58,11 +62,6 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldI
       setSelectedOption(defaultCard?.id);
     }
   }, [cards, defaultCard?.id, selectedOption]);
-
-  const { mutateAsync: setDefaultAsync, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(
-    patient?.id,
-    appointment?.id
-  );
 
   useEffect(() => {
     if (!onChange) return;
@@ -76,24 +75,31 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ fieldI
   const disabled = cardsAreLoading || isSetDefaultLoading || paymentMethodStateInitializing;
 
   const onMakePrimary = async (id: string): Promise<void> => {
-    setPendingSelection(id);
-    await setDefaultAsync({
-      paymentMethodId: id,
-      onSuccess: async () => {
-        if (value !== true && onChange) {
-          onChange({ target: { value: true } });
-        }
+    if (!patient?.id || !appointment?.id || !setDefaultPaymentMethod) return;
 
-        await Promise.all([refetchPaymentMethods(), refetchSetupData()]);
-        setSelectedOption(id);
-        setPendingSelection(undefined);
-      },
-      onError: (error) => {
-        console.error('setDefault error', error);
-        setPendingSelection(undefined);
-        setErrorMessage('Unable to set default payment method. Please try again later or select a card.');
-      },
-    });
+    setPendingSelection(id);
+    setIsSetDefaultLoading(true);
+    try {
+      await setDefaultPaymentMethod({
+        beneficiaryPatientId: patient.id,
+        appointmentId: appointment.id,
+        paymentMethodId: id,
+      });
+
+      if (value !== true && onChange) {
+        onChange({ target: { value: true } });
+      }
+
+      await Promise.all([refetchPaymentMethods(), refetchSetupData()]);
+      setSelectedOption(id);
+      setPendingSelection(undefined);
+    } catch (error) {
+      console.error('setDefault error', error);
+      setPendingSelection(undefined);
+      setErrorMessage('Unable to set default payment method. Please try again later or select a card.');
+    } finally {
+      setIsSetDefaultLoading(false);
+    }
   };
 
   const handleNewPaymentMethod = async (id: string): Promise<void> => {
@@ -161,6 +167,8 @@ const CreditCardContent: FC<CreditCardContentProps> = ({
   const theme = useTheme();
   const cardFormRef = useCreditCardStore((state) => state.cardFormRef);
   const handleCardChange = useCreditCardStore((state) => state.handleCardChange);
+
+  const otherColors = usePaperworkOtherColors();
 
   const stripeOptions = useMemo(
     () => ({

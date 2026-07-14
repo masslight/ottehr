@@ -40,14 +40,13 @@ import {
 } from 'utils';
 import { AnyObjectSchema } from 'yup';
 import { usePaperworkContext } from './context';
-// todo sarah
-// import { CreditCardVerification } from './components/CreditCardVerification';
 import {
   AIInterview,
   AttachmentType,
   BoldPurpleInputLabel,
   CardErrorDialog,
   ControlButtons,
+  CreditCardVerification,
   DateInput,
   DecimalInput,
   DescriptionRenderer,
@@ -298,8 +297,6 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
   const { questionnaireResponse, saveButtonDisabled, continueLabel } = usePaperworkContext();
-
-  console.log('huh', continueLabel); // todo sarah remove
 
   const { handleSubmit, formState } = useFormContext();
 
@@ -843,15 +840,14 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
           return <RenderItems pageItem={pageItem} parentItem={item} items={item.item ?? []} fieldId={fieldId} />;
         }
       case 'Credit Card':
-        return <> todo sarah credit card placeholder </>;
-      // return (
-      //   <CreditCardVerification
-      //     fieldId={fieldId}
-      //     onChange={smartOnChange}
-      //     required={item.required ?? false}
-      //     value={unwrappedValue}
-      //   />
-      // );
+        return (
+          <CreditCardVerification
+            fieldId={fieldId}
+            onChange={smartOnChange}
+            required={item.required ?? false}
+            value={unwrappedValue}
+          />
+        );
       case 'Medical History':
         return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;
       case 'Link':
