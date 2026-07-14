@@ -12,6 +12,7 @@ import {
 } from '../claim-amounts';
 import {
   createBillingClient,
+  createEraReadClient,
   fhirName,
   findRef,
   getEraCheckNumber,
@@ -27,23 +28,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, eraReadClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Promise<EraDetailResponse> {
-  const bundle = await oystehr.fhir.search<PaymentReconciliation>({
+async function performEffect(
+  oystehr: Oystehr,
+  eraReadClient: Oystehr,
+  params: GetEraDetailParams
+): Promise<EraDetailResponse> {
+  const bundle = await eraReadClient.fhir.search<PaymentReconciliation>({
     resourceType: 'PaymentReconciliation',
     params: [{ name: '_id', value: params.eraId }],
   });
   const pr = bundle.unbundle().find((r) => r.id === params.eraId);
   if (!pr) throw FHIR_RESOURCE_NOT_FOUND('PaymentReconciliation');
 
-  // ClaimResponses linked via the era-id identifier, with rcm link extension fallback
+  // ClaimResponses linked to this ERA via its era-processing Provenance
   const eraIdValue = getEraIdValue(pr);
   const claimResponses: ClaimResponse[] =
-    (await fetchClaimResponsesByPaymentReconciliations(oystehr, [pr])).get(pr.id ?? '') ?? [];
+    (await fetchClaimResponsesByPaymentReconciliations(eraReadClient, [pr])).get(pr.id ?? '') ?? [];
 
   // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on the
   // ClaimResponses

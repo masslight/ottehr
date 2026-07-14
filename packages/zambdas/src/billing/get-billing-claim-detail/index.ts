@@ -18,11 +18,10 @@ import {
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
-  claimResponseBelongsToEra,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
+  fetchClaimEraLinks,
   fetchClaimResponsesByClaimIds,
-  fetchPaymentReconciliationsByClaimResponses,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
 } from '../claim-amounts';
@@ -30,6 +29,7 @@ import { getCLIA } from '../service-facility.helpers';
 import {
   claimHasRealCoverage,
   createBillingClient,
+  createEraReadClient,
   ERA_STATUS_CODE_EXTENSION,
   fetchClaimGraph,
   fhirName,
@@ -53,12 +53,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, eraReadClient, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Promise<ClaimDetailResponse> {
+async function performEffect(
+  oystehr: Oystehr,
+  eraReadClient: Oystehr,
+  params: GetClaimDetailParams
+): Promise<ClaimDetailResponse> {
   const { claimId } = params;
   // One shared fetch of the claim + its referenced working copies (also used by the rules engine).
   const graph = await fetchClaimGraph(oystehr, claimId);
@@ -75,10 +80,10 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
   // Other claims via Person lookup, plus this claim's ERA adjudications
   const [otherClaims, claimResponsesByClaimId] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
+    fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
-  const paymentReconciliations = await fetchPaymentReconciliationsByClaimResponses(oystehr, claimResponses);
+  const { paymentReconciliations, claimResponseByPrId } = await fetchClaimEraLinks(eraReadClient, claimResponses);
 
   // Resolve primary, secondary, remit, and insurance payment payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [
@@ -118,7 +123,7 @@ async function performEffect(oystehr: Oystehr, params: GetClaimDetailParams): Pr
     .map((pr) => {
       // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on one
       // of this ERA's ClaimResponses
-      const linkedCr = claimResponses.find((cr) => claimResponseBelongsToEra(cr, pr));
+      const linkedCr = claimResponseByPrId.get(pr.id ?? '');
       const payerRef = pr.paymentIssuer?.reference ?? linkedCr?.insurer?.reference;
       const payer = payerRef ? payersByRef.get(payerRef) : undefined;
       return {

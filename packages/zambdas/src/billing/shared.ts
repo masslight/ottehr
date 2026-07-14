@@ -6,7 +6,6 @@ import {
   Bundle,
   ChargeItemDefinition,
   Claim,
-  ClaimResponse,
   Coding,
   Coverage,
   FhirResource,
@@ -18,6 +17,7 @@ import {
   PaymentReconciliation,
   Person,
   Practitioner,
+  Provenance,
   RelatedPerson,
   Resource,
   Task,
@@ -208,25 +208,14 @@ export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
-// claim responses on payment reconciliation resource
-export const PAYMENT_RECONCILIATION_CLAIM_RESPONSES_EXTENSION =
-  'https://extensions.fhir.oystehr.com/rcm-claim-responses';
-// payment reconciliation on claim response resource
-export const CLAIM_RESPONSE_PAYMENT_RECONCILIATION_EXTENSION =
-  'https://extensions.fhir.oystehr.com/rcm-payment-reconciliation';
+// Oystehr emits one Provenance per ERA (activity era-processing) whose targets are all resources
+// created from that ERA — the PaymentReconciliation and its ClaimResponses. This is how a single
+// ERA's resources are linked to each other.
+export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'http://hl7.org/fhir/ValueSet/provenance-activity-type';
+export const ERA_PROCESSING_ACTIVITY_CODE = 'era-processing';
 
-export function getLinkedClaimResponseIds(paymentReconciliation: Pick<PaymentReconciliation, 'extension'>): string[] {
-  return (paymentReconciliation.extension ?? [])
-    .filter((ext) => ext.url === PAYMENT_RECONCILIATION_CLAIM_RESPONSES_EXTENSION)
-    .map((ext) => ext.valueReference?.reference ?? '')
-    .filter((reference) => reference.startsWith('ClaimResponse/'))
-    .map((reference) => reference.replace('ClaimResponse/', ''));
-}
-
-export function getLinkedPaymentReconciliationId(claimResponse: Pick<ClaimResponse, 'extension'>): string | undefined {
-  const reference = claimResponse.extension?.find((ext) => ext.url === CLAIM_RESPONSE_PAYMENT_RECONCILIATION_EXTENSION)
-    ?.valueReference?.reference;
-  return reference?.startsWith('PaymentReconciliation/') ? reference.replace('PaymentReconciliation/', '') : undefined;
+export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity'>): boolean {
+  return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
 }
 
 export function getEraIdValue(resource: { identifier?: Identifier[] }): string | undefined {
@@ -284,6 +273,17 @@ export function createBillingClient(
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
+  });
+}
+
+// ERA resources are untagged by Oystehr
+export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+      projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    },
   });
 }
 

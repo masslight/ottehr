@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimResponse, ClaimResponseItemAdjudication, PaymentReconciliation } from 'fhir/r4b';
+import { ClaimResponse, ClaimResponseItemAdjudication, PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { ClaimRemitAdjustment, X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils';
 import { fetchAllPages } from '../shared';
-import { ERA_ID_SYSTEM, getEraIdValue, getLinkedClaimResponseIds, getLinkedPaymentReconciliationId } from './shared';
+import { isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
 export const X12_ADJUSTMENT_GROUP_SYSTEM = 'https://x12.org/codes/claim-adjustment-group-codes';
@@ -205,124 +205,143 @@ export async function fetchClaimResponsesByClaimIds(
   );
 }
 
-// Fetch every ClaimResponse produced by the given ERAs, grouped by ERA business identifier.
-// Includes unmatched responses (contained '#request' claims) so callers can count both.
-export async function fetchClaimResponsesByEraIds(
-  oystehr: Oystehr,
-  eraIdValues: string[]
-): Promise<Map<string, ClaimResponse[]>> {
-  return fetchClaimResponsesGrouped(
-    oystehr,
-    eraIdValues,
-    (batch) => ({
-      name: 'identifier',
-      value: batch.map((id) => `${ERA_ID_SYSTEM}|${id}`).join(','),
-    }),
-    (claimResponse) => getEraIdValue(claimResponse)
-  );
+// Fetch the era-processing Provenances (one per ERA, targeting its PR + ClaimResponses) that point
+// at any of the given resource references, deduped by id.
+async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: string[]): Promise<Provenance[]> {
+  const byId = new Map<string, Provenance>();
+  const uniqueRefs = [...new Set(targetRefs)];
+  for (let i = 0; i < uniqueRefs.length; i += BATCH) {
+    const batch = uniqueRefs.slice(i, i + BATCH);
+    await fetchAllPages(async (offset, count) => {
+      const bundle = await oystehr.fhir.search<Provenance>({
+        resourceType: 'Provenance',
+        params: [
+          {
+            name: 'target',
+            value: batch.join(','),
+          },
+          {
+            name: '_count',
+            value: String(count),
+          },
+          {
+            name: '_offset',
+            value: String(offset),
+          },
+        ],
+      });
+      for (const provenance of bundle.unbundle()) {
+        if (provenance.id && isEraProcessingProvenance(provenance)) byId.set(provenance.id, provenance);
+      }
+      return bundle;
+    }, PAGE_SIZE);
+  }
+  return [...byId.values()];
+}
+
+function eraProvenanceTargetIds(provenance: Provenance, resourceType: string): string[] {
+  const prefix = `${resourceType}/`;
+  return (provenance.target ?? [])
+    .map((target) => target.reference ?? '')
+    .filter((reference) => reference.startsWith(prefix))
+    .map((reference) => reference.slice(prefix.length));
+}
+
+async function fetchPaymentReconciliationsByIds(oystehr: Oystehr, ids: string[]): Promise<PaymentReconciliation[]> {
+  const results: PaymentReconciliation[] = [];
+  const uniqueIds = [...new Set(ids)];
+  for (let i = 0; i < uniqueIds.length; i += BATCH) {
+    const batch = uniqueIds.slice(i, i + BATCH);
+    await fetchAllPages(async (offset, count) => {
+      const bundle = await oystehr.fhir.search<PaymentReconciliation>({
+        resourceType: 'PaymentReconciliation',
+        params: [
+          {
+            name: '_id',
+            value: batch.join(','),
+          },
+          {
+            name: '_count',
+            value: String(count),
+          },
+          {
+            name: '_offset',
+            value: String(offset),
+          },
+        ],
+      });
+      results.push(...bundle.unbundle());
+      return bundle;
+    }, PAGE_SIZE);
+  }
+  return results;
 }
 
 export async function fetchClaimResponsesByPaymentReconciliations(
   oystehr: Oystehr,
   paymentReconciliations: PaymentReconciliation[]
 ): Promise<Map<string, ClaimResponse[]>> {
-  const linkedIdsByPrId = new Map<string, string[]>();
-  const eraIdByPrId = new Map<string, string>();
-  for (const pr of paymentReconciliations) {
-    if (!pr.id) continue;
-    const eraIdValue = getEraIdValue(pr);
-    if (eraIdValue) {
-      eraIdByPrId.set(pr.id, eraIdValue);
-      continue;
+  const prIds = paymentReconciliations.map((pr) => pr.id).filter((id): id is string => !!id);
+  const provenances = await fetchEraProcessingProvenances(
+    oystehr,
+    prIds.map((id) => `PaymentReconciliation/${id}`)
+  );
+
+  const claimResponseIdsByPrId = new Map<string, string[]>();
+  for (const provenance of provenances) {
+    const claimResponseIds = eraProvenanceTargetIds(provenance, 'ClaimResponse');
+    for (const prId of eraProvenanceTargetIds(provenance, 'PaymentReconciliation')) {
+      claimResponseIdsByPrId.set(prId, [...(claimResponseIdsByPrId.get(prId) ?? []), ...claimResponseIds]);
     }
-    const linkedIds = getLinkedClaimResponseIds(pr);
-    if (linkedIds.length > 0) linkedIdsByPrId.set(pr.id, linkedIds);
   }
 
-  const [byId, byEraId] = await Promise.all([
-    fetchClaimResponsesGrouped(
-      oystehr,
-      [...linkedIdsByPrId.values()].flat(),
-      (batch) => ({
-        name: '_id',
-        value: batch.join(','),
-      }),
-      (claimResponse) => claimResponse.id
-    ),
-    fetchClaimResponsesByEraIds(oystehr, [...eraIdByPrId.values()]),
-  ]);
+  const claimResponsesById = await fetchClaimResponsesGrouped(
+    oystehr,
+    [...new Set([...claimResponseIdsByPrId.values()].flat())],
+    (batch) => ({
+      name: '_id',
+      value: batch.join(','),
+    }),
+    (claimResponse) => claimResponse.id
+  );
 
   const grouped = new Map<string, ClaimResponse[]>();
-  for (const [prId, linkedIds] of linkedIdsByPrId) {
+  for (const [prId, claimResponseIds] of claimResponseIdsByPrId) {
     grouped.set(
       prId,
-      linkedIds.flatMap((id) => byId.get(id) ?? [])
+      claimResponseIds.flatMap((id) => claimResponsesById.get(id) ?? [])
     );
-  }
-  for (const [prId, eraIdValue] of eraIdByPrId) {
-    grouped.set(prId, byEraId.get(eraIdValue) ?? []);
   }
   return grouped;
 }
 
-export async function fetchPaymentReconciliationsByClaimResponses(
-  oystehr: Oystehr,
-  claimResponses: ClaimResponse[]
-): Promise<PaymentReconciliation[]> {
-  const eraIds = new Set<string>();
-  const prIds = new Set<string>();
-  for (const cr of claimResponses) {
-    const eraIdValue = getEraIdValue(cr);
-    if (eraIdValue) {
-      eraIds.add(eraIdValue);
-      continue;
-    }
-    const prId = getLinkedPaymentReconciliationId(cr);
-    if (prId) prIds.add(prId);
-  }
-
-  const searchParamsList: { name: string; value: string }[][] = [];
-  if (eraIds.size > 0) {
-    searchParamsList.push([
-      {
-        name: 'identifier',
-        value: [...eraIds].map((v) => `${ERA_ID_SYSTEM}|${v}`).join(','),
-      },
-    ]);
-  }
-  if (prIds.size > 0) {
-    searchParamsList.push([
-      {
-        name: '_id',
-        value: [...prIds].join(','),
-      },
-    ]);
-  }
-
-  const bundles = await Promise.all(
-    searchParamsList.map((params) =>
-      oystehr.fhir.search<PaymentReconciliation>({
-        resourceType: 'PaymentReconciliation',
-        params: [
-          ...params,
-          {
-            name: '_count',
-            value: '1000',
-          },
-        ],
-      })
-    )
-  );
-  const paymentReconciliations = bundles.flatMap((bundle) => bundle.unbundle());
-  return [...new Map(paymentReconciliations.map((pr) => [pr.id, pr])).values()];
+export interface ClaimEraLinks {
+  paymentReconciliations: PaymentReconciliation[];
+  claimResponseByPrId: Map<string, ClaimResponse>;
 }
 
-// check era-id, fallback to payment reconciliation id match
-export function claimResponseBelongsToEra(
-  claimResponse: ClaimResponse,
-  paymentReconciliation: PaymentReconciliation
-): boolean {
-  const eraIdValue = getEraIdValue(paymentReconciliation);
-  if (eraIdValue) return getEraIdValue(claimResponse) === eraIdValue;
-  return !!paymentReconciliation.id && getLinkedPaymentReconciliationId(claimResponse) === paymentReconciliation.id;
+export async function fetchClaimEraLinks(oystehr: Oystehr, claimResponses: ClaimResponse[]): Promise<ClaimEraLinks> {
+  const claimResponseById = new Map(claimResponses.filter((cr) => cr.id).map((cr) => [cr.id as string, cr]));
+  const provenances = await fetchEraProcessingProvenances(
+    oystehr,
+    [...claimResponseById.keys()].map((id) => `ClaimResponse/${id}`)
+  );
+
+  const prIds = new Set<string>();
+  const claimResponseByPrId = new Map<string, ClaimResponse>();
+  for (const provenance of provenances) {
+    const linkedClaimResponse = eraProvenanceTargetIds(provenance, 'ClaimResponse')
+      .map((id) => claimResponseById.get(id))
+      .find((cr): cr is ClaimResponse => !!cr);
+    for (const prId of eraProvenanceTargetIds(provenance, 'PaymentReconciliation')) {
+      prIds.add(prId);
+      if (linkedClaimResponse) claimResponseByPrId.set(prId, linkedClaimResponse);
+    }
+  }
+
+  const paymentReconciliations = prIds.size > 0 ? await fetchPaymentReconciliationsByIds(oystehr, [...prIds]) : [];
+  return {
+    paymentReconciliations,
+    claimResponseByPrId,
+  };
 }
