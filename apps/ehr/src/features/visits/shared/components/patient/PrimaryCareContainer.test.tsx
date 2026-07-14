@@ -34,15 +34,15 @@ const TestWrapper = ({ children, defaultValues = {}, onFormReady }: TestWrapperP
   });
 
   const TestForm = (): JSX.Element => {
+    const pcpItems = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
+    const initialPcpValues = Object.values(pcpItems).reduce<Record<string, unknown>>((acc, item) => {
+      acc[item.key] = item.key === pcpItems.active.key ? true : '';
+      return acc;
+    }, {});
     const methods = useForm({
       resolver: createDynamicValidationResolver(),
       defaultValues: {
-        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.active.key]: true,
-        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.firstName.key]: '',
-        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.lastName.key]: '',
-        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.practiceName.key]: '',
-        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.address.key]: '',
-        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.phone.key]: '',
+        ...initialPcpValues,
         ...defaultValues,
       },
     });
@@ -113,13 +113,23 @@ describe('PrimaryCareContainer', () => {
 
   // Build filled field values from config
   const conditionalFields = getConditionallyRenderedFields(pcp, pcp.active.key);
-  const testFieldValues: Record<string, string> = {
-    [pcp.firstName.key]: 'Dr. Jane',
-    [pcp.lastName.key]: 'Smith',
-    [pcp.practiceName.key]: 'Family Medical Center',
-    [pcp.address.key]: '123 Main St, AnyTown, ST 12345',
-    [pcp.phone.key]: '(555) 123-4567',
+  const namedSampleValues: Record<string, string> = {
+    firstName: 'Dr. Jane',
+    lastName: 'Smith',
+    practiceName: 'Family Medical Center',
+    address: '123 Main St, AnyTown, ST 12345',
+    phone: '(555) 123-4567',
+    fax: '(555) 123-4567',
   };
+  const testFieldValues: Record<string, string> = Object.entries(pcp).reduce<Record<string, string>>(
+    (acc, [name, item]: [string, any]) => {
+      if (name !== 'active' && namedSampleValues[name] !== undefined) {
+        acc[item.key] = namedSampleValues[name];
+      }
+      return acc;
+    },
+    {}
+  );
 
   const filledFieldValues = {
     [pcp.active.key]: true,

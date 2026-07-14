@@ -1,6 +1,38 @@
 import { DateTime } from 'luxon';
 import { PersonSex, RequiredProps, Secrets, UpdateAppointmentRequestParams } from 'utils';
-import { phoneRegex, ZambdaInput } from '../../../shared';
+import { z } from 'zod';
+import { phoneRegex, safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+
+const PatientSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  dateOfBirth: z.string().min(1),
+  email: z.string().min(1),
+  emailUser: z.enum(['Patient', 'Parent/Guardian']),
+  id: z.string().optional(),
+  sex: z.enum(Object.values(PersonSex) as [string, ...string[]]).optional(),
+  phoneNumber: z.string().optional(),
+  chosenName: z.string().optional(),
+  middleName: z.string().optional(),
+  newPatient: z.boolean().optional(),
+  weight: z.number().optional(),
+  weightLastUpdated: z.string().optional(),
+  reasonForVisit: z.string().optional(),
+  reasonAdditional: z.string().optional(),
+  pointOfDiscovery: z.boolean().optional(),
+  authorizedNonLegalGuardians: z.string().optional(),
+  telecom: z.array(z.object({ system: z.string(), value: z.string() })).optional(),
+  ssn: z.string().optional(),
+  address: z.array(z.unknown()).optional(),
+  tags: z.array(z.unknown()).optional(),
+  patientBeenSeenBefore: z.boolean().optional(),
+});
+
+const TelemedUpdateAppointmentBodySchema = z.object({
+  appointmentId: z.string().uuid(),
+  patient: PatientSchema,
+  locationState: z.string().optional(),
+});
 
 export function validateUpdateAppointmentParams(
   input: ZambdaInput
@@ -11,52 +43,14 @@ export function validateUpdateAppointmentParams(
     throw new Error('No request body provided');
   }
 
-  const { patient, appointmentId, locationState } = JSON.parse(input.body);
-
-  if (appointmentId === undefined) {
-    throw new Error('"appointmentId" is required');
-  }
-
-  // Check existence of necessary fields
-  if (patient === undefined) {
-    throw new Error('These fields are required: "patient"');
-  }
-
-  // Patient details
-  if (
-    patient.firstName === undefined ||
-    patient.lastName === undefined ||
-    patient.dateOfBirth === undefined ||
-    patient.email === undefined ||
-    patient.emailUser === undefined ||
-    patient.firstName === '' ||
-    patient.lastName === '' ||
-    patient.email === '' ||
-    patient.emailUser === ''
-  ) {
-    throw new Error(
-      'These fields are required and may not be empty: "patient.firstName", "patient.lastName", "patient.sex", "patient.dateOfBirth", "patient.email", "patient.emailUser"'
-    );
-  }
+  const { appointmentId, patient, locationState } = safeValidate(
+    TelemedUpdateAppointmentBodySchema,
+    safeJsonParse(input.body)
+  );
 
   const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth).isValid;
   if (isInvalidPatientDate) {
     throw new Error('"patient.dateOfBirth" was not read as a valid date');
-  }
-
-  if (patient.sex && !Object.values(PersonSex).includes(patient.sex)) {
-    throw new Error(`"patient.sex" must be one of the following values: ${JSON.stringify(Object.values(PersonSex))}`);
-  }
-
-  const patientUser = ['Patient', 'Parent/Guardian'];
-  if (!patientUser.includes(patient.emailUser)) {
-    throw new Error(
-      `"patient.emailUser" must be one of the following values: ${JSON.stringify(Object.values(patientUser))}`
-    );
-  }
-
-  if (!patient.email) {
-    throw new Error('patient email is not defined');
   }
 
   if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber)) {
@@ -68,7 +62,7 @@ export function validateUpdateAppointmentParams(
 
   return {
     appointmentId,
-    patient,
+    patient: patient as RequiredProps<UpdateAppointmentRequestParams, 'patient'>['patient'],
     secrets: input.secrets,
     locationState,
   };

@@ -24,6 +24,7 @@ export * from './progressNotePatientInfo';
 export * from './progressNoteVisitDetails';
 export * from './reviewOfSystems';
 export * from './rosObservations';
+export * from './signature';
 export * from './surgicalHistory';
 export * from './vitals';
 export * from './historyOfPresentIllness';

@@ -15,7 +15,7 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { ObservationDTO } from 'utils';
+import { ObservationDTO, RadiologyDTO } from 'utils';
 import z from 'zod';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import {
@@ -71,6 +71,7 @@ export interface AllChartValues {
   procedures?: ProcedureDTO[];
   reasonForVisit?: FreeTextNoteDTO;
   accident?: AccidentDTO;
+  radiologyOrders?: RadiologyDTO[];
 }
 
 export type RequestedFields =
@@ -98,7 +99,8 @@ export type RequestedFields =
   | 'preferredPharmacies'
   | 'reasonForVisit'
   | 'accident'
-  | 'patientHasPreviousVisits';
+  | 'patientHasPreviousVisits'
+  | 'radiologyOrders';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -154,6 +156,7 @@ export interface MedicationDTO extends SaveableDTO {
   type: 'scheduled' | 'as-needed' | 'prescribed-medication';
   id?: string;
   practitioner?: Practitioner | Reference;
+  isRenewal?: boolean;
 }
 
 export interface MedicationIntakeInfo {
@@ -170,6 +173,8 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   added?: string;
   prescriptionId?: string;
   encounterId?: string;
+  isRenewal?: boolean;
+  pharmacyId?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {
@@ -246,6 +251,10 @@ export interface VitalsHeightObservationDTO extends VitalsNumericValueObservatio
   field: Extract<VitalFieldNames, 'vital-height'>;
 }
 
+export interface VitalsBMIObservationDTO extends VitalsNumericValueObservationDTO {
+  field: Extract<VitalFieldNames, 'vital-bmi'>;
+}
+
 export interface VitalsTemperatureObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-temperature'>;
   observationMethod?: VitalTemperatureObservationMethod;
@@ -266,6 +275,33 @@ export interface VitalsBloodPressureObservationDTO extends VitalsBaseObservation
 
 export type VitalsVisionOption = 'child_too_young' | 'with_glasses' | 'without_glasses';
 
+/**
+ * DOT (FMCSA form MCSA-5875) vision screening fields captured for DOT physical exams.
+ * Stored on the same `vital-vision` Observation but in a separate history entry from the
+ * standard Snellen acuity reading.
+ */
+export interface VitalsDotVisionScreeningDocument {
+  /** DocumentReference id created when referral documentation is uploaded/scanned. */
+  documentReferenceId?: string;
+  /**
+   * Z3 URL of the uploaded file. Available in-session right after upload, but NOT persisted on the
+   * Observation (the canonical pointer is the DocumentReference via Observation.derivedFrom), so it
+   * is undefined when an entry is re-read from FHIR.
+   */
+  url?: string;
+  title: string;
+}
+
+export interface VitalsDotVisionScreening {
+  horizontalFieldLeftDegrees?: number;
+  horizontalFieldRightDegrees?: number;
+  canRecognizeColors?: boolean;
+  hasMonocularVision?: boolean;
+  referredToSpecialist?: boolean;
+  receivedDocumentation?: boolean;
+  document?: VitalsDotVisionScreeningDocument;
+}
+
 export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   field: Extract<VitalFieldNames, 'vital-vision'>;
   value?: never;
@@ -273,6 +309,7 @@ export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   rightEyeVisionText: string;
   bothEyesVisionText?: string;
   extraVisionOptions?: VitalsVisionOption[];
+  dotVisionScreening?: VitalsDotVisionScreening;
 }
 
 export interface VitalsOxygenSatObservationDTO extends VitalsNumericValueObservationDTO {
@@ -298,6 +335,7 @@ export type VitalsObservationDTO =
   | VitalsRespirationRateObservationDTO
   | VitalsWeightObservationDTO
   | VitalsHeightObservationDTO
+  | VitalsBMIObservationDTO
   | VitalsVisionObservationDTO
   | VitalsLastMenstrualPeriodObservationDTO;
 
@@ -321,6 +359,9 @@ export interface CPTCodeDTO extends SaveableDTO {
   display: string;
   modifier?: { code: string; display: string }[];
   ndcCode?: string;
+  dose?: number;
+  doseUnits?: string;
+  billableUnits?: number;
 }
 
 export const clinicalImpressionDTOSchema = z.object({
@@ -497,6 +538,7 @@ export const followUpInOptions = [
 ];
 
 export interface BillingSuggestionInput {
+  patientId?: string;
   newPatient: boolean | undefined;
   patientAge?: string;
   patientSex?: string;
@@ -510,6 +552,7 @@ export interface BillingSuggestionInput {
   rosFindings?: string;
   diagnoses: DiagnosisDTO[] | undefined;
   billing: CPTCodeDTO[] | undefined;
+  prescribedMedications?: PrescribedMedicationDTO[];
 }
 
 export interface BillingSuggestionOutput {

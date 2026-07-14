@@ -44,6 +44,7 @@ export interface BloodPressureLocalState {
   diastolicValue: string;
   observationQualifier: string;
   validationError: boolean;
+  validationErrorMessage?: string;
   isSystolicInvalid: boolean;
   isDiastolicInvalid: boolean;
   isDisabled: boolean;

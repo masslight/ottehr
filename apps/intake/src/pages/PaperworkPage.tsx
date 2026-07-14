@@ -62,11 +62,13 @@ type PaperworkState = {
   updateTimestamp: number | undefined;
   paperworkInProgress: { [pageId: string]: QuestionnaireFormFields };
   paperworkResponse: UCGetPaperworkResponse | undefined;
+  // The appointment `paperworkInProgress` belongs to (see setResponse).
+  paperworkAppointmentId: string | undefined;
   continueLabel: string | undefined;
 };
 
 interface PaperworkStateActions {
-  setResponse: (response: UCGetPaperworkResponse) => void;
+  setResponse: (response: UCGetPaperworkResponse, appointmentId: string) => void;
   saveProgress: (pageId: string, responses: any) => void;
   patchCompletedPaperwork: (QR: QuestionnaireResponse) => void;
   setContinueLabel: (label: string | undefined) => void;
@@ -77,6 +79,7 @@ const PAPERWORK_STATE_INITIAL: PaperworkState = {
   updateTimestamp: undefined,
   paperworkInProgress: {},
   paperworkResponse: undefined,
+  paperworkAppointmentId: undefined,
   continueLabel: undefined,
 };
 
@@ -84,11 +87,17 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
   persist(
     (set) => ({
       ...PAPERWORK_STATE_INITIAL,
-      setResponse: (response: UCGetPaperworkResponse) => {
+      setResponse: (response: UCGetPaperworkResponse, appointmentId: string) => {
         set((state) => {
+          // Drop persisted in-progress answers when the appointment changes so a prior
+          // interrupted session can't override this appointment's server answers; the
+          // same appointment (e.g. a mid-paperwork refresh) keeps its progress.
+          const appointmentChanged = state.paperworkAppointmentId !== appointmentId;
           return {
             ...state,
             paperworkResponse: response,
+            paperworkAppointmentId: appointmentId,
+            paperworkInProgress: appointmentChanged ? {} : state.paperworkInProgress,
           };
         });
       },
@@ -165,7 +174,7 @@ export const PaperworkHome: FC = () => {
         const paperworkResponse = await ottehrApi.getPaperwork(zambdaClient, {
           appointmentID: apptId,
         });
-        setResponse(paperworkResponse);
+        setResponse(paperworkResponse, apptId);
         setAuthedFetchState(AuthedLoadingState.complete);
       } catch (e) {
         if (isApiError(e)) {

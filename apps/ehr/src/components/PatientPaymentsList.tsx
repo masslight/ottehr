@@ -4,9 +4,11 @@ import {
   Box,
   Button,
   capitalize,
+  Checkbox,
   Chip,
   CircularProgress,
   Container,
+  FormControlLabel,
   Paper,
   Skeleton,
   Snackbar,
@@ -20,7 +22,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Markdown as TiptapMarkdown } from '@tiptap/markdown';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -28,9 +30,11 @@ import { Appointment, ChargeItemDefinition, DocumentReference, Encounter, List, 
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { STATUS_TO_STYLE_MAP } from 'src/features/visits/shared/components/patient/InsuranceContainer';
 import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useEncounterReceipt, useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientAccount } from 'src/hooks/useGetPatient';
@@ -52,7 +56,10 @@ import {
   getPaymentVariantFromEncounter,
   isApiError,
   ListPatientPaymentResponse,
+  mapEligibilityCheckResultToSimpleStatus,
   OrderedCoveragesWithSubscribers,
+  PATIENT_HAS_MEDICAID_URL,
+  PATIENT_RECORD_QUESTIONNAIRE,
   PatientPaymentBenefit,
   PatientPaymentDTO,
   PaymentVariant,
@@ -225,6 +232,7 @@ export default function PatientPaymentList({
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
   const theme = useTheme();
+  const queryClient = useQueryClient();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
   const {
@@ -636,6 +644,53 @@ export default function PatientPaymentList({
     retry: 0,
   });
 
+  const patientHasMedicaidFromResource =
+    patient?.extension?.find((ext) => ext.url === PATIENT_HAS_MEDICAID_URL)?.valueBoolean ?? false;
+  const [patientHasMedicaid, setPatientHasMedicaid] = useState(patientHasMedicaidFromResource);
+  useEffect(() => {
+    setPatientHasMedicaid(patientHasMedicaidFromResource);
+  }, [patientHasMedicaidFromResource]);
+
+  // Deep-cloned on each call, so cache once per mount and reuse across toggles.
+  const patientRecordQuestionnaire = useMemo(() => PATIENT_RECORD_QUESTIONNAIRE(), []);
+
+  const updatePatientHasMedicaid = useMutation({
+    mutationFn: async (nextValue: boolean) => {
+      if (!apiClient || !patient?.id) {
+        throw new Error('Cannot update medicaid preference: apiClient or patient.id unavailable');
+      }
+      // Route through the existing update-patient-account zambda instead
+      // of patching Patient directly from the client. The zambda's harvest
+      // layer already knows how to translate `patient-has-medicaid` into
+      // the correct Patient extension via the shared linkId → fhir-path
+      // table — the same pipeline the intake credit-card page uses when
+      // the patient checks the box during paperwork.
+      const questionnaireResponse = structureQuestionnaireResponse(
+        patientRecordQuestionnaire,
+        { 'patient-has-medicaid': nextValue },
+        patient.id,
+        { 'patient-has-medicaid': true }
+      );
+      // Single-field edit: only the `patient-has-medicaid` field is submitted, so
+      // ask the zambda to validate just that field. Without this the shared
+      // required siblings in `patient-additional-details-section` (ethnicity/race)
+      // would reject the toggle.
+      await apiClient.updatePatientAccount({ questionnaireResponse, onlyValidateProvidedFields: true });
+      await queryClient.invalidateQueries({ queryKey: ['get-visit-details'] });
+    },
+    onError: (e, _next, previous) => {
+      console.log('error updating patient-has-medicaid', e);
+      if (typeof previous === 'boolean') setPatientHasMedicaid(previous);
+      enqueueSnackbar("Something went wrong! Medicaid preference can't be updated.", { variant: 'error' });
+    },
+    onMutate: (nextValue: boolean) => {
+      const previous = patientHasMedicaid;
+      setPatientHasMedicaid(nextValue);
+      return previous;
+    },
+    retry: 0,
+  });
+
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
     if (networkError) {
@@ -655,6 +710,10 @@ export default function PatientPaymentList({
     );
   }
 
+  const eligibilitySimpleStatus = coverageCheck
+    ? mapEligibilityCheckResultToSimpleStatus(coverageCheck).status
+    : undefined;
+
   const copayAmount = getPaymentAmountFromPatientBenefit({
     coverage: coverageCheck?.copay?.filter((item) => item.inNetwork === true) || [],
     code: 'UC',
@@ -672,9 +731,12 @@ export default function PatientPaymentList({
   });
 
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-  const isUrgentCare = serviceCategory === 'urgent-care';
-  const isOccupationalMedicine = serviceCategory === 'occupational-medicine';
-  const isWorkmansComp = serviceCategory === 'workers-comp';
+
+  // The logic is based on the create-slot contract and the create-appointment fallback for legacy slots https://github.com/masslight/ottehr/pull/8369
+  // A more robust solution would be to add available payment options directly to the Encounter/Appointment
+  const isEmployerPayAvailable = serviceCategory === 'occupational-medicine' || serviceCategory === 'workers-comp';
+  const isInsurancePayAvailable = Boolean(serviceCategory && !isEmployerPayAvailable);
+
   const formattedCopayAmount = formatUsd(copayAmount?.amountInUSD);
   const formattedRemainingDeductibleAmount = formatUsd(remainingDeductibleAmount?.amountInUSD);
 
@@ -774,7 +836,7 @@ export default function PatientPaymentList({
           },
         }}
       >
-        {isUrgentCare ? (
+        {isInsurancePayAvailable ? (
           <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.insurance}>
             Insurance
           </ToggleButton>
@@ -782,12 +844,26 @@ export default function PatientPaymentList({
         <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.selfPay}>
           Self Pay
         </ToggleButton>
-        {isOccupationalMedicine || isWorkmansComp ? (
+        {isEmployerPayAvailable ? (
           <ToggleButton disabled={updateEncounter.isPending || isEncounterRefetching} value={PaymentVariant.employer}>
             Employer
           </ToggleButton>
         ) : null}
       </ToggleButtonGroup>
+      <FormControlLabel
+        sx={{ mt: 1, alignItems: 'center', ml: 0 }}
+        control={
+          <Checkbox
+            checked={patientHasMedicaid}
+            disabled={updatePatientHasMedicaid.isPending || !patient?.id || !apiClient}
+            onChange={(_e, checked) => updatePatientHasMedicaid.mutate(checked)}
+            sx={{ p: 0.5, mr: 1 }}
+          />
+        }
+        label={
+          <Typography variant="body2">Patient has Medicaid insurance. Credit Card should not be requested.</Typography>
+        }
+      />
       <Container
         style={{
           backgroundColor: theme.palette.background.default,
@@ -1007,9 +1083,28 @@ export default function PatientPaymentList({
                         <Typography variant="caption" color="text.secondary">
                           Carrier
                         </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          {insuranceName}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {insuranceName}
+                          </Typography>
+                          {eligibilitySimpleStatus === 'NOT ELIGIBLE' && (
+                            <Chip
+                              label={eligibilitySimpleStatus}
+                              sx={{
+                                backgroundColor: STATUS_TO_STYLE_MAP[eligibilitySimpleStatus].bgColor,
+                                color: STATUS_TO_STYLE_MAP[eligibilitySimpleStatus].textColor,
+                                borderRadius: '8px',
+                                padding: '0 9px',
+                                height: '24px',
+                                '& .MuiChip-label': {
+                                  padding: 0,
+                                  fontWeight: 'bold',
+                                  fontSize: '0.7rem',
+                                },
+                              }}
+                            />
+                          )}
+                        </Box>
                       </Box>
                     )}
                     {formattedCopayAmount && copayAmount?.periodDescription && (

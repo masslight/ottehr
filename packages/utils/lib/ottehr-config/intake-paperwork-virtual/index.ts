@@ -27,13 +27,18 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.0';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.7';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
 } as const;
 
-const hiddenFormSections: string[] = [];
+const hiddenFormSections: string[] = [
+  'current-medications-page',
+  'allergies-page',
+  'medical-history-page',
+  'surgical-history-page',
+];
 
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
@@ -146,6 +151,26 @@ function buildFormFields(
           type: 'string',
           dataType: 'Email',
           autocomplete: 'section-patient shipping email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         phoneNumber: {
           key: 'patient-number',
@@ -164,6 +189,7 @@ function buildFormFields(
           key: 'mobile-opt-in',
           label: `Yes! I would like to receive helpful text messages from ${BRANDING_CONFIG.projectName} regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.`,
           type: 'boolean',
+          hideControlLabel: true,
         },
       },
       hiddenFields: [],
@@ -334,6 +360,11 @@ function buildFormFields(
               label: 'places address',
               type: 'string',
             },
+            pharmacyPlacesPhone: {
+              key: 'pharmacy-places-phone',
+              label: 'places phone',
+              type: 'string',
+            },
             pharmacyPlacesSaved: {
               key: 'pharmacy-places-saved',
               label: 'places saved',
@@ -366,6 +397,7 @@ function buildFormFields(
           type: 'boolean',
           element: 'Link',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'pharmacy-collection.pharmacy-places-saved',
@@ -406,6 +438,27 @@ function buildFormFields(
           key: 'pharmacy-address',
           label: 'Pharmacy address',
           type: 'string',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['enable'],
+              operator: '=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'pharmacy-page-manual-entry',
+              effect: ['filter'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
+        },
+        phone: {
+          key: 'pharmacy-phone',
+          label: 'Pharmacy phone',
+          type: 'string',
+          dataType: 'Phone Number',
           disabledDisplay: 'hidden',
           triggers: [
             {
@@ -677,7 +730,7 @@ function buildFormFields(
       items: Object.assign(
         {},
         ...patientScreeningQuestionsConfig.fields
-          .filter((field) => Boolean(field.existsInQuestionnaire))
+          .filter((field) => Boolean(field.existsInQuestionnaire) && !field.hideInVirtualPaperwork)
           .map((field) => ({
             [field.fhirField.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())]: {
               key: field.fhirField,
@@ -939,6 +992,7 @@ function buildFormFields(
           label: "Policy holder address is the same as patient's address",
           type: 'boolean',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1172,6 +1226,7 @@ function buildFormFields(
           type: 'boolean',
           element: 'Button',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'payment-option',
@@ -1259,6 +1314,7 @@ function buildFormFields(
               key: 'policy-holder-address-as-patient-2',
               label: "Policy holder address is the same as patient's address",
               type: 'boolean',
+              hideControlLabel: true,
             },
             policyHolderAddress: {
               key: 'policy-holder-address-2',
@@ -1487,9 +1543,15 @@ function buildFormFields(
           type: 'display',
           element: 'p',
         },
+        patientHasMedicaid: {
+          key: 'patient-has-medicaid',
+          label: 'I have Medicaid insurance coverage, credit card information not required',
+          type: 'boolean',
+          hideControlLabel: true,
+        },
       },
-      hiddenFields: ['card-payment-details-text'],
-      requiredFields: ['valid-card-on-file'],
+      hiddenFields: [],
+      requiredFields: [],
       triggers: [
         {
           targetQuestionLinkId: 'contact-information-page.appointment-service-category',
@@ -1591,6 +1653,7 @@ function buildFormFields(
           label: "Responsible party's address is the same as patient's address",
           type: 'boolean',
           disabledDisplay: 'hidden',
+          hideControlLabel: true,
           triggers: [
             {
               targetQuestionLinkId: 'responsible-party-relationship',
@@ -1743,9 +1806,43 @@ function buildFormFields(
               operator: '!=',
               answerString: 'Self',
             },
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['filter'],
+              operator: '=',
+              answerString: 'Self',
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'responsible-party-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
           ],
+          enableBehavior: 'all',
           disabledDisplay: 'disabled',
           dynamicPopulation: { sourceLinkId: 'patient-email' },
+        },
+        noEmail: {
+          key: 'responsible-party-no-email',
+          label: "Don't have email",
+          type: 'boolean',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable'],
+              operator: '!=',
+              answerString: 'Self',
+            },
+          ],
+          disabledDisplay: 'protected',
+          dynamicPopulation: { sourceLinkId: 'patient-no-email' },
         },
       },
       hiddenFields: [],
@@ -1898,6 +1995,7 @@ function buildFormFields(
           key: 'emergency-contact-address-as-patient',
           label: "Same as patient's address",
           type: 'boolean',
+          hideControlLabel: true,
         },
         streetAddress: {
           key: 'emergency-contact-address',

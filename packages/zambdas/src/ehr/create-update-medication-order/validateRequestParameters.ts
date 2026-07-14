@@ -1,5 +1,5 @@
 import { INVALID_INPUT_ERROR, MedicationInteractions, MISSING_REQUEST_BODY, UpdateMedicationOrderInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -12,7 +12,7 @@ export function validateRequestParameters(
 
   let parsedBody;
   try {
-    parsedBody = JSON.parse(input.body);
+    parsedBody = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Request body must be valid JSON');
   }

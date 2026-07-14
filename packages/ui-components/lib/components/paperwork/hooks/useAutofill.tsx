@@ -115,13 +115,29 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       if (!autofillSource) {
         return;
       }
-      const autofillValue = allFields[autofillSource ?? ''];
-      if (!autofillValue) {
-        return;
-      }
 
       // call site 1: ignore result when no parent item
       const id = parentItem ? getPaperworkFieldId({ parentItem, item }) : item.linkId;
+
+      const autofillValue = allFields[autofillSource ?? ''];
+
+      // Source not in allFields at all — can't determine intent, leave target unchanged.
+      if (autofillValue === undefined) {
+        return;
+      }
+
+      // Source exists but has no meaningful answer (e.g. boolean false trimmed to undefined on save,
+      // or a string field filtered out by the server). Clear any value the target currently holds.
+      const autofillAnswer = (autofillValue as QuestionnaireResponseItem).answer;
+      if (!autofillAnswer || autofillAnswer.length === 0) {
+        const currentVal = getValues(id);
+        if (currentVal?.answer !== undefined || currentVal?.item !== undefined) {
+          setValue(id, { linkId: id });
+          setReplacedValues((rp) => rp.filter((v) => v !== id));
+        }
+        return;
+      }
+
       const currentValue = getValues(id) || makeEmptyResponseItem(item);
 
       const autoFilled = autoFill(autofillValue, item);
@@ -140,5 +156,15 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       }
     });
     // replace previously autoFilled values
-  }, [allFields, setValue, itemsToFill, formValues, parentItem, getValues, fieldId, replacedValues]);
+  }, [
+    allFields,
+    setValue,
+    itemsToFill,
+    formValues,
+    parentItem,
+    getValues,
+    fieldId,
+    replacedValues,
+    questionnaireResponse,
+  ]);
 };

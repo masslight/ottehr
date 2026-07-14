@@ -1,7 +1,18 @@
-import { Coverage, DomainResource, Extension, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import {
+  Account,
+  Coverage,
+  DomainResource,
+  Extension,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+  Resource,
+} from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
   BILLING_WORKING_COPY_TAG,
+  CopyableBillingResource,
   prepareCopy,
   prepareWorkingCopy,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -20,7 +31,7 @@ const withoutCopyFields = (r: Resource): Record<string, unknown> => {
   return clone;
 };
 
-const cases: { resourceType: string; resource: Resource }[] = [
+const cases: { resourceType: string; resource: CopyableBillingResource }[] = [
   {
     resourceType: 'Patient',
     resource: {
@@ -54,6 +65,78 @@ const cases: { resourceType: string; resource: Resource }[] = [
     resourceType: 'Organization',
     resource: { resourceType: 'Organization', id: ORIGINAL_ID, name: 'Acme Labs' } as Organization,
   },
+  {
+    resourceType: 'Account',
+    resource: {
+      resourceType: 'Account',
+      id: ORIGINAL_ID,
+      subject: [{ reference: 'Patient/p1' }],
+      type: {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/account-type',
+            code: 'PBILLACCT',
+            display: 'patient billing account',
+          },
+        ],
+      },
+      coverage: [{ coverage: { reference: 'Coverage/c1' }, priority: 1 }],
+      guarantor: [
+        {
+          party: {
+            reference: '#accountGuarantorId',
+            type: 'RelatedPerson',
+          },
+        },
+      ],
+      contained: [
+        {
+          resourceType: 'RelatedPerson',
+          id: 'accountGuarantorId',
+          name: [
+            {
+              given: ['abc'],
+              family: 'def',
+            },
+          ],
+          birthDate: '1988-10-17',
+          gender: 'male',
+          telecom: [
+            {
+              value: '+11231231234',
+              system: 'phone',
+            },
+            {
+              value: 'aaa@bb.com',
+              system: 'email',
+            },
+          ],
+          patient: {
+            reference: 'Patient/p1',
+          },
+          address: [
+            {
+              city: 'abc',
+              line: ['123 fff'],
+              state: 'CT',
+              postalCode: '12345',
+            },
+          ],
+          relationship: [
+            {
+              coding: [
+                {
+                  system: 'http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype',
+                  code: 'spouse',
+                  display: 'Spouse',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as Account,
+  },
 ];
 
 describe('prepareWorkingCopy', () => {
@@ -61,27 +144,29 @@ describe('prepareWorkingCopy', () => {
   describe.each(cases)('for $resourceType', ({ resourceType, resource }) => {
     it('tags the copy as a billing working copy (so list views exclude it)', () => {
       // Only the working-copy tag is set explicitly; the workspace SDK client adds BILLING_RESOURCE_TAG on write.
-      expect(prepareWorkingCopy(resource, ORIGINAL_ID).meta?.tag).toEqual([BILLING_WORKING_COPY_TAG]);
+      expect(prepareWorkingCopy<typeof resource>(resource, ORIGINAL_ID).meta?.tag).toEqual([BILLING_WORKING_COPY_TAG]);
     });
 
     it('drops the original id so create() makes a new resource', () => {
-      expect(prepareWorkingCopy(resource, ORIGINAL_ID).id).toBeUndefined();
+      expect(prepareWorkingCopy<typeof resource>(resource, ORIGINAL_ID).id).toBeUndefined();
     });
 
     it('links back to the original via a source identifier', () => {
-      expect(extensionsOf(prepareWorkingCopy(resource, ORIGINAL_ID))).toContainEqual({
+      expect(extensionsOf(prepareWorkingCopy<typeof resource>(resource, ORIGINAL_ID))).toContainEqual({
         url: SOURCE_IDENTIFIER_SYSTEM,
         valueReference: { reference: `${resourceType}/${ORIGINAL_ID}` },
       });
     });
 
     it('preserves every other field unchanged', () => {
-      expect(withoutCopyFields(prepareWorkingCopy(resource, ORIGINAL_ID))).toEqual(withoutCopyFields(resource));
+      expect(withoutCopyFields(prepareWorkingCopy<typeof resource>(resource, ORIGINAL_ID))).toEqual(
+        withoutCopyFields(resource)
+      );
     });
 
     it('does not mutate the original', () => {
       const before = structuredClone(resource);
-      prepareWorkingCopy(resource, ORIGINAL_ID);
+      prepareWorkingCopy<typeof resource>(resource, ORIGINAL_ID);
       expect(resource).toEqual(before);
     });
   });
@@ -89,9 +174,9 @@ describe('prepareWorkingCopy', () => {
   describe('extension list handling', () => {
     const otherId = { url: 'https://example.org/external-id', valueString: 'EXT-1' };
 
-    it('preserves existing non-source identifiers', () => {
+    it('does not preserve existing non-source identifiers', () => {
       const patient: Patient = { resourceType: 'Patient', id: ORIGINAL_ID, extension: [{ ...otherId }] };
-      expect(extensionsOf(prepareWorkingCopy(patient, ORIGINAL_ID))).toContainEqual(otherId);
+      expect(extensionsOf(prepareWorkingCopy<typeof patient>(patient, ORIGINAL_ID))).not.toContainEqual(otherId);
     });
 
     it('creates the identifier list when the original has none', () => {
@@ -102,7 +187,7 @@ describe('prepareWorkingCopy', () => {
         beneficiary: { reference: 'Patient/p1' },
         payor: [{ reference: 'Organization/o1' }],
       };
-      expect(extensionsOf(prepareWorkingCopy(coverage, ORIGINAL_ID))).toEqual([
+      expect(extensionsOf(prepareWorkingCopy<typeof coverage>(coverage, ORIGINAL_ID))).toEqual([
         { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: `Coverage/${ORIGINAL_ID}` } },
       ]);
     });
@@ -113,7 +198,7 @@ describe('prepareWorkingCopy', () => {
         id: ORIGINAL_ID,
         extension: [{ url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/stale' } }, { ...otherId }],
       };
-      const sources = extensionsOf(prepareWorkingCopy(patient, ORIGINAL_ID)).filter(
+      const sources = extensionsOf(prepareWorkingCopy<typeof patient>(patient, ORIGINAL_ID)).filter(
         (i) => i.url === SOURCE_IDENTIFIER_SYSTEM
       );
       expect(sources).toEqual([
@@ -136,27 +221,29 @@ describe('prepareCopy', () => {
   describe.each(cases)('for $resourceType', ({ resourceType, resource }) => {
     it('does not tag the copy as a working copy', () => {
       // Only the working-copy tag is set explicitly; the workspace SDK client adds BILLING_RESOURCE_TAG on write.
-      expect(prepareCopy(resource, ORIGINAL_ID).meta?.tag).toBeUndefined();
+      expect(prepareCopy<typeof resource>(resource, ORIGINAL_ID).meta?.tag).toBeUndefined();
     });
 
     it('drops the original id so create() makes a new resource', () => {
-      expect(prepareWorkingCopy(resource, ORIGINAL_ID).id).toBeUndefined();
+      expect(prepareCopy<typeof resource>(resource, ORIGINAL_ID).id).toBeUndefined();
     });
 
     it('links back to the original via a source identifier', () => {
-      expect(extensionsOf(prepareWorkingCopy(resource, ORIGINAL_ID))).toContainEqual({
+      expect(extensionsOf(prepareCopy<typeof resource>(resource, ORIGINAL_ID))).toContainEqual({
         url: SOURCE_IDENTIFIER_SYSTEM,
         valueReference: { reference: `${resourceType}/${ORIGINAL_ID}` },
       });
     });
 
     it('preserves every other field unchanged', () => {
-      expect(withoutCopyFields(prepareWorkingCopy(resource, ORIGINAL_ID))).toEqual(withoutCopyFields(resource));
+      expect(withoutCopyFields(prepareCopy<typeof resource>(resource, ORIGINAL_ID))).toEqual(
+        withoutCopyFields(resource)
+      );
     });
 
     it('does not mutate the original', () => {
       const before = structuredClone(resource);
-      prepareWorkingCopy(resource, ORIGINAL_ID);
+      prepareCopy<typeof resource>(resource, ORIGINAL_ID);
       expect(resource).toEqual(before);
     });
   });

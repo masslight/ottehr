@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
+import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VisitType } from 'config-types';
 import { ReactNode } from 'react';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { BOOKING_CONFIG, getReasonForVisitOptionsForServiceCategory } from 'utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import AddPatient from '../../src/pages/AddPatient';
 
@@ -69,7 +69,7 @@ const mockOystehr = {
     }),
   },
 };
-const mockApiClients = {
+const mockApiClients: { oystehr: typeof mockOystehr; oystehrZambda: unknown } = {
   oystehr: mockOystehr,
   oystehrZambda: null,
 };
@@ -146,6 +146,25 @@ describe('AddVisit', () => {
 
     const errorMessage = screen.getByText('Please enter at least one search term');
     expect(errorMessage).toBeVisible();
+  });
+
+  it('Searches for patients when pressing Enter in the patient search fields', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AddPatient />
+      </TestProviders>
+    );
+
+    const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
+
+    await user.click(phoneNumberInput!);
+    await user.paste('1234567890');
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton)).toBeVisible();
+    expect(screen.queryByText('Please search for patients before adding')).not.toBeInTheDocument();
   });
 
   it('Shows validation error on mobile phone field when searching with an invalid phone number', async () => {
@@ -513,6 +532,169 @@ describe('AddVisit', () => {
           // Click to close the service category dropdown
           await user.keyboard('{Escape}');
         }
+      }
+    });
+  });
+
+  // OTR-2721: When staff pick a service that doesn't offer walk-in and then
+  // try to pick a walk-in visit type, the old form silently substituted the
+  // service to the first walk-in-compatible one (Acne Facial in the reporter's
+  // repro). The fix filters the Visit Type dropdown by the picked service so
+  // unsupported modalities aren't offered in the first place.
+  describe('Service Category ↔ Visit Type coupling (OTR-2721)', () => {
+    const walkInInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonWalkIn)?.label;
+    const prebookInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonPreBook)
+      ?.label;
+    const virtualScheduledLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualScheduled)
+      ?.label;
+    const virtualOnDemandLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualOnDemand)
+      ?.label;
+
+    // FHIR-sourced categories go through the strict path in
+    // serviceCategorySupportsContext: empty arrays = "supports nothing". So
+    // tagging visitTypes:['prebook'] here excludes walk-in and lets us test
+    // the filter behavior without adding new BOOKING_CONFIG entries. Kept
+    // in-person-only so the virtual visit types drop out on the mode axis
+    // (rather than accidentally passing the empty-arrays-supports-all
+    // BOOKING_CONFIG rule).
+    const prebookOnlyFhirCategory = {
+      id: 'fhir-svc-prebook-only',
+      name: 'Crystal Therapy (Test)',
+      code: 'crystal-therapy-test',
+      active: true,
+      config: {
+        serviceModes: ['in-person'],
+        visitTypes: ['prebook'],
+        reasonsForVisit: [{ label: 'Consultation', value: 'consultation' }],
+      },
+    };
+
+    const mockOystehrZambda = {
+      zambda: {
+        execute: vi.fn(),
+        // Referenced by getLocations via oystehr.zambda.executePublic. Never
+        // fires in these tests (we don't set selectedBookable) but stub it so
+        // any incidental call resolves cleanly.
+        executePublic: vi.fn().mockResolvedValue({ output: null }),
+      },
+    };
+
+    beforeEach(() => {
+      mockOystehrZambda.zambda.execute.mockReset();
+      mockOystehrZambda.zambda.execute.mockResolvedValue({
+        output: { serviceCategories: [prebookOnlyFhirCategory] },
+      });
+      mockApiClients.oystehrZambda = mockOystehrZambda;
+    });
+
+    afterEach(() => {
+      mockApiClients.oystehrZambda = null;
+    });
+
+    const openVisitTypeDropdown = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+      const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
+      const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
+      await user.click(visitTypeButton!);
+    };
+
+    const getServiceCategoryButton = (): Element | null => {
+      const dropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
+      return dropdown.querySelector('[role="combobox"]');
+    };
+
+    const pickPrebookOnlyServiceCategory = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+      // Wait until the merged catalog has settled: either the picker becomes
+      // enabled (≥2 entries — merged BOOKING_CONFIG + our FHIR mock), or it
+      // stays disabled AND auto-selects Crystal Therapy (the case where
+      // BOOKING_CONFIG contributes zero entries for this project). Guarding
+      // for both shapes keeps the test insensitive to BOOKING_CONFIG count.
+      //
+      // The combobox node is re-queried inside waitFor and again after —
+      // if MUI's Select re-renders (react-query resolution swaps its option
+      // set), the earlier DOM reference could be a detached node that never
+      // reflects the settled state.
+      await waitFor(() => {
+        const btn = getServiceCategoryButton();
+        // Assert presence first — without it a missing combobox would leave
+        // `disabled=false` and `displayed=''`, which trivially satisfies the
+        // OR below and lets waitFor pass on an empty DOM.
+        expect(btn).not.toBeNull();
+        const disabled = btn!.getAttribute('aria-disabled') === 'true';
+        const displayed = btn!.textContent ?? '';
+        expect(!disabled || displayed.includes(prebookOnlyFhirCategory.name)).toBe(true);
+      });
+      const settledButton = getServiceCategoryButton();
+      if (settledButton?.getAttribute('aria-disabled') === 'true') {
+        // Locked picker → the wait verified Crystal Therapy is the pick.
+        // No dropdown to open.
+        return;
+      }
+      await user.click(settledButton!);
+      const option = await screen.findByText(prebookOnlyFhirCategory.name);
+      await user.click(option);
+    };
+
+    it('filters the Visit Type dropdown to only modalities the picked Service Category supports', async () => {
+      // With a prebook-only in-person FHIR service picked, walk-in and both
+      // virtual options must drop out of the Visit Type dropdown. This is the
+      // "option (b)" fix from OTR-2721: hide the incompatible modalities up
+      // front so staff never reach the state where the old code silently
+      // swapped the service.
+      const user = userEvent.setup();
+      render(
+        <TestProviders>
+          <AddPatient />
+        </TestProviders>
+      );
+
+      // The zambda mock was set in beforeEach; nothing to await here — the
+      // helper below opens the dropdown and polls until the FHIR entry lands.
+      await pickPrebookOnlyServiceCategory(user);
+      await openVisitTypeDropdown(user);
+
+      const listbox = await screen.findByRole('listbox');
+      // Each check is guarded on the label existing in the profile's
+      // ehrBookingOptions — some profiles omit virtual entirely (anycare,
+      // umc) or offer only walk-in (pedi-q). A visit type the profile
+      // doesn't offer at all is trivially absent from the filtered list;
+      // asserting against `undefined` would throw before the meaningful
+      // check even runs.
+      //
+      // Prebook + PostTelemed (in-person, visitCtx undefined → passes the
+      // visit-type dimension with any non-empty tag list) survive the filter.
+      if (prebookInPersonLabel) {
+        expect(within(listbox).getByText(prebookInPersonLabel)).toBeInTheDocument();
+      }
+      // Walk-in (in-person + walk-in) and the two virtual modes are excluded.
+      if (walkInInPersonLabel) {
+        expect(within(listbox).queryByText(walkInInPersonLabel)).not.toBeInTheDocument();
+      }
+      if (virtualScheduledLabel) {
+        expect(within(listbox).queryByText(virtualScheduledLabel)).not.toBeInTheDocument();
+      }
+      if (virtualOnDemandLabel) {
+        expect(within(listbox).queryByText(virtualOnDemandLabel)).not.toBeInTheDocument();
+      }
+    });
+
+    it('shows all Visit Type options when the picked Service Category supports every modality', async () => {
+      // Sanity check that the filter only kicks in when the picked category
+      // actually restricts modalities. BOOKING_CONFIG entries have empty
+      // serviceModes/visitTypes arrays, which the helper treats as "supports
+      // all" — so all 5 booking options must still render.
+      const user = userEvent.setup();
+      render(
+        <TestProviders>
+          <AddPatient />
+        </TestProviders>
+      );
+
+      await selectServiceCategory(user, screen);
+      await openVisitTypeDropdown(user);
+
+      const listbox = await screen.findByRole('listbox');
+      for (const option of BOOKING_CONFIG.ehrBookingOptions) {
+        expect(within(listbox).getByText(option.label)).toBeInTheDocument();
       }
     });
   });

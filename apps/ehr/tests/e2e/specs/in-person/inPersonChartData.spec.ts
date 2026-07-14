@@ -46,6 +46,7 @@ const MEDICAL_CONDITION = 'Paratyphoid fever A';
 
 let SURGERY: string;
 let mdmDefaultText = DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+let mdmRequired = DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
 
 const DIAGNOSIS_CODE = 'J45.901';
 const DIAGNOSIS_NAME = 'injury';
@@ -64,6 +65,9 @@ const HEARTBEAT_BPM = '75';
 const RESPIRATION_RATE = '16';
 const BLOOD_PRESSURE_SYSTOLIC = '120';
 const BLOOD_PRESSURE_DIASTOLIC = '80';
+const BLOOD_PRESSURE_SYSTOLIC_INVALID = '110';
+const BLOOD_PRESSURE_DIASTOLIC_INVALID = '115';
+const INVALID_BLOOD_PRESSURE_MESSAGE = /Diastolic value cannot be greater than or equal to Systolic value/;
 const OXYGEN_SAT = '98';
 const WEIGHT_KG = '70';
 const HEIGHT_CM = '175';
@@ -120,6 +124,7 @@ test.describe('In-Person Visit Chart Data', async () => {
     );
     mdmDefaultText =
       progressNoteConfig?.medicalDecisionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
+    mdmRequired = progressNoteConfig?.mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;
 
     context = await browser.newContext();
     page = await context.newPage();
@@ -213,6 +218,11 @@ test.describe('In-Person Visit Chart Data', async () => {
           await vitalsPage.addRespirationRateObservation(RESPIRATION_RATE);
         });
         await test.step('VIT-1.4 Add blood pressure observation', async () => {
+          await vitalsPage.expectInvalidBloodPressureError(
+            BLOOD_PRESSURE_SYSTOLIC_INVALID,
+            BLOOD_PRESSURE_DIASTOLIC_INVALID,
+            INVALID_BLOOD_PRESSURE_MESSAGE
+          );
           await vitalsPage.addBloodPressureObservation(BLOOD_PRESSURE_SYSTOLIC, BLOOD_PRESSURE_DIASTOLIC);
         });
         await test.step('VIT-1.5 Add oxygen saturation observation', async () => {
@@ -564,7 +574,11 @@ test.describe('In-Person Visit Chart Data', async () => {
       await test.step('Verify missing card is visible and has all required missing fields', async () => {
         await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
-        await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+        if (mdmRequired) {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+        } else {
+          await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).not.toBeVisible();
+        }
         await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.hpiLink)).toBeVisible();
       });

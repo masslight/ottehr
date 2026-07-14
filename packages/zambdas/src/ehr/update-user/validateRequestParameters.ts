@@ -1,5 +1,5 @@
 import {
-  isNPIValid,
+  isNPIValidWithChecksum,
   isPhoneNumberValid,
   isProviderTypeCode,
   MISSING_REQUEST_BODY,
@@ -10,7 +10,7 @@ import {
   UpdateUserParams,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const UpdateUserSchema = z
   .object({
@@ -43,7 +43,7 @@ const UpdateUserSchema = z
   )
   .refine(
     (data) => {
-      if (data.selectedRoles?.includes(RoleType.Provider) && data.npi && !isNPIValid(data.npi)) {
+      if (data.selectedRoles?.includes(RoleType.Provider) && data.npi && !isNPIValidWithChecksum(data.npi)) {
         return false;
       }
       return true;
@@ -80,7 +80,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserParams 
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsedJSON = JSON.parse(input.body);
+  const parsedJSON = safeJsonParse(input.body);
 
   const validated = safeValidate(UpdateUserSchema, parsedJSON);
 

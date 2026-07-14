@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { getEmployees, listScheduleOwners } from 'src/api/api';
+import { toProviderDetails, useGetEmployeesWithDetails } from 'src/features/visits/shared/hooks/useGetEmployees';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { EmployeeDetails } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
@@ -12,66 +11,28 @@ type Props = {
   size?: 'small' | 'medium';
   dataTestId?: string;
   filter?: (employee: EmployeeDetails) => boolean;
-  // Also surface schedule-owning Practitioners that aren't EHR users (e.g. the default visit assignee).
-  includeScheduleOwners?: boolean;
 };
 
-export const EmployeeSelectInput: React.FC<Props> = ({
-  name,
-  label,
-  multiple,
-  required,
-  size,
-  dataTestId,
-  filter,
-  includeScheduleOwners,
-}) => {
+export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, dataTestId, filter }) => {
   const { oystehrZambda } = useApiClients();
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [options, setOptions] = useState<{ id: string; name: string }[] | undefined>(undefined);
-  useEffect(() => {
-    if (!oystehrZambda) {
-      return;
-    }
-    async function loadOptions(): Promise<void> {
-      if (!oystehrZambda) {
-        return;
-      }
-      try {
-        setIsLoading(true);
-        const [getEmployeesResponse, scheduleOwnersResponse] = await Promise.all([
-          getEmployees(oystehrZambda),
-          includeScheduleOwners ? listScheduleOwners({ ownerType: 'Practitioner' }, oystehrZambda) : undefined,
-        ]);
-        if (getEmployeesResponse.employees || scheduleOwnersResponse) {
-          // Employees added before schedule owners so their display name wins on id collision.
-          const optionsById = new Map<string, { id: string; name: string }>();
-          getEmployeesResponse.employees
-            ?.filter((employee: any) => employee.status === 'Active' && (filter ? filter(employee) : true))
-            .forEach((employee: any) => {
-              const id = employee.profile.split('/')[1];
-              optionsById.set(id, {
-                id,
-                name: `${employee.firstName} ${employee.lastName}`.trim() || employee.name,
-              });
-            });
-          scheduleOwnersResponse?.list.forEach((item) => {
-            if (!optionsById.has(item.owner.id)) {
-              optionsById.set(item.owner.id, { id: item.owner.id, name: item.owner.name });
-            }
-          });
-          const options = Array.from(optionsById.values());
-          options.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-          setOptions(options);
-        }
-      } catch (e) {
-        console.error('error loading providers', e);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    void loadOptions();
-  }, [filter, includeScheduleOwners, oystehrZambda]);
+  const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
+  // Source from the broader assignable-staff pool (currently named
+  // `nonProviders` — a misnomer; it's "all non-customer-support employees"
+  // and includes providers). Callers that want only providers narrow via
+  // the `filter` prop (PROVIDERS_FILTER). Sourcing from `employees.providers`
+  // here would make the filter unable to broaden, so no-filter callers like
+  // task assignment dialogs lose the ability to assign to non-provider
+  // staff (intake, nurses).
+  const options = (employees?.nonProviders ?? [])
+    .filter(filter ?? (() => true))
+    .map((item) => {
+      const pdeets = toProviderDetails(item);
+      return {
+        id: pdeets.practitionerId,
+        name: pdeets.name,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
   return (
     <AutocompleteInput
       name={name}

@@ -1,5 +1,5 @@
 import { CreateNursingOrderInputSchema, CreateNursingOrderInputValidated } from 'utils';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): CreateNursingOrderInputValidated {
   console.group('validateRequestParameters');
@@ -14,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateNursingOrde
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  const parsedJSON = JSON.parse(input.body) as unknown;
+  const parsedJSON = safeJsonParse(input.body) as unknown;
 
   const { encounterId, notes } = safeValidate(CreateNursingOrderInputSchema, parsedJSON);
 

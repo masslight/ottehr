@@ -1,3 +1,4 @@
+import { ErxGetPharmacyResponse } from '@oystehr/sdk';
 import {
   Appointment,
   Coding,
@@ -540,7 +541,7 @@ export interface RosObservations extends PdfData {
 }
 
 export interface Prescriptions extends PdfData {
-  prescriptions: string[];
+  pharmacyGroups: { pharmacy?: pharmacyInfo; prescriptions: string[] }[];
 }
 
 export interface EmCode extends PdfData {
@@ -645,6 +646,7 @@ export interface PrimaryCarePhysician extends PdfData {
   pcpPracticeName: string;
   pcpAddress: string;
   pcpPhone: string;
+  pcpFax: string;
 }
 
 export interface Documents extends PdfData {
@@ -757,6 +759,7 @@ export interface consentFormsInfo extends PdfData {
 export interface pharmacyInfo extends PdfData {
   name: string;
   address: string;
+  phone: string;
 }
 
 export interface VisitDetailsInput {
@@ -778,17 +781,31 @@ export interface VisitDetailsInput {
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
+}
+
+/**
+ * Minimal service-category shape consumed by resolveServiceCategoryAbbreviation
+ * (utils) — matched against the appointment's category code/name to produce the
+ * abbreviation shown in PDF visit headers.
+ */
+export interface ServiceCategoryCatalogEntry {
+  code: string;
+  name: string;
+  abbreviation?: string;
 }
 
 export interface VisitDataInput {
   appointment: Appointment;
   location?: Location;
   timezone: string;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface ProgressNoteVisitDataInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface PatientDataInput {
@@ -879,7 +896,7 @@ export interface RadiologyData extends PdfData {
 }
 
 export interface ErxMedicationsData extends PdfData {
-  medications: PrescribedMedication[];
+  pharmacyGroups: { pharmacy?: pharmacyInfo; medications: PrescribedMedication[] }[];
 }
 
 export interface PatientInstructionsData extends PdfData {
@@ -931,7 +948,9 @@ export interface VitalsDataInDischargeSummary extends PdfData {
     oxygenSat?: string;
     weight?: string;
     height?: string;
+    bmi?: string;
     vision?: string;
+    dotVisionScreening?: string[];
     lastMenstrualPeriod?: string;
   };
 }
@@ -952,6 +971,7 @@ export interface DischargeSummaryData extends PdfData {
   inHouseMedications: InHouseMedicationsDataForDischargeSummary;
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
+  procedures?: Procedures;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
@@ -991,6 +1011,29 @@ export interface GetPaymentDataResponse {
   };
 }
 
+/** Resolved from an Encounter `author`/`verifier` Provenance: who signed/approved and when. */
+export interface SignatureProvenanceInfo {
+  /** Provider display name (via `getProviderNameWithProfession`). */
+  name: string;
+  /** `Provenance.recorded` ISO timestamp. */
+  dateTimeISO?: string;
+}
+
+export interface ProgressNoteSignatures {
+  /** `author` Provenance — the provider who signed the note. */
+  signedBy?: SignatureProvenanceInfo;
+  /** `verifier` Provenance — the supervisor who approved the note (supervisor-approval flow only). */
+  approvedBy?: SignatureProvenanceInfo;
+}
+
+/** Pre-formatted signature lines rendered at the bottom of the visit note. */
+export interface SignatureData extends PdfData {
+  /** "Signed electronically by {provider} on {date} {time}". */
+  signedBy?: string;
+  /** "Approved by {provider} on {date} {time}" — present only when supervisor-approved. */
+  approvedBy?: string;
+}
+
 export interface ProgressNoteInput {
   patient: Patient;
   encounter: Encounter;
@@ -998,6 +1041,9 @@ export interface ProgressNoteInput {
   appointmentPackage: FullAppointmentResourcePackage;
   questionnaireResponse?: QuestionnaireResponse;
   upcomingFollowUps: UpcomingFollowUp[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
+  erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
+  signatures?: ProgressNoteSignatures;
 }
 
 export interface ProgressNoteData extends PdfData {
@@ -1017,6 +1063,7 @@ export interface ProgressNoteData extends PdfData {
   immunizationOrders: ImmunizationOrders;
   inHouseLabs?: InHouseLabs;
   externalLabs?: ExternalLabs;
+  radiology?: RadiologyData;
   screening: AdditionalQuestions;
   intakeNotes: IntakeNotes;
   vitals: Vitals;
@@ -1031,12 +1078,15 @@ export interface ProgressNoteData extends PdfData {
   plan: PlanData;
   followupCompleted: FollowupCompleted;
   upcomingVisits: UpcomingVisitsData;
+  signature: SignatureData;
 }
 
 export interface DischargeSummaryInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
   upcomingFollowUps: UpcomingFollowUp[];
+  serviceCategories?: ServiceCategoryCatalogEntry[];
+  erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
 }
 
 export interface DischargeSummaryData extends PdfData {
@@ -1051,6 +1101,7 @@ export interface DischargeSummaryData extends PdfData {
   inHouseMedications: InHouseMedicationsDataForDischargeSummary;
   erxMedications?: ErxMedicationsData;
   diagnoses?: DiagnosesData;
+  procedures?: Procedures;
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;

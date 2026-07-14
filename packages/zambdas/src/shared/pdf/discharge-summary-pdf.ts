@@ -1,4 +1,5 @@
 import { BUCKET_NAMES, Secrets } from 'utils';
+import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -14,6 +15,7 @@ import {
   composePatientInformationForDischargeSummary,
   composePatientInstructions,
   composePhysician,
+  composeProcedures,
   composeRadiology,
   composeUpcomingVisits,
   composeVisitData,
@@ -31,6 +33,7 @@ import {
   createPatientHeaderForDischargeSummary,
   createPatientInstructionsSection,
   createPhysicianSection,
+  createProceduresSection,
   createRadiologySection,
   createReasonForVisitSection,
   createUpcomingVisitsSection,
@@ -38,12 +41,13 @@ import {
   createVitalsSectionForDischargeSummary,
   createWorkSchoolExcuseSection,
 } from './sections';
+import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, DischargeSummaryData, DischargeSummaryInput, PdfResult } from './types';
 
 const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, DischargeSummaryData> = (input) => {
   const { allChartData, appointmentPackage, upcomingFollowUps } = input;
   const { appointment, location, timezone } = appointmentPackage;
-  const visit = composeVisitData({ appointment, location, timezone });
+  const visit = composeVisitData({ appointment, location, timezone, serviceCategories: input.serviceCategories });
   const workSchoolExcuse = composeWorkSchoolExcuseSection({ allChartData });
   return {
     patient: composePatientInformationForDischargeSummary({ appointmentPackage }),
@@ -55,8 +59,9 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     externalLabs: composeExternalLabs({ allChartData }),
     radiology: composeRadiology({ allChartData }),
     inHouseMedications: composeInHouseMedicationsForDischargeSummary({ allChartData, appointmentPackage }),
-    erxMedications: composeErxMedications({ allChartData, appointmentPackage }),
+    erxMedications: composeErxMedications({ allChartData, appointmentPackage, erxPharmacies: input.erxPharmacies }),
     diagnoses: composeDiagnoses({ allChartData }),
+    procedures: composeProcedures({ allChartData, appointmentPackage }),
     patientInstructions: composePatientInstructions({ allChartData }),
     educationDocuments: composeEducationalDocuments({ allChartData }),
     disposition: composeDisposition({ allChartData }),
@@ -163,6 +168,7 @@ const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
     createInHouseMedicationsSectionForDischargeSummary(),
     createErxMedicationsSection(),
     createDiagnosesSection(),
+    createProceduresSection(),
     createPatientInstructionsSection(),
     createEducationalDocumentsSection(),
     createDispositionSection(),
@@ -177,8 +183,9 @@ export const createDischargeSummaryPdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
+  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
   return generatePdf(
-    input,
+    { ...input, serviceCategories },
     composeDischargeSummaryData,
     dischargeSummaryRenderConfig,
     {

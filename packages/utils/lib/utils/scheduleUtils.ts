@@ -155,6 +155,19 @@ export interface ScheduleDTOOwner {
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
   isVirtual?: boolean;
+  /**
+   * Location owners only — whether the Location should surface in in-person
+   * contexts. Independent of `isVirtual`: a Location may be both. Defaults to
+   * `!isVirtual` for legacy Locations with no explicit in-person marker.
+   */
+  isInPerson?: boolean;
+  /**
+   * Location owners only — true when the Location was created through the EHR
+   * admin "Add location" UI (carries the manually-created marker extension).
+   * The admin is allowed to edit the slug of such Locations; terraform-managed
+   * Location slugs stay read-only.
+   */
+  isManuallyCreated?: boolean;
   /** PR owners only — IDs of HealthcareService resources this role offers. */
   healthcareServiceIds?: string[];
   /**
@@ -2497,20 +2510,35 @@ interface CreateSlotOptions {
   status: Slot['status'];
   originalBookingUrl?: string;
   postTelemedLabOnly?: boolean;
+  // Explicit service modality chosen by the booking flow (e.g. the /prebook/:mode
+  // URL segment). Takes priority over the modality inferred from the vended slot,
+  // which can be wrong for group bookings whose slots are owned by a
+  // PractitionerRole or the group HealthcareService rather than a virtual Location.
+  serviceModality?: ServiceMode;
 }
 export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
-  const { status, originalBookingUrl, postTelemedLabOnly } = options;
+  const { status, originalBookingUrl, postTelemedLabOnly, serviceModality } = options;
   const walkin = getSlotIsWalkin(slot);
+  // Pass through whatever serviceCategory the vended Slot was stamped with —
+  // get-schedule writes it when the booking URL is category-scoped, and
+  // leaves it absent otherwise. We do NOT default to any specific category
+  // here. The prior `?? 'urgent-care'` fallback silently stamped urgent-care
+  // on every default-flow booking (wrong for any non-urgent-care project,
+  // and now also incompatible with the PR-owned-schedule + BOOKING_CONFIG
+  // guard in create-slot). When undefined reaches create-slot, its own
+  // per-project default (single-category projects stamp their one category;
+  // otherwise just the service-mode coding) takes over.
+  const serviceCategoryCode = getServiceCategoryFromSlot(slot);
   return {
     scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
     startISO: slot.start,
-    serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
+    serviceModality: serviceModality ?? getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
     lengthInMinutes: getAppointmentDurationFromSlot(slot),
     status,
     walkin,
     originalBookingUrl,
     postTelemedLabOnly,
-    serviceCategoryCode: getServiceCategoryFromSlot(slot) ?? 'urgent-care',
+    ...(serviceCategoryCode && { serviceCategoryCode }),
     atLocationId: getSlotAtLocationId(slot),
     bookedViaGroupId: getSlotBookedViaGroupId(slot),
   };

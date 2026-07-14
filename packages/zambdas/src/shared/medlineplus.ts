@@ -1,13 +1,15 @@
 // Thin client for MedlinePlus Connect — the public NLM service that returns curated
 // patient-education links keyed by ICD-10-CM code. Lives at the zambda-shared level
-// (alongside icd-10-search.ts) so any zambda that needs to look up MedlinePlus
+// so any zambda that needs to look up MedlinePlus
 // resources can import it; promote to packages/utils if the EHR/intake apps ever
 // need to call it directly.
+
+import { PatientEducationLanguage } from 'utils';
 
 const MEDLINE_BASE_URL = 'https://connect.medlineplus.gov/service';
 
 // MedlinePlus's required value-set OID for ICD-10-CM. Distinct from the FHIR URN
-// form (`http://hl7.org/fhir/sid/icd-10`, exported as ICD_10_CODE_SYSTEM in utils)
+// form (`http://hl7.org/fhir/sid/icd-10-cm`, exported as CODE_SYSTEM_ICD_10 in utils)
 // — MedlinePlus's API only accepts the HL7 OID.
 const ICD10_CM_OID = '2.16.840.1.113883.6.90';
 
@@ -28,10 +30,16 @@ export interface MedlineLink {
   url: string;
 }
 
-export async function fetchMedlineLinks(icdCode: string): Promise<MedlineLink[]> {
+export async function fetchMedlineLinks(
+  icdCode: string,
+  language: PatientEducationLanguage = 'en'
+): Promise<MedlineLink[]> {
+  // `informationRecipient.languageCode.c` controls the language of the returned materials:
+  // `en` (default) → English, `es` → Spanish. MedlinePlus returns Spanish-language resources for
+  // the same ICD-10 code when es is requested.
   const url = `${MEDLINE_BASE_URL}?mainSearchCriteria.v.cs=${ICD10_CM_OID}&mainSearchCriteria.v.c=${encodeURIComponent(
     icdCode
-  )}&knowledgeResponseType=application/json`;
+  )}&informationRecipient.languageCode.c=${language}&knowledgeResponseType=application/json`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`MedlinePlus request failed: ${response.status}`);

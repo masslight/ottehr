@@ -14,6 +14,8 @@ function beforeEachClearMocks(): void {
 // validateRequestParameters
 // ---------------------------------------------------------------------------
 
+const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
 function makeInput(body: Record<string, unknown>): ZambdaInput {
   return { headers: null, body: JSON.stringify(body), secrets: null };
 }
@@ -22,13 +24,13 @@ describe('cm-bulk-add-procedure-codes validateRequestParameters', () => {
   it('returns validated params', () => {
     const result = validateRequestParameters(
       makeInput({
-        chargeMasterId: 'cm-1',
+        chargeMasterId: VALID_UUID,
         codes: [{ code: '99213', amount: 100 }],
         replaceAll: true,
       })
     );
     expect(result).toMatchObject({
-      chargeMasterId: 'cm-1',
+      chargeMasterId: VALID_UUID,
       codes: [{ code: '99213', amount: 100 }],
       replaceAll: true,
     });
@@ -36,17 +38,19 @@ describe('cm-bulk-add-procedure-codes validateRequestParameters', () => {
 
   it('throws when chargeMasterId is missing', () => {
     expect(() => validateRequestParameters(makeInput({ codes: [{ code: '99213', amount: 100 }] }))).toThrow(
-      'chargeMasterId'
+      /chargeMasterId/
     );
   });
 
   it('throws when codes is empty', () => {
-    expect(() => validateRequestParameters(makeInput({ chargeMasterId: 'cm-1', codes: [] }))).toThrow('codes');
+    expect(() => validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, codes: [] }))).toThrow(
+      'Validation error: Array must contain at least 1 element(s) at "codes"'
+    );
   });
 
   it('defaults replaceAll to false', () => {
     const result = validateRequestParameters(
-      makeInput({ chargeMasterId: 'cm-1', codes: [{ code: '99213', amount: 100 }] })
+      makeInput({ chargeMasterId: VALID_UUID, codes: [{ code: '99213', amount: 100 }] })
     );
     expect(result.replaceAll).toBe(false);
   });
@@ -74,7 +78,7 @@ function makePropertyGroup(code: string, modifier?: string, amount = 100): Charg
 const fakeExisting = (propertyGroup: ChargeItemDefinition['propertyGroup']): ChargeItemDefinition =>
   ({
     resourceType: 'ChargeItemDefinition',
-    id: 'cm-1',
+    id: VALID_UUID,
     status: 'active',
     url: 'http://example.com',
     propertyGroup: propertyGroup || [],
@@ -85,7 +89,7 @@ vi.mock('../../src/shared', async (importOriginal) => {
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createOystehrClient: vi.fn(() => mockOystehrClient),
+    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
@@ -111,7 +115,7 @@ describe('cm-bulk-add-procedure-codes handler', () => {
 
     const result = await handler(
       makeInput({
-        chargeMasterId: 'cm-1',
+        chargeMasterId: VALID_UUID,
         codes: [{ code: '99214', amount: 200 }],
         replaceAll: true,
       })
@@ -129,7 +133,7 @@ describe('cm-bulk-add-procedure-codes handler', () => {
 
     const result = await handler(
       makeInput({
-        chargeMasterId: 'cm-1',
+        chargeMasterId: VALID_UUID,
         codes: [{ code: '99214', amount: 200 }],
         replaceAll: false,
       })
@@ -146,7 +150,7 @@ describe('cm-bulk-add-procedure-codes handler', () => {
 
     const result = await handler(
       makeInput({
-        chargeMasterId: 'cm-1',
+        chargeMasterId: VALID_UUID,
         codes: [{ code: '99213', amount: 100 }],
         replaceAll: false,
       })

@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils';
+import { CLAIM_TAG_SYSTEM, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CLAIM_TAG_SYSTEM, createBillingClient, TAG_CODE_SYSTEM } from '../shared';
+import { createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
 import { DeleteBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -28,6 +28,9 @@ async function performEffect(oystehr: Oystehr, params: DeleteBillingTagParams): 
   });
   const tag = tagBundle.unbundle()[0];
   if (!tag) throw FHIR_RESOURCE_NOT_FOUND('Basic');
+  if (isSystemTag(tag)) {
+    throw INVALID_INPUT_ERROR('Cannot delete system-level tags');
+  }
 
   const tagName = tag.code?.text ?? '';
   if (tagName) {

@@ -3,6 +3,7 @@ import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResul
 import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   chooseJson,
@@ -198,6 +199,7 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
         queryKey: [GET_TASKS_KEY],
         exact: false,
       });
+      enqueueSnackbar('Task assigned successfully and moved to In Progress status.', { variant: 'success' });
     },
   });
 };

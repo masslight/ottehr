@@ -41,6 +41,7 @@ import {
   MergePatientsResponse,
   OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
+  PatientEducationLanguage,
   ProcedureDetail,
   ProcedureSuggestion,
   RemoveCoverageResponse,
@@ -85,7 +86,6 @@ enum ZambdaNames {
   'get patient instructions' = 'get patient instructions',
   'save patient instruction' = 'save patient instruction',
   'delete patient instruction' = 'delete patient instruction',
-  'icd search' = 'icd search',
   'ai suggestion notes' = 'ai suggestion notes',
   'recommend billing suggestions' = 'recommend billing suggestions',
   'recommend billing codes' = 'recommend billing codes',
@@ -125,7 +125,6 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get patient instructions': false,
   'save patient instruction': false,
   'delete patient instruction': false,
-  'icd search': false,
   'ai suggestion notes': false,
   'recommend billing suggestions': false,
   'recommend billing codes': false,
@@ -152,6 +151,10 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
+
+type SaveApprovedPatientEducationWithLanguageInput = SaveApprovedPatientEducationInput & {
+  language?: PatientEducationLanguage;
+};
 
 export const getOystehrTelemedAPI = (
   params: GetOystehrTelemedAPIParams,
@@ -210,7 +213,6 @@ export const getOystehrTelemedAPI = (
     getPatientInstructionsZambdaID,
     savePatientInstructionZambdaID,
     deletePatientInstructionZambdaID,
-    icdSearchZambdaId,
     aiSuggestionNotesZambdaID,
     recommendBillingSuggestionsZambdaID,
     recommendBillingCodesZambdaID,
@@ -250,7 +252,6 @@ export const getOystehrTelemedAPI = (
     'get patient instructions': getPatientInstructionsZambdaID,
     'save patient instruction': savePatientInstructionZambdaID,
     'delete patient instruction': deletePatientInstructionZambdaID,
-    'icd search': icdSearchZambdaId,
     'ai suggestion notes': aiSuggestionNotesZambdaID,
     'recommend billing suggestions': recommendBillingSuggestionsZambdaID,
     'recommend billing codes': recommendBillingCodesZambdaID,
@@ -409,7 +410,12 @@ export const getOystehrTelemedAPI = (
   };
 
   const getMergePatientsTask = async (parameters: GetMergePatientsTaskInput): Promise<GetMergePatientsTaskResponse> => {
-    return await makeZapRequest('merge patients', { ...parameters, mode: 'status' });
+    // NB: the discriminator is intentionally `requestMode`, NOT `mode`. The Oystehr
+    // SDK treats a `mode` key on a zambda.execute payload as a reserved
+    // request-context option (FhirResponseMode), which makes it drop the real
+    // payload and send an empty path param ("Required path parameter is an empty
+    // string: id"). See get-vitals.types.ts for the same gotcha.
+    return await makeZapRequest('merge patients', { ...parameters, requestMode: 'status' });
   };
 
   const sendFax = async (parameters: SendFaxZambdaInput): Promise<void> => {
@@ -465,7 +471,7 @@ export const getOystehrTelemedAPI = (
   };
 
   const saveApprovedPatientEducation = async (
-    parameters: SaveApprovedPatientEducationInput
+    parameters: SaveApprovedPatientEducationWithLanguageInput
   ): Promise<SaveApprovedPatientEducationOutput> => {
     return await makeZapRequest('save approved patient education', parameters);
   };

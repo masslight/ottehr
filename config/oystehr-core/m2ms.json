@@ -63,9 +63,11 @@
             "Z3:#{var/PROJECT_ID}-statements/*",
             "Z3:#{var/PROJECT_ID}-patient-education/*",
             "Z3:#{var/PROJECT_ID}-patient-education-admin/*",
+            "Z3:#{var/PROJECT_ID}-radiology-reports/*",
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
             "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
-            "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*"
+            "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*",
+            "Z3:#{var/PROJECT_ID}-medical-record-exports/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject", "Z3:DeleteObject", "Z3:ListObjects"],
           "effect": "Allow"
@@ -73,6 +75,11 @@
         {
           "resource": ["Z3:#{var/PROJECT_ID}-school-work-notes/*"],
           "action": ["Z3:DeleteObject"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Z3:#{var/PROJECT_ID}-TelemedRecordings/*"],
+          "action": ["Z3:GetObject"],
           "effect": "Allow"
         },
         {
@@ -86,7 +93,7 @@
           "resource": ["RCM:InsuranceEligibility"]
         },
         {
-          "action": ["eRx:SearchPharmacy"],
+          "action": ["eRx:SearchPharmacy", "eRx:GetPharmacy"],
           "effect": "Allow",
           "resource": ["eRx:Pharmacy"]
         },
@@ -94,6 +101,11 @@
           "action": ["eRx:SyncPatient", "eRx:GetMedicationHistory"],
           "effect": "Allow",
           "resource": ["eRx:Patient"]
+        },
+        {
+          "action": ["eRx:Check"],
+          "effect": "Allow",
+          "resource": ["eRx:Interaction"]
         },
         {
           "action": ["Terminology:SearchCodes"],
@@ -104,6 +116,21 @@
           "action": ["RCM:SearchPayer", "RCM:GetPayer"],
           "effect": "Allow",
           "resource": ["RCM:Payer"]
+        },
+        {
+          "action": ["RCM:ReadClaim", "RCM:SubmitClaim"],
+          "effect": "Allow",
+          "resource": ["RCM:Claim"]
+        },
+        {
+          "action": ["RCM:ProcessEra"],
+          "effect": "Allow",
+          "resource": ["RCM:Era"]
+        },
+        {
+          "action": ["RCM:SubmitClaim"],
+          "effect": "Allow",
+          "resource": ["RCM:Claim"]
         }
       ]
     },

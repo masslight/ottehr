@@ -1,23 +1,46 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Condition,
+  Encounter,
+  FhirResource,
+  List,
+  Medication,
+  MedicationAdministration,
+  MedicationRequest,
+  Patient,
+  Procedure,
+  ServiceRequest,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   AdminCreateTemplateInput,
   AdminCreateTemplateOutput,
   chartDataTagSystem,
+  CODE_SYSTEM_ICD_10,
   examConfig,
   getSecret,
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
+  INTERACTIONS_UNAVAILABLE,
+  isExternalLabServiceRequest,
+  isPSCOrder,
   makeOptimisticLockIfMatchHeader,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+  OYSTEHR_LAB_GUID_SYSTEM,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  PSC_HOLD_CONFIG,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   resourceHasTagSystem,
   SecretsKeys,
+  TemplateWarning,
   transactionWasSuccessful,
 } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { labOrderCommunicationType } from '../lab/external/get-lab-orders/helpers';
 import { AD_CANONICAL_URL_BASE } from '../lab/shared/in-house-labs';
 import {
   findHolderList,
@@ -25,9 +48,13 @@ import {
   hasTemplateRelevantTag,
   isDiagnosisCondition,
   isInHouseLabRepeatTestCptCode,
+  isPatientEducationCommunication,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -40,7 +67,7 @@ export const index = wrapHandler(
 
       const { secrets } = validatedInput;
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
       const result = await performEffect(validatedInput, oystehr);
 
@@ -60,6 +87,7 @@ const performEffect = async (
   oystehr: Oystehr
 ): Promise<AdminCreateTemplateOutput> => {
   const { encounterId, templateName } = validatedInput;
+  const warnings: TemplateWarning[] = [];
 
   // Fetch encounter with all related clinical resources
   let encounterBundle = await getTemplateEncounterBundle(oystehr, encounterId);
@@ -150,6 +178,38 @@ const performEffect = async (
     isValidProcedureServiceRequest(resource)
   );
 
+  // Capture external lab orders the same way. Their clinical info note lives
+  // on a Communication that references the order SR via basedOn (it carries no
+  // chart-data tag and no encounter reference), so it has to be collected
+  // before the tag filter strips those resources out.
+  const externalLabOrders = encounterBundle.filter((resource): resource is ServiceRequest =>
+    isValidExternalLabServiceRequestForTemplate(resource)
+  );
+
+  const clinicalInfoNoteBySrId = new Map<string, string>();
+  for (const resource of encounterBundle) {
+    if (resource.resourceType !== 'Communication') continue;
+    if (labOrderCommunicationType(resource) !== 'clinical-info-note') continue;
+    const text = resource.payload?.[0]?.contentString;
+    if (!text) continue;
+    for (const basedOn of resource.basedOn ?? []) {
+      const srId = basedOn.reference?.startsWith('ServiceRequest/') ? basedOn.reference.split('/')[1] : undefined;
+      if (srId) clinicalInfoNoteBySrId.set(srId, text);
+    }
+  }
+
+  // Capture in-house medication administrations before the tag filter runs.
+  // MAs carry no chart-data meta tag; they're identified by their own tag
+  // system, which the filter below doesn't include in its allow-list.
+  const medicationAdministrations = encounterBundle.filter((resource): resource is MedicationAdministration =>
+    isValidMedicationAdministrationForTemplate(resource)
+  );
+  const medicationRequestByIdMap = new Map<string, MedicationRequest>(
+    encounterBundle
+      .filter((res): res is MedicationRequest => res.resourceType === 'MedicationRequest')
+      .map((mr) => [mr.id!, mr])
+  );
+
   // Filter to only resources relevant to template sections
   const diagnosesRefFromEncounterSet = new Set(
     oldEncounter.diagnosis?.map((dx) => dx.condition.reference).filter((elm) => elm !== undefined) ?? []
@@ -168,11 +228,31 @@ const performEffect = async (
   for (const resource of encounterBundle) {
     // Skip the Encounter — we create a stub encounter separately
     if (resource.resourceType === 'Encounter') continue;
+    // we won't grab any cpt codes that were added to the assessment because of an administered in house med
+    if (
+      resource.resourceType === 'Procedure' &&
+      resourceHasTagSystem(resource, chartDataTagSystem('cpt-code')) &&
+      resource.partOf?.some((part) => part.reference?.startsWith('MedicationAdministration/'))
+    )
+      continue;
 
     const anonymizedResource: any = { ...resource };
     delete anonymizedResource.meta?.versionId;
     delete anonymizedResource.meta?.lastUpdated;
     delete anonymizedResource.encounter;
+    // we filter out any cpt code partOf that references a MedicationAdministration. We don't want these referencing real MAs,
+    // and we don't want to point at the contained MA because it is too error prone at apply time if the med fails interaction checks.
+    // The MA also contains all the info it needs to properly associate to a cpt code at med administer time.
+    if (
+      anonymizedResource.resourceType === 'Procedure' &&
+      resourceHasTagSystem(anonymizedResource as FhirResource, chartDataTagSystem('cpt-code')) &&
+      !!anonymizedResource.partOf
+    ) {
+      const proc = anonymizedResource as Procedure;
+      anonymizedResource.partOf = proc.partOf!.filter(
+        (part) => !part.reference?.startsWith('MedicationAdministration/')
+      );
+    }
 
     // The stub patient makes the resources that require a subject valid
     anonymizedResource.subject = {
@@ -219,6 +299,77 @@ const performEffect = async (
           {
             system: chartDataTagSystem('in-house-lab-template-plan'),
             code: 'in-house-lab-template-plan',
+          },
+        ],
+      },
+    };
+    listToCreate.contained!.push(plan);
+    listToCreate.entry!.push({
+      item: { reference: `#${planId}` },
+    });
+  }
+
+  // Materialize each captured external lab order as a "plan" ServiceRequest on
+  // the template. Like in-house labs, we don't snapshot the live order graph;
+  // the plan stores the lab + test combo (lab GUID + name, orderable item
+  // code), the Dx reason codes, the clinical info note, and the PSC flag. At
+  // apply time the test is re-resolved against the lab's current compendium,
+  // the ordering office is derived from the encounter the template is applied
+  // to, and the payment method defaults from that visit's payment details -
+  // both are visit-specific, so neither is stored on the template.
+  const externalLabPlanTag = chartDataTagSystem('external-lab-template-plan');
+  for (const order of externalLabOrders) {
+    const labPerformer = order.performer?.find((p) => p.identifier?.system === OYSTEHR_LAB_GUID_SYSTEM);
+    const itemCoding = order.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+    if (!labPerformer?.identifier?.value || !itemCoding?.code) {
+      console.warn(
+        `Skipping external lab order ServiceRequest/${order.id} when saving template - missing lab guid or item code`
+      );
+      continue;
+    }
+    // The lab name disambiguates generic (static-compendium) labs, which all
+    // share a single lab GUID; the create flow stamps it on the order's
+    // contained ActivityDefinition as publisher.
+    const containedAd = order.contained?.find((r): r is ActivityDefinition => r.resourceType === 'ActivityDefinition');
+    const labName = containedAd?.publisher ?? labPerformer.display;
+    const clinicalInfoNote = order.id ? clinicalInfoNoteBySrId.get(order.id) : undefined;
+
+    const planId = uuidV4();
+    const plan: ServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: planId,
+      status: 'active',
+      intent: 'plan',
+      subject: { reference: `#${stubPatient.id}` },
+      code: {
+        coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: itemCoding.code, display: itemCoding.display }],
+        text: itemCoding.display ?? order.code?.text,
+      },
+      performer: [
+        {
+          identifier: { system: OYSTEHR_LAB_GUID_SYSTEM, value: labPerformer.identifier.value },
+          ...(labName ? { display: labName } : {}),
+        },
+      ],
+      ...(order.reasonCode ? { reasonCode: order.reasonCode } : {}),
+      ...(clinicalInfoNote ? { note: [{ text: clinicalInfoNote }] } : {}),
+      ...(isPSCOrder(order)
+        ? {
+            orderDetail: [
+              {
+                coding: [
+                  { system: PSC_HOLD_CONFIG.system, code: PSC_HOLD_CONFIG.code, display: PSC_HOLD_CONFIG.display },
+                ],
+                text: PSC_HOLD_CONFIG.display,
+              },
+            ],
+          }
+        : {}),
+      meta: {
+        tag: [
+          {
+            system: externalLabPlanTag,
+            code: 'external-lab-template-plan',
           },
         ],
       },
@@ -278,6 +429,52 @@ const performEffect = async (
     listToCreate.contained!.push(plan);
     listToCreate.entry!.push({
       item: { reference: `#${planId}` },
+    });
+  }
+
+  // Build a map of Condition id → Condition (diagnosis conditions only) so we
+  // can resolve a medication's reasonReference to ICD-10 codings when
+  // materializing medication plans below.
+  const diagnosisConditionById = new Map<string, Condition>();
+  for (const resource of encounterBundle) {
+    if (isDiagnosisCondition(resource) && resource.id) {
+      diagnosisConditionById.set(resource.id, resource as Condition);
+    }
+  }
+
+  // Materialize each captured in-house medication administration as a
+  // MedicationAdministration on the template. We store only the ordering inputs
+  // (drug identity as contained Medication, dosage, CPT codes, reason notes,
+  // and ICD-10 diagnoses lifted from the Condition references) — patient-specific
+  // fields (performer, effectiveDateTime, reasonReference, request) are stripped.
+  // At apply time, apply-template re-runs the medication create flow using the
+  // plan data, binding the fresh patient and encounter.
+  // Note: we effectively skip all medications if any medication has detected interactions
+  const { templateResources, medAdminIdMap, medicationInteractionDetected } = collectMedicationsForTemplate({
+    medicationAdministrations,
+    medicationRequestByIdMap,
+    diagnosisConditionById,
+    stubPatientId: stubPatient.id!,
+  });
+
+  if (!medicationInteractionDetected) {
+    console.log('No medication interaction detected, adding medications to template');
+    for (const [oldId, newId] of medAdminIdMap) {
+      oldIdToNewIdMap.set(oldId, newId);
+    }
+    for (const res of templateResources) {
+      if (res.resourceType === 'MedicationAdministration') {
+        listToCreate.entry!.push({
+          item: { reference: `#${res.id}` },
+        });
+      }
+      listToCreate.contained!.push(res);
+    }
+  } else {
+    console.warn('Medication interactions detected, no medications added to template');
+    warnings.push({
+      section: 'inHouseMedications',
+      message: 'Medication interactions detected, no medications added to template',
     });
   }
 
@@ -357,6 +554,7 @@ const performEffect = async (
   return {
     templateName: createdList.title ?? templateName,
     templateId: createdList.id!,
+    warnings,
   };
 };
 
@@ -391,7 +589,8 @@ export const deduplicateTemplateResourcesByMetaTag = (
         (tag) =>
           tag?.includes(chartDataTagSystem('cpt-code')) ||
           tag?.includes(chartDataTagSystem('patient-instruction')) ||
-          tag?.includes(chartDataTagSystem('procedure'))
+          tag?.includes(chartDataTagSystem('procedure')) ||
+          tag?.includes(MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM)
       )
     )
       return true;
@@ -418,6 +617,11 @@ export const filterEntriesToTemplateContent = (
     // we don't write the repeat tests themselves to the templates, so don't take their cpt codes either
     if (isInHouseLabRepeatTestCptCode(resource)) return false;
 
+    // filter out pdf patient education here -- captured as a communication resource
+    // with the patient-instruction tag
+    // template todo: this will change when we decide to include patient education in templates
+    if (isPatientEducationCommunication(resource)) return false;
+
     return hasTemplateRelevantTag(resource);
   });
 };
@@ -440,6 +644,22 @@ export const isValidInHouseLabServiceRequest = (resource: TemplateEncounterResou
   );
 };
 
+// External lab order SRs are identified by their orderable-item code system.
+// Reflex/repeat tests created downstream reference their parent order via
+// basedOn and are excluded - templates only capture orders a provider placed.
+// The includable-status set keeps cancelled (revoked / entered-in-error)
+// orders out of saved templates, mirroring the in-house lab capture.
+export const isValidExternalLabServiceRequestForTemplate = (resource: TemplateEncounterResource): boolean => {
+  if (resource.resourceType !== 'ServiceRequest') return false;
+  const sr = resource as ServiceRequest;
+  return (
+    sr.intent === 'order' &&
+    isExternalLabServiceRequest(sr) &&
+    !sr.basedOn?.some((basedOn) => basedOn.reference?.startsWith('ServiceRequest/')) &&
+    TEMPLATE_INCLUDABLE_SR_STATUSES.has(sr.status)
+  );
+};
+
 // Chart-data procedures are stored as ServiceRequest with the 'procedure' meta
 // tag (createProcedureServiceRequest in shared/chart-data uses
 // fillMeta('procedure', 'procedure')). delete-chart-data patches status to
@@ -452,4 +672,136 @@ export const isValidProcedureServiceRequest = (resource: TemplateEncounterResour
     resourceHasTagSystem(resource, chartDataTagSystem('procedure')) &&
     TEMPLATE_INCLUDABLE_SR_STATUSES.has((resource as ServiceRequest).status)
   );
+};
+
+// In-house medication administrations are identified by their own tag system.
+// Cancelled ('stopped') and erroneous ('entered-in-error') orders are excluded
+// so a saved template doesn't carry forward orders the provider voided.
+const TEMPLATE_INCLUDABLE_MA_STATUSES = new Set<MedicationAdministration['status']>([
+  'in-progress',
+  'on-hold',
+  'completed',
+  'not-done',
+]);
+
+export const isValidMedicationAdministrationForTemplate = (resource: TemplateEncounterResource): boolean => {
+  if (resource.resourceType !== 'MedicationAdministration') return false;
+  const ma = resource as MedicationAdministration;
+  return (
+    resourceHasTagSystem(ma, MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM) &&
+    TEMPLATE_INCLUDABLE_MA_STATUSES.has(ma.status)
+  );
+};
+
+export const medicationRequestHasInteraction = (mr: MedicationRequest): boolean => {
+  if (!mr.detectedIssue?.length) return false;
+  return mr.detectedIssue.length > 1 || !mr.detectedIssue[0].reference?.includes(INTERACTIONS_UNAVAILABLE);
+};
+
+export type CollectMedicationsResult = {
+  templateResources: (Medication | MedicationAdministration)[];
+  medAdminIdMap: Map<string, string>;
+  medicationInteractionDetected: boolean;
+};
+
+// Loops over chart MedicationAdministrations and builds the resources that
+// get flushed into the template List. Resources array is empty if any
+// MedicationRequest carries a real drug interaction — this is intentional: if
+// any medication in the set has an interaction we omit all of them so the
+// template never captures a partially-safe set.
+export const collectMedicationsForTemplate = (params: {
+  medicationAdministrations: MedicationAdministration[];
+  medicationRequestByIdMap: Map<string, MedicationRequest>;
+  diagnosisConditionById: Map<string, Condition>;
+  stubPatientId: string;
+}): CollectMedicationsResult => {
+  const medicationPlanSystemKey = 'in-house-medication-administration-template';
+  const medicationPlanTagSystem = chartDataTagSystem(medicationPlanSystemKey);
+  let medicationInteractionDetected = false;
+  const templateResources: (Medication | MedicationAdministration)[] = [];
+  const medAdminIdMap = new Map<string, string>();
+
+  for (const medAdmin of params.medicationAdministrations) {
+    const mrForMedAdmin = params.medicationRequestByIdMap.get(
+      medAdmin.request?.reference?.replace('MedicationRequest/', '') ?? ''
+    );
+    if (!mrForMedAdmin) {
+      console.warn(
+        `Skipping MedicationAdministration/${medAdmin.id} when saving template — no MedicationRequest found`
+      );
+      continue;
+    }
+
+    medicationInteractionDetected = medicationRequestHasInteraction(mrForMedAdmin);
+    if (medicationInteractionDetected) break;
+
+    const originalMedication = medAdmin.contained?.find((r) => r.resourceType === 'Medication');
+    if (!originalMedication) {
+      console.warn(
+        `Skipping MedicationAdministration/${medAdmin.id} when saving template — no contained Medication found`
+      );
+      continue;
+    }
+
+    // Lift ICD-10 codings from reasonReference Conditions into reasonCode so
+    // the plan can carry Dx without referencing patient-specific Conditions.
+    const reasonCode = (medAdmin.reasonReference ?? []).flatMap((ref) => {
+      const condId = ref.reference?.replace('Condition/', '');
+      if (!condId) return [];
+      const cond = params.diagnosisConditionById.get(condId);
+      if (!cond) return [];
+      const icdCoding = cond.code?.coding?.find(
+        (c) =>
+          c.system === CODE_SYSTEM_ICD_10 ||
+          // legacy system
+          c.system === ICD_10_CODE_SYSTEM
+      );
+      if (!icdCoding) return [];
+      return [{ coding: [icdCoding], text: icdCoding.display }];
+    });
+
+    // FHIR doesn't allow multiple nested contained resources so we need to store
+    // Medication not in MA.contained but in List.contained instead. Both are
+    // buffered together so a later interaction check discards both atomically.
+    const medicationId = uuidV4();
+    const templateMedication: Medication = {
+      ...originalMedication,
+      id: medicationId,
+    };
+
+    const newMedAdminId = uuidV4();
+    medAdminIdMap.set(medAdmin.id!, newMedAdminId);
+    const templateMedAdministration: MedicationAdministration = {
+      resourceType: 'MedicationAdministration',
+      id: newMedAdminId,
+      status: 'in-progress',
+      subject: { reference: `#${params.stubPatientId}` },
+      // this is a required field but we will overwrite it when the template is actually applied
+      effectiveDateTime: DateTime.now().toISO(),
+      // NO context (encounter ref) — patient-specific
+      // NO performer — patient-specific
+      // NO reasonReference — Condition IDs are patient-specific; Dx lifted to reasonCode above
+      // NO request — MR is patient-specific (carries interaction data for that patient)
+      // No notes - only used to capture reasons the med was not administered
+      ...(medAdmin.dosage ? { dosage: medAdmin.dosage } : {}),
+      ...(medAdmin.extension && medAdmin.extension.length > 0 ? { extension: medAdmin.extension } : {}),
+      ...(reasonCode.length > 0 ? { reasonCode } : {}),
+      // details of the medication itself are contained on the medicationAdministration
+      medicationReference: { reference: `#${medicationId}` },
+      meta: {
+        tag: [{ system: medicationPlanTagSystem, code: medicationPlanSystemKey }],
+      },
+    };
+
+    templateResources.push(...[templateMedAdministration, templateMedication]);
+  }
+
+  if (medicationInteractionDetected) {
+    return {
+      medicationInteractionDetected: true,
+      templateResources: [],
+      medAdminIdMap: new Map(),
+    };
+  }
+  return { templateResources, medAdminIdMap, medicationInteractionDetected: false };
 };

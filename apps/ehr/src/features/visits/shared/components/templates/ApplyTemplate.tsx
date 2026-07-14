@@ -24,8 +24,9 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplateSectionActions } from 'utils';
+import { RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
+import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
 import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
@@ -108,7 +109,10 @@ export const ApplyTemplate: React.FC = () => {
     setDialogOpen(false);
   };
 
-  const handleApplyTemplate = async (sectionActions: TemplateSectionActions): Promise<void> => {
+  const handleApplyTemplate = async (
+    sectionActions: TemplateSectionActions,
+    options?: TemplatePreviewApplyOptions
+  ): Promise<void> => {
     if (!pendingTemplate) return;
     if (oystehrZambda && encounter.id) {
       setIsApplyingTemplate(true);
@@ -117,18 +121,22 @@ export const ApplyTemplate: React.FC = () => {
           encounterId: encounter.id,
           templateName: pendingTemplate.value,
           sectionActions,
+          ...(options?.externalLabs ? { externalLabs: options.externalLabs } : {}),
         });
 
         // Reset exam observations store to force reload from server
         // This is necessary because exam observations are stored in Zustand (not React Query)
-        // and need to be cleared before React Query refetch triggers the update
-        resetExamObservationsStore();
-        resetRosObservationsStore();
+        // and need to be cleared before React Query refetch triggers the update.
+        // only reset when the sections have content to avoid clearing cache with no way to repopulate
+        if (sectionActions.examFindings !== 'skip') resetExamObservationsStore();
+
+        if (sectionActions.ros !== 'skip') resetRosObservationsStore();
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
           queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
+          queryClient.invalidateQueries({ queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY] }),
         ]);
 
         enqueueSnackbar('Template applied successfully!', { variant: 'success' });
@@ -215,17 +223,23 @@ export const ApplyTemplate: React.FC = () => {
         await deleteTemplate(oystehrZambda, { templateId: existingTemplate.id });
       }
 
-      await createTemplate(oystehrZambda, {
+      const result = await createTemplate(oystehrZambda, {
         encounterId: encounter.id,
         templateName: trimmedName,
       });
       await queryClient.invalidateQueries({ queryKey: ['list-templates'] });
+      if (result.warnings.length) {
+        for (const warning of result.warnings) {
+          enqueueSnackbar(warning.message, { variant: 'warning' });
+        }
+      }
       enqueueSnackbar(
         existingTemplate
           ? `Template "${trimmedName}" updated successfully!`
           : `Template "${trimmedName}" created successfully!`,
         { variant: 'success' }
       );
+
       handleCreateDialogClose();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save template';

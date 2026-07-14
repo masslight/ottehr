@@ -13,7 +13,6 @@ import {
   InputLabel,
   ListItemText,
   MenuItem,
-  Paper,
   Select,
   Stack,
   Table,
@@ -32,6 +31,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import {
   AllStates,
   AVAILABLE_EMPLOYEE_ROLES,
@@ -258,95 +258,206 @@ function EmployeesTable({
 
   return (
     <>
-      <Paper sx={{ padding: 2 }}>
-        <TableContainer>
-          <Grid container direction="row" justifyContent="start" alignItems="center">
-            {/* Employee Name Search Box */}
-            <Box sx={{ display: 'flex', flex: 2, margin: '10px 0' }}>
-              <TextField
-                id="outlined-basic"
-                label="Search by name"
-                variant="outlined"
-                onChange={handleChangeSearchText}
-                value={searchText}
-                data-testid={dataTestIds.employeesPage.searchByName}
-                InputProps={{ endAdornment: <SearchIcon /> }}
-                sx={{ width: '100%', paddingRight: 2 }}
-              />
+      <AdminHeaderActionSlot>
+        {canEditRoles ? (
+          <Link to={`/admin/employees/add`}>
+            <Button variant="contained" startIcon={<Add />}>
+              Add user
+            </Button>
+          </Link>
+        ) : (
+          <Tooltip title="You must be an administrator to add new users" placement="top">
+            <span>
+              {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
+              <Button variant="contained" startIcon={<Add />} disabled>
+                Add user
+              </Button>
+            </span>
+          </Tooltip>
+        )}
+      </AdminHeaderActionSlot>
+      <TableContainer>
+        <Grid container direction="row" justifyContent="start" alignItems="center">
+          {/* Employee Name Search Box */}
+          <Box sx={{ display: 'flex', flex: 2, margin: '10px 0' }}>
+            <TextField
+              id="outlined-basic"
+              label="Search by name"
+              variant="outlined"
+              onChange={handleChangeSearchText}
+              value={searchText}
+              data-testid={dataTestIds.employeesPage.searchByName}
+              InputProps={{ endAdornment: <SearchIcon /> }}
+              sx={{ width: '100%', paddingRight: 2 }}
+            />
+          </Box>
+          {/* States drop-down */}
+          {currentTab === EmployeeTypes.providers && (
+            <Box sx={{ display: 'flex', flex: 2, paddingRight: 3 }}>
+              <StateSelect onChange={handleChangeStateSelect} selectedState={selectedState} />
             </Box>
-            {/* States drop-down */}
-            {currentTab === EmployeeTypes.providers && (
-              <Box sx={{ display: 'flex', flex: 2, paddingRight: 3 }}>
-                <StateSelect onChange={handleChangeStateSelect} selectedState={selectedState} />
-              </Box>
-            )}
-            <Box sx={{ display: 'flex', flex: 1, maxWidth: '260px' }}>
-              <FormControlLabel
-                name="last_login_filter"
-                control={<Checkbox checked={lastLoginFilterChecked} onChange={handleChangeLastLoginFilter} />}
-                label="Hide last logins that occurred more than 90 days ago"
-                sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
-              />
-            </Box>
-            {/* todo reduce code duplicate */}
-            {canEditRoles ? (
-              <Link to={`/admin/employees/add`}>
-                <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
-                  Add user
-                </Button>
-              </Link>
-            ) : (
-              <Tooltip title="You must be an administrator to add new users" placement="top">
-                <span>
-                  {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
-                  <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />} disabled>
-                    Add user
-                  </Button>
-                </span>
-              </Tooltip>
-            )}
-          </Grid>
+          )}
+          <Box sx={{ display: 'flex', flex: 1, maxWidth: '260px' }}>
+            <FormControlLabel
+              name="last_login_filter"
+              control={<Checkbox checked={lastLoginFilterChecked} onChange={handleChangeLastLoginFilter} />}
+              label="Hide last logins that occurred more than 90 days ago"
+              sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
+            />
+          </Box>
+        </Grid>
 
-          {/* Employees Table */}
-          <Table sx={{ minWidth: 650 }} aria-label="locationsTable" data-testid={dataTestIds.employeesPage.table}>
-            <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
-                <TableCell sx={{ width: '25%' }}>Name (Last, First)</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Last Login</TableCell>
-                <TableCell>Status</TableCell>
-                {currentTab === EmployeeTypes.providers && (
-                  <>
-                    <TableCell sx={{ maxWidth: '150px' }}>Getting alerts</TableCell>
-                    <TableCell sx={{ maxWidth: '150px' }}>Seen patient last 30 mins</TableCell>
-                  </>
-                )}
-                {showReviewColumn && <TableCell sx={{ width: '220px', whiteSpace: 'nowrap' }}>Actions</TableCell>}
-              </TableRow>
-            </TableHead>
+        {/* Employees Table */}
+        <Table sx={{ minWidth: 650 }} aria-label="locationsTable" data-testid={dataTestIds.employeesPage.table}>
+          <TableHead>
+            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
+              <TableCell sx={{ width: '25%' }}>Name (Last, First)</TableCell>
+              <TableCell>Phone</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Last Login</TableCell>
+              <TableCell>Status</TableCell>
+              {currentTab === EmployeeTypes.providers && (
+                <>
+                  <TableCell sx={{ maxWidth: '150px' }}>Getting alerts</TableCell>
+                  <TableCell sx={{ maxWidth: '150px' }}>Seen patient last 30 mins</TableCell>
+                </>
+              )}
+              {showReviewColumn && <TableCell sx={{ width: '220px', whiteSpace: 'nowrap' }}>Actions</TableCell>}
+            </TableRow>
+          </TableHead>
 
-            <TableBody>
-              {pageEmployees.map((employee) => {
-                const name = (function () {
-                  if (employee.firstName && employee.lastName)
-                    return [employee.lastName, employee.firstName].join(', ');
-                  else if (employee.name) return employee.name;
-                  else return '-';
-                })();
+          <TableBody>
+            {pageEmployees.map((employee) => {
+              const name = (function () {
+                if (employee.firstName && employee.lastName) return [employee.lastName, employee.firstName].join(', ');
+                else if (employee.name) return employee.name;
+                else return '-';
+              })();
 
-                return (
-                  <TableRow key={employee.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
-                    <TableCell>
-                      {employee.needsReview ? (
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <span>{name}</span>
+              return (
+                <TableRow key={employee.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
+                  <TableCell>
+                    {employee.needsReview ? (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <span>{name}</span>
+                        <Chip
+                          label="NEEDS REVIEW"
+                          data-testid={dataTestIds.employeesPage.needsReviewChip}
+                          sx={{
+                            backgroundColor: otherColors.orange100,
+                            color: otherColors.orange800,
+                            borderRadius: '4px',
+                            height: '18px',
+                            '& .MuiChip-label': {
+                              padding: '0 8px',
+                              lineHeight: '18px',
+                            },
+                            ...theme.typography.subtitle2,
+                          }}
+                        />
+                      </Stack>
+                    ) : (
+                      <Link
+                        to={`/admin/employee/${employee.id}`}
+                        style={{
+                          display: 'contents',
+                          color: theme.palette.primary.main,
+                        }}
+                      >
+                        {name}
+                      </Link>
+                    )}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: otherColors.tableRow,
+                    }}
+                  >
+                    {employee.phoneNumber || '-'}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: otherColors.tableRow,
+                      maxWidth: '220px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {employee.email ? (
+                      <Tooltip title={employee.email} placement="top">
+                        <span>{employee.email}</span>
+                      </Tooltip>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      color: otherColors.tableRow,
+                    }}
+                  >
+                    {employee.lastLogin ? formatDateForDisplay(employee.lastLogin) : 'Never'}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={employee.status.toUpperCase()}
+                      data-testid={dataTestIds.employeesPage.statusChip}
+                      sx={{
+                        backgroundColor:
+                          employee.status === 'Active'
+                            ? otherColors.employeeActiveChip
+                            : otherColors.employeeDeactivatedChip,
+                        color:
+                          employee.status === 'Active'
+                            ? otherColors.employeeActiveText
+                            : otherColors.employeeDeactivatedText,
+                        borderRadius: '4px',
+                        height: '18px',
+                        '& .MuiChip-label': {
+                          padding: '0 8px',
+                          lineHeight: '18px',
+                        },
+                        ...theme.typography.subtitle2,
+                      }}
+                    />
+                  </TableCell>
+                  {currentTab === EmployeeTypes.providers && (
+                    <>
+                      <TableCell
+                        sx={{
+                          color: otherColors.tableRow,
+                        }}
+                      >
+                        {employee.gettingAlerts && (
                           <Chip
-                            label="NEEDS REVIEW"
-                            data-testid={dataTestIds.employeesPage.needsReviewChip}
+                            label="GETTING ALERTS"
+                            color={'info'}
                             sx={{
-                              backgroundColor: otherColors.orange100,
-                              color: otherColors.orange800,
+                              borderRadius: '4px',
+                              bgcolor: 'info.light',
+                              color: 'info.dark',
+                              height: '18px',
+                              '& .MuiChip-label': {
+                                padding: '0 8px',
+                                lineHeight: '18px',
+                              },
+                              ...theme.typography.subtitle2,
+                            }}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          color: otherColors.tableRow,
+                        }}
+                      >
+                        {employee.seenPatientRecently && (
+                          <Chip
+                            label="BEEN SEEN"
+                            sx={{
+                              backgroundColor: otherColors.employeeBeenSeenChip,
+                              color: otherColors.employeeBeenSeenText,
                               borderRadius: '4px',
                               height: '18px',
                               '& .MuiChip-label': {
@@ -356,145 +467,32 @@ function EmployeesTable({
                               ...theme.typography.subtitle2,
                             }}
                           />
-                        </Stack>
-                      ) : (
-                        <Link
-                          to={`/admin/employee/${employee.id}`}
-                          style={{
-                            display: 'contents',
-                            color: theme.palette.primary.main,
-                          }}
-                        >
-                          {name}
-                        </Link>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: otherColors.tableRow,
-                      }}
-                    >
-                      {employee.phoneNumber || '-'}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: otherColors.tableRow,
-                        maxWidth: '220px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {employee.email ? (
-                        <Tooltip title={employee.email} placement="top">
-                          <span>{employee.email}</span>
-                        </Tooltip>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: otherColors.tableRow,
-                      }}
-                    >
-                      {employee.lastLogin ? formatDateForDisplay(employee.lastLogin) : 'Never'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={employee.status.toUpperCase()}
-                        data-testid={dataTestIds.employeesPage.statusChip}
-                        sx={{
-                          backgroundColor:
-                            employee.status === 'Active'
-                              ? otherColors.employeeActiveChip
-                              : otherColors.employeeDeactivatedChip,
-                          color:
-                            employee.status === 'Active'
-                              ? otherColors.employeeActiveText
-                              : otherColors.employeeDeactivatedText,
-                          borderRadius: '4px',
-                          height: '18px',
-                          '& .MuiChip-label': {
-                            padding: '0 8px',
-                            lineHeight: '18px',
-                          },
-                          ...theme.typography.subtitle2,
-                        }}
-                      />
-                    </TableCell>
-                    {currentTab === EmployeeTypes.providers && (
-                      <>
-                        <TableCell
-                          sx={{
-                            color: otherColors.tableRow,
-                          }}
-                        >
-                          {employee.gettingAlerts && (
-                            <Chip
-                              label="GETTING ALERTS"
-                              color={'info'}
-                              sx={{
-                                borderRadius: '4px',
-                                bgcolor: 'info.light',
-                                color: 'info.dark',
-                                height: '18px',
-                                '& .MuiChip-label': {
-                                  padding: '0 8px',
-                                  lineHeight: '18px',
-                                },
-                                ...theme.typography.subtitle2,
-                              }}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            color: otherColors.tableRow,
-                          }}
-                        >
-                          {employee.seenPatientRecently && (
-                            <Chip
-                              label="BEEN SEEN"
-                              sx={{
-                                backgroundColor: otherColors.employeeBeenSeenChip,
-                                color: otherColors.employeeBeenSeenText,
-                                borderRadius: '4px',
-                                height: '18px',
-                                '& .MuiChip-label': {
-                                  padding: '0 8px',
-                                  lineHeight: '18px',
-                                },
-                                ...theme.typography.subtitle2,
-                              }}
-                            />
-                          )}
-                        </TableCell>
-                      </>
-                    )}
-                    {showReviewColumn && (
-                      <TableCell>
-                        {employee.needsReview && canEditRoles && <PendingReviewActions employee={employee} />}
+                        )}
                       </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                    </>
+                  )}
+                  {showReviewColumn && (
+                    <TableCell>
+                      {employee.needsReview && canEditRoles && <PendingReviewActions employee={employee} />}
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
 
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            component="div"
-            count={filteredEmployees.length}
-            rowsPerPage={rowsPerPage}
-            page={pageNumber}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            data-testid={dataTestIds.pagination.paginationContainer}
-          />
-        </TableContainer>
-      </Paper>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          component="div"
+          count={filteredEmployees.length}
+          rowsPerPage={rowsPerPage}
+          page={pageNumber}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          data-testid={dataTestIds.pagination.paginationContainer}
+        />
+      </TableContainer>
     </>
   );
 }

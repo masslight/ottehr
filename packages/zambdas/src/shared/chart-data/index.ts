@@ -7,6 +7,7 @@ import {
   CodeableConcept,
   Communication,
   Condition,
+  DiagnosticReport,
   DocumentReference,
   DomainResource,
   Encounter,
@@ -41,7 +42,9 @@ import {
   BODY_SITE_SYSTEM,
   BooleanValueDTO,
   ClinicalImpressionDTO,
+  CODE_SYSTEM_ICD_10,
   CommunicationDTO,
+  CPT_CODE_SYSTEM,
   CPTCodeDTO,
   createCodeableConcept,
   createFilesDocumentReferences,
@@ -56,10 +59,10 @@ import {
   FHIR_EXTENSION,
   fillVitalObservationAttributes,
   FreeTextNoteDTO,
+  getBooleanExtensionValue,
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
-  ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
   isNoteEdited,
   isVitalObservation,
@@ -81,6 +84,7 @@ import {
   patientScreeningQuestionsConfig,
   PERFORMER_TYPE_SYSTEM,
   PrescribedMedicationDTO,
+  PRESCRIPTION_ERX_PHARMACY_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
   ProcedureDTO,
@@ -102,6 +106,7 @@ import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
+import { makeRadiologyDTO, takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
 const hasValue = (data: unknown): boolean => {
@@ -144,7 +149,7 @@ export function makeConditionResource(
       ? {
           coding: [
             {
-              system: ICD_10_CODE_SYSTEM,
+              system: CODE_SYSTEM_ICD_10,
               version: '2019',
               code: dto.code,
               display: dto.display,
@@ -290,6 +295,14 @@ export function makeMedicationResource(
         },
       ],
     },
+    ...(data.isRenewal !== undefined && {
+      extension: [
+        {
+          url: FHIR_EXTENSION.MedicationRequest.isRenewal.url,
+          valueBoolean: data.isRenewal,
+        },
+      ],
+    }),
   };
 }
 
@@ -313,6 +326,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
       ? (medication.status as 'active' | 'completed')
       : 'completed',
     practitioner: medication.informationSource,
+    isRenewal: getBooleanExtensionValue(medication, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
   };
 }
 
@@ -330,6 +344,8 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
       (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/erx-prescription-id'
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
+    isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
+    pharmacyId: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL)?.valueInteger?.toString(),
   };
 }
 
@@ -355,7 +371,7 @@ export function makeProcedureResource(
     result.note = [{ text: text }];
   } else if ('code' in data && 'display' in data) {
     result.code = {
-      coding: [{ code: data.code, display: data.display }],
+      coding: [{ system: CPT_CODE_SYSTEM, code: data.code, display: data.display }],
     };
   }
   if (partOf) {
@@ -1123,7 +1139,7 @@ export function makeDiagnosisConditionResource(
     code: {
       coding: [
         {
-          system: ICD_10_CODE_SYSTEM,
+          system: CODE_SYSTEM_ICD_10,
           code: data.code,
           display: data.display,
         },
@@ -1655,6 +1671,39 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
 
   // 7. Accident
   data.accident = makeAccidentDTOFromFhirResources(resources);
+
+  // 8. Radiology orders
+  if (data.radiologyOrders) {
+    const diagnosticReportBySrId = resources.reduce((acc: Record<string, DiagnosticReport[]>, r) => {
+      if (r.resourceType === 'DiagnosticReport') {
+        const srId = r.basedOn
+          ?.find((basedOn) => basedOn.reference?.startsWith('ServiceRequest/'))
+          ?.reference?.replace('ServiceRequest/', '');
+        if (!srId) return acc;
+
+        if (acc[srId]) {
+          acc[srId].push(r);
+        } else {
+          acc[srId] = [r];
+        }
+      }
+      return acc;
+    }, {});
+
+    serviceRequests.forEach((sr) => {
+      if (!chartDataResourceHasMetaTagByCode(sr, 'radiology')) return;
+      if (sr.status === 'revoked') return; // don't pull in soft deletes
+
+      const { id } = sr;
+      if (!id) return;
+
+      const relatedDiagnosticReports = diagnosticReportBySrId[id] ?? [];
+      const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
+      const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
+      const radiologyDTO = makeRadiologyDTO(sr, preliminaryDiagnosticReport, bestFinalReport);
+      data.radiologyOrders?.push(radiologyDTO);
+    });
+  }
 
   return data;
 }

@@ -1,9 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient, Person } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, formatAddress, getClaimStatus, resolvePayersByRef } from '../shared';
+import {
+  createBillingClient,
+  fetchById,
+  formatAddress,
+  getClaimStatus,
+  resolvePayersByRef,
+  toAddressParts,
+} from '../shared';
 import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -19,12 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): Promise<PatientDetailResponse> {
-  const result = await oystehr.fhir.search<Patient>({
-    resourceType: 'Patient',
-    params: [{ name: '_id', value: params.patientId }],
-  });
-  const patient = result.unbundle()[0];
-  if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+  const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
 
   const claims = await fetchPatientClaims(oystehr, params.patientId);
 
@@ -32,6 +34,7 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
   const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
+  const addr = patient.address?.[0];
 
   return {
     id: patient.id ?? '',
@@ -41,7 +44,8 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     gender: patient.gender ?? '',
     phone,
     email,
-    address: formatAddress(patient.address?.[0]),
+    address: formatAddress(addr),
+    addressParts: toAddressParts(addr),
     friendlyId,
     active: patient.active !== false,
     // TODO: wire real balance from ClaimResponse/PaymentReconciliation

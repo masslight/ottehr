@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { Box, Button, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -10,7 +11,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetOrdersForTrackingBoard } from 'src/hooks/useGetOrdersForTrackingBoard';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { InPersonAppointmentInformation } from 'utils';
+import { APIErrorCode, InPersonAppointmentInformation, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -40,9 +41,26 @@ export default function Appointments(): ReactElement {
   const locationParam = searchParams.get('location');
   const visitTypeParam = searchParams.get('visitType');
   const serviceCategoryParam = searchParams.get('serviceCategory');
-  const dateParam = searchParams.get('date');
+  const dateFromParam = searchParams.get('dateFrom');
+  const dateToParam = searchParams.get('dateTo');
   const providerParam = searchParams.get('provider');
-  const queryId = [locationParam, visitTypeParam, serviceCategoryParam, dateParam, providerParam].join(':');
+  const queryId = [locationParam, visitTypeParam, serviceCategoryParam, dateFromParam, dateToParam, providerParam].join(
+    ':'
+  );
+  // Validate as real ISO dates (not just truthy + string ordering) so a malformed `dateFrom`/`dateTo`
+  // link can't trigger a get-appointments request that only fails server-side. ISO dates also sort
+  // correctly lexicographically, so the string comparison is safe once both are confirmed valid. The
+  // span is also capped to match the zambda, so an over-large range is skipped instead of round-tripping
+  // to a guaranteed server-side rejection.
+  const hasValidDateRange = Boolean(
+    dateFromParam &&
+      dateToParam &&
+      DateTime.fromISO(dateFromParam).isValid &&
+      DateTime.fromISO(dateToParam).isValid &&
+      dateFromParam <= dateToParam &&
+      DateTime.fromISO(dateToParam, { zone: 'utc' }).diff(DateTime.fromISO(dateFromParam, { zone: 'utc' }), 'days')
+        .days <= MAX_APPOINTMENT_SEARCH_RANGE_DAYS
+  );
 
   const {
     preBooked: preBookedAppointments = [],
@@ -73,30 +91,48 @@ export default function Appointments(): ReactElement {
     const fetchStuff = async (client: Oystehr): Promise<void> => {
       setLoadingState({ status: 'loading' });
 
-      if ((locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) && dateParam && visitType) {
-        const searchResults = await getAppointments(client, {
-          searchDate: dateParam,
-          timezone: DateTime.now().zoneName,
-          locationIds: locations,
-          providerIds: providers,
-          serviceCategories,
-          visitType,
-          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
-        });
+      if (
+        (locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) &&
+        dateFromParam &&
+        dateToParam &&
+        visitType
+      ) {
+        try {
+          const searchResults = await getAppointments(client, {
+            searchDateFrom: dateFromParam,
+            searchDateTo: dateToParam,
+            timezone: DateTime.now().zoneName,
+            locationIds: locations,
+            providerIds: providers,
+            serviceCategories,
+            visitType,
+            supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+          });
 
-        // drives refetch for apis not using react hook query yet
-        setAppointmentsVersion(Date.now());
-        // drives refetch for apis using react hook query
-        void refetchOrders();
+          // drives refetch for apis not using react hook query yet
+          setAppointmentsVersion(Date.now());
+          // drives refetch for apis using react hook query
+          void refetchOrders();
 
-        debounce(() => {
-          setSearchResults(searchResults || []);
+          debounce(() => {
+            setSearchResults(searchResults || []);
+            setLoadingState({ status: 'loaded', id: queryId });
+          });
+        } catch (error) {
+          console.error('error fetching appointments', error);
+          const sdkError = error as Oystehr.OystehrSdkError;
+          const message =
+            sdkError?.code === APIErrorCode.APPOINTMENT_SEARCH_TOO_BROAD
+              ? sdkError.message
+              : 'Failed to load visits. Please try again in a moment.';
+          enqueueSnackbar(message, { variant: 'error', preventDuplicate: true });
           setLoadingState({ status: 'loaded', id: queryId });
-        });
+        }
       }
     };
     if (
       (locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) &&
+      hasValidDateRange &&
       oystehrZambda &&
       !editingComment &&
       loadingState.id !== queryId &&
@@ -117,7 +153,9 @@ export default function Appointments(): ReactElement {
     visitTypeParam,
     serviceCategoryParam,
     providerParam,
-    dateParam,
+    dateFromParam,
+    dateToParam,
+    hasValidDateRange,
   ]);
 
   useEffect(() => {

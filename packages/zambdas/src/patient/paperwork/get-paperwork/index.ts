@@ -10,6 +10,11 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4b';
 import {
+  APPOINTMENT_NOT_FOUND_ERROR,
+  // AppointmentSummary,
+  // AvailableLocationInformation,
+  // checkEncounterIsVirtual,
+  // Closure,
   DOB_UNCONFIRMED_ERROR,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
@@ -22,7 +27,13 @@ import {
   Secrets,
   UCGetPaperworkResponse,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  createClinicalOystehrClient,
+  getAuth0Token,
+  // getOtherOfficesForLocation,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 import { formatPatientSexForPaperwork, getPaperworkSupportingInfoForUserWithAccess } from '../sharedHelpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -62,7 +73,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   // const z3Client = createZ3Client(oystehrToken, secrets);
   // const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
 
@@ -146,10 +157,11 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     return resource.resourceType == 'QuestionnaireResponse';
   }) as QuestionnaireResponse;
 
-  const missingResources: string[] = [];
   if (!appointment) {
-    missingResources.push('Appointment');
+    throw APPOINTMENT_NOT_FOUND_ERROR;
   }
+
+  const missingResources: string[] = [];
   if (!encounter) {
     missingResources.push('Encounter');
   }

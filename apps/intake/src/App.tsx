@@ -222,6 +222,10 @@ export const intakeFlowPageRoute = {
     path: '/walkin/location/:name/select-service-category',
     getPage: () => <SelectServiceCategoryPage />,
   },
+  SelectServiceCategoryWalkinBySchedule: {
+    path: '/walkin/schedule/:id/select-service-category',
+    getPage: () => <SelectServiceCategoryPage />,
+  },
   StartVirtualVisit: {
     path: '/start-virtual',
     getPage: () => <StartVirtualVisit />,
@@ -329,6 +333,10 @@ function App(): JSX.Element {
                 <Route
                   path={intakeFlowPageRoute.SelectServiceCategoryWalkin.path}
                   element={intakeFlowPageRoute.SelectServiceCategoryWalkin.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.SelectServiceCategoryWalkinBySchedule.path}
+                  element={intakeFlowPageRoute.SelectServiceCategoryWalkinBySchedule.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.StartVirtualVisit.path}

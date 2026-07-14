@@ -1,5 +1,5 @@
 import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
-import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
+import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HL7_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
 import {
   AllergyInteraction,
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
@@ -13,6 +13,7 @@ import {
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
   MedicationApplianceLocation,
@@ -29,6 +30,9 @@ import {
   UpdateMedicationOrderInput,
 } from '../types';
 import { getCoding } from './helpers';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
 export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application';
 export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
@@ -232,6 +236,21 @@ export const medicationExtendedToMedicationData = (
   };
 };
 
+/** Billable units = ceil(dose / billable unit size), minimum 1. Defaults to 1 when either value is missing/invalid. */
+export const computeBillableUnits = (dose: number | undefined, billableUnitSize: number | undefined): number => {
+  const doseNum = Number(dose);
+  if (
+    billableUnitSize == null ||
+    !Number.isFinite(billableUnitSize) ||
+    billableUnitSize <= 0 ||
+    !Number.isFinite(doseNum) ||
+    doseNum <= 0
+  ) {
+    return 1;
+  }
+  return Math.max(1, Math.ceil(doseNum / billableUnitSize));
+};
+
 export const makeMedicationOrderUpdateRequestInput = ({
   id,
   newStatus,
@@ -361,6 +380,29 @@ export function getMedicationFromMA(medicationAdministration: MedicationAdminist
   return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
 }
 
+export const MEDICATION_CPT_CODES_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/medication-cpt-codes';
+
+export interface MedicationCptCodeEntry {
+  code: string;
+  display: string;
+  isMedication?: boolean;
+  billableUnitSize?: number;
+  billableUnits?: number;
+}
+
+/** Parses the CPT/HCPCS codes (with optional billing unit data) stored on a MedicationAdministration extension. */
+export function getCptCodesFromMA(
+  medicationAdministration: MedicationAdministration
+): MedicationCptCodeEntry[] | undefined {
+  const ext = medicationAdministration.extension?.find((e) => e.url === MEDICATION_CPT_CODES_EXTENSION_URL);
+  if (!ext?.valueString) return undefined;
+  try {
+    return JSON.parse(ext.valueString) as MedicationCptCodeEntry[];
+  } catch {
+    return undefined;
+  }
+}
+
 export function getNdcCodeFromMedication(medication: Medication): string | undefined {
   const medicationCoding = medication.code;
   return getCoding(medicationCoding, CODE_SYSTEM_NDC)?.code;
@@ -373,13 +415,22 @@ export function getCptCodeFromMedication(medication: Medication): string | undef
 
 export function getHcpcsCodeFromMedication(medication: Medication): string | undefined {
   const medicationCoding = medication.code;
-  return getCoding(medicationCoding, CODE_SYSTEM_HCPCS)?.code;
+  return (
+    getCoding(medicationCoding, CODE_SYSTEM_HL7_HCPCS)?.code ??
+    // Legacy coding system
+    getCoding(medicationCoding, CODE_SYSTEM_HCPCS)?.code
+  );
 }
 
 export function getAllHcpcsCodesFromInHouseMedication(medication: Medication): string[] {
   const resultCodes: string[] = [];
   medication.code?.coding?.forEach((coding) => {
-    if (coding.system === CODE_SYSTEM_HCPCS && coding.code) {
+    if (
+      (coding.system === CODE_SYSTEM_HL7_HCPCS ||
+        // Legacy coding system
+        coding.system === CODE_SYSTEM_HCPCS) &&
+      coding.code
+    ) {
       resultCodes.push(coding.code);
     }
   });
@@ -407,3 +458,26 @@ export function getDosageFromMA(
     dose,
   };
 }
+
+/**
+ * Grabs the interaction specific medispan id when available, otherwise falls back to the
+ * dispensable drug id when available
+ * @param medication
+ * @returns
+ */
+export const getMediSpanIdForInteraction = (medication: Medication): string | undefined => {
+  const medicationCoding = medication.code?.coding;
+  if (!medicationCoding) return undefined;
+
+  // context on both of these: MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS is there because
+  // sometimes the MEDICATION_DISPENSABLE_DRUG_ID selected by end users isn't a valid medication
+  // in the interactions database anymore. but it's the one they want to use because it's what
+  // is on their shelf. So we should use the interaction id when available
+  const maybeMedicationDispensableDrugId = medicationCoding.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)
+    ?.code;
+  const maybeMedicationInteractionDrugId = medicationCoding.find(
+    (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS
+  )?.code;
+
+  return maybeMedicationInteractionDrugId ?? maybeMedicationDispensableDrugId;
+};

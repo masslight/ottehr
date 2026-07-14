@@ -1,4 +1,11 @@
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  Close as CloseIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Search as SearchIcon,
+} from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -15,10 +22,21 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BillingTag, chooseJson } from 'utils';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { BillingTag, getApiError, REQUIRED_FIELD_ERROR_MESSAGE, SaveBillingTagInput } from 'utils';
+import { deleteBillingTag, saveBillingTag, searchBillingTags } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 
+interface AddTagForm {
+  name: string | null;
+  description: string | null;
+}
+
+const defaultValues = {
+  name: null,
+  description: null,
+};
 export default function Tags(): ReactElement {
   const { oystehrZambda } = useApiClients();
 
@@ -27,11 +45,16 @@ export default function Tags(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
+  const methods = useForm<AddTagForm>({ defaultValues });
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { isSubmitting },
+  } = methods;
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<BillingTag | null>(null);
-  const [tagName, setTagName] = useState('');
-  const [tagDescription, setTagDescription] = useState('');
-  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const fetchTags = useCallback(async () => {
@@ -39,10 +62,10 @@ export default function Tags(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await oystehrZambda.zambda.execute({ id: 'search-billing-tags' });
-      setTags(chooseJson(response).tags ?? []);
+      const data = await searchBillingTags(oystehrZambda);
+      setTags(data.tags ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getApiError({ error: err, defaultError: 'Failed to load tags' }));
     } finally {
       setLoading(false);
     }
@@ -64,34 +87,29 @@ export default function Tags(): ReactElement {
 
   const openCreate = (): void => {
     setEditingTag(null);
-    setTagName('');
-    setTagDescription('');
     setSaveError(null);
+    reset();
     setDialogOpen(true);
   };
 
   const openEdit = (tag: BillingTag): void => {
     setEditingTag(tag);
-    setTagName(tag.name);
-    setTagDescription(tag.description);
+    reset({ name: tag.name, description: tag.description });
     setSaveError(null);
     setDialogOpen(true);
   };
 
-  const handleSave = async (): Promise<void> => {
-    if (!oystehrZambda || !tagName.trim()) return;
-    setSaving(true);
+  const handleSave = async (data: AddTagForm): Promise<void> => {
+    if (!oystehrZambda) return;
     setSaveError(null);
     try {
-      const body: Record<string, unknown> = { name: tagName.trim(), description: tagDescription.trim() };
+      const body: SaveBillingTagInput = { name: data.name!.trim(), description: data.description?.trim() };
       if (editingTag) body.tagId = editingTag.id;
-      await oystehrZambda.zambda.execute({ id: 'save-billing-tag', ...body });
+      await saveBillingTag(oystehrZambda, body);
       setDialogOpen(false);
       await fetchTags();
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save tag');
-    } finally {
-      setSaving(false);
+      setSaveError(getApiError({ error: err, defaultError: 'Failed to save tag' }));
     }
   };
 
@@ -99,10 +117,10 @@ export default function Tags(): ReactElement {
     if (!oystehrZambda) return;
     if (!window.confirm(`Delete tag "${tag.name}"? This cannot be undone.`)) return;
     try {
-      await oystehrZambda.zambda.execute({ id: 'delete-billing-tag', tagId: tag.id });
+      await deleteBillingTag(oystehrZambda, { tagId: tag.id });
       await fetchTags();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete tag');
+      setError(getApiError({ error: err, defaultError: 'Failed to delete tag' }));
     }
   };
 
@@ -293,37 +311,71 @@ export default function Tags(): ReactElement {
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingTag ? 'Edit Tag' : 'Create Tag'}</DialogTitle>
+        <DialogTitle
+          sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Typography variant="h5">{editingTag ? 'Edit Tag' : 'Create Tag'}</Typography>
+          <IconButton size="small" onClick={() => setDialogOpen(false)} aria-label="Close">
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
           {saveError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {saveError}
             </Alert>
           )}
-          <TextField
-            autoFocus
-            fullWidth
-            size="small"
-            label="Name"
-            value={tagName}
-            onChange={(e) => setTagName(e.target.value)}
-            sx={{ mt: 1, mb: 2 }}
-          />
-          <TextField
-            fullWidth
-            size="small"
-            label="Description (optional)"
-            placeholder="What is this tag used for?"
-            value={tagDescription}
-            onChange={(e) => setTagDescription(e.target.value)}
-            multiline
-            rows={2}
-          />
+          <FormProvider {...methods}>
+            <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                <Controller
+                  name="name"
+                  control={control}
+                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      size="small"
+                      label="Name *"
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="description"
+                  control={control}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Description"
+                      placeholder="What is this tag used for?"
+                      multiline
+                      rows={2}
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
+                />
+              </Box>
+            </Box>
+          </FormProvider>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => void handleSave()} disabled={saving || !tagName.trim()}>
-            {saving ? 'Saving...' : 'Save'}
+          <Button
+            variant="contained"
+            startIcon={isSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+            onClick={handleSubmit(handleSave)}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>

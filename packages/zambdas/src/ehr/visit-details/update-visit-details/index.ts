@@ -13,6 +13,7 @@ import {
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitOptionsForServiceCategory,
   INVALID_INPUT_ERROR,
+  isScheduledFollowupEncounter,
   OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   resolveServiceCategory,
   SERVICE_CATEGORY_SYSTEM,
@@ -20,7 +21,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { isEmployerOrganization } from '../../../rcm/employers/helpers';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { accountMatchesType } from '../../shared/harvest';
 import { UpdateVisitDetailsValidatedInput, validateRequestParameters } from './validateRequestParameters';
 
@@ -35,7 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
   console.log('effectInput', JSON.stringify(effectInput, null, 2));
 
@@ -404,8 +405,18 @@ const complexValidation = async (input: UpdateVisitDetailsValidatedInput, oysteh
     validReasonsForVisit = getReasonForVisitOptionsForServiceCategory('urgent-care');
   }
 
-  const newRFV = input.bookingDetails.reasonForVisit;
-  if (newRFV) {
+  let newRFV = input.bookingDetails.reasonForVisit;
+  // Reject blank reasons (incl. whitespace-only) before any bypass, so we never persist an empty
+  // reason or a malformed " - details" description; trim so the stored value is normalized.
+  if (newRFV !== undefined) {
+    newRFV = newRFV.trim();
+    if (!newRFV) {
+      throw INVALID_INPUT_ERROR('reasonForVisit cannot be blank');
+    }
+    input.bookingDetails.reasonForVisit = newRFV;
+  }
+  // Scheduled follow-ups use the fixed follow-up list + free-text "Other", not the category reasons.
+  if (newRFV && !isScheduledFollowupEncounter(encounterResource)) {
     const isValidReason = validReasonsForVisit.some((reason: { value: string }) => reason.value === newRFV);
     if (!isValidReason) {
       throw INVALID_INPUT_ERROR(

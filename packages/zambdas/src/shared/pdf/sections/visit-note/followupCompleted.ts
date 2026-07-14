@@ -29,6 +29,7 @@ export const createFollowupCompletedSection = <
     shouldRender: (_sectionData, rootData) => !!rootData?.encounter?.isFollowup,
     render: (client, data, styles) => {
       drawFieldLine(client, styles, { label: 'Follow-up completed', value: data.completedDateTime });
+      client.drawSeparatedLine(styles.lineStyles.separator);
     },
   }));
 };

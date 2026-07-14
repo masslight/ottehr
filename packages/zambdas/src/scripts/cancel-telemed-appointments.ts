@@ -1,9 +1,7 @@
-import Oystehr from '@oystehr/sdk';
 import { Appointment, FhirResource } from 'fhir/r4b';
 import fs from 'fs';
 import { OTTEHR_MODULE } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 async function main(): Promise<void> {
   const env = process.argv[2];
@@ -11,11 +9,7 @@ async function main(): Promise<void> {
   const project_url = secrets.PROJECT_API;
 
   const token = await getAuth0Token(secrets);
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-    projectApiUrl: projectApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
   const zambdasList = await oystehr.zambda.list();
   const cancelTelemedAppointmentsZambda = zambdasList.find((zambda) => zambda.name === 'telemed-cancel-appointment');
   if (!cancelTelemedAppointmentsZambda) {

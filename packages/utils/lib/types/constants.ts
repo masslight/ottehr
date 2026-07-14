@@ -9,6 +9,13 @@ export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
+export const PHONE_NOT_ON_FILE = 'Phone number not on file';
+
+// Max span for a tracking-board appointment search. Bounds the paginated (all-pages) FHIR query so
+// an over-broad range can't fan out into unbounded traffic. Shared so the EHR and the get-appointments
+// zambda enforce the same limit.
+export const MAX_APPOINTMENT_SEARCH_RANGE_DAYS = 90;
+
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/individual-pronouns-custom';
@@ -29,6 +36,21 @@ export const PATIENT_RELEASE_OF_INFO_URL = 'https://fhir.zapehr.com/r4/Structure
 export const PATIENT_RX_HISTORY_CONSENT_STATUS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/rx-history-consent-status';
 export const PATIENT_DECEASED_NOTE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/deceased-note';
+export const PATIENT_NO_EMAIL_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-no-email';
+/**
+ * Patient-level flag indicating the patient has Medicaid insurance coverage
+ * and the intake credit-card entry step can be skipped. Set by the intake
+ * paperwork's `patient-has-medicaid` checkbox on the credit-card page and
+ * mirrored on the EHR patient details page for staff correction. Persisted
+ * as a Patient extension because it's a patient-attribute-shaped flag that
+ * survives across visits, matches every other single-boolean patient flag
+ * in this codebase, and slots into the existing harvest linkId → fieldPath
+ * table without any new plumbing. See design discussion for why not Account
+ * or Coverage.
+ */
+export const PATIENT_HAS_MEDICAID_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-has-medicaid';
+export const RESPONSIBLE_PARTY_NO_EMAIL_URL =
+  'https://fhir.zapehr.com/r4/StructureDefinitions/responsible-party-no-email';
 export const PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL = ottehrExtensionUrl('preferred-communication-method');
 export const COVERAGE_ADDITIONAL_INFORMATION_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information';

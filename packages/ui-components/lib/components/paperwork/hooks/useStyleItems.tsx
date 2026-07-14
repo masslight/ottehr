@@ -42,17 +42,32 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
   // item.inputWidth === 'max' results in undefined for width here (default is max width)
   const isFullWidth = width === undefined;
 
-  // todo: move this into form extensions
-  const hidesLabel = [
-    'mobile-opt-in',
-    'policy-holder-address-as-patient',
-    'policy-holder-address-as-patient-2',
-    'display-secondary-insurance',
-    'responsible-party-address-as-patient',
-    'emergency-contact-address-as-patient',
-    'pharmacy-page-manual-entry',
-    ...CONSENT_FORMS_CONFIG.forms.map((form) => form.id),
-  ].includes(item.linkId);
+  // Preferred source: the `hideControlLabel` extension on the FHIR
+  // Questionnaire item (config-side flag on FormFieldsValueTypeBaseSchema,
+  // written by createHideControlLabelExtension, read by structureExtension).
+  // Fallback: the hardcoded linkId list below — kept for back-compat with
+  // questionnaire archives generated before the extension existed, plus
+  // the CONSENT_FORMS_CONFIG.forms case which comes from a dynamic source
+  // that hasn't been migrated to the extension yet. Once every archive is
+  // regenerated with hideControlLabel on the config items (see the entries
+  // in packages/utils/lib/ottehr-config/intake-paperwork*/index.ts) the
+  // fallback list can be reduced to just the dynamic-forms entries.
+  //
+  // Tri-state semantics: item.hideControlLabel === true → hide; === false
+  // → force-show even if the linkId is on the fallback list (explicit
+  // override); undefined → consult the fallback list.
+  const hidesLabel =
+    item.hideControlLabel ??
+    [
+      'mobile-opt-in',
+      'policy-holder-address-as-patient',
+      'policy-holder-address-as-patient-2',
+      'display-secondary-insurance',
+      'responsible-party-address-as-patient',
+      'emergency-contact-address-as-patient',
+      'pharmacy-page-manual-entry',
+      ...CONSENT_FORMS_CONFIG.forms.map((form) => form.id),
+    ].includes(item.linkId);
   const minRows = item.minRows;
 
   let placeholder: string | undefined;

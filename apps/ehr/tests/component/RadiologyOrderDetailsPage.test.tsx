@@ -46,13 +46,19 @@ vi.mock('../../src/features/visits/shared/components/PageTitle', () => ({
   PageTitle: ({ label, dataTestId }: any) => <h1 data-testid={dataTestId}>{label}</h1>,
 }));
 
+vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
+  useGetAppointmentAccessibility: vi.fn(),
+}));
+
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePatientRadiologyOrders } from '../../src/features/radiology/components/usePatientRadiologyOrders';
 import { useRadiologyConsentExists } from '../../src/features/radiology/components/useRadiologyConsentExists';
 import { RadiologyOrderDetailsPage } from '../../src/features/radiology/pages/RadiologyOrderDetails';
+import { useGetAppointmentAccessibility } from '../../src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 
 const mockUsePatientRadiologyOrders = vi.mocked(usePatientRadiologyOrders);
 const mockUseRadiologyConsentExists = vi.mocked(useRadiologyConsentExists);
+const mockUseGetAppointmentAccessibility = vi.mocked(useGetAppointmentAccessibility);
 const mockUseNavigate = vi.mocked(useNavigate);
 const mockUseParams = vi.mocked(useParams);
 
@@ -78,6 +84,7 @@ const makeMockOrder = (
 ): GetRadiologyOrderListZambdaOrder => ({
   serviceRequestId: SERVICE_REQUEST_ID,
   appointmentId: 'appt-001',
+  cptCodeDisplay: 'X-Ray Chest PA',
   studyType: 'X-Ray Chest PA',
   visitDateTime: '2024-12-20T09:00:00Z',
   orderAddedDateTime: '2024-12-20T10:00:00Z',
@@ -106,6 +113,8 @@ const makeHookResult = (overrides = {}): ReturnType<typeof usePatientRadiologyOr
   handleSendForFinalRead: vi.fn(),
   isSavingReport: false,
   isSendingForFinalRead: false,
+  handleUpdateConsent: vi.fn(),
+  isUpdatingConsent: false,
   ...overrides,
 });
 
@@ -116,6 +125,13 @@ describe('RadiologyOrderDetailsPage - final report', () => {
     mockUseNavigate.mockReturnValue(vi.fn());
     mockUseRadiologyConsentExists.mockReturnValue(false);
     mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult());
+
+    mockUseGetAppointmentAccessibility.mockReturnValue({
+      isAppointmentReadOnly: false,
+      isPractitionerLicensedInState: true,
+      isEncounterAssignedToCurrentPractitioner: true,
+      visitType: 'main',
+    });
   });
 
   const renderPage = (): ReturnType<typeof render> =>
