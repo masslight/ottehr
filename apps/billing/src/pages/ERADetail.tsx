@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { EraDetailResponse, getApiError } from 'utils';
 import { getBillingEraDetail } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
@@ -37,8 +37,12 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
 });
 
 const claimColumns: GridColDef[] = [
-  { field: 'claimId', headerName: 'Claim', width: 160 },
-  { field: 'patientName', headerName: 'Patient', flex: 1, minWidth: 160 },
+  {
+    field: 'claimId',
+    headerName: 'Claim ID',
+    width: 320,
+  },
+  { field: 'patientName', headerName: 'Patient', flex: 1, minWidth: 150 },
   { field: 'dos', headerName: 'Date of Service', width: 130 },
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
@@ -60,18 +64,6 @@ const claimColumns: GridColDef[] = [
       ) : (
         '—'
       ),
-  },
-  {
-    field: 'actions',
-    headerName: 'Actions',
-    width: 120,
-    sortable: false,
-    renderCell: ({ row }) =>
-      row.claimId ? (
-        <Link to={`/claims/${row.claimId}`} style={{ color: '#2196F3', fontSize: 13 }}>
-          View claim
-        </Link>
-      ) : null,
   },
 ];
 
@@ -228,6 +220,7 @@ export default function ERADetail(): ReactElement {
               rows={filteredClaims}
               columns={claimColumns}
               getRowId={(row) => row.claimId}
+              onRowClick={(params) => navigate(`/claims/${params.id}`)}
               disableRowSelectionOnClick
               disableColumnMenu
               autoHeight
