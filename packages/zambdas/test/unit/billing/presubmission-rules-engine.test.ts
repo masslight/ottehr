@@ -2,11 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import {
   AR_STAGE,
+  BillingRule,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
   getPayerUrl,
   HOLD_TAG_NAME,
-  PreSubmissionRule,
   withArStageInitialization,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -70,10 +70,7 @@ function makeModel(arStage: string = AR_STAGE.insurancePayer): RulesEngineClaimM
   };
 }
 
-const alwaysRule = (
-  id: string,
-  actions: PreSubmissionRule['conditional']['branches'][number]['outcome']
-): PreSubmissionRule => ({
+const alwaysRule = (id: string, actions: BillingRule['conditional']['branches'][number]['outcome']): BillingRule => ({
   id,
   name: `Rule ${id}`,
   description: '',
@@ -90,7 +87,11 @@ describe('sub-presubmission-rules-engine performEffect', () => {
     // submitClaim re-fetches the claim to lock the status patch against the latest version.
     search.mockResolvedValue({ unbundle: () => [model.claim] });
 
-    const result = await performEffect(oystehr, { claimId: 'claim-1', rules: [], model }, AGENT);
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
+      AGENT
+    );
 
     expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
     expect(result.taskStatus).toBe('completed');
@@ -103,7 +104,11 @@ describe('sub-presubmission-rules-engine performEffect', () => {
     const { oystehr, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.patient);
 
-    const result = await performEffect(oystehr, { claimId: 'claim-1', rules: [], model }, AGENT);
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
+      AGENT
+    );
 
     expect(submitClaimRcm).not.toHaveBeenCalled();
     expect(result.taskStatus).toBe('completed');
@@ -115,7 +120,11 @@ describe('sub-presubmission-rules-engine performEffect', () => {
     const model = makeModel(AR_STAGE.insurancePayer);
     const rule = alwaysRule('hold', { type: 'actions', actions: [{ type: 'applyTag', tag: HOLD_TAG_NAME }] });
 
-    const result = await performEffect(oystehr, { claimId: 'claim-1', rules: [rule], model }, AGENT);
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model },
+      AGENT
+    );
 
     expect(result.taskStatus).toBe('failed');
     expect(result.statusReason).toContain('Held by rule "Rule hold"');
@@ -138,12 +147,127 @@ describe('sub-presubmission-rules-engine performEffect', () => {
       actions: [{ type: 'setField', field: 'renderingProvider.npi', value: '5555555555' }],
     });
 
-    const result = await performEffect(oystehr, { claimId: 'claim-1', rules: [rule], model }, AGENT);
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [rule], model },
+      AGENT
+    );
 
     expect(result.taskStatus).toBe('failed');
     expect(result.statusReason).toContain('Rule "Rule bad" failed');
     expect(result.statusReason).toContain('held for review');
     expect(submitClaimRcm).not.toHaveBeenCalled();
+    const requests = transaction.mock.calls[0][0].requests;
+    const claimPut = requests.find(
+      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    );
+    expect(claimPut.resource.meta.tag).toContainEqual({ system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME });
+  });
+});
+
+describe('pre-invoice engines performEffect', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // The status patch travels as a base64 json-patch Binary; decode it to see the tags written.
+  const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; code: string }[] => {
+    for (const call of transaction.mock.calls) {
+      for (const request of call[0].requests) {
+        if (request.method === 'PATCH' && request.resource?.resourceType === 'Binary') {
+          const ops = JSON.parse(Buffer.from(request.resource.data, 'base64').toString());
+          return ops.find((op: { path: string }) => op.path === '/meta/tag')?.value ?? [];
+        }
+      }
+    }
+    return [];
+  };
+
+  it('moves the Non-insurance AR Status to ready-to-invoice when all rules pass', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.nonInsurancePayer);
+    // markReadyToInvoice re-fetches the claim to lock the status patch against the latest version.
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('Ready to invoice');
+    expect(submitClaimRcm).not.toHaveBeenCalled();
+    expect(patchedTags(transaction)).toContainEqual(
+      expect.objectContaining({ system: expect.stringContaining('non-insurance-ar-status'), code: 'ready-to-invoice' })
+    );
+  });
+
+  it('completes without a status change when the claim is no longer in Non-insurance Payer AR', async () => {
+    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('not marked ready to invoice');
+    expect(submitClaimRcm).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('moves the Patient AR Status to ready-to-invoice for a self-pay claim', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.patient); // insurance: [] -> self-pay
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('Ready to invoice');
+    expect(submitClaimRcm).not.toHaveBeenCalled();
+    expect(patchedTags(transaction)).toContainEqual(
+      expect.objectContaining({ system: expect.stringContaining('patient-ar-status'), code: 'ready-to-invoice' })
+    );
+  });
+
+  it('completes without a status change when the Patient AR claim carries insurance coverage', async () => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.patient);
+    model.claim.insurance = [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } }];
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'patient-ar-pre-invoice', claimId: 'claim-1', rules: [], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(result.statusReason).toContain('not self-pay');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('fails the task and holds the claim when a rule holds a pre-invoice run', async () => {
+    const { oystehr, search, transaction } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.nonInsurancePayer);
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+    const rule = alwaysRule('hold', { type: 'actions', actions: [{ type: 'applyTag', tag: HOLD_TAG_NAME }] });
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [rule], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('failed');
+    expect(result.statusReason).toContain('Held by rule "Rule hold"');
+    // No status change: only the model write (Hold tag) happened.
+    expect(patchedTags(transaction)).toEqual([]);
     const requests = transaction.mock.calls[0][0].requests;
     const claimPut = requests.find(
       (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'

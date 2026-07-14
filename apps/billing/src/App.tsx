@@ -4,7 +4,7 @@ import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { RoleType } from 'utils';
+import { DEFAULT_RULES_ENGINE, RoleType } from 'utils';
 import { Layout } from './components/Layout';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -90,8 +90,10 @@ export default function App(): ReactElement {
               <Route path="/eras" element={<ERAList />} />
               <Route path="/eras/:id" element={<ERADetail />} />
               <Route path="/tags" element={<Tags />} />
-              <Route path="/rules" element={<Rules />} />
-              <Route path="/rules/:id" element={<RuleDetail />} />
+              {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
+              <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
+              <Route path="/rules/:engine" element={<Rules />} />
+              <Route path="/rules/:engine/:id" element={<RuleDetail />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Route>
           )}

@@ -22,6 +22,7 @@ import {
   EraDetailResponse,
   ExportClaimX12InputSchema,
   ExportClaimX12Response,
+  GetBillingRulesInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
@@ -82,10 +83,12 @@ async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?
   }
 }
 
-// --- Pre-submission rules engine ---
+// --- Rules engines ---
 
-export const getBillingRules = (oystehr: Oystehr): Promise<BillingRulesResponse> =>
-  executeBillingZambda(oystehr, 'get-billing-rules');
+export const getBillingRules = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingRulesInputSchema>
+): Promise<BillingRulesResponse> => executeBillingZambda(oystehr, 'get-billing-rules', parameters);
 
 export const saveBillingRules = (
   oystehr: Oystehr,

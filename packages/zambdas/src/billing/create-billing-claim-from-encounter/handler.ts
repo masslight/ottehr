@@ -92,6 +92,7 @@ import {
   BillingFhirResource,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  determineRulesEngineForClaim,
   ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
@@ -183,17 +184,19 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
   const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(billingOystehr, cvo, agent);
-  // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
-  await kickOffRulesEngine(billingOystehr, response.claimId, params.secrets);
-  return { statusCode: 200, body: JSON.stringify(response) };
+  const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
+  // Kick off the AR stage's rules engine, if one applies (a Subscription invokes
+  // sub-presubmission-rules-engine asynchronously).
+  const engine = determineRulesEngineForClaim(claim);
+  if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, params.secrets);
+  return { statusCode: 200, body: JSON.stringify({ claimId }) };
 }
 
 export async function performEffect(
   billingOystehr: Oystehr,
   cvo: ComplexValidationOutput,
   agent: ProvenanceAgent
-): Promise<{ claimId: string }> {
+): Promise<{ claimId: string; claim: Claim }> {
   const { clinicalResources, billingResources } = cvo;
 
   const requests: CreateClaimFromEncounterRequests = [];
@@ -542,7 +545,7 @@ export async function performEffect(
     throw InternalError;
   }
 
-  return { claimId: createdClaim.id };
+  return { claimId: createdClaim.id, claim: createdClaim };
 }
 
 function uuidOrUrnReference(resourceType: BillingFhirResource['resourceType'], uuidOrUrn: string): Reference {

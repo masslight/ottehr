@@ -32,6 +32,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  AR_STAGE,
   BillingCoverageOption,
   BillingLocationOption,
   BillingProviderOption,
@@ -46,6 +47,8 @@ import {
   EraClaimStatusCode,
   formatClaimStatusValue,
   getApiError,
+  RULES_ENGINES,
+  RulesEngineDef,
   UpdateBillingResourceInput,
   VALUE_SETS,
 } from 'utils';
@@ -82,6 +85,17 @@ import { buildAddressInput, formatCurrency, formatDate, splitDisplayName } from 
 import { validateServiceFacilityFields } from '../utils/validation';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
+
+// Mirrors the backend's determineRulesEngineForClaim: the engine the run button triggers for this
+// claim's AR stage, or undefined when none applies (no AR Stage, or Patient AR with insurance
+// coverage — the Patient AR pre-invoice rules only cover self-pay claims).
+function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
+  const arStage = claim.statuses.arStage;
+  if (arStage === AR_STAGE.insurancePayer) return RULES_ENGINES['claim-submission'];
+  if (arStage === AR_STAGE.nonInsurancePayer) return RULES_ENGINES['non-insurance-payer-pre-invoice'];
+  if (arStage === AR_STAGE.patient && !claim.coverageFhirId) return RULES_ENGINES['patient-ar-pre-invoice'];
+  return undefined;
+}
 
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
@@ -179,21 +193,25 @@ export default function ClaimDetail(): ReactElement {
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Submission goes through the pre-submission rules engine: it applies the configured rules, then
-  // submits — or holds — the claim in the background.
-  const handleSubmit = useCallback(async (): Promise<void> => {
+  // Submit claim / Prepare for invoice both run the claim's rules engine: it applies the configured
+  // rules, then performs the engine's success effect — or holds the claim — in the background.
+  const handleRunRulesEngine = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !id) return;
+    const engine = claim ? applicableRulesEngine(claim) : undefined;
     setSubmitting(true);
     try {
       await runBillingRulesEngine(oystehrZambda, { claimId: id });
-      enqueueSnackbar('Rules engine started — it will submit or hold the claim shortly. Refresh to see the result.', {
-        variant: 'info',
-      });
+      enqueueSnackbar(
+        `${engine?.label ?? 'Rules engine'} started — when every rule passes, ${
+          engine?.onPass ?? 'the claim proceeds'
+        }; a Hold keeps the claim for review. Refresh to see the result.`,
+        { variant: 'info' }
+      );
     } catch (err) {
       enqueueSnackbar(
         getApiError({
           error: err,
-          defaultError: 'Failed to submit claim',
+          defaultError: 'Failed to start the rules engine',
         }),
         { variant: 'error' }
       );
@@ -202,7 +220,7 @@ export default function ClaimDetail(): ReactElement {
       setConfirmingSubmit(false);
       await fetchDetail();
     }
-  }, [oystehrZambda, id, fetchDetail]);
+  }, [oystehrZambda, id, claim, fetchDetail]);
 
   if (loading && !claim) {
     return (
@@ -226,6 +244,8 @@ export default function ClaimDetail(): ReactElement {
   const arStageCode = claim.statuses.arStage;
   const arStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, arStageCode);
   const dos = claim.serviceLines[0]?.serviceDate ?? claim.created;
+  // Which engine the run button triggers for this claim (none -> no button).
+  const runEngine = applicableRulesEngine(claim);
 
   const startHeaderEdit = (): void => {
     setServiceDate(claim.serviceLines[0]?.serviceDate ?? claim.created);
@@ -358,9 +378,11 @@ export default function ClaimDetail(): ReactElement {
             </>
           )}
         </Box>
-        <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
-          Submit claim
-        </Button>
+        {runEngine && (
+          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
+            {runEngine.runButtonLabel}
+          </Button>
+        )}
         <Button
           size="small"
           variant="outlined"
@@ -490,17 +512,19 @@ export default function ClaimDetail(): ReactElement {
         </TabContext>
       </Box>
 
-      <ConfirmDialog
-        open={confirmingSubmit}
-        title="Submit claim"
-        confirmLabel="Submit"
-        loading={submitting}
-        onConfirm={() => void handleSubmit()}
-        onCancel={() => setConfirmingSubmit(false)}
-      >
-        Run the pre-submission rules engine on this claim? It applies the configured rules, then submits the claim to
-        the payer — or holds it if a rule applies the Hold tag.
-      </ConfirmDialog>
+      {runEngine && (
+        <ConfirmDialog
+          open={confirmingSubmit}
+          title={runEngine.runButtonLabel}
+          confirmLabel="Run rules"
+          loading={submitting}
+          onConfirm={() => void handleRunRulesEngine()}
+          onCancel={() => setConfirmingSubmit(false)}
+        >
+          Run the {runEngine.label} on this claim? They apply the configured rules; when every rule passes,{' '}
+          {runEngine.onPass} — or the claim is held if a rule applies the Hold tag.
+        </ConfirmDialog>
+      )}
     </Box>
   );
 }

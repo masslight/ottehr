@@ -38,6 +38,7 @@ import {
   buildDiagnosisSequence,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  determineRulesEngineForClaim,
   ensureClaimInsurance,
   findRef,
   kickOffRulesEngine,
@@ -113,7 +114,9 @@ async function performEffect(
   const created = (tx.entry ?? []).map((e) => e.resource).find((r): r is Claim => r?.resourceType === 'Claim');
   if (!created?.id) throw InternalError;
 
-  await kickOffRulesEngine(oystehr, created.id, params.secrets);
+  // Kick off the AR stage's rules engine, if one applies to the claim as created.
+  const engine = determineRulesEngineForClaim(created);
+  if (engine) await kickOffRulesEngine(oystehr, engine, created.id, params.secrets);
 
   return { claimId: created.id };
 }

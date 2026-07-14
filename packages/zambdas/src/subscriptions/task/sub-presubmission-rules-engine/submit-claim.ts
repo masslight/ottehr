@@ -1,34 +1,19 @@
-import Oystehr from '@oystehr/sdk';
-import { Claim, ProvenanceAgent } from 'fhir/r4b';
+import { Claim } from 'fhir/r4b';
 import { AR_STAGE, CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils';
 import { applyClaimStatusField } from '../../../billing/provenance';
-import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
+import { FinalizeRunInput, FinalizeRunResult } from './finalize';
 
-export interface SubmitClaimInput {
-  oystehr: Oystehr;
-  model: RulesEngineClaimModel;
-  agent: ProvenanceAgent;
-}
-
-export interface SubmitClaimResult {
-  submitted: boolean;
-  statusReason: string;
-}
-
-// Submit via the Oystehr claim service, mirroring submit-billing-claim: only Insurance-Payer-AR
-// claims are submittable; on success the Insurance AR Status moves to Submitted, recorded in the
-// claim history with the rules-engine agent.
-export async function submitClaim(input: SubmitClaimInput): Promise<SubmitClaimResult> {
+// The Claim Submission engine's success effect. Submits via the Oystehr claim service, mirroring
+// submit-billing-claim: only Insurance-Payer-AR claims are submittable; on success the Insurance AR
+// Status moves to Submitted, recorded in the claim history with the rules-engine agent.
+export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunResult> {
   const { oystehr, model, agent } = input;
   const claimId = model.claim.id;
   if (!claimId) throw new Error('Claim id missing from the rules-engine model');
 
   if (getClaimStatusFieldValue(model.claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage) !== AR_STAGE.insurancePayer) {
-    return {
-      submitted: false,
-      statusReason: 'Rules passed; claim was not submitted because it is not in Insurance Payer AR.',
-    };
+    return { statusReason: 'Rules passed; claim was not submitted because it is not in Insurance Payer AR.' };
   }
 
   await oystehr.rcm.submitClaim({ claimId });
@@ -38,5 +23,5 @@ export async function submitClaim(input: SubmitClaimInput): Promise<SubmitClaimR
   const submitted = await fetchById<Claim>(oystehr, 'Claim', claimId);
   await applyClaimStatusField(oystehr, submitted, 'insuranceArStatus', value, agent);
 
-  return { submitted: true, statusReason: 'Rules passed; claim submitted to payer.' };
+  return { statusReason: 'Rules passed; claim submitted to payer.' };
 }

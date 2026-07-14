@@ -316,8 +316,44 @@
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "run billing pre-submission rules engine",
+        "reason": "run billing claim submission rules engine",
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-presubmission-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PRESUBMISSION-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_NON_INSURANCE_PAYER_PRE_INVOICE_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing non-insurance payer pre-invoice rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-non-insurance-payer-pre-invoice-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PRESUBMISSION-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_PATIENT_AR_PRE_INVOICE_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing patient AR pre-invoice rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-patient-ar-pre-invoice-rules&status=requested",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PRESUBMISSION-RULES-ENGINE/id}"
