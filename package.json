@@ -128,6 +128,7 @@
     "spellcheck": "cspell .",
     "merge-payer-addresses": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv",
     "bump-canonical-version": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/config/bump-canonical-version.ts",
+    "docs:billing-rules": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/generate-billing-rules-docs.ts",
     "create:project": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/setup/project/create-project.ts",
     "setup:all-envs": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/setup/project/setup-all-envs.ts",
     "setup:cloudfront-urls": "NODE_OPTIONS='--preserve-symlinks' tsx scripts/setup/project/update-cloudfront-urls.ts",

@@ -53,6 +53,17 @@ export const evaluateOperator = (
     if (Array.isArray(actual)) return actual.includes(expectedScalar);
     return typeof actual === 'string' && actual.includes(expectedScalar);
   };
+  // Ordering for gt/gte/lt/lte: numeric when both sides parse as numbers (amounts), otherwise
+  // lexicographic — which is chronological for ISO dates (YYYY-MM-DD). Returns undefined (condition
+  // false either way) when either side is missing/empty.
+  const compared = (): number | undefined => {
+    const a = asScalar(actual);
+    if (a == null || a === '' || expectedScalar == null || expectedScalar === '') return undefined;
+    const aNum = Number(a);
+    const eNum = Number(expectedScalar);
+    if (Number.isFinite(aNum) && Number.isFinite(eNum)) return aNum < eNum ? -1 : aNum > eNum ? 1 : 0;
+    return a < expectedScalar ? -1 : a > expectedScalar ? 1 : 0;
+  };
 
   switch (operator) {
     case 'exists':
@@ -67,6 +78,22 @@ export const evaluateOperator = (
       return includedIn();
     case 'notIn':
       return !includedIn();
+    case 'gt': {
+      const order = compared();
+      return order != null && order > 0;
+    }
+    case 'gte': {
+      const order = compared();
+      return order != null && order >= 0;
+    }
+    case 'lt': {
+      const order = compared();
+      return order != null && order < 0;
+    }
+    case 'lte': {
+      const order = compared();
+      return order != null && order <= 0;
+    }
     case 'contains':
       return contains();
     case 'notContains':

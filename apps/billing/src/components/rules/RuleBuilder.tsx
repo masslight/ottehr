@@ -5,6 +5,7 @@ import {
   FormControl,
   IconButton,
   InputLabel,
+  ListSubheader,
   MenuItem,
   Select,
   TextField,
@@ -20,12 +21,15 @@ import {
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
   RULE_FIELD_CATALOG,
+  RULE_FIELD_GROUP_LABELS,
   RULE_LOGIC,
+  RULE_OPERATOR_METADATA,
   RULE_OPERATORS,
   RULE_OUTCOME_TYPE,
   RuleAction,
   RuleCondition,
   RuleConditional,
+  RuleFieldDef,
   RuleLogic,
   RuleOperator,
   RuleOutcome,
@@ -47,21 +51,36 @@ const SETTABLE_FIELDS = RULE_FIELD_CATALOG.filter((f) => f.settable);
 const FIRST_FIELD_ID = RULE_FIELD_CATALOG[0].id;
 const FIRST_SETTABLE_ID = SETTABLE_FIELDS[0].id;
 
-const OPERATOR_LABELS: Record<RuleOperator, string> = {
-  eq: 'equals',
-  neq: 'does not equal',
-  in: 'is one of',
-  notIn: 'is not one of',
-  contains: 'contains',
-  notContains: 'does not contain',
-  exists: 'is present',
-  notExists: 'is empty',
+// Operator labels come from the shared metadata (also used by the generated docs); dates read as
+// before/after instead of less/greater.
+const operatorLabel = (op: RuleOperator, def: RuleFieldDef | undefined): string => {
+  const metadata = RULE_OPERATOR_METADATA[op];
+  return def?.valueType === 'date' && metadata.dateLabel ? metadata.dateLabel : metadata.label;
 };
 
 const LOGIC_LABELS: Record<RuleLogic, string> = {
   and: 'All (AND)',
   or: 'Any (OR)',
 };
+
+// Property menu items with a subheader per field group. The catalog is authored grouped, so a
+// group's fields are contiguous; a subheader is emitted whenever the group changes.
+function fieldMenuItems(fields: RuleFieldDef[]): ReactElement[] {
+  const items: ReactElement[] = [];
+  let lastGroup: RuleFieldDef['group'] | undefined;
+  for (const field of fields) {
+    if (field.group !== lastGroup) {
+      items.push(<ListSubheader key={`group-${field.group}`}>{RULE_FIELD_GROUP_LABELS[field.group]}</ListSubheader>);
+      lastGroup = field.group;
+    }
+    items.push(
+      <MenuItem key={field.id} value={field.id}>
+        {field.label}
+      </MenuItem>
+    );
+  }
+  return items;
+}
 
 const valueToText = (value: string | string[] | null | undefined): string =>
   Array.isArray(value) ? value.join(', ') : value ?? '';
@@ -95,8 +114,9 @@ function useNode<T>(name: string): { value: T; replace: (next: T) => void } {
   return { value, replace: (next: T) => setValue(name, next, { shouldDirty: true }) };
 }
 
-// Field-aware value input, dispatched on the catalog's valueType so new typed fields (gender
-// dropdowns, date pickers, more payer-like fields) only need a catalog entry plus a branch here.
+// Field-aware value input, dispatched on the catalog's valueType so new typed fields (dropdowns
+// with options, date pickers, numbers, more payer-like fields) only need a catalog entry — and, for
+// a genuinely new type, a branch here.
 function FieldValueInput({
   fieldId,
   multiple,
@@ -110,8 +130,43 @@ function FieldValueInput({
   onChange: (value: string | string[]) => void;
   label?: string;
 }): ReactElement {
-  if (getRuleFieldDef(fieldId)?.valueType === 'payer') {
+  const def = getRuleFieldDef(fieldId);
+  if (def?.valueType === 'payer') {
     return <PayerSelect multiple={multiple} value={value} onChange={onChange} label={label} />;
+  }
+  if (def?.valueType === 'select' && def.options) {
+    const resolvedLabel = label ?? (multiple ? 'Values' : 'Value');
+    const selected = multiple ? (Array.isArray(value) ? value : value ? [value] : []) : valueToText(value);
+    return (
+      <FormControl size="small" sx={{ minWidth: 200 }}>
+        <InputLabel>{resolvedLabel}</InputLabel>
+        <Select
+          label={resolvedLabel}
+          multiple={multiple}
+          value={selected}
+          onChange={(e) => onChange(e.target.value as string | string[])}
+        >
+          {def.options.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    );
+  }
+  if ((def?.valueType === 'date' || def?.valueType === 'number') && !multiple) {
+    return (
+      <TextField
+        size="small"
+        type={def.valueType}
+        label={label ?? 'Value'}
+        value={valueToText(value)}
+        onChange={(e) => onChange(e.target.value)}
+        InputLabelProps={{ shrink: true }}
+        sx={{ minWidth: 200 }}
+      />
+    );
   }
   return (
     <TextField
@@ -175,11 +230,7 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
             replace({ ...value, field, operator, value: '' });
           }}
         >
-          {RULE_FIELD_CATALOG.map((f) => (
-            <MenuItem key={f.id} value={f.id}>
-              {f.label}
-            </MenuItem>
-          ))}
+          {fieldMenuItems(RULE_FIELD_CATALOG)}
         </Select>
       </FormControl>
       <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -191,7 +242,7 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
         >
           {operators.map((op) => (
             <MenuItem key={op} value={op}>
-              {OPERATOR_LABELS[op]}
+              {operatorLabel(op, def)}
             </MenuItem>
           ))}
         </Select>
@@ -284,11 +335,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
               value={value.field}
               onChange={(e) => replace({ ...value, field: e.target.value, value: '' })}
             >
-              {SETTABLE_FIELDS.map((f) => (
-                <MenuItem key={f.id} value={f.id}>
-                  {f.label}
-                </MenuItem>
-              ))}
+              {fieldMenuItems(SETTABLE_FIELDS)}
             </Select>
           </FormControl>
           <FieldValueInput

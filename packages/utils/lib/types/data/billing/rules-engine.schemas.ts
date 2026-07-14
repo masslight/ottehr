@@ -12,7 +12,20 @@ import { HOLD_TAG_NAME } from './rules-engine.constants';
 // evaluator, and the billing app's rule-builder UI.
 // ---------------------------------------------------------------------------
 
-export const RULE_OPERATORS = ['eq', 'neq', 'in', 'notIn', 'contains', 'notContains', 'exists', 'notExists'] as const;
+export const RULE_OPERATORS = [
+  'eq',
+  'neq',
+  'in',
+  'notIn',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'contains',
+  'notContains',
+  'exists',
+  'notExists',
+] as const;
 export type RuleOperator = (typeof RULE_OPERATORS)[number];
 export const RuleOperatorSchema = z.enum(RULE_OPERATORS);
 
@@ -21,6 +34,48 @@ export const NO_VALUE_OPERATORS: readonly RuleOperator[] = ['exists', 'notExists
 export const MULTI_VALUE_OPERATORS: readonly RuleOperator[] = ['in', 'notIn'];
 export const operatorNeedsValue = (op: RuleOperator): boolean => !NO_VALUE_OPERATORS.includes(op);
 export const operatorIsMultiValue = (op: RuleOperator): boolean => MULTI_VALUE_OPERATORS.includes(op);
+
+// Operator semantics shared by the rule-builder UI (labels) and the generated documentation
+// (labels + descriptions). `dateLabel` overrides the label when the field being compared is a date.
+export interface RuleOperatorMetadata {
+  label: string;
+  dateLabel?: string;
+  description: string;
+}
+
+export const RULE_OPERATOR_METADATA: Record<RuleOperator, RuleOperatorMetadata> = {
+  eq: { label: 'equals', description: 'The property exactly equals the value.' },
+  neq: { label: 'does not equal', description: 'The property does not exactly equal the value.' },
+  in: { label: 'is one of', description: 'The property equals one of the listed values.' },
+  notIn: { label: 'is not one of', description: 'The property equals none of the listed values.' },
+  gt: {
+    label: 'is greater than',
+    dateLabel: 'is after',
+    description: 'The property is greater than the value (numerically for amounts, chronologically for dates).',
+  },
+  gte: {
+    label: 'is at least',
+    dateLabel: 'is on or after',
+    description: 'The property is greater than or equal to the value.',
+  },
+  lt: {
+    label: 'is less than',
+    dateLabel: 'is before',
+    description: 'The property is less than the value (numerically for amounts, chronologically for dates).',
+  },
+  lte: {
+    label: 'is at most',
+    dateLabel: 'is on or before',
+    description: 'The property is less than or equal to the value.',
+  },
+  contains: {
+    label: 'contains',
+    description: 'A text property contains the value as a substring; a list property includes the value as an entry.',
+  },
+  notContains: { label: 'does not contain', description: 'The negation of "contains".' },
+  exists: { label: 'is present', description: 'The property has a (non-empty) value on the claim.' },
+  notExists: { label: 'is empty', description: 'The property is missing or empty on the claim.' },
+};
 
 export const RULE_LOGIC = ['and', 'or'] as const;
 export type RuleLogic = (typeof RULE_LOGIC)[number];

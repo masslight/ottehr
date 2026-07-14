@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HOLD_TAG_NAME } from './rules-engine.constants';
+import { validateRuleFieldReferences } from './rules-engine.field-catalog';
 import { PreSubmissionRule, RuleActionSchema, SaveBillingRulesInputSchema } from './rules-engine.schemas';
 
 // Schema-layer tests only: the engine's evaluator/serialization are backend code and are tested in
@@ -38,5 +39,63 @@ describe('SaveBillingRulesInputSchema', () => {
     const { id: _b, ...newRuleB } = rule('b');
     const parsed = SaveBillingRulesInputSchema.safeParse({ rules: [newRuleA, newRuleB, rule('c')] });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe('validateRuleFieldReferences', () => {
+  const ruleWith = (
+    conditional: PreSubmissionRule['conditional']
+  ): { name: string; conditional: typeof conditional } => ({
+    name: 'My rule',
+    conditional,
+  });
+
+  it('accepts a rule that only references catalog fields', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: {
+              type: 'group',
+              logic: 'and',
+              conditions: [
+                { type: 'field', field: 'payerId', operator: 'eq', value: '123456' },
+                { type: 'field', field: 'patient.birthDate', operator: 'lt', value: '2008-01-01' },
+              ],
+            },
+            outcome: { type: 'actions', actions: [{ type: 'setField', field: 'status.arStage', value: 'patient-ar' }] },
+          },
+        ],
+      })
+    );
+    expect(problems).toEqual([]);
+  });
+
+  it('reports unknown condition fields and unknown or read-only setField targets, including nested ones', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: { type: 'field', field: 'not.a.field', operator: 'exists' },
+            outcome: {
+              type: 'conditional',
+              conditional: {
+                branches: [
+                  {
+                    condition: { type: 'all' },
+                    outcome: { type: 'actions', actions: [{ type: 'setField', field: 'billed', value: '0' }] },
+                  },
+                ],
+                otherwise: { type: 'actions', actions: [{ type: 'setField', field: 'nope', value: 'x' }] },
+              },
+            },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(3);
+    expect(problems[0]).toContain('unknown property "not.a.field"');
+    expect(problems[1]).toContain('read-only property "billed"');
+    expect(problems[2]).toContain('unknown property "nope"');
   });
 });

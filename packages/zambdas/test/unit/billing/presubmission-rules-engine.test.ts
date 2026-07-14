@@ -67,6 +67,7 @@ function makeModel(arStage: string = AR_STAGE.insurancePayer): RulesEngineClaimM
         payor: [{ reference: getPayerUrl('123456') }],
       },
     ],
+    subscribers: [],
   };
 }
 
