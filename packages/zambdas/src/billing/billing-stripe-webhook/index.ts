@@ -77,12 +77,12 @@ const findBillingClaimForEncounter = async (oystehr: Oystehr, encounterId: strin
   const claims = (
     await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
-      params: [
-        { name: 'identifier', value: `${ottehrIdentifierSystem('claim-encounter-id')}|${encounterId}` },
-        { name: '_count', value: '1' },
-      ],
+      params: [{ name: 'identifier', value: `${ottehrIdentifierSystem('claim-encounter-id')}|${encounterId}` }],
     })
   ).unbundle();
+  if (claims.length > 1) {
+    throw new Error(`Found ${claims.length} billing Claims for encounter ${encounterId}, cannot pick one safely`);
+  }
   return claims[0];
 };
 
