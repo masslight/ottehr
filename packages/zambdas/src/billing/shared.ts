@@ -202,6 +202,8 @@ export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role'
 export const PROVIDER_ROLE_BILLING = 'billing';
 export const PROVIDER_ROLE_RENDERING = 'rendering';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
+// Stripe connected account whose payments belong to this billing provider, one account per TIN
+export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/stripe-account-id';
 
 export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
@@ -515,6 +517,18 @@ export function setClia(resource: Location, clia: string | null): void {
     resource.identifier = identifier;
   } else if (existing) {
     resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
+  }
+}
+
+export function setStripeAccountId(resource: Practitioner | Organization, stripeAccountId: string): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM);
+  if (stripeAccountId) {
+    if (existing) existing.value = stripeAccountId;
+    else identifier.push({ system: STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, value: stripeAccountId });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== STRIPE_ACCOUNT_IDENTIFIER_SYSTEM);
   }
 }
 
