@@ -11,7 +11,7 @@ import {
 
 export type QuestionnaireItemType = Exclude<
   QuestionnaireItem['type'],
-  'question' | 'time' | 'dateTime' | 'quantity' | 'reference' | 'url'
+  'question' | 'time' | 'dateTime' | 'quantity' | 'reference' | 'url' | 'attachment' | 'integer'
 >;
 
 export const QUESTIONNAIRE_ITEM_TYPES = [
@@ -24,8 +24,8 @@ export const QUESTIONNAIRE_ITEM_TYPES = [
   'open-choice',
   'date',
   'group',
-  'attachment',
-  'integer',
+  // 'attachment',
+  // 'integer',
 ] as const satisfies readonly QuestionnaireItemType[];
 
 export const OTTEHR_DATA_TYPES = QuestionnaireDataTypes.filter(
@@ -38,7 +38,7 @@ export type OttehrDataType = (typeof OTTEHR_DATA_TYPES)[number];
 export const DATA_TYPES_BY_ITEM_TYPE: Partial<Record<QuestionnaireItemType, OttehrDataType[]>> = {
   string: ['Phone Number', 'Email', 'ZIP', 'SSN', 'Signature'],
   date: ['DOB'],
-  attachment: ['Image', 'PDF'],
+  // attachment: ['Image', 'PDF'],
   display: ['Call Out'],
 };
 export const OTTEHR_INPUT_WIDTHS = ['s', 'm', 'l'] as const;

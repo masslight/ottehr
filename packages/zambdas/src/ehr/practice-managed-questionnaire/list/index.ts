@@ -18,7 +18,7 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'practice-managed-questionnaire-list';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
+  console.log(`${ZAMBDA_NAME} started`);
   const validatedParameters = validateRequestParameters(input);
 
   const { type, secrets } = validatedParameters;

@@ -4,7 +4,7 @@ import _ from 'lodash';
 import { createContext, FC, PropsWithChildren, useContext } from 'react';
 import { BRANDING_CONFIG } from 'utils';
 
-// todo sarah come back to this, i think it might make more sense to just move the intake theme provider up
+// todo i think it might make more sense to just move the intake theme provider up but it may be too disruptive to do so atm
 
 interface PaperworkPaletteColor {
   main: string;

@@ -796,9 +796,6 @@ export const usePracticeManagedQuestionnaireUpdate = (
         queryClient.invalidateQueries({
           queryKey: ['practice-managed-questionnaire-list'],
         }),
-        queryClient.invalidateQueries({
-          queryKey: ['practice-managed-questionnaire-detail'],
-        }),
       ]);
     },
     onError: (error: any) => {
