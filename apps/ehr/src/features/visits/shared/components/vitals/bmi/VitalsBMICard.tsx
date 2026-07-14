@@ -1,5 +1,7 @@
+import { otherColors } from '@ehrTheme/colors';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { Box, Typography } from '@mui/material';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { Box, Collapse, Typography } from '@mui/material';
 import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
@@ -13,9 +15,15 @@ interface VitalsBMICardProps {
   current: VitalsBMIObservationDTO[];
   historical: VitalsBMIObservationDTO[];
   onDelete: (entity: VitalsObservationDTO) => Promise<void>;
+  isWeightRefused?: boolean;
 }
 
-const VitalsBMICard: React.FC<VitalsBMICardProps> = ({ current, historical, onDelete }): JSX.Element => {
+const VitalsBMICard: React.FC<VitalsBMICardProps> = ({
+  current,
+  historical,
+  onDelete,
+  isWeightRefused = false,
+}): JSX.Element => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
@@ -32,41 +40,66 @@ const VitalsBMICard: React.FC<VitalsBMICardProps> = ({ current, historical, onDe
         <DoubleColumnContainer
           divider
           leftColumn={
-            <Box
-              sx={{
-                mx: 2,
-                my: 1.5,
-                p: 2,
-                bgcolor: '#EBF3FF',
-                borderRadius: 1,
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: 1,
-              }}
-              data-testid={dataTestIds.vitalsPage.bmiInfoMessage}
-            >
-              <InfoOutlinedIcon sx={{ color: 'primary.main', mt: '2px', flexShrink: 0 }} />
-              <Typography variant="body2" color="text.primary">
-                Please enter your weight and height for today to calculate your BMI.
-                <br />
-                Your BMI will be calculated automatically.
-              </Typography>
-            </Box>
+            latestBMI === undefined ? (
+              <Box
+                sx={{
+                  mx: 2,
+                  my: 1.5,
+                  p: 2,
+                  bgcolor: '#EBF3FF',
+                  borderRadius: 1,
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: 1,
+                }}
+                data-testid={dataTestIds.vitalsPage.bmiInfoMessage}
+              >
+                <InfoOutlinedIcon sx={{ color: 'primary.main', mt: '2px', flexShrink: 0 }} />
+                <Typography variant="body2" color="text.primary">
+                  Please enter your weight and height for today to calculate your BMI.
+                  <br />
+                  Your BMI will be calculated automatically.
+                </Typography>
+              </Box>
+            ) : null
           }
           rightColumn={
-            <VitalsHistoryContainer
-              currentEncounterObs={current}
-              historicalObs={historical}
-              isLoading={false}
-              historyElementCreator={(historyEntry) => (
-                <VitalHistoryElement
-                  historyEntry={historyEntry}
-                  onDelete={currentIds.has(historyEntry.resourceId) && !isReadOnly ? onDelete : undefined}
-                  dataTestId={dataTestIds.vitalsPage.bmiItem}
-                />
-              )}
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Collapse in={isWeightRefused} unmountOnExit>
+                <Box
+                  sx={{
+                    mx: 2,
+                    my: 1.5,
+                    p: 2,
+                    borderRadius: 1,
+                    bgcolor: otherColors.dialogNote,
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    gap: 1,
+                  }}
+                  data-testid={dataTestIds.vitalsPage.bmiWeightRefusedWarning}
+                >
+                  <WarningAmberIcon sx={{ color: otherColors.warningIcon, mt: '2px', flexShrink: 0 }} />
+                  <Typography variant="body2" sx={{ color: otherColors.warningText, fontWeight: 500 }}>
+                    BMI not calculated, weight declined by patient
+                  </Typography>
+                </Box>
+              </Collapse>
+              <VitalsHistoryContainer
+                currentEncounterObs={current}
+                historicalObs={historical}
+                isLoading={false}
+                historyElementCreator={(historyEntry) => (
+                  <VitalHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={currentIds.has(historyEntry.resourceId) && !isReadOnly ? onDelete : undefined}
+                    dataTestId={dataTestIds.vitalsPage.bmiItem}
+                  />
+                )}
+              />
+            </Box>
           }
         />
       </AccordionCard>

@@ -74,8 +74,18 @@ describe('VitalsBMICard', () => {
       expect(screen.getByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).toBeVisible();
     });
 
-    it('remains visible after BMI is saved (persistent reminder to add new readings)', () => {
+    it('disappears once BMI is populated', () => {
       render(<VitalsBMICard current={[makeBMIObservation(24.3)]} historical={[]} onDelete={vi.fn()} />);
+      expect(screen.queryByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).not.toBeInTheDocument();
+    });
+
+    it('reappears when the BMI value is deleted', () => {
+      const { rerender } = render(
+        <VitalsBMICard current={[makeBMIObservation(24.3)]} historical={[]} onDelete={vi.fn()} />
+      );
+      expect(screen.queryByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).not.toBeInTheDocument();
+
+      rerender(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} />);
       expect(screen.getByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).toBeVisible();
     });
 
@@ -89,6 +99,24 @@ describe('VitalsBMICard', () => {
     it('explains that BMI is calculated automatically', () => {
       render(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} />);
       expect(screen.getByText(/Your BMI will be calculated automatically/)).toBeInTheDocument();
+    });
+
+    it('shows the weight-declined warning when the patient refused weight', () => {
+      render(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} isWeightRefused />);
+      const warning = screen.getByTestId(dataTestIds.vitalsPage.bmiWeightRefusedWarning);
+      expect(warning).toBeVisible();
+      expect(warning).toHaveTextContent('BMI not calculated, weight declined by patient');
+    });
+
+    it('keeps the add-Weight-and-Height prompt alongside the weight-declined warning', () => {
+      render(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} isWeightRefused />);
+      expect(screen.getByText(/Please add and save Weight and Height to calculate BMI/)).toBeInTheDocument();
+      expect(screen.getByText(/BMI not calculated, weight declined by patient/)).toBeInTheDocument();
+    });
+
+    it('does not show the weight-declined warning when weight was not refused', () => {
+      render(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} />);
+      expect(screen.queryByTestId(dataTestIds.vitalsPage.bmiWeightRefusedWarning)).not.toBeInTheDocument();
     });
   });
 
