@@ -364,12 +364,22 @@ export default function AddPatient(): JSX.Element {
     });
   }, [mergedSourcedCategories, serviceCategory]);
 
-  // The picker is locked when the merged catalog has ≤1 entry — nothing to
-  // choose between, so we disable the Select and treat that single entry as
-  // the fixed pick. Merged, not BOOKING_CONFIG-only: a project with one
-  // compiled-in category plus admin-created FHIR services must let staff
-  // pick between them.
-  const isPickerLocked = mergedSourcedCategories.length <= 1;
+  // The picker is locked when the merged catalog has exactly one entry —
+  // there's nothing to choose between, so we disable the Select and let the
+  // auto-select effect below pin the pick to that entry. Merged, not
+  // BOOKING_CONFIG-only: a project with one compiled-in category plus
+  // admin-created FHIR services must let staff pick between them.
+  //
+  // Deliberately NOT locking when the merged catalog is empty. A disabled
+  // empty picker paired with a required serviceCategory would strand the
+  // form in an unrecoverable state (nothing to select, nothing to submit).
+  // Leaving it enabled surfaces the empty-state helper below and the
+  // standard required-field validation on submit, which at least
+  // communicates that something is wrong. In practice merged.length===0
+  // means both BOOKING_CONFIG is empty AND the FHIR query returned nothing
+  // or failed — a config/environment bug rather than normal operation.
+  const isPickerLocked = mergedSourcedCategories.length === 1;
+  const isPickerEmpty = mergedSourcedCategories.length === 0;
 
   // When the merged catalog resolves to exactly one entry, force the pick to
   // that entry's code. Covers two shapes that would otherwise strand the
@@ -702,7 +712,7 @@ export default function AddPatient(): JSX.Element {
                   {errors.visitType && <FormHelperText>Visit type is required</FormHelperText>}
                 </FormControl>
 
-                <FormControl fullWidth error={!!errors.serviceCategory}>
+                <FormControl fullWidth error={!!errors.serviceCategory || isPickerEmpty}>
                   <InputLabel id="service-category-label">Service category *</InputLabel>
                   <Select
                     data-testid={dataTestIds.addPatientPage.serviceCategoryDropdown}
@@ -722,7 +732,11 @@ export default function AddPatient(): JSX.Element {
                       </MenuItem>
                     ))}
                   </Select>
-                  {errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>}
+                  {isPickerEmpty ? (
+                    <FormHelperText>No service categories available — contact an administrator.</FormHelperText>
+                  ) : (
+                    errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>
+                  )}
                 </FormControl>
 
                 <BookableSelect
