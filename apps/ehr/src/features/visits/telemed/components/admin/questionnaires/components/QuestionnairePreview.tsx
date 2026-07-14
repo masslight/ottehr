@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, SetStateAction, useEffect, useMemo, useState } from 'react';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
@@ -10,22 +10,6 @@ import {
   QuestionnaireFormFields,
 } from 'utils';
 import { stubPaperworkContext, stubPaperworkResponseForPreview } from '../questionnaire-utils';
-
-// todo sarah fix
-// Ottehr intake color palette
-const COLORS = {
-  primaryMain: '#0F347C',
-  primaryDark: '#0A2143',
-  secondaryMain: '#2169F5',
-  textPrimary: '#212130',
-  textSecondary: '#4F4F4F',
-  selectedBg: '#E2F0FF',
-  cardBg: '#F7F8F9',
-  calloutBg: '#aed4fc',
-  focusShadow: 'rgba(77, 21, 183, 0.25)',
-  border: '#E0E0E0',
-  pageBg: '#FFFFFF',
-};
 
 interface QuestionnairePreviewProps {
   questionnaire: Questionnaire;
@@ -47,6 +31,8 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
 }) => {
   const [continueLabel, setContinueLabel] = useState<string | undefined>('Continue');
   const [answersByPage, setAnswersByPage] = useState<Record<string, QuestionnaireResponseItem[]>>({});
+
+  const theme = useTheme();
 
   const { allItems, questionnaireResponse, questionnaireTitle } = stubPaperworkResponseForPreview(questionnaire);
 
@@ -188,7 +174,7 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
                   flex: 1,
                   height: 4,
                   borderRadius: 2,
-                  bgcolor: idx <= currentPageIndex ? COLORS.secondaryMain : COLORS.border,
+                  bgcolor: idx <= currentPageIndex ? theme.palette.primary.main : '#E0E0E0',
                   cursor: 'pointer',
                   transition: 'background-color 0.2s',
                 }}
@@ -201,10 +187,10 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
           sx={{
             width: '100%',
             maxWidth: 900,
-            bgcolor: COLORS.pageBg,
+            bgcolor: theme.palette.primary.contrastText,
             borderRadius: '8px',
             border: '1px solid',
-            borderColor: COLORS.border,
+            borderColor: '#E0E0E0',
             boxShadow: '0px 1px 3px rgba(0,0,0,0.08)',
             p: { xs: 3, md: 5 },
           }}
@@ -224,10 +210,7 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
           </PaperworkProvider>
 
           {previewMode === 'ui-only' && pages.length > 1 && (
-            <Typography
-              variant="caption"
-              sx={{ display: 'block', textAlign: 'center', mt: 1, color: COLORS.textSecondary }}
-            >
+            <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1, color: '#4F4F4F' }}>
               Page {currentPageIndex + 1} of {pages.length}
             </Typography>
           )}
