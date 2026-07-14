@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import { Claim, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, getSecret, PAYMENT_METHOD_EXTENSION_URL, SecretsKeys } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -12,7 +12,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { createBillingClient, reconcilePaymentNoticesForClaim } from '../shared';
+import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'billing-stripe-webhook';
@@ -51,7 +51,7 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     case 'charge.updated': {
       const charge = event.data.object as Stripe.Charge;
       console.log(`Charge event for ${charge.id}, oystehr_encounter_id: ${charge.metadata?.oystehr_encounter_id}`);
-      await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, secrets);
+      await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, event.account, secrets);
       break;
     }
     case 'charge.refunded': {
@@ -86,9 +86,35 @@ const findBillingClaimForEncounter = async (oystehr: Oystehr, encounterId: strin
   return claims[0];
 };
 
+// picks the billing provider org stamped with the connected account id or default org otherwise
+const recipientForStripeAccount = async (
+  oystehr: Oystehr,
+  stripeAccount: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<Reference> => {
+  if (stripeAccount) {
+    const providers = (
+      await oystehr.fhir.search<Organization>({
+        resourceType: 'Organization',
+        params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|${stripeAccount}` }],
+      })
+    ).unbundle();
+    // same defensive logic as claim encounters
+    if (providers.length > 1) {
+      throw new Error(
+        `Found ${providers.length} billing providers for stripe account ${stripeAccount}, cannot pick one safely`
+      );
+    }
+    if (providers[0]?.id) return { reference: `Organization/${providers[0].id}` };
+    console.warn(`No billing provider carries stripe account ${stripeAccount}, using the default organization`);
+  }
+  return { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` };
+};
+
 const upsertPaymentNoticeOnBillingClaimForCharge = async (
   oystehr: Oystehr,
   charge: Stripe.Charge,
+  stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets']
 ): Promise<void> => {
   const encounterId = charge.metadata?.oystehr_encounter_id ?? charge.metadata?.encounterId;
@@ -98,6 +124,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   }
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
+  const recipient = await recipientForStripeAccount(oystehr, stripeAccount, secrets);
 
   const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : undefined;
   const created = new Date(charge.created * 1000).toISOString();
@@ -132,7 +159,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: charge.payment_method_details?.type ?? 'card' }],
     contained: [reconciliation],
     payment: { reference: `#${reconciliation.id}` },
-    recipient: { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` },
+    recipient,
   };
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId);
@@ -198,9 +225,10 @@ const upsertPaymentNoticeForRefund = async (
   }
 
   // covers refunds whose charge event was never delivered
-  await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, secrets);
+  await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets);
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
+  const recipient = await recipientForStripeAccount(oystehr, stripeAccount, secrets);
   const created = new Date(refund.created * 1000).toISOString();
   const failed = refund.status === 'failed' || refund.status === 'canceled';
 
@@ -232,7 +260,7 @@ const upsertPaymentNoticeForRefund = async (
     extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: charge.payment_method_details?.type ?? 'card' }],
     contained: [reconciliation],
     payment: { reference: `#${reconciliation.id}` },
-    recipient: { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` },
+    recipient,
   };
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);
