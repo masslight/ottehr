@@ -838,7 +838,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
           <CreditCardVerification
             fieldId={fieldId}
             onChange={smartOnChange}
-            required={item.required ?? false}
+            required={item.isRequired}
             value={unwrappedValue}
           />
         );
