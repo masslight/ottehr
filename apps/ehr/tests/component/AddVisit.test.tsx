@@ -608,33 +608,36 @@ describe('AddVisit', () => {
       await user.click(option);
     };
 
-    it('filters the Visit Type dropdown to only modalities the picked Service Category supports', async () => {
-      // With a prebook-only in-person FHIR service picked, walk-in and both
-      // virtual options must drop out of the Visit Type dropdown. This is the
-      // "option (b)" fix from OTR-2721: hide the incompatible modalities up
-      // front so staff never reach the state where the old code silently
-      // swapped the service.
-      const user = userEvent.setup();
-      render(
-        <TestProviders>
-          <AddPatient />
-        </TestProviders>
-      );
+    it.skipIf(BOOKING_CONFIG.serviceCategories.length === 1)(
+      'filters the Visit Type dropdown to only modalities the picked Service Category supports',
+      async () => {
+        // With a prebook-only in-person FHIR service picked, walk-in and both
+        // virtual options must drop out of the Visit Type dropdown. This is the
+        // "option (b)" fix from OTR-2721: hide the incompatible modalities up
+        // front so staff never reach the state where the old code silently
+        // swapped the service.
+        const user = userEvent.setup();
+        render(
+          <TestProviders>
+            <AddPatient />
+          </TestProviders>
+        );
 
-      // The zambda mock was set in beforeEach; nothing to await here — the
-      // helper below opens the dropdown and polls until the FHIR entry lands.
-      await pickPrebookOnlyServiceCategory(user);
-      await openVisitTypeDropdown(user);
+        // The zambda mock was set in beforeEach; nothing to await here — the
+        // helper below opens the dropdown and polls until the FHIR entry lands.
+        await pickPrebookOnlyServiceCategory(user);
+        await openVisitTypeDropdown(user);
 
-      const listbox = await screen.findByRole('listbox');
-      // Prebook + PostTelemed (in-person, visitCtx undefined → passes the
-      // visit-type dimension with any non-empty tag list) survive the filter.
-      expect(within(listbox).getByText(prebookInPersonLabel!)).toBeInTheDocument();
-      // Walk-in (in-person + walk-in) and the two virtual modes are excluded.
-      expect(within(listbox).queryByText(walkInInPersonLabel!)).not.toBeInTheDocument();
-      expect(within(listbox).queryByText(virtualScheduledLabel!)).not.toBeInTheDocument();
-      expect(within(listbox).queryByText(virtualOnDemandLabel!)).not.toBeInTheDocument();
-    });
+        const listbox = await screen.findByRole('listbox');
+        // Prebook + PostTelemed (in-person, visitCtx undefined → passes the
+        // visit-type dimension with any non-empty tag list) survive the filter.
+        expect(within(listbox).getByText(prebookInPersonLabel!)).toBeInTheDocument();
+        // Walk-in (in-person + walk-in) and the two virtual modes are excluded.
+        expect(within(listbox).queryByText(walkInInPersonLabel!)).not.toBeInTheDocument();
+        expect(within(listbox).queryByText(virtualScheduledLabel!)).not.toBeInTheDocument();
+        expect(within(listbox).queryByText(virtualOnDemandLabel!)).not.toBeInTheDocument();
+      }
+    );
 
     it('shows all Visit Type options when the picked Service Category supports every modality', async () => {
       // Sanity check that the filter only kicks in when the picked category
