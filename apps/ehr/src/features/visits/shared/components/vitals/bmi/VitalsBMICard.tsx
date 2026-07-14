@@ -48,9 +48,9 @@ const VitalsBMICard: React.FC<VitalsBMICardProps> = ({ current, historical, onDe
             >
               <InfoOutlinedIcon sx={{ color: 'primary.main', mt: '2px', flexShrink: 0 }} />
               <Typography variant="body2" color="text.primary">
-                Please add and save Weight and Height to calculate BMI.
+                Please enter your weight and height for today to calculate your BMI.
                 <br />
-                BMI will be saved automatically.
+                Your BMI will be calculated automatically.
               </Typography>
             </Box>
           }
