@@ -115,6 +115,7 @@ export interface BillingProviderOption {
   taxonomyCode?: string;
   licenseType?: string;
   taxId?: string;
+  stripeAccountId?: string;
   address?: string;
   addressParts?: {
     line1: string;
