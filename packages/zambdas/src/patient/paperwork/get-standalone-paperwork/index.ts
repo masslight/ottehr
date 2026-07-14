@@ -22,7 +22,7 @@ import {
   UCGetPaperworkResponse,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getUser,
   userHasAccessToPatient,
@@ -52,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrToken = await getAuth0Token(secrets);
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',

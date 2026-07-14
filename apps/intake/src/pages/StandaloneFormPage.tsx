@@ -85,12 +85,14 @@ export const StandaloneFormPage: FC = () => {
     }
   }, [paperworkResponse]);
 
+  const appointmentId = appointment?.id ?? '';
+
   useEffect(() => {
     const fetchAuthedPaperwork = async (questionnaireResponseId: string, zambdaClient: ZambdaClient): Promise<void> => {
       try {
         setAuthedFetchState(AuthedLoadingState.loading);
         const paperworkResponse = await api.getStandAlonePaperwork(zambdaClient, { questionnaireResponseId });
-        setResponse(paperworkResponse);
+        setResponse(paperworkResponse, appointmentId);
         setAuthedFetchState(AuthedLoadingState.complete);
       } catch (e) {
         if (isApiError(e)) {
@@ -107,7 +109,7 @@ export const StandaloneFormPage: FC = () => {
     if (zambdaClient && authedFetchState === AuthedLoadingState.initial && questionnaireResponseId) {
       void fetchAuthedPaperwork(questionnaireResponseId, zambdaClient);
     }
-  }, [authedFetchState, setResponse, zambdaClient, setAuthedFetchState, questionnaireResponseId]);
+  }, [authedFetchState, setResponse, zambdaClient, setAuthedFetchState, questionnaireResponseId, appointmentId]);
 
   const completedPaperwork: QuestionnaireResponseItem[] = useMemo(() => {
     return questionnaireResponse?.item ?? [];

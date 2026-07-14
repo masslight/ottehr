@@ -6,6 +6,7 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
@@ -255,7 +256,7 @@ export const adminNavGroups: AdminNavGroup[] = [
       {
         label: 'Questionnaires',
         path: '/admin/questionnaires',
-        icon: <FolderCopyOutlinedIcon />, // todo sarah
+        icon: <ListAltIcon />,
         render: () => <QuestionnaireAdminPage />,
       },
     ],

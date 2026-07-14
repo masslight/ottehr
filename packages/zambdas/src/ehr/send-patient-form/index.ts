@@ -8,7 +8,7 @@ import {
   SecretsKeys,
   SendPatientFormOutput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { sendSmsForPatient } from '../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -20,7 +20,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { appointmentId, questionnaireId, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const questionnaire = await oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId });
   if (!questionnaire) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Could not find the Questionnaire/${questionnaireId}`);

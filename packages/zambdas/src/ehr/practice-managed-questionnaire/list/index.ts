@@ -11,7 +11,7 @@ import {
   PracticeManagedQuestionnaireListOutput,
 } from 'utils';
 import { checkOrCreateM2MClientToken } from '../../../shared';
-import { createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -26,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   let response: PracticeManagedQuestionnaireDetailOutput | PracticeManagedQuestionnaireListOutput | undefined;
 

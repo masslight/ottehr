@@ -82,6 +82,8 @@ export function stubPaperworkContext(
       createZ3Object: undefined,
       aIInterviewStart: undefined,
       aIInterviewHandleAnswer: undefined,
+      setDefaultPaymentMethod: undefined,
+      getAnswerOptions: undefined,
     },
   };
 }
