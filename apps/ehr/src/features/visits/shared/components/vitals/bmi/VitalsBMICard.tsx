@@ -32,27 +32,29 @@ const VitalsBMICard: React.FC<VitalsBMICardProps> = ({ current, historical, onDe
         <DoubleColumnContainer
           divider
           leftColumn={
-            <Box
-              sx={{
-                mx: 2,
-                my: 1.5,
-                p: 2,
-                bgcolor: '#EBF3FF',
-                borderRadius: 1,
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                gap: 1,
-              }}
-              data-testid={dataTestIds.vitalsPage.bmiInfoMessage}
-            >
-              <InfoOutlinedIcon sx={{ color: 'primary.main', mt: '2px', flexShrink: 0 }} />
-              <Typography variant="body2" color="text.primary">
-                Please add and save Weight and Height to calculate BMI.
-                <br />
-                BMI will be saved automatically.
-              </Typography>
-            </Box>
+            latestBMI === undefined ? (
+              <Box
+                sx={{
+                  mx: 2,
+                  my: 1.5,
+                  p: 2,
+                  bgcolor: '#EBF3FF',
+                  borderRadius: 1,
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: 1,
+                }}
+                data-testid={dataTestIds.vitalsPage.bmiInfoMessage}
+              >
+                <InfoOutlinedIcon sx={{ color: 'primary.main', mt: '2px', flexShrink: 0 }} />
+                <Typography variant="body2" color="text.primary">
+                  Please add and save Weight and Height to calculate BMI.
+                  <br />
+                  BMI will be saved automatically.
+                </Typography>
+              </Box>
+            ) : null
           }
           rightColumn={
             <VitalsHistoryContainer
