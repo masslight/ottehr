@@ -615,8 +615,12 @@ describe('AddVisit', () => {
       // reflects the settled state.
       await waitFor(() => {
         const btn = getServiceCategoryButton();
-        const disabled = btn?.getAttribute('aria-disabled') === 'true';
-        const displayed = btn?.textContent ?? '';
+        // Assert presence first — without it a missing combobox would leave
+        // `disabled=false` and `displayed=''`, which trivially satisfies the
+        // OR below and lets waitFor pass on an empty DOM.
+        expect(btn).not.toBeNull();
+        const disabled = btn!.getAttribute('aria-disabled') === 'true';
+        const displayed = btn!.textContent ?? '';
         expect(!disabled || displayed.includes(prebookOnlyFhirCategory.name)).toBe(true);
       });
       const settledButton = getServiceCategoryButton();
