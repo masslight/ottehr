@@ -74,8 +74,18 @@ describe('VitalsBMICard', () => {
       expect(screen.getByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).toBeVisible();
     });
 
-    it('remains visible after BMI is saved (persistent reminder to add new readings)', () => {
+    it('disappears once BMI is populated', () => {
       render(<VitalsBMICard current={[makeBMIObservation(24.3)]} historical={[]} onDelete={vi.fn()} />);
+      expect(screen.queryByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).not.toBeInTheDocument();
+    });
+
+    it('reappears when the BMI value is deleted', () => {
+      const { rerender } = render(
+        <VitalsBMICard current={[makeBMIObservation(24.3)]} historical={[]} onDelete={vi.fn()} />
+      );
+      expect(screen.queryByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).not.toBeInTheDocument();
+
+      rerender(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} />);
       expect(screen.getByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).toBeVisible();
     });
 
