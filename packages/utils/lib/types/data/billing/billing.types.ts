@@ -144,7 +144,6 @@ export interface BillingCodeOption {
 
 export interface EraListItem {
   id: string;
-  eraId: string;
   checkNumber: string;
   payerName: string;
   paymentDate: string;
@@ -157,7 +156,6 @@ export interface EraListItem {
 
 export interface EraDetailResponse {
   id: string;
-  eraId: string;
   checkNumber: string;
   checkDate: string;
   checkAmount: number;

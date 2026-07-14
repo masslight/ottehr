@@ -9,9 +9,7 @@ import {
   createEraReadClient,
   CURRENT_STATUS_TAG_SYSTEM,
   ERA_CHECK_SYSTEM,
-  ERA_ID_SYSTEM,
   getEraCheckNumber,
-  getEraIdValue,
   resolvePayersByRef,
 } from '../shared';
 import { SearchErasParams, validateRequestParameters } from './validateRequestParameters';
@@ -60,7 +58,6 @@ async function performEffect(
   if (params.eraStatus) searchParams.push({ name: 'outcome', value: params.eraStatus });
   if (payerIssuerFilter) searchParams.push({ name: 'payment-issuer', value: payerIssuerFilter });
   if (params.checkNumber) searchParams.push({ name: 'identifier', value: `${ERA_CHECK_SYSTEM}|${params.checkNumber}` });
-  if (params.eraId) searchParams.push({ name: 'identifier', value: `${ERA_ID_SYSTEM}|${params.eraId}` });
 
   if (hasClaimFilters) {
     const claimIds = await findMatchingClaimIds(oystehr, params);
@@ -151,13 +148,11 @@ function mapEra(
     pr.paymentIssuer?.reference ?? claimResponses.find((cr) => cr.insurer?.reference)?.insurer?.reference;
   const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
 
-  const eraId = getEraIdValue(pr) ?? '';
   const checkNumber = getEraCheckNumber(pr) ?? '';
   const counts = countEraClaims(claimResponses);
 
   return {
     id: pr.id ?? '',
-    eraId,
     checkNumber,
     payerName: payerOrg?.name ?? pr.paymentIssuer?.display ?? '',
     paymentDate: pr.paymentDate ?? pr.created ?? '',

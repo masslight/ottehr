@@ -16,7 +16,6 @@ import {
   fhirName,
   findRef,
   getEraCheckNumber,
-  getEraIdValue,
   resolvePayersByRef,
 } from '../shared';
 import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
@@ -47,7 +46,6 @@ async function performEffect(
   if (!pr) throw FHIR_RESOURCE_NOT_FOUND('PaymentReconciliation');
 
   // ClaimResponses linked to this ERA via its era-processing Provenance
-  const eraIdValue = getEraIdValue(pr);
   const claimResponses: ClaimResponse[] =
     (await fetchClaimResponsesByPaymentReconciliations(eraReadClient, [pr])).get(pr.id ?? '') ?? [];
 
@@ -115,7 +113,6 @@ async function performEffect(
 
   return {
     id: pr.id ?? '',
-    eraId: eraIdValue ?? '',
     checkNumber,
     checkDate: pr.paymentDate ?? '',
     checkAmount: pr.paymentAmount?.value ?? 0,
