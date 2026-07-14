@@ -89,14 +89,16 @@ describe('VitalsBMICard', () => {
       expect(screen.getByTestId(dataTestIds.vitalsPage.bmiInfoMessage)).toBeVisible();
     });
 
-    it('prompts the user to add and save Weight and Height', () => {
+    it('prompts the user to enter weight and height for today', () => {
       render(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} />);
-      expect(screen.getByText(/Please add and save Weight and Height to calculate BMI/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Please enter your weight and height for today to calculate your BMI/)
+      ).toBeInTheDocument();
     });
 
-    it('explains that BMI is saved automatically', () => {
+    it('explains that BMI is calculated automatically', () => {
       render(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} />);
-      expect(screen.getByText(/BMI will be saved automatically/)).toBeInTheDocument();
+      expect(screen.getByText(/Your BMI will be calculated automatically/)).toBeInTheDocument();
     });
 
     it('shows the weight-declined warning when the patient refused weight', () => {
@@ -108,7 +110,9 @@ describe('VitalsBMICard', () => {
 
     it('keeps the add-Weight-and-Height prompt alongside the weight-declined warning', () => {
       render(<VitalsBMICard current={[]} historical={[]} onDelete={vi.fn()} isWeightRefused />);
-      expect(screen.getByText(/Please add and save Weight and Height to calculate BMI/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Please enter your weight and height for today to calculate your BMI/)
+      ).toBeInTheDocument();
       expect(screen.getByText(/BMI not calculated, weight declined by patient/)).toBeInTheDocument();
     });
 
