@@ -364,6 +364,36 @@ export default function AddPatient(): JSX.Element {
     });
   }, [mergedSourcedCategories, serviceCategory]);
 
+  // The picker is locked when the merged catalog has exactly one entry —
+  // there's nothing to choose between, so we disable the Select and let the
+  // auto-select effect below pin the pick to that entry. Merged, not
+  // BOOKING_CONFIG-only: a project with one compiled-in category plus
+  // admin-created FHIR services must let staff pick between them.
+  //
+  // Deliberately NOT locking when the merged catalog is empty. A disabled
+  // empty picker paired with a required serviceCategory would strand the
+  // form in an unrecoverable state (nothing to select, nothing to submit).
+  // Leaving it enabled surfaces the empty-state helper below and the
+  // standard required-field validation on submit, which at least
+  // communicates that something is wrong. In practice merged.length===0
+  // means both BOOKING_CONFIG is empty AND the FHIR query returned nothing
+  // or failed — a config/environment bug rather than normal operation.
+  const isPickerLocked = mergedSourcedCategories.length === 1;
+  const isPickerEmpty = mergedSourcedCategories.length === 0 && (fhirServiceCategories !== undefined || !oystehrZambda);
+
+  // When the merged catalog resolves to exactly one entry, force the pick to
+  // that entry's code. Covers two shapes that would otherwise strand the
+  // form: (a) BOOKING_CONFIG is empty and the sole option arrives via FHIR —
+  // without this the form renders with no selection; (b) the current pick is
+  // no longer in the merged catalog (e.g., an admin deleted the FHIR service
+  // after the user selected it), and the picker is now locked so the cleanup
+  // effect below skips — nothing else can rescue the stale selection.
+  useEffect(() => {
+    if (mergedSourcedCategories.length !== 1) return;
+    const only = mergedSourcedCategories[0]?.category.code;
+    if (only && serviceCategory !== only) setServiceCategory(only);
+  }, [mergedSourcedCategories, serviceCategory]);
+
   // When visit type changes, drop a stale category that's no longer offered.
   // Keep the selection if it's still valid (avoid yanking the user's choice
   // when they switch between two visit types that share a category). When
@@ -373,17 +403,17 @@ export default function AddPatient(): JSX.Element {
   // pick In-person walk-in → service jumps to "Acne Facial"). Clearing
   // forces a re-pick and makes the constraint visible.
   //
-  // Skip when `defaultServiceCategory` locks the dropdown: there's exactly
-  // one BOOKING_CONFIG entry, it's pre-selected, and the dropdown is
-  // disabled — clearing would strand the form in an invalid state the user
-  // can't recover from. That single BOOKING_CONFIG entry gets the empty-
-  // arrays-supports-all pass anyway, so it won't be filtered out in practice.
+  // Skip when the picker is locked: the single available entry is the pick
+  // and the dropdown is disabled — clearing would strand the form in an
+  // invalid state the user can't recover from. That single entry gets the
+  // empty-arrays-supports-all pass anyway when it's a BOOKING_CONFIG entry,
+  // so it won't be filtered out in practice.
   useEffect(() => {
-    if (!serviceCategory || defaultServiceCategory !== '') return;
+    if (!serviceCategory || isPickerLocked) return;
     if (!filteredServiceCategories.some((sc) => sc.code === serviceCategory)) {
       setServiceCategory('');
     }
-  }, [filteredServiceCategories, serviceCategory]);
+  }, [filteredServiceCategories, serviceCategory, isPickerLocked]);
 
   // Mirror of the effect above: when the service-category pick makes the
   // current visit type unsupported, clear the visit type (and any slot tied
@@ -682,7 +712,7 @@ export default function AddPatient(): JSX.Element {
                   {errors.visitType && <FormHelperText>Visit type is required</FormHelperText>}
                 </FormControl>
 
-                <FormControl fullWidth error={!!errors.serviceCategory}>
+                <FormControl fullWidth error={!!errors.serviceCategory || isPickerEmpty}>
                   <InputLabel id="service-category-label">Service category *</InputLabel>
                   <Select
                     data-testid={dataTestIds.addPatientPage.serviceCategoryDropdown}
@@ -691,7 +721,7 @@ export default function AddPatient(): JSX.Element {
                     value={serviceCategory || ''}
                     label="Service category *"
                     required
-                    disabled={defaultServiceCategory !== ''}
+                    disabled={isPickerLocked}
                     onChange={(event) => {
                       setServiceCategory(event.target.value);
                     }}
@@ -702,7 +732,11 @@ export default function AddPatient(): JSX.Element {
                       </MenuItem>
                     ))}
                   </Select>
-                  {errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>}
+                  {isPickerEmpty ? (
+                    <FormHelperText>No service categories available — contact an administrator.</FormHelperText>
+                  ) : (
+                    errors.serviceCategory && <FormHelperText>Service category is required</FormHelperText>
+                  )}
                 </FormControl>
 
                 <BookableSelect

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BIRTH_SEXES, SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
+import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
 import {
@@ -7,7 +7,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
-import { taxIdRegex, zipRegex } from '../../../validation';
+import { fullZipRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -18,6 +18,7 @@ import {
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
+const gender = z.enum(['male', 'female', 'unknown']);
 
 export const ALLOWED_BILLING_RESOURCE_TYPES = [
   'Patient',
@@ -47,7 +48,6 @@ export const GetEraDetailInputSchema = z.object({
 
 export const SearchErasInputSchema = z.object({
   // ERA-level filters (work for matched + unmatched)
-  eraId: nonEmptyString.optional(),
   checkNumber: nonEmptyString.optional(),
   eraDateFrom: nonEmptyString.optional(),
   eraDateTo: nonEmptyString.optional(),
@@ -171,6 +171,7 @@ export const SearchBillingServicesInputSchema = z.object({
 
 export const SearchBillingPayersInputSchema = z.object({
   name: nonEmptyString.optional(),
+  payerId: nonEmptyString.optional(),
 });
 
 const claimDiagnosisSchema = z.object({
@@ -203,10 +204,7 @@ export const SaveServiceFacilityInputSchema = z.object({
   addressLine2: z.string().trim().optional(),
   city: nonEmptyString,
   state: nonEmptyString.refine((code) => STATE_CODES.has(code), 'Unknown state code'),
-  zip: z
-    .string()
-    .trim()
-    .regex(/^\d{9}$/, 'ZIP must be 9 digits'),
+  zip: z.string().trim().regex(fullZipRegex, 'ZIP code must be 5 digits, with a 4-digit extension'),
   npi: z
     .string()
     .trim()
@@ -308,7 +306,7 @@ export const CreateBillingPatientInputSchema = z.object({
   firstName: nonEmptyString,
   lastName: nonEmptyString,
   dob: nonEmptyString.optional(),
-  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
+  gender: gender.optional(),
   phone: nonEmptyString.optional(),
   address: billingAddressSchema.optional(),
 });
@@ -348,7 +346,7 @@ export const UpdateBillingPatientInputSchema = z.object({
   firstName: nonEmptyString,
   lastName: nonEmptyString,
   dob: nonEmptyString.optional(),
-  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
+  gender: gender.optional(),
   phone: nonEmptyString.optional(),
   email: nonEmptyString.optional(),
   address: billingAddressSchema.optional(),
@@ -360,12 +358,12 @@ const subscriberRelationshipSchema = z.enum(SUBSCRIBER_RELATIONSHIPS);
 
 const insuranceTypeSchema = z.enum(['primary', 'secondary', 'workersComp']);
 
-const billingPolicyHolderSchema = z.object({
+export const BillingPolicyHolderSchema = z.object({
   firstName: nonEmptyString,
   middleName: z.string().optional(),
   lastName: nonEmptyString,
   dob: nonEmptyString,
-  birthSex: z.enum(BIRTH_SEXES),
+  gender: gender,
   address: billingAddressSchema.optional(),
 });
 
@@ -377,7 +375,7 @@ export const CreateBillingCoverageInputSchema = z
     insuranceType: insuranceTypeSchema,
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
-    policyHolder: billingPolicyHolderSchema.optional(),
+    policyHolder: BillingPolicyHolderSchema.optional(),
   })
   .superRefine((data, ctx) => {
     if (data.relationship !== 'Self' && !data.policyHolder) {
@@ -397,7 +395,7 @@ export const UpdateBillingCoverageInputSchema = z
     insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema.optional(),
-    policyHolder: billingPolicyHolderSchema.optional(),
+    policyHolder: BillingPolicyHolderSchema.optional(),
   })
   .superRefine((data, ctx) => {
     if (data.relationship && data.relationship !== 'Self' && !data.policyHolder) {
@@ -471,7 +469,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
       subscriberId: z.string().optional(),
       status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
       relationship: subscriberRelationshipSchema.optional(),
-      policyHolder: billingPolicyHolderSchema.optional(),
+      policyHolder: BillingPolicyHolderSchema.optional(),
     }),
   }),
   z.object({
@@ -616,7 +614,8 @@ export type UpdateBillingCoverageInput = z.output<typeof UpdateBillingCoverageIn
 export type DeleteBillingCoverageInput = z.output<typeof DeleteBillingCoverageInputSchema>;
 export type BillingSubscriberRelationship = z.output<typeof subscriberRelationshipSchema>;
 export type BillingInsuranceType = z.output<typeof insuranceTypeSchema>;
-export type BillingPolicyHolderInput = z.output<typeof billingPolicyHolderSchema>;
+export type BillingPolicyHolder = z.input<typeof BillingPolicyHolderSchema>;
+export type BillingPolicyHolderInput = z.output<typeof BillingPolicyHolderSchema>;
 export type UpdateBillingProviderInput = z.output<typeof UpdateBillingProviderInputSchema>;
 export type CreateBillingWorkingCopyInput = z.output<typeof CreateBillingWorkingCopyInputSchema>;
 export type CreateBillingClaimFromEncounterInput = z.output<typeof CreateBillingClaimFromEncounterInputSchema>;

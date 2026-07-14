@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.6';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.7';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -1543,9 +1543,15 @@ function buildFormFields(
           type: 'display',
           element: 'p',
         },
+        patientHasMedicaid: {
+          key: 'patient-has-medicaid',
+          label: 'I have Medicaid insurance coverage, credit card information not required',
+          type: 'boolean',
+          hideControlLabel: true,
+        },
       },
-      hiddenFields: ['card-payment-details-text'],
-      requiredFields: ['valid-card-on-file'],
+      hiddenFields: [],
+      requiredFields: [],
       triggers: [
         {
           targetQuestionLinkId: 'contact-information-page.appointment-service-category',

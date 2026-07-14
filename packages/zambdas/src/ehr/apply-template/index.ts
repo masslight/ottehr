@@ -98,6 +98,7 @@ const complexValidation = async (
         resourceType: 'List',
         params: [
           { name: 'title', value: templateName },
+          { name: '_has:List:item:_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` },
           { name: '_revinclude', value: 'List:item' },
         ],
       })

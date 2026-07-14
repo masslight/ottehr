@@ -3,6 +3,7 @@ import {
   Account,
   Address,
   Basic,
+  Bundle,
   ChargeItemDefinition,
   Claim,
   Coding,
@@ -14,8 +15,10 @@ import {
   Organization,
   Patient,
   PaymentNotice,
+  PaymentReconciliation,
   Person,
   Practitioner,
+  Provenance,
   RelatedPerson,
   Resource,
   Task,
@@ -204,8 +207,26 @@ export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billi
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
-export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
+// CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
+export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
+// Oystehr emits one Provenance per ERA (activity era-processing) whose targets are all resources
+// created from that ERA — the PaymentReconciliation and its ClaimResponses. This is how a single
+// ERA's resources are linked to each other.
+export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'http://hl7.org/fhir/ValueSet/provenance-activity-type';
+export const ERA_PROCESSING_ACTIVITY_CODE = 'era-processing';
+
+export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity'>): boolean {
+  return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
+}
+
+// Claim.MD stamps the check number as a searchable identifier; process-era only sets
+// paymentIdentifier.
+export function getEraCheckNumber(
+  pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>
+): string | undefined {
+  return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
+}
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
@@ -250,6 +271,17 @@ export function createBillingClient(
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
+  });
+}
+
+// ERA resources are untagged by Oystehr
+export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+      projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    },
   });
 }
 
@@ -878,6 +910,27 @@ export function getDefaultSettingForChargeItemDefinition(
       ? (defaultCode as 'insurance' | 'self-pay')
       : undefined;
   return defaultValue;
+}
+
+export function untaggedEraResources(bundle: Bundle): FhirResource[] {
+  return (bundle.entry ?? [])
+    .map((entry) => entry.resource)
+    .filter(
+      (resource): resource is FhirResource =>
+        !!resource && !!resource.id && !hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
+    );
+}
+
+export function addBillingTagOperation(resource: FhirResource): {
+  op: 'add';
+  path: string;
+  value: Coding[];
+} {
+  return {
+    op: 'add',
+    path: '/meta/tag',
+    value: [...(resource.meta?.tag ?? []), BILLING_RESOURCE_TAG],
+  };
 }
 
 // Links notices the stripe webhook stored before the claim existed. Oystehr matches

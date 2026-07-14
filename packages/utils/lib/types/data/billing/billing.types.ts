@@ -1,5 +1,6 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
 
@@ -49,7 +50,7 @@ export interface BillingPolicyHolderSummary {
   middleName: string;
   lastName: string;
   dob: string;
-  birthSex: 'Male' | 'Female' | 'Intersex' | '';
+  gender: string;
   addressParts: {
     line1: string;
     line2: string;
@@ -143,7 +144,6 @@ export interface BillingCodeOption {
 
 export interface EraListItem {
   id: string;
-  eraId: string;
   checkNumber: string;
   payerName: string;
   paymentDate: string;
@@ -156,7 +156,6 @@ export interface EraListItem {
 
 export interface EraDetailResponse {
   id: string;
-  eraId: string;
   checkNumber: string;
   checkDate: string;
   checkAmount: number;
@@ -223,7 +222,6 @@ export interface PatientDetailResponse {
   };
   friendlyId: string;
   active: boolean;
-  // TODO: wire real balance from ClaimResponse/PaymentReconciliation
   balance: {
     claimsWithPatientBalance: number;
     pendingPayments: number;
@@ -241,6 +239,39 @@ export interface PatientDetailResponse {
     | 'patientResp'
     | 'patientPaid'
   >[];
+}
+
+// One X12 CAS adjustment carried on a remit: group code (X12_ADJUSTMENT_GROUP_CODE) + CARC reason
+// code (e.g. 1 = deductible, 2 = coinsurance, 3 = copay, 45 = exceeds fee schedule).
+export interface ClaimRemitAdjustment {
+  groupCode: X12AdjustmentGroupCode;
+  reasonCode: string;
+  amount: number;
+}
+
+// One ERA payment (PaymentReconciliation) behind a claim's remits.
+export interface ClaimInsurancePayment {
+  paymentReconciliationId: string;
+  checkNumber: string;
+  paymentDate: string;
+  // the whole check's amount, not this claim's share (that's the remit's paid)
+  paymentAmount: number;
+  payerName: string;
+  status: string;
+}
+
+// One ERA adjudication (ClaimResponse) posted against a claim.
+export interface ClaimRemit {
+  claimResponseId: string;
+  date: string;
+  payerName: string;
+  status: string;
+  // CLP02 claim status code from the ERA (ERA_CLAIM_STATUS_CODE)
+  eraStatusCode: EraClaimStatusCode | '';
+  allowed: number | null;
+  paid: number;
+  patientResp: number | null;
+  adjustments: ClaimRemitAdjustment[];
 }
 
 export interface ClaimDetailResponse {
@@ -329,6 +360,8 @@ export interface ClaimDetailResponse {
   patientResp: number;
   patientPaid: number;
   balance: number;
+  remits: ClaimRemit[];
+  insurancePayments: ClaimInsurancePayment[];
   otherClaims: {
     id: string;
     status: string;

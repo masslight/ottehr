@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Organization } from 'fhir/r4b';
 import { BillingPayerOption, getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient } from '../shared';
@@ -22,11 +23,21 @@ async function performEffect(
   params: SearchBillingPayersParams
 ): Promise<{ payers: BillingPayerOption[] }> {
   // Payers live in the Oystehr RCM service
+  if (params.payerId) {
+    const result = await oystehr.rcm.getPayer({ id: params.payerId });
+    if (result) {
+      return { payers: [mapPayer(result)] };
+    }
+  }
   const result = await oystehr.rcm.listPayers({ ...(params.name ? { name: params.name } : {}), limit: 50 });
-  const payers = result.data.map((payer) => ({
+  const payers = result.data.map((payer) => mapPayer(payer));
+  return { payers };
+}
+
+function mapPayer(payer: Organization): BillingPayerOption {
+  return {
     id: payer.id ?? '',
     name: payer.name ?? '',
     payerId: getPayerId(payer) ?? '',
-  }));
-  return { payers };
+  };
 }

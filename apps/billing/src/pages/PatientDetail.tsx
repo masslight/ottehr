@@ -9,14 +9,11 @@ import {
   Chip,
   CircularProgress,
   IconButton,
-  MenuItem,
-  Select,
   Tab,
-  TextField,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
-import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   BILLING_INSURANCE_TYPE_OPTIONS,
@@ -35,19 +32,15 @@ import {
   updateBillingCoverage,
   updateBillingPatient,
 } from '../api/api';
-import {
-  AddCoverageDialog,
-  CoverageFormFields,
-  coverageFormFromOption,
-  CoverageFormState,
-  coverageToUpdateInput,
-  validateCoverageForm,
-} from '../components/AddCoverageDialog';
+import { AddCoverageDialog } from '../components/AddCoverageDialog';
+import { AddressFields } from '../components/AddressFields';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { EditableSection } from '../components/claim/EditableSection';
+import { CoverageFields } from '../components/CoverageFields';
+import { DemographicFields } from '../components/DemographicFields';
 import { DetailRow } from '../components/DetailRow';
-import { Field } from '../components/Field';
 import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
+import { CoverageForm, coverageToUpdateInput, defaultCoverageFormValues } from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency } from '../utils/format';
@@ -90,14 +83,13 @@ const claimColumns: GridColDef[] = [
     headerAlign: 'right',
     valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
-  // TODO: should be wired from ClaimResponse? showing placeholder until real data available
   {
     field: 'insurancePaid',
     headerName: 'Insurance Paid',
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
   {
     field: 'patientResp',
@@ -105,7 +97,7 @@ const claimColumns: GridColDef[] = [
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
   {
     field: 'patientPaid',
@@ -113,7 +105,7 @@ const claimColumns: GridColDef[] = [
     width: 110,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
 ];
 
@@ -196,13 +188,12 @@ export default function PatientDetail(): ReactElement {
         </Box>
       </Box>
 
-      {/* TODO: wire real balance data from ClaimResponse/PaymentReconciliation */}
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Box sx={{ display: 'flex', gap: 4 }}>
-            <BalanceItem label="Current Balance" value="—" />
-            <BalanceItem label="Claims with Patient Balance" value="—" />
-            <BalanceItem label="Pending Payments" value="—" />
+            <BalanceItem label="Current Balance" value={formatCurrency(patient.balance.currentBalance)} />
+            <BalanceItem label="Claims with Patient Balance" value={String(patient.balance.claimsWithPatientBalance)} />
+            <BalanceItem label="Pending Payments" value={formatCurrency(patient.balance.pendingPayments)} />
           </Box>
         </CardContent>
       </Card>
@@ -249,6 +240,20 @@ export default function PatientDetail(): ReactElement {
   );
 }
 
+interface DemographicsForm {
+  firstName: string | null;
+  lastName: string | null;
+  dob: string | null;
+  gender: string | null;
+  email: string | null;
+  phone: string | null;
+  line1: string | null;
+  line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+}
+
 function DemographicsSection({
   patient,
   onSave,
@@ -256,46 +261,32 @@ function DemographicsSection({
   patient: PatientDetailResponse;
   onSave: (payload: Record<string, unknown>) => Promise<string | null>;
 }): ReactElement {
-  const [firstName, setFirstName] = useState(patient.firstName);
-  const [lastName, setLastName] = useState(patient.lastName);
-  const [dob, setDob] = useState(patient.dob);
-  const [gender, setGender] = useState(patient.gender);
-  const [phone, setPhone] = useState(patient.phone);
-  const [email, setEmail] = useState(patient.email);
-  const [line1, setLine1] = useState(patient.addressParts.line1);
-  const [line2, setLine2] = useState(patient.addressParts.line2);
-  const [city, setCity] = useState(patient.addressParts.city);
-  const [state, setState] = useState(patient.addressParts.state);
-  const [zip, setZip] = useState(patient.addressParts.postalCode);
+  const defaultValues = useMemo(
+    () => ({
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      dob: patient.dob,
+      gender: patient.gender,
+      phone: patient.phone,
+      email: patient.email,
+      line1: patient.addressParts.line1,
+      line2: patient.addressParts.line2,
+      city: patient.addressParts.city,
+      state: patient.addressParts.state,
+      zip: patient.addressParts.postalCode,
+    }),
+    [patient]
+  );
 
-  const resetFields = useCallback((): void => {
-    setFirstName(patient.firstName);
-    setLastName(patient.lastName);
-    setDob(patient.dob);
-    setGender(patient.gender);
-    setPhone(patient.phone);
-    setEmail(patient.email);
-    setLine1(patient.addressParts.line1);
-    setLine2(patient.addressParts.line2);
-    setCity(patient.addressParts.city);
-    setState(patient.addressParts.state);
-    setZip(patient.addressParts.postalCode);
-  }, [patient]);
-
-  useEffect(() => {
-    resetFields();
-  }, [resetFields]);
-
-  const handleSave = async (): Promise<string | null> => {
-    if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
-    const address = buildAddressInput(line1, line2, city, state, zip);
+  const handleSave = async (data: DemographicsForm): Promise<string | null> => {
+    const address = buildAddressInput(data.line1, data.line2, data.city, data.state, data.zip);
     return onSave({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      ...(dob ? { dob } : {}),
-      ...(gender ? { gender } : {}),
-      ...(phone.trim() ? { phone: phone.trim() } : {}),
-      ...(email.trim() ? { email: email.trim() } : {}),
+      firstName: data.firstName!.trim(),
+      lastName: data.lastName!.trim(),
+      ...(data.dob ? { dob: data.dob } : {}),
+      ...(data.gender ? { gender: data.gender } : {}),
+      ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
+      ...(data.email?.trim() ? { email: data.email.trim() } : {}),
       ...(address ? { address } : {}),
     });
   };
@@ -305,76 +296,14 @@ function DemographicsSection({
   return (
     <EditableSection
       title="Demographics"
+      defaultValues={defaultValues}
       onSave={handleSave}
-      onCancel={resetFields}
       editForm={
         <Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-            <Field label="First name">
-              <TextField size="small" fullWidth value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </Field>
-            <Field label="Last name">
-              <TextField size="small" fullWidth value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </Field>
-            <Field label="Date of birth">
-              <TextField size="small" fullWidth type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-            </Field>
-            <Field label="Gender">
-              <Select
-                size="small"
-                fullWidth
-                displayEmpty
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                renderValue={
-                  gender
-                    ? undefined
-                    : () => (
-                        <Box component="span" sx={{ color: 'text.disabled' }}>
-                          Select...
-                        </Box>
-                      )
-                }
-              >
-                <MenuItem value="male">Male</MenuItem>
-                <MenuItem value="female">Female</MenuItem>
-                <MenuItem value="other">Other</MenuItem>
-                <MenuItem value="unknown">Unknown</MenuItem>
-              </Select>
-            </Field>
-            <Field label="Phone" optional>
-              <TextField size="small" fullWidth value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </Field>
-            <Field label="Email" optional>
-              <TextField size="small" fullWidth value={email} onChange={(e) => setEmail(e.target.value)} />
-            </Field>
-            <Field label="Address line 1">
-              <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
-            </Field>
-            <Field label="Address line 2" optional>
-              <TextField size="small" fullWidth value={line2} onChange={(e) => setLine2(e.target.value)} />
-            </Field>
-            <Field label="City">
-              <TextField size="small" fullWidth value={city} onChange={(e) => setCity(e.target.value)} />
-            </Field>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-              <Field label="State">
-                <TextField
-                  size="small"
-                  fullWidth
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
-                />
-              </Field>
-              <Field label="ZIP">
-                <TextField size="small" fullWidth value={zip} onChange={(e) => setZip(e.target.value)} />
-              </Field>
-            </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 1280 }}>
+            <DemographicFields />
+            <AddressFields />
           </Box>
-          <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: 12.5, mt: 2.5 }}>
-            MRN and Friendly ID are system-assigned and cannot be edited.
-          </Typography>
         </Box>
       }
     >
@@ -480,27 +409,23 @@ function CoverageCard({
   onChanged: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [form, setForm] = useState<CoverageFormState>(() => coverageFormFromOption(coverage));
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const resetForm = useCallback((): void => {
-    setForm(coverageFormFromOption(coverage));
     setConfirming(false);
     setDeleteError(null);
-  }, [coverage]);
+  }, []);
 
   useEffect(() => {
     resetForm();
   }, [resetForm]);
 
-  const handleSave = async (): Promise<string | null> => {
+  const handleSave = async (data: CoverageForm): Promise<string | null> => {
     if (!oystehrZambda || !coverage.id) return 'Client not ready';
-    const validationError = validateCoverageForm(form, false, unavailableTypes);
-    if (validationError) return validationError;
     try {
-      await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(form, coverage.id));
+      await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(data, coverage.id));
     } catch (err) {
       return getApiError({ error: err, defaultError: 'Failed to save coverage' });
     }
@@ -532,14 +457,8 @@ function CoverageCard({
       title={title}
       onSave={handleSave}
       onCancel={resetForm}
-      editForm={
-        <CoverageFormFields
-          value={form}
-          onChange={setForm}
-          payerPlaceholder={coverage.payorName}
-          unavailableTypes={unavailableTypes}
-        />
-      }
+      defaultValues={defaultCoverageFormValues(coverage)}
+      editForm={<CoverageFields unavailableTypes={unavailableTypes} />}
     >
       <DetailRow label="Payer" value={coverage.payorName} labelWidth={170} />
       <DetailRow label="Payer ID" value={coverage.payorId} labelWidth={170} />
