@@ -1,12 +1,13 @@
 import { Claim } from 'fhir/r4b';
 import { AR_STAGE, CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils';
-import { applyClaimStatusField } from '../../../billing/provenance';
+import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
 import { FinalizeRunInput, FinalizeRunResult } from './finalize';
 
 // The Claim Submission engine's success effect. Submits via the Oystehr claim service, mirroring
 // submit-billing-claim: only Insurance-Payer-AR claims are submittable; on success the Insurance AR
-// Status moves to Submitted, recorded in the claim history with the rules-engine agent.
+// Status moves to Submitted — with the Hold tag lifted in the same commit — recorded in the claim
+// history with the rules-engine agent.
 export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunResult> {
   const { oystehr, model, agent } = input;
   const claimId = model.claim.id;
@@ -21,7 +22,7 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
   const value = assertValidClaimStatusField('insuranceArStatus', 'submitted');
   // Re-fetch so the status patch locks against the version the engine just wrote.
   const submitted = await fetchById<Claim>(oystehr, 'Claim', claimId);
-  await applyClaimStatusField(oystehr, submitted, 'insuranceArStatus', value, agent);
+  await applyClaimStatusFieldClearingHold(oystehr, submitted, 'insuranceArStatus', value, agent);
 
   return { statusReason: 'Rules passed; claim submitted to payer.' };
 }

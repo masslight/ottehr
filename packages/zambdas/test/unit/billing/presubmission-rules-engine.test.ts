@@ -78,6 +78,21 @@ const alwaysRule = (id: string, actions: BillingRule['conditional']['branches'][
   conditional: { branches: [{ condition: { type: 'all' }, outcome: actions }] },
 });
 
+const HOLD_TAG = { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME };
+
+// A finalizer's status change travels as a base64 json-patch Binary; decode it to see the tags written.
+const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; code: string }[] => {
+  for (const call of transaction.mock.calls) {
+    for (const request of call[0].requests) {
+      if (request.method === 'PATCH' && request.resource?.resourceType === 'Binary') {
+        const ops = JSON.parse(Buffer.from(request.resource.data, 'base64').toString());
+        return ops.find((op: { path: string }) => op.path === '/meta/tag')?.value ?? [];
+      }
+    }
+  }
+  return [];
+};
+
 describe('sub-presubmission-rules-engine performEffect', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -98,6 +113,27 @@ describe('sub-presubmission-rules-engine performEffect', () => {
     expect(result.statusReason).toContain('submitted');
     // Status change (insuranceArStatus -> submitted) commits with its Provenance.
     expect(transaction).toHaveBeenCalled();
+  });
+
+  it('lifts the Hold tag when a previously held claim passes and submits', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    model.claim.meta!.tag = [...(model.claim.meta?.tag ?? []), HOLD_TAG];
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalled();
+    const tags = patchedTags(transaction);
+    expect(tags).toContainEqual(
+      expect.objectContaining({ system: expect.stringContaining('insurance-ar-status'), code: 'submitted' })
+    );
+    expect(tags).not.toContainEqual(HOLD_TAG);
   });
 
   it('completes without submitting when the claim is not in Insurance Payer AR', async () => {
@@ -168,19 +204,6 @@ describe('sub-presubmission-rules-engine performEffect', () => {
 describe('pre-invoice engines performEffect', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  // The status patch travels as a base64 json-patch Binary; decode it to see the tags written.
-  const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; code: string }[] => {
-    for (const call of transaction.mock.calls) {
-      for (const request of call[0].requests) {
-        if (request.method === 'PATCH' && request.resource?.resourceType === 'Binary') {
-          const ops = JSON.parse(Buffer.from(request.resource.data, 'base64').toString());
-          return ops.find((op: { path: string }) => op.path === '/meta/tag')?.value ?? [];
-        }
-      }
-    }
-    return [];
-  };
-
   it('moves the Non-insurance AR Status to ready-to-invoice when all rules pass', async () => {
     const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.nonInsurancePayer);
@@ -199,6 +222,26 @@ describe('pre-invoice engines performEffect', () => {
     expect(patchedTags(transaction)).toContainEqual(
       expect.objectContaining({ system: expect.stringContaining('non-insurance-ar-status'), code: 'ready-to-invoice' })
     );
+  });
+
+  it('lifts the Hold tag when a previously held claim passes and becomes ready to invoice', async () => {
+    const { oystehr, search, transaction } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.nonInsurancePayer);
+    model.claim.meta!.tag = [...(model.claim.meta?.tag ?? []), HOLD_TAG];
+    search.mockResolvedValue({ unbundle: () => [model.claim] });
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'non-insurance-payer-pre-invoice', claimId: 'claim-1', rules: [], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    const tags = patchedTags(transaction);
+    expect(tags).toContainEqual(
+      expect.objectContaining({ system: expect.stringContaining('non-insurance-ar-status'), code: 'ready-to-invoice' })
+    );
+    expect(tags).not.toContainEqual(HOLD_TAG);
   });
 
   it('completes without a status change when the claim is no longer in Non-insurance Payer AR', async () => {

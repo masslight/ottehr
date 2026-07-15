@@ -8,13 +8,15 @@ import {
   getClaimStatusFieldValue,
   RulesEngineType,
 } from 'utils';
-import { applyClaimStatusField } from '../../../billing/provenance';
+import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
 import { assertValidClaimStatusField, claimHasRealCoverage, fetchById } from '../../../billing/shared';
 import { submitClaim } from './submit-claim';
 
 // What happens after every rule passed, per engine: the Claim Submission engine submits the claim
-// to the payer; the pre-invoice engines move their AR stage's status to Ready to invoice.
+// to the payer; the pre-invoice engines move their AR stage's status to Ready to invoice. Either
+// way the passing run lifts the Hold tag in the same commit as its status move — a hold left by an
+// earlier run or an AR stage change no longer applies.
 
 export interface FinalizeRunInput {
   oystehr: Oystehr;
@@ -75,7 +77,7 @@ async function markReadyToInvoice(input: FinalizeRunInput, opts: ReadyToInvoiceO
   const value = assertValidClaimStatusField(opts.statusField, 'ready-to-invoice');
   // Re-fetch so the status patch locks against the version the engine just wrote.
   const fresh = await fetchById<Claim>(oystehr, 'Claim', claimId);
-  await applyClaimStatusField(oystehr, fresh, opts.statusField, value, agent);
+  await applyClaimStatusFieldClearingHold(oystehr, fresh, opts.statusField, value, agent);
 
   return { statusReason: `Rules passed; ${opts.stageLabel} status moved to Ready to invoice.` };
 }
