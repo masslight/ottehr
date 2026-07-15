@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, PaymentNotice } from 'fhir/r4b';
+import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, Secrets } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -65,10 +65,19 @@ const claim = {
   identifier: [{ system: CLAIM_ENC_SYSTEM, value: 'enc-1' }],
 } as Claim;
 
-const makeOystehr = (claimResults: Claim[][]): { oystehr: Oystehr; create: Mock; update: Mock } => {
+const makeOystehr = (
+  claimResults: Claim[][],
+  orgResults: Organization[][] = []
+): { oystehr: Oystehr; create: Mock; update: Mock } => {
   const claimQueue = [...claimResults];
+  const orgQueue = [...orgResults];
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
-    const results = resourceType === 'Claim' ? claimQueue.shift() ?? [] : [];
+    const results =
+      resourceType === 'Claim'
+        ? claimQueue.shift() ?? []
+        : resourceType === 'Organization'
+        ? orgQueue.shift() ?? []
+        : [];
     return Promise.resolve({ unbundle: () => results });
   });
   const create = vi
@@ -165,6 +174,45 @@ describe('billing-stripe-webhook', () => {
 
     expect(update.mock.calls[0][0].id).toBe('pn-1');
     expect(update.mock.calls[0][0].request.reference).toBe('Claim/previously-linked');
+  });
+
+  it('puts the resolved billing provider in payee and recipient', async () => {
+    const bp = { resourceType: 'Organization', id: 'bp-1' } as Organization;
+    const { oystehr, create } = makeOystehr([[claim]], [[bp]]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge(), 'acct_1'), secrets });
+
+    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/bp-1' });
+    expect(create.mock.calls[0][0].recipient).toEqual({ reference: 'Organization/bp-1' });
+  });
+
+  it('falls back to the default org when no provider carries the account', async () => {
+    const { oystehr, create } = makeOystehr([[claim]]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge(), 'acct_1'), secrets });
+
+    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/org-1' });
+  });
+
+  it('picks the first provider when several share the account', async () => {
+    const bps = [
+      { resourceType: 'Organization', id: 'bp-1' },
+      { resourceType: 'Organization', id: 'bp-2' },
+    ] as Organization[];
+    const { oystehr, create } = makeOystehr([[claim]], [bps]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge(), 'acct_1'), secrets });
+
+    expect(create.mock.calls[0][0].payee).toEqual({ reference: 'Organization/bp-1' });
+  });
+
+  it('throws when multiple claims carry the encounter identifier', async () => {
+    const { oystehr, create } = makeOystehr([[claim, { ...claim, id: 'claim-2' }]]);
+
+    await expect(
+      performEffect(oystehr, { event: makeEvent('charge.succeeded', makeCharge()), secrets })
+    ).rejects.toThrow('cannot pick one safely');
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('records a refund as its own negative notice after upserting the charge notice', async () => {
