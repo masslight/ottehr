@@ -15,6 +15,7 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  STRIPE_ACCOUNT_IDENTIFIER_SYSTEM,
   toAddressParts,
 } from '../shared';
 import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
@@ -100,5 +101,10 @@ function mapProvider(resource: Practitioner | Organization): BillingProviderOpti
       lastName: resource.name?.[0]?.family ?? '',
     };
   }
-  return { ...common, kind: 'organization', name: resource.name ?? '' };
+  return {
+    ...common,
+    kind: 'organization',
+    name: resource.name ?? '',
+    stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
+  };
 }

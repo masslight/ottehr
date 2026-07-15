@@ -17,6 +17,7 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  STRIPE_ACCOUNT_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { CreateBillingProviderParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -77,6 +78,10 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
     if (identifier.length) practitioner.identifier = identifier;
     if (address) practitioner.address = address;
     return practitioner;
+  }
+
+  if (params.stripeAccountId) {
+    identifier.push({ system: STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, value: params.stripeAccountId });
   }
 
   const organization: Organization = {

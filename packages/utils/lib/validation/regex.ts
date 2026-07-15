@@ -3,6 +3,7 @@ export const zipRegex = /^\d{5}(?:-?\d{4})?$/;
 export const fullZipRegex = /^\d{5}(?:-\d{4})$/;
 export const npiRegex = /^\d{10}$/;
 export const taxIdRegex = /^\d{9}$/;
+export const stripeAccountIdRegex = /^acct_[A-Za-z0-9]+$/;
 export const phoneRegex = /^\(\d{3}\) \d{3}-\d{4}$/;
 export const emojiRegex = /^(?:(?!\p{Extended_Pictographic}).)*$/u;
 export const alphanumericRegex = /^[a-zA-Z0-9]+/;
