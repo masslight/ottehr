@@ -4,7 +4,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageContainer from 'src/layout/PageContainer';
-import { addPracticeManagedQuestionnaireLatestTag, PracticeManagedQuestionnaire } from 'utils';
+import { PracticeManagedQuestionnaire } from 'utils';
 import { usePracticeManagedQuestionnaireCreate } from '../admin.queries';
 import { QuestionnaireBuilder } from './components/QuestionnaireBuilder';
 
@@ -16,10 +16,7 @@ export const QuestionnaireNew: FC = () => {
 
   const handleSave = useCallback(
     async (practiceManagedQuestionnaire: PracticeManagedQuestionnaire) => {
-      // add the latest tag
-      const questionnaireToCreate = addPracticeManagedQuestionnaireLatestTag(practiceManagedQuestionnaire);
-
-      const result = await createQuestionnaire({ practiceManagedQuestionnaire: questionnaireToCreate });
+      const result = await createQuestionnaire({ practiceManagedQuestionnaire });
       const { questionnaireId } = result;
       enqueueSnackbar('Questionnaire saved', { variant: 'success' });
       navigate(`/admin/questionnaires/${questionnaireId}`);

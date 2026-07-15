@@ -2,12 +2,9 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
 import {
-  fhirQuestionnaireToPracticeManaged,
   getAllFhirSearchPages,
-  MANAGED_QUESTIONNAIRE_ERROR,
-  PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
-  PracticeManagedQuestionnaireDetailOutput,
+  PracticeManagedQuestionnaireDTO,
   PracticeManagedQuestionnaireListOutput,
 } from 'utils';
 import { checkOrCreateM2MClientToken } from '../../../shared';
@@ -21,25 +18,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`${ZAMBDA_NAME} started`);
   const validatedParameters = validateRequestParameters(input);
 
-  const { type, secrets } = validatedParameters;
+  const { secrets } = validatedParameters;
 
   console.log('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  let response: PracticeManagedQuestionnaireDetailOutput | PracticeManagedQuestionnaireListOutput | undefined;
-
-  if (type === 'detail') {
-    const questionnaireId = validatedParameters.questionnaireId;
-    console.log('searching for questionnaire, detail');
-    response = await getQuestionnaire(oystehr, questionnaireId);
-  } else if (type === 'list') {
-    console.log('searching for questionnaires, list');
-    response = await getQuestionnaire(oystehr);
-  }
-
-  if (!response) throw new Error(`Invalid type parsed: ${type}`);
+  console.log('searching for questionnaires');
+  const response = await getQuestionnaire(oystehr);
 
   return {
     statusCode: 200,
@@ -47,21 +34,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-function getQuestionnaire(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput>;
+const elements = ['id', 'title', 'status', 'url', 'version'] as const;
+type FhirQuestionnaireSubset = Pick<Questionnaire, (typeof elements)[number]>;
 
-function getQuestionnaire(oystehr: Oystehr, questionnaireId: string): Promise<PracticeManagedQuestionnaireDetailOutput>;
-
-async function getQuestionnaire(
-  oystehr: Oystehr,
-  questionnaireId?: string
-): Promise<PracticeManagedQuestionnaireDetailOutput | PracticeManagedQuestionnaireListOutput> {
+async function getQuestionnaire(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput> {
   const searchParams: SearchParam[] = [
     { name: '_sort', value: 'title' },
     { name: '_tag', value: PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code },
-    { name: '_tag', value: PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG.code },
+    { name: '_elements', value: elements.join(',') },
   ];
-
-  if (questionnaireId) searchParams.push({ name: '_id', value: questionnaireId });
 
   const practiceManagedFhirQuestionnaires = await getAllFhirSearchPages<Questionnaire>(
     {
@@ -73,37 +54,39 @@ async function getQuestionnaire(
 
   console.log(`found questionnaires: ${practiceManagedFhirQuestionnaires.length} total`);
 
-  const practiceManagedQuestionnaires = practiceManagedFhirQuestionnaires.flatMap((questionnaire) => {
-    try {
-      return [fhirQuestionnaireToPracticeManaged(questionnaire)];
-    } catch (error) {
-      console.error(
-        `Failed to validate fhir questionnaire to managed: ${questionnaire.title} Questionnaire/${questionnaire.id}`,
-        error
-      );
-      return [];
-    }
+  const currentVersions = latestVersionPerUrl(practiceManagedFhirQuestionnaires);
+
+  const practiceManagedQuestionnaires = currentVersions.map((questionnaire) => {
+    const dto: PracticeManagedQuestionnaireDTO = {
+      id: questionnaire.id ?? '',
+      title: questionnaire.title ?? '',
+      status: questionnaire.status,
+    };
+
+    return dto;
   });
 
-  if (questionnaireId) {
-    if (practiceManagedQuestionnaires?.length !== 1) {
-      throw MANAGED_QUESTIONNAIRE_ERROR(
-        `There was an issue getting the questionnaire with id ${questionnaireId} - ${practiceManagedFhirQuestionnaires?.length} questionnaire(s) were returned`
-      );
+  const res: PracticeManagedQuestionnaireListOutput = {
+    practiceManagedQuestionnaires,
+  };
+
+  console.log('returning list successfully');
+  return res;
+}
+
+function latestVersionPerUrl(questionnaires: FhirQuestionnaireSubset[]): FhirQuestionnaireSubset[] {
+  const latestByUrl = new Map<string, FhirQuestionnaireSubset>();
+
+  for (const questionnaire of questionnaires) {
+    const url = questionnaire?.url;
+    const version = questionnaire?.version;
+    if (!url || !version) continue;
+
+    const current = latestByUrl.get(url);
+    if (!current || version > (current.version ?? 0)) {
+      latestByUrl.set(url, questionnaire);
     }
-
-    const res: PracticeManagedQuestionnaireDetailOutput = {
-      practiceManagedQuestionnaires: practiceManagedQuestionnaires[0],
-    };
-
-    console.log('returning detail successfully', JSON.stringify(practiceManagedQuestionnaires[0]));
-    return res;
-  } else {
-    const res: PracticeManagedQuestionnaireListOutput = {
-      practiceManagedQuestionnaires,
-    };
-
-    console.log('returning list successfully');
-    return res;
   }
+
+  return Array.from(latestByUrl.values()).sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 }

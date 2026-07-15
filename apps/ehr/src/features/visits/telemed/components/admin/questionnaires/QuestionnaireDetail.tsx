@@ -5,7 +5,7 @@ import { FC, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageContainer from 'src/layout/PageContainer';
 import { PracticeManagedQuestionnaire } from 'utils';
-import { useGetPracticeManagedQuestionnaireDetail, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
+import { useGetPracticeManagedQuestionnaireGet, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 import { QuestionnaireBuilder } from './components/QuestionnaireBuilder';
 
 export const QuestionnaireDetail: FC = () => {
@@ -13,22 +13,19 @@ export const QuestionnaireDetail: FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
 
-  const {
-    mutateAsync: updateQuestionnaire,
-    isPending: isUpdating,
-    // error: updateError,
-  } = usePracticeManagedQuestionnaireUpdate(questionnaireId ?? '');
+  const { mutateAsync: updateQuestionnaire, isPending: isUpdating } = usePracticeManagedQuestionnaireUpdate(
+    questionnaireId ?? ''
+  );
 
   const {
     data,
     isPending: isFetching,
     error: fetchError,
-    // status,
-  } = useGetPracticeManagedQuestionnaireDetail({
+  } = useGetPracticeManagedQuestionnaireGet({
     questionnaireId: questionnaireId as string,
   });
 
-  const questionnaire = data?.practiceManagedQuestionnaires;
+  const questionnaire = data?.practiceManagedQuestionnaire;
 
   const handleSave = useCallback(
     async (questionnaire: PracticeManagedQuestionnaire) => {

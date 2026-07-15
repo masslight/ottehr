@@ -1,11 +1,7 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import {
-  getPatchOperationToRemoveMetaTags,
-  PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG,
-  practiceManagedQuestionnaireToFhir,
-} from 'utils';
+import { practiceManagedQuestionnaireToFhir } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -36,17 +32,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const nextVersion = (parseInt(previousVersion) + 1).toString();
     console.log('nextVersion', nextVersion);
 
-    console.log('getting the previous version resource');
-    const previousVersionQuestionnaire = await oystehr.fhir.get<Questionnaire>({
-      resourceType: 'Questionnaire',
-      id: previousId ?? '',
-    });
-
     console.log('configuring post request for updated resource');
     const fhirQuestionnaire = practiceManagedQuestionnaireToFhir({
       ...rest,
       version: nextVersion,
-      derivedFrom: [`${rest.url}|${previousVersion ?? '1'}`],
     });
     const updatedQPostRequest: BatchInputPostRequest<Questionnaire> = {
       method: 'POST',
@@ -55,13 +44,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
 
     console.log('configuring patch request for previous resource version');
-    const removeLatestPatchOp = getPatchOperationToRemoveMetaTags(previousVersionQuestionnaire, [
-      PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG,
-    ]);
     const supersedeQPatchRequest: BatchInputPatchRequest<Questionnaire> = {
       method: 'PATCH',
       url: `Questionnaire/${previousId}`,
-      operations: [removeLatestPatchOp, { op: 'replace', path: '/status', value: 'retired' }],
+      operations: [{ op: 'replace', path: '/status', value: 'retired' }],
     };
 
     // superseding equates to removing latest tag and marking as retired

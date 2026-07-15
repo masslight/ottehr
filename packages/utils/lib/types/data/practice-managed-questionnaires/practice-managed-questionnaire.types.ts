@@ -55,6 +55,12 @@ export type PracticeManagedQuestionnaireUpdateStatusData = z.infer<
   typeof PracticeManagedQuestionnaireUpdateStatusSchema
 >;
 
+export type PracticeManagedQuestionnaireDTO = {
+  id: string;
+  title: string;
+  status: Questionnaire['status'];
+};
+
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
   questionnaireId: string;
   questionnaireTitle: string;
@@ -62,15 +68,17 @@ export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {
 
 // ============= api input / output types ===============
 
-// get practice managed questionnaire
-export type PracticeManagedQuestionnaireDetailInput = {
+// get practice managed questionnaire detail
+export type PracticeManagedQuestionnaireGetInput = {
   questionnaireId: string;
 };
-export type PracticeManagedQuestionnaireDetailOutput = {
-  practiceManagedQuestionnaires: PracticeManagedQuestionnaire;
+export type PracticeManagedQuestionnaireGetOutput = {
+  practiceManagedQuestionnaire: PracticeManagedQuestionnaire;
 };
+
+// get practice managed questionnaire list
 export type PracticeManagedQuestionnaireListOutput = {
-  practiceManagedQuestionnaires: PracticeManagedQuestionnaire[];
+  practiceManagedQuestionnaires: PracticeManagedQuestionnaireDTO[];
 };
 
 // update practice managed questionnaire

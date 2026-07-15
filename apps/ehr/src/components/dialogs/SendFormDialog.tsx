@@ -47,8 +47,8 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
         if (cancelled) return;
         setQuestionnaires(
           (result.practiceManagedQuestionnaires || [])
-            .filter((q: any) => q.status === 'active')
-            .map((q: any) => ({ id: q.id, title: q.title || q.name || 'Untitled' }))
+            .filter((q) => q.status === 'active')
+            .map((q) => ({ id: q.id, title: q.title || 'Untitled' }))
             .sort((a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title))
         );
       })

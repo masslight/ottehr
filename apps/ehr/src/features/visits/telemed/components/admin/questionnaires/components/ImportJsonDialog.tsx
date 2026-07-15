@@ -4,11 +4,7 @@ import { Box, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typo
 import { enqueueSnackbar } from 'notistack';
 import { FC, SetStateAction, useCallback, useRef, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import {
-  addPracticeManagedQuestionnaireLatestTag,
-  fhirQuestionnaireToPracticeManaged,
-  PracticeManagedQuestionnaire,
-} from 'utils';
+import { fhirQuestionnaireToPracticeManaged, PracticeManagedQuestionnaire } from 'utils';
 import { usePracticeManagedQuestionnaireCreate } from '../../admin.queries';
 
 interface ImportJsonDialogProps {
@@ -112,9 +108,7 @@ export const ImportJsonDialog: FC<ImportJsonDialogProps> = (props) => {
 
       // new imports get latest tag
       // create questionnaire expects a managed questionnaire so we will format as such
-      practiceManagedQuestionnaire = fhirQuestionnaireToPracticeManaged(
-        addPracticeManagedQuestionnaireLatestTag(parsed)
-      );
+      practiceManagedQuestionnaire = fhirQuestionnaireToPracticeManaged(parsed);
     } catch (e) {
       let errorMessage = 'Error validating the provided json';
       if ((e as any)?.message) errorMessage = (e as any)?.message;

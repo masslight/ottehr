@@ -23,6 +23,7 @@ import {
   getRadiologyQuickPicks,
   getSupportDialog,
   practiceManagedQuestionnaireCreate,
+  practiceManagedQuestionnaireGet,
   practiceManagedQuestionnaireList,
   practiceManagedQuestionnaireUpdate,
   removeQuickPick,
@@ -64,8 +65,8 @@ import {
   isLocationVirtual,
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
-  PracticeManagedQuestionnaireDetailInput,
-  PracticeManagedQuestionnaireDetailOutput,
+  PracticeManagedQuestionnaireGetInput,
+  PracticeManagedQuestionnaireGetOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
@@ -746,15 +747,15 @@ export const usePracticeManagedQuestionnaireCreate = (): UseMutationResult<
   });
 };
 
-export const useGetPracticeManagedQuestionnaireDetail = (
-  input: PracticeManagedQuestionnaireDetailInput
-): UseQueryResult<PracticeManagedQuestionnaireDetailOutput, Error> => {
+export const useGetPracticeManagedQuestionnaireGet = (
+  input: PracticeManagedQuestionnaireGetInput
+): UseQueryResult<PracticeManagedQuestionnaireGetOutput, Error> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['practice-managed-questionnaire-detail', input.questionnaireId],
+    queryKey: ['practice-managed-questionnaire-get', input.questionnaireId],
     queryFn: async () => {
-      return practiceManagedQuestionnaireList(oystehrZambda!, input);
+      return practiceManagedQuestionnaireGet(oystehrZambda!, input);
     },
     enabled: !!oystehrZambda,
     staleTime: 30_000, // 30 sec

@@ -20,25 +20,16 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { PracticeManagedQuestionnaireDTO, PracticeManagedQuestionnaireUpdateStatusData } from 'utils';
 import { usePracticeManagedQuestionnaireList, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
 import { ImportJsonDialog } from './components/ImportJsonDialog';
 
-function countItems(items: QuestionnaireItem[]): number {
-  let count = 0;
-  for (const item of items || []) {
-    count++;
-    if (item.item) count += countItems(item.item);
-  }
-  return count;
-}
-
 // Deleted forms are soft-deleted so existing patient responses stay viewable
-const isDeleted = (q: Questionnaire): boolean => q.status === 'retired';
+const isDeleted = (q: PracticeManagedQuestionnaireDTO): boolean => q.status === 'retired';
 
 export const QuestionnaireAdminPage: FC = () => {
   const navigate = useNavigate();
@@ -51,7 +42,7 @@ export const QuestionnaireAdminPage: FC = () => {
 
   const managedQuestionnaires = (data?.practiceManagedQuestionnaires || [])
     .slice()
-    .sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
+    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 
   const deletedCount = managedQuestionnaires.filter(isDeleted).length;
 
@@ -60,7 +51,9 @@ export const QuestionnaireAdminPage: FC = () => {
     : managedQuestionnaires.filter((q) => !isDeleted(q));
 
   const toggleStatus = useCallback(
-    async (questionnaireId: string | undefined, newStatus: Questionnaire['status']) => {
+    async (input: PracticeManagedQuestionnaireUpdateStatusData) => {
+      const { questionnaireId, newStatus } = input;
+
       if (newStatus === 'retired') {
         if (!window.confirm('Are you sure you want to delete this questionnaire?')) return;
       }
@@ -152,9 +145,6 @@ export const QuestionnaireAdminPage: FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="center">
-                  Items
-                </TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">
                   Actions
                 </TableCell>
@@ -190,7 +180,6 @@ export const QuestionnaireAdminPage: FC = () => {
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell align="center">{countItems(q.item ?? [])}</TableCell>
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                       {deleted ? (
                         <Tooltip title="Restore">
@@ -198,7 +187,7 @@ export const QuestionnaireAdminPage: FC = () => {
                             size="small"
                             color="primary"
                             disabled={isUpdating}
-                            onClick={() => toggleStatus(q.id, 'active')}
+                            onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'active' })}
                           >
                             <RestoreFromTrashIcon fontSize="small" />
                           </IconButton>
@@ -215,7 +204,7 @@ export const QuestionnaireAdminPage: FC = () => {
                               size="small"
                               color="error"
                               disabled={isUpdating}
-                              onClick={() => toggleStatus(q.id, 'retired')}
+                              onClick={() => toggleStatus({ questionnaireId: q.id, newStatus: 'retired' })}
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>

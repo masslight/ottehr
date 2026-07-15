@@ -179,8 +179,8 @@ import {
   PracticeKpisReportZambdaOutput,
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
-  PracticeManagedQuestionnaireDetailInput,
-  PracticeManagedQuestionnaireDetailOutput,
+  PracticeManagedQuestionnaireGetInput,
+  PracticeManagedQuestionnaireGetOutput,
   PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
@@ -353,6 +353,7 @@ const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
 const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
 const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
+const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get';
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
@@ -2894,20 +2895,24 @@ export const migrateExamData = async (
 };
 
 // ── Practice Managed Questionnaires ──
-
-export function practiceManagedQuestionnaireList(oystehr: Oystehr): Promise<PracticeManagedQuestionnaireListOutput>;
-
-export function practiceManagedQuestionnaireList(
+export async function practiceManagedQuestionnaireGet(
   oystehr: Oystehr,
-  parameters: PracticeManagedQuestionnaireDetailInput
-): Promise<PracticeManagedQuestionnaireDetailOutput>;
+  parameters: PracticeManagedQuestionnaireGetInput
+): Promise<PracticeManagedQuestionnaireGetOutput> {
+  try {
+    const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
 
 export async function practiceManagedQuestionnaireList(
-  oystehr: Oystehr,
-  parameters?: PracticeManagedQuestionnaireDetailInput
-): Promise<PracticeManagedQuestionnaireDetailOutput | PracticeManagedQuestionnaireListOutput> {
+  oystehr: Oystehr
+): Promise<PracticeManagedQuestionnaireListOutput> {
   try {
-    const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID, ...(parameters ?? {}) });
+    const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);

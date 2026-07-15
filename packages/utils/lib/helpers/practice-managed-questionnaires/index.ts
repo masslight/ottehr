@@ -9,7 +9,6 @@ import { cloneDeep, isEqual } from 'lodash-es';
 import {
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
   PRACTICE_MANAGED_QR_TAG,
-  PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
 } from '../../fhir';
 import {
@@ -94,25 +93,6 @@ const addPracticeManagedQuestionnaireTag = (
 
   return questionnaire;
 };
-
-export function addPracticeManagedQuestionnaireLatestTag(
-  questionnaire: PracticeManagedQuestionnaire
-): PracticeManagedQuestionnaire;
-export function addPracticeManagedQuestionnaireLatestTag(questionnaire: Questionnaire): Questionnaire {
-  const existingMeta = questionnaire.meta || { tag: [] };
-  const existingTags = existingMeta.tag ?? [];
-
-  // if the tag is already there just return
-  if (existingTags.some((t) => isEqual(t, PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG))) {
-    return questionnaire;
-  }
-
-  questionnaire.meta = {
-    tag: [...existingTags, PRACTICE_MANAGED_QUESTIONNAIRE_LATEST_TAG],
-  };
-
-  return questionnaire;
-}
 
 /**
  * ensures fields ottehr excepts to be present on Questionnaire are indeed there
