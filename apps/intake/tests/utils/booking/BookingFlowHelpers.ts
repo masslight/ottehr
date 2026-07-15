@@ -55,7 +55,7 @@ export class BookingFlowHelpers {
    * Get a valid value from a config-defined value set
    * Returns the first value from the appropriate value set
    */
-  static getValidValueFromConfig(fieldKey: string, serviceCategory?: string): string | undefined {
+  static getValidValueFromConfig(fieldKey: string, serviceCategory?: string, serviceMode?: string): string | undefined {
     switch (fieldKey) {
       case 'patient-birth-sex':
         return VALUE_SETS.birthSexOptions[0].value; // 'Male'
@@ -65,11 +65,12 @@ export class BookingFlowHelpers {
       case 'reason-for-visit-om':
       case 'reason-for-visit-wc':
         if (serviceCategory) {
-          const options = getReasonForVisitOptionsForServiceCategory(serviceCategory);
+          const options = getReasonForVisitOptionsForServiceCategory(serviceCategory, serviceMode);
           return options[0]?.value;
         }
         // Default to first available category if no category specified
-        return getReasonForVisitOptionsForServiceCategory(getServiceCategoryCodings()[0]?.code ?? '')[0]?.value;
+        return getReasonForVisitOptionsForServiceCategory(getServiceCategoryCodings()[0]?.code ?? '', serviceMode)[0]
+          ?.value;
       default:
         return undefined;
     }
@@ -869,7 +870,7 @@ export class BookingFlowHelpers {
    * Names and DOB are randomized to avoid duplicate patient detection
    * Returns both valid and invalid data for validation testing
    */
-  static getSamplePatientData(serviceCategory?: string): PatientTestData {
+  static getSamplePatientData(serviceCategory?: string, serviceMode?: string): PatientTestData {
     // Generate random timestamp suffix to ensure uniqueness
     const timestamp = Date.now();
     const randomSuffix = Math.floor(Math.random() * 1000);
@@ -895,9 +896,13 @@ export class BookingFlowHelpers {
         'patient-weight': '180', // Only shown for virtual visits
         'patient-ssn': '123-45-6789', // Required for workers-comp flows
         'return-patient-check': this.getValidValueFromConfig('return-patient-check'),
-        'reason-for-visit': this.getValidValueFromConfig('reason-for-visit', serviceCategory),
-        'reason-for-visit-om': this.getValidValueFromConfig('reason-for-visit-om', 'occupational-medicine'),
-        'reason-for-visit-wc': this.getValidValueFromConfig('reason-for-visit-wc', 'workers-comp'),
+        'reason-for-visit': this.getValidValueFromConfig('reason-for-visit', serviceCategory, serviceMode),
+        'reason-for-visit-om': this.getValidValueFromConfig(
+          'reason-for-visit-om',
+          'occupational-medicine',
+          serviceMode
+        ),
+        'reason-for-visit-wc': this.getValidValueFromConfig('reason-for-visit-wc', 'workers-comp', serviceMode),
         'tell-us-more': 'Patient experiencing symptoms for testing purposes',
       },
       invalid: {

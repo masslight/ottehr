@@ -438,7 +438,7 @@ export async function executeBookingScenario(
   }
 
   // 4. Fill patient info based on visible fields
-  const patientTestData = BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory);
+  const patientTestData = BookingFlowHelpers.getSamplePatientData(scenario.serviceCategory, scenario.serviceMode);
   await BookingFlowHelpers.completePatientInfoStep(
     page,
     resolvedConfig,
