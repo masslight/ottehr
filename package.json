@@ -262,7 +262,7 @@
     "start-server-and-test": "^2.0.12",
     "tsx": "^4.19.2",
     "turbo": "^2.8.16",
-    "typescript": "5.8.3",
+    "typescript": "7.0.2",
     "vite": "^6.3.5",
     "vite-plugin-node-polyfills": "^0.23.0",
     "vite-plugin-static-copy": "^2.3.0",
