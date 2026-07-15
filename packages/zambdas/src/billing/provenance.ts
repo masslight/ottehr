@@ -359,10 +359,9 @@ export async function resolveClaimActor(
       const token = authorizationHeader?.replace('Bearer ', '');
       if (!token) throw new Error('Missing token for caller actor');
       const user = await userMe(token, secrets);
-      let agentType = [CLAIM_PROVENANCE_AGENT_TYPE.human];
-      if (user.profile?.includes('Device/')) agentType = [CLAIM_PROVENANCE_AGENT_TYPE.m2m];
+      if (!user.profile?.includes('Practitioner/')) throw new Error('Caller is not a Practitioner for caller actor');
       return {
-        type: { coding: agentType },
+        type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] },
         who: { reference: user.profile },
       };
     }
