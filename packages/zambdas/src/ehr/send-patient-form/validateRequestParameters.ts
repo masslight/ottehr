@@ -9,6 +9,7 @@ import { safeValidate, ZambdaInput } from '../../shared';
 
 type BaseContext = {
   secrets: Secrets | null;
+  userToken: string;
 };
 
 type ValidatedRequest = BaseContext & SendPatientFormInput;
@@ -18,6 +19,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
     throw MISSING_REQUEST_BODY;
   }
 
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
   const secrets = input.secrets;
 
   let parsed: SendPatientFormInput;
@@ -35,5 +37,6 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
     appointmentId,
     questionnaireId,
     secrets,
+    userToken,
   };
 }

@@ -480,11 +480,14 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
-/** meta.tag identifying a QuestionnaireResponse to a practice-managed form. */
-export const PRACTICE_MANAGED_QR_TAG = {
-  system: ottehrCodeSystemUrl('questionnaire-response-type'),
-  code: 'practice-managed',
+/** meta.tag identifying how a one off QR was triggered */
+export const QR_DISTRIBUTION_TAG = {
+  system: ottehrCodeSystemUrl('qr-distribution'),
+  code: 'practitioner', // right now only triggered by users sending from visit details but this could be expanded in the future
 };
+
+/** meta.tag system for who sent triggered QR send, code is expected to be practitioner reference and display is expected to be a human readable name */
+export const QR_SENT_BY_SYSTEM = ottehrCodeSystemUrl('qr-distribution');
 
 // ── Service-category characteristic systems (one per dimension) ─────────────
 

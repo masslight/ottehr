@@ -1,14 +1,22 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Patient, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import { Encounter, Patient, Practitioner, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
+  getFullestAvailableName,
   getSecret,
-  isPracticeManagedQr,
-  PRACTICE_MANAGED_QR_TAG,
+  QR_DISTRIBUTION_TAG,
+  QR_SENT_BY_SYSTEM,
+  qrSentManually,
   SecretsKeys,
   SendPatientFormOutput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  getMyPractitionerId,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { sendSmsForPatient } from '../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -17,12 +25,21 @@ const ZAMBDA_NAME = 'send-patient-form';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
-  const { appointmentId, questionnaireId, secrets } = validateRequestParameters(input);
+  const { appointmentId, questionnaireId, secrets, userToken } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const questionnaire = await oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId });
+  const userPractitionerId = await getMyPractitionerId(userToken, secrets);
+
+  const [questionnaire, userPractitioner] = await Promise.all([
+    oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId }),
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: userPractitionerId,
+    }),
+  ]);
+
   if (!questionnaire) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Could not find the Questionnaire/${questionnaireId}`);
 
   const canonicalUrl = `${questionnaire.url}|${questionnaire.version}`;
@@ -44,7 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const encounter = resources.find((r) => r.resourceType === 'Encounter');
   const questionnaireResponses = resources
     .filter((r) => r.resourceType === 'QuestionnaireResponse')
-    .filter((r) => isPracticeManagedQr(r) && r.questionnaire === canonicalUrl && r.status === 'in-progress');
+    .filter((r) => qrSentManually(r) && r.questionnaire === canonicalUrl && r.status === 'in-progress');
 
   if (!patient) {
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Could not find the patient resource for Appointment/${appointmentId}`);
@@ -58,10 +75,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!questionnaireResponseId) {
     console.log('no existing form found, creating a new one');
 
+    const tags = [
+      QR_DISTRIBUTION_TAG,
+      {
+        system: QR_SENT_BY_SYSTEM,
+        code: `Practitioner/${userPractitionerId}`,
+        display: getFullestAvailableName(userPractitioner),
+      },
+    ];
+
     // create the QR
     const newQr: QuestionnaireResponse = {
       resourceType: 'QuestionnaireResponse',
-      meta: { tag: [PRACTICE_MANAGED_QR_TAG] },
+      meta: { tag: tags },
       questionnaire: `${questionnaire.url}|${questionnaire.version}`,
       status: 'in-progress',
       subject: { reference: `Patient/${patient.id}` },

@@ -7,7 +7,6 @@ import {
   flattenIntakeQuestionnaireItems,
   IntakeQuestionnaireItem,
   mapQuestionnaireAndValueSetsToItemsList,
-  PRACTICE_MANAGED_QR_TAG,
   QAndQRResponse,
 } from 'utils';
 
@@ -19,7 +18,6 @@ export const stubPaperworkResponseForPreview = (questionnaire: Questionnaire): Q
 
   const stubQuestionnaireResponse: QuestionnaireResponse = {
     resourceType: 'QuestionnaireResponse',
-    meta: { tag: [PRACTICE_MANAGED_QR_TAG] },
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
     status: 'in-progress',
     item: questionnaire.item?.map((item) => {

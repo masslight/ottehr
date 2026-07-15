@@ -30,9 +30,9 @@ import { InputMask } from 'ui-components';
 import {
   formatZipcodeForDisplay,
   IntakeQuestionnaireItem,
-  isPracticeManagedQr,
   makeValidationSchema,
   pickFirstValueFromAnswerItem,
+  qrSentManually,
   QuestionnaireFormFields,
   QuestionnaireItemGroupType,
   SIGNATURE_FIELDS,
@@ -348,7 +348,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
     const useContinueLabel =
       questionnaireResponse?.questionnaire?.includes('intake-paperwork-inperson') ||
-      isPracticeManagedQr(questionnaireResponse);
+      qrSentManually(questionnaireResponse);
 
     return {
       ...baseStuff,

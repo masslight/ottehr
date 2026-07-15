@@ -50,8 +50,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       operations: [{ op: 'replace', path: '/status', value: 'retired' }],
     };
 
-    // superseding equates to removing latest tag and marking as retired
-    // need to differentiate from just retired because Qs marked as retired AND latest can be restored
     console.log(`Creating version ${nextVersion} of "${rest.url}", "superseding" Questionnaire/${previousId}`);
     const res = (
       await oystehr.fhir.transaction<Questionnaire>({

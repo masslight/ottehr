@@ -3,9 +3,9 @@ import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   filterDisabledPages,
   getQuestionnaireItemsAndProgress,
-  isPracticeManagedQr,
   makeValidationSchema,
   PatchPaperworkParameters,
+  qrSentManually,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   recursiveGroupTransform,
 } from 'utils';
@@ -199,7 +199,7 @@ const complexSubmitValidation = async (
     questionnaireResponseId,
     updatedAnswers: filteredAnswers,
     currentQRStatus: fullQRResource.status,
-    createReviewTaskAndPdf: isPracticeManagedQr(fullQRResource),
+    createReviewTaskAndPdf: qrSentManually(fullQRResource),
   };
 };
 const complexPatchValidation = async (

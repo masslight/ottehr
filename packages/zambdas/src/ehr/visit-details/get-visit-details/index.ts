@@ -28,12 +28,12 @@ import {
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
   isAnnotationFollowupEncounter,
-  isPracticeManagedQr,
   isValidUUID,
   makeStandaloneFormDTO,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PersistedFhirResource,
+  qrSentManually,
   ScheduleOwnerFhirResource,
   Secrets,
   selectIntakeQuestionnaireResponse,
@@ -331,7 +331,7 @@ const getStandaloneFormsForAppointment = async (
 
   const questionnaireResponses = resources
     .filter((r) => r.resourceType === 'QuestionnaireResponse')
-    .filter((qr) => isPracticeManagedQr(qr));
+    .filter((qr) => qrSentManually(qr));
 
   if (!questionnaireResponses || questionnaireResponses.length === 0) return;
 
