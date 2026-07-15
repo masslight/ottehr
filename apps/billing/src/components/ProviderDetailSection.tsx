@@ -31,6 +31,7 @@ export function ProviderDetailSection({
   const [taxonomyCode, setTaxonomyCode] = useState(provider.taxonomyCode ?? '');
   const [licenseType, setLicenseType] = useState(provider.licenseType ?? '');
   const [taxId, setTaxId] = useState(provider.taxId ?? '');
+  const [stripeAccountId, setStripeAccountId] = useState(provider.stripeAccountId ?? '');
   const [line1, setLine1] = useState(provider.addressParts?.line1 ?? '');
   const [line2, setLine2] = useState(provider.addressParts?.line2 ?? '');
   const [city, setCity] = useState(provider.addressParts?.city ?? '');
@@ -47,6 +48,7 @@ export function ProviderDetailSection({
     setTaxonomyCode(provider.taxonomyCode ?? '');
     setLicenseType(provider.licenseType ?? '');
     setTaxId(provider.taxId ?? '');
+    setStripeAccountId(provider.stripeAccountId ?? '');
     setLine1(provider.addressParts?.line1 ?? '');
     setLine2(provider.addressParts?.line2 ?? '');
     setCity(provider.addressParts?.city ?? '');
@@ -65,7 +67,7 @@ export function ProviderDetailSection({
     if (isIndividual && (!firstName.trim() || !lastName.trim())) return 'First and last name are required';
     if (!isIndividual && !orgName.trim()) return 'Organization name is required';
     if (!renders && !bills) return 'Select at least one role';
-    const validationError = validateProviderFields({ npi, taxId, taxonomyCode, zip });
+    const validationError = validateProviderFields({ npi, taxId, taxonomyCode, zip, stripeAccountId });
     if (validationError) return validationError;
 
     const roles = [...(bills ? ['billing'] : []), ...(renders ? ['rendering'] : [])];
@@ -80,7 +82,10 @@ export function ProviderDetailSection({
             lastName: lastName.trim(),
             ...(licenseType ? { licenseType } : {}),
           }
-        : { name: orgName.trim() }),
+        : {
+            name: orgName.trim(),
+            ...(stripeAccountId.trim() ? { stripeAccountId: stripeAccountId.trim() } : {}),
+          }),
       ...(npi.trim() ? { npi: npi.trim() } : {}),
       ...(taxonomyCode.trim() ? { taxonomyCode: taxonomyCode.trim() } : {}),
       ...(taxId.trim() ? { taxId: taxId.trim() } : {}),
@@ -125,6 +130,16 @@ export function ProviderDetailSection({
           <Field label="Tax ID">
             <TextField size="small" fullWidth value={taxId} onChange={(e) => setTaxId(e.target.value)} />
           </Field>
+          {!isIndividual && (
+            <Field label="Stripe account ID">
+              <TextField
+                size="small"
+                fullWidth
+                value={stripeAccountId}
+                onChange={(e) => setStripeAccountId(e.target.value)}
+              />
+            </Field>
+          )}
           {isIndividual && (
             <Field label="License type">
               <Autocomplete
@@ -189,6 +204,7 @@ export function ProviderDetailSection({
       <DetailRow label="Taxonomy Code" value={provider.taxonomyCode ?? ''} />
       {isIndividual && <DetailRow label="License Type" value={provider.licenseType ?? ''} />}
       <DetailRow label="Tax ID / EIN" value={provider.taxId ?? ''} />
+      {!isIndividual && <DetailRow label="Stripe Account ID" value={provider.stripeAccountId ?? ''} />}
       <DetailRow label="Address" value={provider.address ?? ''} />
       <DetailRow label="Roles" value={rolesLabel} />
     </EditableSection>

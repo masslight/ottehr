@@ -7,7 +7,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
-import { fullZipRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -270,6 +270,10 @@ const billingNpiSchema = nonEmptyString.refine(
   'NPI must be a valid 10-digit number with a correct check digit'
 );
 const billingTaxIdSchema = nonEmptyString.regex(taxIdRegex, 'Tax ID / EIN must be exactly 9 digits');
+const billingStripeAccountIdSchema = nonEmptyString.regex(
+  stripeAccountIdRegex,
+  'Stripe account ID must start with acct_'
+);
 const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
 // Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
 // because patient working copies carry addresses cloned from clinical data.
@@ -298,6 +302,7 @@ export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
+    stripeAccountId: billingStripeAccountIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
 ]);
@@ -332,6 +337,7 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
+    stripeAccountId: billingStripeAccountIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
 ]);
