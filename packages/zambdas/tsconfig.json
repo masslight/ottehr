@@ -1,5 +1,8 @@
 {
   "extends": "tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"]
+  },
   "include": ["src", "test", "local-server", "scripts", "./*.ts", ".eslintrc.cjs"],
   "exclude": ["node_modules", "dist", "build", "src/scripts/detect-tls.js"]
 }

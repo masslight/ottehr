@@ -283,7 +283,7 @@ export async function uploadPDF(
     headers: {
       'Content-Type': MIME_TYPES.PDF,
     },
-    body: pdfBytes,
+    body: pdfBytes as BodyInit,
   });
 
   if (!uploadRequest.ok) {

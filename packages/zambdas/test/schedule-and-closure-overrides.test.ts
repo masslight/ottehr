@@ -227,7 +227,7 @@ describe.skip('test schedule override for officeOpen', () => {
 
   beforeAll(() => {
     originalUseMemo = React.useMemo;
-    React.useMemo = jest.fn((fn) => {
+    React.useMemo = vi.fn((fn) => {
       const memoizedValue = fn();
       return memoizedValue;
     }) as typeof React.useMemo;
@@ -369,7 +369,7 @@ describe.skip('test schedule override for walkinOpen', () => {
 
   beforeAll(() => {
     originalUseMemo = React.useMemo;
-    React.useMemo = jest.fn((fn) => {
+    React.useMemo = vi.fn((fn) => {
       const memoizedValue = fn();
       return memoizedValue;
     }) as typeof React.useMemo;
@@ -541,7 +541,7 @@ describe.skip('test closure override for officeHasClosureOverrideToday', () => {
 
   beforeAll(() => {
     originalUseMemo = React.useMemo;
-    React.useMemo = jest.fn((fn) => {
+    React.useMemo = vi.fn((fn) => {
       const memoizedValue = fn();
       return memoizedValue;
     }) as typeof React.useMemo;
@@ -605,7 +605,7 @@ describe.skip('test closure override for officeHasClosureOverrideTomorrow', () =
 
   beforeAll(() => {
     originalUseMemo = React.useMemo;
-    React.useMemo = jest.fn((fn) => {
+    React.useMemo = vi.fn((fn) => {
       const memoizedValue = fn();
       return memoizedValue;
     }) as typeof React.useMemo;
@@ -685,7 +685,7 @@ describe.skip('test prebookStillOpenForToday, officeOpen, and walkinOpen when no
 
   beforeAll(() => {
     originalUseMemo = React.useMemo;
-    React.useMemo = jest.fn((fn) => {
+    React.useMemo = vi.fn((fn) => {
       const memoizedValue = fn();
       return memoizedValue;
     }) as typeof React.useMemo;
