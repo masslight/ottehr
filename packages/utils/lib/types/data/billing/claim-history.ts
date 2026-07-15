@@ -33,10 +33,9 @@ export const CLAIM_PROVENANCE_ACTIVITY: Record<ClaimProvenanceActivityKey, Codin
 // without inspecting whether agent.who points at a Practitioner or a Device.
 export const CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM = ottehrCodeSystemUrl('claim-provenance-agent-type');
 
-export const CLAIM_PROVENANCE_AGENT_TYPE: Record<'human' | 'system' | 'm2m', Coding> = {
+export const CLAIM_PROVENANCE_AGENT_TYPE: Record<'human' | 'system', Coding> = {
   human: { system: CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM, code: 'human', display: 'User' },
   system: { system: CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM, code: 'system', display: 'System' },
-  m2m: { system: CLAIM_PROVENANCE_AGENT_TYPE_SYSTEM, code: 'm2m', display: 'Machine-to-Machine User' },
 };
 
 // Extension on the Provenance whose valueString holds a JSON-serialized ClaimFieldChange[].
