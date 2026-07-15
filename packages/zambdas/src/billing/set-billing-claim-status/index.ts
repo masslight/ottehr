@@ -1,18 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
-import { CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils';
+import { CLAIM_STATUS_FIELDS_BY_KEY, CLAIM_TAG_SYSTEM, getClaimStatusFieldValue, HOLD_TAG_NAME } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { applyClaimStatusField, resolveClaimActor } from '../provenance';
-import {
-  assertValidClaimStatusField,
-  buildUpdatedClaimStatusTags,
-  createBillingClient,
-  determineRulesEngineForClaim,
-  fetchById,
-  kickOffRulesEngine,
-  STAGE_ENTRY_RULES_ENGINES,
-} from '../shared';
+import { applyClaimStatusField, commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
+import { assertValidClaimStatusField, buildUpdatedClaimStatusTags, createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -35,26 +27,24 @@ export async function performEffect(
 ): Promise<{ ok: true }> {
   const value = assertValidClaimStatusField(params.field, params.value ?? null);
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
-  await applyClaimStatusField(oystehr, claim, params.field, value, agent);
 
-  // A claim entering Non-insurance Payer AR (or Patient AR, when self-pay) auto-runs that stage's
-  // pre-invoice rules engine — the same run its creation in that stage would have triggered.
-  if (
+  const enteringNewStage =
     params.field === 'arStage' &&
-    value &&
-    value !== getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage)
-  ) {
-    // The engine is decided against the claim as just written (applyClaimStatusField committed
-    // these same tags, including the entered stage's initialized progress status).
-    const after: Claim = {
-      ...claim,
-      meta: { ...claim.meta, tag: buildUpdatedClaimStatusTags(claim, 'arStage', value) },
-    };
-    const engine = determineRulesEngineForClaim(after);
-    if (engine && STAGE_ENTRY_RULES_ENGINES.includes(engine)) {
-      await kickOffRulesEngine(oystehr, engine, params.claimId, params.secrets);
-    }
+    !!value &&
+    value !== getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
+
+  if (!enteringNewStage) {
+    await applyClaimStatusField(oystehr, claim, params.field, value, agent);
+    return { ok: true };
   }
+
+  // A claim entering a new AR stage never auto-runs that stage's rules engine. Instead it is held:
+  // the Hold tag rides along with the stage change (one transaction, one history record) so the
+  // biller preps the claim and chooses when to run the rules (Submit claim / Prepare for invoice).
+  let updatedTags = buildUpdatedClaimStatusTags(claim, params.field, value);
+  const alreadyHeld = updatedTags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === HOLD_TAG_NAME);
+  if (!alreadyHeld) updatedTags = [...updatedTags, { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME }];
+  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
 
   return { ok: true };
 }

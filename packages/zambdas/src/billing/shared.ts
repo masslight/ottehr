@@ -322,6 +322,10 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
  * - Non-insurance Payer AR -> Non-insurance Payer Pre-Invoice Rules
  * - Patient AR, self-pay only (no real coverage on the claim) -> Patient AR Pre-Invoice Rules
  * Undefined when no engine applies (no AR Stage, or Patient AR with insurance coverage).
+ *
+ * An engine runs automatically only when a claim is created in its stage. Changing an existing
+ * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
+ * biller runs the rules explicitly (Submit claim / Prepare for invoice).
  */
 export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | undefined {
   const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
@@ -330,14 +334,6 @@ export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | un
   if (arStage === AR_STAGE.patient && !claimHasRealCoverage(claim.insurance)) return 'patient-ar-pre-invoice';
   return undefined;
 }
-
-// Engines that also run automatically when an existing claim *enters* their AR stage (via an AR
-// Stage change). Claim Submission is deliberately absent: moving a claim into Insurance Payer AR
-// must never auto-submit it — submission happens at creation or via the explicit Submit claim button.
-export const STAGE_ENTRY_RULES_ENGINES: readonly RulesEngineType[] = [
-  'non-insurance-payer-pre-invoice',
-  'patient-ar-pre-invoice',
-];
 
 // Enqueue a rules engine for a claim; a Subscription runs it asynchronously. The claim is already
 // committed when this runs, so a kickoff failure must not fail the request (a retry would create a

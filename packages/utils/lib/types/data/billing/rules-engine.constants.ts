@@ -13,15 +13,18 @@ export const HOLD_TAG_NAME = 'Hold';
 // run stops when a rule applies the Hold tag or fails.
 // ---------------------------------------------------------------------------
 
+// Engines run automatically only when a claim is created in their AR stage, and on demand via the
+// claim-detail button. Changing an existing claim's AR Stage never runs an engine — the claim is
+// held (Hold tag) instead, and the biller runs the rules when the claim is ready.
 export const RULES_ENGINE_TYPES = [
-  // Runs when a claim is created in Insurance Payer AR and on "Submit claim"; submits the claim to
-  // the payer when every rule passes.
+  // Created in Insurance Payer AR / "Submit claim"; submits the claim to the payer when every rule
+  // passes.
   'claim-submission',
-  // Runs when a claim is created in — or enters — Non-insurance Payer AR and on "Prepare for
-  // invoice"; moves the Non-insurance AR Status to Ready to invoice when every rule passes.
+  // Created in Non-insurance Payer AR / "Prepare for invoice"; moves the Non-insurance AR Status to
+  // Ready to invoice when every rule passes.
   'non-insurance-payer-pre-invoice',
-  // Runs when a self-pay claim (no coverage) is created in — or enters — Patient AR and on "Prepare
-  // for invoice"; moves the Patient AR Status to Ready to invoice when every rule passes.
+  // Created self-pay (no coverage) in Patient AR / "Prepare for invoice"; moves the Patient AR
+  // Status to Ready to invoice when every rule passes.
   'patient-ar-pre-invoice',
 ] as const;
 
@@ -55,14 +58,14 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
   'non-insurance-payer-pre-invoice': {
     type: 'non-insurance-payer-pre-invoice',
     label: 'Non-insurance Payer Pre-Invoice Rules',
-    runsWhen: 'when a claim is created in or enters Non-insurance Payer AR',
+    runsWhen: 'when a claim is created in Non-insurance Payer AR',
     onPass: 'the Non-insurance AR Status moves to Ready to invoice',
     runButtonLabel: 'Prepare for invoice',
   },
   'patient-ar-pre-invoice': {
     type: 'patient-ar-pre-invoice',
     label: 'Patient AR Pre-Invoice Rules',
-    runsWhen: 'when a self-pay claim is created in or enters Patient AR',
+    runsWhen: 'when a self-pay claim is created in Patient AR',
     onPass: 'the Patient AR Status moves to Ready to invoice',
     runButtonLabel: 'Prepare for invoice',
   },

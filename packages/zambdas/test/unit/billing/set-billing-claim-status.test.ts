@@ -1,14 +1,13 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ProvenanceAgent, Task } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils';
+import { Claim, ProvenanceAgent } from 'fhir/r4b';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS, CLAIM_TAG_SYSTEM, HOLD_TAG_NAME } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
-import { RULES_ENGINE_FHIR } from '../../../src/billing/rules-engine/constants';
 import { performEffect } from '../../../src/billing/set-billing-claim-status';
 
-// kickOffRulesEngine resolves the ENVIRONMENT secret before enqueueing; 'local' also short-circuits
-// error reporting.
-const secrets = { ENVIRONMENT: 'local' };
+const secrets = null;
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/test-user' } };
+
+const HOLD_TAG = { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME };
 
 const makeClaim = (tag: { system: string; code: string }[] = []): Claim =>
   ({ resourceType: 'Claim', id: 'claim-1', meta: { versionId: 'v1', tag } }) as Claim;
@@ -23,7 +22,7 @@ const makeOystehr = (
 } => {
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
   const search = vi.fn().mockResolvedValue({ unbundle: () => [claim] });
-  const create = vi.fn().mockImplementation(async (resource: Task) => ({ ...resource, id: 'task-1' }));
+  const create = vi.fn();
   return { oystehr: { fhir: { search, transaction, create } } as unknown as Oystehr, transaction, search, create };
 };
 
@@ -104,63 +103,65 @@ describe('set-billing-claim-status performEffect', () => {
   });
 });
 
-describe('set-billing-claim-status rules-engine kickoff on AR stage entry', () => {
-  const kickoffTaskCode = (create: ReturnType<typeof vi.fn>): string | undefined =>
-    create.mock.calls.find(([r]) => r.resourceType === 'Task')?.[0]?.code?.coding?.[0]?.code;
-
-  it('kicks off the non-insurance pre-invoice engine when a claim enters Non-insurance Payer AR', async () => {
-    const { oystehr, create } = makeOystehr(makeClaim());
+describe('set-billing-claim-status holds the claim on AR stage entry', () => {
+  it('applies the Hold tag alongside the stage change when a claim enters Non-insurance Payer AR', async () => {
+    const { oystehr, transaction, create } = makeOystehr(makeClaim());
     await performEffect(
       oystehr,
       { claimId: 'claim-1', field: 'arStage', value: AR_STAGE.nonInsurancePayer, secrets },
       agent
     );
-    expect(kickoffTaskCode(create)).toBe(RULES_ENGINE_FHIR['non-insurance-payer-pre-invoice'].taskCode);
-  });
-
-  it('kicks off the patient pre-invoice engine when a self-pay claim enters Patient AR', async () => {
-    const { oystehr, create } = makeOystehr(makeClaim());
-    await performEffect(oystehr, { claimId: 'claim-1', field: 'arStage', value: AR_STAGE.patient, secrets }, agent);
-    expect(kickoffTaskCode(create)).toBe(RULES_ENGINE_FHIR['patient-ar-pre-invoice'].taskCode);
-  });
-
-  it('does not kick off the patient engine when the claim entering Patient AR has coverage', async () => {
-    const claim = makeClaim();
-    claim.insurance = [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/cov-1' } }];
-    const { oystehr, create } = makeOystehr(claim);
-    await performEffect(oystehr, { claimId: 'claim-1', field: 'arStage', value: AR_STAGE.patient, secrets }, agent);
+    const tags = patchedTags(transaction);
+    expect(tags).toContainEqual({ system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.nonInsurancePayer });
+    expect(tags).toContainEqual(HOLD_TAG);
+    // One transaction: the Hold tag and the stage change land in the same write + history record.
+    expect(transaction).toHaveBeenCalledTimes(1);
+    // No rules engine runs on a stage change — the biller triggers it from the claim detail page.
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('never auto-submits: entering Insurance Payer AR does not kick off the claim submission engine', async () => {
-    const { oystehr, create } = makeOystehr(makeClaim());
-    await performEffect(
-      oystehr,
-      { claimId: 'claim-1', field: 'arStage', value: AR_STAGE.insurancePayer, secrets },
-      agent
-    );
-    expect(create).not.toHaveBeenCalled();
+  it('holds on entry to every stage, including Insurance Payer AR (never auto-submits)', async () => {
+    for (const stage of [AR_STAGE.insurancePayer, AR_STAGE.patient]) {
+      const { oystehr, transaction, create } = makeOystehr(makeClaim());
+      await performEffect(oystehr, { claimId: 'claim-1', field: 'arStage', value: stage, secrets }, agent);
+      expect(patchedTags(transaction)).toContainEqual(HOLD_TAG);
+      expect(create).not.toHaveBeenCalled();
+    }
   });
 
-  it('does not re-kick the engine when the AR stage is unchanged', async () => {
+  it('does not duplicate the Hold tag when the claim entering a stage is already held', async () => {
+    const { oystehr, transaction } = makeOystehr(makeClaim([HOLD_TAG]));
+    await performEffect(oystehr, { claimId: 'claim-1', field: 'arStage', value: AR_STAGE.patient, secrets }, agent);
+    const holdTags = patchedTags(transaction).filter((t) => t.system === HOLD_TAG.system && t.code === HOLD_TAG.code);
+    expect(holdTags).toHaveLength(1);
+  });
+
+  it('does not hold when the AR stage is re-set to its current value', async () => {
     const claim = makeClaim([{ system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.nonInsurancePayer }]);
-    const { oystehr, create } = makeOystehr(claim);
+    const { oystehr, transaction } = makeOystehr(claim);
     await performEffect(
       oystehr,
       { claimId: 'claim-1', field: 'arStage', value: AR_STAGE.nonInsurancePayer, secrets },
       agent
     );
-    expect(create).not.toHaveBeenCalled();
+    expect(patchedTags(transaction)).not.toContainEqual(HOLD_TAG);
   });
 
-  it('does not kick off an engine for a non-arStage status change', async () => {
+  it('does not hold when the AR stage is cleared', async () => {
     const claim = makeClaim([{ system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.nonInsurancePayer }]);
-    const { oystehr, create } = makeOystehr(claim);
+    const { oystehr, transaction } = makeOystehr(claim);
+    await performEffect(oystehr, { claimId: 'claim-1', field: 'arStage', value: null, secrets }, agent);
+    expect(patchedTags(transaction)).not.toContainEqual(HOLD_TAG);
+  });
+
+  it('does not hold for a non-arStage status change', async () => {
+    const claim = makeClaim([{ system: CLAIM_STATUS_TAG_SYSTEMS.arStage, code: AR_STAGE.nonInsurancePayer }]);
+    const { oystehr, transaction } = makeOystehr(claim);
     await performEffect(
       oystehr,
       { claimId: 'claim-1', field: 'nonInsuranceArStatus', value: 'ready-to-invoice', secrets },
       agent
     );
-    expect(create).not.toHaveBeenCalled();
+    expect(patchedTags(transaction)).not.toContainEqual(HOLD_TAG);
   });
 });
