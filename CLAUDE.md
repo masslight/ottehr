@@ -161,3 +161,12 @@ Feature flags are defined in `packages/utils/lib/ottehr-config/feature-flags/ind
 - Pre-commit hook runs `lint-staged`
 - A custom git merge driver resolves `package.json`/`package-lock.json` version conflicts by picking the higher version—run `./scripts/setup-git-merge-driver.sh` to install it
 - `config/` and `apps/ehr/tests/e2e-utils/seed-data/` use the "ours" merge strategy to preserve local versions during upstream merges
+
+## Secret Scanning (Claude Code agents)
+
+Claude Code sessions in this repo run a TruffleHog secret scan before any `git commit`, mirroring CI's TruffleHog check. This is configured via Claude Code hooks in `.claude/settings.json` (it does **not** affect human developers' commits or the husky/lint-staged hook):
+
+- **`.claude/hooks/install-trufflehog.sh`** — `SessionStart` hook; installs the pinned `trufflehog` binary (falls back to the docker image) so the scan can run.
+- **`.claude/hooks/scan-staged-secrets.sh`** — `PreToolUse(Bash)` hook; on any `git commit`, scans the staged files with TruffleHog and **denies** the commit if a secret is found. It also denies (block-on-failure) if TruffleHog cannot run at all. Cannot be bypassed with `git commit --no-verify`.
+
+By default the scan blocks on `verified`, `unknown`, and `unverified` findings (strict, to catch agent mistakes even when the network can't verify a credential). Relax it for a session with `OTTEHR_TRUFFLEHOG_RESULTS=verified,unknown` (or `=verified` to match CI exactly) if false positives block legitimate commits.
