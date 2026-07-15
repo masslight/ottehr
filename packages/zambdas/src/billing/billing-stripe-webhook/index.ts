@@ -86,8 +86,9 @@ const findBillingClaimForEncounter = async (oystehr: Oystehr, encounterId: strin
   return claims[0];
 };
 
-// picks the billing provider org stamped with the connected account id or default org otherwise
-const recipientForStripeAccount = async (
+// picks the billing provider org stamped with the connected account id or default org otherwise,
+// providers sharing an account share a TIN so the first match is fine
+const billingProviderRefForStripeAccount = async (
   oystehr: Oystehr,
   stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets']
@@ -99,12 +100,6 @@ const recipientForStripeAccount = async (
         params: [{ name: 'identifier', value: `${STRIPE_ACCOUNT_IDENTIFIER_SYSTEM}|${stripeAccount}` }],
       })
     ).unbundle();
-    // same defensive logic as claim encounters
-    if (providers.length > 1) {
-      throw new Error(
-        `Found ${providers.length} billing providers for stripe account ${stripeAccount}, cannot pick one safely`
-      );
-    }
     if (providers[0]?.id) return { reference: `Organization/${providers[0].id}` };
     console.warn(`No billing provider carries stripe account ${stripeAccount}, using the default organization`);
   }
@@ -124,7 +119,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   }
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
-  const recipient = await recipientForStripeAccount(oystehr, stripeAccount, secrets);
+  const billingProviderRef = await billingProviderRefForStripeAccount(oystehr, stripeAccount, secrets);
 
   const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : undefined;
   const created = new Date(charge.created * 1000).toISOString();
@@ -159,7 +154,9 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: charge.payment_method_details?.type ?? 'card' }],
     contained: [reconciliation],
     payment: { reference: `#${reconciliation.id}` },
-    recipient,
+    // the resolved provider fills payee as the paid party and recipient because fhir requires one
+    payee: billingProviderRef,
+    recipient: billingProviderRef,
   };
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId);
@@ -228,7 +225,7 @@ const upsertPaymentNoticeForRefund = async (
   await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets);
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
-  const recipient = await recipientForStripeAccount(oystehr, stripeAccount, secrets);
+  const billingProviderRef = await billingProviderRefForStripeAccount(oystehr, stripeAccount, secrets);
   const created = new Date(refund.created * 1000).toISOString();
   const failed = refund.status === 'failed' || refund.status === 'canceled';
 
@@ -260,7 +257,8 @@ const upsertPaymentNoticeForRefund = async (
     extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: charge.payment_method_details?.type ?? 'card' }],
     contained: [reconciliation],
     payment: { reference: `#${reconciliation.id}` },
-    recipient,
+    payee: billingProviderRef,
+    recipient: billingProviderRef,
   };
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId);

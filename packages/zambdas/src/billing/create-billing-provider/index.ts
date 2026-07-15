@@ -80,7 +80,6 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
     return practitioner;
   }
 
-  // TODO: decide whether a stripe account id must be unique across billing providers
   if (params.stripeAccountId) {
     identifier.push({ system: STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, value: params.stripeAccountId });
   }
