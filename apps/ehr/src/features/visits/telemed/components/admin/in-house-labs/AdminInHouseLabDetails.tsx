@@ -1,6 +1,6 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, CircularProgress, FormHelperText, FormLabel, Grid, Paper, Typography, useTheme } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -42,7 +42,7 @@ export default function AdminInHouseLabDetails(): ReactElement {
     if (status === 'error') enqueueSnackbar('Failed to fetch in-house lab data', { variant: 'error' });
   }, [status]);
 
-  const [submitError, setSubmitError] = useState<OystehrSdkError | APIError | undefined>(undefined);
+  const [submitError, setSubmitError] = useState<Oystehr.OystehrSdkError | APIError | undefined>(undefined);
 
   // labs TODO: to consider we should check if the ad that loads is the latest and only do editable things if it is
   // this would prevent the edge case of people navigating to an old AD url
@@ -80,7 +80,7 @@ export default function AdminInHouseLabDetails(): ReactElement {
         navigate(`/admin/in-house-labs/${result.activityDefinitionId}`, { replace: true });
       } catch (err: unknown) {
         console.error('edit in house lab failed', err);
-        setSubmitError(err as OystehrSdkError | APIError);
+        setSubmitError(err as Oystehr.OystehrSdkError | APIError);
       } finally {
         setEditButtonLoading(false);
       }
@@ -107,7 +107,7 @@ export default function AdminInHouseLabDetails(): ReactElement {
       setSubmitError(undefined);
     } catch (err: unknown) {
       console.error('toggle status in house lab failed', err);
-      setSubmitError(err as OystehrSdkError | APIError);
+      setSubmitError(err as Oystehr.OystehrSdkError | APIError);
     } finally {
       setStatusButtonLoading(false);
     }
@@ -172,7 +172,7 @@ interface ToggleStatusSectionProps {
   testItemStatus: InHouseLabAdminItemStatus;
   onSubmit: () => Promise<void>;
   isSubmitting?: boolean;
-  submitError?: OystehrSdkError | APIError;
+  submitError?: Oystehr.OystehrSdkError | APIError;
   disableEdits: boolean;
   disableEditsMessage?: string;
 }

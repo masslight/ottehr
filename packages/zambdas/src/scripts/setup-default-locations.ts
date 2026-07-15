@@ -19,7 +19,7 @@ import {
 } from 'utils';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - path is correct after copy-secrets.sh runs in CI
-import locationsConfig from '../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
+import locationsConfig from '../../../../config/oystehr/locations-and-schedules.json' with { type: 'json' };
 import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 const VIRTUAL_LOCATION_EXTENSION_URL_CHECK = 'https://extensions.fhir.zapehr.com/location-form-pre-release';

@@ -14,7 +14,7 @@ import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { getFirstName, getLastName, medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
-import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
+import vaccines from '../../../../../../config/oystehr/vaccines.json' with { type: 'json' };
 
 interface VaccineInfo {
   vaccine: string;

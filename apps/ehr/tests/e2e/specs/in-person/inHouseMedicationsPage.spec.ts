@@ -13,7 +13,7 @@
 //   getMedicationName,
 //   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 // } from 'utils';
-// import InHouseMedicationsConfig from '../../../../../../config/oystehr/in-house-medications.json' assert { type: 'json' };
+// import InHouseMedicationsConfig from '../../../../../../config/oystehr/in-house-medications.json' with { type: 'json' };
 // import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 // import { DIAGNOSIS_EMPTY_VALUE, Field, ORDERED_BY_EMPTY_VALUE } from '../../page/EditMedicationCard';
 // import { InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';

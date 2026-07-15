@@ -3,7 +3,6 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, TableCell, TableRow, TextField, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement, useState } from 'react';
 import { updateLabOrderResources } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
@@ -67,7 +66,7 @@ export const LabsTableBundleHeaderRow = ({
       });
       await refetchLabOrders();
     } catch (e) {
-      const error = e as OystehrSdkError;
+      const error = e as Oystehr.OystehrSdkError;
       console.error('error', JSON.stringify(error));
       setNoteError(error.message ?? 'Error saving note');
     }

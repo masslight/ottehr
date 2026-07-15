@@ -7,10 +7,10 @@ import {
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
 } from 'utils';
 import { expect, test } from 'vitest';
-import BookingQuestionnaire from './data/booking-questionnaire.json' assert { type: 'json' };
-import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json' assert { type: 'json' };
-import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json' assert { type: 'json' };
-import VirtualIntakePaperworkQuestionnaire from './data/virtual-intake-paperwork-questionnaire.json' assert { type: 'json' };
+import BookingQuestionnaire from './data/booking-questionnaire.json' with { type: 'json' };
+import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json' with { type: 'json' };
+import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json' with { type: 'json' };
+import VirtualIntakePaperworkQuestionnaire from './data/virtual-intake-paperwork-questionnaire.json' with { type: 'json' };
 
 describe('testing Questionnaire generation from config objects', () => {
   test

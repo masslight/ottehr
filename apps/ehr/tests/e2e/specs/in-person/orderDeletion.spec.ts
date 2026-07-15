@@ -26,7 +26,7 @@ import {
   radiologyStudiesConfig,
   UNIT_OPTIONS,
 } from 'utils';
-import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
+import procedureType from '../../../../../../config/oystehr/procedure-type.json' with { type: 'json' };
 
 const PROCESS_ID = `orderCancellation.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);

@@ -12,7 +12,6 @@
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": false,
     "isolatedModules": true,
     "skipLibCheck": true,
     "strict": true,
