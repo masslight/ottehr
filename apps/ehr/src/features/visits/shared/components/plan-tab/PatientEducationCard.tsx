@@ -17,7 +17,7 @@ import { DocumentReference } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { CommunicationDTO, getPresignedURL } from 'utils';
+import { CommunicationDTO, getPresignedURL, PatientEducationLanguage } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
@@ -30,6 +30,7 @@ import {
   usePatientEducation,
 } from '../../hooks/usePatientEducation';
 import { useChartData, useDeleteChartData } from '../../stores/appointment/appointment.store';
+import { PatientEducationLanguageSelector } from '../PatientEducationLanguageSelector';
 import { PatientEducationSectionsEditor } from '../PatientEducationSectionsEditor';
 
 export const PatientEducationCard: FC = () => {
@@ -48,8 +49,12 @@ export const PatientEducationCard: FC = () => {
     error: educationError,
     progress: educationProgress,
     allDiagnoses,
-    approvedByCode,
+    approvedFor,
+    defaultLanguage,
   } = usePatientEducation();
+  // Language the clinician chose for this generate run; seeded from the patient's preferred language
+  // each time the dialog opens (never auto-generates — the clinician still clicks Generate).
+  const [language, setLanguage] = useState<PatientEducationLanguage>(defaultLanguage);
   const [editableSections, setEditableSections] = useState<EducationSection[]>([]);
   const draftSectionsRef = useRef<Record<string, EducationSection>>({});
   const { chartData, setPartialChartData } = useChartData();
@@ -167,7 +172,8 @@ export const PatientEducationCard: FC = () => {
                     onClick={() => {
                       resetEducationFlow();
                       setSelectedDiagnoses(allDiagnoses.map((d) => d.code));
-                      prefetchAllDiagnoses();
+                      setLanguage(defaultLanguage);
+                      prefetchAllDiagnoses(defaultLanguage);
                       setEducationModalOpen(true);
                     }}
                     disabled={allDiagnoses.length === 0 || isEducationLoading}
@@ -225,6 +231,20 @@ export const PatientEducationCard: FC = () => {
       >
         <DialogTitle>Generate Patient Education Materials</DialogTitle>
         <DialogContent>
+          {allDiagnoses.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <PatientEducationLanguageSelector
+                value={language}
+                onChange={(next) => {
+                  setLanguage(next);
+                  // Warm the cache for the newly-selected language so Generate is fast.
+                  prefetchAllDiagnoses(next);
+                }}
+                disabled={isEducationLoading}
+                showPreferredSpanishHint={defaultLanguage === 'es'}
+              />
+            </Box>
+          )}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Select the diagnoses to include in the patient education document.
           </Typography>
@@ -266,7 +286,7 @@ export const PatientEducationCard: FC = () => {
                           (Primary)
                         </Typography>
                       )}
-                      {approvedByCode.has(diagnosis.code) && (
+                      {approvedFor(diagnosis.code, language) && (
                         <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>
                           (Pre-approved PDF)
                         </Typography>
@@ -296,7 +316,7 @@ export const PatientEducationCard: FC = () => {
               const selected = selectedDiagnoses
                 .map((code) => allDiagnoses.find((diagnosis) => diagnosis.code === code))
                 .filter((diagnosis): diagnosis is NonNullable<typeof diagnosis> => !!diagnosis);
-              const outcome = await generateDiagnoses(selected);
+              const outcome = await generateDiagnoses(selected, language);
               if (outcome === 'completed') {
                 resetEducationFlow();
                 setEducationModalOpen(false);
@@ -356,7 +376,7 @@ export const PatientEducationCard: FC = () => {
             variant="contained"
             onClick={async () => {
               const sections = editableSections.length > 0 ? editableSections : generatedSections ?? [];
-              const didSave = await saveFromSections(sections);
+              const didSave = await saveFromSections(sections, language);
               if (didSave) {
                 resetEducationFlow();
                 setEducationModalOpen(false);

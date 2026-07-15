@@ -13,7 +13,7 @@ import {
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export const addressStringFromAddress = (address: Address): string => {
   let addressString = '';
@@ -91,6 +91,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     ownerId,
     ownerType,
     isVirtual,
+    isInPerson,
     stripeAccountId,
     advapacsLocationId,
     rooms,
@@ -99,7 +100,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     address,
     telecom,
     reviewLink,
-  } = JSON.parse(input.body);
+  } = safeJsonParse(input.body);
   const createMode = Boolean(ownerId) && Boolean(ownerType);
 
   if (!scheduleId) {
@@ -169,6 +170,10 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
 
   if (isVirtual !== undefined && typeof isVirtual !== 'boolean') {
     throw INVALID_INPUT_ERROR('"isVirtual" must be a boolean');
+  }
+
+  if (isInPerson !== undefined && typeof isInPerson !== 'boolean') {
+    throw INVALID_INPUT_ERROR('"isInPerson" must be a boolean');
   }
 
   if (stripeAccountId !== undefined && stripeAccountId !== null && typeof stripeAccountId !== 'string') {
@@ -243,6 +248,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     closures,
     slug,
     isVirtual,
+    isInPerson,
     stripeAccountId,
     advapacsLocationId,
     rooms,

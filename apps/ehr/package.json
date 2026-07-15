@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.37.26",
+  "version": "1.38.19",
   "private": true,
   "type": "module",
   "engines": {
@@ -49,7 +49,7 @@
     "e2e:specs": "npm run e2e-skeleton -- ./tests/e2e/specs $PLAYWRIGHT_EXTRA_ARGS",
     "e2e:specs:ui": "npm run e2e-skeleton -- ./tests/e2e/specs --ui $PLAYWRIGHT_EXTRA_ARGS",
     "e2e:manual-login": "node ./auth.setup.js",
-    "e2e-skeleton": "env-cmd -f ./env/tests.${ENV}.json playwright test",
+    "e2e-skeleton": "cross-env NODE_OPTIONS='--preserve-symlinks --import tsx/esm' env-cmd -f ./env/tests.${ENV}.json npx playwright test",
     "setup-test-deps": "node setup-test-deps.js"
   },
   "dependencies": {

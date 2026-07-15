@@ -21,6 +21,7 @@ import {
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
+  RADIOLOGY_REPORT_CODE,
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
@@ -267,6 +268,20 @@ export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
 export const SLUG_REGEX = /^[a-zA-Z0-9-]+$/;
 export const SLUG_VALIDATION_MESSAGE = 'must be a URL-safe slug (letters, digits, hyphens)';
 export const isValidSlug = (slug: string): boolean => SLUG_REGEX.test(slug);
+
+/**
+ * Derive a URL-safe slug from a human-entered name. Any run of characters that
+ * isn't a letter/digit collapses to a single hyphen, and leading/trailing
+ * hyphens are trimmed — so the result always satisfies {@link isValidSlug}
+ * (or is empty when the name has no URL-safe characters at all, e.g. a purely
+ * non-Latin name). Case is preserved to match the existing slug convention
+ * (e.g. "NewYork-NY"). Callers must handle the empty-string case (invalid).
+ */
+export const slugFromName = (name: string): string =>
+  name
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
 /**
  * Optional admin-editable display name for a PractitionerRole-actored schedule.
@@ -571,6 +586,7 @@ export const BUCKET_NAMES = {
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
+  RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
   MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
@@ -658,6 +674,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.PATIENT_EDUCATION,
     display: 'Patient Education',
     documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
+  },
+  {
+    title: BUCKET_NAMES.RADIOLOGY_REPORTS,
+    display: 'Radiology Reports',
+    documentTypeCode: RADIOLOGY_REPORT_CODE,
   },
   {
     title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
@@ -750,6 +771,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
   groupType: `${PRIVATE_EXTENSION_BASE_URL}/group-type`,
+  hideControlLabel: `${PRIVATE_EXTENSION_BASE_URL}/hide-control-label`,
   infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,
   inputWidth: `${PRIVATE_EXTENSION_BASE_URL}/input-width`,
   minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
@@ -974,6 +996,8 @@ export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-pla
 export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
 
+export const PRESCRIPTION_ERX_PHARMACY_ID_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-id';
+
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 
 /** Employer Organization selected for this visit (staff / pre-op); not the patient Account occ-med employer. */
@@ -1037,8 +1061,6 @@ export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_
 
 /** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
 export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
-
-export const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';

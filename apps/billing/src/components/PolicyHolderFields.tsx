@@ -1,10 +1,8 @@
 import { Box, Divider, MenuItem, Select, TextField, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { BillingPolicyHolderSummary, CreateBillingCoverageInput, VALUE_SETS } from 'utils';
+import { BillingPolicyHolder, BillingPolicyHolderSummary, VALUE_SETS } from 'utils';
 import { buildAddressInput } from '../utils/format';
 import { Field } from './Field';
-
-export type BirthSex = 'Male' | 'Female' | 'Intersex';
 
 // Relationship + policy-holder fields for the claim insurance editor.
 export interface PolicyHolderState {
@@ -13,7 +11,7 @@ export interface PolicyHolderState {
   middleName: string;
   lastName: string;
   dob: string;
-  birthSex: BirthSex | '';
+  gender: string;
   line1: string;
   line2: string;
   city: string;
@@ -33,7 +31,7 @@ export function policyHolderStateFromSummary(
     middleName: summary?.middleName ?? '',
     lastName: summary?.lastName ?? '',
     dob: summary?.dob ?? '',
-    birthSex: (summary?.birthSex as BirthSex) || '',
+    gender: summary?.gender || '',
     line1: addr?.line1 ?? '',
     line2: addr?.line2 ?? '',
     city: addr?.city ?? '',
@@ -47,14 +45,14 @@ export function validatePolicyHolder(state: PolicyHolderState): string | null {
   if (state.relationship !== 'Self') {
     if (!state.firstName.trim() || !state.lastName.trim()) return "Policy holder's first and last name are required";
     if (!state.dob) return "Policy holder's date of birth is required";
-    if (!state.birthSex) return "Policy holder's birth sex is required";
+    if (!state.gender) return "Policy holder's gender is required";
     if (!buildAddressInput(state.line1, state.line2, state.city, state.state, state.zip))
       return "Policy holder's address is required";
   }
   return null;
 }
 
-export function policyHolderPayload(state: PolicyHolderState): CreateBillingCoverageInput['policyHolder'] | undefined {
+export function policyHolderPayload(state: PolicyHolderState): BillingPolicyHolder | undefined {
   if (state.relationship === 'Self') return undefined;
   const address = buildAddressInput(state.line1, state.line2, state.city, state.state, state.zip);
   return {
@@ -62,7 +60,7 @@ export function policyHolderPayload(state: PolicyHolderState): CreateBillingCove
     ...(state.middleName.trim() ? { middleName: state.middleName.trim() } : {}),
     lastName: state.lastName.trim(),
     dob: state.dob,
-    birthSex: state.birthSex as BirthSex,
+    gender: state.gender as BillingPolicyHolder['gender'],
     ...(address ? { address } : {}),
   };
 }
@@ -145,10 +143,10 @@ export function PolicyHolderFields({
                 size="small"
                 fullWidth
                 displayEmpty
-                value={value.birthSex}
-                onChange={(e) => set('birthSex', e.target.value as BirthSex)}
+                value={value.gender}
+                onChange={(e) => set('gender', e.target.value)}
                 renderValue={
-                  value.birthSex
+                  value.gender
                     ? undefined
                     : () => (
                         <Box component="span" sx={{ color: 'text.disabled' }}>

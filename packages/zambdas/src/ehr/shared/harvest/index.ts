@@ -12,6 +12,7 @@ import {
   Account,
   AccountGuarantor,
   Address,
+  Appointment,
   Attachment,
   Bundle,
   CodeableConcept,
@@ -96,6 +97,7 @@ import {
   isFieldExplicitlyCleared,
   isoStringFromDateComponents,
   isPayerUrl,
+  isTelemedAppointment,
   isValidUUID,
   makeOptimisticLockIfMatchHeader,
   makeSSNIdentifier,
@@ -231,7 +233,7 @@ interface CreateConsentResourcesInput {
   questionnaireResponse: QuestionnaireResponse;
   patientResource: Patient;
   locationResource?: Location;
-  appointmentId: string;
+  appointment: Appointment;
   oystehrAccessToken: string;
   oystehr: Oystehr;
   secrets: Secrets | null;
@@ -243,12 +245,13 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     questionnaireResponse,
     patientResource,
     locationResource,
-    appointmentId,
+    appointment,
     oystehrAccessToken,
     oystehr,
     secrets,
     listResources,
   } = input;
+  const appointmentId = appointment.id!;
   console.log('Checking DocumentReferences for consent forms');
   const paperwork = questionnaireResponse.item ?? [];
 
@@ -369,12 +372,13 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   const nowIso = DateTime.now().setZone('UTC').toISO() || '';
 
-  const isVirtualLocation =
-    locationResource?.extension?.find(
-      (ext) => ext.url === 'https://extensions.fhir.zapehr.com/location-form-pre-release'
-    )?.valueCoding?.code === 'vi';
+  // Key the facility label off the visit's service mode, not the Location's
+  // virtual flag: a Location can be both virtual and in-person (dual-mode), so
+  // an in-person visit at such a Location must still show its physical facility
+  // name rather than "Ottehr Telemedicine".
+  const isTelemedVisit = isTelemedAppointment(appointment);
 
-  const facilityName = isVirtualLocation
+  const facilityName = isTelemedVisit
     ? 'Ottehr Telemedicine'
     : locationResource?.identifier?.find(
         (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
@@ -763,6 +767,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-ssn': patientFieldPaths.ssn,
   'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
   'patient-no-email': patientFieldPaths.noEmail,
+  'patient-has-medicaid': patientFieldPaths.patientHasMedicaid,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'insurance-additional-information': coverageFieldPaths.additionalInformation,
@@ -796,7 +801,7 @@ interface MasterRecordPatchOperations {
   relatedPerson: { [key: string]: ResourcePatchOperations }; // key is RelatedPerson.id
 }
 
-const PCP_FIELDS = ['pcp-first', 'pcp-last', 'pcp-practice', 'pcp-address', 'pcp-number', 'pcp-active'];
+const PCP_FIELDS = ['pcp-first', 'pcp-last', 'pcp-practice', 'pcp-address', 'pcp-number', 'pcp-fax', 'pcp-active'];
 
 export function createMasterRecordPatchOperations(
   questionnaireResponseHarvestInput: QuestionnaireResponseHarvestInput,
@@ -1225,13 +1230,14 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
   const practiceName = flattenedItems.find((field) => field.linkId === 'pcp-practice')?.answer?.[0]?.valueString;
   const pcpAddress = flattenedItems.find((field) => field.linkId === 'pcp-address')?.answer?.[0]?.valueString;
   const phone = flattenedItems.find((field) => field.linkId === 'pcp-number')?.answer?.[0]?.valueString;
+  const fax = flattenedItems.find((field) => field.linkId === 'pcp-fax')?.answer?.[0]?.valueString;
 
-  console.log('pcp patch inputs', isActive, firstName, lastName, practiceName, pcpAddress, phone);
+  console.log('pcp patch inputs', isActive, firstName, lastName, practiceName, pcpAddress, phone, fax);
 
   const pcpActiveFieldExists = flattenedItems.some((field) => field.linkId === 'pcp-active');
   const shouldDeactivate = isActive === false || (pcpActiveFieldExists && isActive === undefined);
 
-  const hasSomeValue = (firstName && lastName) || practiceName || pcpAddress || phone;
+  const hasSomeValue = (firstName && lastName) || practiceName || pcpAddress || phone || fax;
 
   const hasAnyPCPFields = flattenedItems.some((field) => PCP_FIELDS.includes(field.linkId));
   const shouldClearAllData = hasAnyPCPFields && !hasSomeValue;
@@ -1284,8 +1290,10 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       }
     }
 
-    if (phone) {
-      telecom = [{ system: 'phone', value: formatPhoneNumber(phone) }];
+    if (phone || fax) {
+      telecom = [];
+      if (phone) telecom.push({ system: 'phone', value: formatPhoneNumber(phone) });
+      if (fax) telecom.push({ system: 'fax', value: formatPhoneNumber(fax) });
     }
     if (pcpAddress) {
       address = [{ text: pcpAddress }];
@@ -4377,15 +4385,20 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
 
   const stripeCustomerAccountPairs = getAllStripeCustomerAccountPairs(account);
   for (const pair of stripeCustomerAccountPairs) {
-    await stripeClient.customers.update(
-      pair.customerId,
-      {
-        email,
-        name,
-        phone,
-      },
-      { stripeAccount: pair.stripeAccount }
-    );
+    try {
+      await stripeClient.customers.update(
+        pair.customerId,
+        { email, name, phone },
+        { stripeAccount: pair.stripeAccount }
+      );
+    } catch (stripeError: any) {
+      if (stripeError?.type === 'StripeInvalidRequestError' && stripeError?.param === 'email') {
+        console.warn(`Stripe rejected email for customer ${pair.customerId}, updating without email`);
+        await stripeClient.customers.update(pair.customerId, { name, phone }, { stripeAccount: pair.stripeAccount });
+      } else {
+        throw stripeError;
+      }
+    }
   }
 };
 

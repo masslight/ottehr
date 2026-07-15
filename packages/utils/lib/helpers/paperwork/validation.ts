@@ -326,7 +326,15 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
 export const makeValidationSchema = (
   items: IntakeQuestionnaireItem[],
   pageId?: string,
-  externalContext?: { values: any; items: any; questionnaireResponse?: QuestionnaireResponse }
+  externalContext?: { values: any; items: any; questionnaireResponse?: QuestionnaireResponse },
+  // `onlyValidateProvidedFields` scopes whole-questionnaire validation to just the
+  // fields present in each submitted page, rather than the page's full item list.
+  // It only affects the entire-questionnaire branch (pageId === undefined). Default
+  // is whole-section validation, which the intake page-by-page save relies on to
+  // flag omitted required fields. Opt in for partial single-field updates (e.g. the
+  // EHR patient-account update path) where enforcing required siblings the caller
+  // never touched would wrongly reject the submission.
+  options?: { onlyValidateProvidedFields?: boolean }
 ): any => {
   if (pageId !== undefined) {
     // we are validating one page of the questionnaire
@@ -376,16 +384,31 @@ export const makeValidationSchema = (
           return value;
         }
 
+        const onlyValidateProvidedFields = options?.onlyValidateProvidedFields ?? false;
+
         if (answerItem === undefined) {
-          // Only check for required fields if the page is enabled
-          if (questionItem.item?.some((i) => evalRequired(i, context))) {
+          // Only check for required fields if the page is enabled and we're
+          // validating the whole section. In provided-fields-only mode an absent
+          // page carries no fields to validate, so there's nothing to enforce.
+          if (!onlyValidateProvidedFields && questionItem.item?.some((i) => evalRequired(i, context))) {
             return context.createError({ message: 'Item not found' });
           } else {
             return value;
           }
         }
+
+        // In provided-fields-only mode, restrict the schema to the fields actually
+        // present in the submission so required siblings the caller omitted don't
+        // trip validation. Fields left blank in a full section save are still
+        // submitted as bare `{ linkId }` items, so this only relaxes enforcement
+        // for fields entirely absent from the QuestionnaireResponse.
+        const sectionItems = questionItem.item ?? [];
+        const itemsToValidate = onlyValidateProvidedFields
+          ? sectionItems.filter((i) => (answerItem as { linkId: string }[]).some((a) => a.linkId === i.linkId))
+          : sectionItems;
+
         const schema = makeValidationSchemaPrivate({
-          items: questionItem.item ?? [],
+          items: itemsToValidate,
           formValues: value,
           externalContext: { values: context?.parent ?? [], items: items.flatMap((i) => i.item ?? []) },
         });

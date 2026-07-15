@@ -126,9 +126,11 @@ export const ApplyTemplate: React.FC = () => {
 
         // Reset exam observations store to force reload from server
         // This is necessary because exam observations are stored in Zustand (not React Query)
-        // and need to be cleared before React Query refetch triggers the update
-        resetExamObservationsStore();
-        resetRosObservationsStore();
+        // and need to be cleared before React Query refetch triggers the update.
+        // only reset when the sections have content to avoid clearing cache with no way to repopulate
+        if (sectionActions.examFindings !== 'skip') resetExamObservationsStore();
+
+        if (sectionActions.ros !== 'skip') resetRosObservationsStore();
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
         await Promise.all([

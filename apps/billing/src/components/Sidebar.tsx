@@ -117,7 +117,7 @@ export const Sidebar: FC = () => {
         })}
       </List>
 
-      <List sx={{ px: 1.25, pb: 1 }}>
+      <List sx={{ px: 1.25 }}>
         <ListItemButton
           onClick={() => void logout({ logoutParams: { returnTo: window.location.origin, federated: true } })}
           sx={{
@@ -136,6 +136,12 @@ export const Sidebar: FC = () => {
           />
         </ListItemButton>
       </List>
+      <Box sx={{ px: 1 }}>
+        <Typography variant="caption">Environment: {import.meta.env.VITE_APP_ENV}</Typography>
+      </Box>
+      <Box sx={{ px: 1, pb: 1 }}>
+        <Typography variant="caption">Version: {import.meta.env.VITE_APP_VERSION}</Typography>
+      </Box>
     </Drawer>
   );
 };

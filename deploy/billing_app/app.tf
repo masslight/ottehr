@@ -1,5 +1,6 @@
 locals {
   billing_vars = {
+    ENV                              = var.environment
     PROJECT_ID                       = var.project_id
     IS_LOCAL                         = var.is_local ? "true" : "false"
     BILLING_APP_NAME                 = local.BILLING_APP_NAME.value

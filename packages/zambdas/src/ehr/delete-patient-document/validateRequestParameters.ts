@@ -1,6 +1,6 @@
 import { DeletePatientDocumentInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const DeletePatientDocumentSchema = z.object({
   documentRefId: z.string().uuid(),
@@ -17,7 +17,7 @@ export function validateRequestParameters(
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body) as unknown;
+  const parsed = safeJsonParse(input.body) as unknown;
   const { documentRefId } = safeValidate(DeletePatientDocumentSchema, parsed);
 
   return {

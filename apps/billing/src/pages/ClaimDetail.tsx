@@ -60,6 +60,7 @@ import {
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
+import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
@@ -124,16 +125,21 @@ export default function ClaimDetail(): ReactElement {
 
   const updateResource = useCallback(
     async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
-      if (!oystehrZambda) return 'Client not ready';
+      if (!oystehrZambda || !id) return 'Client not ready';
       try {
-        await updateBillingResource(oystehrZambda, { resourceType, resourceId, fields } as UpdateBillingResourceInput);
+        await updateBillingResource(oystehrZambda, {
+          resourceType,
+          resourceId,
+          claimId: id,
+          fields,
+        } as UpdateBillingResourceInput);
       } catch (err) {
         return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
       await fetchDetail();
       return null;
     },
-    [oystehrZambda, fetchDetail]
+    [oystehrZambda, fetchDetail, id]
   );
 
   const handleTagAction = useCallback(
@@ -456,6 +462,7 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Write offs & Patient payments" value="3" />
             <Tab label="Other claims" value="4" />
+            <Tab label="History" value="5" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -487,6 +494,10 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <OtherClaimsSection claims={claim.otherClaims} navigate={navigate} />
+          </TabPanel>
+
+          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
+            <ClaimHistory claimId={claim.id} />
           </TabPanel>
         </TabContext>
       </Box>
@@ -844,7 +855,7 @@ export function InsuranceSection({
         </>
       ) : (
         <Typography variant="body2" color="text.secondary" sx={{ py: 0.5 }}>
-          No insurance — this claim is self-pay. Use Edit to add coverage.
+          No insurance
         </Typography>
       )}
       {hasCoverage && (
@@ -857,7 +868,7 @@ export function InsuranceSection({
           {confirmingRemove ? (
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <Typography variant="body2" color="text.secondary">
-                Remove insurance and make this claim self-pay?
+                Remove coverage?
               </Typography>
               <Button size="small" onClick={() => setConfirmingRemove(false)} disabled={removing}>
                 Cancel
@@ -879,7 +890,7 @@ export function InsuranceSection({
               startIcon={<DeleteOutlineIcon fontSize="small" />}
               onClick={() => setConfirmingRemove(true)}
             >
-              Remove coverage (self-pay)
+              Remove coverage
             </Button>
           )}
         </Box>

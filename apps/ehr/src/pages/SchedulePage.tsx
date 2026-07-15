@@ -1,4 +1,3 @@
-import { otherColors } from '@ehrTheme/colors';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
@@ -13,7 +12,6 @@ import {
   Checkbox,
   CircularProgress,
   FormControlLabel,
-  Grid,
   IconButton,
   Paper,
   Skeleton,
@@ -386,10 +384,17 @@ export default function SchedulePage(): ReactElement {
 
   const isLocationOwner = item?.owner?.type === 'Location';
 
-  // The permalink is only editable for non-Location owners. A non-empty slug
-  // must match the URL-safe shape the patient side enforces, otherwise the
-  // save succeeds here but booking by slug fails later with a validation error.
-  const slugError = !isLocationOwner && !!slug && !isValidSlug(slug);
+  // Location slugs are normally managed by terraform and shown read-only. The
+  // exception is a Location created through the "Add location" UI — it carries
+  // the manually-created marker, so the admin is allowed to edit the slug the
+  // create flow auto-derived from the name. Non-Location owners (Provider /
+  // Group) are always editable.
+  const slugEditable = !isLocationOwner || item?.owner?.isManuallyCreated === true;
+
+  // A non-empty slug must match the URL-safe shape the patient side enforces,
+  // otherwise the save succeeds here but booking by slug fails later with a
+  // validation error.
+  const slugError = slugEditable && !!slug && !isValidSlug(slug);
 
   async function onSaveSchedule(params: UpdateScheduleParams): Promise<void> {
     if (!oystehrZambda) {
@@ -696,10 +701,11 @@ export default function SchedulePage(): ReactElement {
                       <TextField
                         label="Permalink"
                         value={slug}
-                        // Location slugs are managed elsewhere and shown read-only here;
-                        // Provider (PractitionerRole) and Group (HealthcareService)
-                        // schedules can edit the permalink from this tab.
-                        {...(isLocationOwner
+                        // Terraform-managed Location slugs stay read-only; a
+                        // manually-created Location, plus Provider
+                        // (PractitionerRole) and Group (HealthcareService)
+                        // schedules, can edit the permalink from this tab.
+                        {...(!slugEditable
                           ? { InputProps: { readOnly: true }, disabled: true }
                           : {
                               onChange: (event) => setSlug(event.target.value),
@@ -853,30 +859,6 @@ export default function SchedulePage(): ReactElement {
                         Save
                       </LoadingButton>
                     </form>
-                  </Paper>
-                  <Paper sx={{ padding: 3 }}>
-                    <Grid container direction="row" justifyContent="flex-start" alignItems="flex-start">
-                      <Grid item xs={6}>
-                        <Typography variant="h4" color={'primary.dark'}>
-                          Information to the patients
-                        </Typography>
-                        <Typography variant="body1" color="primary.dark" marginTop={1}>
-                          This message will be displayed to the patients before they proceed with booking the visit.
-                        </Typography>
-                        <Box
-                          marginTop={2}
-                          sx={{
-                            background: otherColors.locationGeneralBlue,
-                            borderRadius: 1,
-                          }}
-                          padding={3}
-                        >
-                          <Typography color="primary.dark" variant="body1">
-                            No description
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    </Grid>
                   </Paper>
                 </TabPanel>
                 {item?.owner.type === 'Location' && (

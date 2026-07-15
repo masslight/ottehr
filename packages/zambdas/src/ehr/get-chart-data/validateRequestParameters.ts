@@ -1,6 +1,6 @@
 import { GetChartDataRequest, MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const GetChartDataSchema = z.object({
   encounterId: z.string().uuid(),
@@ -12,7 +12,7 @@ export function validateRequestParameters(input: ZambdaInput): GetChartDataReque
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsedJSON = JSON.parse(input.body);
+  const parsedJSON = safeJsonParse(input.body);
 
   const { encounterId, requestedFields } = safeValidate(GetChartDataSchema, parsedJSON);
 

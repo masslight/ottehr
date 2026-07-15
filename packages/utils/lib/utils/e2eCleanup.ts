@@ -266,6 +266,12 @@ const getAppointmentGraphByTag = async (
       value: 'Account:patient',
     },
     {
+      // Integration tests seed a Consent referencing the patient; without this revinclude it is
+      // unreachable from the Appointment graph and survives cleanup (a leak).
+      name: '_revinclude:iterate',
+      value: 'Consent:patient',
+    },
+    {
       name: '_revinclude:iterate',
       value: 'Coverage:patient',
     },

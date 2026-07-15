@@ -92,3 +92,10 @@ export interface SendForFinalReadZambdaInput {
 }
 
 export type SendForFinalReadZambdaOutput = Record<string, never>;
+
+export interface UpdateRadiologyOrderZambdaInput {
+  serviceRequestId: string;
+  consentObtained: boolean;
+}
+
+export type UpdateRadiologyOrderZambdaOutput = Record<string, never>;

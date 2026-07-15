@@ -199,6 +199,19 @@ const FormFields: PatientRecordFormFields = {
         options: formValueSets.pointOfDiscoveryOptions,
       },
       commonWellConsent: { key: 'common-well-consent', label: 'CommonWell consent', type: 'boolean' },
+      // Payment-flow flag mirrored from the intake credit-card page. Same
+      // Patient.extension the intake harvest writes, same tri-state
+      // prepopulation semantics — the EHR field is the staff-side view of
+      // whatever the patient checked at intake, with staff able to correct.
+      // Label matches the EHR mockup (patient-third-person phrasing);
+      // hideControlLabel keeps only the inline text next to the checkbox
+      // (see the field-extension mechanism added in the same branch).
+      patientHasMedicaid: {
+        key: 'patient-has-medicaid',
+        label: 'Patient has Medicaid insurance. Credit Card should not be requested.',
+        type: 'boolean',
+        hideControlLabel: true,
+      },
     },
     hiddenFields: [],
     requiredFields: ['patient-ethnicity', 'patient-race'],
@@ -593,6 +606,14 @@ const FormFields: PatientRecordFormFields = {
         key: 'pcp-number',
         type: 'string',
         label: 'Mobile',
+        dataType: 'Phone Number',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
+        disabledDisplay: 'hidden',
+      },
+      fax: {
+        key: 'pcp-fax',
+        type: 'string',
+        label: 'Fax',
         dataType: 'Phone Number',
         triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
         disabledDisplay: 'hidden',

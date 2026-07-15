@@ -40,6 +40,11 @@ const createDisabledDisplayExtension = (display: string): NonNullable<Questionna
   valueString: display,
 });
 
+const createHideControlLabelExtension = (): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label',
+  valueBoolean: true,
+});
+
 const createFillFromWhenDisabledExtension = (
   sourceLinkId: string
 ): NonNullable<QuestionnaireItem['extension']>[number] => ({
@@ -599,6 +604,10 @@ const convertFormFieldToQuestionnaireItem = (
 
   if (field.categoryTag) {
     extensions.push(createCategoryTagExtension(field.categoryTag));
+  }
+
+  if (field.hideControlLabel) {
+    extensions.push(createHideControlLabelExtension());
   }
 
   // Add enableWhen from triggers

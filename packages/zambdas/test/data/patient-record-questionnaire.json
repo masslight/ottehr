@@ -470,6 +470,18 @@
         "type": "boolean",
         "text": "CommonWell consent",
         "required": false
+      },
+      {
+        "linkId": "patient-has-medicaid",
+        "type": "boolean",
+        "text": "Patient has Medicaid insurance. Credit Card should not be requested.",
+        "required": false,
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
+            "valueBoolean": true
+          }
+        ]
       }
     ]
   },
@@ -2103,6 +2115,29 @@
         "linkId": "pcp-number",
         "type": "string",
         "text": "Mobile",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-active",
+            "operator": "=",
+            "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+            "valueString": "Phone Number"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
+        ]
+      },
+      {
+        "linkId": "pcp-fax",
+        "type": "string",
+        "text": "Fax",
         "required": false,
         "enableWhen": [
           {

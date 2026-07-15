@@ -15,7 +15,6 @@ import {
   BillingPolicyHolderSummary,
   ClaimDetailResponse,
   FHIR_RESOURCE_NOT_FOUND,
-  genderMap,
   getClaimStatusValues,
   getCoveragePlanType,
   getNPI,
@@ -247,7 +246,7 @@ function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingPoli
     middleName: name?.given?.[1] ?? '',
     lastName: name?.family ?? '',
     dob: subscriber.birthDate ?? '',
-    birthSex: subscriber.gender ? genderMap[subscriber.gender as keyof typeof genderMap] ?? '' : '',
+    gender: subscriber.gender ?? '',
     addressParts: toAddressParts(subscriber.address?.[0]),
   };
 }

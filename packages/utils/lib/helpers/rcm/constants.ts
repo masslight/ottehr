@@ -24,8 +24,7 @@ export const CODE_SYSTEM_ACT_CODE_V3 = 'http://terminology.hl7.org/CodeSystem/v3
 export const CODE_SYSTEM_ICD_9 = 'http://hl7.org/fhir/sid/icd-9-cm';
 export const CODE_SYSTEM_ICD_10 = 'http://hl7.org/fhir/sid/icd-10-cm';
 export const CODE_SYSTEM_CPT = 'http://www.ama-assn.org/go/cpt'; // used by both Ottehr and Oystehr
-export const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // used by Ottehr clinical in-house meds
-export const CODE_SYSTEM_HL7_HCPCS = 'http://terminology.hl7.org/CodeSystem/HCPCS'; // used by Oystehr RCM
+export const CODE_SYSTEM_HL7_HCPCS = 'http://terminology.hl7.org/CodeSystem/HCPCS'; // used by both Ottehr and Oystehr
 export const CODE_SYSTEM_NDC = 'http://hl7.org/fhir/sid/ndc';
 export const CODE_SYSTEM_CMS_PLACE_OF_SERVICE =
   'http://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set.html';

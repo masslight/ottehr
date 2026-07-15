@@ -1,4 +1,4 @@
-import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
+import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
 import {
   Box,
   Checkbox,
@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { icd10Search } from 'src/api/api';
 import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { AiSectionHeader } from 'src/features/visits/shared/components/AiSection';
 import { SURGICAL_HISTORY_OPTIONS } from 'src/features/visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
@@ -33,7 +32,6 @@ import {
   MedicalConditionDTO,
   MedicationDTO,
   ObservationTextFieldDTO,
-  ProcedureSuggestion,
 } from 'utils';
 
 interface SearchResult {
@@ -291,7 +289,6 @@ export interface AiSuggestionProps {
   title: string;
   chartData?: GetChartDataResponse | undefined;
   content?: ObservationTextFieldDTO[];
-  procedureSuggestions?: ProcedureSuggestion[];
   loading?: boolean;
   hideHeader?: boolean;
   onAppendToNote?: (text: string, resourceId?: string) => void;
@@ -302,13 +299,12 @@ export default function AiSuggestion({
   title,
   chartData,
   content,
-  procedureSuggestions,
   loading,
   hideHeader,
   onAppendToNote,
   appendedNoteIds,
 }: AiSuggestionProps): React.ReactElement {
-  const { oystehr, oystehrZambda } = useApiClients();
+  const { oystehr } = useApiClients();
   const theme = useTheme();
 
   const highlightFieldType: HighlightFieldType = useMemo(() => {
@@ -352,8 +348,14 @@ export default function AiSuggestion({
           results = await oystehr.erx.searchMedications({ name: term });
         } else if (fieldType === 'allergies' && oystehr) {
           results = await oystehr.erx.searchAllergens({ name: term });
-        } else if (fieldType === 'conditions' && oystehrZambda) {
-          const response = await icd10Search(oystehrZambda, { search: term });
+        } else if (fieldType === 'conditions' && oystehr) {
+          const response = await oystehr.terminology.searchIcd10({
+            query: term,
+            searchType: 'all',
+            includeSynonyms: true,
+            specialty: ['urgent-care'],
+            limit: 100,
+          });
           results = (response.codes || []).map((c) => ({ name: c.display, code: c.code }));
         } else if (fieldType === 'surgicalHistory') {
           results = filterStaticOptions(SURGICAL_HISTORY_OPTIONS, term);
@@ -373,7 +375,7 @@ export default function AiSuggestion({
       }
       return allResults;
     },
-    [oystehr, oystehrZambda]
+    [oystehr]
   );
 
   // Pre-load search results for all items across all observations.
@@ -500,24 +502,6 @@ export default function AiSuggestion({
   }
 
   function SuggestionsItem(): React.ReactElement {
-    if (procedureSuggestions) {
-      return (
-        <>
-          {procedureSuggestions.map((code) => (
-            <>
-              <Typography variant="body1">
-                <strong>{code.code}</strong> &ndash; {code.description}
-                <Tooltip title={code.useWhen}>
-                  <IconButton size="small" sx={{ marginLeft: '5px' }}>
-                    <InfoOutlined sx={{ fontSize: '17px' }} />
-                  </IconButton>
-                </Tooltip>
-              </Typography>
-            </>
-          ))}
-        </>
-      );
-    }
     return (
       <>
         {content

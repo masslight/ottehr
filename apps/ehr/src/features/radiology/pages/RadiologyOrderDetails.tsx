@@ -32,8 +32,10 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     loading,
     handleSaveReport,
     handleSendForFinalRead,
+    handleUpdateConsent,
     isSavingReport,
     isSendingForFinalRead,
+    isUpdatingConsent,
     fetchOrders,
   } = usePatientRadiologyOrders({
     serviceRequestId,
@@ -210,9 +212,10 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               <Box sx={{ mt: 1 }}>
                 <Box style={{ display: 'flex', alignItems: 'center' }}>
                   <Checkbox
-                    sx={{ paddingLeft: 0, pointerEvents: 'none' }}
-                    inputProps={{ readOnly: true }}
+                    sx={{ paddingLeft: 0 }}
                     checked={order.consentObtained}
+                    disabled={isUpdatingConsent}
+                    onChange={() => handleUpdateConsent(serviceRequestId, !order.consentObtained)}
                   />
                   <Typography>
                     I have obtained the{' '}
