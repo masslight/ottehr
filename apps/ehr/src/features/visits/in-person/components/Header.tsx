@@ -78,7 +78,7 @@ const HeaderWrapper = styled(Box)(({ theme }) => ({
 }));
 
 const PatientName = styled(Typography)(({ theme }) => ({
-  ...(theme?.typography as TypographyOptions).h4,
+  ...(theme.typography as TypographyOptions).h4,
   textAlign: 'left',
   fontWeight: 'bold',
   color: theme.palette.primary.dark,

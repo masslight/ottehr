@@ -100,14 +100,19 @@ jobs:
         if: contains(github.event.pull_request.body, '/skip-build-and-lint')
         run: echo "Build and lint skipped via /skip-build-and-lint command"
 
+      - name: Prettier check
+        if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
+        # Formatting used to be enforced through eslint-plugin-prettier inside the lint
+        # task; with oxlint, prettier runs directly instead.
+        run: npm run prettier:check
+
       - name: Build
         if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
-        # Cap turbo concurrency: with the default (10), several type-aware
-        # ESLint processes (~3GB RSS each) overlap with tsc + vite builds and
-        # peak memory exceeds the 16GB on the 4-core runner, killing the
-        # runner agent ("The operation was canceled", tasks SIGTERMed).
-        # Profiled on a 4-core/16GB box: default = 13.4GB peak @ 7m05s;
-        # --concurrency=3 = 8.8GB peak @ 6m45s (no wall-time cost at 4 cores).
+        # Cap turbo concurrency: with the default (10), several parallel vite builds
+        # (each allowed an 8GB heap) overlap and peak memory can exceed the 16GB on the
+        # 4-core runner, killing the runner agent. The cap was originally profiled when
+        # lint ran type-aware ESLint (~3GB RSS per process); lint is now oxlint (native,
+        # seconds, small RSS), so this can likely be raised after re-profiling.
         run: npm run build -- --concurrency=3
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"

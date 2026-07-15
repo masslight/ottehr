@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
-    "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 --fix ."
+    "lint": "oxlint --type-aware --report-unused-disable-directives --deny-warnings .",
+    "lint:fix": "oxlint --type-aware --report-unused-disable-directives --deny-warnings --fix ."
   }
 }

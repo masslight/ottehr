@@ -6,7 +6,7 @@
     "build": "tsc --noEmit",
     "bundle-zambdas": "cd ../packages/zambdas && npm run bundle",
     "lint-terraform": "terraform fmt",
-    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
+    "lint": "oxlint --type-aware --report-unused-disable-directives --deny-warnings .",
     "generate": "node --preserve-symlinks -r tsx/cjs generate-oystehr-resources.ts ../config ${ENV:-local} ./",
     "apply-local": "./apply.sh local",
     "apply-e2e": "./apply.sh e2e",
@@ -25,7 +25,8 @@
     "fill-env-with-created-resources-data": "node --preserve-symlinks -r tsx/cjs fill-env-with-created-resources-data.ts",
     "test": "vitest run",
     "test:ci": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests --reporter=dot --reporter=github-actions",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint:fix": "oxlint --type-aware --report-unused-disable-directives --deny-warnings --fix ."
   },
   "devDependencies": {
     "@types/node": "^24.2.1",

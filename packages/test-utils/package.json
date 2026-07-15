@@ -16,8 +16,8 @@
   "scripts": {
     "start": "vite",
     "build": "tsc && vite build",
-    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
-    "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
+    "lint": "oxlint --type-aware --report-unused-disable-directives --deny-warnings .",
+    "lint:fix": "oxlint --type-aware --report-unused-disable-directives --deny-warnings --fix .",
     "preview": "vite preview",
     "test": "vitest --silent",
     "test:ci": "vitest run --coverage --coverage.reporter=lcov --coverage.reporter=text-summary --passWithNoTests --reporter=dot --reporter=github-actions",

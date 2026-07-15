@@ -19,6 +19,8 @@ export const test = baseTest.extend<{ context: BrowserContext }>({
       if (coverageJSON)
         fs.writeFileSync(path.join(istanbulCLIOutput, `playwright_coverage_${generateUUID()}.json`), coverageJSON);
     });
+    // Playwright's fixture `use` callback, not the React 19 `use` hook.
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(context);
     for (const page of context.pages()) {
       await page.evaluate(() => (window as any).collectIstanbulCoverage(JSON.stringify((window as any).__coverage__)));

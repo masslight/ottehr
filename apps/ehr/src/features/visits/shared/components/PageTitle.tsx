@@ -12,7 +12,7 @@ interface PageTitleProps {
 }
 
 export const PageTitleStyled = styled(Typography)(({ theme }) => ({
-  ...(theme?.typography as TypographyOptions).h4,
+  ...(theme.typography as TypographyOptions).h4,
   textAlign: 'left',
   color: theme.palette.primary.dark,
 }));

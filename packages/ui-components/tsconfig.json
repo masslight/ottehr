@@ -11,5 +11,5 @@
     "lib": ["esnext.array", "dom"],
     "module": "ESNext",
   },
-  "include": [".", ".eslintrc.cjs"]
+  "include": ["."]
 }

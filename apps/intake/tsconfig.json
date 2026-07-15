@@ -15,5 +15,5 @@
       "tests/*": ["./tests/*"]
     }
   },
-  "include": [".", ".eslintrc.cjs"]
+  "include": ["."]
 }

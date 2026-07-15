@@ -45,7 +45,7 @@
   },
   "extensions": {
     "recommendations": [
-      "dbaeumer.vscode-eslint",
+      "oxc.oxc-vscode",
       "streetsidesoftware.code-spell-checker",
       "eamodio.gitlens",
       "usernamehw.errorlens"

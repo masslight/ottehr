@@ -16,7 +16,7 @@ export function devStampRestartPlugin(repoRoot: string): Plugin {
   return {
     name: 'dev-stamp-restart',
     configureServer(server) {
-      const on = (file: string) => {
+      const on = (file: string): void => {
         if (path.resolve(file) === path.resolve(stampPath)) restart(server);
       };
       if (fs.existsSync(stampPath)) server.watcher.add(stampPath);

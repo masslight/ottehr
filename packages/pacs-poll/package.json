@@ -6,8 +6,8 @@
     "start": "NODE_OPTIONS='--preserve-symlinks' tsx src/index.ts",
     "build": "tsc",
     "bundle": "NODE_OPTIONS='--preserve-symlinks' tsx bundle.ts",
-    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
-    "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix ."
+    "lint": "oxlint --type-aware --report-unused-disable-directives --deny-warnings .",
+    "lint:fix": "oxlint --type-aware --report-unused-disable-directives --deny-warnings --fix ."
   },
   "engines": {
     "node": ">=22.0.0",

@@ -127,9 +127,7 @@
         "*.tsx",
         "*.js",
         "*.jsx",
-        ".eslintrc*",
-        ".eslintignore",
-        "eslint.config.*",
+        "$TURBO_ROOT$/.oxlintrc.json",
         "tsconfig*.json",
         "package.json"
       ]

@@ -235,7 +235,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       await oystehr.fhir.update({
         ...existingPractitionerResource,
         identifier:
-          existingPractitionerResource.identifier?.length || 0 > 0
+          (existingPractitionerResource.identifier?.length ?? 0) > 0
             ? existingPractitionerResource.identifier
             : undefined,
         photo: existingPractitionerResource.photo,

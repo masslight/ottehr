@@ -67,7 +67,7 @@ describe('getPostGridLetter', () => {
     const [url, options] = mockFetch.mock.calls[0];
     expect(url).toBe('https://api.postgrid.com/print-mail/v1/letters/letter_abc');
     expect(options?.method).toBe('GET');
-    expect((options?.headers as Record<string, string>)['x-api-key']).toBe('test-postgrid-api-key');
+    expect((options!.headers as Record<string, string>)['x-api-key']).toBe('test-postgrid-api-key');
     expect(result).toEqual(mockLetter);
   });
 

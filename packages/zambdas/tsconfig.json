@@ -3,6 +3,6 @@
   "compilerOptions": {
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src", "test", "local-server", "scripts", "./*.ts", ".eslintrc.cjs"],
+  "include": ["src", "test", "local-server", "scripts", "./*.ts"],
   "exclude": ["node_modules", "dist", "build", "src/scripts/detect-tls.js"]
 }
