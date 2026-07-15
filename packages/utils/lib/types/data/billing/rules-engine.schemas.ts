@@ -82,7 +82,13 @@ export type RuleLogic = (typeof RULE_LOGIC)[number];
 
 // Discriminator values, named so consumers (schemas, evaluator, UI) don't sprinkle raw strings.
 export const RULE_CONDITION_TYPE = { all: 'all', field: 'field', group: 'group' } as const;
-export const RULE_ACTION_TYPE = { setField: 'setField', applyTag: 'applyTag', noop: 'noop' } as const;
+export const RULE_ACTION_TYPE = {
+  setField: 'setField',
+  applyTag: 'applyTag',
+  updateServiceLines: 'updateServiceLines',
+  removeServiceLines: 'removeServiceLines',
+  noop: 'noop',
+} as const;
 export const RULE_OUTCOME_TYPE = { actions: 'actions', conditional: 'conditional', noop: 'noop' } as const;
 
 // A condition's comparison value: a scalar (eq/neq/contains), a list (in/notIn), or absent
@@ -113,10 +119,44 @@ export const RuleConditionSchema: z.ZodType<RuleCondition> = z.lazy(() =>
   ])
 );
 
+// --- Service line match (the line predicate carried by the service-line actions) ---
+//
+// Service lines are an array, so the actions that touch them carry their own per-line predicate
+// ("update lines where cptCode = X") instead of relying on the rule's condition — a condition can
+// detect that a matching line exists, but only the action's match binds *which* lines to change.
+// Shaped as a discriminated union so a `group` variant (AND/OR across line properties) can be added
+// later without a breaking change.
+export const SERVICE_LINE_MATCH_TYPE = { all: 'all', field: 'field' } as const;
+
+export type ServiceLineMatch =
+  | { type: 'all' }
+  | { type: 'field'; property: string; operator: RuleOperator; value?: RuleConditionValue };
+
+export const ServiceLineMatchSchema: z.ZodType<ServiceLineMatch> = z.discriminatedUnion('type', [
+  z.object({ type: z.literal(SERVICE_LINE_MATCH_TYPE.all) }),
+  z.object({
+    type: z.literal(SERVICE_LINE_MATCH_TYPE.field),
+    property: z.string().min(1),
+    operator: RuleOperatorSchema,
+    value: ConditionValueSchema.optional(),
+  }),
+]);
+
+// How an updateServiceLines action applies its value: `set` replaces the property (the default);
+// `add`/`remove` edit one entry of a list-valued property (modifiers).
+export const SERVICE_LINE_SET_OPERATIONS = ['set', 'add', 'remove'] as const;
+export type ServiceLineSetOperation = (typeof SERVICE_LINE_SET_OPERATIONS)[number];
+
 // --- Action ---
 export type RuleAction =
   | { type: 'setField'; field: string; value: string | null }
   | { type: 'applyTag'; tag: string }
+  | {
+      type: 'updateServiceLines';
+      match: ServiceLineMatch;
+      set: { property: string; value: string; operation?: ServiceLineSetOperation };
+    }
+  | { type: 'removeServiceLines'; match: ServiceLineMatch }
   | { type: 'noop' };
 
 // Tags are free text in the UI, but the engine halts on an exact HOLD_TAG_NAME match — so
@@ -130,6 +170,18 @@ const tagNameSchema = z
 export const RuleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal(RULE_ACTION_TYPE.setField), field: z.string().min(1), value: z.string().nullable() }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.applyTag), tag: tagNameSchema }),
+  z.object({
+    type: z.literal(RULE_ACTION_TYPE.updateServiceLines),
+    match: ServiceLineMatchSchema,
+    set: z.object({
+      property: z.string().min(1),
+      // Empty is meaningful only for list-valued properties ("clear the modifiers"); scalar-property
+      // writers reject it at apply time and the engine holds the claim.
+      value: z.string(),
+      operation: z.enum(SERVICE_LINE_SET_OPERATIONS).optional(),
+    }),
+  }),
+  z.object({ type: z.literal(RULE_ACTION_TYPE.removeServiceLines), match: ServiceLineMatchSchema }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.noop) }),
 ]);
 

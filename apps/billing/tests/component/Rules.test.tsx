@@ -102,6 +102,33 @@ describe('ConditionalEditor', () => {
     expect(screen.getAllByPlaceholderText(/Search payers/)).toHaveLength(2);
   });
 
+  it('renders line match and set controls for an update-service-lines action', () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: {
+            type: 'actions',
+            actions: [
+              {
+                type: 'updateServiceLines',
+                match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+                set: { property: 'cptCode', value: '99214' },
+              },
+            ],
+          },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+    expect(screen.getAllByText('Lines to match').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Line property').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Set line property').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('New value').length).toBeGreaterThan(0);
+    // Both the match and the set pickers display the selected line property's label.
+    expect(screen.getAllByText('CPT code').length).toBeGreaterThan(0);
+  });
+
   it('blocks submit, highlights, and focuses an empty tag name instead of round-tripping to the server', async () => {
     const conditional: RuleConditional = {
       branches: [

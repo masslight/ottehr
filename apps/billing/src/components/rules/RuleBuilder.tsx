@@ -15,6 +15,7 @@ import { ReactElement } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
   getRuleFieldDef,
+  getServiceLinePropertyDef,
   HOLD_TAG_NAME,
   operatorIsMultiValue,
   operatorNeedsValue,
@@ -30,9 +31,16 @@ import {
   RuleCondition,
   RuleConditional,
   RuleFieldDef,
+  RuleFieldOption,
+  RuleFieldValueType,
   RuleLogic,
   RuleOperator,
   RuleOutcome,
+  SERVICE_LINE_MATCH_TYPE,
+  SERVICE_LINE_PROPERTY_CATALOG,
+  ServiceLineMatch,
+  ServiceLineSetOperation,
+  ServiceLineValueType,
 } from 'utils';
 import { otherColors } from '../../themes/ottehr/colors';
 import { PayerSelect } from '../PayerSelect';
@@ -50,12 +58,13 @@ import { PayerSelect } from '../PayerSelect';
 const SETTABLE_FIELDS = RULE_FIELD_CATALOG.filter((f) => f.settable);
 const FIRST_FIELD_ID = RULE_FIELD_CATALOG[0].id;
 const FIRST_SETTABLE_ID = SETTABLE_FIELDS[0].id;
+const SETTABLE_LINE_PROPERTIES = SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable);
 
 // Operator labels come from the shared metadata (also used by the generated docs); dates read as
 // before/after instead of less/greater.
-const operatorLabel = (op: RuleOperator, def: RuleFieldDef | undefined): string => {
+const operatorLabel = (op: RuleOperator, valueType: RuleFieldValueType | ServiceLineValueType | undefined): string => {
   const metadata = RULE_OPERATOR_METADATA[op];
-  return def?.valueType === 'date' && metadata.dateLabel ? metadata.dateLabel : metadata.label;
+  return valueType === 'date' && metadata.dateLabel ? metadata.dateLabel : metadata.label;
 };
 
 const LOGIC_LABELS: Record<RuleLogic, string> = {
@@ -98,6 +107,12 @@ const newFieldCondition = (): RuleCondition => ({
   value: '',
 });
 const newAction = (): RuleAction => ({ type: RULE_ACTION_TYPE.setField, field: FIRST_SETTABLE_ID, value: '' });
+const newServiceLineMatch = (): ServiceLineMatch => ({
+  type: SERVICE_LINE_MATCH_TYPE.field,
+  property: SERVICE_LINE_PROPERTY_CATALOG[0].id,
+  operator: 'eq',
+  value: '',
+});
 const newOutcome = (): RuleOutcome => ({ type: RULE_OUTCOME_TYPE.actions, actions: [newAction()] });
 const newBranch = (): RuleConditional['branches'][number] => ({
   condition: newFieldCondition(),
@@ -114,9 +129,72 @@ function useNode<T>(name: string): { value: T; replace: (next: T) => void } {
   return { value, replace: (next: T) => setValue(name, next, { shouldDirty: true }) };
 }
 
+// Typed value input dispatched on a valueType: dropdowns for options, date/number pickers, and a
+// text field (comma-separated when multiple) otherwise. Shared by the claim-field inputs and the
+// service-line match/set inputs.
+function TypedValueInput({
+  valueType,
+  options,
+  multiple,
+  value,
+  onChange,
+  label,
+}: {
+  valueType: RuleFieldValueType | ServiceLineValueType | undefined;
+  options?: RuleFieldOption[];
+  multiple: boolean;
+  value: string | string[] | null | undefined;
+  onChange: (value: string | string[]) => void;
+  label?: string;
+}): ReactElement {
+  if (valueType === 'select' && options) {
+    const resolvedLabel = label ?? (multiple ? 'Values' : 'Value');
+    const selected = multiple ? (Array.isArray(value) ? value : value ? [value] : []) : valueToText(value);
+    return (
+      <FormControl size="small" sx={{ minWidth: 200 }}>
+        <InputLabel>{resolvedLabel}</InputLabel>
+        <Select
+          label={resolvedLabel}
+          multiple={multiple}
+          value={selected}
+          onChange={(e) => onChange(e.target.value as string | string[])}
+        >
+          {options.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    );
+  }
+  if ((valueType === 'date' || valueType === 'number') && !multiple) {
+    return (
+      <TextField
+        size="small"
+        type={valueType}
+        label={label ?? 'Value'}
+        value={valueToText(value)}
+        onChange={(e) => onChange(e.target.value)}
+        InputLabelProps={{ shrink: true }}
+        sx={{ minWidth: 200 }}
+      />
+    );
+  }
+  return (
+    <TextField
+      size="small"
+      label={label ?? (multiple ? 'Values (comma-separated)' : 'Value')}
+      value={valueToText(value)}
+      onChange={(e) => onChange(multiple ? textToList(e.target.value) : e.target.value)}
+      sx={{ minWidth: 200 }}
+    />
+  );
+}
+
 // Field-aware value input, dispatched on the catalog's valueType so new typed fields (dropdowns
 // with options, date pickers, numbers, more payer-like fields) only need a catalog entry — and, for
-// a genuinely new type, a branch here.
+// a genuinely new type, a branch here or in TypedValueInput.
 function FieldValueInput({
   fieldId,
   multiple,
@@ -134,47 +212,14 @@ function FieldValueInput({
   if (def?.valueType === 'payer') {
     return <PayerSelect multiple={multiple} value={value} onChange={onChange} label={label} />;
   }
-  if (def?.valueType === 'select' && def.options) {
-    const resolvedLabel = label ?? (multiple ? 'Values' : 'Value');
-    const selected = multiple ? (Array.isArray(value) ? value : value ? [value] : []) : valueToText(value);
-    return (
-      <FormControl size="small" sx={{ minWidth: 200 }}>
-        <InputLabel>{resolvedLabel}</InputLabel>
-        <Select
-          label={resolvedLabel}
-          multiple={multiple}
-          value={selected}
-          onChange={(e) => onChange(e.target.value as string | string[])}
-        >
-          {def.options.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-    );
-  }
-  if ((def?.valueType === 'date' || def?.valueType === 'number') && !multiple) {
-    return (
-      <TextField
-        size="small"
-        type={def.valueType}
-        label={label ?? 'Value'}
-        value={valueToText(value)}
-        onChange={(e) => onChange(e.target.value)}
-        InputLabelProps={{ shrink: true }}
-        sx={{ minWidth: 200 }}
-      />
-    );
-  }
   return (
-    <TextField
-      size="small"
-      label={label ?? (multiple ? 'Values (comma-separated)' : 'Value')}
-      value={valueToText(value)}
-      onChange={(e) => onChange(multiple ? textToList(e.target.value) : e.target.value)}
-      sx={{ minWidth: 200 }}
+    <TypedValueInput
+      valueType={def?.valueType}
+      options={def?.options}
+      multiple={multiple}
+      value={value}
+      onChange={onChange}
+      label={label}
     />
   );
 }
@@ -242,7 +287,7 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
         >
           {operators.map((op) => (
             <MenuItem key={op} value={op}>
-              {operatorLabel(op, def)}
+              {operatorLabel(op, def?.valueType)}
             </MenuItem>
           ))}
         </Select>
@@ -301,6 +346,139 @@ function GroupConditionEditor({ name }: { name: string }): ReactElement | null {
   );
 }
 
+// --- Service line match / set (the line-scoped parts of the service-line actions) ---
+
+// Editor for a service-line predicate: all lines, or lines matching one property comparison.
+function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null {
+  const { value, replace } = useNode<ServiceLineMatch>(name);
+  if (!value) return null;
+  const def = value.type === SERVICE_LINE_MATCH_TYPE.field ? getServiceLinePropertyDef(value.property) : undefined;
+  const operators = def?.operators ?? [...RULE_OPERATORS];
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+      <FormControl size="small" sx={{ minWidth: 180 }}>
+        <InputLabel>Lines to match</InputLabel>
+        <Select
+          label="Lines to match"
+          value={value.type}
+          onChange={(e) => {
+            const next = e.target.value as ServiceLineMatch['type'];
+            replace(
+              next === SERVICE_LINE_MATCH_TYPE.all ? { type: SERVICE_LINE_MATCH_TYPE.all } : newServiceLineMatch()
+            );
+          }}
+        >
+          <MenuItem value={SERVICE_LINE_MATCH_TYPE.all}>All service lines</MenuItem>
+          <MenuItem value={SERVICE_LINE_MATCH_TYPE.field}>Lines matching a property</MenuItem>
+        </Select>
+      </FormControl>
+      {value.type === SERVICE_LINE_MATCH_TYPE.field && (
+        <>
+          <FormControl size="small" sx={{ minWidth: 170 }}>
+            <InputLabel>Line property</InputLabel>
+            <Select
+              label="Line property"
+              value={value.property}
+              onChange={(e) => {
+                const property = e.target.value;
+                const nextDef = getServiceLinePropertyDef(property);
+                const operator =
+                  nextDef && !nextDef.operators.includes(value.operator) ? nextDef.operators[0] : value.operator;
+                replace({ ...value, property, operator, value: '' });
+              }}
+            >
+              {SERVICE_LINE_PROPERTY_CATALOG.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Operator</InputLabel>
+            <Select
+              label="Operator"
+              value={value.operator}
+              onChange={(e) => replace({ ...value, operator: e.target.value as RuleOperator })}
+            >
+              {operators.map((op) => (
+                <MenuItem key={op} value={op}>
+                  {operatorLabel(op, def?.valueType)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {operatorNeedsValue(value.operator) && (
+            <TypedValueInput
+              valueType={def?.valueType}
+              multiple={operatorIsMultiValue(value.operator)}
+              value={value.value}
+              onChange={(v) => replace({ ...value, value: v })}
+            />
+          )}
+        </>
+      )}
+    </Box>
+  );
+}
+
+// Editor for an updateServiceLines set clause: which line property to change, how (for list-valued
+// properties: replace / add / remove), and the value.
+function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
+  const { value, replace } = useNode<{ property: string; value: string; operation?: ServiceLineSetOperation }>(name);
+  if (!value) return null;
+  const def = getServiceLinePropertyDef(value.property);
+  const isList = def?.valueType === 'list';
+  const operation = value.operation ?? 'set';
+  const valueLabel = isList
+    ? operation === 'add'
+      ? 'Modifier to add'
+      : operation === 'remove'
+      ? 'Modifier to remove'
+      : 'Modifiers (comma-separated)'
+    : 'New value';
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+      <FormControl size="small" sx={{ minWidth: 180 }}>
+        <InputLabel>Set line property</InputLabel>
+        <Select
+          label="Set line property"
+          value={value.property}
+          // Reset the value and operation: they're meaningless across a property change.
+          onChange={(e) => replace({ property: e.target.value, value: '' })}
+        >
+          {SETTABLE_LINE_PROPERTIES.map((p) => (
+            <MenuItem key={p.id} value={p.id}>
+              {p.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      {isList && (
+        <FormControl size="small" sx={{ minWidth: 120 }}>
+          <InputLabel>Operation</InputLabel>
+          <Select
+            label="Operation"
+            value={operation}
+            onChange={(e) => replace({ ...value, operation: e.target.value as ServiceLineSetOperation })}
+          >
+            <MenuItem value="set">Set to</MenuItem>
+            <MenuItem value="add">Add</MenuItem>
+            <MenuItem value="remove">Remove</MenuItem>
+          </Select>
+        </FormControl>
+      )}
+      <TypedValueInput
+        valueType={isList ? 'string' : def?.valueType}
+        multiple={false}
+        value={value.value}
+        onChange={(v) => replace({ ...value, value: typeof v === 'string' ? v : v[0] ?? '' })}
+        label={valueLabel}
+      />
+    </Box>
+  );
+}
+
 // --- Action ---
 
 function ActionEditor({ name }: { name: string }): ReactElement | null {
@@ -318,11 +496,21 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
             const next = e.target.value as RuleAction['type'];
             if (next === RULE_ACTION_TYPE.setField) replace(newAction());
             else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
+            else if (next === RULE_ACTION_TYPE.updateServiceLines)
+              replace({
+                type: RULE_ACTION_TYPE.updateServiceLines,
+                match: newServiceLineMatch(),
+                set: { property: SETTABLE_LINE_PROPERTIES[0].id, value: '' },
+              });
+            else if (next === RULE_ACTION_TYPE.removeServiceLines)
+              replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
             else replace({ type: RULE_ACTION_TYPE.noop });
           }}
         >
           <MenuItem value={RULE_ACTION_TYPE.setField}>Set a property</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.applyTag}>Apply a tag</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.updateServiceLines}>Update service lines</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.removeServiceLines}>Remove service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
         </Select>
       </FormControl>
@@ -347,6 +535,13 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           />
         </>
       )}
+      {value.type === RULE_ACTION_TYPE.updateServiceLines && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <ServiceLineMatchEditor name={`${name}.match`} />
+          <ServiceLineSetEditor name={`${name}.set`} />
+        </Box>
+      )}
+      {value.type === RULE_ACTION_TYPE.removeServiceLines && <ServiceLineMatchEditor name={`${name}.match`} />}
       {value.type === RULE_ACTION_TYPE.applyTag && (
         <Controller
           name={`${name}.tag`}

@@ -1,7 +1,14 @@
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
-import { RuleAction, RuleCondition, RuleConditional, RuleOperator, RuleOutcome } from './rules-engine.schemas';
+import {
+  RuleAction,
+  RuleCondition,
+  RuleConditional,
+  RuleOperator,
+  RuleOutcome,
+  ServiceLineMatch,
+} from './rules-engine.schemas';
 
 // Catalog of the logical claim fields rules can condition on and (where settable) set. This is the
 // shared contract between the billing app's rule builder (field pickers, operator menus, typed value
@@ -84,6 +91,8 @@ const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExis
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'exists', 'notExists'];
+// Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
+const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
 
 const GENDER_OPTIONS: RuleFieldOption[] = [
   { value: 'male', label: 'Male' },
@@ -372,7 +381,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: NUMBER_OPS,
     settable: false,
     description:
-      'The claim total in dollars. Derived from the sum of service line charges, so it is read-only (edit service lines to change it).',
+      'The claim total in dollars. Derived from the sum of service line charges, so it is read-only — it is recomputed when a rule updates line charges or removes lines.',
   },
   {
     id: 'diagnosisCodes',
@@ -392,7 +401,17 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: LIST_OPS,
     settable: false,
     description:
-      'The list of CPT/HCPCS codes across the service lines. Use contains / does-not-contain to test for a code; read-only (rules cannot restructure service lines).',
+      'The list of CPT/HCPCS codes across the service lines. Use contains / does-not-contain to test for a code; change codes with the "Update service lines" action.',
+  },
+  {
+    id: 'duplicateCptCodes',
+    label: 'Duplicate CPT codes',
+    group: 'claim',
+    valueType: 'list',
+    operators: LIST_OPS,
+    settable: false,
+    description:
+      'The CPT/HCPCS codes that appear on more than one service line (empty when every line has a distinct code). "Is present" detects any duplicate billing; "contains" detects duplicates of a specific code.',
   },
   {
     id: 'placeOfServiceCodes',
@@ -402,7 +421,16 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: LIST_OPS,
     settable: false,
     description:
-      'The list of CMS place-of-service codes across the service lines. Read-only; set the service facility place of service to change future claims.',
+      'The list of CMS place-of-service codes across the service lines. Change per-line codes with the "Update service lines" action; the service facility place of service applies to future claims.',
+  },
+  {
+    id: 'serviceLineCount',
+    label: 'Service line count',
+    group: 'claim',
+    valueType: 'number',
+    operators: COUNT_OPS,
+    settable: false,
+    description: 'The number of service lines on the claim (0 when there are none).',
   },
 
   // --- Claim status indicators ---
@@ -593,6 +621,86 @@ const CATALOG_BY_ID = new Map(RULE_FIELD_CATALOG.map((f) => [f.id, f]));
 export const getRuleFieldDef = (id: string): RuleFieldDef | undefined => CATALOG_BY_ID.get(id);
 
 // ---------------------------------------------------------------------------
+// Service line properties.
+//
+// Service lines are an array, so their properties are not claim fields: they are matched and updated
+// per line by the "Update service lines" / "Remove service lines" actions, each of which carries its
+// own line predicate. This mini-catalog is the contract for those actions — it drives the rule
+// builder's match/set pickers, save-time validation, the engine's per-line readers/writers (paired
+// by a unit test like the main catalog), and the generated documentation.
+// ---------------------------------------------------------------------------
+
+export type ServiceLineValueType = 'string' | 'number' | 'date' | 'list';
+
+export interface ServiceLinePropertyDef {
+  id: string;
+  label: string;
+  valueType: ServiceLineValueType;
+  // Operators available when matching lines on this property.
+  operators: RuleOperator[];
+  // Whether the property can be the target of an updateServiceLines action.
+  settable: boolean;
+  description: string;
+}
+
+export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
+  {
+    id: 'cptCode',
+    label: 'CPT code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: "The line's CPT/HCPCS procedure code. Setting it replaces the line's procedure coding.",
+  },
+  {
+    id: 'modifiers',
+    label: 'Modifiers',
+    valueType: 'list',
+    operators: LIST_OPS,
+    settable: true,
+    description:
+      'The line\'s procedure modifiers. When updating, the operation chooses how the value applies: "set" replaces the whole list (comma-separated; empty clears it), "add" appends one modifier, "remove" drops one.',
+  },
+  {
+    id: 'units',
+    label: 'Units',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: true,
+    description: "The line's unit count. Setting it requires a positive number.",
+  },
+  {
+    id: 'charges',
+    label: 'Charges',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: true,
+    description:
+      "The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed.",
+  },
+  {
+    id: 'placeOfService',
+    label: 'Place of service code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: "The line's CMS place-of-service code. Setting an empty value clears it.",
+  },
+  {
+    id: 'serviceDate',
+    label: 'Service date',
+    valueType: 'date',
+    operators: DATE_OPS,
+    settable: true,
+    description: "The line's date of service (YYYY-MM-DD).",
+  },
+];
+
+const SERVICE_LINE_PROPERTIES_BY_ID = new Map(SERVICE_LINE_PROPERTY_CATALOG.map((p) => [p.id, p]));
+export const getServiceLinePropertyDef = (id: string): ServiceLinePropertyDef | undefined =>
+  SERVICE_LINE_PROPERTIES_BY_ID.get(id);
+
+// ---------------------------------------------------------------------------
 // Save-time validation: walk a rule's conditional tree and report references to unknown properties
 // in conditions and unknown/read-only properties in setField actions. The engine also fails safe at
 // runtime (an unknown reader evaluates to "missing", an unknown/read-only writer holds the claim),
@@ -610,13 +718,44 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
     if (condition.type === 'group') condition.conditions.forEach(visitCondition);
   };
 
-  const visitAction = (action: RuleAction): void => {
-    if (action.type !== 'setField') return;
-    const def = CATALOG_BY_ID.get(action.field);
+  const visitServiceLineMatch = (match: ServiceLineMatch): void => {
+    if (match.type !== 'field') return;
+    const def = SERVICE_LINE_PROPERTIES_BY_ID.get(match.property);
     if (!def) {
-      problems.push(`rule "${rule.name}" sets unknown property "${action.field}"`);
-    } else if (!def.settable) {
-      problems.push(`rule "${rule.name}" sets read-only property "${action.field}"`);
+      problems.push(`rule "${rule.name}" matches service lines on unknown property "${match.property}"`);
+    } else if (!def.operators.includes(match.operator)) {
+      problems.push(
+        `rule "${rule.name}" matches service lines on "${match.property}" with unsupported operator "${match.operator}"`
+      );
+    }
+  };
+
+  const visitAction = (action: RuleAction): void => {
+    if (action.type === 'setField') {
+      const def = CATALOG_BY_ID.get(action.field);
+      if (!def) {
+        problems.push(`rule "${rule.name}" sets unknown property "${action.field}"`);
+      } else if (!def.settable) {
+        problems.push(`rule "${rule.name}" sets read-only property "${action.field}"`);
+      }
+      return;
+    }
+    if (action.type === 'removeServiceLines') {
+      visitServiceLineMatch(action.match);
+      return;
+    }
+    if (action.type === 'updateServiceLines') {
+      visitServiceLineMatch(action.match);
+      const def = SERVICE_LINE_PROPERTIES_BY_ID.get(action.set.property);
+      if (!def) {
+        problems.push(`rule "${rule.name}" updates unknown service line property "${action.set.property}"`);
+      } else if (!def.settable) {
+        problems.push(`rule "${rule.name}" updates read-only service line property "${action.set.property}"`);
+      } else if (action.set.operation && action.set.operation !== 'set' && def.valueType !== 'list') {
+        problems.push(
+          `rule "${rule.name}" uses operation "${action.set.operation}" on non-list service line property "${action.set.property}"`
+        );
+      }
     }
   };
 

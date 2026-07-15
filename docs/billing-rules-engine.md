@@ -19,7 +19,7 @@ submitted.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the engine, so it always matches what the engine
-actually supports (66 properties, 55 of them settable).
+actually supports (68 properties, 55 of them settable).
 
 ## Conditions
 
@@ -64,10 +64,12 @@ Which operators a property supports depends on its type (see the property tables
 | Billable status | `billableStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | no | Whether the claim is billable. Derived from the claim's lifecycle status (entered-in-error claims are not billable), so it is read-only. Allowed values: `Billable`, `Not Billable`. |
 | Encounter ID | `encounterId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, is present, is empty | no | The clinical encounter this claim was generated from. Read-only. |
 | Appointment ID | `appointmentId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, is present, is empty | no | The clinical appointment this claim was generated from. Read-only. |
-| Billed amount | `billed` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The claim total in dollars. Derived from the sum of service line charges, so it is read-only (edit service lines to change it). |
+| Billed amount | `billed` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The claim total in dollars. Derived from the sum of service line charges, so it is read-only — it is recomputed when a rule updates line charges or removes lines. |
 | Diagnosis codes | `diagnosisCodes` | list of codes | contains, does not contain, is present, is empty | no | The list of ICD-10 diagnosis codes on the claim. Use contains / does-not-contain to test for a code; read-only (rules cannot restructure the diagnosis list). |
-| Procedure (CPT) codes | `cptCodes` | list of codes | contains, does not contain, is present, is empty | no | The list of CPT/HCPCS codes across the service lines. Use contains / does-not-contain to test for a code; read-only (rules cannot restructure service lines). |
-| Place of service codes | `placeOfServiceCodes` | list of codes | contains, does not contain, is present, is empty | no | The list of CMS place-of-service codes across the service lines. Read-only; set the service facility place of service to change future claims. |
+| Procedure (CPT) codes | `cptCodes` | list of codes | contains, does not contain, is present, is empty | no | The list of CPT/HCPCS codes across the service lines. Use contains / does-not-contain to test for a code; change codes with the "Update service lines" action. |
+| Duplicate CPT codes | `duplicateCptCodes` | list of codes | contains, does not contain, is present, is empty | no | The CPT/HCPCS codes that appear on more than one service line (empty when every line has a distinct code). "Is present" detects any duplicate billing; "contains" detects duplicates of a specific code. |
+| Place of service codes | `placeOfServiceCodes` | list of codes | contains, does not contain, is present, is empty | no | The list of CMS place-of-service codes across the service lines. Change per-line codes with the "Update service lines" action; the service facility place of service applies to future claims. |
+| Service line count | `serviceLineCount` | number | equals, does not equal, is greater than, is at least, is less than, is at most | no | The number of service lines on the claim (0 when there are none). |
 
 ### Claim status
 
@@ -167,6 +169,25 @@ Which operators a property supports depends on its type (see the property tables
 | --- | --- | --- | --- | --- | --- |
 | Claim tags | `tags` | list of codes | contains, does not contain, is present, is empty | no | The list of tags on the claim. Use contains / does-not-contain to test for a tag; add tags with the "Apply a tag" action. |
 
+## Service line properties
+
+Service lines are an array, so their per-line properties are not claim properties: they are matched
+and changed by the **Update service lines** / **Remove service lines** actions below, each of which
+carries its own line predicate — either *all service lines* or *lines matching a property*
+comparison (one property, operator, and value per predicate). A rule's condition can detect that a
+matching line exists (e.g. `cptCodes` *contains* X, `duplicateCptCodes` *is present*,
+`serviceLineCount` *is greater than* N); the action's own match is what binds *which* lines it
+touches.
+
+| Property | ID | Type | Match operators | Updatable | Description |
+| --- | --- | --- | --- | --- | --- |
+| CPT code | `cptCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, is present, is empty | yes | The line's CPT/HCPCS procedure code. Setting it replaces the line's procedure coding. |
+| Modifiers | `modifiers` | list of codes | contains, does not contain, is present, is empty | yes | The line's procedure modifiers. When updating, the operation chooses how the value applies: "set" replaces the whole list (comma-separated; empty clears it), "add" appends one modifier, "remove" drops one. |
+| Units | `units` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's unit count. Setting it requires a positive number. |
+| Charges | `charges` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed. |
+| Place of service code | `placeOfService` | text | equals, does not equal, is one of, is not one of, contains, does not contain, is present, is empty | yes | The line's CMS place-of-service code. Setting an empty value clears it. |
+| Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The line's date of service (YYYY-MM-DD). |
+
 ## Actions
 
 A matched branch's outcome is a list of actions, applied in order:
@@ -175,6 +196,8 @@ A matched branch's outcome is a list of actions, applied in order:
 | --- | --- |
 | Set a property (`setField`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the rules engine. If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
 | Apply a tag (`applyTag`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **Hold** tag holds the claim: the engine stops and the claim is not submitted. |
+| Update service lines (`updateServiceLines`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
+| Remove service lines (`removeServiceLines`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Do nothing (`noop`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |
 
 Actions after a failed action or after the **Hold** tag do not run.

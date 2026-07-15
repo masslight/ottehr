@@ -5,6 +5,9 @@ import {
   RULE_FIELD_GROUPS,
   RuleFieldDef,
   RuleFieldValueType,
+  SERVICE_LINE_PROPERTY_CATALOG,
+  ServiceLinePropertyDef,
+  ServiceLineValueType,
 } from './rules-engine.field-catalog';
 import {
   MULTI_VALUE_OPERATORS,
@@ -35,9 +38,12 @@ const VALUE_TYPE_LABELS: Record<RuleFieldValueType, string> = {
 // Escape/normalize a string for use inside a markdown table cell.
 const cell = (text: string): string => text.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-const operatorLabel = (field: RuleFieldDef, op: (typeof RULE_OPERATORS)[number]): string => {
+const operatorLabel = (
+  valueType: RuleFieldValueType | ServiceLineValueType,
+  op: (typeof RULE_OPERATORS)[number]
+): string => {
   const metadata = RULE_OPERATOR_METADATA[op];
-  return field.valueType === 'date' && metadata.dateLabel ? metadata.dateLabel : metadata.label;
+  return valueType === 'date' && metadata.dateLabel ? metadata.dateLabel : metadata.label;
 };
 
 const allowedValues = (field: RuleFieldDef): string => {
@@ -53,13 +59,29 @@ function renderFieldTable(fields: RuleFieldDef[]): string {
     '| --- | --- | --- | --- | --- | --- |',
   ];
   for (const field of fields) {
-    const operators = field.operators.map((op) => operatorLabel(field, op)).join(', ');
+    const operators = field.operators.map((op) => operatorLabel(field.valueType, op)).join(', ');
     const values = allowedValues(field);
     const description = values ? `${field.description} Allowed values: ${values}.` : field.description;
     lines.push(
       `| ${cell(field.label)} | \`${field.id}\` | ${VALUE_TYPE_LABELS[field.valueType]} | ${cell(operators)} | ${
         field.settable ? 'yes' : 'no'
       } | ${cell(description)} |`
+    );
+  }
+  return lines.join('\n');
+}
+
+function renderServiceLinePropertyTable(properties: ServiceLinePropertyDef[]): string {
+  const lines = [
+    '| Property | ID | Type | Match operators | Updatable | Description |',
+    '| --- | --- | --- | --- | --- | --- |',
+  ];
+  for (const property of properties) {
+    const operators = property.operators.map((op) => operatorLabel(property.valueType, op)).join(', ');
+    lines.push(
+      `| ${cell(property.label)} | \`${property.id}\` | ${VALUE_TYPE_LABELS[property.valueType]} | ${cell(
+        operators
+      )} | ${property.settable ? 'yes' : 'no'} | ${cell(property.description)} |`
     );
   }
   return lines.join('\n');
@@ -131,6 +153,18 @@ ${renderOperatorTable()}`);
 
   sections.push(`## Claim properties\n\n${fieldSections.join('\n\n')}`);
 
+  sections.push(`## Service line properties
+
+Service lines are an array, so their per-line properties are not claim properties: they are matched
+and changed by the **Update service lines** / **Remove service lines** actions below, each of which
+carries its own line predicate — either *all service lines* or *lines matching a property*
+comparison (one property, operator, and value per predicate). A rule's condition can detect that a
+matching line exists (e.g. \`cptCodes\` *contains* X, \`duplicateCptCodes\` *is present*,
+\`serviceLineCount\` *is greater than* N); the action's own match is what binds *which* lines it
+touches.
+
+${renderServiceLinePropertyTable(SERVICE_LINE_PROPERTY_CATALOG)}`);
+
   sections.push(`## Actions
 
 A matched branch's outcome is a list of actions, applied in order:
@@ -139,6 +173,8 @@ A matched branch's outcome is a list of actions, applied in order:
 | --- | --- |
 | Set a property (\`setField\`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the rules engine. If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
 | Apply a tag (\`applyTag\`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **${HOLD_TAG_NAME}** tag holds the claim: the engine stops and the claim is not submitted. |
+| Update service lines (\`updateServiceLines\`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
+| Remove service lines (\`removeServiceLines\`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Do nothing (\`noop\`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |
 
 Actions after a failed action or after the **${HOLD_TAG_NAME}** tag do not run.`);

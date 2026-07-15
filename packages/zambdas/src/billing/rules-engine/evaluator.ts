@@ -12,8 +12,18 @@ import {
   RuleConditionValue,
   RuleOperator,
   RuleOutcome,
+  SERVICE_LINE_MATCH_TYPE,
+  ServiceLineMatch,
 } from 'utils';
-import { readField, RulesEngineClaimModel, writeField } from './claim-model';
+import {
+  ClaimServiceLine,
+  readField,
+  readServiceLineProperty,
+  recomputeClaimTotal,
+  RulesEngineClaimModel,
+  writeField,
+  writeServiceLineProperty,
+} from './claim-model';
 
 // ---------------------------------------------------------------------------
 // Pure evaluator
@@ -147,10 +157,56 @@ export function resolveOutcomeActions(outcome: RuleOutcome, model: RulesEngineCl
 export const isHoldAction = (action: RuleAction): boolean =>
   action.type === RULE_ACTION_TYPE.applyTag && action.tag === HOLD_TAG_NAME;
 
-// Mutate the model by applying a single action. setField delegates to the claim-model writer;
-// applyTag adds the tag to Claim.meta.tag (deduped); noop does nothing. Returns an error message
-// when the action could not be applied — the engine holds the claim rather than submit it with a
-// silently skipped change.
+// Whether a service line satisfies an action's line predicate. Reuses evaluateOperator so operators
+// mean the same thing in line matches as in rule conditions.
+export const serviceLineMatches = (line: ClaimServiceLine, match: ServiceLineMatch): boolean => {
+  if (match.type === SERVICE_LINE_MATCH_TYPE.all) return true;
+  return evaluateOperator(match.operator, readServiceLineProperty(line, match.property), match.value);
+};
+
+// Apply one change to every line matching the predicate. Zero matching lines is a legitimate no-op
+// (like an UPDATE matching no rows) — pair the action with a condition (e.g. cptCodes contains X)
+// when a match must exist. A line the value cannot be applied to fails the rule.
+const applyServiceLineUpdate = (
+  action: Extract<RuleAction, { type: 'updateServiceLines' }>,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  const matching = (model.claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
+  const operation = action.set.operation ?? 'set';
+  let changed = false;
+  for (const line of matching) {
+    if (!writeServiceLineProperty(line, action.set.property, action.set.value, operation)) {
+      // Keep the billed total consistent with any lines already updated before failing the rule.
+      if (changed && action.set.property === 'charges') recomputeClaimTotal(model.claim);
+      return (
+        `could not update service line property "${action.set.property}" — the property is unknown or ` +
+        `read-only, the operation does not apply to it, or the value is invalid`
+      );
+    }
+    changed = true;
+  }
+  if (changed && action.set.property === 'charges') recomputeClaimTotal(model.claim);
+  return undefined;
+};
+
+// Remove every line matching the predicate (all lines when the match is "all"). Survivors are
+// re-sequenced 1..n and the billed total is recomputed. Zero matching lines is a no-op.
+const applyServiceLineRemoval = (
+  action: Extract<RuleAction, { type: 'removeServiceLines' }>,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  const lines = model.claim.item ?? [];
+  const remaining = lines.filter((line) => !serviceLineMatches(line, action.match));
+  if (remaining.length === lines.length) return undefined;
+  model.claim.item = remaining.length ? remaining.map((line, index) => ({ ...line, sequence: index + 1 })) : undefined;
+  recomputeClaimTotal(model.claim);
+  return undefined;
+};
+
+// Mutate the model by applying a single action. setField delegates to the claim-model writer; the
+// service-line actions match and mutate Claim.item entries; applyTag adds the tag to Claim.meta.tag
+// (deduped); noop does nothing. Returns an error message when the action could not be applied — the
+// engine holds the claim rather than submit it with a silently skipped change.
 export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): string | undefined => {
   switch (action.type) {
     case RULE_ACTION_TYPE.noop:
@@ -159,6 +215,10 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): s
       return writeField(model, action.field, action.value)
         ? undefined
         : `could not set "${action.field}" — the field is unknown or read-only, or the target is missing from this claim`;
+    case RULE_ACTION_TYPE.updateServiceLines:
+      return applyServiceLineUpdate(action, model);
+    case RULE_ACTION_TYPE.removeServiceLines:
+      return applyServiceLineRemoval(action, model);
     case RULE_ACTION_TYPE.applyTag: {
       const { claim } = model;
       if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: action.tag })) return undefined;

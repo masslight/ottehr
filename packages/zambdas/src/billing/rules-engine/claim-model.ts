@@ -17,15 +17,19 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+  CODE_SYSTEM_HL7_HCPCS,
+  CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   extractPayerIdFromUrl,
   getClaimStatusFieldValue,
   getCoveragePlanType,
   getNPI,
   getPayerUrl,
+  getServiceLinePropertyDef,
   getTaxID,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   isValidClaimStatusValue,
+  ServiceLineSetOperation,
   setCoveragePlanType,
   setNpi,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
@@ -92,6 +96,126 @@ const getClaimTagCodes = (claim: Claim): string[] =>
 
 const claimIdentifier = (claim: Claim, name: string): string | undefined =>
   claim.identifier?.find((i) => i.system === ottehrIdentifierSystem(name))?.value;
+
+// --- service lines ---
+//
+// Service lines are an array, so their properties are not model fields: the updateServiceLines /
+// removeServiceLines actions match and mutate them per line via these readers/writers, which pair
+// with SERVICE_LINE_PROPERTY_CATALOG in utils (guarded by a unit test like the main catalog).
+
+export type ClaimServiceLine = NonNullable<Claim['item']>[number];
+
+const lineCptCode = (line: ClaimServiceLine): string | undefined => line.productOrService?.coding?.[0]?.code;
+
+const lineModifiers = (line: ClaimServiceLine): string[] =>
+  (line.modifier ?? []).map((mod) => mod.coding?.[0]?.code).filter((c): c is string => !!c);
+
+const claimCptCodes = (claim: Claim): string[] => (claim.item ?? []).map(lineCptCode).filter((c): c is string => !!c);
+
+// CPT codes billed on more than one service line (duplicate-billing detection).
+const claimDuplicateCptCodes = (claim: Claim): string[] => {
+  const counts = new Map<string, number>();
+  for (const code of claimCptCodes(claim)) counts.set(code, (counts.get(code) ?? 0) + 1);
+  return [...counts.entries()].filter(([, count]) => count > 1).map(([code]) => code);
+};
+
+type ServiceLineReader = (line: ClaimServiceLine) => string | string[] | undefined;
+
+const SERVICE_LINE_READERS: Record<string, ServiceLineReader> = {
+  cptCode: lineCptCode,
+  modifiers: lineModifiers,
+  units: (line) => (line.quantity?.value != null ? String(line.quantity.value) : undefined),
+  charges: (line) => (line.net?.value != null ? String(line.net.value) : undefined),
+  placeOfService: (line) => line.locationCodeableConcept?.coding?.[0]?.code,
+  serviceDate: (line) => line.servicedPeriod?.start ?? line.servicedDate,
+};
+
+export const readServiceLineProperty = (line: ClaimServiceLine, propertyId: string): string | string[] | undefined =>
+  SERVICE_LINE_READERS[propertyId]?.(line);
+
+type ServiceLineWriter = (line: ClaimServiceLine, value: string, operation: ServiceLineSetOperation) => boolean;
+
+const SERVICE_LINE_WRITERS: Record<string, ServiceLineWriter> = {
+  cptCode: (line, value) => {
+    if (!value) return false;
+    // Same shape the claim editor writes: a fresh HCPCS coding (any stale display is dropped).
+    line.productOrService = { coding: [{ system: CODE_SYSTEM_HL7_HCPCS, code: value }] };
+    return true;
+  },
+  modifiers: (line, value, operation) => {
+    const current = lineModifiers(line);
+    let next: string[];
+    if (operation === 'add') {
+      if (!value) return false;
+      next = current.includes(value) ? current : [...current, value];
+    } else if (operation === 'remove') {
+      if (!value) return false;
+      next = current.filter((mod) => mod !== value);
+    } else {
+      // set: replace the whole list from comma-separated input; empty clears it.
+      next = value
+        .split(',')
+        .map((mod) => mod.trim())
+        .filter(Boolean);
+    }
+    line.modifier = next.length
+      ? next.map((code) => ({ coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER, code }] }))
+      : undefined;
+    return true;
+  },
+  units: (line, value) => {
+    const units = Number(value);
+    if (!value || !Number.isFinite(units) || units <= 0) return false;
+    line.quantity = { value: units, unit: 'UN' };
+    return true;
+  },
+  charges: (line, value) => {
+    const charges = Number(value);
+    if (!value || !Number.isFinite(charges) || charges < 0) return false;
+    line.net = { value: charges, currency: 'USD' };
+    return true;
+  },
+  placeOfService: (line, value) => {
+    line.locationCodeableConcept = value
+      ? { coding: [{ system: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, code: value }] }
+      : undefined;
+    return true;
+  },
+  serviceDate: (line, value) => {
+    if (!value) return false;
+    delete line.servicedDate;
+    line.servicedPeriod = { ...line.servicedPeriod, start: value };
+    return true;
+  },
+};
+
+// Property ids the engine can read/write per line; used by the catalog-pairing test.
+export const SERVICE_LINE_READABLE_PROPERTY_IDS: string[] = Object.keys(SERVICE_LINE_READERS);
+export const SERVICE_LINE_WRITABLE_PROPERTY_IDS: string[] = Object.keys(SERVICE_LINE_WRITERS);
+
+// Apply an updateServiceLines set to one line. Returns false for an unknown property, an operation
+// that doesn't apply to the property (add/remove is list-only), or an invalid value — the engine
+// treats that as a rule failure and holds the claim.
+export const writeServiceLineProperty = (
+  line: ClaimServiceLine,
+  propertyId: string,
+  value: string,
+  operation: ServiceLineSetOperation
+): boolean => {
+  const writer = SERVICE_LINE_WRITERS[propertyId];
+  if (!writer) return false;
+  if (operation !== 'set' && getServiceLinePropertyDef(propertyId)?.valueType !== 'list') return false;
+  return writer(line, value, operation);
+};
+
+// The claim's billed total is the sum of line charges (the invariant the claim editor maintains);
+// call after any rule action that changes line charges or removes lines.
+export const recomputeClaimTotal = (claim: Claim): void => {
+  claim.total = {
+    value: (claim.item ?? []).reduce((sum, line) => sum + (line.net?.value ?? 0), 0),
+    currency: 'USD',
+  };
+};
 
 const readRelationship = (coverage?: Coverage): string | undefined => {
   const coding = coverage?.relationship?.coding?.[0];
@@ -168,10 +292,11 @@ const READERS: Record<string, FieldReader> = {
     (m.claim.diagnosis ?? [])
       .map((dx) => dx.diagnosisCodeableConcept?.coding?.[0]?.code)
       .filter((c): c is string => !!c),
-  cptCodes: (m) =>
-    (m.claim.item ?? []).map((item) => item.productOrService?.coding?.[0]?.code).filter((c): c is string => !!c),
+  cptCodes: (m) => claimCptCodes(m.claim),
+  duplicateCptCodes: (m) => claimDuplicateCptCodes(m.claim),
   placeOfServiceCodes: (m) =>
     (m.claim.item ?? []).map((item) => item.locationCodeableConcept?.coding?.[0]?.code).filter((c): c is string => !!c),
+  serviceLineCount: (m) => String(m.claim.item?.length ?? 0),
 
   ...statusFieldReaders(),
 

@@ -17,6 +17,45 @@ describe('applyTag canonicalization', () => {
   });
 });
 
+describe('service line action schemas', () => {
+  it('parses updateServiceLines and removeServiceLines actions', () => {
+    const update = {
+      type: 'updateServiceLines',
+      match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+      set: { property: 'cptCode', value: '99214' },
+    };
+    expect(RuleActionSchema.parse(update)).toEqual(update);
+
+    const addModifier = {
+      type: 'updateServiceLines',
+      match: { type: 'all' },
+      set: { property: 'modifiers', value: '25', operation: 'add' },
+    };
+    expect(RuleActionSchema.parse(addModifier)).toEqual(addModifier);
+
+    const removeAll = { type: 'removeServiceLines', match: { type: 'all' } };
+    expect(RuleActionSchema.parse(removeAll)).toEqual(removeAll);
+  });
+
+  it('rejects malformed matches and unknown operations', () => {
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'updateServiceLines',
+        match: { type: 'field', property: '', operator: 'eq', value: 'x' },
+        set: { property: 'cptCode', value: '99214' },
+      }).success
+    ).toBe(false);
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'updateServiceLines',
+        match: { type: 'all' },
+        set: { property: 'modifiers', value: '25', operation: 'append' },
+      }).success
+    ).toBe(false);
+    expect(RuleActionSchema.safeParse({ type: 'removeServiceLines' }).success).toBe(false);
+  });
+});
+
 describe('SaveBillingRulesInputSchema', () => {
   const rule = (id: string): PreSubmissionRule => ({
     id,
@@ -97,5 +136,41 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[0]).toContain('unknown property "not.a.field"');
     expect(problems[1]).toContain('read-only property "billed"');
     expect(problems[2]).toContain('unknown property "nope"');
+  });
+
+  it('validates service line matches and set targets', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'updateServiceLines',
+                  match: { type: 'field', property: 'notALineProperty', operator: 'eq', value: 'x' },
+                  set: { property: 'alsoNotOne', value: 'y' },
+                },
+                {
+                  type: 'updateServiceLines',
+                  match: { type: 'field', property: 'modifiers', operator: 'gt', value: '2' },
+                  set: { property: 'units', value: '2', operation: 'add' },
+                },
+                {
+                  type: 'removeServiceLines',
+                  match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+                },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(4);
+    expect(problems[0]).toContain('matches service lines on unknown property "notALineProperty"');
+    expect(problems[1]).toContain('updates unknown service line property "alsoNotOne"');
+    expect(problems[2]).toContain('matches service lines on "modifiers" with unsupported operator "gt"');
+    expect(problems[3]).toContain('uses operation "add" on non-list service line property "units"');
   });
 });

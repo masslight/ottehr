@@ -6,12 +6,16 @@ import {
   HOLD_TAG_NAME,
   PreSubmissionRule,
   RULE_FIELD_CATALOG,
+  SERVICE_LINE_PROPERTY_CATALOG,
 } from 'utils';
 import { describe, expect, it } from 'vitest';
 import {
   READABLE_FIELD_IDS,
   readField,
+  readServiceLineProperty,
   RulesEngineClaimModel,
+  SERVICE_LINE_READABLE_PROPERTY_IDS,
+  SERVICE_LINE_WRITABLE_PROPERTY_IDS,
   WRITABLE_FIELD_IDS,
   writeField,
 } from '../../../src/billing/rules-engine/claim-model';
@@ -20,7 +24,12 @@ import {
   PRESUBMISSION_RULES_TASK_SYSTEM,
   RULE_DEFINITION_EXTENSION_URL,
 } from '../../../src/billing/rules-engine/constants';
-import { evaluateCondition, evaluateOperator, executeRule } from '../../../src/billing/rules-engine/evaluator';
+import {
+  applyAction,
+  evaluateCondition,
+  evaluateOperator,
+  executeRule,
+} from '../../../src/billing/rules-engine/evaluator';
 import { buildRulesEngineKickoffTask, listToRules, rulesToList } from '../../../src/billing/rules-engine/serialization';
 
 const makeModel = (): RulesEngineClaimModel => ({
@@ -114,6 +123,13 @@ describe('field catalog / claim-model pairing', () => {
     expect([...READABLE_FIELD_IDS].sort()).toEqual([...catalogIds].sort());
     const settableIds = RULE_FIELD_CATALOG.filter((f) => f.settable).map((f) => f.id);
     expect([...WRITABLE_FIELD_IDS].sort()).toEqual([...settableIds].sort());
+  });
+
+  it('every service line property has a reader, and exactly the settable ones have writers', () => {
+    const propertyIds = SERVICE_LINE_PROPERTY_CATALOG.map((p) => p.id);
+    expect([...SERVICE_LINE_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
+    const settableIds = SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
+    expect([...SERVICE_LINE_WRITABLE_PROPERTY_IDS].sort()).toEqual([...settableIds].sort());
   });
 });
 
@@ -275,7 +291,178 @@ describe('rules-engine evaluator', () => {
     expect(m.patient?.name?.[0]?.given).toEqual(['Janet', 'Q']);
     expect(readField(m, 'patient.middleName')).toBe('Q');
   });
+});
 
+describe('service line actions', () => {
+  const addLine = (m: RulesEngineClaimModel, cptCode: string, charges = 100): void => {
+    m.claim.item = [
+      ...(m.claim.item ?? []),
+      {
+        sequence: (m.claim.item?.length ?? 0) + 1,
+        productOrService: { coding: [{ code: cptCode }] },
+        servicedPeriod: { start: '2026-01-05' },
+        net: { value: charges, currency: 'USD' },
+      },
+    ];
+  };
+
+  it('updates only the lines matching the predicate ("change that line\'s CPT code")', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+        set: { property: 'cptCode', value: '99215' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(readField(m, 'cptCodes')).toEqual(['99215', '99214']);
+  });
+
+  it('treats zero matching lines as a no-op, not a failure', () => {
+    const m = makeModel();
+    const before = JSON.stringify(m.claim);
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'field', property: 'cptCode', operator: 'eq', value: '00000' },
+        set: { property: 'units', value: '3' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(JSON.stringify(m.claim)).toBe(before);
+  });
+
+  it('recomputes the billed total when line charges change', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    const error = applyAction(
+      { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'charges', value: '50' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(m.claim.total?.value).toBe(100);
+    expect(readField(m, 'billed')).toBe('100');
+  });
+
+  it('stops the rule with an error when the value is invalid', () => {
+    const m = makeModel();
+    const rule: PreSubmissionRule = {
+      id: 'r-bad-units',
+      name: 'Bad units',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'units', value: 'lots' } },
+                { type: 'setField', field: 'patient.lastName', value: 'ShouldNotApply' },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.error).toContain('units');
+    // The run stops at the failed action; later actions must not apply.
+    expect(readField(m, 'patient.lastName')).toBe('Doe');
+  });
+
+  it('adds, removes, and replaces modifiers via the set operation', () => {
+    const m = makeModel();
+    const modifiersOfLine = (): string | string[] | undefined => readServiceLineProperty(m.claim.item![0], 'modifiers');
+    const setModifiers = (value: string, operation?: 'set' | 'add' | 'remove'): string | undefined =>
+      applyAction(
+        { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'modifiers', value, operation } },
+        m
+      );
+
+    expect(setModifiers('25', 'add')).toBeUndefined();
+    expect(modifiersOfLine()).toEqual(['25']);
+    expect(setModifiers('25', 'add')).toBeUndefined(); // adding an existing modifier is a no-op
+    expect(modifiersOfLine()).toEqual(['25']);
+    expect(setModifiers('GT, 59')).toBeUndefined(); // default operation replaces the list
+    expect(modifiersOfLine()).toEqual(['GT', '59']);
+    expect(setModifiers('GT', 'remove')).toBeUndefined();
+    expect(modifiersOfLine()).toEqual(['59']);
+    expect(setModifiers('')).toBeUndefined(); // set to empty clears
+    expect(modifiersOfLine()).toEqual([]);
+    // add/remove need a modifier value; add/remove on a non-list property is rejected by the writer.
+    expect(setModifiers('', 'add')).toContain('modifiers');
+    expect(
+      applyAction(
+        {
+          type: 'updateServiceLines',
+          match: { type: 'all' },
+          set: { property: 'units', value: '2', operation: 'add' },
+        },
+        m
+      )
+    ).toContain('units');
+  });
+
+  it('removes matching lines, re-sequences survivors, and recomputes the total', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    addLine(m, '99215', 300);
+    const error = applyAction(
+      { type: 'removeServiceLines', match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99214' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(readField(m, 'cptCodes')).toEqual(['99213', '99215']);
+    expect(m.claim.item?.map((line) => line.sequence)).toEqual([1, 2]);
+    expect(m.claim.total?.value).toBe(425.5);
+  });
+
+  it('removes all lines when the match is "all"', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    const error = applyAction({ type: 'removeServiceLines', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(m.claim.item).toBeUndefined();
+    expect(m.claim.total?.value).toBe(0);
+    expect(readField(m, 'serviceLineCount')).toBe('0');
+    expect(readField(m, 'cptCodes')).toEqual([]);
+  });
+
+  it('detects duplicate CPT codes and executes the canonical hold-on-duplicates rule', () => {
+    const m = makeModel();
+    expect(readField(m, 'duplicateCptCodes')).toEqual([]);
+    addLine(m, '99213'); // duplicates the fixture line's code
+    addLine(m, '99214');
+    expect(readField(m, 'duplicateCptCodes')).toEqual(['99213']);
+    expect(readField(m, 'serviceLineCount')).toBe('3');
+
+    const rule: PreSubmissionRule = {
+      id: 'r-dup',
+      name: 'Hold duplicate CPT billing',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'field', field: 'duplicateCptCodes', operator: 'exists' },
+            outcome: { type: 'actions', actions: [{ type: 'applyTag', tag: HOLD_TAG_NAME }] },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.held).toBe(true);
+    expect(claimTags(m)).toContain(HOLD_TAG_NAME);
+  });
+});
+
+describe('rules-engine rule execution', () => {
   it('evaluateCondition handles all / field / and / or groups', () => {
     const m = makeModel();
     expect(evaluateCondition({ type: 'all' }, m)).toBe(true);
@@ -463,13 +650,40 @@ describe('rules-engine serialization', () => {
         ],
       },
     },
+    {
+      id: 'rule-c',
+      name: 'Rule C',
+      description: 'service line actions',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'field', field: 'cptCodes', operator: 'contains', value: '99213' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'updateServiceLines',
+                  match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+                  set: { property: 'modifiers', value: '25', operation: 'add' },
+                },
+                {
+                  type: 'removeServiceLines',
+                  match: { type: 'field', property: 'charges', operator: 'eq', value: '0' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
   ];
 
   it('round-trips rules through a contained-Basic List preserving order', () => {
     const list = rulesToList(rules);
     expect(list.resourceType).toBe('List');
-    expect(list.contained).toHaveLength(2);
-    expect(list.entry?.map((e) => e.item?.reference)).toEqual(['#rule-a', '#rule-b']);
+    expect(list.contained).toHaveLength(3);
+    expect(list.entry?.map((e) => e.item?.reference)).toEqual(['#rule-a', '#rule-b', '#rule-c']);
     expect(listToRules(list)).toEqual(rules);
   });
 
@@ -486,10 +700,11 @@ describe('rules-engine serialization', () => {
     definition!.valueString = '{not valid json';
 
     const parsed = listToRules(list);
-    expect(parsed).toHaveLength(2);
+    expect(parsed).toHaveLength(3);
     // The broken rule survives (so a full-list save doesn't delete it) but is disabled and inert.
     expect(parsed[0]).toMatchObject({ id: 'rule-a', name: 'Rule A', enabled: false, conditional: { branches: [] } });
     expect(parsed[1]).toEqual(rules[1]);
+    expect(parsed[2]).toEqual(rules[2]);
   });
 });
 
