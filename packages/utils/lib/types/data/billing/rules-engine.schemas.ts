@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_RULES_ENGINE, HOLD_TAG_NAME, RULES_ENGINE_TYPES, RulesEngineType } from './rules-engine.constants';
+import { HOLD_TAG_NAME, RULES_ENGINE_TYPES, RulesEngineType } from './rules-engine.constants';
 
 // ---------------------------------------------------------------------------
 // Rule structure
@@ -137,19 +137,17 @@ export const BillingRuleInputSchema = BillingRuleSchema.extend({
 export type BillingRuleInput = z.output<typeof BillingRuleInputSchema>;
 
 // --- CRUD API contract (save-billing-rules / get-billing-rules) ---
+//
+// Every operation names the engine whose rule set it targets.
 
-// The engine whose rule set an operation targets. Optional for callers (older clients predate the
-// multi-engine split), defaulting to the original Claim Submission engine.
-const engineField = RulesEngineTypeSchema.default(DEFAULT_RULES_ENGINE);
-
-export const GetBillingRulesInputSchema = z.object({ engine: engineField });
+export const GetBillingRulesInputSchema = z.object({ engine: RulesEngineTypeSchema });
 export type GetBillingRulesInput = z.output<typeof GetBillingRulesInputSchema>;
 
 // The whole ordered rule set is saved at once (each engine's rules live in a single FHIR List), so
 // create, edit, reorder, and delete are all expressed as "save this full ordered array".
 export const SaveBillingRulesInputSchema = z
   .object({
-    engine: engineField,
+    engine: RulesEngineTypeSchema,
     rules: z.array(BillingRuleInputSchema),
     // Optimistic-locking guard: the List versionId the client last read. When provided, the save is
     // rejected if the rules List changed in the meantime.

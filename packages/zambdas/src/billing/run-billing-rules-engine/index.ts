@@ -13,7 +13,7 @@ const ZAMBDA_NAME = 'run-billing-rules-engine';
 // Manually kick off the rules engine for an existing claim — the Submit claim / Prepare for invoice
 // buttons land here. The engine is decided by the claim's AR stage (see
 // determineRulesEngineForClaim); this enqueues the same Task claim creation does, and a Subscription
-// then runs sub-presubmission-rules-engine.
+// then runs sub-rules-engine.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
 

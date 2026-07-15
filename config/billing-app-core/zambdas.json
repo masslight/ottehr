@@ -302,13 +302,13 @@
       "src": "src/billing/delete-charge-item-definition/index",
       "zip": ".dist/zips/delete-charge-item-definition.zip"
     },
-    "SUB-PRESUBMISSION-RULES-ENGINE": {
-      "name": "sub-presubmission-rules-engine",
+    "SUB-RULES-ENGINE": {
+      "name": "sub-rules-engine",
       "type": "subscription",
       "timeout": "870",
       "runtime": "nodejs22.x",
-      "src": "src/subscriptions/task/sub-presubmission-rules-engine/index",
-      "zip": ".dist/zips/sub-presubmission-rules-engine.zip"
+      "src": "src/subscriptions/task/sub-rules-engine/index",
+      "zip": ".dist/zips/sub-rules-engine.zip"
     }
   },
   "fhirResources": {
@@ -320,7 +320,7 @@
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-presubmission-rules&status=requested",
         "channel": {
           "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PRESUBMISSION-RULES-ENGINE/id}"
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
         },
         "extension": [
           {
@@ -338,7 +338,7 @@
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-non-insurance-payer-pre-invoice-rules&status=requested",
         "channel": {
           "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PRESUBMISSION-RULES-ENGINE/id}"
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
         },
         "extension": [
           {
@@ -356,7 +356,7 @@
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-patient-ar-pre-invoice-rules&status=requested",
         "channel": {
           "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PRESUBMISSION-RULES-ENGINE/id}"
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
         },
         "extension": [
           {

@@ -46,7 +46,7 @@ import { finalizeEngineRun } from './finalize';
 // ---------------------------------------------------------------------------
 // Billing rules engines.
 //
-// One zambda serves every rules engine (Claim Submission, Non-insurance Payer Pre-Invoice, Patient
+// One zambda serves every rules engine (Claim Submission, Non-Insurance Payer Pre-Invoice, Patient
 // AR Pre-Invoice). It is triggered by a Subscription when an engine's kickoff Task is created
 // (status `requested`); the Task's code identifies the engine and Task.focus references the claim.
 // The engine loads its ordered rules List, runs each rule against the claim's resources in order,
@@ -57,7 +57,7 @@ import { finalizeEngineRun } from './finalize';
 
 let m2mToken: string;
 
-export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (input, _oystehr) => {
+export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr) => {
   const { task, secrets } = input;
   const claimId = extractClaimId(task);
   const engine = extractEngine(task);

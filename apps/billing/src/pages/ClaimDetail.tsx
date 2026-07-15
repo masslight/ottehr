@@ -86,9 +86,6 @@ import { validateServiceFacilityFields } from '../utils/validation';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
-// Mirrors the backend's determineRulesEngineForClaim: the engine the run button triggers for this
-// claim's AR stage, or undefined when none applies (no AR Stage, or Patient AR with insurance
-// coverage — the Patient AR pre-invoice rules only cover self-pay claims).
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
   const arStage = claim.statuses.arStage;
   if (arStage === AR_STAGE.insurancePayer) return RULES_ENGINES['claim-submission'];

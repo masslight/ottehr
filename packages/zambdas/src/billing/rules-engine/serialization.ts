@@ -102,7 +102,7 @@ export function isRulesEngineList(engine: RulesEngineType, list: Pick<List, 'met
 }
 
 // The Task whose creation kicks off an engine for a claim. A Subscription per engine matches
-// `status=requested` + the engine's code and invokes the sub-presubmission-rules-engine zambda,
+// `status=requested` + the engine's code and invokes the sub-rules-engine zambda,
 // which marks the Task completed/failed.
 export function buildRulesEngineKickoffTask(engine: RulesEngineType, claimId: string): Task {
   return {

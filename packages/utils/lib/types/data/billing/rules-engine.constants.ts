@@ -57,7 +57,7 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
   },
   'non-insurance-payer-pre-invoice': {
     type: 'non-insurance-payer-pre-invoice',
-    label: 'Non-insurance Payer Pre-Invoice Rules',
+    label: 'Non-Insurance Payer Pre-Invoice Rules',
     runsWhen: 'when a claim is created in Non-insurance Payer AR',
     onPass: 'the Non-insurance AR Status moves to Ready to invoice',
     runButtonLabel: 'Prepare for invoice',

@@ -319,7 +319,7 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
 /**
  * The rules engine responsible for a claim, decided by its AR Stage:
  * - Insurance Payer AR -> Claim Submission Rules
- * - Non-insurance Payer AR -> Non-insurance Payer Pre-Invoice Rules
+ * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
  * - Patient AR, self-pay only (no real coverage on the claim) -> Patient AR Pre-Invoice Rules
  * Undefined when no engine applies (no AR Stage, or Patient AR with insurance coverage).
  *

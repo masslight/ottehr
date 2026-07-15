@@ -21,9 +21,6 @@ export const RULE_DESCRIPTION_EXTENSION_URL = ottehrExtensionUrl('presubmission-
 export const RULE_ENABLED_EXTENSION_URL = ottehrExtensionUrl('presubmission-rule-enabled');
 export const RULE_DEFINITION_EXTENSION_URL = ottehrExtensionUrl('presubmission-rule-definition');
 
-// System of the code on the FHIR Task that kicks off an engine. Each engine has its own Task code;
-// a Subscription per code (config/billing-app-core/zambdas.json) invokes the
-// sub-presubmission-rules-engine zambda, which dispatches on the code.
 export const RULES_ENGINE_TASK_SYSTEM = ottehrCodeSystemUrl('billing-rules-engine');
 
 interface RulesEngineFhirIds {
@@ -65,4 +62,4 @@ export function rulesEngineForTaskCode(taskCode: string | undefined): RulesEngin
 // Description on the seeded Hold system-tag definition (the tag name itself, HOLD_TAG_NAME, lives in
 // utils because the rule schemas canonicalize against it and the rule-builder UI displays it).
 export const HOLD_TAG_DESCRIPTION =
-  'Claim was placed on hold by a billing rules engine and requires review before it can proceed.';
+  'Claim was placed on hold either by a user or by a rule and requires review before it can proceed.';

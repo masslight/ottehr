@@ -315,7 +315,7 @@ describe('ClaimDetail — run rules engine button', () => {
 
     await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimId: 'claim-1' }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
-      'Non-insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',
+      'Non-Insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }
     );
   });

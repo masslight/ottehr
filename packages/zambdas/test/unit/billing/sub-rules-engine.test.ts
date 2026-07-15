@@ -17,7 +17,7 @@ import {
   performEffect,
   persistModel,
   snapshotModel,
-} from '../../../src/subscriptions/task/sub-presubmission-rules-engine';
+} from '../../../src/subscriptions/task/sub-rules-engine';
 
 const AGENT: ProvenanceAgent = { who: { reference: 'Device/rules-engine-device' } };
 
@@ -93,7 +93,7 @@ const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; c
   return [];
 };
 
-describe('sub-presubmission-rules-engine performEffect', () => {
+describe('sub-rules-engine performEffect', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('submits the claim when all rules pass and it is in Insurance Payer AR', async () => {
@@ -319,7 +319,7 @@ describe('pre-invoice engines performEffect', () => {
   });
 });
 
-describe('sub-presubmission-rules-engine persistModel', () => {
+describe('sub-rules-engine persistModel', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('writes only resources the rules actually changed', async () => {
@@ -361,7 +361,7 @@ describe('sub-presubmission-rules-engine persistModel', () => {
   });
 });
 
-describe('sub-presubmission-rules-engine ensureClaimHeld', () => {
+describe('sub-rules-engine ensureClaimHeld', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('applies the Hold tag (with Provenance) when the claim is not already held', async () => {

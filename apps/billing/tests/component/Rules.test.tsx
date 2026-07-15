@@ -72,7 +72,7 @@ describe('Rules list', () => {
     getBillingRulesMock.mockResolvedValue({ rules: [], versionId: 'v1' });
     renderRules('non-insurance-payer-pre-invoice');
 
-    expect(await screen.findByText('Non-insurance Payer Pre-Invoice Rules')).toBeInTheDocument();
+    expect(await screen.findByText('Non-Insurance Payer Pre-Invoice Rules')).toBeInTheDocument();
     expect(
       screen.getByText('When all rules pass, the Non-insurance AR Status moves to Ready to invoice.')
     ).toBeInTheDocument();

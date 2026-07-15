@@ -185,8 +185,6 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
 
   const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
-  // Kick off the AR stage's rules engine, if one applies (a Subscription invokes
-  // sub-presubmission-rules-engine asynchronously).
   const engine = determineRulesEngineForClaim(claim);
   if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, params.secrets);
   return { statusCode: 200, body: JSON.stringify({ claimId }) };

@@ -114,7 +114,6 @@ async function performEffect(
   const created = (tx.entry ?? []).map((e) => e.resource).find((r): r is Claim => r?.resourceType === 'Claim');
   if (!created?.id) throw InternalError;
 
-  // Kick off the AR stage's rules engine, if one applies to the claim as created.
   const engine = determineRulesEngineForClaim(created);
   if (engine) await kickOffRulesEngine(oystehr, engine, created.id, params.secrets);
 
