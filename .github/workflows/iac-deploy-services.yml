@@ -70,6 +70,10 @@ jobs:
         with:
           app-id: ${{ env.GITHUB_APP_ID }}
           private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
+          owner: masslight
+          repositories: |
+            ottehr-secrets
+            ottehr-prod-secrets
 
       - name: If environment is demo, ensure keys are coming in through input parameters.
         if: ${{ env.ENVIRONMENT == 'demo' && !(github.event.inputs.confirmProduction == 'Yes') }}
@@ -128,6 +132,34 @@ jobs:
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           ref: ${{ steps.resolve-secrets.outputs.branch }}
           path: "secrets"
+
+      - name: Check out prod-secrets repo for production-specific overrides
+        if: env.ENVIRONMENT == 'demo' || env.ENVIRONMENT == 'production'
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          repository: masslight/ottehr-prod-secrets
+          ref: ${{ inputs.secretsBranch }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: "prod-secrets"
+
+      - name: Copy production-specific secrets from prod-secrets
+        if: env.ENVIRONMENT == 'demo' || env.ENVIRONMENT == 'production'
+        shell: bash
+        run: |
+          for src_file in \
+            "config/.env/${{ env.ENVIRONMENT }}.json" \
+            "terraform/${{ env.ENVIRONMENT }}.tfvars"; do
+            src="prod-secrets/ottehr/$src_file"
+            dst="secrets/ottehr/$src_file"
+            if [[ -f "$src" ]]; then
+              mkdir -p "$(dirname "$dst")"
+              cp "$src" "$dst"
+              echo "Copied $src_file from ottehr-prod-secrets"
+            else
+              echo "::error::$src_file not found in ottehr-prod-secrets"
+              exit 1
+            fi
+          done
 
       - name: Populate and validate secrets
         uses: ./.github/actions/populate-secrets
