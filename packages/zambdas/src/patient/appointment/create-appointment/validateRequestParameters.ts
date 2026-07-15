@@ -90,9 +90,9 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (Boolean(patient.dateOfBirth) === false) {
     missingRequiredPatientFields.push('dateOfBirth');
   }
-  if (Boolean(patient.reasonForVisit) === false) {
-    missingRequiredPatientFields.push('reasonForVisit');
-  }
+  // reasonForVisit is deliberately not required (CreateAppointmentInput.reasonForVisit is
+  // optional and visit-details tests assert appointments without one) - the check that sat
+  // here compared against undefined and never rejected anything.
   if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
