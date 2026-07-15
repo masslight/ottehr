@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
   makePracticeManagedUrl,
+  PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
   practiceManagedQuestionnaireToFhir,
@@ -97,7 +98,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
   const { questionnaire, fhirQuestionnaire, jsonPreview } = useMemo(() => {
     const canonicalFields = makeCanonicalFields(initial ? { initial } : { title });
     const status: Questionnaire['status'] = initial ? initial.status : 'active';
-    const version = initial?.version ?? '1';
+    const version = initial?.version ?? PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION;
     const metaTags = initial?.meta?.tag;
 
     const questionnaire: PracticeManagedQuestionnaire = {

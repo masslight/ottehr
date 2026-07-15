@@ -95,10 +95,15 @@ export function itemsReducer(
       }));
 
     case 'UPDATE_ITEM':
-      return updateItemInTree(state, action.key, (item) => ({
-        ...item,
-        [action.field]: action.value,
-      }));
+      return updateItemInTree(state, action.key, (item) => {
+        const isChoiceType = action.field === 'type' && (action.value === 'choice' || action.value === 'open-choice');
+        const needsAnswerOptionStub = isChoiceType && (!item.answerOption || item.answerOption.length === 0);
+        return {
+          ...item,
+          [action.field]: action.value,
+          ...(needsAnswerOptionStub ? { answerOption: [{ valueString: '' }] } : {}),
+        };
+      });
 
     case 'REMOVE_ITEM':
       return removeItemFromTree(state, action.key);

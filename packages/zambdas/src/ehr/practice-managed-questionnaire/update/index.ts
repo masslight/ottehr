@@ -29,7 +29,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     await updateQuestionnaireStatus(questionnaireId, newStatus, oystehr);
   } else if (updateType === 'update-questionnaire') {
     const { id: previousId, version: previousVersion, ...rest } = data;
-    const nextVersion = (parseInt(previousVersion) + 1).toString();
+
+    const nextVersion = bumpPatch(previousVersion);
     console.log('nextVersion', nextVersion);
 
     console.log('configuring post request for updated resource');
@@ -37,6 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ...rest,
       version: nextVersion,
     });
+
     const updatedQPostRequest: BatchInputPostRequest<Questionnaire> = {
       method: 'POST',
       url: '/Questionnaire',
@@ -84,3 +86,8 @@ async function updateQuestionnaireStatus(
   });
   console.log('success');
 }
+
+const bumpPatch = (version: string): string => {
+  const [major, minor, patch] = version.split('.').map(Number);
+  return `${major}.${minor}.${patch + 1}`;
+};

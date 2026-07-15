@@ -26,6 +26,8 @@ import { slugify } from '../slugify';
 const DATA_TYPE_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.dataType;
 const INPUT_WIDTH_EXTENSION_URL = OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.inputWidth;
 
+export const PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION = '1.0.0';
+
 /**
  * Mainly massages the item property, PracticeManagedQuestionnaireItem has a few fields that are custom / needed only for front end
  * Custom fields are mapped to extensions and _keys are removed
@@ -70,8 +72,17 @@ const omitManagedFields = (item: PracticeManagedQuestionnaireItem): Questionnair
   // the front end reducer automatically assigns text as an empty string to make updates easier
   // this is technically valid for typescript but if you send the object to oystehr for create or update with an empty string it will error
   if (item.text === '') delete item.text;
+  if (item.answerOption) {
+    item.answerOption = item.answerOption.filter((option) => Object.values(option).some((value) => value !== ''));
 
-  const { _key, _dataType, _inputWidth, ...fhirItem } = item;
+    if (item.answerOption.length === 0) {
+      delete item.answerOption;
+    }
+
+    console.log('whats left', item.answerOption);
+  }
+
+  const { _key, dataType: _dataType, inputWidth: _inputWidth, ...fhirItem } = item;
 
   return fhirItem;
 };
@@ -107,7 +118,7 @@ export const fhirQuestionnaireToPracticeManaged = (questionnaire: Questionnaire)
   const managedItems = questionnaire.item?.map(fhirQuestionnaireItemToManaged);
 
   // if no version is given we give it 1
-  const version = questionnaire.version ?? '1';
+  const version = questionnaire.version ?? PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION;
 
   // if no title is provided, safeParse will fail so just temp falling back to form
   const slug = slugify(questionnaire.title ?? 'form', { maxLength: 60 });

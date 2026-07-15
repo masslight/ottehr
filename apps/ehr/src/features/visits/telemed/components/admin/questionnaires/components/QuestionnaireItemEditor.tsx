@@ -106,7 +106,7 @@ const ItemFields: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.D
             onChange={(e) => dispatch({ type: 'UPDATE_ITEM', key: item._key, field: 'type', value: e.target.value })}
             fullWidth
           >
-            {QUESTIONNAIRE_ITEM_TYPES.filter((t) => t !== 'group').map((t) => (
+            {QUESTIONNAIRE_ITEM_TYPES.map((t) => (
               <MenuItem key={t} value={t}>
                 {t}
               </MenuItem>
