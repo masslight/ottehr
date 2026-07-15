@@ -30,7 +30,10 @@ export class AdministeredDialogue {
 
   async selectReason(reason: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.administrationConfirmationDialog.reasonField).click();
-    await this.#page.getByText(reason, { exact: true }).click();
+    // Scope to the listbox option: the same reason text also appears in MAR reason cells for
+    // orders left by earlier tests on the shared appointment, so a page-wide getByText would
+    // match several elements and trip strict mode.
+    await this.#page.getByRole('option', { name: reason, exact: true }).click();
   }
 
   async clickMarkAsAdministeredButton(): Promise<AdministeredDialogue> {

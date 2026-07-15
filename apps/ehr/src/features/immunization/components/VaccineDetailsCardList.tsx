@@ -2,6 +2,7 @@ import { Box, Stack, Typography } from '@mui/material';
 import React, { useLayoutEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useGetImmunizationOrders } from '../../visits/in-person/hooks/useImmunization';
 import { ordersRecentFirstComparator } from '../common';
@@ -62,6 +63,7 @@ export const VaccineDetailsCardList: React.FC = () => {
           }}
           key={order.id}
           id={`order-${order.id}`}
+          data-testid={dataTestIds.immunizationPage.vaccineDetailsCard}
         >
           <VaccineDetailsCard order={order} />
         </Box>
