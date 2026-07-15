@@ -487,7 +487,7 @@ export const QR_DISTRIBUTION_TAG = {
 };
 
 /** meta.tag system for who sent triggered QR send, code is expected to be practitioner reference and display is expected to be a human readable name */
-export const QR_SENT_BY_SYSTEM = ottehrCodeSystemUrl('qr-distribution');
+export const QR_SENT_BY_SYSTEM = ottehrCodeSystemUrl('qr-practitioner-distribution-by');
 
 // ── Service-category characteristic systems (one per dimension) ─────────────
 
