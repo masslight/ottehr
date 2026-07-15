@@ -131,8 +131,7 @@ export interface EligibilityCheckStandardStructuredInput {
 }
 
 type EligibilityCheckStructuredInput =
-  | EligibilityCheckPrevalidationStructuredInput
-  | EligibilityCheckStandardStructuredInput;
+  EligibilityCheckPrevalidationStructuredInput | EligibilityCheckStandardStructuredInput;
 
 export const complexInsuranceValidation = async (
   input: GetEligibilityInput,

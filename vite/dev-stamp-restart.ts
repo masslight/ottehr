@@ -6,8 +6,7 @@ import type { Plugin, ViteDevServer } from 'vite';
 export const DEV_STAMP_FILENAME = '.dev-overlay-stamp';
 
 export function devStampRestartPlugin(repoRoot: string): Plugin {
-  const stampPath =
-    process.env.VITE_DEV_STAMP_FILE?.trim() || path.join(repoRoot, DEV_STAMP_FILENAME);
+  const stampPath = process.env.VITE_DEV_STAMP_FILE?.trim() || path.join(repoRoot, DEV_STAMP_FILENAME);
 
   const restart = (server: ViteDevServer): void => {
     console.log('\n[vite] dev stamp changed — restarting dev server…\n');

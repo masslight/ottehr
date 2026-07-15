@@ -48,8 +48,8 @@ export const index = wrapHandler(
       if (dateFiltered.length === 0) return null;
 
       if (locationId) {
-        const locationMatch = dateFiltered.find(
-          (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
+        const locationMatch = dateFiltered.find((fs) =>
+          fs.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
         );
         if (locationMatch) return locationMatch;
 
@@ -65,8 +65,8 @@ export const index = wrapHandler(
 
     // 1. If employer org provided, try employer-specific fee schedule first
     if (employerOrganizationId) {
-      const employerFeeSchedules = allFeeSchedules.filter(
-        (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
+      const employerFeeSchedules = allFeeSchedules.filter((fs) =>
+        fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
       );
       const employerMatch = findBestMatch(employerFeeSchedules);
       if (employerMatch) {
@@ -79,8 +79,8 @@ export const index = wrapHandler(
 
     // 2. Fall back to payer (insurance) fee schedule
     if (payerOrganizationId) {
-      const payerFeeSchedules = allFeeSchedules.filter(
-        (fs) => fs.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, payerOrganizationId))
+      const payerFeeSchedules = allFeeSchedules.filter((fs) =>
+        fs.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, payerOrganizationId))
       );
 
       const payerMatch = findBestMatch(payerFeeSchedules);

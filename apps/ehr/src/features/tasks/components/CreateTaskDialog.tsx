@@ -87,31 +87,31 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     formValue.category === MANUAL_TASK.category.inHouseLab
       ? inHouseLabOrdersLoading
       : formValue.category === MANUAL_TASK.category.externalLab
-      ? externalLabOrdersLoading
-      : formValue.category === MANUAL_TASK.category.nursingOrders
-      ? nursingOrdersLoading
-      : formValue.category === MANUAL_TASK.category.radiology
-      ? radiologyOrdersLoading
-      : formValue.category === MANUAL_TASK.category.procedures
-      ? proceduresLoading
-      : formValue.category === MANUAL_TASK.category.inHouseMedications
-      ? inHouseMedicationsLoading
-      : false;
+        ? externalLabOrdersLoading
+        : formValue.category === MANUAL_TASK.category.nursingOrders
+          ? nursingOrdersLoading
+          : formValue.category === MANUAL_TASK.category.radiology
+            ? radiologyOrdersLoading
+            : formValue.category === MANUAL_TASK.category.procedures
+              ? proceduresLoading
+              : formValue.category === MANUAL_TASK.category.inHouseMedications
+                ? inHouseMedicationsLoading
+                : false;
 
   const orderOptions =
     formValue.category === MANUAL_TASK.category.inHouseLab
       ? inHouseLabOrdersOptions
       : formValue.category === MANUAL_TASK.category.externalLab
-      ? externalLabOrdersOptions
-      : formValue.category === MANUAL_TASK.category.nursingOrders
-      ? nursingOrdersOptions
-      : formValue.category === MANUAL_TASK.category.radiology
-      ? radiologyOrdersOptions
-      : formValue.category === MANUAL_TASK.category.procedures
-      ? proceduresOptions
-      : formValue.category === MANUAL_TASK.category.inHouseMedications
-      ? inHouseMedicationsOptions
-      : [];
+        ? externalLabOrdersOptions
+        : formValue.category === MANUAL_TASK.category.nursingOrders
+          ? nursingOrdersOptions
+          : formValue.category === MANUAL_TASK.category.radiology
+            ? radiologyOrdersOptions
+            : formValue.category === MANUAL_TASK.category.procedures
+              ? proceduresOptions
+              : formValue.category === MANUAL_TASK.category.inHouseMedications
+                ? inHouseMedicationsOptions
+                : [];
 
   useEffect(() => {
     if (!formValue.patient) {

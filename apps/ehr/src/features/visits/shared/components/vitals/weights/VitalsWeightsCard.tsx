@@ -84,8 +84,8 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Ele
     (isPatientRefused
       ? 'Patient Refused'
       : latestWeightKg
-      ? formatWeight(latestWeightKg, vitalsConfig['vital-weight'].unit)
-      : '');
+        ? formatWeight(latestWeightKg, vitalsConfig['vital-weight'].unit)
+        : '');
 
   return (
     <Box sx={{ mt: 3 }}>

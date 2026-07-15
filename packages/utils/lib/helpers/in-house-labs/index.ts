@@ -474,8 +474,8 @@ const getResult = (
   let result: TestComponentResult | undefined;
   let entry: string | undefined;
 
-  const interpretationCoding = observation.interpretation?.find(
-    (i) => i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
+  const interpretationCoding = observation.interpretation?.find((i) =>
+    i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
   )?.coding;
   let interpretationCode: ObservationCode | undefined;
   if (interpretationCoding) {

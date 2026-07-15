@@ -291,8 +291,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // In this case, find any practitioner participant
     let telemedPractitionerId: string | undefined;
     if (isTelemedicine && !attendingProviderId && !admitterProviderId) {
-      const practitionerParticipant = encounter.participant?.find(
-        (part) => part.individual?.reference?.includes('Practitioner/')
+      const practitionerParticipant = encounter.participant?.find((part) =>
+        part.individual?.reference?.includes('Practitioner/')
       );
       if (practitionerParticipant?.individual?.reference) {
         telemedPractitionerId = practitionerParticipant.individual.reference.replace('Practitioner/', '');

@@ -42,9 +42,8 @@ export const buildEmployerType = (categoryText = 'Occupational Medicine'): NonNu
 
 export const isEmployerOrganization = (organization: Organization): boolean => {
   return (
-    organization.type?.some(
-      (t) =>
-        t.coding?.some((coding) => coding.system === EMPLOYER_ORG_TYPE_SYSTEM && coding.code === EMPLOYER_ORG_TYPE_CODE)
+    organization.type?.some((t) =>
+      t.coding?.some((coding) => coding.system === EMPLOYER_ORG_TYPE_SYSTEM && coding.code === EMPLOYER_ORG_TYPE_CODE)
     ) ?? false
   );
 };

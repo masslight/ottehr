@@ -38,7 +38,7 @@ export const InsuranceSearchField: React.FC<{
     [existingLoading, payers, existingReferences]
   );
   const selectedOption = value
-    ? options.find((opt) => opt.display === value) ?? ({ display: value } as Reference)
+    ? (options.find((opt) => opt.display === value) ?? ({ display: value } as Reference))
     : null;
 
   return (

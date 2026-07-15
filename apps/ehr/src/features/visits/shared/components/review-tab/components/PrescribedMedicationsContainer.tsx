@@ -63,7 +63,9 @@ export const PrescribedMedicationsContainer: FC = () => {
                   .join(', ')}
               </Typography>
             )}
-            {meds?.map((med) => <PrescribedMedicationReviewItem key={med.resourceId || med.name} medication={med} />)}
+            {meds?.map((med) => (
+              <PrescribedMedicationReviewItem key={med.resourceId || med.name} medication={med} />
+            ))}
           </Box>
         );
       })}

@@ -44,7 +44,7 @@ export const CurrentMedicationsCard: FC = () => {
           id: selection.medication.id?.toString(),
           type: selection.type ?? 'scheduled',
           intakeInfo: {
-            dose: doseIsRedundantWithStrength ? undefined : selection.dose ?? undefined,
+            dose: doseIsRedundantWithStrength ? undefined : (selection.dose ?? undefined),
             date: selection.date,
             patientCouldNotConfirmDosage: selection.patientCouldNotConfirmDosage || undefined,
           },

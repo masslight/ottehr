@@ -695,8 +695,8 @@ function GroupPageContent(): ReactElement {
                       targetLocationIdSet.size === 0
                         ? 'no locations selected'
                         : offeringLocationNames.size > 0
-                        ? Array.from(offeringLocationNames).sort().join(', ')
-                        : 'no selected location offers this service';
+                          ? Array.from(offeringLocationNames).sort().join(', ')
+                          : 'no selected location offers this service';
                     const isWarning = isInAllowList && targetLocationIdSet.size > 0 && offeringLocationNames.size === 0;
                     return (
                       <Box

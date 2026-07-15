@@ -86,8 +86,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
 
   if (createdProviderId) {
     // Check if "created" provider already exists, if not add it
-    const hasCreatedProvider = resource.performer?.some(
-      (performer) => performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
+    const hasCreatedProvider = resource.performer?.some((performer) =>
+      performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
     );
 
     if (!hasCreatedProvider) {

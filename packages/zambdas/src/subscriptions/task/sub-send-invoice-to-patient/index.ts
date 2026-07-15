@@ -306,8 +306,8 @@ async function getFhirResources(
     if (!location) throw FHIR_RESOURCE_NOT_FOUND('Location');
   } else console.log("Appointment doesn't have location id");
   const schedule = location?.id
-    ? (response.filter((res) => res.resourceType === 'Schedule') as Schedule[]).find(
-        (s) => s.actor?.some((a) => a.reference === `Location/${location.id}`)
+    ? (response.filter((res) => res.resourceType === 'Schedule') as Schedule[]).find((s) =>
+        s.actor?.some((a) => a.reference === `Location/${location.id}`)
       )
     : undefined;
   const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehr);

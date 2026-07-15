@@ -194,13 +194,13 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
   ): { value: string | null; link: ClaimHistoryLink | null } => {
     if (!ref) return { value, link: null };
     if (isPayerUrl(ref)) {
-      const resolved = value === ref ? payerDisplay(payersByRef.get(ref)) ?? value : value;
+      const resolved = value === ref ? (payerDisplay(payersByRef.get(ref)) ?? value) : value;
       return { value: resolved, link: null };
     }
     const resource = resourcesByRef.get(ref);
     const resolved = value === ref && resource ? resourceDisplayName(resource) || value : value;
     const screen = FIELD_SCREEN[field];
-    const linkId = resource ? sourceId(resource) ?? resource.id : undefined;
+    const linkId = resource ? (sourceId(resource) ?? resource.id) : undefined;
     return { value: resolved, link: screen && linkId ? { screen, id: linkId } : null };
   };
 

@@ -144,14 +144,7 @@ const TRIGGER_EVENT_FILTER_OPTIONS = Object.keys(TRIGGER_EVENT_LABELS) as Trigge
 type TriggerEventFilterValue = keyof typeof TRIGGER_EVENT_LABELS;
 
 type DateRangePreset =
-  | 'today'
-  | 'last7days'
-  | 'last30days'
-  | 'thisMonth'
-  | 'lastMonth'
-  | 'thisQuarter'
-  | 'lastQuarter'
-  | 'custom';
+  'today' | 'last7days' | 'last30days' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'custom';
 
 const DATE_RANGE_OPTIONS: { value: DateRangePreset; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -204,8 +197,8 @@ function getDateRangeValues(
     case 'custom': {
       if (!customStart && !customEnd) return {};
       return {
-        from: customStart ? DateTime.fromISO(customStart).startOf('day').toISO() ?? undefined : undefined,
-        to: customEnd ? DateTime.fromISO(customEnd).endOf('day').toISO() ?? undefined : undefined,
+        from: customStart ? (DateTime.fromISO(customStart).startOf('day').toISO() ?? undefined) : undefined,
+        to: customEnd ? (DateTime.fromISO(customEnd).endOf('day').toISO() ?? undefined) : undefined,
       };
     }
     default:
@@ -868,13 +861,13 @@ function TaskTable({
                                 bgcolor: sent
                                   ? MEDIUM_CHIP_COLORS[medium] || otherColors.outreachNeutralMain
                                   : failed
-                                  ? otherColors.outreachErrorBgSubtle
-                                  : palette.background.paper,
+                                    ? otherColors.outreachErrorBgSubtle
+                                    : palette.background.paper,
                                 color: sent
                                   ? palette.background.paper
                                   : failed
-                                  ? otherColors.outreachErrorText
-                                  : MEDIUM_CHIP_COLORS[medium] || 'text.primary',
+                                    ? otherColors.outreachErrorText
+                                    : MEDIUM_CHIP_COLORS[medium] || 'text.primary',
                                 borderColor: failed
                                   ? otherColors.outreachErrorText
                                   : MEDIUM_CHIP_COLORS[medium] || 'divider',
@@ -1578,8 +1571,8 @@ function EmailHistoryDialog({
           const sent = comm.sent
             ? DateTime.fromISO(comm.sent).toFormat('M/d/yyyy h:mm a')
             : comm.meta?.lastUpdated
-            ? DateTime.fromISO(comm.meta.lastUpdated).toFormat('M/d/yyyy h:mm a')
-            : 'Unknown date';
+              ? DateTime.fromISO(comm.meta.lastUpdated).toFormat('M/d/yyyy h:mm a')
+              : 'Unknown date';
           return { id: comm.id || '', content: textPayload, sentDate: sent, recipientEmail: recipientDisplay };
         });
         setEmails(records);
@@ -1781,8 +1774,8 @@ function PaperMailHistoryDialog({
           const sent = comm.sent
             ? DateTime.fromISO(comm.sent).toFormat('M/d/yyyy h:mm a')
             : comm.meta?.lastUpdated
-            ? DateTime.fromISO(comm.meta.lastUpdated).toFormat('M/d/yyyy h:mm a')
-            : 'Unknown date';
+              ? DateTime.fromISO(comm.meta.lastUpdated).toFormat('M/d/yyyy h:mm a')
+              : 'Unknown date';
           // Try to extract statement type from description or fall back
           let statementType = 'standard';
           const lowerDesc = description.toLowerCase();
@@ -1844,14 +1837,14 @@ function PaperMailHistoryDialog({
                           record.statementType === 'final-notice'
                             ? otherColors.outreachErrorBgSubtle
                             : record.statementType === 'past-due'
-                            ? otherColors.outreachWarningBgSubtle
-                            : otherColors.outreachSuccessBgSubtle,
+                              ? otherColors.outreachWarningBgSubtle
+                              : otherColors.outreachSuccessBgSubtle,
                         color:
                           record.statementType === 'final-notice'
                             ? palette.error.dark
                             : record.statementType === 'past-due'
-                            ? palette.warning.dark
-                            : palette.success.main,
+                              ? palette.warning.dark
+                              : palette.success.main,
                       }}
                     />
                     <Typography variant="caption" sx={{ color: 'text.secondary', flexGrow: 1 }}>

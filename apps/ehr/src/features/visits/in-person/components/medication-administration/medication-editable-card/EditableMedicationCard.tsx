@@ -218,8 +218,9 @@ export const EditableMedicationCard: React.FC<{
       // Resolve medicationId: use the stored ID, or look up by name if not available
       let resolvedMedicationId = quickPick.medicationId;
       if (!resolvedMedicationId && quickPick.medicationName) {
-        resolvedMedicationId = selectsOptions.medicationId.options.find((o) => o.label === quickPick.medicationName)
-          ?.value;
+        resolvedMedicationId = selectsOptions.medicationId.options.find(
+          (o) => o.label === quickPick.medicationName
+        )?.value;
       }
       setLocalValues((prev) => ({
         ...prev,

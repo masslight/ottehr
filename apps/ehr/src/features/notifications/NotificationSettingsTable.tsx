@@ -223,8 +223,8 @@ function NotificationRow({
             row.allLocations
               ? 'All locations'
               : row.locationIds.length > 0
-              ? row.locationIds.map((id) => locationNameById.get(id) ?? id).join(', ')
-              : 'Select locations'
+                ? row.locationIds.map((id) => locationNameById.get(id) ?? id).join(', ')
+                : 'Select locations'
           }
         >
           <MenuItem value={ALL_LOCATIONS_OPTION}>

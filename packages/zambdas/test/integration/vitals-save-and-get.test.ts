@@ -521,11 +521,10 @@ describe('saving and getting vitals', () => {
         const observation = await oystehr.fhir.get<Observation>({ resourceType: 'Observation', id: observationId! });
         expect(observation).toBeDefined();
         expect(observation.component).toBeDefined();
-        const systolicComponent = observation.component?.find(
-          (c) =>
-            c.code?.coding?.some(
-              (coding) => coding.code === VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE && coding.system === LOINC_SYSTEM
-            )
+        const systolicComponent = observation.component?.find((c) =>
+          c.code?.coding?.some(
+            (coding) => coding.code === VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE && coding.system === LOINC_SYSTEM
+          )
         );
         expect(systolicComponent).toBeDefined();
         expect(systolicComponent?.valueQuantity?.value).toBe(58);
@@ -535,11 +534,10 @@ describe('saving and getting vitals', () => {
         assert(interpretation);
         expect(interpretation?.[0].coding?.[0]?.code).toBe('LX');
         expect(interpretation?.[0].coding?.[0]?.system).toBe(FHIRObservationInterpretationSystem);
-        const diastolicComponent = observation.component?.find(
-          (c) =>
-            c.code?.coding?.some(
-              (coding) => coding.code === VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE && coding.system === LOINC_SYSTEM
-            )
+        const diastolicComponent = observation.component?.find((c) =>
+          c.code?.coding?.some(
+            (coding) => coding.code === VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE && coding.system === LOINC_SYSTEM
+          )
         );
         expect(diastolicComponent).toBeDefined();
         expect(diastolicComponent?.valueQuantity?.value).toBe(40);

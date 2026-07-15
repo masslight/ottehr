@@ -31,7 +31,7 @@ const valueExists = (actual: string | string[] | undefined): boolean => {
 };
 
 const asScalar = (v: string | string[] | undefined): string | undefined =>
-  Array.isArray(v) ? undefined : v ?? undefined;
+  Array.isArray(v) ? undefined : (v ?? undefined);
 
 export const evaluateOperator = (
   operator: RuleOperator,

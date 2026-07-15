@@ -113,8 +113,8 @@ export const appointmentAttendanceTypeAppointment = (
   return appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP)
     ? 'in-person'
     : appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM)
-    ? 'virtual'
-    : undefined;
+      ? 'virtual'
+      : undefined;
 };
 
 interface GetConsentAndRelatedDocRefsForAppointmentParams {

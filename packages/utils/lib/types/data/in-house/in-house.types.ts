@@ -74,9 +74,7 @@ export interface StringDataEntryComponent extends BaseDataEntryComponent {
 }
 
 export type DataEntryComponent =
-  | CodeableConceptDataEntryComponent
-  | QuantityDataEntryComponent
-  | StringDataEntryComponent;
+  CodeableConceptDataEntryComponent | QuantityDataEntryComponent | StringDataEntryComponent;
 
 export type DataEntryComponentType =
   | {

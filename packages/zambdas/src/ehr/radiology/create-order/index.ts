@@ -59,8 +59,10 @@ export interface ValidatedInput {
   callerAccessToken: string;
 }
 
-export interface EnhancedBody
-  extends Omit<CreateRadiologyZambdaOrderInput, 'encounterId' | 'diagnosisCode' | 'cptCode'> {
+export interface EnhancedBody extends Omit<
+  CreateRadiologyZambdaOrderInput,
+  'encounterId' | 'diagnosisCode' | 'cptCode'
+> {
   encounter: Encounter;
   diagnosis: ValidatedICD10Code;
   cpt: ValidatedCPTCode;

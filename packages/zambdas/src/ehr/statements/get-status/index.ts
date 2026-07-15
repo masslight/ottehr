@@ -104,13 +104,13 @@ function getPostGridLetterIdFromCommunication(resource: Communication | undefine
 }
 
 function getPostGridLetterIdFromTask(task: Task | undefined): string | undefined {
-  const valueFromInput = task?.input?.find(
-    (input) => input.type.coding?.some((coding) => coding.code === 'vendor-letter-id')
+  const valueFromInput = task?.input?.find((input) =>
+    input.type.coding?.some((coding) => coding.code === 'vendor-letter-id')
   )?.valueString;
   if (valueFromInput) return valueFromInput;
 
-  const valueFromOutput = task?.output?.find(
-    (output) => output.type.coding?.some((coding) => coding.code === 'vendor-letter-id')
+  const valueFromOutput = task?.output?.find((output) =>
+    output.type.coding?.some((coding) => coding.code === 'vendor-letter-id')
   )?.valueString;
   if (valueFromOutput) return valueFromOutput;
 

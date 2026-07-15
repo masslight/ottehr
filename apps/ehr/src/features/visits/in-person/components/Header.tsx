@@ -274,8 +274,8 @@ export const Header = (): JSX.Element => {
   const paymentVariant = formatLabelValue(
     encounterValues?.payment === PaymentVariant.selfPay
       ? 'Self-pay'
-      : (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
-          (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary))
+      : ((insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
+          (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary)))
   );
   const patientName = formatLabelValue(mappedData?.patientName, 'Name');
   const pronouns = formatLabelValue(mappedData?.pronouns, 'Pronouns');

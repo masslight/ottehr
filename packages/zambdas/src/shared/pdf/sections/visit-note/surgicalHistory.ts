@@ -15,8 +15,8 @@ export const composeSurgicalHistory: DataComposer<ProgressNoteVisitDataInput, Su
   const surgicalHistoryNotes = isInPerson
     ? additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)?.map((note) => note.text)
     : additionalChartData?.surgicalHistoryNote?.text
-    ? [additionalChartData?.surgicalHistoryNote?.text]
-    : [];
+      ? [additionalChartData?.surgicalHistoryNote?.text]
+      : [];
   return {
     surgicalHistory,
     surgicalHistoryNotes,

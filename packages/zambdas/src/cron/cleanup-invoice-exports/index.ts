@@ -48,8 +48,9 @@ export const index = wrapHandler(
 
     for (const task of eligibleTasks) {
       // Delete the Z3 object if the task has an output URL
-      const outputUrl = task.output?.find((o) => o.type?.coding?.some((c) => c.code === EXPORT_CSV_OUTPUT_URL_CODE))
-        ?.valueString;
+      const outputUrl = task.output?.find((o) =>
+        o.type?.coding?.some((c) => c.code === EXPORT_CSV_OUTPUT_URL_CODE)
+      )?.valueString;
 
       if (outputUrl) {
         // Extract the object path from the full Z3 URL

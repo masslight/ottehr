@@ -11,8 +11,10 @@ import {
   UCGetPaperworkResponse,
 } from 'utils';
 
-export interface PaperworkContext
-  extends Omit<UCGetPaperworkResponse, 'patient' | 'appointment' | 'questionnaireResponse'> {
+export interface PaperworkContext extends Omit<
+  UCGetPaperworkResponse,
+  'patient' | 'appointment' | 'questionnaireResponse'
+> {
   paperwork: QuestionnaireResponseItem[];
   paperworkInProgress: { [pageId: string]: QuestionnaireFormFields };
   pageItems: IntakeQuestionnaireItem[];

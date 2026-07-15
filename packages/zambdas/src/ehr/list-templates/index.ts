@@ -87,8 +87,8 @@ const performEffect = async (
   const knownRosFields = collectKnownRosFields();
 
   // Filter to templates matching the requested exam type code system
-  const examTypeTemplates = filteredTemplates.filter(
-    (template) => template.code?.coding?.some((c) => c.system === codeSystem)
+  const examTypeTemplates = filteredTemplates.filter((template) =>
+    template.code?.coding?.some((c) => c.system === codeSystem)
   );
 
   const examTagSystem = chartDataTagSystem('exam-observation-field');

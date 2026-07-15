@@ -279,8 +279,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const visitType = isTelemedAppointment(appointment)
       ? 'Telemed'
       : isInPersonAppointment(appointment)
-      ? 'In-Person'
-      : 'Unknown';
+        ? 'In-Person'
+        : 'Unknown';
 
     const visitStatus = appointment ? getInPersonVisitStatus(appointment, encounter, true) : 'unknown';
 

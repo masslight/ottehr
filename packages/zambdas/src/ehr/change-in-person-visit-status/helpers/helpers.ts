@@ -122,8 +122,8 @@ const getUpdateInPersonAppointmentStatusOperation = async (
 
   let statusUpdatePatchValue = updatedStatus;
   if (updatedStatus === 'ready for provider') {
-    const attenderParticipant = encounter.participant?.find(
-      (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
+    const attenderParticipant = encounter.participant?.find((p) =>
+      p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
     );
     // if the provider is already assigned then the visit is essentially skipping 'ready for provider' and being moved straight to provider
     // so the status update we want to record is for provider
@@ -436,16 +436,16 @@ const updateParticipantPeriod = ({
 };
 
 const findAdmitterIndex = (encounter: Encounter): number => {
-  const index = encounter.participant?.findIndex(
-    (p) => p?.type?.some((t) => t?.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Admitter[0].code))
+  const index = encounter.participant?.findIndex((p) =>
+    p?.type?.some((t) => t?.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Admitter[0].code))
   );
 
   return typeof index === 'number' ? index : -1;
 };
 
 const findAttenderIndex = (encounter: Encounter): number => {
-  const index = encounter.participant?.findIndex(
-    (p) => p?.type?.some((t) => t?.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Attender[0].code))
+  const index = encounter.participant?.findIndex((p) =>
+    p?.type?.some((t) => t?.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Attender[0].code))
   );
 
   return typeof index === 'number' ? index : -1;

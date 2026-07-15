@@ -454,10 +454,10 @@ async function main(): Promise<void> {
         paymentResult.status === 'charged'
           ? '✅ Charged'
           : paymentResult.status === 'attempted'
-          ? '❌ Failed'
-          : testMode
-          ? '🧪 Test'
-          : '⏸️  No Card';
+            ? '❌ Failed'
+            : testMode
+              ? '🧪 Test'
+              : '⏸️  No Card';
 
       // Print compact single line with payment status
       console.log(

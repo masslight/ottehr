@@ -203,19 +203,19 @@ const extractValueCodeProperty = (
   properties: Device['property'],
   propertyDetails: { propertyName: LabelPrintingProperty; valueSystem: string }
 ): string => {
-  const property = properties?.find(
-    (property) =>
-      property.type.coding?.some(
-        (coding) =>
-          coding.system === LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM && coding.code === propertyDetails.propertyName
-      )
+  const property = properties?.find((property) =>
+    property.type.coding?.some(
+      (coding) =>
+        coding.system === LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM && coding.code === propertyDetails.propertyName
+    )
   );
   if (!property) {
     throw new Error(`Cannot parse property ${propertyDetails.propertyName}`);
   }
 
-  const propertyValue = property.valueCode?.[0].coding?.find((coding) => coding.system === propertyDetails.valueSystem)
-    ?.code;
+  const propertyValue = property.valueCode?.[0].coding?.find(
+    (coding) => coding.system === propertyDetails.valueSystem
+  )?.code;
   if (!propertyValue) {
     throw new Error(
       `Could not parse value for property ${propertyDetails.propertyName} at ${propertyDetails.valueSystem}`

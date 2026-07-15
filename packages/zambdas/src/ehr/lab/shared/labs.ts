@@ -738,13 +738,14 @@ export const makeEncounterLabResults = async (
   const reflexOrderResults: ExternalLabOrderResultConfig[] = [];
 
   for (const docRef of documentReferences) {
-    const diagnosticReportRef = docRef.context?.related?.find(
-      (related) => related.reference?.startsWith('DiagnosticReport')
+    const diagnosticReportRef = docRef.context?.related?.find((related) =>
+      related.reference?.startsWith('DiagnosticReport')
     )?.reference;
     if (diagnosticReportRef) {
       const relatedDR: DiagnosticReport | undefined = diagnosticReportMap[diagnosticReportRef];
-      const serviceRequestRef = relatedDR?.basedOn?.find((based) => based.reference?.startsWith('ServiceRequest'))
-        ?.reference;
+      const serviceRequestRef = relatedDR?.basedOn?.find((based) =>
+        based.reference?.startsWith('ServiceRequest')
+      )?.reference;
       if (serviceRequestRef) {
         const relatedSRDetail = serviceRequestMap[serviceRequestRef];
         if (!relatedSRDetail) continue;
@@ -1466,22 +1467,20 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     resultPdfDocumentReference,
     labGeneratedResultPdfDocumentReference,
   } = resources;
-  const matchTask = [...readyTasks, ...completedTasks].find(
-    (task) =>
-      task.code?.coding?.some(
-        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
-      )
+  const matchTask = [...readyTasks, ...completedTasks].find((task) =>
+    task.code?.coding?.some(
+      (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+    )
   );
-  const reviewTask = [...readyTasks, ...completedTasks].find(
-    (task) =>
-      task.code?.coding?.some(
-        (c) =>
-          c.system === LAB_ORDER_TASK.system &&
-          (c.code === LAB_ORDER_TASK.code.reviewFinalResult ||
-            c.code === LAB_ORDER_TASK.code.reviewPreliminaryResult ||
-            c.code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
-            c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
-      )
+  const reviewTask = [...readyTasks, ...completedTasks].find((task) =>
+    task.code?.coding?.some(
+      (c) =>
+        c.system === LAB_ORDER_TASK.system &&
+        (c.code === LAB_ORDER_TASK.code.reviewFinalResult ||
+          c.code === LAB_ORDER_TASK.code.reviewPreliminaryResult ||
+          c.code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+          c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
+    )
   );
 
   // console.log('check matchTask', JSON.stringify(matchTask));

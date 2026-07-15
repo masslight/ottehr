@@ -83,8 +83,9 @@ async function buildStatusResponse(task: FhirTask, token: string): Promise<Expor
   const status = task.status as ExportInvoicesCsvStatusResponse['status'];
 
   if (status === 'completed') {
-    const outputUrl = task.output?.find((o) => o.type?.coding?.some((c) => c.code === EXPORT_CSV_OUTPUT_URL_CODE))
-      ?.valueString;
+    const outputUrl = task.output?.find((o) =>
+      o.type?.coding?.some((c) => c.code === EXPORT_CSV_OUTPUT_URL_CODE)
+    )?.valueString;
 
     if (outputUrl) {
       const downloadUrl = await createPresignedUrl(token, outputUrl, 'download');

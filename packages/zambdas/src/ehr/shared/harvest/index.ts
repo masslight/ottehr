@@ -1898,11 +1898,7 @@ const extractPolicyHolder = (
     email: findAnswer(`policy-holder-email${suffix}`),
     memberId: findAnswer(`insurance-member-id${suffix}`) ?? '',
     relationship: findAnswer(`patient-relationship-to-insured${suffix}`) as
-      | 'Self'
-      | 'Spouse'
-      | 'Parent'
-      | 'Legal Guardian'
-      | 'Other',
+      'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other',
   };
 
   const sameAsPatient = findBooleanAnswer(`policy-holder-address-as-patient${suffix}`) === true;
@@ -1977,11 +1973,7 @@ export function extractAccountGuarantor(
     firstName: findAnswer('responsible-party-first-name') ?? '',
     lastName: findAnswer('responsible-party-last-name') ?? '',
     relationship: findAnswer('responsible-party-relationship') as
-      | 'Self'
-      | 'Spouse'
-      | 'Parent'
-      | 'Legal Guardian'
-      | 'Other',
+      'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other',
     address: guarantorAddress,
     email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
@@ -2432,8 +2424,8 @@ const buildAttorneyRelatedPerson = (
   const extensions = firmExtension
     ? [...existingExtensions, firmExtension]
     : existingExtensions.length
-    ? existingExtensions
-    : undefined;
+      ? existingExtensions
+      : undefined;
 
   return {
     resourceType: 'RelatedPerson',
@@ -2541,8 +2533,9 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
-  const coverageTypeCoding = VALUE_SETS.insuranceTypeOptions.find((planType) => planType.candidCode === typeCode)
-    ?.coverageCoding;
+  const coverageTypeCoding = VALUE_SETS.insuranceTypeOptions.find(
+    (planType) => planType.candidCode === typeCode
+  )?.coverageCoding;
   if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
@@ -3881,8 +3874,8 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     (res): res is RelatedPerson =>
       res.resourceType === 'RelatedPerson' &&
       Boolean(
-        res.relationship?.some(
-          (rel) => rel.coding?.some((coding) => coding.code === 'OTHER' && coding.display === 'MVA Attorney')
+        res.relationship?.some((rel) =>
+          rel.coding?.some((coding) => coding.code === 'OTHER' && coding.display === 'MVA Attorney')
         )
       )
   );
@@ -3981,11 +3974,10 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   const emergencyContactResource = resources.find(
     (res): res is RelatedPerson =>
       (res.resourceType === 'RelatedPerson' &&
-        res.relationship?.some(
-          (rel) =>
-            rel.coding?.some(
-              (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
-            )
+        res.relationship?.some((rel) =>
+          rel.coding?.some(
+            (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
+          )
         )) ||
       false
   );

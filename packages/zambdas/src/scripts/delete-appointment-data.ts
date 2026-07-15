@@ -99,8 +99,7 @@ const generateDeleteRequestsAndPerson = (
   const deleteRequests: BatchInputDeleteRequest[] = [];
 
   const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as
-    | Person
-    | undefined;
+    Person | undefined;
 
   const deleteSlotRequests = allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Slot')

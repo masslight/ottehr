@@ -63,7 +63,7 @@ export const buildSimpleScheduleExt = (input: BuildSimpleScheduleExtInput = {}):
   const open = input.open ?? (0 as HourOfDay);
   const close = input.close ?? 24;
   const usePrebookSlots = input.prebookSlots !== undefined;
-  const providers = usePrebookSlots ? undefined : input.providers ?? 1;
+  const providers = usePrebookSlots ? undefined : (input.providers ?? 1);
   const prebookSlots = input.prebookSlots;
   // Legacy `capacity` is required by the Capacity type but ignored by readers
   // when providers/prebookSlots is set. Compute it from whichever explicit
@@ -71,7 +71,7 @@ export const buildSimpleScheduleExt = (input: BuildSimpleScheduleExtInput = {}):
   // (capacity = providers * 4 mirrors the reader's `capacity / 4 = effective
   // providers` formula at 15-min cadence; for prebookSlots, capacity equals
   // prebookSlots since both express bookings/hour at 15-min cadence).
-  const legacyCapacity = providers !== undefined ? providers * 4 : prebookSlots ?? 4;
+  const legacyCapacity = providers !== undefined ? providers * 4 : (prebookSlots ?? 4);
   const hours: Capacity[] = [];
   for (let h = 0; h < 24; h++) {
     hours.push({

@@ -71,8 +71,8 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
 
   for (const serviceRequest of serviceRequests) {
     try {
-      const relatedDiagnosticReports = diagnosticReports.filter(
-        (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
+      const relatedDiagnosticReports = diagnosticReports.filter((dr) =>
+        dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
       );
 
       // todo labs team should we be validating the number of items in the array is 1?
@@ -185,12 +185,12 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
     console.log('searchBy field === serviceRequestId - indicates request was triggered on detail page');
-    const relatedSpecimen = specimens.find(
-      (specimen) => specimen.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
+    const relatedSpecimen = specimens.find((specimen) =>
+      specimen.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );
     const orderHistory = buildOrderHistory(provenances, serviceRequest, relatedSpecimen); // Pass specimen if available
-    const relatedSpecimens = specimens.filter(
-      (s) => s.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
+    const relatedSpecimens = specimens.filter((s) =>
+      s.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );
 
     const detailedPageDTO: InHouseOrderDetailPageItemDTO = {

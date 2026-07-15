@@ -398,7 +398,7 @@ export function getPatientInfoFullName(patient: PatientInfo): string {
 
 export function getPatientChosenName(patient: PatientInfo, lowercaseP?: boolean): string {
   // cSpell:disable-next {p|P}atient
-  return patient.chosenName ? patient.chosenName : patient.firstName ?? `${lowercaseP ? 'p' : 'P'}atient`;
+  return patient.chosenName ? patient.chosenName : (patient.firstName ?? `${lowercaseP ? 'p' : 'P'}atient`);
 }
 
 export function getPatientInfoFullNameUsingChosen(patient: PatientInfo): string {
@@ -453,14 +453,12 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
   const formUser = patient.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`)?.valueString;
   if (formUser === 'Parent/Guardian') {
     return patient.contact
-      ?.find(
-        (contactTemp) =>
-          contactTemp.relationship?.find(
-            (relationshipTemp) =>
-              relationshipTemp.coding?.find(
-                (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`
-              )
+      ?.find((contactTemp) =>
+        contactTemp.relationship?.find((relationshipTemp) =>
+          relationshipTemp.coding?.find(
+            (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`
           )
+        )
       )
       ?.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
   } else {

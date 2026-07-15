@@ -193,8 +193,8 @@ describe('billing coverage CRUD', () => {
         params: [{ name: 'subject', value: `Patient/${patientId}` }],
       })
     ).unbundle();
-    const stillLinked = accounts.some(
-      (acc) => acc.coverage?.some((c) => c.coverage?.reference === `Coverage/${coverageId}`)
+    const stillLinked = accounts.some((acc) =>
+      acc.coverage?.some((c) => c.coverage?.reference === `Coverage/${coverageId}`)
     );
     expect(stillLinked).toBe(false);
   }, 90_000);

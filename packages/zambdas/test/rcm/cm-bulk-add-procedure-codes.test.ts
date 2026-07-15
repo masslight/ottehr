@@ -101,11 +101,10 @@ const mockOystehrClient = {
   },
 };
 
-const { index: handler } = (await import(
-  '../../src/rcm/charge-masters/cm-bulk-add-procedure-codes/index'
-)) as unknown as {
-  index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-};
+const { index: handler } =
+  (await import('../../src/rcm/charge-masters/cm-bulk-add-procedure-codes/index')) as unknown as {
+    index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+  };
 
 describe('cm-bulk-add-procedure-codes handler', () => {
   it('replaces all when replaceAll is true', async () => {

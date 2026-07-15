@@ -198,8 +198,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const patientName = patient?.name?.[0]
       ? [patient.name[0].given?.join(' '), patient.name[0].family].filter(Boolean).join(' ')
       : 'Unknown';
-    const patientFriendlyId = patient?.identifier?.find(
-      (ident) => ident.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE)
+    const patientFriendlyId = patient?.identifier?.find((ident) =>
+      ident.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE)
     )?.value;
 
     const focusRef = task.focus?.reference || '';

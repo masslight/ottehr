@@ -171,8 +171,9 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   };
 
   // Sync the input when billing data changes externally (e.g. a quick pick is selected)
-  const externalUnitSize = localValues.cptCodes?.find((c) => c.isMedication || c.billableUnitSize != null)
-    ?.billableUnitSize;
+  const externalUnitSize = localValues.cptCodes?.find(
+    (c) => c.isMedication || c.billableUnitSize != null
+  )?.billableUnitSize;
   useEffect(() => {
     if (externalUnitSize != null) {
       if (externalUnitSize !== billableUnitSize) setBillableUnitSizeInput(String(externalUnitSize));
@@ -416,10 +417,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
         {Object.entries(fieldsConfig).map(([field, config]) => {
           if (field === 'cptCodes') return null; // Rendered separately below
           const value = getFieldValue(field as keyof MedicationData) as
-            | string
-            | number
-            | NonNullable<MedicationData['location']>
-            | undefined;
+            string | number | NonNullable<MedicationData['location']> | undefined;
           let renderValue: string | undefined;
 
           // renderValue handles edge case when backend created new medication resource without id
@@ -452,8 +450,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                   interactionsMessage.style === 'warning'
                     ? otherColors.lightErrorBg
                     : interactionsMessage.style === 'success'
-                    ? otherColors.lightGreen
-                    : 'none',
+                      ? otherColors.lightGreen
+                      : 'none',
                 padding: '16px',
                 borderRadius: '4px',
                 width: '100%',
@@ -477,8 +475,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                     interactionsMessage.style === 'warning'
                       ? otherColors.lightErrorText
                       : interactionsMessage.style === 'success'
-                      ? otherColors.darkGreenText
-                      : '#000',
+                        ? otherColors.darkGreenText
+                        : '#000',
                   marginLeft: '12px',
                 }}
                 display="inline"

@@ -2575,8 +2575,8 @@ describe('Harvest Module', () => {
       expect(result.workersCompAccountPost?.owner?.reference).toBe(employerReference);
       expect(result.workersCompAccountPost?.guarantor?.[0]?.party?.reference).toBe(employerReference);
 
-      const workersCompCoveragePost = result.coveragePosts.find(
-        (coverage) => coverage.resource.type?.coding?.some((coding) => coding.code === 'WC')
+      const workersCompCoveragePost = result.coveragePosts.find((coverage) =>
+        coverage.resource.type?.coding?.some((coding) => coding.code === 'WC')
       );
       expect(workersCompCoveragePost).toBeDefined();
       expect(workersCompCoveragePost?.resource.payor?.[0].reference).toBe(

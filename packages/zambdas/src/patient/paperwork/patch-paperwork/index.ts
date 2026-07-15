@@ -153,9 +153,8 @@ async function createHarvestTaskIfNeeded(
   ).unbundle();
 
   const alreadyActive = existingTasks.some((task) => {
-    const taskPageIndex = task.input?.find(
-      (i) =>
-        i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
+    const taskPageIndex = task.input?.find((i) =>
+      i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
     )?.valueUnsignedInt;
     return taskPageIndex === patchIndex;
   });

@@ -98,8 +98,8 @@ function makeVisitResources(opts: {
       identifier: opts.existingCandidEncounterId
         ? [{ system: CANDID_ENCOUNTER_ID_SYSTEM, value: opts.existingCandidEncounterId }]
         : opts.hasIdentifiers === false
-        ? undefined
-        : [],
+          ? undefined
+          : [],
     },
     patient: {
       resourceType: 'Patient',

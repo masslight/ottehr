@@ -607,8 +607,8 @@ export default function InvoiceablePatients(): React.ReactElement {
                 const displayStatus = isUpdating
                   ? 'updating'
                   : isSending
-                  ? 'sending'
-                  : mapInvoiceTaskStatusToDisplay(report.task.status);
+                    ? 'sending'
+                    : mapInvoiceTaskStatusToDisplay(report.task.status);
                 const lastTaskOutput = getLatestTaskOutput(report.task);
                 const statusTooltipMessage = lastTaskOutput
                   ? lastTaskOutput.type === 'success'

@@ -1,9 +1,7 @@
 import { EXTERNAL_LAB_ERROR, OrderableItemSearchResult, OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API } from 'utils';
 
 export type OrderableItemSearch =
-  | { textSearch: string }
-  | { itemCodes: string[] }
-  | { textSearch: string; itemCodes: string[] };
+  { textSearch: string } | { itemCodes: string[] } | { textSearch: string; itemCodes: string[] };
 
 /**
  * Searches the Oystehr Labs orderable item API for tests offered by the given labs,

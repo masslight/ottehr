@@ -85,8 +85,9 @@ export const configReviewResultTask = (resources: ResourcesForTask): Task => {
   const { diagnosticReport, encounter, serviceRequest, patient, requestingProvider, location } = resources;
   console.log('configuring review radiology final results task for', diagnosticReport.id);
 
-  const serviceRequestRef = diagnosticReport.basedOn?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
-    ?.reference;
+  const serviceRequestRef = diagnosticReport.basedOn?.find((ref) =>
+    ref.reference?.startsWith('ServiceRequest/')
+  )?.reference;
   const appointmentId = encounter.appointment?.[0].reference?.replace('Appointment/', '');
 
   let locationInput:

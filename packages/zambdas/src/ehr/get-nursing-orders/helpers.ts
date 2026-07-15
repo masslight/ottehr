@@ -60,14 +60,13 @@ const parseOrderData = ({
   const relatedTask = tasks.find((t) => t.basedOn?.[0]?.reference === `ServiceRequest/${serviceRequest.id}`);
   const status = getStatusFromTask(relatedTask);
   const note = serviceRequest?.note?.[0]?.text;
-  const createOrderProvenance = provenances.find(
-    (provenance) =>
-      provenance.activity?.coding?.some(
-        (coding) =>
-          coding.code === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.code &&
-          coding.display === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.display &&
-          coding.system === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.system
-      )
+  const createOrderProvenance = provenances.find((provenance) =>
+    provenance.activity?.coding?.some(
+      (coding) =>
+        coding.code === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.code &&
+        coding.display === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.display &&
+        coding.system === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.system
+    )
   );
 
   if (!createOrderProvenance) {

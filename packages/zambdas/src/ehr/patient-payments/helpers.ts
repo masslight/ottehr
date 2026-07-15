@@ -308,8 +308,9 @@ async function buildPaymentDTOs(
         return [];
       }
 
-      const paymentMethodExtension = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
-        ?.valueString;
+      const paymentMethodExtension = paymentNotice.extension?.find(
+        (ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL
+      )?.valueString;
 
       if (paymentMethodExtension === 'cash' || paymentMethodExtension === 'check') {
         return [];

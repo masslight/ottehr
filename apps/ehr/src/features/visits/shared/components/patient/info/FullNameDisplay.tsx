@@ -16,7 +16,7 @@ export const FullNameDisplay: FC<Props> = ({ patient, loading, variant = 'h3' })
 
   return (
     <Typography variant={variant} color="primary.dark" data-testid={dataTestIds.patientHeader.patientName}>
-      {loading ? <Skeleton width={300} /> : formattedPatientFullName ?? null}
+      {loading ? <Skeleton width={300} /> : (formattedPatientFullName ?? null)}
     </Typography>
   );
 };

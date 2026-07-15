@@ -115,8 +115,8 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
         description: feeSchedule.description || '',
       });
       // Load case rate data from propertyGroup if this is a case-rate fee schedule
-      const caseRatePc = feeSchedule.propertyGroup?.[0]?.priceComponent?.find(
-        (pc) => pc.code?.coding?.some((c) => c.code === CASE_RATE_CODE)
+      const caseRatePc = feeSchedule.propertyGroup?.[0]?.priceComponent?.find((pc) =>
+        pc.code?.coding?.some((c) => c.code === CASE_RATE_CODE)
       );
       if (caseRatePc) {
         setCaseRateAmount(caseRatePc.amount?.value?.toString() ?? '');

@@ -82,8 +82,8 @@ export async function performEffect(
     return failureResponse;
   }
 
-  const providerReference = encounter.participant?.find(
-    (participant) => participant.individual?.reference?.startsWith('Practitioner/')
+  const providerReference = encounter.participant?.find((participant) =>
+    participant.individual?.reference?.startsWith('Practitioner/')
   )?.individual?.reference;
   let provider: Practitioner | undefined;
   if (providerReference !== undefined) {
@@ -199,8 +199,8 @@ const createNewTask = ({
   provider,
 }: ReturnedResources & { provider?: Practitioner }): Task => {
   const patientName = getFullestAvailableName(patient);
-  const locationReference = appointment.participant?.find(
-    (participant) => participant.actor?.reference?.startsWith('Location/')
+  const locationReference = appointment.participant?.find((participant) =>
+    participant.actor?.reference?.startsWith('Location/')
   )?.actor?.reference;
   const newTask: Task = {
     resourceType: 'Task',

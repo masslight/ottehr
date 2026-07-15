@@ -881,10 +881,7 @@ async function drawCommonLabsElements(
   textStyles: LabsPDFTextStyleConfig,
   icons: { faxIcon: PDFImage; callIcon: PDFImage },
   data:
-    | ExternalLabResultsData
-    | InHouseLabResultsData
-    | UnsolicitedExternalLabResultsData
-    | ReflexExternalLabResultsData
+    ExternalLabResultsData | InHouseLabResultsData | UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
 ): Promise<PdfClient> {
   console.log('Drawing common elements');
 
@@ -1901,8 +1898,9 @@ const getPerformingLabNameFromObs = (obs: Observation): string | undefined => {
 const getPerformingLabAddressFromObs = (obs: Observation, oystehr: Oystehr): string | undefined => {
   const siteExt = obs.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.parentExtUrl);
   if (siteExt) {
-    const address = siteExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.address)
-      ?.valueAddress;
+    const address = siteExt.extension?.find(
+      (ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.address
+    )?.valueAddress;
     if (address) return formatZipcodeForDisplay(oystehr.fhir.formatAddress(address));
   }
   return;
@@ -1921,8 +1919,9 @@ const getPerformingLabPhoneFromObs = (obs: Observation): string | undefined => {
 const getPerformingLabDirectorNameFromObs = (obs: Observation, oystehr: Oystehr): string | undefined => {
   const labDirectorExt = obs.extension?.find((ext) => ext.url === PERFORMING_PHYSICIAN_EXTENSION_URLS.parentExtUrl);
   if (labDirectorExt) {
-    const humanName = labDirectorExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.name)
-      ?.valueHumanName;
+    const humanName = labDirectorExt.extension?.find(
+      (ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.name
+    )?.valueHumanName;
     if (humanName) return oystehr.fhir.formatHumanName(humanName);
   }
   return;
@@ -1933,8 +1932,9 @@ const checkObsForAttachment = (
   obsContentType: ObsContentType,
   imgType?: SupportedObsImgAttachmentTypes[]
 ): string | undefined => {
-  const attachmentExt = obs.extension?.find((ext) => ext.url === OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM)
-    ?.valueAttachment;
+  const attachmentExt = obs.extension?.find(
+    (ext) => ext.url === OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM
+  )?.valueAttachment;
   const contentTypeCaps = attachmentExt?.contentType?.toUpperCase();
 
   // logic on the oystehr side is that the file type and and file extension are mapped to the contentType field

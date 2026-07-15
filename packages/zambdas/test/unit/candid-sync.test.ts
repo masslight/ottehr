@@ -75,9 +75,8 @@ const { validateRequestParameters } = await import('../../src/subscriptions/task
 
 // The mock for wrapHandler makes `index` a plain async function (input) => result
 // so we cast to the simplified signature for test ergonomics.
-const { index: _index } = await import(
-  '../../src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index'
-);
+const { index: _index } =
+  await import('../../src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index');
 const index = _index as unknown as (input: any) => Promise<{ statusCode: number; body: string }>;
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────

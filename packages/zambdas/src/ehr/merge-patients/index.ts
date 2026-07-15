@@ -183,11 +183,10 @@ const checkAdminAndGetProfile = async (input: KickoffInput): Promise<string> => 
 };
 
 const otherPatientIdOf = (task: Task): string =>
-  task.input?.find(
-    (i) =>
-      i.type?.coding?.some(
-        (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.OTHER_PATIENT_ID
-      )
+  task.input?.find((i) =>
+    i.type?.coding?.some(
+      (c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.OTHER_PATIENT_ID
+    )
   )?.valueString ?? '';
 
 async function getActiveMergeTaskForPatient(

@@ -202,8 +202,7 @@ async function administerImmunizationOrder(
         administrationDetails.administeredDateTime,
         userPractitioner,
         medicationAdministration.contained?.find((r) => r.id === CONTAINED_MANUFACTURER_ORG_ID) as
-          | Organization
-          | undefined
+          Organization | undefined
       ),
     });
   }

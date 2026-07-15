@@ -455,7 +455,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     const practitionerName = practitioner ? getFullName(practitioner) : undefined;
     const locationName = prLocation?.name;
     const composed =
-      practitionerName && locationName ? `${practitionerName} at ${locationName}` : practitionerName ?? locationName;
+      practitionerName && locationName ? `${practitionerName} at ${locationName}` : (practitionerName ?? locationName);
     if (composed) {
       locationInformationWithClosures.name = composed;
     }

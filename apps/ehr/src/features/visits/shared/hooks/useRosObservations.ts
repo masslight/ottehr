@@ -98,7 +98,7 @@ export function useRosObservations(field?: string): {
   );
 
   return {
-    value: field ? state[field] ?? { field, value: false } : objectToArray(state),
+    value: field ? (state[field] ?? { field, value: false }) : objectToArray(state),
     update,
     isLoading: isDeleteLoading || isSaveLoading,
   };

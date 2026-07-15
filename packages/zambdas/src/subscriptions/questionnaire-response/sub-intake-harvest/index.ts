@@ -170,8 +170,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   try {
     const additionalQuestions = createAdditionalQuestions(qr);
     const saveOrUpdateChartDataResourceRequests: (
-      | BatchInputPostRequest<Observation>
-      | BatchInputPatchRequest<Appointment>
+      BatchInputPostRequest<Observation> | BatchInputPatchRequest<Appointment>
     )[] = [];
 
     additionalQuestions.forEach((observation) => {

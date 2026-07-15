@@ -98,9 +98,9 @@ export async function updateCandidEmployerPayer(
     const candidAddress = mapFhirAddressToCandidAddress(addresses);
     const hasAnyAddressData = Boolean(
       addresses?.[0]?.line?.some((line) => line?.trim()) ||
-        addresses?.[0]?.city?.trim() ||
-        addresses?.[0]?.state?.trim() ||
-        addresses?.[0]?.postalCode?.trim()
+      addresses?.[0]?.city?.trim() ||
+      addresses?.[0]?.state?.trim() ||
+      addresses?.[0]?.postalCode?.trim()
     );
 
     await candid.nonInsurancePayers.v1.update(NonInsurancePayerId(candidPayerId), {
@@ -110,8 +110,8 @@ export async function updateCandidEmployerPayer(
       ...(candidAddress
         ? { address: { type: 'set' as const, value: candidAddress } }
         : !hasAnyAddressData
-        ? { address: { type: 'remove' as const } }
-        : {}),
+          ? { address: { type: 'remove' as const } }
+          : {}),
     });
     console.log(`[candid-sync] Updated non-insurance payer ${candidPayerId}`);
   } catch (err) {

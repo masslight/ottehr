@@ -104,7 +104,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const practitionerRef = currentRole.practitioner?.reference;
   const targetLocationRef = hasLocation ? `Location/${parsed.locationId}` : currentRole.location?.[0]?.reference;
   const targetCategoryIds = hasCategories
-    ? parsed.categoryHealthcareServiceIds ?? []
+    ? (parsed.categoryHealthcareServiceIds ?? [])
     : (currentRole.healthcareService ?? [])
         .map((ref) => ref.reference?.split('/')[1])
         .filter((id): id is string => !!id);

@@ -120,8 +120,7 @@ export async function getBundledOrderResources(
   const bundledOrders: { [orderNumber: string]: string[] } = {};
   const resourcesByServiceRequest: {
     [serviceRequestID: string]:
-      | Omit<LabOrderResourcesExtended, 'accountNumber' | 'location'>
-      | LabOrderResourcesExtended;
+      Omit<LabOrderResourcesExtended, 'accountNumber' | 'location'> | LabOrderResourcesExtended;
   } = {};
 
   const locationPromises: Array<Promise<{ serviceRequestID: string; location?: Location }>> = [];

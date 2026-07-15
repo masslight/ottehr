@@ -423,8 +423,8 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
               const heightCm = isHeightVitalObservation(dto)
                 ? dto.value
                 : currentHeight
-                ? currentHeight.value
-                : historicalVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value;
+                  ? currentHeight.value
+                  : historicalVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value;
               const weightKg = isWeightVitalObservation(dto)
                 ? dto.value
                 : resolveWeightForBMI(

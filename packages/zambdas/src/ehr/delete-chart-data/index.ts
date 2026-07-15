@@ -110,9 +110,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     console.log(`Got patient with id ${patient.id}`);
 
     const deleteOrUpdateRequests: (
-      | BatchInputDeleteRequest
-      | BatchInputPutRequest<ChartData>
-      | BatchInputRequest<ChartData>
+      BatchInputDeleteRequest | BatchInputPutRequest<ChartData> | BatchInputRequest<ChartData>
     )[] = [];
     const updateEncounterOperations: Operation[] = [];
     const patientEducationDocumentReferenceIdsToDelete = new Set<string>();
@@ -339,8 +337,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     if (schoolWorkNotes) {
       for (const schoolWorkNote of schoolWorkNotes) {
         const documentReference = allResources.find((resource) => resource.id === schoolWorkNote.id) as
-          | DocumentReference
-          | undefined;
+          DocumentReference | undefined;
         const fileUrl = documentReference?.content?.[0]?.attachment.url;
         if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
       }
@@ -348,8 +345,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
 
     for (const documentReferenceId of patientEducationDocumentReferenceIdsToDelete) {
       const documentReference = allResources.find((resource) => resource.id === documentReferenceId) as
-        | DocumentReference
-        | undefined;
+        DocumentReference | undefined;
       const fileUrl = documentReference?.content?.[0]?.attachment.url;
       if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
     }

@@ -53,9 +53,9 @@ export async function performEffect(
       ...cvo.definition,
       title: params.name ?? cvo.definition.title,
       url,
-      date: params.effectiveDate === null ? undefined : params.effectiveDate ?? cvo.definition.date,
+      date: params.effectiveDate === null ? undefined : (params.effectiveDate ?? cvo.definition.date),
       status: params.status ?? cvo.definition.status,
-      description: params.description === null ? undefined : params.description ?? cvo.definition.description,
+      description: params.description === null ? undefined : (params.description ?? cvo.definition.description),
       propertyGroup: params.procedureCodes
         ? params.procedureCodes.map<ChargeItemDefinitionPropertyGroup>((pc) => ({
             priceComponent: [

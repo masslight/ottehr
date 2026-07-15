@@ -64,11 +64,10 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
   ).unbundle();
   console.log(`found ${allProvenances.length} provenances for appointment ${appointmentId}`);
 
-  const faxProvenances = allProvenances.filter(
-    (provenance) =>
-      provenance.activity?.coding?.some(
-        (coding) => coding.code === PROVENANCE_FAX_ACTIVITY_CODES.faxSent && coding.system === PROVENANCE_FAX_SYSTEM
-      )
+  const faxProvenances = allProvenances.filter((provenance) =>
+    provenance.activity?.coding?.some(
+      (coding) => coding.code === PROVENANCE_FAX_ACTIVITY_CODES.faxSent && coding.system === PROVENANCE_FAX_SYSTEM
+    )
   );
 
   console.log(`found ${faxProvenances.length} fax provenances for appointment ${appointmentId}`);

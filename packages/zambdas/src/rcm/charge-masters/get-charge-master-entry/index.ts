@@ -51,8 +51,8 @@ export const index = wrapHandler(
         if (orgFiltered.length === 0) return undefined;
 
         if (locationId) {
-          const locationMatch = orgFiltered.find(
-            (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
+          const locationMatch = orgFiltered.find((cm) =>
+            cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
           );
           if (locationMatch) return locationMatch;
 

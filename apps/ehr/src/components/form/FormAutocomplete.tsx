@@ -7,8 +7,10 @@ export interface Option {
   value: string;
 }
 
-interface FormAutocompleteProps<T extends FieldValues>
-  extends Omit<AutocompleteProps<Option, false, true, false>, 'renderInput' | 'onChange' | 'value' | 'defaultValue'> {
+interface FormAutocompleteProps<T extends FieldValues> extends Omit<
+  AutocompleteProps<Option, false, true, false>,
+  'renderInput' | 'onChange' | 'value' | 'defaultValue'
+> {
   name: Path<T>;
   control: Control<T>;
   options: Option[];

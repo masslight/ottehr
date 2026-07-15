@@ -134,8 +134,8 @@ export default function PractitionerRoleList({
         const categoryLabels = getPractitionerRoleAllCategories(role)
           ? ['All services']
           : resolvedCategoryNames.length > 0
-          ? resolvedCategoryNames
-          : ['No services'];
+            ? resolvedCategoryNames
+            : ['No services'];
         // Admin-set display name wins; fallback to the auto-derived label.
         const explicitName = (role.extension ?? [])
           .find((ext) => ext.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)

@@ -1674,16 +1674,14 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
   )?.value;
   if (!payerId) {
     // Second look at coding using PAYERID code
-    payerId = org?.identifier?.find(
-      (identifier) =>
-        identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'PAYERID')
+    payerId = org?.identifier?.find((identifier) =>
+      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'PAYERID')
     )?.value;
   }
   if (!payerId) {
     // Third look at coding using XX (Organization identifier) code
-    payerId = org?.identifier?.find(
-      (identifier) =>
-        identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+    payerId = org?.identifier?.find((identifier) =>
+      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
     )?.value;
   }
   return payerId;
@@ -1724,8 +1722,9 @@ export const getPractitionerQualificationByLocation = (
   location: Location
 ): PractitionerQualificationCode | undefined => {
   const existedLicenses = allLicensesForPractitioner(practitioner);
-  const qualification = existedLicenses.find((license) => license.active && license.state === location.address?.state)
-    ?.code;
+  const qualification = existedLicenses.find(
+    (license) => license.active && license.state === location.address?.state
+  )?.code;
 
   return qualification;
 };
@@ -1740,8 +1739,7 @@ export function isProviderTypeCode(value: string): value is ProviderTypeCode {
 
 export function getProviderType(practitionerResource?: Practitioner): ProviderTypeCode | undefined {
   return getProviderTypeExtension(practitionerResource)?.valueCodeableConcept?.coding?.[0]?.code as
-    | ProviderTypeCode
-    | undefined;
+    ProviderTypeCode | undefined;
 }
 
 export function isPhysicianProviderType(providerType?: ProviderTypeCode): boolean {

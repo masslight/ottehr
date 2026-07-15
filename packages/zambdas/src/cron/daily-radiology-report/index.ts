@@ -131,8 +131,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         : undefined;
 
       // Determine status based on service request and diagnostic reports
-      const relatedDiagnosticReports = diagnosticReports.filter(
-        (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
+      const relatedDiagnosticReports = diagnosticReports.filter((report) =>
+        report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
       );
 
       const maybeNeedsToBeSentForTeleradTime = serviceRequest?.extension?.find(

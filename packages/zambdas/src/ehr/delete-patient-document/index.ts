@@ -64,8 +64,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })
   ).unbundle() as List[];
 
-  const targetLists = listResources.filter(
-    (list) => list.entry?.some((entry) => entry.item?.reference === `DocumentReference/${documentRefId}`)
+  const targetLists = listResources.filter((list) =>
+    list.entry?.some((entry) => entry.item?.reference === `DocumentReference/${documentRefId}`)
   );
 
   await Promise.all(

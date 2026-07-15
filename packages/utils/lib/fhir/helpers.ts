@@ -229,16 +229,15 @@ export const findEncounterForAppointment = (
   encounters: Encounter[]
 ): Encounter | undefined => {
   // Go through encounters and find the one with appointment
-  return encounters.find(
-    (encounter) =>
-      encounter.appointment?.find((appRef) => {
-        const { reference } = appRef;
-        if (!reference) {
-          return false;
-        }
-        const [_, refId] = reference.split('/');
-        return refId && refId === appointment.id;
-      })
+  return encounters.find((encounter) =>
+    encounter.appointment?.find((appRef) => {
+      const { reference } = appRef;
+      if (!reference) {
+        return false;
+      }
+      const [_, refId] = reference.split('/');
+      return refId && refId === appointment.id;
+    })
   );
 };
 
@@ -1155,7 +1154,7 @@ export const buildCoverageSubscriberRelatedPerson = (
   birthDate: subscriber.dob,
   gender: subscriber.birthSex
     ? mapBirthSexToGender(subscriber.birthSex)
-    : (subscriber.gender as (RelatedPerson | Patient)['gender']) ?? 'unknown',
+    : ((subscriber.gender as (RelatedPerson | Patient)['gender']) ?? 'unknown'),
   patient: { reference: `Patient/${patientId}` },
   address: subscriber.address ? [subscriber.address] : undefined,
   relationship: [
@@ -1537,8 +1536,8 @@ export const getAttestedConsentFromEncounter = (encounter: Encounter): Signature
 };
 
 export const getInsuranceNameFromCoverage = (coverage: Coverage): string | undefined => {
-  return coverage?.class?.find(
-    (cls) => cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
+  return coverage?.class?.find((cls) =>
+    cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
   )?.name;
 };
 

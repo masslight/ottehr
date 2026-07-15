@@ -741,10 +741,10 @@ export default function VisitDetailsPage(): ReactElement {
     return appointmentType === 'prebook'
       ? 'Scheduled'
       : appointmentType === 'walkin'
-      ? 'On Demand'
-      : appointmentType === 'posttelemed'
-      ? 'Post Telemed'
-      : '';
+        ? 'On Demand'
+        : appointmentType === 'posttelemed'
+          ? 'Post Telemed'
+          : '';
   };
 
   const { nameLastModified, dobLastModified } = useMemo(() => {

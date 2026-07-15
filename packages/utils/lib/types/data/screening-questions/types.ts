@@ -41,8 +41,7 @@ export type ObservationTextFieldDTO =
   | ObservationDateFieldDTO;
 
 export type ObservationHistoryObtainedFromDTO =
-  | CustomOptionObservationHistoryObtainedFromDTO
-  | ListOptionObservationHistoryObtainedFromDTO;
+  CustomOptionObservationHistoryObtainedFromDTO | ListOptionObservationHistoryObtainedFromDTO;
 
 export type CustomOptionObservationHistoryObtainedFromDTO = {
   field: typeof HISTORY_OBTAINED_FROM_FIELD;

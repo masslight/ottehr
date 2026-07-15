@@ -159,12 +159,12 @@ export default function TaskAdmin(): React.ReactElement {
             params.value === 'completed'
               ? 'success'
               : params.value === 'failed'
-              ? 'error'
-              : params.value === 'in-progress'
-              ? 'info'
-              : params.value === 'cancelled'
-              ? 'warning'
-              : 'default'
+                ? 'error'
+                : params.value === 'in-progress'
+                  ? 'info'
+                  : params.value === 'cancelled'
+                    ? 'warning'
+                    : 'default'
           }
           size="small"
         />

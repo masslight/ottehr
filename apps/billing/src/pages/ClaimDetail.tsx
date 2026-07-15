@@ -746,7 +746,7 @@ export function InsuranceSection({
                 <PayerSelect
                   multiple={false}
                   value={selectedPayerId}
-                  onChange={(v) => setSelectedPayerId(typeof v === 'string' ? v : v[0] ?? '')}
+                  onChange={(v) => setSelectedPayerId(typeof v === 'string' ? v : (v[0] ?? ''))}
                   label=""
                   initialOptions={
                     claim.payorFhirId ? [{ id: claim.payorFhirId, name: claim.payerName, payerId: claim.payerId }] : []

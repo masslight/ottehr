@@ -301,16 +301,16 @@ async function findVisitsBetweenDates(oystehr: Oystehr, startDate: Date, endDate
       // Find encounter that references this appointment
       let encounter: Encounter | undefined;
       if (appointment.id) {
-        encounter = encounters.find(
-          (enc) => enc.appointment?.some((appt) => appt.reference === `Appointment/${appointment.id}`)
+        encounter = encounters.find((enc) =>
+          enc.appointment?.some((appt) => appt.reference === `Appointment/${appointment.id}`)
         );
       }
 
       // Find practitioner from encounter participants
       let practitioner: Practitioner | undefined;
       if (encounter) {
-        const practitionerParticipant = encounter.participant?.find(
-          (p) => p.individual?.reference?.startsWith('Practitioner/')
+        const practitionerParticipant = encounter.participant?.find((p) =>
+          p.individual?.reference?.startsWith('Practitioner/')
         );
         if (practitionerParticipant?.individual?.reference) {
           const practitionerId = practitionerParticipant.individual.reference.split('/')[1];

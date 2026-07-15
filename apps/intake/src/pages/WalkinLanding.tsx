@@ -73,8 +73,8 @@ export const WalkinLanding: FC = () => {
     const basePath = scheduleId
       ? `/walkin/schedule/${scheduleId}/select-service-category`
       : name
-      ? `/walkin/location/${name}/select-service-category`
-      : null;
+        ? `/walkin/location/${name}/select-service-category`
+        : null;
     if (!basePath) return;
     const query = searchParams.toString();
     navigate(`${basePath}${query ? `?${query}` : ''}`, { replace: true });
@@ -102,7 +102,7 @@ export const WalkinLanding: FC = () => {
   return (
     <PageContainer
       title={somethingIsLoadingInSomeWay ? 'Loading...' : getWelcomeTitle()}
-      subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
+      subtitle={somethingIsLoadingInSomeWay ? '' : (data?.scheduleOwnerName ?? '')}
       isFirstPage
       {...getPrimaryIconContainerProps(PRIMARY_ICON_PAGE.WALKIN_LANDING)}
     >

@@ -188,8 +188,8 @@ function RosFindingsTable({ findings }: { findings: TemplateRosFinding[] }): Rea
                       findingState === RosFindingState.Reports
                         ? 'error'
                         : findingState === RosFindingState.Denies
-                        ? 'success'
-                        : 'warning'
+                          ? 'success'
+                          : 'warning'
                     }
                     variant="outlined"
                   />

@@ -301,16 +301,15 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
 
       await oystehr.fhir.update(updated);
 
-      setDocuments(
-        (prev) =>
-          prev?.map((doc) =>
-            doc.id === documentId
-              ? {
-                  ...doc,
-                  docName: newName,
-                }
-              : doc
-          )
+      setDocuments((prev) =>
+        prev?.map((doc) =>
+          doc.id === documentId
+            ? {
+                ...doc,
+                docName: newName,
+              }
+            : doc
+        )
       );
     },
     [oystehr]
@@ -419,7 +418,7 @@ const useGetPatientDocsFolders = (
 
       const folderName = isCustom
         ? catalogDef!.displayName
-        : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
+        : (list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '');
 
       byInternalName.set(internalName, {
         id: list.id!,

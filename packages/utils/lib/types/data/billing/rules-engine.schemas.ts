@@ -60,9 +60,7 @@ export const RuleConditionSchema: z.ZodType<RuleCondition> = z.lazy(() =>
 
 // --- Action ---
 export type RuleAction =
-  | { type: 'setField'; field: string; value: string | null }
-  | { type: 'applyTag'; tag: string }
-  | { type: 'noop' };
+  { type: 'setField'; field: string; value: string | null } | { type: 'applyTag'; tag: string } | { type: 'noop' };
 
 // Tags are free text in the UI, but the engine halts on an exact HOLD_TAG_NAME match — so
 // canonicalize case/whitespace variants of the Hold tag here, at the validation boundary.
@@ -80,9 +78,7 @@ export const RuleActionSchema = z.discriminatedUnion('type', [
 
 // --- Outcome / Branch / Conditional (mutually recursive) ---
 export type RuleOutcome =
-  | { type: 'actions'; actions: RuleAction[] }
-  | { type: 'conditional'; conditional: RuleConditional }
-  | { type: 'noop' };
+  { type: 'actions'; actions: RuleAction[] } | { type: 'conditional'; conditional: RuleConditional } | { type: 'noop' };
 
 export interface RuleBranch {
   condition: RuleCondition;

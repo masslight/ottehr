@@ -201,8 +201,8 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
       return [];
     }
     const slot = slots.find((slot) => appointment.slot?.some((s) => s.reference === `Slot/${slot.id}`));
-    const location = locations.find(
-      (location) => appointment?.participant?.some((p) => p.actor?.reference?.replace('Location/', '') === location.id)
+    const location = locations.find((location) =>
+      appointment?.participant?.some((p) => p.actor?.reference?.replace('Location/', '') === location.id)
     );
     const encounter = encounters.find(
       (encounter) => encounter.appointment?.[0]?.reference === `Appointment/${appointment.id}` && !encounter.partOf
@@ -405,8 +405,8 @@ const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets:
 };
 
 const getFollowUpTypeFromEncounter = (encounter: Encounter): string | undefined => {
-  const typeCoding = encounter.type?.find(
-    (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
+  const typeCoding = encounter.type?.find((t) =>
+    t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
   );
   if (!typeCoding) return undefined;
   let typeText = '-';
@@ -434,8 +434,8 @@ const followUpVisitHistoryRowFromEncounter = (
   const followUpType = getFollowUpTypeFromEncounter(encounter);
   const { practitioners, locations, originalEncounter, serviceCategory, appointments } = context;
 
-  const location = locations.find(
-    (location) => encounter?.location?.some((loc) => loc.location?.reference?.replace('Location/', '') === location.id)
+  const location = locations.find((location) =>
+    encounter?.location?.some((loc) => loc.location?.reference?.replace('Location/', '') === location.id)
   );
   const office =
     location?.address?.state && location?.name ? `${location.address.state.toUpperCase()} - ${location.name}` : '-';

@@ -43,9 +43,8 @@ export function parseInvoiceTaskInput(invoiceTask: Task): InvoiceTaskInput {
 }
 
 function getInvoiceTaskInputFieldByCode(code: keyof InvoiceTaskInput, task: Task): string | undefined {
-  return task.input?.find(
-    (input) =>
-      input.type.coding?.find((type) => type.system === ottehrCodeSystemUrl('invoice-task-input') && type.code === code)
+  return task.input?.find((input) =>
+    input.type.coding?.find((type) => type.system === ottehrCodeSystemUrl('invoice-task-input') && type.code === code)
   )?.valueString;
 }
 

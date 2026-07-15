@@ -157,19 +157,19 @@ export function makeConditionResource(
           ],
         }
       : fieldName === 'medical-condition'
-      ? {
-          coding: [
-            {
-              display: dto.display,
-            },
-          ],
-        }
-      : undefined,
+        ? {
+            coding: [
+              {
+                display: dto.display,
+              },
+            ],
+          }
+        : undefined,
     note: (data as FreeTextNoteDTO).text
       ? [{ text: (data as FreeTextNoteDTO).text || '' }]
       : (data as MedicalConditionDTO).note
-      ? [{ text: (data as MedicalConditionDTO).note || '' }]
-      : [],
+        ? [{ text: (data as MedicalConditionDTO).note || '' }]
+        : [],
     clinicalStatus:
       typeof (data as MedicalConditionDTO).current === 'boolean'
         ? {
@@ -315,8 +315,8 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
       medication.meta?.tag?.[0].code === 'prescribed-medication'
         ? 'prescribed-medication'
         : medication.dosage?.[0].asNeededBoolean
-        ? 'as-needed'
-        : 'scheduled',
+          ? 'as-needed'
+          : 'scheduled',
     intakeInfo: {
       dose: getMedicationDosage(medication, medication.meta?.tag?.[0].code || ''),
       date: medication.effectiveDateTime,
@@ -1878,8 +1878,8 @@ export function makeProceduresDTOFromFhirResources(
       resourceId: serviceRequests.id,
       encounterId: serviceRequests.encounter?.reference?.split('/')[1],
       cptCodes: cptCodeProcedures
-        .filter(
-          (procedure) => serviceRequests.supportingInfo?.find((ref) => ref.reference === `Procedure/${procedure.id}`)
+        .filter((procedure) =>
+          serviceRequests.supportingInfo?.find((ref) => ref.reference === `Procedure/${procedure.id}`)
         )
         .flatMap((procedure) => {
           const cptDto = makeCPTCodeDTO(procedure);
@@ -1889,8 +1889,8 @@ export function makeProceduresDTOFromFhirResources(
           return [];
         }),
       diagnoses: diagnosisConditions
-        .filter(
-          (condition) => serviceRequests.reasonReference?.find((ref) => ref.reference === `Condition/${condition.id}`)
+        .filter((condition) =>
+          serviceRequests.reasonReference?.find((ref) => ref.reference === `Condition/${condition.id}`)
         )
         .map((condition) => {
           return makeDiagnosisDTO(condition, false);

@@ -53,13 +53,7 @@ export const PaperworkConfigSchema = QuestionnaireConfigSchema.extend({
  * the Questionnaire item definitions themselves.
  */
 export type HarvestStrategy =
-  | 'master-record'
-  | 'pharmacy'
-  | 'account-coverage'
-  | 'payment-variant'
-  | 'documents'
-  | 'consent'
-  | 'erx-contact';
+  'master-record' | 'pharmacy' | 'account-coverage' | 'payment-variant' | 'documents' | 'consent' | 'erx-contact';
 
 /**
  * Maps intake paperwork page linkIds to their harvest strategy.

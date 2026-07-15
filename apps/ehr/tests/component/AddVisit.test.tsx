@@ -543,12 +543,15 @@ describe('AddVisit', () => {
   // unsupported modalities aren't offered in the first place.
   describe('Service Category ↔ Visit Type coupling (OTR-2721)', () => {
     const walkInInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonWalkIn)?.label;
-    const prebookInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonPreBook)
-      ?.label;
-    const virtualScheduledLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualScheduled)
-      ?.label;
-    const virtualOnDemandLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualOnDemand)
-      ?.label;
+    const prebookInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find(
+      (o) => o.id === VisitType.InPersonPreBook
+    )?.label;
+    const virtualScheduledLabel = BOOKING_CONFIG.ehrBookingOptions.find(
+      (o) => o.id === VisitType.VirtualScheduled
+    )?.label;
+    const virtualOnDemandLabel = BOOKING_CONFIG.ehrBookingOptions.find(
+      (o) => o.id === VisitType.VirtualOnDemand
+    )?.label;
 
     // FHIR-sourced categories go through the strict path in
     // serviceCategorySupportsContext: empty arrays = "supports nothing". So

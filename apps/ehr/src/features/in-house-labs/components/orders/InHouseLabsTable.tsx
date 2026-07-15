@@ -38,14 +38,7 @@ import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';
 
 export type InHouseLabsTableColumn =
-  | 'testType'
-  | 'visit'
-  | 'orderAdded'
-  | 'provider'
-  | 'dx'
-  | 'resultsReceived'
-  | 'status'
-  | 'actions';
+  'testType' | 'visit' | 'orderAdded' | 'provider' | 'dx' | 'resultsReceived' | 'status' | 'actions';
 
 type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   searchBy: SearchBy;

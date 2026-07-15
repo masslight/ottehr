@@ -221,11 +221,7 @@ export interface DeductibleBenefit extends CoverageBenefitInfo {
   coverageCode: 'C';
 }
 export type PatientPaymentBenefit =
-  | CoverageBenefit
-  | OutOfPocketMax
-  | CopayBenefit
-  | CoinsuranceBenefit
-  | DeductibleBenefit;
+  CoverageBenefit | OutOfPocketMax | CopayBenefit | CoinsuranceBenefit | DeductibleBenefit;
 
 export interface InsuranceDetails {
   patient?: {

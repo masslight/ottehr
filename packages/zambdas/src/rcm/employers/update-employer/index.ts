@@ -54,7 +54,7 @@ export const index = wrapHandler('update-employer', async (input: ZambdaInput): 
         ...existing,
         name: name ?? existing.name,
         active: active ?? existing.active,
-        type: category ? buildEmployerType(category) : existing.type ?? buildEmployerType(),
+        type: category ? buildEmployerType(category) : (existing.type ?? buildEmployerType()),
         identifier: mergedIdentifier,
         address: address === undefined ? existing.address : normalizeAddress(address),
         telecom: contact === undefined ? existing.telecom : normalizeTelecom(contact),

@@ -125,13 +125,12 @@ export const getLabOrderRelatedResources = async (
         if (labCommType === 'order-level-note') acc.orderLevelNotesByUser.push(resource);
         if (labCommType === 'clinical-info-note') acc.clinicalInfoNotesByUser.push(resource);
       } else if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
-        const isAbnDoc = resource.category?.some(
-          (cat) =>
-            cat.coding?.some(
-              (code) =>
-                code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system &&
-                code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code
-            )
+        const isAbnDoc = resource.category?.some((cat) =>
+          cat.coding?.some(
+            (code) =>
+              code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system &&
+              code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code
+          )
         );
         // since the ABN may be related to other labs in an order we will not delete this
         // todo labs at some point in the future it may make sense to do the work of actually determining if the abn SHOULD be deleted

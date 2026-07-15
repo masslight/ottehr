@@ -70,15 +70,13 @@ const getUnassignParticipantToEncounterOperation = async (
   const matchParticipant = (participant: any, hasEnd: boolean): boolean => {
     const matchIndividualReference = participant.individual?.reference === individualReference;
     const matchUserRole = Array.isArray(userRole)
-      ? participant.type?.some(
-          (type: { coding: any[] }) =>
-            type.coding?.some((coding: { code: any; display: any }) =>
-              userRole.some((role) => role.code === coding.code || role.display === coding.display)
-            )
+      ? participant.type?.some((type: { coding: any[] }) =>
+          type.coding?.some((coding: { code: any; display: any }) =>
+            userRole.some((role) => role.code === coding.code || role.display === coding.display)
+          )
         )
-      : participant.type?.some(
-          (type: { coding: any[] }) =>
-            type.coding?.some((coding: (code: string, display: string) => Coding[]) => coding === userRole)
+      : participant.type?.some((type: { coding: any[] }) =>
+          type.coding?.some((coding: (code: string, display: string) => Coding[]) => coding === userRole)
         );
 
     const hasStartCondition = hasEnd

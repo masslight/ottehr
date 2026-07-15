@@ -688,11 +688,11 @@ function parseNotificationConfig(outcomeAction: any): NotificationConfig {
 }
 
 function parseChargeCardAction(fhirAction: any): OutreachAction {
-  const successAction = fhirAction.action?.find(
-    (a: any) => a.condition?.some((c: any) => c.expression?.expression?.includes("'success'"))
+  const successAction = fhirAction.action?.find((a: any) =>
+    a.condition?.some((c: any) => c.expression?.expression?.includes("'success'"))
   );
-  const failureAction = fhirAction.action?.find(
-    (a: any) => a.condition?.some((c: any) => c.expression?.expression?.includes("'failure'"))
+  const failureAction = fhirAction.action?.find((a: any) =>
+    a.condition?.some((c: any) => c.expression?.expression?.includes("'failure'"))
   );
 
   return {
