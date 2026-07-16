@@ -43,12 +43,26 @@
       "src": "src/billing/search-billing-providers/index",
       "zip": ".dist/zips/search-billing-providers.zip"
     },
+    "GET-BILLING-PROVIDER": {
+      "name": "get-billing-provider",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-provider/index",
+      "zip": ".dist/zips/get-billing-provider.zip"
+    },
     "SEARCH-BILLING-SERVICE-FACILITIES": {
       "name": "search-billing-service-facilities",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-service-facilities/index",
       "zip": ".dist/zips/search-billing-service-facilities.zip"
+    },
+    "GET-BILLING-SERVICE-FACILITY": {
+      "name": "get-billing-service-facility",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-service-facility/index",
+      "zip": ".dist/zips/get-billing-service-facility.zip"
     },
     "SAVE-BILLING-SERVICE-FACILITY": {
       "name": "save-billing-service-facility",
@@ -301,6 +315,13 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-charge-item-definition/index",
       "zip": ".dist/zips/delete-charge-item-definition.zip"
+    },
+    "BILLING-STRIPE-WEBHOOK": {
+      "name": "billing-stripe-webhook",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/billing-stripe-webhook/index",
+      "zip": ".dist/zips/billing-stripe-webhook.zip"
     },
     "SUB-PRESUBMISSION-RULES-ENGINE": {
       "name": "sub-presubmission-rules-engine",

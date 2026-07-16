@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AR_STAGE, ClaimDetailResponse, emptyClaimStatusValues } from 'utils';
@@ -71,7 +71,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   subscriberId: '',
   coverageStatus: '',
   planType: '',
-  relationship: '',
+  relationship: 'Self',
   policyHolder: null,
   responsibleParty: '',
   secondaryCoverageFhirId: '',
@@ -93,6 +93,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   billingTaxonomy: '',
   facilityFhirId: '',
   serviceFacility: '',
+  serviceFacilityId: '',
   serviceFacilityAddress: '',
   serviceFacilityAddressParts: emptyAddressParts,
   serviceFacilityNpi: '',
@@ -104,6 +105,8 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   patientResp: 0,
   patientPaid: 0,
   balance: 0,
+  remits: [],
+  insurancePayments: [],
   otherClaims: [],
   tags: [],
 });
@@ -113,10 +116,131 @@ function renderDetail(): void {
     <MemoryRouter initialEntries={['/claims/claim-1']}>
       <Routes>
         <Route path="/claims/:id" element={<ClaimDetail />} />
+        <Route path="/eras/:id" element={<div>ERA page</div>} />
       </Routes>
     </MemoryRouter>
   );
 }
+
+describe('ClaimDetail — remits', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('renders remit rows with payment details and adjustment codes', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.insurancePayer),
+      remits: [
+        {
+          claimResponseId: 'cr-1',
+          date: '2026-07-08T18:20:39.029Z',
+          payerName: 'Test Payer',
+          status: 'complete',
+          eraStatusCode: '1',
+          allowed: 80,
+          paid: 60,
+          patientResp: 20,
+          adjustments: [
+            {
+              groupCode: 'PR',
+              reasonCode: '1',
+              amount: 15,
+            },
+            {
+              groupCode: 'CO',
+              reasonCode: '45',
+              amount: 20,
+            },
+          ],
+        },
+      ],
+    });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+
+    expect(await screen.findByText('07/08/2026')).toBeInTheDocument();
+    expect(screen.getByText('Test Payer')).toBeInTheDocument();
+    expect(screen.getByText('complete')).toBeInTheDocument();
+    expect(screen.getByText('Primary')).toBeInTheDocument();
+    expect(screen.getByText('$60.00')).toBeInTheDocument();
+    expect(screen.getByText('PR-1 $15.00, CO-45 $20.00')).toBeInTheDocument();
+  });
+
+  it('renders each amount by state: missing as a dash, zero as $0.00, positive as currency', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.insurancePayer),
+      remits: [
+        {
+          claimResponseId: 'cr-2',
+          date: '2026-07-09T10:00:00.000Z',
+          payerName: 'Aetna',
+          status: 'complete',
+          eraStatusCode: '',
+          allowed: null,
+          paid: 0,
+          patientResp: 20,
+          adjustments: [],
+        },
+      ],
+    });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+
+    const row = (await screen.findByText('Aetna')).closest('tr');
+    expect(row).not.toBeNull();
+    const cells = within(row as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(cells).toEqual(['07/09/2026', 'Aetna', 'complete', '-', '-', '-', '$0.00', '$20.00']);
+  });
+
+  it('shows the empty state when the claim has no remits', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' }));
+
+    expect(await screen.findByText('No remits yet')).toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail — insurance payments', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('lists insurance payments and navigates to the ERA on row click', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.insurancePayer),
+      insurancePayments: [
+        {
+          paymentReconciliationId: 'pr-1',
+          checkNumber: 'ERA0000000001',
+          paymentDate: '2026-07-08',
+          paymentAmount: 350,
+          payerName: 'CIGNA',
+          status: 'active',
+        },
+      ],
+    });
+    renderDetail();
+
+    const remitsTab = await screen.findByRole('tab', { name: 'Dx, Service Lines & Remits' });
+    fireEvent.click(remitsTab);
+
+    const row = (await screen.findByText('ERA0000000001')).closest('tr');
+    expect(row).not.toBeNull();
+    const cells = within(row as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(cells).toEqual(['07/08/2026', 'CIGNA', 'ERA0000000001', 'active', '$350.00']);
+
+    fireEvent.click(row as HTMLElement);
+    expect(await screen.findByText('ERA page')).toBeInTheDocument();
+  });
+});
 
 describe('ClaimDetail — submit claim', () => {
   beforeEach(() => {

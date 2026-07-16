@@ -64,6 +64,7 @@ export enum APIErrorCode {
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
   STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
+  ERA_IMPORT_FAILED = 4502,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -352,6 +353,14 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.INVALID_INPUT,
     message,
+  };
+};
+
+export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): APIError => {
+  return {
+    code: APIErrorCode.ERA_IMPORT_FAILED,
+    message,
+    statusCode,
   };
 };
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
