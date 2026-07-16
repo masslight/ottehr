@@ -209,13 +209,16 @@ export default function ClaimDetail(): ReactElement {
   const handleRunRulesEngine = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !id) return;
     const engine = claim ? applicableRulesEngine(claim) : undefined;
+    if (!engine) {
+      enqueueSnackbar('No rules engine applies to this claim, so the rules were not run.', { variant: 'error' });
+      setConfirmingSubmit(false);
+      return;
+    }
     setSubmitting(true);
     try {
       await runBillingRulesEngine(oystehrZambda, { claimId: id });
       enqueueSnackbar(
-        `${engine?.label ?? 'Rules engine'} started — when every rule passes, ${
-          engine?.onPass ?? 'the claim proceeds'
-        }; a Hold keeps the claim for review. Refresh to see the result.`,
+        `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review. Refresh to see the result.`,
         { variant: 'info' }
       );
     } catch (err) {
