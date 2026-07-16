@@ -64,12 +64,22 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
   const [visitDate, setVisitDate] = useState<DateTime | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
 
-  const debounceTextInput = useMemo(() => debounce((apply: () => void) => apply(), 800), []);
-
   const applySearch = (setSearch: (value: string) => void, value: string): void => {
     setSearch(value.trim());
     setPageIndex(0);
   };
+
+  // one debouncer per field — a shared one would cancel the other field's pending update
+  const debouncedApplyPatientName = useMemo(
+    () => debounce((value: string) => applySearch(setPatientNameSearch, value), 800),
+
+    []
+  );
+  const debouncedApplyVisitId = useMemo(
+    () => debounce((value: string) => applySearch(setVisitIdSearch, value), 800),
+
+    []
+  );
 
   // Appointment ids are UUIDs, so anything else can't match a visit.
   const visitIdIsInvalid = visitIdSearch !== '' && !isValidUUID(visitIdSearch);
@@ -78,6 +88,7 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
   const {
     data: faxLogs,
     isFetching,
+    isError,
     refetch,
   } = useQuery<GetFaxLogsOutput>({
     queryKey: ['get-fax-logs', patientId, patientNameSearch, visitIdSearch, visitDateISO, pageIndex],
@@ -104,14 +115,15 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
     label: string,
     fieldValue: string,
     setFieldValue: (value: string) => void,
-    setSearch: (value: string) => void
+    setSearch: (value: string) => void,
+    debouncedApply: ((value: string) => void) & { clear: () => void }
   ): ReactElement => (
     <TextField
       value={fieldValue}
       onChange={(e: ChangeEvent<HTMLInputElement>) => {
         const { value } = e.target;
         setFieldValue(value);
-        debounceTextInput(() => applySearch(setSearch, value));
+        debouncedApply(value);
       }}
       fullWidth
       size="small"
@@ -122,7 +134,10 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
         endAdornment: (
           <IconButton
             aria-label={`search by ${label.toLowerCase()}`}
-            onClick={() => applySearch(setSearch, fieldValue)}
+            onClick={() => {
+              debouncedApply.clear();
+              applySearch(setSearch, fieldValue);
+            }}
             onMouseDown={(event) => event.preventDefault()}
             sx={{ p: 0 }}
           >
@@ -138,11 +153,17 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
       <Grid container spacing={2}>
         {!patientId && (
           <Grid item xs={4}>
-            {renderSearchField('Patient', patientNameField, setPatientNameField, setPatientNameSearch)}
+            {renderSearchField(
+              'Patient',
+              patientNameField,
+              setPatientNameField,
+              setPatientNameSearch,
+              debouncedApplyPatientName
+            )}
           </Grid>
         )}
         <Grid item xs={4}>
-          {renderSearchField('Visit ID', visitIdField, setVisitIdField, setVisitIdSearch)}
+          {renderSearchField('Visit ID', visitIdField, setVisitIdField, setVisitIdSearch, debouncedApplyVisitId)}
         </Grid>
         <Grid item xs={4}>
           <DateSearch
@@ -175,6 +196,12 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
             <TableRow>
               <TableCell colSpan={columnsCount} align="center">
                 <CircularProgress />
+              </TableCell>
+            </TableRow>
+          ) : isError ? (
+            <TableRow>
+              <TableCell colSpan={columnsCount} align="center">
+                <Typography color="error">Failed to load fax logs. Please try again later.</Typography>
               </TableCell>
             </TableRow>
           ) : logs.length === 0 ? (

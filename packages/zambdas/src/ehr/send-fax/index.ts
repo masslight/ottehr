@@ -1,6 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DocumentReference, Patient, Practitioner, Provenance } from 'fhir/r4b';
+import { Appointment, DocumentReference, HumanName, Patient, Practitioner, Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   EMPLOYEE_ID_SYSTEM,
@@ -13,8 +13,13 @@ import {
   SendFaxZambdaInput,
   VISIT_NOTE_SUMMARY_CODE,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getUser, wrapHandler, ZambdaInput } from '../../shared';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  getUser,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'send-fax';
@@ -58,6 +63,8 @@ interface EffectInput {
   patientId: string;
   media: string;
   userPractitioner: Practitioner;
+  /** Snapshot of the recipient's name at send time, when the fax number identifies them. */
+  recipientNames?: HumanName[];
 }
 
 const complexValidation = async (
@@ -110,7 +117,35 @@ const complexValidation = async (
   console.log('patient id', patientId);
   console.log('media url', media);
 
-  return { appointmentId, faxNumber, organizationId, patientId, media, userPractitioner };
+  return {
+    appointmentId,
+    faxNumber,
+    organizationId,
+    patientId,
+    media,
+    userPractitioner,
+    recipientNames: findRecipientNames(patient, faxNumber),
+  };
+};
+
+/**
+ * Resolves the recipient's name for the fax log: the number typed by the user identifies a person
+ * only when it matches a practitioner contained on the Patient (i.e. their PCP).
+ */
+const findRecipientNames = (patient: Patient, faxNumber: string): HumanName[] | undefined => {
+  const faxDigits = normalizeFaxNumber(faxNumber);
+  if (!faxDigits) return undefined;
+  const match = patient.contained?.find(
+    (resource): resource is Practitioner =>
+      resource.resourceType === 'Practitioner' &&
+      Boolean(resource.telecom?.some((telecom) => normalizeFaxNumber(telecom.value) === faxDigits))
+  );
+  return match?.name?.length ? match.name : undefined;
+};
+
+const normalizeFaxNumber = (value: string | undefined): string | undefined => {
+  const digits = value?.replace(/\D/g, '');
+  return digits ? digits.slice(-10) : undefined;
 };
 
 const performEffect = async (
@@ -118,7 +153,7 @@ const performEffect = async (
   oystehr: Oystehr,
   user: User
 ): Promise<{ body: string; statusCode: number }> => {
-  const { appointmentId, faxNumber, organizationId, patientId, media, userPractitioner } = input;
+  const { appointmentId, faxNumber, organizationId, patientId, media, userPractitioner, recipientNames } = input;
 
   console.log('Sending fax to', faxNumber);
   const { communicationResource: fax } = await oystehr.fax.send({
@@ -210,6 +245,7 @@ const performEffect = async (
       {
         resourceType: 'Practitioner',
         id: containedId,
+        ...(recipientNames && { name: recipientNames }),
         telecom: [
           {
             system: 'fax',

@@ -307,6 +307,13 @@ function App(): ReactElement {
                 )}
                 <Route path="/patients" element={<PatientsPage />} />
 
+                {/* Non-admin roles get the admin shell for the items that opt them in via
+                    extraRoles (e.g. Fax Logs); AdminPage denies everything else. */}
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/admin/:adminTab" element={<AdminPage />} />
+                </Route>
+
                 <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/review" element={<UnsolicitedResultsReview />} />

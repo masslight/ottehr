@@ -31,6 +31,7 @@ import { index } from '../../src/ehr/get-fax-logs';
 const PATIENT_ID = '550e8400-e29b-41d4-a716-446655440000';
 const APPOINTMENT_ID = '650e8400-e29b-41d4-a716-446655440000';
 const FAX_NUMBER = '+11112223333';
+const FAX_IDENTIFIER_FILTER = `${OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM}|`;
 
 function makeBundle(resources: (Appointment | Communication | Patient | Provenance)[], total?: number): unknown {
   return {
@@ -69,20 +70,10 @@ function makePatient(): Patient {
     resourceType: 'Patient',
     id: PATIENT_ID,
     name: [{ given: ['Oliver'], family: 'Black' }],
-    contained: [
-      {
-        resourceType: 'Practitioner',
-        id: 'primary-care-physician',
-        name: [{ given: ['Olivia'], family: 'Green' }],
-        telecom: [
-          { system: 'phone', value: '+19998887777' },
-          { system: 'fax', value: '(111) 222-3333' },
-        ],
-      },
-    ],
   };
 }
 
+/** Mirrors what send-fax creates: targets both resources and snapshots the recipient name. */
 function makeFaxProvenance(communicationId: string, appointmentId = APPOINTMENT_ID): Provenance {
   return {
     resourceType: 'Provenance',
@@ -91,6 +82,14 @@ function makeFaxProvenance(communicationId: string, appointmentId = APPOINTMENT_
     recorded: '2024-07-29T15:00:00.000Z',
     activity: { coding: [FAX_SENT_PROVENANCE_ACTIVITY_CODING] },
     agent: [{ who: { reference: 'Practitioner/prac-1' } }],
+    contained: [
+      {
+        resourceType: 'Practitioner',
+        id: '1112223333',
+        name: [{ given: ['Olivia'], family: 'Green' }],
+        telecom: [{ system: 'fax', value: FAX_NUMBER }],
+      },
+    ],
   };
 }
 
@@ -168,7 +167,7 @@ describe('get-fax-logs - performEffect', () => {
     expect(resourceType).toBe('Communication');
     expect(params).toEqual(
       expect.arrayContaining([
-        { name: 'identifier', value: `${OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM}|` },
+        { name: 'identifier', value: FAX_IDENTIFIER_FILTER },
         { name: '_total', value: 'accurate' },
         { name: '_count', value: '10' },
         { name: '_offset', value: '0' },
@@ -215,7 +214,7 @@ describe('get-fax-logs - performEffect', () => {
     expect(params.some((param) => param.name === 'sent')).toBe(false);
   });
 
-  it('resolves a visit id filter through the fax Provenances', async () => {
+  it('resolves a visit id filter through a chained fax-Provenance search', async () => {
     mockFhirSearch
       .mockResolvedValueOnce(makeBundle([makeFaxProvenance('comm-1'), makeAuditProvenance('comm-1')]))
       .mockResolvedValueOnce(makeBundle([makeFaxCommunication({ faxStatusCode: 'STOPPED' })]))
@@ -235,18 +234,21 @@ describe('get-fax-logs - performEffect', () => {
       communicationId: 'comm-1',
       status: 'failed',
       appointmentId: APPOINTMENT_ID,
+      recipientName: 'Olivia Green',
     });
 
     expect(searchParamsOfCall(0)).toEqual({
       resourceType: 'Provenance',
       params: [
+        { name: 'target:Communication.identifier', value: FAX_IDENTIFIER_FILTER },
         { name: 'target', value: `Appointment/${APPOINTMENT_ID}` },
         { name: '_count', value: '1000' },
+        { name: '_offset', value: '0' },
       ],
     });
     expect(searchParamsOfCall(1).params).toEqual(
       expect.arrayContaining([
-        { name: 'identifier', value: `${OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM}|` },
+        { name: 'identifier', value: FAX_IDENTIFIER_FILTER },
         { name: '_id', value: 'comm-1' },
       ])
     );
@@ -267,9 +269,8 @@ describe('get-fax-logs - performEffect', () => {
     expect(mockFhirSearch).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves a visit date filter through Appointments and their Provenances', async () => {
+  it('resolves a visit date filter via the chained Appointment.date param', async () => {
     mockFhirSearch
-      .mockResolvedValueOnce(makeBundle([makeAppointment('appt-1'), makeAppointment('appt-2')]))
       .mockResolvedValueOnce(makeBundle([makeFaxProvenance('comm-1', 'appt-1')]))
       .mockResolvedValueOnce(makeBundle([makeFaxCommunication()]))
       .mockResolvedValueOnce(makeBundle([makeFaxCommunication(), makePatient()]));
@@ -277,64 +278,59 @@ describe('get-fax-logs - performEffect', () => {
     const output = await invoke({ visitDate: '2024-07-29' });
 
     expect(output.totalCount).toBe(1);
-    expect(searchParamsOfCall(0).resourceType).toBe('Appointment');
-    expect(searchParamsOfCall(0).params).toEqual(
-      expect.arrayContaining([
-        { name: 'date', value: '2024-07-29' },
+    expect(searchParamsOfCall(0)).toEqual({
+      resourceType: 'Provenance',
+      params: [
+        { name: 'target:Communication.identifier', value: FAX_IDENTIFIER_FILTER },
+        { name: 'target:Appointment.date', value: '2024-07-29' },
+        { name: '_count', value: '1000' },
         { name: '_offset', value: '0' },
-      ])
-    );
-    expect(searchParamsOfCall(1).params).toEqual(
-      expect.arrayContaining([{ name: 'target', value: 'Appointment/appt-1,Appointment/appt-2' }])
-    );
+      ],
+    });
   });
 
-  it('pages a large visit-filter result set in batches without dropping matches', async () => {
-    const communicationIds = Array.from({ length: 150 }, (_, i) => `comm-${String(i).padStart(3, '0')}`);
+  it('pages the Provenance lookup past 1000 records and batches a large id set without dropping matches', async () => {
+    const count = 1500;
+    const provenances = Array.from({ length: count }, (_, i) =>
+      makeFaxProvenance(`comm-${String(i).padStart(4, '0')}`)
+    );
     // sent timestamp derives from the id so every phase sees consistent values; higher id = newer
     const communicationsOf = (ids: string[]): Communication[] =>
       ids.map((id) => {
-        const n = Number(id.slice(-3));
-        const sent = `2024-07-29T${String(10 + Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(
-          2,
-          '0'
-        )}:00.000Z`;
-        return makeFaxCommunication({ id, sent });
+        const n = Number(id.slice(-4));
+        return makeFaxCommunication({
+          id,
+          sent: new Date(Date.UTC(2024, 6, 1, 0, 0, 0, 0) + n * 60_000).toISOString(),
+        });
       });
 
-    mockFhirSearch
-      // provenances resolving the visit to 150 fax communications
-      .mockResolvedValueOnce(makeBundle(communicationIds.map((id) => makeFaxProvenance(id))))
-      // two id batches: 100 + 50
-      .mockImplementation((request: { params: { name: string; value: string }[] }) => {
+    mockFhirSearch.mockImplementation(
+      (request: { resourceType: string; params: { name: string; value: string }[] }) => {
+        if (request.resourceType === 'Provenance') {
+          const offset = Number(request.params.find((param) => param.name === '_offset')?.value ?? '0');
+          return Promise.resolve(makeBundle(provenances.slice(offset, offset + 1000)));
+        }
         const idParam = request.params.find((param) => param.name === '_id')?.value ?? '';
         return Promise.resolve(makeBundle(communicationsOf(idParam.split(','))));
-      });
+      }
+    );
 
     const output = await invoke({ visitId: APPOINTMENT_ID });
 
-    expect(output.totalCount).toBe(150);
+    expect(output.totalCount).toBe(count);
     expect(output.logs).toHaveLength(10);
-    // 1 provenance query + 2 id batches + 1 includes page
-    expect(mockFhirSearch).toHaveBeenCalledTimes(4);
-    expect(
-      searchParamsOfCall(1)
-        .params.find((param) => param.name === '_id')
-        ?.value.split(',')
-    ).toHaveLength(100);
-    expect(
-      searchParamsOfCall(2)
-        .params.find((param) => param.name === '_id')
-        ?.value.split(',')
-    ).toHaveLength(50);
-    const pageIds = searchParamsOfCall(3)
-      .params.find((param) => param.name === '_id')
-      ?.value.split(',');
-    expect(pageIds).toHaveLength(10);
-    // newest first: the sort key is (sent desc, id desc), so the first page is comm-149..comm-140
+    // newest first: the sort key is (sent desc, id desc), so the first page is comm-1499..comm-1490
     expect(output.logs.map((log) => log.communicationId)).toEqual(
-      Array.from({ length: 10 }, (_, i) => `comm-${149 - i}`)
+      Array.from({ length: 10 }, (_, i) => `comm-${1499 - i}`)
     );
+
+    const provenanceCalls = mockFhirSearch.mock.calls.filter(([request]) => request.resourceType === 'Provenance');
+    expect(provenanceCalls.map(([request]) => request.params.find((p: any) => p.name === '_offset')?.value)).toEqual([
+      '0',
+      '1000',
+    ]);
+    // 2 provenance pages + 15 id batches of ≤100 + 1 includes page
+    expect(mockFhirSearch).toHaveBeenCalledTimes(18);
   });
 
   it('returns the total without an includes query when the requested page is beyond the results', async () => {

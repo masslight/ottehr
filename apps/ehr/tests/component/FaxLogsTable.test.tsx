@@ -129,4 +129,12 @@ describe('FaxLogsTable', () => {
 
     expect(await screen.findByText('No faxes found')).toBeVisible();
   });
+
+  it('shows an error message instead of an empty log when loading fails', async () => {
+    mockGetFaxLogs.mockRejectedValue(new Error('service unavailable'));
+    render(<FaxLogsTable />, { wrapper: createWrapper() });
+
+    expect(await screen.findByText('Failed to load fax logs. Please try again later.')).toBeVisible();
+    expect(screen.queryByText('No faxes found')).toBeNull();
+  });
 });

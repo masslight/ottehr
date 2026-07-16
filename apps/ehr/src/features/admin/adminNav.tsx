@@ -41,6 +41,7 @@ import SchedulesPage from 'src/pages/Schedules';
 import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
+import { RoleType } from 'utils';
 import { PaymentLocationsList } from './BillingConfiguration';
 import { FeeSchedulesIcon, InHouseLabsIcon, InsuranceIcon, ProgressNoteIcon, StethoscopeIcon } from './icons';
 
@@ -61,6 +62,11 @@ export interface AdminNavItem {
   centered?: boolean;
   /** Show a "Beta" chip next to the page title in the shared header. */
   beta?: boolean;
+  /**
+   * Roles beyond {@link ADMIN_TIER_ROLES} that may open this item. Items without this stay
+   * admin-tier only; the sidebar and AdminPage hide/deny everything a role can't access.
+   */
+  extraRoles?: RoleType[];
   render: (ctx: AdminNavContext) => ReactNode;
 }
 
@@ -238,6 +244,8 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: 'Fax Logs',
         path: '/admin/fax-logs',
         icon: <FaxOutlinedIcon />,
+        // all staff can see all outbound fax attempts
+        extraRoles: [RoleType.Staff, RoleType.Provider],
         render: () => <FaxLogsTable />,
       },
     ],
@@ -266,6 +274,19 @@ export const adminNavGroups: AdminNavGroup[] = [
 export const allAdminNavItems: AdminNavItem[] = adminNavGroups.flatMap((group) => group.items);
 
 export const DEFAULT_ADMIN_PATH = allAdminNavItems[0].path;
+
+/** Roles with access to every admin page; other roles only see items that opt them in via extraRoles. */
+export const ADMIN_TIER_ROLES: RoleType[] = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
+
+/** Nav groups the given user may see, dropping groups left with no accessible items. */
+export function resolveAccessibleAdminNavGroups(hasRole: (roles: RoleType[]) => boolean): AdminNavGroup[] {
+  if (hasRole(ADMIN_TIER_ROLES)) {
+    return adminNavGroups;
+  }
+  return adminNavGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => item.extraRoles && hasRole(item.extraRoles)) }))
+    .filter((group) => group.items.length > 0);
+}
 
 /** Landing target for bare /admin/billing — the first billing item, tracking nav order. */
 export const DEFAULT_BILLING_PATH =

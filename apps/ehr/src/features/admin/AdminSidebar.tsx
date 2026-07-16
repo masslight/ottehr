@@ -14,11 +14,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { FC, Fragment, ReactElement, ReactNode, useState } from 'react';
+import { FC, Fragment, ReactElement, ReactNode, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
+import useEvolveUser from '../../hooks/useEvolveUser';
 import { ArrowIcon } from '../visits/shared/components/Sidebar';
-import { adminNavGroups } from './adminNav';
+import { resolveAccessibleAdminNavGroups } from './adminNav';
 import { isItemActive } from './adminRoutes';
 
 const CLOSED_DRAWER_WIDTH = 56;
@@ -37,6 +38,8 @@ export const AdminSidebar: FC<AdminSidebarProps> = ({ children }) => {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(true);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const user = useEvolveUser();
+  const navGroups = useMemo(() => (user ? resolveAccessibleAdminNavGroups(user.hasRole) : []), [user]);
 
   const drawerWidth = open ? OPEN_DRAWER_WIDTH : CLOSED_DRAWER_WIDTH;
   const sidebarToggleLabel = `${open ? 'Collapse' : 'Expand'} sidebar`;
@@ -148,7 +151,7 @@ export const AdminSidebar: FC<AdminSidebarProps> = ({ children }) => {
         </Box>
 
         <List sx={{ py: 0 }}>
-          {adminNavGroups.map((group) => {
+          {navGroups.map((group) => {
             const groupCollapsed = collapsedGroups.has(group.label);
             return (
               <Fragment key={group.label}>

@@ -1,6 +1,6 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Communication, Patient, Practitioner, Provenance } from 'fhir/r4b';
+import { Appointment, Communication, FhirResource, Patient, Practitioner, Provenance } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   FAX_LOGS_DISPLAY_WINDOW_DAYS,
@@ -20,9 +20,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-fax-logs';
 
-// Per-request caps that keep search URLs bounded; batches iterate so no results are dropped.
+// Per-request cap that keeps _id search URLs bounded; batches run in parallel so nothing is dropped.
 const COMMUNICATION_ID_BATCH_SIZE = 100;
-const REFERENCE_CHUNK_SIZE = 50;
 const SEARCH_PAGE_SIZE = 1000;
 
 const FAX_INCLUDE_PARAMS: SearchParam[] = [
@@ -104,47 +103,30 @@ const buildFaxFilterParams = (patientId: string | undefined, patientName: string
   return params;
 };
 
-/** Resolves visit filters to the ids of fax Communications recorded for the matching appointments. */
+/**
+ * Resolves visit filters to the ids of fax Communications recorded for the matching appointments.
+ * Each fax Provenance targets both the Communication and the Appointment, so requiring the
+ * fax-identifier chain alongside the appointment constraint matches exactly the fax Provenances
+ * for those visits in a single (paged) query.
+ */
 const findFaxCommunicationIdsForVisits = async (
   oystehr: Oystehr,
   visitId: string | undefined,
   visitDate: string | undefined
 ): Promise<string[]> => {
-  let appointmentIds: string[];
-  if (visitId && !visitDate) {
-    appointmentIds = [visitId];
-  } else {
-    appointmentIds = [];
-    for (let offset = 0; ; offset += SEARCH_PAGE_SIZE) {
-      const params: SearchParam[] = [
-        { name: '_count', value: SEARCH_PAGE_SIZE.toString() },
-        { name: '_offset', value: offset.toString() },
-      ];
-      if (visitId) params.push({ name: '_id', value: visitId });
-      if (visitDate) params.push({ name: 'date', value: visitDate });
-      const page = (await oystehr.fhir.search<Appointment>({ resourceType: 'Appointment', params })).unbundle();
-      appointmentIds.push(...page.map((appointment) => appointment.id).filter((id): id is string => Boolean(id)));
-      if (page.length < SEARCH_PAGE_SIZE) break;
-    }
-  }
+  const params: SearchParam[] = [
+    { name: 'target:Communication.identifier', value: `${OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM}|` },
+  ];
+  if (visitId) params.push({ name: 'target', value: `Appointment/${visitId}` });
+  if (visitDate) params.push({ name: 'target:Appointment.date', value: visitDate });
+
+  const provenances = await searchAllPages<Provenance>(oystehr, 'Provenance', params);
 
   const communicationIds = new Set<string>();
-  for (let i = 0; i < appointmentIds.length; i += REFERENCE_CHUNK_SIZE) {
-    const chunk = appointmentIds.slice(i, i + REFERENCE_CHUNK_SIZE);
-    const provenances = (
-      await oystehr.fhir.search<Provenance>({
-        resourceType: 'Provenance',
-        params: [
-          { name: 'target', value: chunk.map((id) => `Appointment/${id}`).join(',') },
-          { name: '_count', value: SEARCH_PAGE_SIZE.toString() },
-        ],
-      })
-    ).unbundle();
-    provenances.filter(isFaxSentProvenance).forEach((provenance) => {
-      const communicationId = findTargetId(provenance, 'Communication');
-      if (communicationId) communicationIds.add(communicationId);
-    });
-  }
+  provenances.filter(isFaxSentProvenance).forEach((provenance) => {
+    const communicationId = findTargetId(provenance, 'Communication');
+    if (communicationId) communicationIds.add(communicationId);
+  });
   return [...communicationIds];
 };
 
@@ -160,21 +142,25 @@ const getFaxLogsPageByIds = async (
   pageIndex: number,
   itemsPerPage: number
 ): Promise<GetFaxLogsOutput> => {
-  const matching: Communication[] = [];
+  const chunks: string[][] = [];
   for (let i = 0; i < communicationIds.length; i += COMMUNICATION_ID_BATCH_SIZE) {
-    const chunk = communicationIds.slice(i, i + COMMUNICATION_ID_BATCH_SIZE);
-    const batch = (
-      await oystehr.fhir.search<Communication>({
-        resourceType: 'Communication',
-        params: [
-          ...filterParams,
-          { name: '_id', value: chunk.join(',') },
-          { name: '_count', value: COMMUNICATION_ID_BATCH_SIZE.toString() },
-        ],
-      })
-    ).unbundle();
-    matching.push(...batch.filter(isFaxCommunication));
+    chunks.push(communicationIds.slice(i, i + COMMUNICATION_ID_BATCH_SIZE));
   }
+  const batches = await Promise.all(
+    chunks.map(async (chunk) =>
+      (
+        await oystehr.fhir.search<Communication>({
+          resourceType: 'Communication',
+          params: [
+            ...filterParams,
+            { name: '_id', value: chunk.join(',') },
+            { name: '_count', value: COMMUNICATION_ID_BATCH_SIZE.toString() },
+          ],
+        })
+      ).unbundle()
+    )
+  );
+  const matching = batches.flat().filter(isFaxCommunication);
   // newest first with id tiebreaker, mirroring the '-sent,-_id' sort of the single-query path
   matching.sort((a, b) => (b.sent ?? '').localeCompare(a.sent ?? '') || (b.id ?? '').localeCompare(a.id ?? ''));
 
@@ -199,6 +185,30 @@ const getFaxLogsPageByIds = async (
   return { logs, totalCount: matching.length };
 };
 
+/** Collects every match of a search by walking _offset pages of {@link SEARCH_PAGE_SIZE}. */
+const searchAllPages = async <T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  params: SearchParam[]
+): Promise<T[]> => {
+  const all: T[] = [];
+  for (let offset = 0; ; offset += SEARCH_PAGE_SIZE) {
+    const page = (
+      await oystehr.fhir.search<T>({
+        resourceType,
+        params: [
+          ...params,
+          { name: '_count', value: SEARCH_PAGE_SIZE.toString() },
+          { name: '_offset', value: offset.toString() },
+        ],
+      })
+    ).unbundle();
+    all.push(...page);
+    if (page.length < SEARCH_PAGE_SIZE) break;
+  }
+  return all;
+};
+
 const composeFaxLogEntries = (resources: (Appointment | Communication | Patient | Provenance)[]): FaxLogEntry[] => {
   const communications = resources.filter(
     (resource): resource is Communication => resource.resourceType === 'Communication' && isFaxCommunication(resource)
@@ -210,7 +220,6 @@ const composeFaxLogEntries = (resources: (Appointment | Communication | Patient 
   return communications.map((communication) => {
     const patientId = communication.subject?.reference?.split('/')[1];
     const patient = patients.find((candidate) => candidate.id === patientId);
-    const faxNumber = getFaxNumberFromCommunication(communication);
 
     const provenance = faxProvenances.find(
       (candidate) =>
@@ -224,10 +233,10 @@ const composeFaxLogEntries = (resources: (Appointment | Communication | Patient 
       communicationId: communication.id!,
       status: getFaxStatus(communication),
       sentAt: communication.sent,
-      faxNumber,
+      faxNumber: getFaxNumberFromCommunication(communication),
       patientId,
       patientName: patient && getFormattedPatientFullName(patient, { skipNickname: true }),
-      recipientName: patient && faxNumber ? findRecipientNameByFaxNumber(patient, faxNumber) : undefined,
+      recipientName: getRecipientNameFromProvenance(provenance),
       appointmentId,
       visitDate: appointment?.start,
     };
@@ -253,24 +262,12 @@ const getFaxNumberFromCommunication = (communication: Communication): string | u
   return contained.telecom?.find((telecom) => telecom.system === 'fax')?.value;
 };
 
-/**
- * The send flow captures only a fax number, so the recipient name is resolved best-effort: when the
- * number matches a practitioner contained on the Patient (i.e. their PCP), use that name.
- */
-const findRecipientNameByFaxNumber = (patient: Patient, faxNumber: string): string | undefined => {
-  const faxDigits = normalizeFaxNumber(faxNumber);
-  if (!faxDigits) return undefined;
-  const match = patient.contained?.find(
-    (resource): resource is Practitioner =>
-      resource.resourceType === 'Practitioner' &&
-      Boolean(resource.telecom?.some((telecom) => normalizeFaxNumber(telecom.value) === faxDigits))
+/** send-fax snapshots the recipient's name (when known) on the Provenance's contained Practitioner. */
+const getRecipientNameFromProvenance = (provenance: Provenance | undefined): string | undefined => {
+  const contained = provenance?.contained?.find(
+    (resource): resource is Practitioner => resource.resourceType === 'Practitioner'
   );
-  return match?.name?.length ? getFullName(match) : undefined;
-};
-
-const normalizeFaxNumber = (value: string | undefined): string | undefined => {
-  const digits = value?.replace(/\D/g, '');
-  return digits ? digits.slice(-10) : undefined;
+  return contained?.name?.length ? getFullName(contained) : undefined;
 };
 
 const isFaxCommunication = (communication: Communication): boolean =>
