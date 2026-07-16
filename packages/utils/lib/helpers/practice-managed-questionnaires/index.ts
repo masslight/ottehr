@@ -97,6 +97,7 @@ const addPracticeManagedQuestionnaireTag = (
   }
 
   questionnaire.meta = {
+    ...existingMeta,
     tag: [...existingTags, PRACTICE_MANAGED_QUESTIONNAIRE_TAG],
   };
 

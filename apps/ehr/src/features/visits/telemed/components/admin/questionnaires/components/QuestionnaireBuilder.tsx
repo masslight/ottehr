@@ -113,7 +113,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
       ...(metaTags && { meta: { tag: metaTags } }),
     };
 
-    const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(questionnaire);
+    const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(structuredClone(questionnaire));
     const jsonPreview = JSON.stringify(fhirQuestionnaire, null, 2);
 
     return { questionnaire, fhirQuestionnaire, jsonPreview };

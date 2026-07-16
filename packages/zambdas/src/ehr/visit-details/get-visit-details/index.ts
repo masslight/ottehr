@@ -323,7 +323,7 @@ const getStandaloneFormsForAppointment = async (
     await oystehr.fhir.search<Encounter | QuestionnaireResponse>({
       resourceType: 'Encounter',
       params: [
-        { name: 'appointment', value: appointmentId },
+        { name: 'appointment', value: `Appointment/${appointmentId}` },
         { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
       ],
     })

@@ -63,7 +63,7 @@ export const usePaperworkComponentHelpers = (): PaperworkComponentHelpers => {
   }): Promise<any> => {
     if (tokenlessZambdaClient == null) throw new Error('error searching, api client is undefined');
     const { appointmentID, fileType, fileFormat, file } = input;
-    await api.createZ3Object(appointmentID, fileType, fileFormat, tokenlessZambdaClient, file);
+    return await api.createZ3Object(appointmentID, fileType, fileFormat, tokenlessZambdaClient, file);
   };
 
   return {

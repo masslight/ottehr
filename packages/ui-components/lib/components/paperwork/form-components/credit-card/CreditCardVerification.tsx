@@ -10,6 +10,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { Theme } from '@mui/system';
 import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
@@ -184,7 +185,7 @@ const CreditCardContent: FC<CreditCardContentProps> = ({
           id="default-card-selection-label"
           htmlFor="default-card-selection-group"
           required={required}
-          sx={(theme) => ({
+          sx={(theme: Theme) => ({
             whiteSpace: 'pre-wrap',
             position: 'unset',
             color: theme.palette.primary.dark,
