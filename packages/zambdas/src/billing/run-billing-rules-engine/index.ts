@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Task } from 'fhir/r4b';
 import { InternalError, RunBillingRulesEngineResponse } from 'utils';
@@ -10,9 +10,10 @@ import { RunBillingRulesEngineParams, validateRequestParameters } from './valida
 let m2mToken: string;
 const ZAMBDA_NAME = 'run-billing-rules-engine';
 
-// Manually kick off the pre-submission rules engine for an existing claim. Enqueues the same Task
-// create-billing-claim does; a Subscription then runs sub-presubmission-rules-engine. Exposed so the
-// engine can be triggered (and tested) on demand from the claim detail view.
+// Kick off the pre-submission rules engine for one or more existing claims. Enqueues the same Task
+// create-billing-claim does (one per claim); a Subscription then runs sub-presubmission-rules-engine,
+// which submits or holds each claim. This is the only path to submitting a claim — the claims list
+// bulk submit and the claim detail submit both go through here.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
 
@@ -24,16 +25,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// Confirm the claim exists so the caller gets a clear error rather than a silently orphaned Task.
-async function complexValidation(oystehr: Oystehr, params: RunBillingRulesEngineParams): Promise<Claim> {
-  return fetchById<Claim>(oystehr, 'Claim', params.claimId);
+// Confirm every claim exists so the caller gets a clear error rather than silently orphaned Tasks.
+async function complexValidation(oystehr: Oystehr, params: RunBillingRulesEngineParams): Promise<Claim[]> {
+  return Promise.all(params.claimIds.map((claimId) => fetchById<Claim>(oystehr, 'Claim', claimId)));
 }
 
-async function performEffect(
+// All kickoff Tasks are created in one transaction: either the engine is queued for every requested
+// claim or for none of them, so a partial failure can't leave the caller guessing which claims ran.
+export async function performEffect(
   oystehr: Oystehr,
   params: RunBillingRulesEngineParams
 ): Promise<RunBillingRulesEngineResponse> {
-  const task = await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(params.claimId));
-  if (!task.id) throw InternalError;
-  return { taskId: task.id };
+  const requests: BatchInputPostRequest<Task>[] = params.claimIds.map((claimId) => ({
+    method: 'POST',
+    url: '/Task',
+    resource: buildRulesEngineKickoffTask(claimId),
+  }));
+  const result = await oystehr.fhir.transaction<Task>({ requests });
+  const taskIds = (result.entry ?? [])
+    .map((entry) => entry.resource?.id)
+    .filter((id): id is string => id !== undefined);
+  if (taskIds.length !== params.claimIds.length) throw InternalError;
+  return { taskIds };
 }

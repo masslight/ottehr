@@ -5,14 +5,14 @@ import { AR_STAGE, BillingClaimItem, emptyClaimStatusValues } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ClaimsList from '../../src/pages/ClaimsList';
 
-const { searchBillingClaimsMock, submitBillingClaimsMock } = vi.hoisted(() => ({
+const { searchBillingClaimsMock, runBillingRulesEngineMock } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
-  submitBillingClaimsMock: vi.fn(),
+  runBillingRulesEngineMock: vi.fn(),
 }));
 
 vi.mock('../../src/api/api', () => ({
   searchBillingClaims: searchBillingClaimsMock,
-  submitBillingClaims: submitBillingClaimsMock,
+  runBillingRulesEngine: runBillingRulesEngineMock,
   searchBillingPatients: vi.fn().mockResolvedValue({ patients: [] }),
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
@@ -124,11 +124,11 @@ function renderList(): void {
 describe('ClaimsList — submit claims', () => {
   beforeEach(() => {
     searchBillingClaimsMock.mockReset();
-    submitBillingClaimsMock.mockReset();
+    runBillingRulesEngineMock.mockReset();
     enqueueSnackbarMock.mockReset();
   });
 
-  it('blocks non-Insurance-Payer-AR rows from selection and submits the selected eligible claim', async () => {
+  it('blocks non-Insurance-Payer-AR rows from selection and kicks off the rules engine for the selected claim', async () => {
     searchBillingClaimsMock.mockResolvedValue({
       claims: [
         makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer),
@@ -136,14 +136,7 @@ describe('ClaimsList — submit claims', () => {
       ],
       total: 2,
     });
-    submitBillingClaimsMock.mockResolvedValue({
-      results: [
-        {
-          claimId: 'c-ins',
-          status: 'submitted',
-        },
-      ],
-    });
+    runBillingRulesEngineMock.mockResolvedValue({ taskIds: ['task-1'] });
     renderList();
 
     const eligible = await screen.findByLabelText('select Insurable Patient');
@@ -157,24 +150,19 @@ describe('ClaimsList — submit claims', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
-    await waitFor(() => expect(submitBillingClaimsMock).toHaveBeenCalledWith({}, { claimIds: ['c-ins'] }));
-    expect(enqueueSnackbarMock).toHaveBeenCalledWith('1 claim(s) submitted', { variant: 'success' });
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['c-ins'] }));
+    expect(enqueueSnackbarMock).toHaveBeenCalledWith(
+      'Rules engine started for 1 claim(s) — it will submit or hold each claim shortly. Refresh to see the results.',
+      { variant: 'info' }
+    );
   });
 
-  it('names the failed claim in the error summary', async () => {
+  it('surfaces a kickoff failure as an error snackbar', async () => {
     searchBillingClaimsMock.mockResolvedValue({
       claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer)],
       total: 1,
     });
-    submitBillingClaimsMock.mockResolvedValue({
-      results: [
-        {
-          claimId: 'c-ins',
-          status: 'error',
-          error: 'payer down',
-        },
-      ],
-    });
+    runBillingRulesEngineMock.mockRejectedValue(new Error('kickoff failed'));
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
@@ -182,12 +170,9 @@ describe('ClaimsList — submit claims', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() =>
-      expect(enqueueSnackbarMock).toHaveBeenCalledWith(
-        'Failed to submit: Insurable Patient (2026-01-02) — payer down',
-        {
-          variant: 'error',
-        }
-      )
+      expect(enqueueSnackbarMock).toHaveBeenCalledWith('kickoff failed', {
+        variant: 'error',
+      })
     );
   });
 

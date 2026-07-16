@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto';
-import { MAX_SUBMIT_BILLING_CLAIMS } from 'utils';
+import { MAX_RUN_RULES_ENGINE_CLAIMS } from 'utils';
 import { describe, expect, test } from 'vitest';
-import { validateRequestParameters } from '../../../src/billing/submit-billing-claim/validateRequestParameters';
+import { validateRequestParameters } from '../../../src/billing/run-billing-rules-engine/validateRequestParameters';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
-describe('submit-billing-claim - validateRequestParameters', () => {
+describe('run-billing-rules-engine - validateRequestParameters', () => {
   const secrets = createMockSecrets();
   const claimIds = [randomUUID(), randomUUID()];
 
@@ -16,10 +16,10 @@ describe('submit-billing-claim - validateRequestParameters', () => {
     });
   });
 
-  test('throws when a claim id is not a uuid', () => {
+  test('throws when a claim id is empty', () => {
     const input = createMockZambdaInput(
       {
-        claimIds: ['claim-1'],
+        claimIds: [''],
       },
       { secrets }
     );
@@ -44,7 +44,7 @@ describe('submit-billing-claim - validateRequestParameters', () => {
   test('throws when more than the maximum number of claim ids is provided', () => {
     const input = createMockZambdaInput(
       {
-        claimIds: Array.from({ length: MAX_SUBMIT_BILLING_CLAIMS + 1 }, () => randomUUID()),
+        claimIds: Array.from({ length: MAX_RUN_RULES_ENGINE_CLAIMS + 1 }, () => randomUUID()),
       },
       { secrets }
     );

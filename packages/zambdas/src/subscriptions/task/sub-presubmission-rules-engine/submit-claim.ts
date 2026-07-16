@@ -16,9 +16,9 @@ export interface SubmitClaimResult {
   statusReason: string;
 }
 
-// Submit via the Oystehr claim service, mirroring submit-billing-claim: only Insurance-Payer-AR
-// claims are submittable; on success the Insurance AR Status moves to Submitted, recorded in the
-// claim history with the rules-engine agent.
+// Submit via the Oystehr claim service: only Insurance-Payer-AR claims are submittable; on success
+// the Insurance AR Status moves to Submitted, recorded in the claim history with the rules-engine
+// agent.
 export async function submitClaim(input: SubmitClaimInput): Promise<SubmitClaimResult> {
   const { oystehr, model, agent } = input;
   const claimId = model.claim.id;

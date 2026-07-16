@@ -257,7 +257,7 @@ describe('ClaimDetail — submit claim', () => {
 
   it('runs the rules engine through the confirm dialog', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
-    runBillingRulesEngineMock.mockResolvedValue({ taskId: 'task-1' });
+    runBillingRulesEngineMock.mockResolvedValue({ taskIds: ['task-1'] });
     renderDetail();
 
     const submitButton = await screen.findByRole('button', { name: 'Submit claim' });
@@ -266,7 +266,7 @@ describe('ClaimDetail — submit claim', () => {
     const confirmButton = await screen.findByRole('button', { name: 'Submit' });
     fireEvent.click(confirmButton);
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimId: 'claim-1' }));
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Rules engine started — it will submit or hold the claim shortly. Refresh to see the result.',
       { variant: 'info' }

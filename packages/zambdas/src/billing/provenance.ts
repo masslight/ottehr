@@ -489,7 +489,7 @@ export async function commitClaimMetaTagsWithProvenance(
 /**
  * Set (or clear) one claim-status field and record the change, atomically. The provenance-aware
  * counterpart of shared.ts#buildUpdatedClaimStatusTags, used by every endpoint that moves a claim's
- * status (set-billing-claim-status, submit-billing-claim, ...).
+ * status (set-billing-claim-status, the rules engine's claim submission, ...).
  */
 export async function applyClaimStatusField(
   oystehr: Oystehr,

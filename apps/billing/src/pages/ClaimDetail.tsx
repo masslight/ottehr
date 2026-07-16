@@ -185,7 +185,7 @@ export default function ClaimDetail(): ReactElement {
     if (!oystehrZambda || !id) return;
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimId: id });
+      await runBillingRulesEngine(oystehrZambda, { claimIds: [id] });
       enqueueSnackbar('Rules engine started — it will submit or hold the claim shortly. Refresh to see the result.', {
         variant: 'info',
       });

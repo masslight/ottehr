@@ -165,11 +165,16 @@ export interface BillingRulesResponse {
   versionId?: string;
 }
 
-// run-billing-rules-engine: manually kick off the engine for an existing claim (testing / ops). It
-// just enqueues the engine Task; a Subscription runs sub-presubmission-rules-engine asynchronously.
-export const RunBillingRulesEngineInputSchema = z.object({ claimId: z.string().min(1) });
+export const MAX_RUN_RULES_ENGINE_CLAIMS = 20;
+
+// run-billing-rules-engine: manually kick off the engine for one or more existing claims (claim
+// detail submit, claims list bulk submit, ops). It just enqueues one engine Task per claim; a
+// Subscription runs sub-presubmission-rules-engine asynchronously, which submits or holds each claim.
+export const RunBillingRulesEngineInputSchema = z.object({
+  claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+});
 export type RunBillingRulesEngineInput = z.output<typeof RunBillingRulesEngineInputSchema>;
 
 export interface RunBillingRulesEngineResponse {
-  taskId: string;
+  taskIds: string[];
 }
