@@ -6,26 +6,24 @@ import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/re
 import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createReference,
   getCandidInventoryPages,
   getOrCreateCandidApiClient,
   getResourcesFromBatchInlineRequests,
-  InvoiceTaskInput,
-  mapDisplayToInvoiceTaskStatus,
+  MISSING_REQUEST_SECRETS,
   RcmTaskCodings,
-  ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
-import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
   getOrCreateInvoicingConfig,
   ParsedInvoicingConfig,
   parseInvoicingConfig,
 } from '../../rcm/invoice-config/helpers';
 import {
+  buildInvoiceTask,
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
+  isCandidInvoicingEnabled,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -33,7 +31,6 @@ import {
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-invoices-tasks';
-const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
 const BATCH_CHUNK_SIZE = 25;
 
 async function getResourcesFromParallelBatches(oystehr: Oystehr, requests: string[]): Promise<Resource[]> {
@@ -54,6 +51,14 @@ interface EncounterPackage {
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets } = input;
+  if (!secrets) throw MISSING_REQUEST_SECRETS;
+  if (!isCandidInvoicingEnabled(secrets)) {
+    console.log('Candid invoicing is disabled for this env (BILLING_INTEGRATION or feature flag); skipping');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Candid invoicing disabled, no tasks created' }),
+    };
+  }
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const candid = await getOrCreateCandidApiClient(oystehr, secrets);
@@ -87,25 +92,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-function getInvoiceTaskInput(
-  claimId: string,
-  finalizationDate: Date,
-  patientBalanceInCents: number,
-  config: ParsedInvoicingConfig
-): InvoiceTaskInput {
-  const dueDate = DateTime.now().plus({ days: config.dueDaysFromGeneration }).toISODate();
-  const finalizationDateIso = finalizationDate.toISOString();
-
-  return {
-    smsTextMessage: config.defaultSmsTemplate,
-    memo: config.defaultInvoiceMemo,
-    dueDate,
-    amountCents: patientBalanceInCents,
-    claimId,
-    finalizationDate: finalizationDateIso,
-  };
-}
-
 export async function createTaskForEncounter(
   oystehr: Oystehr,
   encounterPkg: EncounterPackage,
@@ -113,31 +99,19 @@ export async function createTaskForEncounter(
 ): Promise<void> {
   try {
     const { encounter, claim, amountCents } = encounterPkg;
-    const patientId = encounter.subject?.reference?.replace('Patient/', '');
-
-    if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
-
-    const prefilledInvoiceInfo = getInvoiceTaskInput(claim.claimId, claim.timestamp, amountCents, config);
 
     console.log(
       `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, encounter: ${encounter.id}, balance (cents): ${amountCents}`
     );
 
-    const task: Task = {
-      resourceType: 'Task',
-      status: readyTaskStatus,
-      description: `Send invoice for $${(amountCents / 100).toFixed(2)}`,
-      intent: 'order',
-      code: RcmTaskCodings.sendInvoiceToPatient,
-      encounter: createReference(encounter),
-      for: { reference: `Patient/${patientId}` },
-      authoredOn: prefilledInvoiceInfo.finalizationDate ?? DateTime.now().toISO(),
-      ...(encounter.period?.start
-        ? { executionPeriod: { start: encounter.period.start, end: encounter.period.start } }
-        : {}),
-      ...(amountCents === 0 ? { businessStatus: ZERO_BALANCE_BUSINESS_STATUS } : {}),
-      input: createInvoiceTaskInput(prefilledInvoiceInfo),
-    };
+    const task: Task = buildInvoiceTask({
+      source: 'candid',
+      claimId: claim.claimId,
+      finalizationDateIso: claim.timestamp.toISOString(),
+      amountCents,
+      encounter,
+      config,
+    });
 
     console.log('Creating task:', JSON.stringify(task));
 
