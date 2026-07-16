@@ -22,6 +22,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { EraDetailResponse, getApiError } from 'utils';
 import { getBillingEraDetail } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
@@ -36,37 +37,6 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
   valueFormatter: (params: { value: number }) => formatCurrency(params.value),
 });
 
-const claimColumns: GridColDef[] = [
-  {
-    field: 'claimId',
-    headerName: 'Claim ID',
-    width: 320,
-  },
-  { field: 'patientName', headerName: 'Patient', flex: 1, minWidth: 150 },
-  { field: 'dos', headerName: 'Date of Service', width: 130 },
-  currencyCol('billed', 'Billed', 100),
-  currencyCol('allowed', 'Allowed', 100),
-  currencyCol('paid', 'Ins Paid', 110),
-  currencyCol('posted', 'Posted', 100),
-  {
-    field: 'status',
-    headerName: 'Status',
-    width: 140,
-    renderCell: ({ value }) =>
-      value ? (
-        <Chip
-          label={String(value)}
-          color={value === 'complete' ? 'success' : 'warning'}
-          variant="outlined"
-          size="small"
-          sx={{ borderRadius: '4px', fontSize: 12 }}
-        />
-      ) : (
-        '—'
-      ),
-  },
-];
-
 export default function ERADetail(): ReactElement {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -78,6 +48,55 @@ export default function ERADetail(): ReactElement {
   const [tab, setTab] = useState('1');
   const [claimSearch, setClaimSearch] = useState('');
   const [claimStatusFilter, setClaimStatusFilter] = useState('');
+  const [showMatchClaimDialog, setShowMatchClaimDialog] = useState(false);
+
+  const claimColumns: GridColDef[] = [
+    {
+      field: 'claimId',
+      headerName: 'Claim ID',
+      width: 320,
+      renderCell: ({ value, row }) => {
+        if (!row.matched) {
+          return (
+            <Button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowMatchClaimDialog(true);
+              }}
+            >
+              Match
+            </Button>
+          );
+        } else {
+          return <>{value}</>;
+        }
+      },
+    },
+    { field: 'patientName', headerName: 'Patient', flex: 1, minWidth: 150 },
+    { field: 'dos', headerName: 'Date of Service', width: 130 },
+    currencyCol('billed', 'Billed', 100),
+    currencyCol('allowed', 'Allowed', 100),
+    currencyCol('paid', 'Ins Paid', 110),
+    currencyCol('posted', 'Posted', 100),
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 140,
+      renderCell: ({ value, row }) =>
+        value ? (
+          <Chip
+            label={!row.matched ? 'unmatched' : String(value)}
+            color={value === 'complete' && row.matched ? 'success' : 'warning'}
+            variant="outlined"
+            size="small"
+            sx={{ borderRadius: '4px', fontSize: 12 }}
+          />
+        ) : (
+          '—'
+        ),
+    },
+  ];
 
   const fetchDetail = useCallback(async () => {
     if (!oystehrZambda || !id) return;
@@ -220,7 +239,7 @@ export default function ERADetail(): ReactElement {
               rows={filteredClaims}
               columns={claimColumns}
               getRowId={(row) => row.claimId}
-              onRowClick={(params) => navigate(`/claims/${params.id}`)}
+              //onRowClick={(params) => navigate(`/claims/${params.id}`)}
               disableRowSelectionOnClick
               disableColumnMenu
               autoHeight
@@ -232,6 +251,7 @@ export default function ERADetail(): ReactElement {
           </TabPanel>
         </TabContext>
       </Box>
+      {showMatchClaimDialog && <MatchClaimDialog onClose={() => setShowMatchClaimDialog(false)} />}
     </Box>
   );
 }

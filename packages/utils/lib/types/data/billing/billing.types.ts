@@ -176,6 +176,7 @@ export interface EraDetailResponse {
     paid: number;
     posted: number;
     status: string;
+    matched: boolean;
   }[];
 }
 
