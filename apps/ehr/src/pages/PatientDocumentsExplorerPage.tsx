@@ -81,7 +81,6 @@ const PatientDocumentsExplorerPage: FC = () => {
     }
   }, [documentsFolders, pendingSelectInternalName]);
 
-  // todo sarah double check this
   // If a ?folder=<name> URL param is present, preselect that folder once the
   // folder list has loaded. Used by the Patient Follow-up Task "Go To Task"
   // deep link from completed practice-managed forms.

@@ -224,12 +224,9 @@ export const StandaloneFormPage: FC = () => {
       return 'Access Denied';
     } else if (loadError) {
       return 'Error loading this form.';
-    } else if (pages.length === 0) {
-      // i'm not sure we would ever hit this
-      return 'Form not found.';
     }
     return;
-  }, [loadError, pages, authedFetchState]);
+  }, [loadError, authedFetchState]);
 
   const finishPage = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
