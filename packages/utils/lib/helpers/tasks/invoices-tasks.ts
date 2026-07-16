@@ -65,6 +65,16 @@ export function getInvoiceTaskClaimId(task: Pick<Task, 'identifier'>): string | 
   return task.identifier?.find((identifier) => identifier.system === INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM)?.value;
 }
 
+export function invoiceTaskSourceSearchParam(
+  source: InvoiceTaskSource | undefined
+): { name: string; value: string } | undefined {
+  if (!source) return undefined;
+  return {
+    name: source === 'candid' ? '_tag:not' : '_tag',
+    value: `${INVOICE_TASK_SOURCE_SYSTEM}|ottehr-billing`,
+  };
+}
+
 export function mapInvoiceTaskStatusToDisplay(status: Task['status']): InvoiceTaskDisplayStatus {
   switch (status) {
     case 'ready':

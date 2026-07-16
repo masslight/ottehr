@@ -1,7 +1,7 @@
 import { Task } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM, INVOICE_TASK_SOURCE_SYSTEM, invoiceTaskSourceTag } from '../../types';
-import { getInvoiceTaskClaimId, getInvoiceTaskSource } from './invoices-tasks';
+import { getInvoiceTaskClaimId, getInvoiceTaskSource, invoiceTaskSourceSearchParam } from './invoices-tasks';
 
 const task = (overrides: Partial<Task> = {}): Task => ({
   resourceType: 'Task',
@@ -82,5 +82,25 @@ describe('source tag shape', () => {
       system: INVOICE_TASK_SOURCE_SYSTEM,
       code: 'ottehr-billing',
     });
+  });
+});
+
+describe('invoiceTaskSourceSearchParam', () => {
+  it('selects tagged tasks for the billing screen', () => {
+    expect(invoiceTaskSourceSearchParam('ottehr-billing')).toEqual({
+      name: '_tag',
+      value: `${INVOICE_TASK_SOURCE_SYSTEM}|ottehr-billing`,
+    });
+  });
+
+  it('excludes tagged tasks for the candid screen, keeping legacy untagged tasks visible', () => {
+    expect(invoiceTaskSourceSearchParam('candid')).toEqual({
+      name: '_tag:not',
+      value: `${INVOICE_TASK_SOURCE_SYSTEM}|ottehr-billing`,
+    });
+  });
+
+  it('returns undefined when no source filter is given', () => {
+    expect(invoiceTaskSourceSearchParam(undefined)).toBeUndefined();
   });
 });
