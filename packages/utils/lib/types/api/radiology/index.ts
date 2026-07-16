@@ -160,3 +160,24 @@ export interface SendRadiologyOrderFaxZambdaInput {
 export interface SendRadiologyOrderFaxZambdaOutput {
   communicationId: string;
 }
+
+export interface RadiologyResultDTO {
+  documentReferenceId: string;
+  title: string;
+  /** presigned download URL */
+  url: string;
+}
+
+export interface ListRadiologyResultsZambdaInput {
+  serviceRequestId: string;
+}
+
+export interface ListRadiologyResultsZambdaOutput {
+  results: RadiologyResultDTO[];
+}
+
+export interface DeleteRadiologyResultZambdaInput {
+  documentReferenceId: string;
+}
+
+export type DeleteRadiologyResultZambdaOutput = Record<string, never>;

@@ -12,6 +12,12 @@ import {
 // cSpell:ignore: ACSN, PLAC
 /** contained-resource id for the free-text performing organization on an external radiology order */
 export const RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID = 'performing-organization';
+/** DocumentReference type coding for manually-attached radiology result files (external orders) */
+export const RADIOLOGY_RESULT_DOC_REF_DOCTYPE = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/radiology-result',
+  code: 'radiology-result',
+  display: 'Radiology Result',
+};
 export const ADVAPACS_FHIR_BASE_URL = 'https://usa1.api.integration.advapacs.com/fhir/R5';
 export const ADVAPACS_VIEWER_LAUNCH_URL = 'https://usa1.api.integration.advapacs.com/viewer/launch';
 export const ORDER_TYPE_CODE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/order-type-tag';

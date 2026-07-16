@@ -1,3 +1,5 @@
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import PrintIcon from '@mui/icons-material/Print';
@@ -18,15 +20,20 @@ import {
 import { useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { phone } from 'phone';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { InputMask } from 'ui-components';
-import { isPhoneNumberValid, LATERALITY_SELECTORS, VitalFieldNames } from 'utils';
-import { getRadiologyOrderPdf, sendRadiologyOrderFax } from '../../../api/api';
+import { isPhoneNumberValid, LATERALITY_SELECTORS, RadiologyResultDTO, VitalFieldNames } from 'utils';
+import {
+  deleteRadiologyResult,
+  getRadiologyOrderPdf,
+  listRadiologyResults,
+  sendRadiologyOrderFax,
+} from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getRadiologyExternalOrderEditUrl } from '../../visits/in-person/routing/helpers';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
@@ -60,8 +67,35 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
   const [printing, setPrinting] = useState(false);
   const [faxNumber, setFaxNumber] = useState('');
   const [faxError, setFaxError] = useState(false);
+  const [results, setResults] = useState<RadiologyResultDTO[]>([]);
 
   const order = orders.find((o) => o.serviceRequestId === serviceRequestId);
+
+  const fetchResults = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      const response = await listRadiologyResults(oystehrZambda, { serviceRequestId });
+      setResults(response.results);
+    } catch (e) {
+      console.error('Failed to load radiology results', e);
+    }
+  }, [oystehrZambda, serviceRequestId]);
+
+  useEffect(() => {
+    void fetchResults();
+  }, [fetchResults]);
+
+  const handleDeleteResult = async (documentReferenceId: string): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      await deleteRadiologyResult(oystehrZambda, { documentReferenceId });
+      enqueueSnackbar('Result deleted.', { variant: 'success' });
+      await fetchResults();
+    } catch (e) {
+      console.error('Failed to delete radiology result', e);
+      enqueueSnackbar('Failed to delete result.', { variant: 'error' });
+    }
+  };
 
   // Prefill the fax number from the performing organization's fax (digits only) once the order loads.
   const performingOrgFax = order?.performingOrganization?.fax;
@@ -140,6 +174,55 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
             </Typography>
             <RadiologyTableStatusChip status={order.status} />
           </Box>
+
+          {results.length > 0 && (
+            <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
+              <Typography variant="h6" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
+                Results
+              </Typography>
+              <Stack spacing={1}>
+                {results.map((result) => (
+                  <Box
+                    key={result.documentReferenceId}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: '#f7f7f7',
+                      borderRadius: 1,
+                      px: 2,
+                      py: 1,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
+                      <DescriptionOutlinedIcon color="primary" fontSize="small" />
+                      <Typography
+                        variant="body2"
+                        onClick={() => window.open(result.url, '_blank')}
+                        sx={{ fontWeight: 'bold', cursor: 'pointer', wordBreak: 'break-all' }}
+                      >
+                        {result.title}
+                      </Typography>
+                    </Box>
+                    {!isReadOnly && (
+                      <ConfirmationDialog
+                        title="Delete result"
+                        description={`Delete "${result.title}"? This cannot be undone.`}
+                        response={() => handleDeleteResult(result.documentReferenceId)}
+                        actionButtons={{ proceed: { text: 'Delete' }, back: { text: 'Cancel' }, reverse: true }}
+                      >
+                        {(showDialog) => (
+                          <IconButton aria-label="delete result" onClick={showDialog}>
+                            <DeleteOutlinedIcon sx={{ color: theme.palette.error.main }} />
+                          </IconButton>
+                        )}
+                      </ConfirmationDialog>
+                    )}
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          )}
 
           <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>

@@ -100,6 +100,8 @@ import {
   DeleteLabOrderZambdaOutput,
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
+  DeleteRadiologyResultZambdaInput,
+  DeleteRadiologyResultZambdaOutput,
   DeleteUserZambdaInput,
   DeleteUserZambdaOutput,
   DeleteVisitFilesInput,
@@ -161,6 +163,8 @@ import {
   InsuranceQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
+  ListRadiologyResultsZambdaInput,
+  ListRadiologyResultsZambdaOutput,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
@@ -1265,6 +1269,38 @@ export const sendRadiologyOrderFax = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-send-fax',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listRadiologyResults = async (
+  oystehr: Oystehr,
+  parameters: ListRadiologyResultsZambdaInput
+): Promise<ListRadiologyResultsZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-list-results',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteRadiologyResult = async (
+  oystehr: Oystehr,
+  parameters: DeleteRadiologyResultZambdaInput
+): Promise<DeleteRadiologyResultZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-delete-result',
       ...parameters,
     });
     return chooseJson(response);
