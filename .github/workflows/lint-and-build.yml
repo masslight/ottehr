@@ -108,12 +108,13 @@ jobs:
 
       - name: Build
         if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
-        # Cap turbo concurrency: with the default (10), several parallel vite builds
-        # (each allowed an 8GB heap) overlap and peak memory can exceed the 16GB on the
-        # 4-core runner, killing the runner agent. The cap was originally profiled when
-        # lint ran type-aware ESLint (~3GB RSS per process); lint is now oxlint (native,
-        # seconds, small RSS), so this can likely be raised after re-profiling.
-        run: npm run build -- --concurrency=3
+        # Runs at turbo's default concurrency. A --concurrency=3 cap used to be
+        # required here: type-aware ESLint processes (~3GB RSS each) overlapped with
+        # tsc + vite builds and OOM-killed the 16GB runner ("The operation was
+        # canceled", tasks SIGTERMed). Lint is now a single small native oxlint
+        # process and tsc is the native compiler, so the pressure came off; if OOM
+        # kills reappear here, restore `npm run build -- --concurrency=3`.
+        run: npm run build
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
 
