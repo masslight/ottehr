@@ -13,14 +13,16 @@ import { BRANDING_CONFIG } from 'utils';
 
 // todo i think it might make more sense to just move the intake theme provider up but it may be too disruptive to do so atm
 
-// Mirrors apps/intake/src/providers/IntakeThemeProviderBase.tsx, which augments MUI's Palette
-// the same way for the same custom color.
+// Per MUI's convention for augmenting the palette (https://mui.com/material-ui/customization/palette/#custom-colors):
+// `destructive` is required on the resolved `Palette` (every paperwork theme instance sets it below),
+// but only optional on `PaletteOptions` — the input to createTheme() — so other apps' themes (e.g. billing's)
+// aren't forced to supply it just because they also import from this package.
 declare module '@mui/material/styles' {
   interface Palette {
     destructive: PaletteColor;
   }
   interface PaletteOptions {
-    destructive: PaperworkPaletteColor;
+    destructive?: PaletteColor;
   }
 }
 

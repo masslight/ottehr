@@ -39,6 +39,9 @@ const stubPaperworkContext = (): PaperworkContext =>
   ({
     appointment: { id: 'appt-1' },
     setSaveButtonDisabled: vi.fn(),
+    paperworkComponentHelpers: {
+      createZ3Object: vi.fn(),
+    },
   }) as unknown as PaperworkContext;
 
 const Wrapper: FC<{ attachmentType?: 'image' | 'pdf' }> = ({ attachmentType = 'image' }) => {
