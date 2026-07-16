@@ -22,7 +22,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { EraDetailResponse, getApiError } from 'utils';
 import { getBillingEraDetail } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { DetailRow } from '../components/DetailRow';
+import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { formatCurrency } from '../utils/format';
@@ -165,7 +165,7 @@ export default function ERADetail(): ReactElement {
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 3 }}>
-              {era.paymentMethod && <DetailRow label="Payment method" value={era.paymentMethod} labelWidth={160} />}
+              {era.paymentMethod && <Row label="Payment method" value={era.paymentMethod} hideBorder />}
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
