@@ -1,10 +1,10 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Task } from 'fhir/r4b';
-import { InternalError, RunBillingRulesEngineResponse } from 'utils';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, InternalError, RunBillingRulesEngineResponse } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { buildRulesEngineKickoffTask } from '../rules-engine/serialization';
-import { createBillingClient, fetchById } from '../shared';
+import { createBillingClient } from '../shared';
 import { RunBillingRulesEngineParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -25,9 +25,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// Confirm every claim exists so the caller gets a clear error rather than silently orphaned Tasks.
-async function complexValidation(oystehr: Oystehr, params: RunBillingRulesEngineParams): Promise<Claim[]> {
-  return Promise.all(params.claimIds.map((claimId) => fetchById<Claim>(oystehr, 'Claim', claimId)));
+// Confirm every claim exists — one search ORing the ids — so the caller gets a clear error rather
+// than silently orphaned Tasks.
+export async function complexValidation(oystehr: Oystehr, params: RunBillingRulesEngineParams): Promise<Claim[]> {
+  const result = await oystehr.fhir.search<Claim>({
+    resourceType: 'Claim',
+    params: [
+      { name: '_id', value: params.claimIds.join(',') },
+      { name: '_count', value: String(params.claimIds.length) },
+    ],
+  });
+  const claims = result.unbundle();
+  const found = new Set(claims.map((claim) => claim.id));
+  const missing = params.claimIds.filter((claimId) => !found.has(claimId));
+  if (missing.length > 0) {
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Claim(s) not found: ${missing.join(', ')}`);
+  }
+  return claims;
 }
 
 // All kickoff Tasks are created in one transaction: either the engine is queued for every requested

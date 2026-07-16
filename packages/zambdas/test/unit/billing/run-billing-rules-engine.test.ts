@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Bundle, Task } from 'fhir/r4b';
+import { Bundle, Claim, Task } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
 import {
   PRESUBMISSION_RULES_TASK_CODE,
   PRESUBMISSION_RULES_TASK_SYSTEM,
 } from '../../../src/billing/rules-engine/constants';
-import { performEffect } from '../../../src/billing/run-billing-rules-engine';
+import { complexValidation, performEffect } from '../../../src/billing/run-billing-rules-engine';
 
 const makeOystehr = (
   transactionImpl: (args: { requests: { resource: Task }[] }) => Promise<Bundle<Task>>
@@ -48,5 +48,38 @@ describe('run-billing-rules-engine - performEffect', () => {
     );
 
     await expect(performEffect(oystehr, { claimIds: ['claim-1'], secrets: null })).rejects.toThrow();
+  });
+});
+
+describe('run-billing-rules-engine - complexValidation', () => {
+  const makeSearchOystehr = (existingIds: string[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => existingIds.map((id) => ({ resourceType: 'Claim', id }) as Claim),
+    });
+    return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+  };
+
+  it('confirms all claims exist with a single search ORing the ids', async () => {
+    const { oystehr, search } = makeSearchOystehr(['claim-1', 'claim-2']);
+
+    const claims = await complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2'], secrets: null });
+
+    expect(claims.map((c) => c.id)).toEqual(['claim-1', 'claim-2']);
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Claim',
+      params: [
+        { name: '_id', value: 'claim-1,claim-2' },
+        { name: '_count', value: '2' },
+      ],
+    });
+  });
+
+  it('names the missing claims when some ids do not resolve', async () => {
+    const { oystehr } = makeSearchOystehr(['claim-1']);
+
+    await expect(
+      complexValidation(oystehr, { claimIds: ['claim-1', 'claim-2', 'claim-3'], secrets: null })
+    ).rejects.toMatchObject({ message: 'Claim(s) not found: claim-2, claim-3' });
   });
 });
