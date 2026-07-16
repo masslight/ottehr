@@ -1,10 +1,11 @@
-import { isCLIAValid, isNPIValidWithChecksum, isPostalCodeValid, taxIdRegex } from 'utils';
+import { isCLIAValid, isNPIValidWithChecksum, isPostalCodeValid, stripeAccountIdRegex, taxIdRegex } from 'utils';
 
 export function validateProviderFields(fields: {
   npi: string | null;
   taxId: string | null;
   taxonomyCode: string | null;
   zip: string | null;
+  stripeAccountId?: string | null;
 }): string | null {
   const npi = fields.npi?.trim();
   if (npi && !isNPIValidWithChecksum(npi)) return 'NPI must be a valid 10-digit number with a correct check digit';
@@ -14,6 +15,8 @@ export function validateProviderFields(fields: {
   if (taxonomyCode && taxonomyCode.length !== 10) return 'Taxonomy code must be exactly 10 characters';
   const zip = fields.zip?.trim();
   if (zip && !isPostalCodeValid(zip)) return 'ZIP code must be 5 digits, optionally with a 4-digit extension';
+  const stripeAccountId = fields.stripeAccountId?.trim();
+  if (stripeAccountId && !stripeAccountIdRegex.test(stripeAccountId)) return 'Stripe account ID must start with acct_';
   return null;
 }
 

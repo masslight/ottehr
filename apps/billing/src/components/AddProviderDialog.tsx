@@ -29,6 +29,7 @@ import {
   isNPIValidWithChecksum,
   PractitionerQualificationCodesDisplay,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  stripeAccountIdRegex,
   taxIdRegex,
 } from 'utils';
 import { createBillingProvider } from '../api/api';
@@ -54,6 +55,7 @@ interface AddProviderForm {
   licenseType: string | null;
   taxonomyCode: string | null;
   taxId: string | null;
+  stripeAccountId: string | null;
   line1: string | null;
   line2: string | null;
   city: string | null;
@@ -72,6 +74,7 @@ const defaultValues: AddProviderForm = {
   licenseType: null,
   taxonomyCode: null,
   taxId: null,
+  stripeAccountId: null,
   line1: null,
   line2: null,
   city: null,
@@ -133,7 +136,12 @@ export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: Add
               ...(data.licenseType ? { licenseType: data.licenseType } : {}),
               ...common,
             }
-          : { kind: data.kind, name: data.orgName?.trim(), ...common };
+          : {
+              kind: data.kind,
+              name: data.orgName?.trim(),
+              ...(data.stripeAccountId?.trim() ? { stripeAccountId: data.stripeAccountId.trim() } : {}),
+              ...common,
+            };
 
       const result = await createBillingProvider(oystehrZambda, payload as CreateBillingProviderInput);
       if (!result.id) throw new Error('Provider was not created');
@@ -291,6 +299,30 @@ export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: Add
                   )}
                 />
               </Box>
+
+              {selectedKind === 'organization' && (
+                <Controller
+                  name="stripeAccountId"
+                  control={control}
+                  rules={{
+                    validate: (value) =>
+                      !value?.trim() ||
+                      stripeAccountIdRegex.test(value.trim()) ||
+                      'Stripe account ID must start with acct_',
+                  }}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      label="Stripe Account ID"
+                      size="small"
+                      fullWidth
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
+                />
+              )}
 
               {selectedKind === 'individual' && (
                 <Controller

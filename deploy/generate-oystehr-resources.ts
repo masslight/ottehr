@@ -27,6 +27,7 @@ const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
   BILLING_LOGIN_REDIRECT_URL: 'https://billing-local.ottehr.com',
   BILLING_ALLOWED_URL_1: 'https://billing-local.ottehr.com',
   BILLING_INTEGRATION: '',
+  STRIPE_WEBHOOK_SECRET: '',
 };
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');

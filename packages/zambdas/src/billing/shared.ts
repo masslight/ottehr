@@ -14,6 +14,7 @@ import {
   Location,
   Organization,
   Patient,
+  PaymentNotice,
   PaymentReconciliation,
   Person,
   Practitioner,
@@ -54,6 +55,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getClaimStatusFieldValue,
   getClaimStatusValues,
+  getPatchBinary,
   getPayerId,
   getPayerUrl,
   getResourcesFromBatchInlineRequests,
@@ -71,6 +73,7 @@ import {
   withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { sendErrors } from '../shared';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
@@ -202,6 +205,8 @@ export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role'
 export const PROVIDER_ROLE_BILLING = 'billing';
 export const PROVIDER_ROLE_RENDERING = 'rendering';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
+// Stripe connected account whose payments belong to this billing provider, one account per TIN
+export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/stripe-account-id';
 
 export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
@@ -538,6 +543,18 @@ export function setClia(resource: Location, clia: string | null): void {
     resource.identifier = identifier;
   } else if (existing) {
     resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
+  }
+}
+
+export function setStripeAccountId(resource: Practitioner | Organization, stripeAccountId: string): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM);
+  if (stripeAccountId) {
+    if (existing) existing.value = stripeAccountId;
+    else identifier.push({ system: STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, value: stripeAccountId });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== STRIPE_ACCOUNT_IDENTIFIER_SYSTEM);
   }
 }
 
@@ -954,4 +971,36 @@ export function addBillingTagOperation(resource: FhirResource): {
     path: '/meta/tag',
     value: [...(resource.meta?.tag ?? []), BILLING_RESOURCE_TAG],
   };
+}
+
+// Links notices the stripe webhook stored before the claim existed. Oystehr matches
+// request:identifier by value only, the system|value form returns nothing.
+export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
+  const encounterId = claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value;
+  if (!claim.id || !encounterId) return;
+
+  const notices = (
+    await oystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [{ name: 'request:identifier', value: encounterId }],
+    })
+  ).unbundle();
+
+  const unlinked = notices.filter((n) => n.id && !n.request?.reference);
+  if (unlinked.length === 0) return;
+
+  const result = await oystehr.fhir.batch({
+    requests: unlinked.map((n) =>
+      getPatchBinary({
+        resourceType: 'PaymentNotice',
+        resourceId: n.id!,
+        patchOperations: [{ op: 'add', path: '/request/reference', value: `Claim/${claim.id}` }],
+      })
+    ),
+  });
+  const failed = (result.entry ?? []).filter((e) => e.response?.outcome?.id !== 'ok');
+  if (failed.length > 0) {
+    console.warn(`reconcilePaymentNoticesForClaim: ${failed.length} of ${unlinked.length} patches failed`);
+  }
+  console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
 }
