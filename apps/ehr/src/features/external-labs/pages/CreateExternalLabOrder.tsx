@@ -130,16 +130,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     draft.clinicalInfoNoteByUser ?? formStateDefaults.clinicalInfoNote
   );
 
-  // should initialize the store with the chart dx but only if the store is empty
-  // Note: we only have to do Dx this way because of how we do the orderDx state initialization
-  // useEffect(() => {
-  //   if (!getDraft(encounter.id!).dx?.length && primaryDiagnosis) {
-  //     setOrderDx([primaryDiagnosis]);
-  //     setDraft(encounter.id!, { dx: [primaryDiagnosis] });
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [primaryDiagnosis]);
-
   // consolidating into some functions since every time these state setters are called, we also pass the value to the draft store
   const handleOrderingLocationUpdate = useCallback(
     (officeId: string): void => {
