@@ -96,7 +96,7 @@ export default function Rules(): ReactElement {
   };
 
   return (
-    <Box>
+    <Box p={0}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
           <Typography variant="h4" color="primary.dark" fontWeight={600}>
@@ -107,12 +107,10 @@ export default function Rules(): ReactElement {
             the engine and holds the claim.
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {saving && <CircularProgress size={18} />}
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/rules/new')}>
-            New rule
-          </Button>
-        </Box>
+
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/rules/new')}>
+          Add Rule
+        </Button>
       </Box>
 
       {error && (
