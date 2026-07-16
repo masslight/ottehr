@@ -6,7 +6,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useCreateExternalLabStore } from 'src/features/external-labs/store/external-lab.store';
 import {
   getAssessmentUrl,
   getChiefComplaintUrl,
@@ -14,6 +13,7 @@ import {
   getHPIUrl,
 } from 'src/features/visits/in-person/routing/helpers';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
+import { useCreateExternalLabStore } from 'src/state/draft-data.store';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';

@@ -51,11 +51,11 @@ import {
 } from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import { useCreateExternalLabStore } from '../../../state/draft-data.store';
 import { ExternalSelectedTests } from '../components/create/ExternalSelectedTests';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
-import { useCreateExternalLabStore } from '../store/external-lab.store';
 
 interface CreateExternalLabOrdersProps {
   appointmentID?: string;
