@@ -21,20 +21,21 @@ import { DateTime } from 'luxon';
 import { ChangeEvent, FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
-  FAX_LOGS_PAGE_SIZE,
-  FaxLogStatus,
+  ACTION_LOGS_PAGE_SIZE,
+  ActionLogChannel,
+  ActionLogStatus,
   formatDateConfigurable,
   formatPhoneNumberDisplay,
-  GetFaxLogsOutput,
+  GetActionLogsOutput,
   isValidUUID,
 } from 'utils';
-import { getFaxLogs } from '../../api/api';
+import { getActionLogs } from '../../api/api';
 import DateSearch from '../../components/DateSearch';
 import { MappedStatusChip, Mapper } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
-import { ResendFaxButton } from './ResendFaxButton';
+import { RetryActionButton } from './RetryActionButton';
 
-const FAX_STATUS_COLORS_MAP: Mapper<FaxLogStatus> = {
+const ACTION_STATUS_COLORS_MAP: Mapper<ActionLogStatus> = {
   sent: {
     background: { primary: '#C8E6C9' },
     color: { primary: '#1B5E20' },
@@ -49,12 +50,13 @@ const FAX_STATUS_COLORS_MAP: Mapper<FaxLogStatus> = {
   },
 };
 
-interface FaxLogsTableProps {
+interface ActionLogsTableProps {
   /** When set, the log is scoped to this patient and the patient search/column are hidden. */
   patientId?: string;
+  channel: ActionLogChannel;
 }
 
-export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
+export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }) => {
   const { oystehrZambda } = useApiClients();
 
   const [patientNameField, setPatientNameField] = useState('');
@@ -69,7 +71,7 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
     setPageIndex(0);
   };
 
-  // one debouncer per field — a shared one would cancel the other field's pending update
+  // One debouncer per field because a shared one would cancel the other field's pending update.
   const debouncedApplyPatientName = useMemo(
     () => debounce((value: string) => applySearch(setPatientNameSearch, value), 800),
     []
@@ -92,28 +94,28 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
   const visitDateISO = visitDate?.isValid ? visitDate.toISODate() : undefined;
 
   const {
-    data: faxLogs,
+    data: actionLogs,
     isFetching,
     isError,
     refetch,
-  } = useQuery<GetFaxLogsOutput>({
-    queryKey: ['get-fax-logs', patientId, patientNameSearch, visitIdSearch, visitDateISO, pageIndex],
+  } = useQuery<GetActionLogsOutput>({
+    queryKey: ['get-action-logs', channel, patientId, patientNameSearch, visitIdSearch, visitDateISO, pageIndex],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('oystehr client is not defined');
-      return getFaxLogs(oystehrZambda, {
+      return getActionLogs(oystehrZambda, {
+        channel,
         patientId,
         patientName: patientNameSearch || undefined,
         visitId: visitIdSearch || undefined,
         visitDate: visitDateISO ?? undefined,
         pageIndex,
-        itemsPerPage: FAX_LOGS_PAGE_SIZE,
       });
     },
     enabled: oystehrZambda !== undefined && !visitIdIsInvalid,
   });
 
-  const logs = visitIdIsInvalid ? [] : faxLogs?.logs ?? [];
-  const totalCount = visitIdIsInvalid ? 0 : faxLogs?.totalCount ?? 0;
+  const logs = visitIdIsInvalid ? [] : actionLogs?.logs ?? [];
+  const totalCount = visitIdIsInvalid ? 0 : actionLogs?.totalCount ?? 0;
   const showLoading = isFetching && !visitIdIsInvalid;
   const columnsCount = patientId ? 4 : 5;
 
@@ -193,7 +195,7 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
             {!patientId && <TableCell>Patient</TableCell>}
             <TableCell>Visit</TableCell>
             <TableCell>Recipient</TableCell>
-            <TableCell>Fax Number</TableCell>
+            <TableCell>{channel === 'fax' ? 'Fax Number' : 'Email Address'}</TableCell>
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
@@ -207,18 +209,18 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
           ) : isError ? (
             <TableRow>
               <TableCell colSpan={columnsCount} align="center">
-                <Typography color="error">Failed to load fax logs. Please try again later.</Typography>
+                <Typography color="error">Failed to load {channel} logs. Please try again later.</Typography>
               </TableCell>
             </TableRow>
           ) : logs.length === 0 ? (
             <TableRow>
               <TableCell colSpan={columnsCount} align="center">
-                <Typography color="text.secondary">No faxes found</Typography>
+                <Typography color="text.secondary">No {channel === 'fax' ? 'faxes' : 'emails'} found</Typography>
               </TableCell>
             </TableRow>
           ) : (
             logs.map((log) => (
-              <TableRow key={log.communicationId}>
+              <TableRow key={log.attemptId}>
                 {!patientId && <TableCell>{log.patientName ?? '-'}</TableCell>}
                 <TableCell>
                   {log.appointmentId ? (
@@ -245,13 +247,20 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
                   )}
                 </TableCell>
                 <TableCell>
-                  {log.recipientName ?? (log.faxNumber ? formatPhoneNumberDisplay(log.faxNumber) : '-')}
+                  {log.recipientName ||
+                    (channel === 'fax' && log.recipientAddress
+                      ? formatPhoneNumberDisplay(log.recipientAddress)
+                      : log.recipientAddress || '-')}
                 </TableCell>
-                <TableCell>{log.faxNumber ? formatPhoneNumberDisplay(log.faxNumber) : '-'}</TableCell>
+                <TableCell>
+                  {channel === 'fax' && log.recipientAddress
+                    ? formatPhoneNumberDisplay(log.recipientAddress)
+                    : log.recipientAddress || '-'}
+                </TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <MappedStatusChip status={log.status} mapper={FAX_STATUS_COLORS_MAP} />
-                    {log.status === 'failed' && <ResendFaxButton log={log} onResent={() => void refetch()} />}
+                    <MappedStatusChip status={log.status} mapper={ACTION_STATUS_COLORS_MAP} />
+                    {log.status === 'failed' && <RetryActionButton log={log} onResent={() => void refetch()} />}
                   </Box>
                 </TableCell>
               </TableRow>
@@ -265,8 +274,8 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
         count={totalCount}
         page={pageIndex}
         onPageChange={(_, newPage) => setPageIndex(newPage)}
-        rowsPerPage={FAX_LOGS_PAGE_SIZE}
-        rowsPerPageOptions={[FAX_LOGS_PAGE_SIZE]}
+        rowsPerPage={ACTION_LOGS_PAGE_SIZE}
+        rowsPerPageOptions={[ACTION_LOGS_PAGE_SIZE]}
       />
     </Paper>
   );

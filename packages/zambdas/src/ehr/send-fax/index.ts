@@ -1,21 +1,20 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DocumentReference, HumanName, Patient, Practitioner, Provenance } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { Appointment, DocumentReference, Patient, Practitioner, Task } from 'fhir/r4b';
 import {
-  EMPLOYEE_ID_SYSTEM,
-  FAX_SENT_PROVENANCE_ACTIVITY_CODING,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullestAvailableName,
   getSecret,
-  PARTICIPATION_CODE_SYSTEM,
   SecretsKeys,
   SendFaxZambdaInput,
   VISIT_NOTE_SUMMARY_CODE,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
+  completeOutboundDeliveryAttempt,
   createClinicalOystehrClient,
+  createOutboundDeliveryAttempt,
+  failOutboundDeliveryAttempt,
   getUser,
   wrapHandler,
   ZambdaInput,
@@ -56,15 +55,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return response;
 });
 
-interface EffectInput {
+export interface EffectInput {
   appointmentId: string;
   faxNumber: string;
   organizationId: string;
   patientId: string;
   media: string;
+  documentReferenceId: string;
   userPractitioner: Practitioner;
-  /** Snapshot of the recipient's name at send time, when the fax number identifies them. */
-  recipientNames?: HumanName[];
+  recipientName?: string;
+  parentAttemptId?: string;
+  senderId: string;
 }
 
 const complexValidation = async (
@@ -111,7 +112,7 @@ const complexValidation = async (
 
   const patientId = patient?.id;
   const media = visitNote?.content[0].attachment.url;
-  if (!patientId || !media) {
+  if (!patientId || !media || !visitNote.id) {
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Patient or visit note url not found');
   }
   console.log('patient id', patientId);
@@ -123,8 +124,10 @@ const complexValidation = async (
     organizationId,
     patientId,
     media,
+    documentReferenceId: visitNote.id,
     userPractitioner,
-    recipientNames: findRecipientNames(patient, faxNumber),
+    recipientName: findRecipientName(patient, faxNumber),
+    senderId: user.id,
   };
 };
 
@@ -132,7 +135,7 @@ const complexValidation = async (
  * Resolves the recipient's name for the fax log: the number typed by the user identifies a person
  * only when it matches a practitioner contained on the Patient (i.e. their PCP).
  */
-const findRecipientNames = (patient: Patient, faxNumber: string): HumanName[] | undefined => {
+export const findRecipientName = (patient: Patient, faxNumber: string): string | undefined => {
   const faxDigits = normalizeFaxNumber(faxNumber);
   if (!faxDigits) return undefined;
   const match = patient.contained?.find(
@@ -140,7 +143,7 @@ const findRecipientNames = (patient: Patient, faxNumber: string): HumanName[] | 
       resource.resourceType === 'Practitioner' &&
       Boolean(resource.telecom?.some((telecom) => normalizeFaxNumber(telecom.value) === faxDigits))
   );
-  return match?.name?.length ? match.name : undefined;
+  return match?.name?.length ? getFullestAvailableName(match) : undefined;
 };
 
 const normalizeFaxNumber = (value: string | undefined): string | undefined => {
@@ -151,114 +154,65 @@ const normalizeFaxNumber = (value: string | undefined): string | undefined => {
 const performEffect = async (
   input: EffectInput,
   oystehr: Oystehr,
-  user: User
+  _user: User
 ): Promise<{ body: string; statusCode: number }> => {
-  const { appointmentId, faxNumber, organizationId, patientId, media, userPractitioner, recipientNames } = input;
-
-  console.log('Sending fax to', faxNumber);
-  const { communicationResource: fax } = await oystehr.fax.send({
-    media,
-    quality: 'standard',
-    patient: `Patient/${patientId}`,
-    recipientNumber: faxNumber,
-    sender: `Organization/${organizationId}`,
-  });
-  console.log('Fax sent successfully');
-
-  // Strip the +1 country code prefix and any non-digit characters to produce a valid FHIR id
-  const containedId = faxNumber.replace(/^\+1/, '').replace(/\D/g, '');
-  console.log('Creating provenance for fax');
-  const provenance = await oystehr.fhir.create<Provenance>({
-    resourceType: 'Provenance',
-    target: [
-      {
-        reference: `Communication/${fax.id!}`,
-      },
-      {
-        reference: `Appointment/${appointmentId}`,
-      },
-    ],
-    occurredDateTime: fax.sent,
-    recorded: DateTime.now().toUTC().toISO(),
-    activity: {
-      coding: [FAX_SENT_PROVENANCE_ACTIVITY_CODING],
-    },
-    agent: [
-      {
-        role: [
-          {
-            coding: [
-              {
-                system: PARTICIPATION_CODE_SYSTEM,
-                code: 'AUT',
-                display: 'author',
-              },
-            ],
-          },
-        ],
-        who: {
-          reference: `Practitioner/${userPractitioner.id}`,
-          display: getFullestAvailableName(userPractitioner),
-          identifier: {
-            value: user.id,
-            system: EMPLOYEE_ID_SYSTEM,
-          },
-        },
-        onBehalfOf: {
-          reference: `Organization/${organizationId}`,
-        },
-      },
-      {
-        role: [
-          {
-            coding: [
-              {
-                system: PARTICIPATION_CODE_SYSTEM,
-                code: 'SBJ',
-                display: 'subject',
-              },
-            ],
-          },
-        ],
-        who: {
-          reference: `Patient/${patientId}`,
-        },
-      },
-      {
-        role: [
-          {
-            coding: [
-              {
-                system: PARTICIPATION_CODE_SYSTEM,
-                code: 'RCV',
-                display: 'receiver',
-              },
-            ],
-          },
-        ],
-        who: {
-          reference: `#${containedId}`,
-        },
-      },
-    ],
-    contained: [
-      {
-        resourceType: 'Practitioner',
-        id: containedId,
-        ...(recipientNames && { name: recipientNames }),
-        telecom: [
-          {
-            system: 'fax',
-            value: faxNumber,
-          },
-        ],
-      },
-    ],
-  });
-  console.log('Fax provenance created successfully', provenance.id);
-
+  await sendFaxAttempt(input, oystehr);
   return {
     body: JSON.stringify('Fax sent'),
     statusCode: 200,
   };
 };
+
+export async function sendFaxAttempt(input: EffectInput, oystehr: Oystehr): Promise<Task> {
+  const {
+    appointmentId,
+    faxNumber,
+    organizationId,
+    patientId,
+    media,
+    documentReferenceId,
+    userPractitioner,
+    recipientName,
+    parentAttemptId,
+    senderId,
+  } = input;
+  const attempt = await createOutboundDeliveryAttempt(oystehr, {
+    channel: 'fax',
+    patientId,
+    appointmentId,
+    recipientAddress: faxNumber,
+    recipientName,
+    documentReferenceId,
+    requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
+    parentAttemptId,
+    senderId,
+    senderDisplay: getFullestAvailableName(userPractitioner),
+  });
+  if (!attempt.id) throw new Error('Outbound fax attempt was created without an id');
+
+  let communicationId: string;
+  try {
+    console.log('Sending fax to', faxNumber);
+    const { communicationResource } = await oystehr.fax.send({
+      media,
+      quality: 'standard',
+      patient: `Patient/${patientId}`,
+      recipientNumber: faxNumber,
+      sender: `Organization/${organizationId}`,
+    });
+    if (!communicationResource.id) throw new Error('Fax service returned a Communication without an id');
+    communicationId = communicationResource.id;
+  } catch (error) {
+    await failOutboundDeliveryAttempt(oystehr, attempt.id, error);
+    throw error;
+  }
+
+  try {
+    return await completeOutboundDeliveryAttempt(oystehr, attempt.id, `Communication/${communicationId}`);
+  } catch (linkError) {
+    // The provider accepted the fax. Keep the Task in-progress so the accepted delivery remains visible and
+    // distinguishable from a provider rejection, then surface the persistence failure to the caller.
+    console.error(`Fax was accepted but Task/${attempt.id} could not be linked to the Communication`, linkError);
+    throw new Error(`Fax was accepted but its outbound attempt could not be completed: ${attempt.id}`);
+  }
+}

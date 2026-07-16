@@ -1,8 +1,7 @@
-import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Tab, Typography, useTheme } from '@mui/material';
-import { FC, useState } from 'react';
+import { Box, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FaxLogsTable } from 'src/features/fax-logs/FaxLogsTable';
+import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { getFullName } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -15,9 +14,6 @@ const PatientActionLogsPage: FC = () => {
   const navigate = useNavigate();
 
   const { patient, loading: isLoadingPatientData } = useGetPatient(patientId);
-  // Fax logs are the only action log so far; future log types become additional tabs.
-  const [tab, setTab] = useState('fax-logs');
-
   if (isLoadingPatientData) return <LoadingScreen />;
 
   return (
@@ -40,21 +36,7 @@ const PatientActionLogsPage: FC = () => {
         <Typography variant="h3" color="primary.main">
           Action Logs
         </Typography>
-        <TabContext value={tab}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <TabList onChange={(_, newTab) => setTab(newTab)}>
-              <Tab
-                value="fax-logs"
-                label={
-                  <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Fax Logs</Typography>
-                }
-              />
-            </TabList>
-          </Box>
-          <TabPanel value="fax-logs" sx={{ p: 0 }}>
-            <FaxLogsTable patientId={patientId} />
-          </TabPanel>
-        </TabContext>
+        <ActionLogsTabs patientId={patientId} />
       </Box>
     </Box>
   );

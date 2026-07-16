@@ -6,6 +6,7 @@ import {
   DATETIME_FULL_NO_YEAR,
   FEATURE_FLAGS_CONFIG,
   getAddressStringForScheduleResource,
+  getFullestAvailableName,
   getPatientContactEmail,
   InPersonCompletionTemplateData,
   isFollowupEncounter,
@@ -27,6 +28,7 @@ import {
   getAuth0Token,
   getEmailClient,
   makeAddressUrl,
+  sendVisitNoteEmailAttempt,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -188,7 +190,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         pdfInfo.title = 'Patient Follow-up Note';
       }
       console.log(`Creating visit note pdf docRef`);
-      await makeVisitNotePdfDocumentReference(
+      const visitNoteDocument = await makeVisitNotePdfDocumentReference(
         oystehr,
         pdfInfo,
         patient.id,
@@ -197,87 +199,113 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         listResources
       );
 
-      // Send completion email only when: email is enabled, this is not a follow-up (isPDFOnlyTask),
-      // the task does not carry a SKIP_EMAIL input (addendum re-generation), and the feature flag
-      // for skipping patient-portal delivery is not set.
-      const emailClient = getEmailClient(secrets, oystehr);
-      const emailEnabled = emailClient.getFeatureFlag();
+      // Email delivery is secondary to PDF creation. Every failure in email setup, URL generation, validation, or
+      // provider delivery is contained here so the PDF task keeps its existing success semantics.
       let emailSent = false;
+      if (!isPDFOnlyTask && !skipEmail) {
+        try {
+          const emailClient = getEmailClient(secrets, oystehr);
+          if (emailClient.getFeatureFlag() && !skipVisitNoteInPatientPortal) {
+            const patientEmail = getPatientContactEmail(patient);
+            let prettyStartTime = '';
+            let locationName = '';
+            let address = '';
+            if (appointment.start && visitResources.timezone) {
+              prettyStartTime = DateTime.fromISO(appointment.start)
+                .setZone(visitResources.timezone)
+                .toFormat(DATETIME_FULL_NO_YEAR);
+            }
+            if (location) {
+              locationName = getNameForOwner(location);
+              address = getAddressStringForScheduleResource(location) ?? '';
+            }
+            const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
+            const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
 
-      if (emailEnabled && !isPDFOnlyTask && !skipEmail) {
-        if (skipVisitNoteInPatientPortal) {
-          console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
-        } else {
-          const patientEmail = getPatientContactEmail(patient);
-          let prettyStartTime = '';
-          let locationName = '';
-          let address = '';
-          if (appointment.start && visitResources.timezone) {
-            prettyStartTime = DateTime.fromISO(appointment.start)
-              .setZone(visitResources.timezone)
-              .toFormat(DATETIME_FULL_NO_YEAR);
-          }
-          if (location) {
-            locationName = getNameForOwner(location);
-            address = getAddressStringForScheduleResource(location) ?? '';
-          }
-          const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
-          const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
-
-          if (isInPersonAppointment) {
-            const missingData: string[] = [];
-            if (!patientEmail) missingData.push('patient email');
-            if (!appointment.id) missingData.push('appointment ID');
-            if (!locationName) missingData.push('location name');
-            if (!address) missingData.push('address');
-            if (!prettyStartTime) missingData.push('appointment time');
-            if (!visitNoteUrl) missingData.push('visit note URL');
-            if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-              // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
-              const templateData: InPersonCompletionTemplateData = {
-                location: getNameForOwner(location),
-                time: prettyStartTime,
-                address,
-                'address-url': makeAddressUrl(address),
-                'visit-note-url': visitNoteUrl,
-              };
-              try {
-                await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
-                emailSent = true;
-              } catch (emailError) {
+            if (isInPersonAppointment) {
+              const missingData: string[] = [];
+              if (!patientEmail) missingData.push('patient email');
+              if (!appointment.id) missingData.push('appointment ID');
+              if (!locationName) missingData.push('location name');
+              if (!address) missingData.push('address');
+              if (!prettyStartTime) missingData.push('appointment time');
+              if (!visitNoteUrl) missingData.push('visit note URL');
+              if (missingData.length === 0 && location && visitNoteUrl && patientEmail && visitNoteDocument.id) {
+                const templateData: InPersonCompletionTemplateData = {
+                  location: getNameForOwner(location),
+                  time: prettyStartTime,
+                  address,
+                  'address-url': makeAddressUrl(address),
+                  'visit-note-url': visitNoteUrl,
+                };
+                try {
+                  await sendVisitNoteEmailAttempt({
+                    mode: 'in-person',
+                    oystehr,
+                    secrets,
+                    patientId: patient.id,
+                    appointmentId,
+                    recipientEmail: patientEmail,
+                    recipientName: patient.name?.length ? getFullestAvailableName(patient) : undefined,
+                    documentReferenceId: visitNoteDocument.id,
+                    templateData,
+                  });
+                  emailSent = true;
+                } catch (emailError) {
+                  console.error(
+                    `Failed to send in-person completion email for appointment ${appointment.id}:`,
+                    emailError
+                  );
+                }
+              } else {
                 console.error(
-                  `Failed to send in-person completion email for appointment ${appointment.id}:`,
-                  emailError
+                  `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
                 );
               }
             } else {
-              console.error(
-                `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
-              );
-            }
-          } else {
-            const missingData: string[] = [];
-            if (!patientEmail) missingData.push('patient email');
-            if (!appointment.id) missingData.push('appointment ID');
-            if (!locationName) missingData.push('location name');
-            if (!visitNoteUrl) missingData.push('visit note URL');
-            if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-              const templateData: TelemedCompletionTemplateData = {
-                location: getNameForOwner(location),
-                'visit-note-url': visitNoteUrl,
-              };
-              try {
-                await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
-                emailSent = true;
-              } catch (emailError) {
-                console.error(`Failed to send virtual completion email for appointment ${appointment.id}:`, emailError);
+              const missingData: string[] = [];
+              if (!patientEmail) missingData.push('patient email');
+              if (!appointment.id) missingData.push('appointment ID');
+              if (!locationName) missingData.push('location name');
+              if (!visitNoteUrl) missingData.push('visit note URL');
+              if (missingData.length === 0 && location && visitNoteUrl && patientEmail && visitNoteDocument.id) {
+                const templateData: TelemedCompletionTemplateData = {
+                  location: getNameForOwner(location),
+                  'visit-note-url': visitNoteUrl,
+                };
+                try {
+                  await sendVisitNoteEmailAttempt({
+                    mode: 'virtual',
+                    oystehr,
+                    secrets,
+                    patientId: patient.id,
+                    appointmentId,
+                    recipientEmail: patientEmail,
+                    recipientName: patient.name?.length ? getFullestAvailableName(patient) : undefined,
+                    documentReferenceId: visitNoteDocument.id,
+                    templateData,
+                  });
+                  emailSent = true;
+                } catch (emailError) {
+                  console.error(
+                    `Failed to send virtual completion email for appointment ${appointment.id}:`,
+                    emailError
+                  );
+                }
+              } else {
+                console.error(
+                  `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`
+                );
               }
-            } else {
-              console.error(
-                `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`
-              );
             }
+          } else if (skipVisitNoteInPatientPortal) {
+            console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
           }
+        } catch (emailPreparationError) {
+          console.error(
+            `Could not prepare visit note completion email for appointment ${appointment.id}:`,
+            emailPreparationError
+          );
         }
       }
 

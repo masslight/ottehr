@@ -5,7 +5,7 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { parseCommaSeparatedTags, RoleType } from 'utils';
+import { ACTION_LOG_VIEWER_ROLES, parseCommaSeparatedTags, RoleType } from 'utils';
 import { setupSentry } from 'utils/lib/frontend';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
@@ -136,15 +136,7 @@ function App(): ReactElement {
     debounce: 500,
   });
 
-  const roleUnknown =
-    !currentUser ||
-    !currentUser.hasRole([
-      RoleType.Administrator,
-      RoleType.Staff,
-      RoleType.Manager,
-      RoleType.Provider,
-      RoleType.CustomerSupport,
-    ]);
+  const roleUnknown = !currentUser || !currentUser.hasRole(ACTION_LOG_VIEWER_ROLES);
 
   return (
     <CustomThemeProvider>
@@ -200,13 +192,7 @@ function App(): ReactElement {
                 <Route path="*" element={<LoadingScreen />} />
               </>
             )}
-            {currentUser?.hasRole([
-              RoleType.Administrator,
-              RoleType.Manager,
-              RoleType.Staff,
-              RoleType.Provider,
-              RoleType.CustomerSupport,
-            ]) && (
+            {currentUser?.hasRole(ACTION_LOG_VIEWER_ROLES) && (
               <>
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
@@ -252,6 +238,7 @@ function App(): ReactElement {
                   <Route path={`${BILLING_URL}/:billingTab/:insuranceTab`} element={<AdminPage />} />
                   <Route path={`${OUTREACH_URL}/:outreachSubTab`} element={<AdminPage />} />
                   <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
+                  <Route path="/admin/fax-logs" element={<Navigate to="/admin/action-logs" replace />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                   <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
@@ -307,10 +294,10 @@ function App(): ReactElement {
                 )}
                 <Route path="/patients" element={<PatientsPage />} />
 
-                {/* Non-admin roles get the admin shell for the items that opt them in via
-                    extraRoles (e.g. Fax Logs); AdminPage denies everything else. */}
+                {/* Non-admin roles get the admin shell for items whose explicit role policy allows access. */}
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/admin/fax-logs" element={<Navigate to="/admin/action-logs" replace />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                 </Route>
 

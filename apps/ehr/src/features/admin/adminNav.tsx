@@ -19,9 +19,9 @@ import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import { ReactElement, ReactNode } from 'react';
+import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
-import { FaxLogsTable } from 'src/features/fax-logs/FaxLogsTable';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
 import EMCodesAdminPage from 'src/features/visits/telemed/components/admin/EMCodesAdminPage';
 import EmployersTab from 'src/features/visits/telemed/components/admin/employers/EmployersTab';
@@ -41,7 +41,7 @@ import SchedulesPage from 'src/pages/Schedules';
 import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
-import { RoleType } from 'utils';
+import { ACTION_LOG_VIEWER_ROLES, RoleType } from 'utils';
 import { PaymentLocationsList } from './BillingConfiguration';
 import { FeeSchedulesIcon, InHouseLabsIcon, InsuranceIcon, ProgressNoteIcon, StethoscopeIcon } from './icons';
 
@@ -62,11 +62,8 @@ export interface AdminNavItem {
   centered?: boolean;
   /** Show a "Beta" chip next to the page title in the shared header. */
   beta?: boolean;
-  /**
-   * Roles beyond {@link ADMIN_TIER_ROLES} that may open this item. Items without this stay
-   * admin-tier only; the sidebar and AdminPage hide/deny everything a role can't access.
-   */
-  extraRoles?: RoleType[];
+  /** Explicit access policy; items without one stay admin-tier only. */
+  allowedRoles?: RoleType[];
   render: (ctx: AdminNavContext) => ReactNode;
 }
 
@@ -241,12 +238,11 @@ export const adminNavGroups: AdminNavGroup[] = [
         render: (ctx) => <ScheduledPatientOutreach outreachTab={ctx.outreachDetailTab} />,
       },
       {
-        label: 'Fax Logs',
-        path: '/admin/fax-logs',
+        label: 'Action Logs',
+        path: '/admin/action-logs',
         icon: <FaxOutlinedIcon />,
-        // all staff can see all outbound fax attempts
-        extraRoles: [RoleType.Staff, RoleType.Provider],
-        render: () => <FaxLogsTable />,
+        allowedRoles: ACTION_LOG_VIEWER_ROLES,
+        render: () => <ActionLogsTabs />,
       },
     ],
   },
@@ -275,16 +271,16 @@ export const allAdminNavItems: AdminNavItem[] = adminNavGroups.flatMap((group) =
 
 export const DEFAULT_ADMIN_PATH = allAdminNavItems[0].path;
 
-/** Roles with access to every admin page; other roles only see items that opt them in via extraRoles. */
+/** Roles with access to every admin page unless an item supplies a narrower explicit policy. */
 export const ADMIN_TIER_ROLES: RoleType[] = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
 
 /** Nav groups the given user may see, dropping groups left with no accessible items. */
 export function resolveAccessibleAdminNavGroups(hasRole: (roles: RoleType[]) => boolean): AdminNavGroup[] {
-  if (hasRole(ADMIN_TIER_ROLES)) {
-    return adminNavGroups;
-  }
   return adminNavGroups
-    .map((group) => ({ ...group, items: group.items.filter((item) => item.extraRoles && hasRole(item.extraRoles)) }))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => hasRole(item.allowedRoles ?? ADMIN_TIER_ROLES)),
+    }))
     .filter((group) => group.items.length > 0);
 }
 

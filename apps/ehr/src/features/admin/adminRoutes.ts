@@ -16,6 +16,7 @@ export const GLOBAL_TEMPLATES_URL = '/admin/global-templates';
 // (e.g. `/admin/medications/add` won't match `/admin/medication/`). The admin-sidebar-route-coverage
 // test asserts every `/admin/*` route in App.tsx resolves here, so a new route can't leave it unmatched.
 export const ROUTE_ALIASES: { prefix: string; itemPath: string }[] = [
+  { prefix: '/admin/fax-logs/', itemPath: '/admin/action-logs' },
   { prefix: '/admin/schedule/', itemPath: '/admin/schedules' },
   { prefix: '/admin/group/', itemPath: '/admin/schedules' },
   { prefix: '/admin/employee/', itemPath: '/admin/employees' },

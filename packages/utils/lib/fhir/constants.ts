@@ -1090,6 +1090,26 @@ export const OYSTEHR_OUTBOUND_FAX_STATUS_CODES = {
   stopped: 'STOPPED',
 } as const;
 
+export const OUTBOUND_DELIVERY_TASK_SYSTEM = ottehrCodeSystemUrl('outbound-delivery');
+export const OUTBOUND_DELIVERY_TASK_CODES = {
+  fax: 'fax',
+  email: 'email',
+} as const;
+export const OUTBOUND_DELIVERY_INPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-input');
+export const OUTBOUND_DELIVERY_INPUT_CODES = {
+  recipientAddress: 'recipient-address',
+  recipientName: 'recipient-name',
+  documentReference: 'document-reference',
+  senderId: 'sender-id',
+  senderDisplay: 'sender-display',
+} as const;
+export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
+export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
+  communication: 'communication',
+  error: 'error',
+} as const;
+export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
+
 export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
 
 export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');

@@ -1562,12 +1562,19 @@
       "src": "src/ehr/visit-details/get-visit-fax-history/index",
       "zip": ".dist/zips/get-visit-fax-history.zip"
     },
-    "GET_FAX_LOGS": {
-      "name": "get-fax-logs",
+    "GET_ACTION_LOGS": {
+      "name": "get-action-logs",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-fax-logs/index",
-      "zip": ".dist/zips/get-fax-logs.zip"
+      "src": "src/ehr/get-action-logs/index",
+      "zip": ".dist/zips/get-action-logs.zip"
+    },
+    "RETRY_ACTION_LOG": {
+      "name": "retry-action-log",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/retry-action-log/index",
+      "zip": ".dist/zips/retry-action-log.zip"
     },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",

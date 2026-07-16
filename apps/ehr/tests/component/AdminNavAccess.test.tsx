@@ -15,9 +15,9 @@ describe('resolveAccessibleAdminNavGroups', () => {
     }
   );
 
-  it.each([RoleType.Staff, RoleType.Provider])('limits %s to the items that opt them in (Fax Logs)', (role) => {
+  it.each([RoleType.Staff, RoleType.Provider])('limits %s to Action Logs', (role) => {
     const groups = resolveAccessibleAdminNavGroups(hasRoleFor([role]));
-    expect(groups.flatMap((group) => group.items.map((item) => item.path))).toEqual(['/admin/fax-logs']);
+    expect(groups.flatMap((group) => group.items.map((item) => item.path))).toEqual(['/admin/action-logs']);
   });
 
   it('returns nothing for roles without any admin access', () => {
