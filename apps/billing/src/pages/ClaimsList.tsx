@@ -318,9 +318,9 @@ export default function ClaimsList(): ReactElement {
     typeFilter ||
     selectedService;
 
-  // Submission goes through the pre-submission rules engine: one engine run is kicked off per
-  // selected claim, and each run applies the configured rules, then submits — or holds — its claim
-  // in the background.
+  // Submission goes through the Claim Submission Rules (selection is limited to Insurance Payer AR
+  // claims, so that is every selected claim's engine): one engine run is kicked off per claim, and
+  // each run applies the configured rules, then submits — or holds — its claim in the background.
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || selected.length === 0) return;
     setSubmitting(true);
@@ -349,7 +349,7 @@ export default function ClaimsList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims
         </Typography>
@@ -374,8 +374,8 @@ export default function ClaimsList(): ReactElement {
               </span>
             </Tooltip>
           )}
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
-            Create
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
+            Add Claim
           </Button>
         </Box>
       </Box>
@@ -581,8 +581,8 @@ export default function ClaimsList(): ReactElement {
         onConfirm={() => void handleSubmit()}
         onCancel={() => setConfirmingSubmit(false)}
       >
-        Submit {selected.length} claim(s)? Each claim runs through the pre-submission rules engine, which submits it to
-        the payer or holds it for review.
+        Submit {selected.length} claim(s)? Each claim runs through the Claim Submission Rules, which submit it to the
+        payer or hold it for review.
       </ConfirmDialog>
     </Box>
   );

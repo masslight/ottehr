@@ -11,13 +11,15 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
+  BillingRule,
   CLAIM_TAG_SYSTEM,
   getSecret,
   HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
-  PreSubmissionRule,
   resourceHasTag,
   RULE_ACTION_TYPE,
+  RULES_ENGINES,
+  RulesEngineType,
   SecretsKeys,
 } from 'utils';
 import {
@@ -26,83 +28,94 @@ import {
   resolveClaimActor,
 } from '../../../billing/provenance';
 import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
+import { RULES_ENGINE_TASK_SYSTEM, rulesEngineForTaskCode } from '../../../billing/rules-engine/constants';
 import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
 import {
   BILLING_WORKING_COPY_TAG,
   createBillingClient,
   fetchById,
   fetchClaimGraph,
-  findPresubmissionRulesList,
+  findRulesEngineList,
   hasTag,
   listToRulesReportingMalformed,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared';
 import { wrapTaskHandler } from '../helpers';
-import { submitClaim } from './submit-claim';
+import { finalizeEngineRun } from './finalize';
 
 // ---------------------------------------------------------------------------
-// Pre-submission rules engine.
+// Billing rules engines.
 //
-// Triggered by a Subscription when a `run-presubmission-rules` Task is created (status `requested`).
-// The Task.focus references the working-copy Claim. The engine loads the ordered rules List, runs
-// each rule against the claim's resources in order, persists the mutations, and — unless a rule
-// applied the Hold tag — submits the claim.
+// One zambda serves every rules engine (Claim Submission, Non-Insurance Payer Pre-Invoice, Patient
+// AR Pre-Invoice). It is triggered by a Subscription when an engine's kickoff Task is created
+// (status `requested`); the Task's code identifies the engine and Task.focus references the claim.
+// The engine loads its ordered rules List, runs each rule against the claim's resources in order,
+// persists the mutations, and — unless a rule applied the Hold tag — performs the engine's success
+// effect: Claim Submission submits the claim; the pre-invoice engines move their AR stage's status
+// to Ready to invoice.
 // ---------------------------------------------------------------------------
 
 let m2mToken: string;
 
-export const index = wrapTaskHandler('sub-presubmission-rules-engine', async (input, _oystehr) => {
+export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr) => {
   const { task, secrets } = input;
   const claimId = extractClaimId(task);
+  const engine = extractEngine(task);
 
   // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
-  // billing workspace where the claim, its working copies, and the rules List live.
+  // billing workspace where the claim, its working copies, and the rules Lists live.
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
   // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
   // change the engine writes lands in the claim history attributed to it.
-  const agent = await resolveClaimActor(oystehr, undefined, secrets);
+  const agent = await resolveClaimActor('rules', oystehr, undefined, secrets);
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
   try {
-    const validated = await complexValidation(oystehr, claimId, env);
+    const validated = await complexValidation(oystehr, engine, claimId, env);
     return await performEffect(oystehr, validated, agent);
   } catch (error) {
     // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
     // the claim context, and make sure the claim ends up held — a failed run must never leave the
-    // claim looking submittable.
-    console.error(`[rules-engine] failed for Claim/${claimId}:`, error);
+    // claim looking ready to proceed.
+    console.error(`[rules-engine] ${engine} failed for Claim/${claimId}:`, error);
     await ensureClaimHeld(oystehr, claimId, agent);
     throw error;
   }
 });
 
 export interface ValidatedRulesRun {
+  engine: RulesEngineType;
   claimId: string;
-  rules: PreSubmissionRule[];
+  rules: BillingRule[];
   model: RulesEngineClaimModel;
 }
 
-export async function complexValidation(oystehr: Oystehr, claimId: string, env: string): Promise<ValidatedRulesRun> {
-  console.log(`[rules-engine] starting for Claim/${claimId}`);
-  const [rules, model] = await Promise.all([loadRules(oystehr, env), loadClaimModel(oystehr, claimId)]);
+export async function complexValidation(
+  oystehr: Oystehr,
+  engine: RulesEngineType,
+  claimId: string,
+  env: string
+): Promise<ValidatedRulesRun> {
+  console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
+  const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
       `serviceFacility=${model.serviceFacility?.id ?? 'none'}`
   );
-  return { claimId, rules, model };
+  return { engine, claimId, rules, model };
 }
 
 export async function performEffect(
   oystehr: Oystehr,
-  { claimId, rules, model }: ValidatedRulesRun,
+  { engine, claimId, rules, model }: ValidatedRulesRun,
   agent: ProvenanceAgent
 ): Promise<{ taskStatus: Task['status']; statusReason: string }> {
   const unchanged = snapshotModel(model);
 
-  let heldBy: PreSubmissionRule | undefined;
-  let failure: { rule: PreSubmissionRule; error: string } | undefined;
+  let heldBy: BillingRule | undefined;
+  let failure: { rule: BillingRule; error: string } | undefined;
   for (const rule of rules) {
     const { held, appliedActions, error } = executeRule(rule, model);
     console.log(
@@ -110,7 +123,7 @@ export async function performEffect(
         `${held ? ' — applied Hold, stopping' : ''}${error ? ` — failed: ${error}` : ''}`
     );
     if (error) {
-      // A rule whose action can't be applied must not fail quietly — the claim would submit with
+      // A rule whose action can't be applied must not fail quietly — the claim would proceed with
       // the wrong data. Hold it and stop the run.
       failure = { rule, error };
       applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
@@ -138,16 +151,16 @@ export async function performEffect(
     console.log(`[rules-engine] Claim/${claimId} held by rule "${heldBy.name}"`);
     return {
       taskStatus: 'failed',
-      statusReason: `Held by rule "${heldBy.name}": claim was not submitted and requires review.`,
+      statusReason: `Held by rule "${heldBy.name}": ${RULES_ENGINES[engine].label} did not complete and the claim requires review.`,
     };
   }
 
-  const submission = await submitClaim({ oystehr, model, agent });
-  console.log(`[rules-engine] completed for Claim/${claimId}: ${submission.statusReason}`);
-  return { taskStatus: 'completed', statusReason: submission.statusReason };
+  const finalized = await finalizeEngineRun(engine, { oystehr, model, agent });
+  console.log(`[rules-engine] ${engine} completed for Claim/${claimId}: ${finalized.statusReason}`);
+  return { taskStatus: 'completed', statusReason: finalized.statusReason };
 }
 
-// Backstop for the catch path: whatever went wrong (load, persist, submission), the claim must end
+// Backstop for the catch path: whatever went wrong (load, persist, finalize), the claim must end
 // up carrying the Hold tag so the failure is visible on the claim itself, not just the Task. Never
 // throws — the original error is the one that matters.
 export async function ensureClaimHeld(oystehr: Oystehr, claimId: string, agent: ProvenanceAgent): Promise<void> {
@@ -170,8 +183,18 @@ function extractClaimId(task: Task): string {
   return ref.replace('Claim/', '');
 }
 
-async function loadRules(oystehr: Oystehr, env: string): Promise<PreSubmissionRule[]> {
-  const list = await findPresubmissionRulesList(oystehr);
+// The engine a kickoff Task belongs to, from its code (each engine's Subscription matches one code).
+export function extractEngine(task: Task): RulesEngineType {
+  const code = task.code?.coding?.find((c) => c.system === RULES_ENGINE_TASK_SYSTEM)?.code;
+  const engine = rulesEngineForTaskCode(code);
+  if (!engine) {
+    throw new Error(`Task ${task.id} does not carry a known rules-engine code: ${code ?? 'none'}`);
+  }
+  return engine;
+}
+
+async function loadRules(oystehr: Oystehr, engine: RulesEngineType, env: string): Promise<BillingRule[]> {
+  const list = await findRulesEngineList(oystehr, engine);
   return list ? listToRulesReportingMalformed(list, env) : [];
 }
 
