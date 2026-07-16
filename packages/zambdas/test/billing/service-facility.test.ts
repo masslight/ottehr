@@ -442,7 +442,7 @@ describe('mapServiceFacility', () => {
         postalCode: '02118-1234',
       },
     };
-    expect(mapServiceFacility(location).zip).toBe('021181234');
+    expect(mapServiceFacility(location).zip).toBe('02118-1234');
   });
 
   it('flattens a Location into the UI shape with a 9-digit ZIP', () => {

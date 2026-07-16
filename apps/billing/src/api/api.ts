@@ -3,6 +3,7 @@ import {
   apiErrorToThrow,
   BillingChargeItemDefinition,
   BillingCodeOption,
+  BillingProviderOption,
   BillingRulesResponse,
   chooseJson,
   ClaimDetailResponse,
@@ -22,6 +23,7 @@ import {
   EraDetailResponse,
   ExportClaimX12InputSchema,
   ExportClaimX12Response,
+  GetBillingProviderInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
@@ -30,6 +32,7 @@ import {
   GetPatientCoveragesInputSchema,
   GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
+  GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   PatientDetailResponse,
   RunBillingRulesEngineInputSchema,
@@ -58,6 +61,7 @@ import {
   SearchErasInputSchema,
   SearchServiceFacilitiesInputSchema,
   SearchServiceFacilitiesResponse,
+  ServiceFacilityItem,
   SubmitBillingClaimsInputSchema,
   SubmitBillingClaimsResponse,
   TagBillingClaimInputSchema,
@@ -173,6 +177,11 @@ export const searchBillingProviders = (
   parameters: z.input<typeof SearchBillingProvidersInputSchema>
 ): Promise<SearchBillingProvidersResponse> => executeBillingZambda(oystehr, 'search-billing-providers', parameters);
 
+export const getBillingProvider = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingProviderInputSchema>
+): Promise<BillingProviderOption> => executeBillingZambda(oystehr, 'get-billing-provider', parameters);
+
 export const updateBillingProvider = (
   oystehr: Oystehr,
   parameters: z.input<typeof UpdateBillingProviderInputSchema>
@@ -227,6 +236,11 @@ export const searchBillingServiceFacilities = (
   parameters: z.input<typeof SearchServiceFacilitiesInputSchema>
 ): Promise<SearchServiceFacilitiesResponse> =>
   executeBillingZambda(oystehr, 'search-billing-service-facilities', parameters);
+
+export const getBillingServiceFacility = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetServiceFacilityInputSchema>
+): Promise<ServiceFacilityItem> => executeBillingZambda(oystehr, 'get-billing-service-facility', parameters);
 
 export const saveBillingServiceFacility = (
   oystehr: Oystehr,

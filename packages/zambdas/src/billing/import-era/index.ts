@@ -1,13 +1,16 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Bundle } from 'fhir/r4b';
 import {
-  getSecret,
+  ERA_IMPORT_FAILED_ERROR,
+  getPatchBinary,
   ImportEraInput,
   ImportEraInputSchema,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
-  SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, safeValidate, validateJsonBody, wrapHandler, ZambdaInput } from '../../shared';
+import { addBillingTagOperation, createBillingClient, untaggedEraResources } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'import-era';
@@ -15,26 +18,48 @@ const ZAMBDA_NAME = 'import-era';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const projectApiUrl = getSecret(SecretsKeys.PROJECT_API, params.secrets);
-  const response = await fetch(projectApiUrl + '/rcm/process-era', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${m2mToken}`,
-      'x-zapehr-project-id': getSecret(SecretsKeys.PROJECT_ID, params.secrets),
-    },
-    body: JSON.stringify({
-      edi835: params.era,
-    }),
-  });
+  const response = await performEffect(oystehr, params);
 
-  if (response.status != 200) {
-    return { statusCode: response.status, body: await response.text() };
+  return {
+    statusCode: 200,
+    body: JSON.stringify(response),
+  };
+});
+
+async function performEffect(oystehr: Oystehr, params: ImportEraParams): Promise<Bundle> {
+  let bundle: Bundle;
+  try {
+    bundle = await oystehr.rcm.processEra({ edi835: params.era });
+  } catch (error) {
+    const sdkError = error as Partial<Oystehr.OystehrSdkError>;
+    console.log('Error code from Oystehr SDK:', sdkError.code);
+    const statusCode =
+      typeof sdkError.code === 'number' && sdkError.code >= 400 && sdkError.code <= 499 ? sdkError.code : 500;
+    throw ERA_IMPORT_FAILED_ERROR(sdkError.message ?? 'Failed to process ERA', statusCode);
   }
 
-  return { statusCode: 200, body: await response.text() };
-});
+  // oystehr creates the era resources untagged. don't throw on failure
+  try {
+    const untaggedResources = untaggedEraResources(bundle);
+    if (untaggedResources.length > 0) {
+      const requests = untaggedResources.map((resource) =>
+        getPatchBinary({
+          resourceType: resource.resourceType,
+          resourceId: resource.id!,
+          patchOperations: [addBillingTagOperation(resource)],
+        })
+      );
+      await oystehr.fhir.transaction({ requests });
+      console.log(`Tagged ${untaggedResources.length} imported ERA resource(s)`);
+    }
+  } catch (error) {
+    console.error('Failed to tag imported ERA resources:', error);
+  }
+
+  return bundle;
+}
 
 interface ImportEraParams extends ImportEraInput {
   secrets: ZambdaInput['secrets'];

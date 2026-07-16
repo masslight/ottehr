@@ -101,6 +101,7 @@ import {
   prepareWorkingCopy,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  reconcilePaymentNoticesForClaim,
   resourceDisplayName,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
@@ -181,7 +182,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
-  const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
+  const agent = await resolveClaimActor('system', billingOystehr, undefined, params.secrets);
 
   const response = await performEffect(billingOystehr, cvo, agent);
   // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
@@ -540,6 +541,13 @@ export async function performEffect(
   if (!createdClaim || !createdClaim.id) {
     console.log('Claim not created');
     throw InternalError;
+  }
+
+  // Adopt any payments the stripe webhook recorded before this claim existed
+  try {
+    await reconcilePaymentNoticesForClaim(billingOystehr, createdClaim);
+  } catch (err) {
+    console.error('Failed to reconcile PaymentNotices for new claim', err);
   }
 
   return { claimId: createdClaim.id };
