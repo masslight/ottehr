@@ -4,6 +4,7 @@ import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlin
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
 import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
@@ -20,6 +21,7 @@ import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import { ReactElement, ReactNode } from 'react';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
+import { FaxLogsTable } from 'src/features/fax-logs/FaxLogsTable';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
 import EMCodesAdminPage from 'src/features/visits/telemed/components/admin/EMCodesAdminPage';
 import EmployersTab from 'src/features/visits/telemed/components/admin/employers/EmployersTab';
@@ -231,6 +233,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/outreach/patient-outreach',
         icon: <SendOutlinedIcon />,
         render: (ctx) => <ScheduledPatientOutreach outreachTab={ctx.outreachDetailTab} />,
+      },
+      {
+        label: 'Fax Logs',
+        path: '/admin/fax-logs',
+        icon: <FaxOutlinedIcon />,
+        render: () => <FaxLogsTable />,
       },
     ],
   },

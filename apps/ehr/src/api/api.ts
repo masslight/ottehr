@@ -112,6 +112,8 @@ import {
   GetConversationInput,
   GetConversationZambdaOutput,
   GetEmployeesResponse,
+  GetFaxLogsInput,
+  GetFaxLogsOutput,
   GetImmunizationQuickPicksResponse,
   GetInHouseMedicationQuickPicksResponse,
   GetInHouseOrdersParameters,
@@ -1754,6 +1756,19 @@ export const getVisitFaxHistory = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'get-visit-fax-history',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getFaxLogs = async (oystehr: Oystehr, parameters: GetFaxLogsInput): Promise<GetFaxLogsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-fax-logs',
       ...parameters,
     });
     return chooseJson(response);

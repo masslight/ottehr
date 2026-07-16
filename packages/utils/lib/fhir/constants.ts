@@ -1081,6 +1081,15 @@ export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
   system: PROVENANCE_FAX_SYSTEM,
 };
 
+/** Identifier system Oystehr stamps on the Communication resources it creates for outbound faxes. */
+export const OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM = 'https://identifiers.oystehr.com/fax';
+/** Extension on those Communications whose CodeableConcept code Oystehr updates as the fax progresses. */
+export const OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/outbound-fax-status';
+export const OYSTEHR_OUTBOUND_FAX_STATUS_CODES = {
+  delivered: 'DELIVERED',
+  stopped: 'STOPPED',
+} as const;
+
 export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
 
 export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');

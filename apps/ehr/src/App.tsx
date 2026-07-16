@@ -61,6 +61,7 @@ import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import GroupPage from './pages/GroupPage';
 import LegacyDataPage from './pages/LegacyDataPage';
 import Logout from './pages/Logout';
+import PatientActionLogsPage from './pages/PatientActionLogsPage';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
@@ -239,6 +240,7 @@ function App(): ReactElement {
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                 <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
+                <Route path="/patient/:id/action-logs" element={<PatientActionLogsPage />} />
                 <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                 {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
@@ -298,6 +300,7 @@ function App(): ReactElement {
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                 <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
+                <Route path="/patient/:id/action-logs" element={<PatientActionLogsPage />} />
                 <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                 {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
