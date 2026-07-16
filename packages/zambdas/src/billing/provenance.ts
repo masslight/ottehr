@@ -35,6 +35,7 @@ import {
   getNPI,
   getPatchBinary,
   getTaxID,
+  HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
   Secrets,
   userMe,
@@ -552,5 +553,23 @@ export async function applyClaimStatusField(
   agent: ProvenanceAgent
 ): Promise<void> {
   const updatedTags = buildUpdatedClaimStatusTags(claim, field, value);
+  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
+}
+
+/**
+ * applyClaimStatusField variant for a passing rules-engine run: moves the status field and lifts the
+ * Hold tag in the same commit (one write, one history record). The rules just passed, so a hold left
+ * by an earlier run or an AR stage change no longer applies.
+ */
+export async function applyClaimStatusFieldClearingHold(
+  oystehr: Oystehr,
+  claim: Claim,
+  field: ClaimStatusFieldKey,
+  value: string,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const updatedTags = buildUpdatedClaimStatusTags(claim, field, value).filter(
+    (t) => !(t.system === CLAIM_TAG_SYSTEM && t.code === HOLD_TAG_NAME)
+  );
   await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
 }
