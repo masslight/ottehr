@@ -114,9 +114,9 @@ jobs:
         # canceled", tasks SIGTERMed). Lint is now a single small native oxlint
         # process and tsc is the native compiler, so the pressure came off; if OOM
         # kills reappear here, restore `npm run build -- --concurrency=3`.
-        # TEMPORARY: --force bypasses the turbo cache so the uncapped-concurrency
-        # memory profile actually executes every task. REMOVE after this test run.
-        run: npm run build -- --force
+        # (Validated 2026-07-16 with a cache-bypassed full run: all 22 tasks at
+        # default concurrency completed in 5m29s with no OOM.)
+        run: npm run build
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
 
