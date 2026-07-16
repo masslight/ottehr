@@ -6,6 +6,7 @@ import SaveAltIcon from '@mui/icons-material/SaveAlt';
 import {
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   FormControlLabel,
   IconButton,
@@ -54,6 +55,7 @@ import {
   InvoiceTaskDisplayStatus,
   InvoiceTaskDisplayStatuses,
   InvoiceTaskInput,
+  InvoiceTaskSource,
   mapDisplayToInvoiceTaskStatus,
   mapInvoiceTaskStatusToDisplay,
   PRIVATE_EXTENSION_BASE_URL,
@@ -62,6 +64,7 @@ import { updateInvoiceTask } from '../../api/api';
 import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';
 import { MappedStatusChip } from '../../components/MappedStatusChip';
+import { BOTH_INVOICING_SCREENS_ENABLED } from '../../constants/feature-flags';
 import { useApiClients } from '../../hooks/useAppClients';
 import { useSupportPhonesMap } from '../../hooks/useLocationSupportPhones';
 
@@ -70,6 +73,11 @@ const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 type QuickTextsContextValue = React.ComponentProps<typeof ChatModal>['quickTextsContext'];
 
 const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
+
+export const INVOICE_TASK_SOURCE_LABELS: Record<InvoiceTaskSource, string> = {
+  candid: 'Candid',
+  'ottehr-billing': 'Ottehr Billing',
+};
 
 const SP = {
   page: 'page',
@@ -134,8 +142,13 @@ const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
   },
 };
 
-export default function InvoiceablePatients(): React.ReactElement {
+interface InvoiceablePatientsProps {
+  source: InvoiceTaskSource;
+}
+
+export default function InvoiceablePatients({ source }: InvoiceablePatientsProps): React.ReactElement {
   const { oystehrZambda, oystehr } = useApiClients();
+  const localStorageFiltersKey = `${LOCAL_STORAGE_FILTERS_KEY}.${source}`;
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedReportToSend, setSelectedReportToSend] = useState<InvoiceablePatientReport | undefined>();
@@ -165,6 +178,7 @@ export default function InvoiceablePatients(): React.ReactElement {
   } = useQuery<GetInvoicesTasksResponse>({
     queryKey: [
       GET_INVOICES_TASKS_ZAMBDA_KEY,
+      source,
       pageSP,
       statusSP,
       patientSP,
@@ -181,6 +195,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         sortField: sortFieldSP,
         sortDirection: sortDirectionSP,
         hideZeroBalance: hideZeroBalanceSP,
+        source,
       };
       const response = await oystehrZambda.zambda.execute({
         id: GET_INVOICES_TASKS_ZAMBDA_KEY,
@@ -299,6 +314,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         sortField: sortFieldSP,
         sortDirection: sortDirectionSP,
         hideZeroBalance: hideZeroBalanceSP,
+        source,
       };
       const kickOffResponse = await oystehrZambda.zambda.execute({
         id: EXPORT_INVOICES_ZAMBDA_KEY,
@@ -341,7 +357,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `invoiceable-patients-report.csv`;
+        link.download = `invoiceable-patients-report-${source}.csv`;
         link.click();
         URL.revokeObjectURL(url);
       } else {
@@ -462,17 +478,17 @@ export default function InvoiceablePatients(): React.ReactElement {
           queryParams.set(SP.hideZeroBalance, searchParams.get(SP.hideZeroBalance)!);
         setSearchParams(queryParams);
         if (Object.keys(filtersToPersist).length > 0) {
-          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
+          localStorage.setItem(localStorageFiltersKey, JSON.stringify(filtersToPersist));
         } else {
-          localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+          localStorage.removeItem(localStorageFiltersKey);
         }
       },
     });
     return () => callback();
-  }, [methods, searchParams, setSearchParams]);
+  }, [methods, searchParams, setSearchParams, localStorageFiltersKey]);
 
   useEffect(() => {
-    const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
+    const persistedFilters = localStorage.getItem(localStorageFiltersKey);
     if (searchParams.size === 0) {
       const queryParams = new URLSearchParams();
       if (persistedFilters != null) {
@@ -486,7 +502,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       if (!queryParams.has(SP.hideZeroBalance)) queryParams.set(SP.hideZeroBalance, 'true');
       setSearchParams(queryParams);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, localStorageFiltersKey]);
 
   return (
     <Box>
@@ -516,6 +532,9 @@ export default function InvoiceablePatients(): React.ReactElement {
               label="Hide $0 balances"
               sx={{ whiteSpace: 'nowrap' }}
             />
+            {BOTH_INVOICING_SCREENS_ENABLED && (
+              <Chip label={INVOICE_TASK_SOURCE_LABELS[source]} variant="outlined" color="primary" size="small" />
+            )}
             <Button
               variant="text"
               size="small"

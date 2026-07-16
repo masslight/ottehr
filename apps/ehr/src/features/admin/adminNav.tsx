@@ -20,6 +20,7 @@ import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import { ReactElement, ReactNode } from 'react';
+import { BOTH_INVOICING_SCREENS_ENABLED, FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
@@ -225,12 +226,26 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     label: 'Communications',
     items: [
-      {
-        label: 'Patient Invoicing',
-        path: '/admin/outreach/patient-invoices',
-        icon: <EmailOutlinedIcon />,
-        render: () => <InvoiceablePatients />,
-      },
+      ...(FEATURE_FLAGS.CANDID_INVOICING_ENABLED
+        ? [
+            {
+              label: BOTH_INVOICING_SCREENS_ENABLED ? 'Patient Invoicing — Candid' : 'Patient Invoicing',
+              path: '/admin/outreach/patient-invoices',
+              icon: <EmailOutlinedIcon />,
+              render: () => <InvoiceablePatients source="candid" />,
+            },
+          ]
+        : []),
+      ...(FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED
+        ? [
+            {
+              label: BOTH_INVOICING_SCREENS_ENABLED ? 'Patient Invoicing — Ottehr Billing' : 'Patient Invoicing',
+              path: '/admin/outreach/patient-invoices-billing',
+              icon: <EmailOutlinedIcon />,
+              render: () => <InvoiceablePatients source="ottehr-billing" />,
+            },
+          ]
+        : []),
       {
         label: 'Automated Outreach',
         title: 'Patient Outreach, Collections and Automation',

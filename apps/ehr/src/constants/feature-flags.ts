@@ -19,3 +19,8 @@ export const FEATURE_FLAGS = {
   SKIP_SENDING_VISIT_NOTE_TO_PATIENT_PORTAL_WHEN_THE_NOTE_IS_SIGNED_FEATURE_FLAG:
     FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled,
 };
+
+// during billing provider transition state, if both flags are on, declare which system is being
+// displayed
+export const BOTH_INVOICING_SCREENS_ENABLED =
+  FEATURE_FLAGS.CANDID_INVOICING_ENABLED && FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED;
