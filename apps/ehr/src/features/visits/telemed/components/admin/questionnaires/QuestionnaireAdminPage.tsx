@@ -2,7 +2,6 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
-import UploadIcon from '@mui/icons-material/Upload';
 import {
   Box,
   Chip,
@@ -26,7 +25,6 @@ import { useNavigate } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { PracticeManagedQuestionnaireDTO, PracticeManagedQuestionnaireUpdateStatusData } from 'utils';
 import { usePracticeManagedQuestionnaireList, usePracticeManagedQuestionnaireUpdate } from '../admin.queries';
-import { ImportJsonDialog } from './components/ImportJsonDialog';
 
 // Deleted forms are soft-deleted so existing patient responses stay viewable
 const isDeleted = (q: PracticeManagedQuestionnaireDTO): boolean => q.status === 'retired';
@@ -34,7 +32,6 @@ const isDeleted = (q: PracticeManagedQuestionnaireDTO): boolean => q.status === 
 export const QuestionnaireAdminPage: FC = () => {
   const navigate = useNavigate();
   const [showDeleted, setShowDeleted] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const { mutateAsync: updateQuestionnaire, isPending: isUpdating } = usePracticeManagedQuestionnaireUpdate();
 
@@ -86,14 +83,6 @@ export const QuestionnaireAdminPage: FC = () => {
               sx={{ mr: 1, '& .MuiFormControlLabel-label': { fontSize: 14, color: 'text.secondary' } }}
             />
           )}
-          <ButtonRounded
-            variant="outlined"
-            size="medium"
-            startIcon={<UploadIcon />}
-            onClick={() => setImportDialogOpen(true)}
-          >
-            Import JSON
-          </ButtonRounded>
           <ButtonRounded
             variant="contained"
             size="medium"
@@ -219,7 +208,6 @@ export const QuestionnaireAdminPage: FC = () => {
           </Table>
         </TableContainer>
       )}
-      <ImportJsonDialog open={importDialogOpen} setOpen={setImportDialogOpen} />
     </Paper>
   );
 };
