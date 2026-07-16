@@ -313,10 +313,10 @@ export const medicationInteractionsFromErxResponse = (
         sourceMedication.type === 'scheduled'
           ? ' - Scheduled'
           : sourceMedication.type === 'as-needed'
-          ? ' - As needed'
-          : sourceMedication.type === 'prescribed-medication'
-          ? ' - Prescribed'
-          : '';
+            ? ' - As needed'
+            : sourceMedication.type === 'prescribed-medication'
+              ? ' - Prescribed'
+              : '';
       if (sourceMedication?.intakeInfo?.date) {
         display += '\nlast taken\n' + DateTime.fromISO(sourceMedication.intakeInfo.date).toFormat('MM/dd/yyyy');
       }

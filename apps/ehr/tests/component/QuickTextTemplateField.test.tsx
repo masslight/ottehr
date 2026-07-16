@@ -24,6 +24,7 @@ vi.mock('src/components/template-editor-field/TemplateEditorField', () => ({
     React.useEffect(() => {
       props.editorRef.current = { chain: mockChain };
       return () => {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         props.editorRef.current = null;
       };
     }, [props.editorRef]);

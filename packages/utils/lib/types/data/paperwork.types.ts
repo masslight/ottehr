@@ -95,7 +95,7 @@ export interface InsuranceRequestParameters {
 export enum Insurance {
   'self-pay' = 'self-pay',
   'Fidelis Care' = 'Fidelis Care',
-  'Healthfirst' = 'Healthfirst',
+  Healthfirst = 'Healthfirst',
   'Point Comfort' = 'Point Comfort',
   // 'United Healthcare' = 'United Healthcare',
 }

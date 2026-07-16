@@ -227,18 +227,17 @@ export type ResultSpecimenInfo = {
   collectedDateTime?: string;
 };
 
-export interface LabResultsData
-  extends Omit<
-    LabsData,
-    | 'orderNumber'
-    | 'labOrganizationName'
-    | 'orderSubmitDate'
-    | 'providerTitle'
-    | 'patientAddress'
-    | 'sampleCollectionDate'
-    | 'billClass'
-    | 'isManualOrder'
-  > {
+export interface LabResultsData extends Omit<
+  LabsData,
+  | 'orderNumber'
+  | 'labOrganizationName'
+  | 'orderSubmitDate'
+  | 'providerTitle'
+  | 'patientAddress'
+  | 'sampleCollectionDate'
+  | 'billClass'
+  | 'isManualOrder'
+> {
   testName: string;
   testItemCode: string;
   resultStatus: string;
@@ -275,11 +274,10 @@ export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSu
 
 export type UnsolicitedExternalLabResultsData = Omit<ExternalLabResultsData, 'orderNumber' | 'orderSubmitDate'>;
 
-export interface InHouseLabResultsData
-  extends Omit<
-    LabResultsData,
-    'accountNumber' | 'patientVisitNote' | 'clinicalInfo' | 'fastingStatus' | 'resultSpecimenInfo'
-  > {
+export interface InHouseLabResultsData extends Omit<
+  LabResultsData,
+  'accountNumber' | 'patientVisitNote' | 'clinicalInfo' | 'fastingStatus' | 'resultSpecimenInfo'
+> {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
   serviceRequestID: string;

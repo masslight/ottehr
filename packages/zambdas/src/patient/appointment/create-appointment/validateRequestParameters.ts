@@ -90,9 +90,9 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (Boolean(patient.dateOfBirth) === false) {
     missingRequiredPatientFields.push('dateOfBirth');
   }
-  if (Boolean(patient.reasonForVisit) === undefined) {
-    missingRequiredPatientFields.push('reasonForVisit');
-  }
+  // reasonForVisit is deliberately not required (CreateAppointmentInput.reasonForVisit is
+  // optional and visit-details tests assert appointments without one) - the check that sat
+  // here compared against undefined and never rejected anything.
   if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
@@ -299,15 +299,13 @@ export const createAppointmentComplexValidation = async (
   ).unbundle();
   const slot = fhirResources.find((resource) => resource.resourceType === 'Slot') as Slot;
   const initialSchedule = fhirResources.find((resource) => resource.resourceType === 'Schedule') as
-    | Schedule
-    | undefined;
+    Schedule | undefined;
   const initialScheduleOwner = fhirResources.find((resource) => {
     const asRef = `${resource.resourceType}/${resource.id}`;
     return initialSchedule?.actor?.some((actor) => actor.reference === asRef);
   }) as ScheduleOwnerFhirResource | undefined;
   const appointment = fhirResources.find((resource) => resource.resourceType === 'Appointment') as
-    | Appointment
-    | undefined;
+    Appointment | undefined;
   if (!slot.id) {
     throw FHIR_RESOURCE_NOT_FOUND('Slot');
   }

@@ -126,7 +126,7 @@ export const normalizeNotificationPreferencesV2 = (
       method: row?.method ?? fallbackMethod,
       locationIds,
       // An empty location list always reads as "all locations" — an enabled row must never match nothing.
-      allLocations: locationIds.length === 0 ? true : row?.allLocations ?? false,
+      allLocations: locationIds.length === 0 ? true : (row?.allLocations ?? false),
       assignedTo: row?.assignedTo === 'me' ? 'me' : 'anyone',
     };
   };

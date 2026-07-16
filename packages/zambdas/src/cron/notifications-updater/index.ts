@@ -242,8 +242,9 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         const patientName = patient ? getFullestAvailableName(patient) : 'patient';
         const appointmentTimeForProvider = (provider: Practitioner): string | undefined => {
           if (!appointment.start) return undefined;
-          const providerTimezone = provider.extension?.find((ext) => ext.url === USER_TIMEZONE_EXTENSION_URL)
-            ?.valueString;
+          const providerTimezone = provider.extension?.find(
+            (ext) => ext.url === USER_TIMEZONE_EXTENSION_URL
+          )?.valueString;
           return DateTime.fromISO(appointment.start)
             .setZone(
               Intl.supportedValuesOf('timeZone').includes(providerTimezone || '')
@@ -706,8 +707,8 @@ async function getResourcePackagesAppointmentsMap(
         resourcePackagesMap[appointmentId] = pack;
       }
     }
-    const patientReference = appointment?.participant?.find(
-      (participant) => participant.actor?.reference?.startsWith('Patient')
+    const patientReference = appointment?.participant?.find((participant) =>
+      participant.actor?.reference?.startsWith('Patient')
     )?.actor?.reference;
     if (patientReference) {
       const patientId = removePrefix('Patient/', patientReference);

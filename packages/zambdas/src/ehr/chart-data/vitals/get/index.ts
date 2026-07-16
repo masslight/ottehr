@@ -139,9 +139,8 @@ const fieldNameSchema = z.nativeEnum(VitalFieldNames);
 const parseResourcesToDTOs = (observations: Observation[], practitioners: Practitioner[]): VitalsObservationDTO[] => {
   const observationPerformerMap = new Map<string, Practitioner>();
   observations.forEach((obs) => {
-    const performer = practitioners.find(
-      (tempPractitioner) =>
-        obs.performer?.some((p) => p.reference?.replace('Practitioner/', '') === tempPractitioner.id)
+    const performer = practitioners.find((tempPractitioner) =>
+      obs.performer?.some((p) => p.reference?.replace('Practitioner/', '') === tempPractitioner.id)
     );
     if (performer && obs.id) {
       observationPerformerMap.set(obs.id, performer);
@@ -195,17 +194,11 @@ const parseBloodPressureObservation = (
   performer: Practitioner
 ): VitalsBloodPressureObservationDTO | undefined => {
   // if (observation.code?.coding?.[0]?.code !== '85354-9') return undefined; interesting suggestion from AI...
-  const systolicBP = observation.component?.find(
-    (comp) =>
-      comp.code?.coding?.some(
-        (cc) => cc.code === VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE && cc.system === LOINC_SYSTEM
-      )
+  const systolicBP = observation.component?.find((comp) =>
+    comp.code?.coding?.some((cc) => cc.code === VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE && cc.system === LOINC_SYSTEM)
   )?.valueQuantity?.value;
-  const diastolicBP = observation.component?.find(
-    (comp) =>
-      comp.code?.coding?.some(
-        (cc) => cc.code === VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE && cc.system === LOINC_SYSTEM
-      )
+  const diastolicBP = observation.component?.find((comp) =>
+    comp.code?.coding?.some((cc) => cc.code === VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE && cc.system === LOINC_SYSTEM)
   )?.valueQuantity?.value;
   if (systolicBP === undefined || diastolicBP === undefined) return undefined;
   return {

@@ -1,4 +1,4 @@
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -230,7 +230,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
         return { success: true };
       } catch (err) {
         console.log('error deleting inhouse lab: ', err);
-        const oystehrError = err as OystehrSdkError;
+        const oystehrError = err as Oystehr.OystehrSdkError;
         let errorMsg: string | undefined;
 
         if (oystehrError.code !== 500 && oystehrError.message) errorMsg = oystehrError.message;

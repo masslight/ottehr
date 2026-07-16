@@ -1,0 +1,76 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Port of the previous ESLint setup (.eslintrc.cjs, removed in the same commit).
+  // Formatting is enforced by prettier directly (lint-staged + CI), not through the linter.
+  "plugins": ["typescript", "react"],
+  "jsPlugins": ["eslint-plugin-simple-import-sort", "@tanstack/eslint-plugin-query"],
+  "env": { "browser": true, "node": true, "es2022": true },
+  "categories": { "correctness": "error" },
+  "rules": {
+    "typescript/explicit-function-return-type": ["error", { "allowExpressions": true }],
+    "typescript/no-explicit-any": "off",
+    "typescript/no-non-null-assertion": "off",
+    "typescript/no-floating-promises": "error",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "prefer-promise-reject-errors": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "simple-import-sort/imports": ["error", { "groups": [["^\\u0000", "^node:", "^@?\\w", "^", "^\\."]] }],
+    // Explicit parity with the old eslint:recommended + @typescript-eslint/recommended baseline.
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-unused-expressions": "error",
+    "no-case-declarations": "error",
+    "no-useless-escape": "error",
+    // Not part of the old ESLint setup (eslint-plugin-react was not installed).
+    // 47 pre-existing violations; enable and fix as a follow-up.
+    "react/jsx-key": "off",
+    // Type-aware rules newly available through oxlint-tsgolint. The old setup only
+    // enforced no-floating-promises (clean, enabled above). The rules below have
+    // pre-existing findings (counts at migration time) - enable them incrementally.
+    "typescript/restrict-template-expressions": "off", // 120
+    "typescript/no-base-to-string": "off", // 48
+    "typescript/await-thenable": "off", // 37
+    "typescript/no-redundant-type-constituents": "off", // 34
+    "typescript/no-misused-spread": "off", // 20
+    "typescript/no-duplicate-type-constituents": "off", // 13
+    "typescript/unbound-method": "off", // 12
+    "typescript/no-useless-default-assignment": "off", // 10
+    "typescript/require-array-sort-compare": "off", // 8
+    "typescript/no-meaningless-void-operator": "off" // 7
+  },
+  "overrides": [
+    {
+      "files": ["apps/ehr/src/**/*.{ts,tsx}", "apps/intake/src/**/*.{ts,tsx}", "packages/ui-components/**/*.{ts,tsx}"],
+      "rules": {
+        // The old ESLint setup configured these rules but never actually enforced them
+        // (it also referenced two rules that no longer exist in the v5 plugin, without
+        // erroring). stable-query-client is clean today and enabled; exhaustive-deps has
+        // 142 pre-existing violations (query keys missing captured client objects) and
+        // no-rest-destructuring has 1 - enable and fix those as a follow-up.
+        "@tanstack/query/stable-query-client": "error",
+        "@tanstack/query/exhaustive-deps": "off",
+        "@tanstack/query/no-rest-destructuring": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    // Ported from .eslintignore and the per-package .eslintrc ignorePatterns.
+    "**/dist/**",
+    "**/build/**",
+    "**/.dist/**",
+    "**/.build/**",
+    "**/.esbuild/**",
+    "**/cdk.out/**",
+    "**/.serverless/**",
+    "old-ottehr/**",
+    "**/playwright-report*/**",
+    "**/*.js",
+    "**/*.cjs",
+    "**/*.mjs",
+    "**/vite.config.ts",
+    "**/vite-env.d.ts",
+    "packages/**/scripts/**"
+  ]
+}

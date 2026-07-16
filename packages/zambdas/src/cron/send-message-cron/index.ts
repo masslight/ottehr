@@ -257,13 +257,11 @@ const getScheduleForAppointment = (
   const appointmentSlotId = appointment.slot?.[0].reference?.split('/')[1];
   if (appointmentSlotId) {
     const slot = resourceBundle.find((res) => res.resourceType === 'Slot' && res.id === appointmentSlotId) as
-      | Slot
-      | undefined;
+      Slot | undefined;
     if (slot) {
       const scheduleId = slot.schedule?.reference?.split('/')[1];
       const schedule = resourceBundle.find((res) => res.resourceType === 'Schedule' && res.id === scheduleId) as
-        | Schedule
-        | undefined;
+        Schedule | undefined;
       const scheduleOwnerRef = schedule?.actor?.[0]?.reference;
       let scheduleOwner: Location | Practitioner | undefined;
       if (scheduleOwnerRef) {

@@ -102,13 +102,13 @@ export function useExamObservations(param?: string | string[]): {
             return prev;
           }, {} as ExamRecord)
         : Object.prototype.hasOwnProperty.call(param, 'field')
-        ? {
-            [(param as ExamObservationDTO).field]: prevState[(param as ExamObservationDTO).field],
-          }
-        : (Object.keys(param as ExamRecord) as string[]).reduce((prev, curr) => {
-            prev[curr] = prevState[curr];
-            return prev;
-          }, {} as ExamRecord);
+          ? {
+              [(param as ExamObservationDTO).field]: prevState[(param as ExamObservationDTO).field],
+            }
+          : (Object.keys(param as ExamRecord) as string[]).reduce((prev, curr) => {
+              prev[curr] = prevState[curr];
+              return prev;
+            }, {} as ExamRecord);
 
       return { prevState, prevValues };
     },
@@ -155,8 +155,8 @@ export function useExamObservations(param?: string | string[]): {
       Array.isArray(options)
         ? arrayToObject(options)
         : Object.prototype.hasOwnProperty.call(options, 'field')
-        ? { [(options as ExamObservationDTO).field]: options as ExamObservationDTO }
-        : (options as ExamRecord)
+          ? { [(options as ExamObservationDTO).field]: options as ExamObservationDTO }
+          : (options as ExamRecord)
     );
 
     if (noFetch) {
@@ -169,8 +169,8 @@ export function useExamObservations(param?: string | string[]): {
         examObservations: Array.isArray(options)
           ? options
           : Object.prototype.hasOwnProperty.call(options, 'field')
-          ? [options as ExamObservationDTO]
-          : objectToArray(options as ExamRecord),
+            ? [options as ExamObservationDTO]
+            : objectToArray(options as ExamRecord),
       },
       {
         onSuccess: (data) => {
@@ -244,15 +244,15 @@ export function useExamObservations(param?: string | string[]): {
       examObservations: Array.isArray(param)
         ? param
         : Object.prototype.hasOwnProperty.call(param, 'field')
-        ? [param as ExamObservationDTO]
-        : objectToArray(param as ExamRecord),
+          ? [param as ExamObservationDTO]
+          : objectToArray(param as ExamRecord),
     });
   };
 
   return {
     value: param
       ? typeof param === 'string'
-        ? state[param] ?? { field: param, value: false, note: '' }
+        ? (state[param] ?? { field: param, value: false, note: '' })
         : param.map((option) => state[option] ?? { field: option, value: false, note: '' })
       : objectToArray(state),
     update,

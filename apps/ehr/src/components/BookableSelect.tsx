@@ -261,7 +261,7 @@ export default function BookableSelect({
             slug,
             name: loc.address?.state
               ? `${loc.address.state.toUpperCase()} — ${loc.name ?? 'Unnamed'}`
-              : loc.name ?? 'Unnamed location',
+              : (loc.name ?? 'Unnamed location'),
             walkinSchedule: loc.walkinSchedule,
             schedules: loc.schedules,
             rawLocation: loc,
@@ -300,8 +300,9 @@ export default function BookableSelect({
           //      multiple PRs is always disambiguated by location even before
           //      the admin sets an explicit schedule name).
           //   3. Nothing — display just the provider name.
-          const explicitName = (r.extension ?? []).find((e) => e.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL)
-            ?.valueString;
+          const explicitName = (r.extension ?? []).find(
+            (e) => e.url === SCHEDULE_DISPLAY_NAME_EXTENSION_URL
+          )?.valueString;
           const prLocationId = r.location?.[0]?.reference?.split('/')[1];
           const prLocationName = prLocationId ? prLocationsById.get(prLocationId)?.name : undefined;
           const scheduleName = explicitName?.trim() || prLocationName;
@@ -550,8 +551,8 @@ export default function BookableSelect({
               opt.resourceType === 'Location'
                 ? 'default'
                 : opt.resourceType === 'HealthcareService'
-                ? 'primary'
-                : 'secondary'
+                  ? 'primary'
+                  : 'secondary'
             }
           />
         </li>

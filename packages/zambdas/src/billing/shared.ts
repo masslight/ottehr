@@ -80,16 +80,7 @@ import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/seriali
 
 // Type alias for resources relevant to billing
 export type BillingFhirResource =
-  | Patient
-  | Coverage
-  | Practitioner
-  | Organization
-  | Location
-  | Person
-  | Claim
-  | Account
-  | RelatedPerson
-  | Basic;
+  Patient | Coverage | Practitioner | Organization | Location | Person | Claim | Account | RelatedPerson | Basic;
 
 export const BILLING_WORKING_COPY_TAG = {
   system: 'https://fhir.ottehr.com/billing/resource-type',
@@ -419,11 +410,10 @@ export function hasTag(resource: Resource, system: string, code: string): boolea
 // Taxonomy is stored as a ZZ-typed identifier
 export function getTaxonomy(resource: Practitioner | Organization): string {
   return (
-    resource.identifier?.find(
-      (id) =>
-        id.type?.coding?.some(
-          (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
-        )
+    resource.identifier?.find((id) =>
+      id.type?.coding?.some(
+        (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+      )
     )?.value ?? ''
   );
 }
@@ -996,11 +986,10 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     id: resource.id ?? '',
     npi: getNPI(resource) ?? '',
     taxonomyCode:
-      resource.identifier?.find(
-        (id) =>
-          id.type?.coding?.some(
-            (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
-          )
+      resource.identifier?.find((id) =>
+        id.type?.coding?.some(
+          (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+        )
       )?.value ?? '',
     licenseType: getTag(resource, LICENSE_TAG),
     taxId: getTaxID(resource) ?? '',

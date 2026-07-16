@@ -116,8 +116,9 @@ function performEffect(taskGroups: TaskGroup[], total: number): GetInvoicesTasks
     const patientPhoneNumber = group.relatedPerson && getPhoneNumberForIndividual(group.relatedPerson);
 
     const officePhone = standardizePhoneNumber(group.location?.telecom?.find((t) => t.system === 'phone')?.value);
-    const locationReviewLink = group.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
-      ?.valueUrl;
+    const locationReviewLink = group.location?.extension?.find(
+      (ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL
+    )?.valueUrl;
 
     reports.push({
       claimId: taskInput.claimId ?? '---',
@@ -303,8 +304,8 @@ async function getFhirResourcesGrouped(
       (resource) =>
         resource.resourceType === 'RelatedPerson' &&
         (resource as RelatedPerson).patient?.reference?.includes(patientId) &&
-        (resource as RelatedPerson).relationship?.find(
-          (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
+        (resource as RelatedPerson).relationship?.find((relationship) =>
+          relationship.coding?.find((code) => code.code === 'user-relatedperson')
         )
     ) as RelatedPerson;
 
@@ -346,15 +347,14 @@ export function getResponsiblePartyRelationship(
 ): PatientRelationshipToInsured | undefined {
   let result: PatientRelationshipToInsured | undefined = undefined;
   if (responsibleParty.resourceType === 'Patient') return 'Self';
-  responsibleParty.relationship?.find(
-    (rel) =>
-      rel.coding?.find((coding) => {
-        if (coding.system === FHIR_EXTENSION.RelatedPerson.responsiblePartyRelationship.url) {
-          result = coding.code as PatientRelationshipToInsured;
-          return true;
-        }
-        return false;
-      })
+  responsibleParty.relationship?.find((rel) =>
+    rel.coding?.find((coding) => {
+      if (coding.system === FHIR_EXTENSION.RelatedPerson.responsiblePartyRelationship.url) {
+        result = coding.code as PatientRelationshipToInsured;
+        return true;
+      }
+      return false;
+    })
   );
   return result;
 }

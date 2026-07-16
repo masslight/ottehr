@@ -10,7 +10,6 @@
   ],
   "include": [
     ".",
-    ".eslintrc.cjs",
     "../scripts/config/generate-oystehr-resource-imports.ts"
   ]
 }

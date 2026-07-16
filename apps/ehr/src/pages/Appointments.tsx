@@ -54,12 +54,12 @@ export default function Appointments(): ReactElement {
   // to a guaranteed server-side rejection.
   const hasValidDateRange = Boolean(
     dateFromParam &&
-      dateToParam &&
-      DateTime.fromISO(dateFromParam).isValid &&
-      DateTime.fromISO(dateToParam).isValid &&
-      dateFromParam <= dateToParam &&
-      DateTime.fromISO(dateToParam, { zone: 'utc' }).diff(DateTime.fromISO(dateFromParam, { zone: 'utc' }), 'days')
-        .days <= MAX_APPOINTMENT_SEARCH_RANGE_DAYS
+    dateToParam &&
+    DateTime.fromISO(dateFromParam).isValid &&
+    DateTime.fromISO(dateToParam).isValid &&
+    dateFromParam <= dateToParam &&
+    DateTime.fromISO(dateToParam, { zone: 'utc' }).diff(DateTime.fromISO(dateFromParam, { zone: 'utc' }), 'days')
+      .days <= MAX_APPOINTMENT_SEARCH_RANGE_DAYS
   );
 
   const {

@@ -52,13 +52,7 @@ interface AiAssistedEncounterRow {
 }
 
 type DateRangeFilter =
-  | 'today'
-  | 'yesterday'
-  | 'last-7-days'
-  | 'last-7-days-excluding-today'
-  | 'last-30-days'
-  | 'custom'
-  | 'customRange';
+  'today' | 'yesterday' | 'last-7-days' | 'last-7-days-excluding-today' | 'last-30-days' | 'custom' | 'customRange';
 
 const getStatusColor = (
   status: VisitStatusLabel

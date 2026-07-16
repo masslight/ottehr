@@ -276,8 +276,8 @@ export function resolveActiveAdminItem(params: {
   const path = billingTab
     ? `/admin/billing/${billingTab}`
     : outreachSubTab
-    ? `/admin/outreach/${outreachSubTab}`
-    : `/admin/${adminTab}`;
+      ? `/admin/outreach/${outreachSubTab}`
+      : `/admin/${adminTab}`;
 
   return allAdminNavItems.find((item) => item.path === path);
 }

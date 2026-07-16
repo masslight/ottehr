@@ -68,11 +68,11 @@ export const getInPersonVisitStatus = (
   encounter: Encounter,
   supervisorApprovalEnabled = false
 ): VisitStatusLabel => {
-  const admitterParticipant = encounter.participant?.find(
-    (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
+  const admitterParticipant = encounter.participant?.find((p) =>
+    p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
   );
-  const attenderParticipant = encounter.participant?.find(
-    (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
+  const attenderParticipant = encounter.participant?.find((p) =>
+    p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
   );
 
   if (appointment.status === 'booked') {

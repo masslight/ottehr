@@ -6,11 +6,11 @@ import {
 } from './medication-administration.constants';
 
 export enum MedicationOrderStatuses {
-  'pending' = 'pending',
+  pending = 'pending',
   'administered-partly' = 'administered-partly',
   'administered-not' = 'administered-not',
-  'administered' = 'administered',
-  'cancelled' = 'cancelled',
+  administered = 'administered',
+  cancelled = 'cancelled',
 }
 export type MedicationOrderStatusesType = `${MedicationOrderStatuses}`;
 

@@ -373,8 +373,8 @@ export async function executeBookingScenario(
     scenario.testQuestionnaireCanonical && scenario.serviceMode === 'virtual'
       ? { virtualQuestionnaireCanonical: scenario.testQuestionnaireCanonical }
       : scenario.testQuestionnaireCanonical && scenario.serviceMode === 'in-person'
-      ? { inPersonQuestionnaireCanonical: scenario.testQuestionnaireCanonical }
-      : {};
+        ? { inPersonQuestionnaireCanonical: scenario.testQuestionnaireCanonical }
+        : {};
 
   const overrides: Partial<BookingConfig> = {
     ...bookingOverrides,

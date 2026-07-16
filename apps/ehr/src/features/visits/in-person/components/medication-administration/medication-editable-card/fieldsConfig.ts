@@ -1,9 +1,5 @@
 export type MedicationOrderType =
-  | 'order-new'
-  | 'order-edit'
-  | 'dispense'
-  | 'dispense-not-administered'
-  | 'completed-edit';
+  'order-new' | 'order-edit' | 'dispense' | 'dispense-not-administered' | 'completed-edit';
 
 export type MedicationFieldType =
   | 'medicationId'
@@ -21,11 +17,7 @@ export type MedicationFieldType =
   | 'expDate';
 
 export type MedicationFormType =
-  | 'order-new'
-  | 'order-edit'
-  | 'dispense'
-  | 'dispense-not-administered'
-  | 'completed-edit';
+  'order-new' | 'order-edit' | 'dispense' | 'dispense-not-administered' | 'completed-edit';
 
 export type XsVariants = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 

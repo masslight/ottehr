@@ -91,8 +91,8 @@ export async function findServiceCategoryByCode(
       params: [{ name: '_tag', value: SERVICE_CATEGORY_TAG.code }],
     })
   ).unbundle();
-  return results.find(
-    (hs) => hs.type?.[0]?.coding?.some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === code)
+  return results.find((hs) =>
+    hs.type?.[0]?.coding?.some((c) => c.system === SERVICE_CATEGORY_SYSTEM && c.code === code)
   );
 }
 

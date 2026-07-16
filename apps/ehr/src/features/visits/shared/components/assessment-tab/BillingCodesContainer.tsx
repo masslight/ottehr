@@ -169,8 +169,8 @@ const AiEmCodeSuggestionsList: FC<{
                 const splitPattern = sampleMdmMatch
                   ? sampleMdmPattern
                   : mdmLabelMatch
-                  ? mdmLabelPattern
-                  : forExamplePattern;
+                    ? mdmLabelPattern
+                    : forExamplePattern;
                 const mdmMatch = sampleMdmMatch || mdmLabelMatch;
                 const parts = emCode.upcodingSuggestion.split(splitPattern);
                 const hasTwoParts = parts.length > 1 && parts[1].trim().length > 0;

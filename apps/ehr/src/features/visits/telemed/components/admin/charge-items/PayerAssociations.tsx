@@ -53,8 +53,8 @@ const PAYER_ID_CODE = 'XX';
 
 function getPayerId(org: Organization | undefined): string {
   if (!org) return '';
-  const identifier = org.identifier?.find(
-    (id) => id.type?.coding?.some((c) => c.system === PAYER_ID_SYSTEM && c.code === PAYER_ID_CODE)
+  const identifier = org.identifier?.find((id) =>
+    id.type?.coding?.some((c) => c.system === PAYER_ID_SYSTEM && c.code === PAYER_ID_CODE)
   );
   return identifier?.value || '';
 }

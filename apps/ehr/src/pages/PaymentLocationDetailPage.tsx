@@ -458,8 +458,9 @@ export default function PaymentLocationDetailPage(): ReactElement {
 
   const { location, supportsVirtualVisits, stripeTerminalLocationId, terminalDeviceId } = paymentLocation;
 
-  const stripeAccountId = location.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
-    ?.valueString;
+  const stripeAccountId = location.extension?.find(
+    (ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL
+  )?.valueString;
 
   const address = location.address;
   const addressLines: string[] = [];

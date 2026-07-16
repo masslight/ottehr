@@ -25,8 +25,8 @@ export function InvitedParticipantListItemButton({
         invitedParticipantsLoading
           ? 'Loading...'
           : invitedParticipants.length > 0
-          ? [invitedParticipants[0].firstName, invitedParticipants[0].lastName].join(' ')
-          : 'No invited participants'
+            ? [invitedParticipants[0].firstName, invitedParticipants[0].lastName].join(' ')
+            : 'No invited participants'
       }
       hideText={hideText}
       onClick={onClick}

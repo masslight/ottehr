@@ -1259,12 +1259,10 @@ function parseCodeableConceptComponent(
     toConfigValues(getValueSet(obsDef.abnormalCodedValueSet)).map((configValue) => configValue.code)
   );
 
-  const updatedValues = allValues.map(
-    (configValue): AdminLabComponentValueSetConfig => ({
-      ...configValue,
-      isAbnormal: abnormalValueSetCodeLookup.has(configValue.code),
-    })
-  );
+  const updatedValues = allValues.map((configValue): AdminLabComponentValueSetConfig => ({
+    ...configValue,
+    isAbnormal: abnormalValueSetCodeLookup.has(configValue.code),
+  }));
 
   const unit = obsDef.quantitativeDetails?.unit?.coding?.find(
     (coding) => coding.system === IN_HOUSE_UNIT_OF_MEASURE_SYSTEM

@@ -81,11 +81,11 @@ async function addPayerToInsuranceOverrideList(oystehr: Oystehr, payerInfo: Paye
           valueString: payerInfo.payerNote,
         }
       : payerInfo.payerNameOverride
-      ? {
-          url: ottehrExtensionUrl('insurance-override-name'),
-          valueString: payerInfo.payerNameOverride,
-        }
-      : undefined;
+        ? {
+            url: ottehrExtensionUrl('insurance-override-name'),
+            valueString: payerInfo.payerNameOverride,
+          }
+        : undefined;
   const entryValue: ListEntry = {
     item: {
       reference: oystehr.rcm.constructPayerUrl({ id: payerInfo.payerId }),
@@ -100,8 +100,8 @@ async function addPayerToInsuranceOverrideList(oystehr: Oystehr, payerInfo: Paye
         operations: [
           {
             op: 'add',
-            path: list.entry?.length ?? 0 > 0 ? '/entry/-' : '/entry',
-            value: list.entry?.length ?? 0 > 0 ? entryValue : [entryValue],
+            path: (list.entry?.length ?? 0) > 0 ? '/entry/-' : '/entry',
+            value: (list.entry?.length ?? 0) > 0 ? entryValue : [entryValue],
           },
         ],
       },
@@ -121,8 +121,8 @@ async function addPayerToInsuranceOverrideList(oystehr: Oystehr, payerInfo: Paye
             operations: [
               {
                 op: 'add',
-                path: list.entry?.length ?? 0 > 0 ? '/entry/-' : '/entry',
-                value: list.entry?.length ?? 0 > 0 ? entryValue : [entryValue],
+                path: (list.entry?.length ?? 0) > 0 ? '/entry/-' : '/entry',
+                value: (list.entry?.length ?? 0) > 0 ? entryValue : [entryValue],
               },
             ],
           },

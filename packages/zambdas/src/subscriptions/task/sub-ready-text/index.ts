@@ -80,8 +80,8 @@ export const index = wrapHandler('sub-ready-text', async (input: ZambdaInput): P
     }
     if (resource.resourceType === 'RelatedPerson') {
       const relatedPerson = resource as RelatedPerson;
-      const isUserRelatedPerson = relatedPerson.relationship?.find(
-        (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
+      const isUserRelatedPerson = relatedPerson.relationship?.find((relationship) =>
+        relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {
         fhirRelatedPersons.push(relatedPerson);

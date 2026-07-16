@@ -57,9 +57,7 @@ export function isFieldHidden(
 
   // Find the field configuration
   const field = Object.values(items).find((item: any) => item.key === fieldKey) as
-    | FormFieldsInputItem
-    | FormFieldsDisplayItem
-    | undefined;
+    FormFieldsInputItem | FormFieldsDisplayItem | undefined;
 
   // If field doesn't exist in the configuration, consider it hidden
   if (!field) {

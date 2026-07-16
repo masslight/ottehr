@@ -23,7 +23,7 @@ import {
 } from '@mui/material';
 import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
+import { Controller, FieldValues, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
 import { zipRegex } from 'src/helpers';
@@ -226,7 +226,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
       (cache.pageId !== pageId || !_.isEqual(cache.items, items) || !_.isEqual(cache.defaultValues, defaultValues))
     ) {
       setCache({ pageId, items, defaultValues });
-      reset((formValues) => ({
+      reset((formValues: FieldValues) => ({
         ...formValues,
         ...(defaultValues ?? {}),
       }));
@@ -648,8 +648,8 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
                 (item.type === 'decimal'
                   ? 'decimal'
                   : item.type === 'integer' || item.dataType === 'ZIP'
-                  ? 'numeric'
-                  : 'text'),
+                    ? 'numeric'
+                    : 'text'),
               ...(item.dataType === 'ZIP' && { pattern: zipRegex, maxLength: 10 }),
             }}
             placeholder={item.placeholder}

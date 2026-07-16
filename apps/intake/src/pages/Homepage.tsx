@@ -65,7 +65,7 @@ const Homepage = (): JSX.Element => {
   // matches, show picker" while the other says "no single match, no stamp").
   const singleCategoryCodeFor = (serviceMode: string, visitType: string): string | undefined => {
     const matches = serviceCategories.filter((sc) => serviceCategorySupportsContext(sc, serviceMode, visitType));
-    return matches.length === 1 ? matches[0].category.code ?? undefined : undefined;
+    return matches.length === 1 ? (matches[0].category.code ?? undefined) : undefined;
   };
 
   const withServiceCategoryParam = (path: string, code: string | undefined): string => {

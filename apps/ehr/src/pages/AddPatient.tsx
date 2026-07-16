@@ -65,10 +65,7 @@ type SlotLoadingState =
   | { status: 'loaded'; input: string };
 
 export type AddVisitFormState =
-  | 'existingPatientSelected'
-  | 'manuallyEnterPatientDetails'
-  | 'initialPatientSearch'
-  | 'displayPatientSearch';
+  'existingPatientSelected' | 'manuallyEnterPatientDetails' | 'initialPatientSearch' | 'displayPatientSearch';
 
 export interface AddVisitErrorState {
   submit?: boolean;
@@ -456,8 +453,8 @@ export default function AddPatient(): JSX.Element {
       selectedBookable.resourceType === 'HealthcareService'
         ? ScheduleType.group
         : selectedBookable.resourceType === 'PractitionerRole'
-        ? ScheduleType.provider
-        : ScheduleType.location;
+          ? ScheduleType.provider
+          : ScheduleType.location;
 
     // For groups, the picked service category is required so the slot grid
     // reflects the right service's duration/cadence. For locations and
@@ -892,8 +889,8 @@ export default function AddPatient(): JSX.Element {
                           selectedBookable?.resourceType === 'HealthcareService'
                             ? ScheduleType.group
                             : selectedBookable?.resourceType === 'PractitionerRole'
-                            ? ScheduleType.provider
-                            : ScheduleType.location
+                              ? ScheduleType.provider
+                              : ScheduleType.location
                         }
                         serviceCategoryCode={serviceCategory as any}
                         timezone={locationWithSlotData?.location?.timezone || 'Undefined'}

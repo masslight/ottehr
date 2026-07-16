@@ -3,8 +3,7 @@ import { UNSAFE_NavigationContext, useLocation, useNavigate } from 'react-router
 import { InPersonModal } from '../../in-person/components/InPersonModal';
 
 type InPersonModalProps =
-  | Partial<Omit<React.ComponentProps<typeof InPersonModal>, 'handleConfirm' | 'open' | 'handleClose'>>
-  | undefined;
+  Partial<Omit<React.ComponentProps<typeof InPersonModal>, 'handleConfirm' | 'open' | 'handleClose'>> | undefined;
 
 type Options = {
   interceptNavigation?: boolean;

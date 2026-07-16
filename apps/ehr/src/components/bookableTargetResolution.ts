@@ -209,7 +209,9 @@ const prSupportsFhirCategory = (pr: PractitionerRole, schedules: Schedule[], fhi
  * the picker doesn't need to redo the format.
  */
 export const formatLocationDisplayName = (loc: Location): string =>
-  loc.address?.state ? `${loc.address.state.toUpperCase()} — ${loc.name ?? 'Unnamed'}` : loc.name ?? 'Unnamed location';
+  loc.address?.state
+    ? `${loc.address.state.toUpperCase()} — ${loc.name ?? 'Unnamed'}`
+    : (loc.name ?? 'Unnamed location');
 
 const formatHumanName = (p?: Practitioner): string => {
   if (!p?.name?.[0]) return 'Unknown provider';
@@ -406,7 +408,7 @@ export const buildLocationInventories = (input: {
       // docblock ("PRs without a Schedule are dropped") and lets resolver
       // call sites stop defensively re-checking `schedules.length`.
       const prsHere = prList.flatMap((pr) => {
-        const schedules = pr.id ? prSchedulesByPrId.get(pr.id) ?? [] : [];
+        const schedules = pr.id ? (prSchedulesByPrId.get(pr.id) ?? []) : [];
         if (schedules.length === 0) return [];
         const pracId = pr.practitioner?.reference?.split('/')[1];
         return [

@@ -33,9 +33,9 @@ export function useGlobalQuickPicks(): void {
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const isChartingAvailable = Boolean(
     isInPersonVisit &&
-      (visitType === 'follow-up' || assignedIntakePerformerId) &&
-      assignedProviderId &&
-      !isAppointmentReadOnly
+    (visitType === 'follow-up' || assignedIntakePerformerId) &&
+    assignedProviderId &&
+    !isAppointmentReadOnly
   );
   const { quickPicks: allergyQuickPicks } = useMergedAllergyQuickPicks({
     enabled: isChartingAvailable,

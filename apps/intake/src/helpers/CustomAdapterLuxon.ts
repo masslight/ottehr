@@ -7,6 +7,8 @@ export class CustomAdapterLuxon extends AdapterLuxon {
   ordinalMap: { [ord: number]: DateTime[][] } = {};
   // labels for the top
   public getWeekdays = (): string[] => {
+    // Class-field hack from the MUI issue linked above; predates hooks-rules enforcement here.
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     const { t } = useTranslation();
     return t('general.daysOfWeek', { returnObjects: true });
   };

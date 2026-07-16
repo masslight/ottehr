@@ -181,7 +181,7 @@ function taskGroupsToCsvRows(taskGroups: TaskGroup[]): CsvRow[] {
     const { task, patient, appointment, responsibleParty, slot } = group;
     const taskInput = parseInvoiceTaskInput(task);
     const lastTaskOutput = getLatestTaskOutput(task);
-    const stripeInvoiceId = lastTaskOutput?.type === 'success' ? lastTaskOutput.message ?? '' : '';
+    const stripeInvoiceId = lastTaskOutput?.type === 'success' ? (lastTaskOutput.message ?? '') : '';
 
     let timezone = TIMEZONES[0];
     if (slot && slot.start) {
@@ -195,7 +195,9 @@ function taskGroupsToCsvRows(taskGroups: TaskGroup[]): CsvRow[] {
     const patientDob = formatDateConfigurable({ isoDate: patient.birthDate });
     const finalizationDate = formatDateConfigurable({ isoDate: taskInput.finalizationDate });
     const responsiblePartyName = responsibleParty ? getFullName(responsibleParty) : '';
-    const relationship = responsibleParty ? getResponsiblePartyRelationship(responsibleParty)?.toLowerCase() ?? '' : '';
+    const relationship = responsibleParty
+      ? (getResponsiblePartyRelationship(responsibleParty)?.toLowerCase() ?? '')
+      : '';
     const displayStatus = mapInvoiceTaskStatusToDisplay(task.status);
 
     return {
@@ -309,8 +311,8 @@ async function getFhirResourcesPage(
       (resource) =>
         resource.resourceType === 'RelatedPerson' &&
         (resource as RelatedPerson).patient?.reference?.includes(patId) &&
-        (resource as RelatedPerson).relationship?.find(
-          (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
+        (resource as RelatedPerson).relationship?.find((relationship) =>
+          relationship.coding?.find((code) => code.code === 'user-relatedperson')
         )
     ) as RelatedPerson;
 

@@ -85,8 +85,8 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
     }
     if (resource.resourceType === 'RelatedPerson') {
       const relatedPerson = resource as RelatedPerson;
-      const isUserRelatedPerson = relatedPerson.relationship?.find(
-        (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
+      const isUserRelatedPerson = relatedPerson.relationship?.find((relationship) =>
+        relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {
         fhirRelatedPersons.push(relatedPerson);

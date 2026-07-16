@@ -258,8 +258,8 @@ describe('sub-harvest-paperwork-page integration', () => {
 
       // The base QR has insurance data, so we expect an account to exist
       expect(accounts.length).toBeGreaterThanOrEqual(1);
-      const billingAccount = accounts.find(
-        (a) => a.type?.coding?.some((c) => c.code === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0]?.code)
+      const billingAccount = accounts.find((a) =>
+        a.type?.coding?.some((c) => c.code === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0]?.code)
       );
       expect(billingAccount).toBeDefined();
     },

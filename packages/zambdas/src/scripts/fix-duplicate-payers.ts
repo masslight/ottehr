@@ -48,8 +48,8 @@ async function fixOrganizations(oystehr: Oystehr, organizations: Organization[])
 
   for (const org of organizations) {
     // Find the identifier with the PAYER_ID_SYSTEM
-    const payerIdentifier = org.identifier?.find(
-      (id) => id.type?.coding?.some((coding) => coding.system === PAYER_ID_SYSTEM)
+    const payerIdentifier = org.identifier?.find((id) =>
+      id.type?.coding?.some((coding) => coding.system === PAYER_ID_SYSTEM)
     );
 
     if (payerIdentifier) {
@@ -84,11 +84,10 @@ async function fixOrganizations(oystehr: Oystehr, organizations: Organization[])
         }
 
         // Find the eligibility payer ID
-        const eligibilityIdentifier = org.identifier?.find(
-          (id) =>
-            id.type?.coding?.some(
-              (coding) => coding.code === 'XX' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0203'
-            )
+        const eligibilityIdentifier = org.identifier?.find((id) =>
+          id.type?.coding?.some(
+            (coding) => coding.code === 'XX' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0203'
+          )
         );
         const eligibilityPayerId = eligibilityIdentifier?.value || 'N/A';
 
@@ -476,8 +475,8 @@ async function updateCoverageOrganization(
     console.log(`Updating coverage ${coverage.id} to use payor organization ${newPayorOrganization.id}`);
 
     // Get the payor-id from the new organization
-    const payerIdentifier = newPayorOrganization.identifier?.find(
-      (id) => id.type?.coding?.some((coding) => coding.system === PAYER_ID_SYSTEM)
+    const payerIdentifier = newPayorOrganization.identifier?.find((id) =>
+      id.type?.coding?.some((coding) => coding.system === PAYER_ID_SYSTEM)
     );
     const payerId = payerIdentifier?.type?.coding?.find((coding) => coding.system === PAYER_ID_SYSTEM)?.code;
 

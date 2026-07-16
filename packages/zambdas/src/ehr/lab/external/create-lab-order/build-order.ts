@@ -963,11 +963,8 @@ const getExistingOrderLevelNote = (
     'checking communications for an order level note linked to this existing order number',
     existingOrderNumber
   );
-  const notesForThisOrder = orderLevelNotes.filter(
-    (comm) =>
-      comm.identifier?.find(
-        (id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM && id.value === existingOrderNumber
-      )
+  const notesForThisOrder = orderLevelNotes.filter((comm) =>
+    comm.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM && id.value === existingOrderNumber)
   );
   console.log('number of notesForThisOrder found', notesForThisOrder.length);
   if (notesForThisOrder.length === 0) return;

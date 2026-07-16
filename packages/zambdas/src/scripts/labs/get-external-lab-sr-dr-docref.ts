@@ -99,8 +99,9 @@ const main = async (): Promise<void> => {
   resources.forEach((res) => {
     if (res.resourceType === 'DocumentReference') {
       const documentReferenceRef = `DocumentReference/${res.id}`;
-      const docRefDrRef = res.context?.related?.find((related) => related.reference?.startsWith('DiagnosticReport/'))
-        ?.reference;
+      const docRefDrRef = res.context?.related?.find((related) =>
+        related.reference?.startsWith('DiagnosticReport/')
+      )?.reference;
       if (!docRefDrRef) return;
 
       const groupedResources = resourcesByDiagnosticReportRef.get(docRefDrRef);

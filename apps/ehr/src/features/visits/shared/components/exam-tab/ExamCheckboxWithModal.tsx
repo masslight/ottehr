@@ -295,8 +295,8 @@ export const ExamCheckboxWithModal: FC<ExamCheckboxWithModalProps> = ({ name, co
                                             color: isLoading
                                               ? undefined
                                               : optAbnormal
-                                              ? theme.palette.error.main
-                                              : theme.palette.success.main,
+                                                ? theme.palette.error.main
+                                                : theme.palette.success.main,
                                           },
                                           p: 0.5,
                                         }}

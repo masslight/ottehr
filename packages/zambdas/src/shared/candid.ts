@@ -1171,8 +1171,7 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
   }
 
   const appointment = searchBundleResponse.find((resource) => resource.resourceType === 'Appointment') as
-    | Appointment
-    | undefined;
+    Appointment | undefined;
   if (!appointment) {
     throw new Error(`Appointment not found for encounter ID: ${encounterId}`);
   }
@@ -1185,8 +1184,7 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
   }
 
   const location = searchBundleResponse.find((resource) => resource.resourceType === 'Location') as
-    | Location
-    | undefined;
+    Location | undefined;
 
   return {
     patient,

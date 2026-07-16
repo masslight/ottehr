@@ -48,10 +48,10 @@ export default function useEvolveUser(): EvolveUser | undefined {
 
   const isProviderHasEverythingToBeEnrolled = Boolean(
     profile?.id &&
-      profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
-      getNPIIdentifier(profile)?.value &&
-      profile?.name?.[0]?.given?.[0] &&
-      profile?.name?.[0]?.family
+    profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
+    getNPIIdentifier(profile)?.value &&
+    profile?.name?.[0]?.given?.[0] &&
+    profile?.name?.[0]?.family
   );
 
   const userRoles = user?.roles;
@@ -73,15 +73,11 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const { isPending: isPractitionerLastLoginBeingUpdated, mutateAsync: mutatePractitionerAsync } =
     useUpdatePractitioner();
 
-  useSuccessQuery(
-    profile,
-    () => {
-      if (user?.profile && !profile) {
-        void refetchProfile();
-      }
-    },
-    [profile, user?.profile, refetchProfile]
-  );
+  useSuccessQuery(profile, () => {
+    if (user?.profile && !profile) {
+      void refetchProfile();
+    }
+  }, [profile, user?.profile, refetchProfile]);
 
   useEffect(() => {
     if (user && oystehr && profile && !isPractitionerLastLoginBeingUpdated && !_practitionerLoginUpdateStarted) {

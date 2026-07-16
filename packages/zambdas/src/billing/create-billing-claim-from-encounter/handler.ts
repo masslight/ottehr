@@ -231,13 +231,12 @@ export async function performEffect(
   const mainPatientSubscribers: RelatedPerson[] = [];
   const seenBillingAccountIds = new Set<string>();
   const mainPatientAccounts = clinicalResources.accounts.map((a) => {
-    const existingBillingAccount = billingResources.accounts.find(
-      (bac) =>
-        bac.extension?.some(
-          (ext) =>
-            ext.url === SOURCE_IDENTIFIER_SYSTEM &&
-            ext.valueReference?.reference === uuidOrUrnReference('Account', a.id!).reference
-        )
+    const existingBillingAccount = billingResources.accounts.find((bac) =>
+      bac.extension?.some(
+        (ext) =>
+          ext.url === SOURCE_IDENTIFIER_SYSTEM &&
+          ext.valueReference?.reference === uuidOrUrnReference('Account', a.id!).reference
+      )
     );
     if (!existingBillingAccount) {
       // No existing billing copy, create new everything
@@ -581,8 +580,8 @@ export function getClaimCoveragesForEncounter(
 ): CoverageRefs {
   switch (service) {
     case CODE_SYSTEM_SERVICE_CATEGORY_CODES['urgent-care']: {
-      const ucAccount = mainPatientAccounts.find(
-        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT')
+      const ucAccount = mainPatientAccounts.find((mpacc) =>
+        mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'PBILLACCT')
       );
       let primaryCoverage: Coverage | undefined;
       let secondaryCoverage: Coverage | undefined;
@@ -609,8 +608,8 @@ export function getClaimCoveragesForEncounter(
       ];
     }
     case CODE_SYSTEM_SERVICE_CATEGORY_CODES['workers-comp']: {
-      const wcAccount = mainPatientAccounts.find(
-        (mpacc) => mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'WCOMPACCT')
+      const wcAccount = mainPatientAccounts.find((mpacc) =>
+        mpacc.type?.coding?.some((c) => c.system === ACCOUNT_TYPE_CODE_SYSTEM && c.code === 'WCOMPACCT')
       );
       let wcCoverage: Coverage | undefined;
       wcAccount?.coverage?.forEach((wccov) => {
@@ -1046,8 +1045,8 @@ async function findExistingBillingResources(
       })
     )
   ).filter((p): p is Practitioner => !!p);
-  const clinicalAttendingProviderRef = clinicalResources.encounter.participant?.find(
-    (part) => part.type?.some((t) => t.coding?.find((c) => c.system === PARTICIPATION_CODE_SYSTEM)?.code === 'ATND')
+  const clinicalAttendingProviderRef = clinicalResources.encounter.participant?.find((part) =>
+    part.type?.some((t) => t.coding?.find((c) => c.system === PARTICIPATION_CODE_SYSTEM)?.code === 'ATND')
   )?.individual?.reference;
   const clinicalAttendingProvider = clinicalResources.practitioners.find(
     (prac) => clinicalAttendingProviderRef && prac.id === clinicalAttendingProviderRef.replace('Practitioner/', '')

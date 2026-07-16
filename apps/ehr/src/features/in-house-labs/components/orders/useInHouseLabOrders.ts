@@ -1,4 +1,4 @@
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
@@ -196,7 +196,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
         return { success: true };
       } catch (err) {
         console.log('error deleting inhouse lab: ', err);
-        const oystehrError = err as OystehrSdkError;
+        const oystehrError = err as Oystehr.OystehrSdkError;
         let errorMsg: string | undefined;
 
         if (oystehrError.code !== 500 && oystehrError.message) errorMsg = oystehrError.message;

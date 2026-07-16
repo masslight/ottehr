@@ -28,7 +28,7 @@ export const getPatientName = (
   const fullDisplayName =
     preferredName && legalBase && preferredName !== firstName
       ? `${legalBase} (${preferredName})`
-      : legalBase ?? preferredName ?? undefined;
+      : (legalBase ?? preferredName ?? undefined);
 
   return {
     firstName,

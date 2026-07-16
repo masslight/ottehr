@@ -45,7 +45,7 @@ export async function uploadObjectToZ3(
           headers: {
             'Content-Type': mimeType,
           },
-          body: fileBytes,
+          body: fileBytes as BodyInit,
         });
 
         if (!uploadRequest.ok) {

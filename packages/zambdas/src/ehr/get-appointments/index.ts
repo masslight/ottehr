@@ -834,9 +834,9 @@ const makeAppointmentInformation = (
     isFollowUp: !!encounter.partOf,
     parentEncounterId: encounter.partOf?.reference?.replace('Encounter/', ''),
     parentAppointmentId: encounter.partOf?.reference
-      ? Object.entries(apptRefToEncounterMap)
+      ? (Object.entries(apptRefToEncounterMap)
           .find(([, enc]) => `Encounter/${enc.id}` === encounter.partOf?.reference)?.[0]
-          ?.replace('Appointment/', '') ?? parentEncounterToApptIdMap[encounter.partOf.reference]
+          ?.replace('Appointment/', '') ?? parentEncounterToApptIdMap[encounter.partOf.reference])
       : undefined,
   };
 };

@@ -223,7 +223,7 @@ export default function EditInsurance(): JSX.Element {
     });
   }, [insuranceDetails, displayName, note, reset, isNew, patientOverrideListEntry]);
 
-  const mutationId = isNew ? watch('payor')?.id ?? '' : payerId;
+  const mutationId = isNew ? (watch('payor')?.id ?? '') : payerId;
   const { mutateAsync: mutateInsurance, isPending: mutationPending } = useInsuranceMutation(mutationId);
 
   const onSubmit = async (): Promise<void> => {
@@ -343,7 +343,7 @@ export default function EditInsurance(): JSX.Element {
                         onInputChange={(_, newValue) => setPayerNameInputValue(newValue)}
                         options={
                           isNew
-                            ? insuranceData?.map((d) => ({ id: d.id, name: d.name })) ?? []
+                            ? (insuranceData?.map((d) => ({ id: d.id, name: d.name })) ?? [])
                             : [{ id: insuranceDetails?.id, name: insuranceDetails?.name }]
                         }
                         renderOption={(props, option) => {
@@ -623,8 +623,8 @@ export default function EditInsurance(): JSX.Element {
                           applicableChargeMaster.source === 'payer-specific'
                             ? 'Payer-Specific'
                             : applicableChargeMaster.source === 'default-insurance'
-                            ? 'Default Insurance'
-                            : 'Self-Pay'
+                              ? 'Default Insurance'
+                              : 'Self-Pay'
                         }
                         size="small"
                         sx={{
@@ -633,8 +633,8 @@ export default function EditInsurance(): JSX.Element {
                           ...(applicableChargeMaster.source === 'payer-specific'
                             ? {}
                             : applicableChargeMaster.source === 'default-insurance'
-                            ? { backgroundColor: '#6A1B9A', color: '#fff' }
-                            : { backgroundColor: '#E91E90', color: '#fff' }),
+                              ? { backgroundColor: '#6A1B9A', color: '#fff' }
+                              : { backgroundColor: '#E91E90', color: '#fff' }),
                         }}
                         {...(applicableChargeMaster.source === 'payer-specific'
                           ? { color: 'primary', variant: 'outlined' }

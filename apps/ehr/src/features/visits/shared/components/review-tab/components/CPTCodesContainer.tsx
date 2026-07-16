@@ -16,7 +16,9 @@ export const CPTCodesContainer: FC = () => {
       <Typography variant="h5" color="primary.dark">
         CPT codes
       </Typography>
-      {cptCodes?.map((code) => <Typography key={code.resourceId}>{makeCptCodeDisplay(code)}</Typography>)}
+      {cptCodes?.map((code) => (
+        <Typography key={code.resourceId}>{makeCptCodeDisplay(code)}</Typography>
+      ))}
     </Box>
   );
 };

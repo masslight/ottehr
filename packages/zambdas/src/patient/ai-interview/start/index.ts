@@ -133,11 +133,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   let prompt = getInitialUserMessageUrgentCare(patientInfoDetails.join(', ') + '.');
 
   if (
-    appointment.serviceCategory?.find(
-      (serviceCategory) =>
-        serviceCategory.coding?.find(
-          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
-        )
+    appointment.serviceCategory?.find((serviceCategory) =>
+      serviceCategory.coding?.find(
+        (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
+      )
     )
   ) {
     console.log('Using workers compensation prompt');

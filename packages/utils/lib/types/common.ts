@@ -166,10 +166,10 @@ export const PatientEthnicityCode: Record<keyof typeof PatientEthnicity, string 
 
 export enum PatientRace {
   'American Indian or Alaska Native' = 'American Indian or Alaska Native',
-  'Asian' = 'Asian',
+  Asian = 'Asian',
   'Black or African American' = 'Black or African American',
   'Native Hawaiian or Other Pacific Islander' = 'Native Hawaiian or Other Pacific Islander',
-  'White' = 'White',
+  White = 'White',
   'Decline to Specify' = 'Decline to Specify',
 }
 
@@ -641,7 +641,7 @@ export enum TASK_INPUT_TYPE_CODES {
 
 export enum ServiceMode {
   'in-person' = 'in-person',
-  'virtual' = 'virtual',
+  virtual = 'virtual',
 }
 
 /**
@@ -650,14 +650,14 @@ export enum ServiceMode {
  * single source of truth for "can this service be prebooked / walked into".
  */
 export enum ServiceVisitType {
-  'prebook' = 'prebook',
+  prebook = 'prebook',
   'walk-in' = 'walk-in',
 }
 
 export enum ScheduleType {
-  'location' = 'location',
-  'group' = 'group',
-  'provider' = 'provider',
+  location = 'location',
+  group = 'group',
+  provider = 'provider',
 }
 
 export type BookableResource = Location | Practitioner | PractitionerRole | HealthcareService;

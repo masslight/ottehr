@@ -341,7 +341,7 @@ export const PatientEducationCard: FC = () => {
         </DialogTitle>
         <DialogContent>
           <PatientEducationSectionsEditor
-            sections={editableSections.length > 0 ? editableSections : generatedSections ?? []}
+            sections={editableSections.length > 0 ? editableSections : (generatedSections ?? [])}
             onSectionsChange={(nextSections) => {
               setEditableSections(nextSections);
               nextSections.forEach((section) => {
@@ -375,7 +375,7 @@ export const PatientEducationCard: FC = () => {
           <RoundedButton
             variant="contained"
             onClick={async () => {
-              const sections = editableSections.length > 0 ? editableSections : generatedSections ?? [];
+              const sections = editableSections.length > 0 ? editableSections : (generatedSections ?? []);
               const didSave = await saveFromSections(sections, language);
               if (didSave) {
                 resetEducationFlow();

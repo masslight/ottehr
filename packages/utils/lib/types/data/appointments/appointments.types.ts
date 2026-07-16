@@ -98,8 +98,10 @@ export interface AppointmentParticipants {
   attender?: ParticipantInfo;
 }
 
-export interface InPersonAppointmentInformation
-  extends Omit<AppointmentInformation, 'paperwork' | 'locationVirtual' | 'location' | 'statusHistory'> {
+export interface InPersonAppointmentInformation extends Omit<
+  AppointmentInformation,
+  'paperwork' | 'locationVirtual' | 'location' | 'statusHistory'
+> {
   encounterId: string;
   start: string;
   reasonForVisit: string;

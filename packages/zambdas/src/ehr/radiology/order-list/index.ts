@@ -197,8 +197,8 @@ const parseResultsToOrder = (
   let formattedFinalReviewTask: OttehrTask | undefined;
 
   // Get all diagnostic reports related to this service request
-  const relatedDiagnosticReports = diagnosticReports.filter(
-    (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
+  const relatedDiagnosticReports = diagnosticReports.filter((report) =>
+    report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
   );
 
   const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);

@@ -265,8 +265,8 @@ export const isOtherInsurance = (resource: Coverage | Organization): boolean => 
 
   if (resource.resourceType === 'Coverage') {
     // to avoid another query, we'll check the assigner on the member number
-    const memberNumIdentifier = resource.identifier?.find(
-      (id) => id.type?.coding?.some((coding) => isEqual(COVERAGE_MEMBER_IDENTIFIER_BASE.type?.coding?.[0], coding))
+    const memberNumIdentifier = resource.identifier?.find((id) =>
+      id.type?.coding?.some((coding) => isEqual(COVERAGE_MEMBER_IDENTIFIER_BASE.type?.coding?.[0], coding))
     );
 
     if (!memberNumIdentifier) {

@@ -301,8 +301,8 @@ const getCoverageInfo = (accounts: Account[], coverages: Coverage[]): CreateLabC
 
   if (coveragesSortedByPriority) {
     const coverageInfo = coveragesSortedByPriority.map((coverage, idx) => {
-      const coverageName = coverage.class?.find(
-        (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
+      const coverageName = coverage.class?.find((c) =>
+        c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
       )?.name;
       const coverageId = coverage.id;
       if (!coverageName || !coverageId) {

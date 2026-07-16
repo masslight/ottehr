@@ -1,4 +1,4 @@
-import locationsConfig from '../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
+import locationsConfig from '../../../config/oystehr/locations-and-schedules.json' with { type: 'json' };
 
 const VIRTUAL_LOCATION_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/location-form-pre-release';
 

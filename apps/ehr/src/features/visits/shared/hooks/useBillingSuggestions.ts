@@ -145,8 +145,8 @@ export function buildBillingSuggestionInput(params: {
     billing: chartData?.cptCodes
       ? [...chartData.cptCodes, ...(chartData.emCode ? [chartData.emCode] : [])]
       : chartData?.emCode
-      ? [chartData.emCode]
-      : undefined,
+        ? [chartData.emCode]
+        : undefined,
     externalLabOrders: externalLabOrderParts.join('\n'),
     internalLabOrders: inHouseLabOrderParts.join('\n'),
     radiologyOrders: radiologyOrdersString,

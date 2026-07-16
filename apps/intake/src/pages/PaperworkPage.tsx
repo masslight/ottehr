@@ -619,8 +619,10 @@ const performComplexValidation = async (
   };
 };
 
-interface ValidationRoadblockConfig
-  extends Omit<ComplexValidationResultFailureCase, 'valueEntries' | 'canProceed' | 'type'> {
+interface ValidationRoadblockConfig extends Omit<
+  ComplexValidationResultFailureCase,
+  'valueEntries' | 'canProceed' | 'type'
+> {
   type: 'failure' | 'in-progress' | 'success';
   onRetryClick?: () => void;
   onContinueClick?: () => Promise<void>;

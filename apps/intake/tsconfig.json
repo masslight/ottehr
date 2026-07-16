@@ -4,16 +4,16 @@
     "target": "esnext",
     "lib": ["esnext.array", "dom", "es2022"],
     "module": "ESNext",
-    "moduleResolution": "node",
     "sourceMap": true,
     "inlineSources": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "baseUrl": ".",
     "paths": {
-      "@theme/*": ["src/themes/ottehr/*"],
-      "@defaultTheme/*": ["src/themes/ottehr/*"]
+      "@theme/*": ["./src/themes/ottehr/*"],
+      "@defaultTheme/*": ["./src/themes/ottehr/*"],
+      "src/*": ["./src/*"],
+      "tests/*": ["./tests/*"]
     }
   },
-  "include": [".", ".eslintrc.cjs"]
+  "include": ["."]
 }

@@ -132,10 +132,12 @@ const performEffect = (
     isManuallyCreated = isLocationManuallyCreated(loc);
     reviewLink = loc.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl;
     if (options.includePaymentFields) {
-      stripeAccountId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
-        ?.valueString;
-      advapacsLocationId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL)
-        ?.valueString;
+      stripeAccountId = loc.extension?.find(
+        (ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL
+      )?.valueString;
+      advapacsLocationId = loc.extension?.find(
+        (ext) => ext.url === SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL
+      )?.valueString;
     }
     rooms = loc.extension
       ?.filter((ext) => ext.url === ROOM_EXTENSION_URL)
@@ -396,6 +398,6 @@ const getEffectInputFromOwner = async (
     scheduleExtension,
     timezone: schedule ? getTimezone(schedule) : TIMEZONES[0],
     owner,
-    scheduleActive: schedule ? schedule.active ?? true : true,
+    scheduleActive: schedule ? (schedule.active ?? true) : true,
   };
 };

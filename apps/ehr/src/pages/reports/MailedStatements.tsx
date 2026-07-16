@@ -43,14 +43,7 @@ import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
 type DateRangeFilter =
-  | 'today'
-  | 'yesterday'
-  | 'month-to-date'
-  | 'last-month'
-  | 'this-quarter'
-  | 'last-quarter'
-  | 'custom'
-  | 'customRange';
+  'today' | 'yesterday' | 'month-to-date' | 'last-month' | 'this-quarter' | 'last-quarter' | 'custom' | 'customRange';
 
 function SingleDateFilterInput({
   item,

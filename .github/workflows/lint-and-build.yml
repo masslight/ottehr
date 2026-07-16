@@ -100,15 +100,23 @@ jobs:
         if: contains(github.event.pull_request.body, '/skip-build-and-lint')
         run: echo "Build and lint skipped via /skip-build-and-lint command"
 
+      - name: Prettier check
+        if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
+        # Formatting used to be enforced through eslint-plugin-prettier inside the lint
+        # task; with oxlint, prettier runs directly instead.
+        run: npm run prettier:check
+
       - name: Build
         if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
-        # Cap turbo concurrency: with the default (10), several type-aware
-        # ESLint processes (~3GB RSS each) overlap with tsc + vite builds and
-        # peak memory exceeds the 16GB on the 4-core runner, killing the
-        # runner agent ("The operation was canceled", tasks SIGTERMed).
-        # Profiled on a 4-core/16GB box: default = 13.4GB peak @ 7m05s;
-        # --concurrency=3 = 8.8GB peak @ 6m45s (no wall-time cost at 4 cores).
-        run: npm run build -- --concurrency=3
+        # Runs at turbo's default concurrency. A --concurrency=3 cap used to be
+        # required here: type-aware ESLint processes (~3GB RSS each) overlapped with
+        # tsc + vite builds and OOM-killed the 16GB runner ("The operation was
+        # canceled", tasks SIGTERMed). Lint is now a single small native oxlint
+        # process and tsc is the native compiler, so the pressure came off; if OOM
+        # kills reappear here, restore `npm run build -- --concurrency=3`.
+        # (Validated 2026-07-16 with a cache-bypassed full run: all 22 tasks at
+        # default concurrency completed in 5m29s with no OOM.)
+        run: npm run build
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
 

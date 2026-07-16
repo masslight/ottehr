@@ -1,5 +1,5 @@
 import { Box, CircularProgress, Paper, Typography } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { ReactElement, useCallback, useState } from 'react';
 import { APIError, LabelPrintingConfig } from 'utils';
 import { useAdminGetLabelPrintingConfig, useAdminUpdateLabelPrintingConfig } from '../admin.queries';
@@ -8,7 +8,7 @@ import AdminLabelPrintingConfigForm from './AdminLabelPrintingConfigForm';
 export default function AdminPrintingConfigPage(): ReactElement {
   // for the moment we're just going to return the single form since we aren't supporting multiple printing configs currently
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [submitError, setSubmitError] = useState<OystehrSdkError | APIError | undefined>(undefined);
+  const [submitError, setSubmitError] = useState<Oystehr.OystehrSdkError | APIError | undefined>(undefined);
 
   const {
     data, // the data comes back with the detected deviceId for the printing config
@@ -33,7 +33,7 @@ export default function AdminPrintingConfigPage(): ReactElement {
         setSubmitError(undefined);
       } catch (e: unknown) {
         console.error('updating config failed', e);
-        setSubmitError(e as OystehrSdkError | APIError);
+        setSubmitError(e as Oystehr.OystehrSdkError | APIError);
       } finally {
         setIsSubmitting(false);
       }

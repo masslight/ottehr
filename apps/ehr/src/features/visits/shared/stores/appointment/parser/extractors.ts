@@ -235,11 +235,11 @@ export const getResources = (
     : findMainAppointment(appointments, encounters);
   const encounter = context?.encounterId
     ? encounters.find((resource) => resource.id === context.encounterId)
-    : encounters.find(
+    : (encounters.find(
         (resource) =>
           !resource.partOf &&
           resource.appointment?.some((appointmentRef) => appointmentRef.reference === `Appointment/${appointment?.id}`)
-      ) ?? encounters.find((resource) => !resource.partOf);
+      ) ?? encounters.find((resource) => !resource.partOf));
   const questionnaireResponse =
     questionnaireResponses.find((resource) => resource.encounter?.reference === `Encounter/${encounter?.id}`) ??
     questionnaireResponses[0];

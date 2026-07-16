@@ -172,8 +172,9 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
   const [copiedOttehrId, setCopiedOttehrId] = useState(false);
   const [copiedCandidId, setCopiedCandidId] = useState(false);
   const isEditMode = Boolean(employer);
-  const candidId = employer?.identifier?.find((id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM)
-    ?.value;
+  const candidId = employer?.identifier?.find(
+    (id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM
+  )?.value;
 
   const { data: feeSchedules, isFetching: feeSchedulesFetching } = useListFeeSchedulesQuery({
     enabled: isEditMode && !!employer?.id,
@@ -184,15 +185,15 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
 
   const associatedFeeSchedules = useMemo(() => {
     if (!feeSchedules || !employer?.id) return [];
-    return feeSchedules.filter(
-      (fs) => fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employer.id}`)
+    return feeSchedules.filter((fs) =>
+      fs.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employer.id}`)
     );
   }, [feeSchedules, employer?.id]);
 
   const associatedChargeMasters = useMemo(() => {
     if (!chargeMasters || !employer?.id) return [];
-    return chargeMasters.filter(
-      (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employer.id}`)
+    return chargeMasters.filter((cm) =>
+      cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employer.id}`)
     );
   }, [chargeMasters, employer?.id]);
 

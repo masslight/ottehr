@@ -159,6 +159,5 @@ export function validateOrderDetails(orderDetails: any): string[] {
 
 export function getContainedMedication(medicationAdministration: MedicationAdministration): Medication | undefined {
   return medicationAdministration.contained?.find((resource) => resource.id === CONTAINED_MEDICATION_ID) as
-    | Medication
-    | undefined;
+    Medication | undefined;
 }

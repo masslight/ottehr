@@ -180,8 +180,9 @@ export async function searchDocumentReferencesForVisit(
         if (!z3Url) return false;
         if (z3UrlToDocRef.has(z3Url)) {
           console.warn(
-            `Duplicate DocumentReference found for z3Url ${z3Url}. DocumentReference IDs: ${z3UrlToDocRef.get(z3Url)
-              ?.id} and ${docRefResource.id}. Marking ${docRefResource.id} as duplicate and superseded.`
+            `Duplicate DocumentReference found for z3Url ${z3Url}. DocumentReference IDs: ${
+              z3UrlToDocRef.get(z3Url)?.id
+            } and ${docRefResource.id}. Marking ${docRefResource.id} as duplicate and superseded.`
           );
           return true;
         }

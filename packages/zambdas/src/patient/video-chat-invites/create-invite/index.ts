@@ -124,7 +124,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const chosenName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
   const patientChosenName = chosenName || patient?.name?.[0].given?.[0] || 'Patient';
 
-  const locationName = location ? getNameForOwner(location) ?? '' : '';
+  const locationName = location ? (getNameForOwner(location) ?? '') : '';
   if (emailAddress) {
     const emailClient = getEmailClient(secrets, oystehr);
     await emailClient.sendVideoChatInvitationEmail(emailAddress, {

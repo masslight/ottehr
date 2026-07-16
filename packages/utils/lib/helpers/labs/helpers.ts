@@ -73,13 +73,12 @@ export function generateDeployAccountNumber(length = 20): string {
 }
 
 export function externalLabOrderIsManual(sr: ServiceRequest): boolean {
-  return !!sr?.category?.find(
-    (cat) =>
-      cat.coding?.find(
-        (c) =>
-          c.system === MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING.system &&
-          c.code === MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING.code
-      )
+  return !!sr?.category?.find((cat) =>
+    cat.coding?.find(
+      (c) =>
+        c.system === MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING.system &&
+        c.code === MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING.code
+    )
   );
 }
 
@@ -118,8 +117,9 @@ export function getAccountNumberFromLocationAndOrganization(location: Location, 
   );
   // this is mostly for legacy orders before we switched to account numbers living on SR.location for multi-office ordering
 
-  const accountNumberFromOrg = org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)
-    ?.value;
+  const accountNumberFromOrg = org.identifier?.find(
+    (identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM
+  )?.value;
   console.log(`Account number from org is ${accountNumberFromOrg}`);
   return accountNumberFromOrg;
 }
@@ -280,8 +280,8 @@ export function serviceRequestPaymentMethod(
   serviceRequest: ServiceRequest,
   coverages: Coverage[]
 ): CreateLabPaymentMethod | undefined {
-  const insuranceCoverageRef = serviceRequest?.insurance?.find(
-    (insurance) => insurance.reference?.startsWith('Coverage/')
+  const insuranceCoverageRef = serviceRequest?.insurance?.find((insurance) =>
+    insurance.reference?.startsWith('Coverage/')
   );
   if (!insuranceCoverageRef) return LabPaymentMethod.SelfPay;
   const coverageId = insuranceCoverageRef.reference?.replace('Coverage/', '');
@@ -297,13 +297,12 @@ export function serviceRequestPaymentMethod(
 }
 
 export const docRefIsLabGeneratedResult = (docRef: DocumentReference): boolean => {
-  return !!docRef.category?.find(
-    (cat) =>
-      cat.coding?.find(
-        (code) =>
-          code.system === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.system &&
-          code.code === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.code
-      )
+  return !!docRef.category?.find((cat) =>
+    cat.coding?.find(
+      (code) =>
+        code.system === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.system &&
+        code.code === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.code
+    )
   );
 };
 
@@ -334,12 +333,11 @@ export const docRefIsLabelPDFAndCurrent = (docRef: DocumentReference): boolean =
 
 export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
   const isCurrent = docRef.status === 'current';
-  const isAbn = !!docRef.category?.some(
-    (cat) =>
-      cat.coding?.some(
-        (code) =>
-          code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system
-      )
+  const isAbn = !!docRef.category?.some((cat) =>
+    cat.coding?.some(
+      (code) =>
+        code.code === OYSTEHR_ABN_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_ABN_DOC_CATEGORY_CODING.system
+    )
   );
   return isCurrent && isAbn;
 };
@@ -422,13 +420,12 @@ export const isExternalLabServiceRequest = (resource: ServiceRequest): boolean =
 export const externalLabOrderUsesFriendlyPatientId = (sr: ServiceRequest): boolean => {
   return (
     isExternalLabServiceRequest(sr) &&
-    (sr.orderDetail?.some(
-      (detail) =>
-        detail.coding?.some(
-          (coding) =>
-            coding.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
-            coding.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
-        )
+    (sr.orderDetail?.some((detail) =>
+      detail.coding?.some(
+        (coding) =>
+          coding.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
+          coding.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
+      )
     ) ??
       false)
   );

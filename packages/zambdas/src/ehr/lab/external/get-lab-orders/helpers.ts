@@ -1375,12 +1375,10 @@ export const parseLabOrderStatus = (
 
   // 'corrected': DR.status == 'corrected', Task(RCT).status == 'ready'
   const hasReadyRCRTWithCorrectedResult = finalAndCorrectedTasks.some((task) => {
-    if (
-      !(
-        task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult) &&
-        (task.status === 'ready' || task.status === 'in-progress')
-      )
-    )
+    if (!(
+      task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult) &&
+      (task.status === 'ready' || task.status === 'in-progress')
+    ))
       return false;
 
     const relatedFinalResults = parseResultByTask(task, finalResults);
@@ -1547,9 +1545,8 @@ export const parsePractitionerName = (practitionerId: string | undefined, practi
 };
 
 export const parseIsPSC = (serviceRequest: ServiceRequest): boolean => {
-  return !!serviceRequest.orderDetail?.some(
-    (detail) =>
-      detail.coding?.some((coding) => coding.system === PSC_HOLD_CONFIG.system && coding.code === PSC_HOLD_CONFIG.code)
+  return !!serviceRequest.orderDetail?.some((detail) =>
+    detail.coding?.some((coding) => coding.system === PSC_HOLD_CONFIG.system && coding.code === PSC_HOLD_CONFIG.code)
   );
 };
 
@@ -1690,13 +1687,12 @@ export const parseLabOrderAddedDate = (
 };
 
 const parseLabOrderSubmittedDate = (provenances: Provenance[]): string | undefined => {
-  const submittedProvenance = provenances.find(
-    (prov) =>
-      prov.activity?.coding?.find(
-        (c) =>
-          c.system === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.system &&
-          c.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code
-      )
+  const submittedProvenance = provenances.find((prov) =>
+    prov.activity?.coding?.find(
+      (c) =>
+        c.system === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.system &&
+        c.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code
+    )
   );
   console.log('submittedProvenance', submittedProvenance);
   return submittedProvenance?.recorded;
@@ -1915,11 +1911,10 @@ export const parseProvenancesForHistory = (
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
-  const relatedProvenance = provenances.find(
-    (provenance) =>
-      provenance.activity?.coding?.some(
-        (code) => code.code === activityCoding.code && code.system === activityCoding.system
-      )
+  const relatedProvenance = provenances.find((provenance) =>
+    provenance.activity?.coding?.some(
+      (code) => code.code === activityCoding.code && code.system === activityCoding.system
+    )
   );
   if (!relatedProvenance) return [];
   const taskCompletedBy = parseReviewerNameFromProvenance(relatedProvenance, practitioners);
@@ -1948,8 +1943,8 @@ export const parseTaskReceivedAndReviewedAndCorrectedHistory = (
     task.status === 'completed'
       ? 'reviewed'
       : task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult)
-      ? 'corrected'
-      : 'received'
+        ? 'corrected'
+        : 'received'
   }` as const;
 
   if (status !== 'reviewed') {
@@ -2231,8 +2226,8 @@ export const filterResourcesBasedOnTargetResource = <T extends Resource & { base
   targetResourceId: string;
   targetResourceType: string;
 }): T[] => {
-  return resources.filter(
-    (resource) => resource.basedOn?.some((basedOn) => basedOn.reference === `${targetResourceType}/${targetResourceId}`)
+  return resources.filter((resource) =>
+    resource.basedOn?.some((basedOn) => basedOn.reference === `${targetResourceType}/${targetResourceId}`)
   );
 };
 
@@ -2417,24 +2412,22 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
     // by dev design for storage requirements handling[0].instruction should be used
     const storageRequirements = typeTestedInfo?.handling?.[0]?.instruction;
 
-    const volumeInfo = specimenDefinition.collection?.find(
-      (item) =>
-        item.coding?.some(
-          (code) =>
-            code.system === SPECIMEN_CODING_CONFIG.collection.system &&
-            code.code === SPECIMEN_CODING_CONFIG.collection.code.specimenVolume
-        )
+    const volumeInfo = specimenDefinition.collection?.find((item) =>
+      item.coding?.some(
+        (code) =>
+          code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+          code.code === SPECIMEN_CODING_CONFIG.collection.code.specimenVolume
+      )
     );
 
     const volume = volumeInfo?.text;
 
-    const instructionsInfo = specimenDefinition.collection?.find(
-      (item: any) =>
-        item.coding?.some(
-          (code: any) =>
-            code.system === SPECIMEN_CODING_CONFIG.collection.system &&
-            code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
-        )
+    const instructionsInfo = specimenDefinition.collection?.find((item: any) =>
+      item.coding?.some(
+        (code: any) =>
+          code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+          code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
+      )
     );
 
     const collectionInstructions = instructionsInfo?.text;
@@ -2612,18 +2605,17 @@ export const labOrderCommunicationType = (
   communication: Communication
 ): 'order-level-note' | 'clinical-info-note' | undefined => {
   let commType = undefined;
-  communication.category?.forEach(
-    (cat) =>
-      cat.coding?.forEach((code) => {
-        if (code.system === LABS_COMMUNICATION_CATEGORY_SYSTEM) {
-          if (code.code === LAB_ORDER_LEVEL_NOTE_CATEGORY.code) {
-            commType = 'order-level-note';
-          }
-          if (code.code === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code) {
-            commType = 'clinical-info-note';
-          }
+  communication.category?.forEach((cat) =>
+    cat.coding?.forEach((code) => {
+      if (code.system === LABS_COMMUNICATION_CATEGORY_SYSTEM) {
+        if (code.code === LAB_ORDER_LEVEL_NOTE_CATEGORY.code) {
+          commType = 'order-level-note';
         }
-      })
+        if (code.code === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code) {
+          commType = 'clinical-info-note';
+        }
+      }
+    })
   );
   return commType;
 };
@@ -2659,11 +2651,10 @@ const getContentStringFromCommForSr = (
   console.log('parsing', communicationCode, 'from', communications);
   const filteredCommunications = communications?.filter(
     (comm) =>
-      comm.category?.find(
-        (cat) =>
-          cat.coding?.find(
-            (code) => code.system === LABS_COMMUNICATION_CATEGORY_SYSTEM && code.code === communicationCode
-          )
+      comm.category?.find((cat) =>
+        cat.coding?.find(
+          (code) => code.system === LABS_COMMUNICATION_CATEGORY_SYSTEM && code.code === communicationCode
+        )
       ) && comm.basedOn?.some((ref) => ref.reference === serviceRequestRef)
   );
   if (filteredCommunications.length === 0) return;

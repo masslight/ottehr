@@ -14,20 +14,20 @@ type DeepMerge<T, Z> = T extends readonly any[]
     ? Z // Arrays are replaced, not merged
     : T
   : Z extends readonly any[]
-  ? Z
-  : T extends object
-  ? Z extends object
-    ? {
-        [K in keyof T | keyof Z]: K extends keyof Z
-          ? K extends keyof T
-            ? DeepMerge<T[K], Z[K]>
-            : Z[K]
-          : K extends keyof T
-          ? T[K]
-          : never;
-      }
-    : Z
-  : Z;
+    ? Z
+    : T extends object
+      ? Z extends object
+        ? {
+            [K in keyof T | keyof Z]: K extends keyof Z
+              ? K extends keyof T
+                ? DeepMerge<T[K], Z[K]>
+                : Z[K]
+              : K extends keyof T
+                ? T[K]
+                : never;
+          }
+        : Z
+      : Z;
 
 export function mergeAndFreezeConfigObjects<T, Z>(baseConfig: T, overrideConfig: Z): DeepMerge<T, Z> {
   const merged = _.mergeWith(_.cloneDeep(baseConfig), _.cloneDeep(overrideConfig), (objValue, srcValue) => {

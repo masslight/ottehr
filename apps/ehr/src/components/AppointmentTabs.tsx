@@ -15,10 +15,10 @@ import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
 
 export enum ApptTab {
-  'prebooked' = 'prebooked',
+  prebooked = 'prebooked',
   'in-office' = 'in-office',
-  'completed' = 'completed',
-  'cancelled' = 'cancelled',
+  completed = 'completed',
+  cancelled = 'cancelled',
 }
 
 export const SELECTED_TAB_STORAGE_KEY = 'selectedAppointmentTab';
@@ -78,8 +78,8 @@ export default function AppointmentTabs({
   const resolvedTab: ApptTab = isApptTab(tabFromUrl)
     ? tabFromUrl
     : isApptTab(routeLocation.state?.tab)
-    ? (routeLocation.state.tab as ApptTab)
-    : getStoredTab() ?? ApptTab['in-office'];
+      ? (routeLocation.state.tab as ApptTab)
+      : (getStoredTab() ?? ApptTab['in-office']);
 
   const [value, setValue] = useState<ApptTab>(resolvedTab);
   const [now, setNow] = useState<DateTime>(DateTime.now());

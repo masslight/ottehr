@@ -132,7 +132,7 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
 };
 
 function getLastQuestionLinkId(questionnaireResponse: QuestionnaireResponse): string {
-  const questionLinkIds = (questionnaireResponse.contained?.[0] as Questionnaire).item
+  const questionLinkIds = (questionnaireResponse.contained![0] as Questionnaire).item
     ?.sort((itemA, itemB) => parseInt(itemA.linkId) - parseInt(itemB.linkId))
     ?.map((item) => item.linkId);
   if (questionLinkIds == null || questionLinkIds.length === 0) {

@@ -45,9 +45,8 @@ export const index = wrapTaskHandler('sub-harvest-paperwork-page', async (input,
 });
 
 export function extractPatchIndex(task: Task): number {
-  const input = task.input?.find(
-    (i) =>
-      i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
+  const input = task.input?.find((i) =>
+    i.type?.coding?.some((c) => c.system === TASK_INPUT_TYPE_SYSTEM && c.code === TASK_INPUT_TYPE_CODES.PAGE_INDEX)
   );
   if (input?.valueUnsignedInt === undefined) {
     throw new Error('Task is missing page-index input');

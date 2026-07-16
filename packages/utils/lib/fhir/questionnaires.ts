@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
-import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' with { type: 'json' };
+import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' with { type: 'json' };
 import {
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   PATIENT_RECORD_QUESTIONNAIRE,

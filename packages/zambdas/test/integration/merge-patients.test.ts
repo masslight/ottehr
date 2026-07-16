@@ -497,8 +497,8 @@ describe('merge-patients integration tests', () => {
           params: [{ name: 'patient', value: `Patient/${mainResources.patient.id}` }],
         })
       ).unbundle();
-      const nonUser = rps.find(
-        (rp) => rp.relationship?.every((rel) => rel.coding?.every((c) => c.code !== 'user-relatedperson'))
+      const nonUser = rps.find((rp) =>
+        rp.relationship?.every((rel) => rel.coding?.every((c) => c.code !== 'user-relatedperson'))
       );
       expect(nonUser).toBeDefined();
       expect(nonUser?.patient?.reference).toEqual(`Patient/${mainResources.patient.id}`);

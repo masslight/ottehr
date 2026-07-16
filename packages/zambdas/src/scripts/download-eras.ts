@@ -202,8 +202,8 @@ function buildEraDetailCsv(eraData: any): string | null {
       const adjustments = Array.isArray(charge.adjustment)
         ? charge.adjustment
         : charge.adjustment
-        ? [charge.adjustment]
-        : [{}];
+          ? [charge.adjustment]
+          : [{}];
       for (const adj of adjustments) {
         rows.push(
           [

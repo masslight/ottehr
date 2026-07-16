@@ -14,8 +14,8 @@ export const composePhysician: DataComposer<{ appointmentPackage: FullAppointmen
   appointmentPackage,
 }) => {
   const { encounter, practitioners, timezone } = appointmentPackage;
-  const attenderParticipant = encounter.participant?.find(
-    (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
+  const attenderParticipant = encounter.participant?.find((p) =>
+    p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
   );
   const attenderPractitionerId = attenderParticipant?.individual?.reference?.split('/').at(-1);
   const attenderPractitioner = practitioners?.find((practitioner) => practitioner.id === attenderPractitionerId);

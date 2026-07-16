@@ -13,9 +13,7 @@ import {
 } from 'utils';
 
 type PaymentResultState =
-  | { status: 'idle' }
-  | { status: 'success'; amountInCents: number }
-  | { status: 'failure'; reason: string };
+  { status: 'idle' } | { status: 'success'; amountInCents: number } | { status: 'failure'; reason: string };
 
 interface CardReaderTerminalProps {
   patient: Patient;

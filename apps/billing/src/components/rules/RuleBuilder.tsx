@@ -64,7 +64,7 @@ const LOGIC_LABELS: Record<RuleLogic, string> = {
 };
 
 const valueToText = (value: string | string[] | null | undefined): string =>
-  Array.isArray(value) ? value.join(', ') : value ?? '';
+  Array.isArray(value) ? value.join(', ') : (value ?? '');
 
 const textToList = (text: string): string[] =>
   text
@@ -295,7 +295,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
             fieldId={value.field}
             multiple={false}
             value={value.value}
-            onChange={(v) => replace({ ...value, value: typeof v === 'string' ? v : v[0] ?? '' })}
+            onChange={(v) => replace({ ...value, value: typeof v === 'string' ? v : (v[0] ?? '') })}
             label="New value"
           />
         </>

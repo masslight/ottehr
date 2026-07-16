@@ -89,8 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const isInPerson = isInPersonAppointment(appointment);
 
   const patient = resourceBundle?.find((resource: FhirResource) => resource.resourceType === 'Patient') as
-    | Patient
-    | undefined;
+    Patient | undefined;
   if (!patient?.id) throw new Error('Patient is missing from resource bundle.');
 
   const encounter = resourceBundle?.find(

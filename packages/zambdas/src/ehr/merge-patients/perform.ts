@@ -715,7 +715,10 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
     requests.push({ method: 'PUT', url: `/Account/${id}`, resource: acct as FhirResource });
   }
 
-  console.log('mainPatientCoverages', mainPatientCoverages?.map((c) => `Coverage/${c.id}`));
+  console.log(
+    'mainPatientCoverages',
+    mainPatientCoverages?.map((c) => `Coverage/${c.id}`)
+  );
 
   const coverages = (
     await oystehr.fhir.search<Coverage>({

@@ -522,8 +522,7 @@ describe('Patient Master Record Tests', () => {
       const ops = createUpdatePharmacyPatchOps(patientWithPharmacy, clearedPharmacyItems);
 
       const containedOp = ops.find((op) => op.path === '/contained') as
-        | { op: string; value?: { id?: string }[] }
-        | undefined;
+        { op: string; value?: { id?: string }[] } | undefined;
       // Pharmacy contained resource is gone (either removed outright or absent from the replacement).
       const pharmacyStillPresent = containedOp?.value?.some(
         (resource) => resource.id === PATIENT_CONTAINED_PHARMACY_ID

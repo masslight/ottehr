@@ -61,8 +61,8 @@ export default function UpdateMedicationPage(): ReactElement {
       dataForPrecheck
         ? dataForPrecheck?.filter((option) => !option.isObsolete)
         : medicationForInteractionsDetails
-        ? [medicationForInteractionsDetails]
-        : [],
+          ? [medicationForInteractionsDetails]
+          : [],
     [medicationForInteractionsDetails, dataForPrecheck]
   );
 

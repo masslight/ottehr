@@ -21,5 +21,5 @@ export const getItemDisplayStrategy = (
     return item.disabledDisplay ?? 'hidden';
   }
   const enabled = evalEnableWhen(item, items, values, questionnaireResponse);
-  return enabled ? 'enabled' : item.disabledDisplay ?? 'hidden';
+  return enabled ? 'enabled' : (item.disabledDisplay ?? 'hidden');
 };

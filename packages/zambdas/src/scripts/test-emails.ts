@@ -212,7 +212,7 @@ const main = async (): Promise<void> => {
       process.exit(1);
     }
     const patientName = getFullName(patient);
-    const serviceMode = slot ? getServiceModeFromSlot(slot) ?? ServiceMode.virtual : ServiceMode.virtual;
+    const serviceMode = slot ? (getServiceModeFromSlot(slot) ?? ServiceMode.virtual) : ServiceMode.virtual;
     const startTime = appointment.start
       ? DateTime.fromISO(appointment.start).toFormat(DATETIME_FULL_NO_YEAR)
       : undefined;

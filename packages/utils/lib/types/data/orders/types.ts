@@ -1,3 +1,4 @@
+import { ReactElement } from 'react';
 import { z } from 'zod';
 import { Secrets } from '../../../secrets';
 import {
@@ -90,7 +91,7 @@ export type NursingOrderHistoryRow = {
 };
 
 export interface OrderToolTipConfig {
-  icon: JSX.Element;
+  icon: ReactElement;
   title: string;
   tableUrl: string;
   unreadBadge?: boolean;
@@ -100,7 +101,7 @@ export interface OrderToolTipConfig {
     fhirResourceId: string;
     itemDescription: string;
     detailPageUrl: string;
-    statusChip: JSX.Element;
+    statusChip: ReactElement;
     unreadBadge?: boolean;
   }[];
 }

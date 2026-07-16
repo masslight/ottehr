@@ -891,10 +891,10 @@ export default function ProcedureCodes({
                 loadingHistory
                   ? 'Delta since a previous version (loading...)'
                   : historyError
-                  ? 'Delta since a previous version (unavailable)'
-                  : !loadingHistory && versionHistory.length === 0
-                  ? 'Delta since a previous version (no prior versions)'
-                  : 'Delta since a previous version'
+                    ? 'Delta since a previous version (unavailable)'
+                    : !loadingHistory && versionHistory.length === 0
+                      ? 'Delta since a previous version (no prior versions)'
+                      : 'Delta since a previous version'
               }
               disabled={loadingHistory || historyError || versionHistory.length === 0}
             />

@@ -980,7 +980,7 @@ function BirthdayConfigEditor({
                 onChange({
                   ...config,
                   ageMode: mode,
-                  maxAge: mode === 'after' ? config.maxAge ?? 100 : undefined,
+                  maxAge: mode === 'after' ? (config.maxAge ?? 100) : undefined,
                 });
               }}
             >

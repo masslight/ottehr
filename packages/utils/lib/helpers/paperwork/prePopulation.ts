@@ -110,8 +110,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   // but leaving it undefined lets a later save avoid stamping a redundant
   // `false` extension on Patients that never had the field touched.
   const patientHasMedicaid = patient.extension?.find((e) => e.url === PATIENT_HAS_MEDICAID_URL)?.valueBoolean;
-  const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
-    ?.valueBoolean;
+  const patientSendMarketing = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`
+  )?.valueBoolean;
   const patientCommonWellConsent = patient.extension?.find(
     (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/common-well-consent`
   )?.valueBoolean;
@@ -587,8 +588,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
   const patientPointOfDiscovery = patient.extension?.find(
     (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/point-of-discovery`
   )?.valueString;
-  const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
-    ?.valueBoolean;
+  const patientSendMarketing = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`
+  )?.valueBoolean;
   const patientPreferredLanguage = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
   const patientCommonWellConsent = patient.extension?.find(
     (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/common-well-consent`
@@ -1330,11 +1332,11 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
   const rpNoEmail =
     guarantorResource?.resourceType === 'RelatedPerson'
-      ? (guarantorResource as RelatedPerson).extension?.find((e) => e.url === RESPONSIBLE_PARTY_NO_EMAIL_URL)
-          ?.valueBoolean ?? false
+      ? ((guarantorResource as RelatedPerson).extension?.find((e) => e.url === RESPONSIBLE_PARTY_NO_EMAIL_URL)
+          ?.valueBoolean ?? false)
       : guarantorResource?.resourceType === 'Patient'
-      ? (guarantorResource as Patient).extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false
-      : false;
+        ? ((guarantorResource as Patient).extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false)
+        : false;
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
@@ -1540,10 +1542,12 @@ const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): 
   const pharmacyWasManuallyEntered = !!pharmacyResource?.extension?.find(
     (ext) => ext.url === PREFERRED_PHARMACY_MANUAL_ENTRY_URL
   )?.valueBoolean;
-  const pharmacyIdFromPlaces = pharmacyResource?.extension?.find((ext) => ext.url === PREFERRED_PHARMACY_PLACES_ID_URL)
-    ?.valueString;
-  const pharmacyErxId = patientResource?.extension?.find((ext) => ext.url === PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL)
-    ?.valueString;
+  const pharmacyIdFromPlaces = pharmacyResource?.extension?.find(
+    (ext) => ext.url === PREFERRED_PHARMACY_PLACES_ID_URL
+  )?.valueString;
+  const pharmacyErxId = patientResource?.extension?.find(
+    (ext) => ext.url === PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL
+  )?.valueString;
 
   return items.map((item) => {
     const { linkId } = item;

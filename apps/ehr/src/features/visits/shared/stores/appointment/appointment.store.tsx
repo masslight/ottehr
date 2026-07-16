@@ -373,11 +373,11 @@ const selectAppointmentData = (
   const appointment = (
     appointmentId
       ? appointments.find((resource) => resource.id === appointmentId)
-      : appointments.find((apt) =>
+      : (appointments.find((apt) =>
           allEncountersForSelection.some(
             (enc) => !enc.partOf && enc.appointment?.some((ref) => ref.reference === `Appointment/${apt.id}`)
           )
-        ) ?? appointments[0]
+        ) ?? appointments[0])
   ) as Appointment;
   const patient = data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as Patient;
 
@@ -405,8 +405,8 @@ const selectAppointmentData = (
   // For scheduled follow-up appointments, the encounter has partOf set.
   // If no non-partOf encounter exists, use the encounter that references this appointment.
   if (!followUpOriginEncounter && allEncountersRaw?.length > 0) {
-    followUpOriginEncounter = allEncountersRaw.find(
-      (e) => e.appointment?.some((encAppointmentRef) => encAppointmentRef.reference === appointmentRef)
+    followUpOriginEncounter = allEncountersRaw.find((e) =>
+      e.appointment?.some((encAppointmentRef) => encAppointmentRef.reference === appointmentRef)
     ) as Encounter;
   }
 
@@ -487,8 +487,7 @@ const useGetAppointment = (
       if (oystehr && appointmentId) {
         // Get the current selected encounter ID from the query cache to preserve it
         const currentData = queryClient.getQueryData([TELEMED_APPOINTMENT_QUERY_KEY, appointmentId]) as
-          | (AppointmentTelemedState & InPersonAppointmentState & AppointmentRawResourcesState)
-          | undefined;
+          (AppointmentTelemedState & InPersonAppointmentState & AppointmentRawResourcesState) | undefined;
         const currentSelectedEncounterId = currentData?.selectedEncounterId;
 
         const data = (

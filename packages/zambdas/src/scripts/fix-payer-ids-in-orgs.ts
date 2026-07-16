@@ -56,17 +56,16 @@ async function fixOrganizations(oystehr: Oystehr, organizations: Organization[])
       console.log(`Processing organization ${i + 1}/${organizations.length}: ${organization.id}`);
 
       // Extract payerIdKey (from PAYER_ID_SYSTEM identifier)
-      const payerIdIdentifier = organization.identifier?.find(
-        (id) => id.type?.coding?.some((coding) => coding.system === PAYER_ID_SYSTEM)
+      const payerIdIdentifier = organization.identifier?.find((id) =>
+        id.type?.coding?.some((coding) => coding.system === PAYER_ID_SYSTEM)
       );
       let payerIdKey = payerIdIdentifier?.type?.coding?.find((coding) => coding.system === PAYER_ID_SYSTEM)?.code;
 
       // Extract eligibilityPayerIdKey (from XX code identifier value)
-      const eligibilityPayerIdIdentifier = organization.identifier?.find(
-        (id) =>
-          id.type?.coding?.some(
-            (coding) => coding.code === 'XX' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0203'
-          )
+      const eligibilityPayerIdIdentifier = organization.identifier?.find((id) =>
+        id.type?.coding?.some(
+          (coding) => coding.code === 'XX' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0203'
+        )
       );
       let eligibilityPayerIdKey = eligibilityPayerIdIdentifier?.value;
 
@@ -96,8 +95,8 @@ async function fixOrganizations(oystehr: Oystehr, organizations: Organization[])
 
         // Update payerIdKey in the organization
         if (payerIdIdentifier && updatedOrganization.identifier) {
-          const payerIdIndex = updatedOrganization.identifier.findIndex(
-            (id) => id.type?.coding?.some((coding) => coding.system === PAYER_ID_SYSTEM)
+          const payerIdIndex = updatedOrganization.identifier.findIndex((id) =>
+            id.type?.coding?.some((coding) => coding.system === PAYER_ID_SYSTEM)
           );
           if (payerIdIndex !== -1 && updatedOrganization.identifier[payerIdIndex].type?.coding) {
             const codingIndex = updatedOrganization.identifier[payerIdIndex].type!.coding!.findIndex(
@@ -111,11 +110,10 @@ async function fixOrganizations(oystehr: Oystehr, organizations: Organization[])
 
         // Update eligibilityPayerIdKey in the organization
         if (eligibilityPayerIdIdentifier && updatedOrganization.identifier) {
-          const eligibilityIdIndex = updatedOrganization.identifier.findIndex(
-            (id) =>
-              id.type?.coding?.some(
-                (coding) => coding.code === 'XX' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0203'
-              )
+          const eligibilityIdIndex = updatedOrganization.identifier.findIndex((id) =>
+            id.type?.coding?.some(
+              (coding) => coding.code === 'XX' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0203'
+            )
           );
           if (eligibilityIdIndex !== -1) {
             updatedOrganization.identifier[eligibilityIdIndex].value = eligibilityPayerIdKey;

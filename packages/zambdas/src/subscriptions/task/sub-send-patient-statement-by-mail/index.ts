@@ -242,9 +242,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 function getTaskInputValue(task: Task, code: string): string | undefined {
-  return task.input?.find(
-    (input) =>
-      input.type.coding?.find((coding) => coding.system === MAIL_STATEMENT_TASK_INPUT_SYSTEM && coding.code === code)
+  return task.input?.find((input) =>
+    input.type.coding?.find((coding) => coding.system === MAIL_STATEMENT_TASK_INPUT_SYSTEM && coding.code === code)
   )?.valueString;
 }
 

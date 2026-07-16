@@ -311,21 +311,19 @@ export const useExternalMedicationHistory = (
         const matched = item.medicationId ? medicationLookup.get(item.medicationId) : null;
         return !(matched?.id && chartedIds.has(String(matched.id)));
       })
-      .map(
-        (item): ExternalMedication => ({
-          name: item.name,
-          strength: item.strength,
-          doseForm: item.doseForm,
-          route: item.route,
-          directions: item.directions,
-          writtenDate: item.writtenDate,
-          lastFillDate: item.lastFillDate,
-          refills: item.refills,
-          quantity: item.quantity,
-          matchedMedication: (item.medicationId ? medicationLookup.get(item.medicationId) : null) ?? null,
-          isExactMatch: item.medicationId ? medicationLookup.has(item.medicationId) : false,
-        })
-      );
+      .map((item): ExternalMedication => ({
+        name: item.name,
+        strength: item.strength,
+        doseForm: item.doseForm,
+        route: item.route,
+        directions: item.directions,
+        writtenDate: item.writtenDate,
+        lastFillDate: item.lastFillDate,
+        refills: item.refills,
+        quantity: item.quantity,
+        matchedMedication: (item.medicationId ? medicationLookup.get(item.medicationId) : null) ?? null,
+        isExactMatch: item.medicationId ? medicationLookup.has(item.medicationId) : false,
+      }));
   }, [rawHistory, medicationLookup, chartedMedications]);
 
   const isLoading = isHistoryLoading || (!!rawHistory && rawHistory.length > 0 && isLookupLoading);

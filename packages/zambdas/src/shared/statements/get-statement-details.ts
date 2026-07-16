@@ -111,8 +111,8 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
 
   const location = items.find((item: Resource) => item.resourceType === 'Location') as Location | undefined;
   const schedule = location?.id
-    ? (items.filter((item: Resource) => item.resourceType === 'Schedule') as Schedule[]).find(
-        (s) => s.actor?.some((a) => a.reference === `Location/${location.id}`)
+    ? (items.filter((item: Resource) => item.resourceType === 'Schedule') as Schedule[]).find((s) =>
+        s.actor?.some((a) => a.reference === `Location/${location.id}`)
       )
     : undefined;
 

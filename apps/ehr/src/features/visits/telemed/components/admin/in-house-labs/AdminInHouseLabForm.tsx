@@ -13,7 +13,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { AdminInHouseLabItemDefinition, APIError } from 'utils';
@@ -26,7 +26,7 @@ export interface AdminInHouseLabFormProps {
   formMode: 'add' | 'edit';
   onSubmit: (data: AdminInHouseLabItemDefinition) => void;
   isSubmitting?: boolean;
-  submitError?: OystehrSdkError | APIError;
+  submitError?: Oystehr.OystehrSdkError | APIError;
   disableEdits?: boolean;
   disableEditsMessage?: string;
 }

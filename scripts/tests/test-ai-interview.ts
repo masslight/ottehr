@@ -144,8 +144,8 @@ async function main(): Promise<void> {
       })
     ).unbundle() as Observation[];
 
-    const aiObservations = allObservations.filter(
-      (r) => r.meta?.tag?.some((t) => t.system === AI_OBSERVATION_TAG_SYSTEM)
+    const aiObservations = allObservations.filter((r) =>
+      r.meta?.tag?.some((t) => t.system === AI_OBSERVATION_TAG_SYSTEM)
     );
 
     if (aiObservations.length === 0) throw new Error('No AI observations were created');

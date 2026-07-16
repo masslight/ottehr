@@ -316,11 +316,10 @@ export async function createResourcesFromAiInterview(
   }
 
   if (
-    appointment?.serviceCategory?.find(
-      (serviceCategory) =>
-        serviceCategory.coding?.find(
-          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
-        )
+    appointment?.serviceCategory?.find((serviceCategory) =>
+      serviceCategory.coding?.find(
+        (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workers-comp'
+      )
     )
   ) {
     fields = 'mechanism of injury, ' + fields;

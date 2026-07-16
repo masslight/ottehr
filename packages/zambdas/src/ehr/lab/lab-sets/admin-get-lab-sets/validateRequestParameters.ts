@@ -7,8 +7,7 @@ type BaseContext = {
 };
 
 type ValidatedRequest =
-  | (BaseContext & { type: 'list' })
-  | (BaseContext & AdminGetLabSetDetailInput & { type: 'detail' });
+  (BaseContext & { type: 'list' }) | (BaseContext & AdminGetLabSetDetailInput & { type: 'detail' });
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
   if (!input.body) {

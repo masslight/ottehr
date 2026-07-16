@@ -380,8 +380,8 @@ export default function PatientPaymentList({
     paymentVariant === PaymentVariant.selfPay
       ? selfPayFeeSchedule
       : isPayerVariant
-      ? payerFeeSchedule ?? insuranceChargeMaster
-      : defaultChargeMaster;
+        ? (payerFeeSchedule ?? insuranceChargeMaster)
+        : defaultChargeMaster;
 
   const activeDescription = activeFeeSchedule?.description || '';
 
@@ -436,11 +436,11 @@ export default function PatientPaymentList({
     ? payerFeeSchedule
       ? 'fee-schedule'
       : insuranceChargeMasterSource === 'payer'
-      ? 'payer-cm'
-      : 'default-cm'
+        ? 'payer-cm'
+        : 'default-cm'
     : paymentVariant === PaymentVariant.selfPay
-    ? 'self-pay-cm'
-    : 'default-cm';
+      ? 'self-pay-cm'
+      : 'default-cm';
 
   // Loading state for payer pricing (fee schedule then charge master fallback)
   const payerPricingLoading =
@@ -949,14 +949,14 @@ export default function PatientPaymentList({
                     {paymentVariant === PaymentVariant.selfPay
                       ? 'This is a self-pay visit, therefore the self-pay charge master applies.'
                       : paymentVariant === undefined
-                      ? 'No payer selected yet; showing rates from the default charge master.'
-                      : activePricingType === 'fee-schedule'
-                      ? isCaseRate
-                        ? 'A case-rate fee schedule is associated with this payer.'
-                        : 'A payer-specific fee schedule is associated with this payer.'
-                      : activePricingType === 'payer-cm'
-                      ? 'No fee schedule found; a payer-specific charge master applies.'
-                      : 'No payer-specific pricing found; the default charge master applies.'}
+                        ? 'No payer selected yet; showing rates from the default charge master.'
+                        : activePricingType === 'fee-schedule'
+                          ? isCaseRate
+                            ? 'A case-rate fee schedule is associated with this payer.'
+                            : 'A payer-specific fee schedule is associated with this payer.'
+                          : activePricingType === 'payer-cm'
+                            ? 'No fee schedule found; a payer-specific charge master applies.'
+                            : 'No payer-specific pricing found; the default charge master applies.'}
                   </Typography>
                 </Box>
               }
@@ -1189,8 +1189,8 @@ export default function PatientPaymentList({
                           {activePricingType === 'fee-schedule'
                             ? 'Fee schedule rates apply.'
                             : activePricingType === 'payer-cm'
-                            ? 'Payer charge master rates apply.'
-                            : 'Default charge master rates apply.'}
+                              ? 'Payer charge master rates apply.'
+                              : 'Default charge master rates apply.'}
                         </Typography>
                       )}
                       {lineItems.length > 0 && (

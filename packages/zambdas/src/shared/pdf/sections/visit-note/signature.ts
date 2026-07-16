@@ -22,7 +22,7 @@ export const composeSignature: DataComposer<SignatureComposerInput, SignatureDat
   // Prefer the `author` Provenance (accurate signer + original sign time, stable across re-generation
   // after supervisor approval); fall back to the attending provider and the current time when none
   // exists (the non-supervisor sign flow writes no Provenance).
-  const fallbackProviderName = visit.visitType === 'initial' ? visit.provider : visit.provider?.name ?? '';
+  const fallbackProviderName = visit.visitType === 'initial' ? visit.provider : (visit.provider?.name ?? '');
   const signedName = signatures?.signedBy?.name || fallbackProviderName;
   const signedDateTime = formatDateTimeToZone(
     signatures?.signedBy?.dateTimeISO ?? DateTime.now().toISO() ?? undefined,

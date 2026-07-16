@@ -933,10 +933,10 @@ export default function AppointmentTableRow({
             appointment.appointmentType === 'pre-booked'
               ? 'Scheduled'
               : appointment.appointmentType === 'walk-in'
-              ? 'On Demand'
-              : appointment.appointmentType === 'post-telemed'
-              ? 'Post Telemed'
-              : ''
+                ? 'On Demand'
+                : appointment.appointmentType === 'post-telemed'
+                  ? 'Post Telemed'
+                  : ''
           )}
         </Typography>
         {appointmentDate && <Typography variant="body2">{appointmentDate}</Typography>}

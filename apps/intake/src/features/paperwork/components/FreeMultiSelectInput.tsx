@@ -115,7 +115,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       Array.isArray(otherProps.value)
         ? (otherProps.value as any[]).map((val) => {
             if (valueType === 'String') {
-              return typeof val === 'string' ? val : val?.valueString ?? val;
+              return typeof val === 'string' ? val : (val?.valueString ?? val);
             }
             return val?.reference ?? val?.valueReference?.reference ?? val;
           })
@@ -175,9 +175,8 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
         const { inputValue, getOptionLabel } = state;
         const filtered = options.filter((option) => {
           return (
-            getOptionLabel(option)
-              ?.toLowerCase()
-              ?.startsWith(inputValue?.toLowerCase()) || option?.valueReference?.type === 'other'
+            getOptionLabel(option)?.toLowerCase()?.startsWith(inputValue?.toLowerCase()) ||
+            option?.valueReference?.type === 'other'
           );
         });
         return filtered;

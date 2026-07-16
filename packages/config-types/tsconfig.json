@@ -7,5 +7,5 @@
     "noFallthroughCasesInSwitch": true,
     "target": "esnext"
   },
-  "include": ["index.ts", "config", ".eslintrc.cjs"]
+  "include": ["index.ts", "config"]
 }

@@ -2,10 +2,7 @@ import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 
 export class InPersonExamPage {
-  #page: Page;
-  constructor(page: Page) {
-    this.#page = page;
-  }
+  constructor(_page: Page) {}
 }
 
 export async function expectExamPage(page: Page): Promise<InPersonExamPage> {

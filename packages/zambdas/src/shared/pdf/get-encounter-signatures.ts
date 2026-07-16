@@ -6,12 +6,10 @@ import { ProgressNoteSignatures, SignatureProvenanceInfo } from './types';
 type SignatureRole = 'author' | 'verifier';
 
 const getAgentForRole = (provenance: Provenance, role: SignatureRole): ProvenanceAgent | undefined =>
-  provenance.agent?.find(
-    (agent) =>
-      agent.role?.some(
-        (concept) =>
-          concept.coding?.some((coding) => coding.system === PARTICIPATION_CODE_SYSTEM && coding.code === role)
-      )
+  provenance.agent?.find((agent) =>
+    agent.role?.some((concept) =>
+      concept.coding?.some((coding) => coding.system === PARTICIPATION_CODE_SYSTEM && coding.code === role)
+    )
   );
 
 /**

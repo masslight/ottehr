@@ -182,27 +182,27 @@ async function performEffect(
     renderingProvider: renderingProvider
       ? renderingProvider.resourceType === 'Practitioner'
         ? fhirName(renderingProvider)
-        : renderingProvider.name ?? ''
+        : (renderingProvider.name ?? '')
       : '',
-    renderingNpi: renderingProvider ? getNPI(renderingProvider) ?? '' : '',
+    renderingNpi: renderingProvider ? (getNPI(renderingProvider) ?? '') : '',
     renderingTaxonomy: renderingProvider ? getTaxonomy(renderingProvider) : '',
     billingProviderFhirId: provider?.id ?? '',
     billingProviderType: provider?.resourceType ?? '',
     billingProvider: provider
       ? provider.resourceType === 'Practitioner'
         ? fhirName(provider)
-        : provider.name ?? ''
+        : (provider.name ?? '')
       : '',
-    billingNpi: provider ? getNPI(provider) ?? '' : '',
-    billingTin: provider ? getTaxID(provider) ?? '' : '',
+    billingNpi: provider ? (getNPI(provider) ?? '') : '',
+    billingTin: provider ? (getTaxID(provider) ?? '') : '',
     billingTaxonomy: provider ? getTaxonomy(provider) : '',
     facilityFhirId: facility?.id ?? '',
     serviceFacility: facility?.name ?? '',
     serviceFacilityId: facility?.id ?? '',
     serviceFacilityAddress: formatAddress(facility?.address),
     serviceFacilityAddressParts: toAddressParts(facility?.address),
-    serviceFacilityNpi: facility ? getNPI(facility) ?? '' : '',
-    serviceFacilityClia: facility ? getCLIA(facility) ?? '' : '',
+    serviceFacilityNpi: facility ? (getNPI(facility) ?? '') : '',
+    serviceFacilityClia: facility ? (getCLIA(facility) ?? '') : '',
     diagnoses: (claim.diagnosis ?? []).map((dx) => ({
       sequence: dx.sequence,
       code: dx.diagnosisCodeableConcept?.coding?.[0]?.code ?? '',

@@ -270,13 +270,12 @@ describe('formatServiceRequestConfig — friendly patient ID orderDetail', () =>
       provenanceUrl
     );
 
-    const hasFriendlyDetail = sr.orderDetail?.some(
-      (d) =>
-        d.coding?.some(
-          (c) =>
-            c.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
-            c.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
-        )
+    const hasFriendlyDetail = sr.orderDetail?.some((d) =>
+      d.coding?.some(
+        (c) =>
+          c.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
+          c.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
+      )
     );
     expect(hasFriendlyDetail).toBe(true);
   });
@@ -292,13 +291,12 @@ describe('formatServiceRequestConfig — friendly patient ID orderDetail', () =>
       provenanceUrl
     );
 
-    const hasFriendlyDetail = sr.orderDetail?.some(
-      (d) =>
-        d.coding?.some(
-          (c) =>
-            c.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
-            c.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
-        )
+    const hasFriendlyDetail = sr.orderDetail?.some((d) =>
+      d.coding?.some(
+        (c) =>
+          c.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
+          c.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
+      )
     );
     expect(hasFriendlyDetail).toBeFalsy();
   });
@@ -314,16 +312,15 @@ describe('formatServiceRequestConfig — friendly patient ID orderDetail', () =>
       provenanceUrl
     );
 
-    const hasPsc = sr.orderDetail?.some(
-      (d) => d.coding?.some((c) => c.system === PSC_HOLD_CONFIG.system && c.code === PSC_HOLD_CONFIG.code)
+    const hasPsc = sr.orderDetail?.some((d) =>
+      d.coding?.some((c) => c.system === PSC_HOLD_CONFIG.system && c.code === PSC_HOLD_CONFIG.code)
     );
-    const hasFriendlyDetail = sr.orderDetail?.some(
-      (d) =>
-        d.coding?.some(
-          (c) =>
-            c.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
-            c.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
-        )
+    const hasFriendlyDetail = sr.orderDetail?.some((d) =>
+      d.coding?.some(
+        (c) =>
+          c.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
+          c.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
+      )
     );
     expect(hasPsc).toBe(true);
     expect(hasFriendlyDetail).toBe(true);
@@ -354,16 +351,15 @@ describe('formatServiceRequestConfig — friendly patient ID orderDetail', () =>
       provenanceUrl
     );
 
-    const hasPsc = sr.orderDetail?.some(
-      (d) => d.coding?.some((c) => c.system === PSC_HOLD_CONFIG.system && c.code === PSC_HOLD_CONFIG.code)
+    const hasPsc = sr.orderDetail?.some((d) =>
+      d.coding?.some((c) => c.system === PSC_HOLD_CONFIG.system && c.code === PSC_HOLD_CONFIG.code)
     );
-    const hasFriendlyDetail = sr.orderDetail?.some(
-      (d) =>
-        d.coding?.some(
-          (c) =>
-            c.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
-            c.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
-        )
+    const hasFriendlyDetail = sr.orderDetail?.some((d) =>
+      d.coding?.some(
+        (c) =>
+          c.system === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.system &&
+          c.code === LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL.code
+      )
     );
     expect(hasPsc).toBe(true);
     expect(hasFriendlyDetail).toBeFalsy();

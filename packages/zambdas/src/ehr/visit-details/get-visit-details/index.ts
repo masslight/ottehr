@@ -193,8 +193,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     const [resourceType, id] = schedule.actor[0].reference.split('/');
     if (resourceType && id) {
       scheduleOwner = searchResults.find((resource) => resource.resourceType === resourceType && resource.id === id) as
-        | ScheduleOwnerFhirResource
-        | undefined;
+        ScheduleOwnerFhirResource | undefined;
     }
   }
 

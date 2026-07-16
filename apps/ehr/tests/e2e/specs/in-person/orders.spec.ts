@@ -22,7 +22,7 @@ import {
 import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
 import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
 import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
-import inHouseLabsMockData from 'tests/e2e/page/lab/in-house/mock-data.json' assert { type: 'json' };
+import inHouseLabsMockData from 'tests/e2e/page/lab/in-house/mock-data.json' with { type: 'json' };
 import { LabelPrintingConfigAdminPage } from 'tests/e2e/page/LabelPrintingConfigAdminPage';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
@@ -44,16 +44,16 @@ import {
   repeatTestErrorMessage,
   unbundleBatchPostOutput,
 } from 'utils';
-import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
-import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
-import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };
-import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json' assert { type: 'json' };
-import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json' assert { type: 'json' };
-import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json' assert { type: 'json' };
-import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json' assert { type: 'json' };
-import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json' assert { type: 'json' };
-import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json' assert { type: 'json' };
-import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
+import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' with { type: 'json' };
+import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' with { type: 'json' };
+import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' with { type: 'json' };
+import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json' with { type: 'json' };
+import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json' with { type: 'json' };
+import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json' with { type: 'json' };
+import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json' with { type: 'json' };
+import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json' with { type: 'json' };
+import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json' with { type: 'json' };
+import procedureType from '../../../../../../config/oystehr/procedure-type.json' with { type: 'json' };
 interface ProcedureInfo {
   consentChecked: boolean;
   procedureType: string;
@@ -280,8 +280,9 @@ test.describe('In-house labs page', async () => {
       }
 
       const coding = fhirActivityDefinition.code?.coding ?? [];
-      const name = coding.find((c) => c.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code')
-        ?.code;
+      const name = coding.find(
+        (c) => c.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code'
+      )?.code;
       const cptCode = coding.find((c) => c.system === 'http://www.ama-assn.org/go/cpt')?.code;
       if (name && cptCode) {
         TEST_TYPE_TO_CPT[name] = cptCode;
@@ -318,8 +319,9 @@ test.describe('In-house labs page', async () => {
 
     [parentTest.activityDefinition, childTest.activityDefinition].forEach((ad) => {
       const coding = ad.code?.coding ?? [];
-      const name = coding.find((c) => c.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code')
-        ?.code;
+      const name = coding.find(
+        (c) => c.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code'
+      )?.code;
       const cptCode = coding.find((c) => c.system === 'http://www.ama-assn.org/go/cpt')?.code;
       if (name && cptCode) {
         TEST_TYPE_TO_CPT[name] = cptCode;

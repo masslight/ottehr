@@ -362,11 +362,10 @@ const findPaymentNoticeByStripePaymentIntent = async (
     })
   ).unbundle();
 
-  return paymentNotices.find(
-    (paymentNotice) =>
-      paymentNotice.identifier?.some(
-        (identifier) => identifier.system === STRIPE_PAYMENT_ID_SYSTEM && identifier.value === stripePaymentIntentId
-      )
+  return paymentNotices.find((paymentNotice) =>
+    paymentNotice.identifier?.some(
+      (identifier) => identifier.system === STRIPE_PAYMENT_ID_SYSTEM && identifier.value === stripePaymentIntentId
+    )
   );
 };
 

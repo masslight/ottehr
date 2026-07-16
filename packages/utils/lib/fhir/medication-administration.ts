@@ -103,8 +103,8 @@ export function getPractitionerIdThatOrderedMedication(
   medicationAdministration: MedicationAdministration
 ): string | undefined {
   return medicationAdministration.performer
-    ?.find(
-      (performer) => performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
+    ?.find((performer) =>
+      performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
     )
     ?.actor.reference?.replace('Practitioner/', '');
 }
@@ -144,9 +144,8 @@ export function getProviderIdAndDateMedicationWasAdministered(medicationAdminist
       timeAdministered?: string;
     }
   | undefined {
-  const administeredPerformer = medicationAdministration.performer?.find(
-    (performer) =>
-      performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ADMINISTERED_MEDICATION_CODE)
+  const administeredPerformer = medicationAdministration.performer?.find((performer) =>
+    performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ADMINISTERED_MEDICATION_CODE)
   );
 
   const administeredProviderId = administeredPerformer?.actor.reference?.replace('Practitioner/', '');
@@ -168,8 +167,8 @@ export function getProviderIdAndDateMedicationWasAdministered(medicationAdminist
 
 export function getCreatedTheOrderProviderId(medicationAdministration: MedicationAdministration): string | undefined {
   return medicationAdministration.performer
-    ?.find(
-      (performer) => performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
+    ?.find((performer) =>
+      performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
     )
     ?.actor.reference?.replace('Practitioner/', '');
 }
@@ -180,9 +179,8 @@ export function getCreatedTheOrderProviderId(medicationAdministration: Medicatio
 export function getAllOrderedByProviderIds(medicationAdministration: MedicationAdministration): string[] {
   return (
     (medicationAdministration.performer
-      ?.filter(
-        (performer) =>
-          performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_BY_MEDICATION_CODE)
+      ?.filter((performer) =>
+        performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_BY_MEDICATION_CODE)
       )
       ?.map((performer) => performer.actor.reference?.replace('Practitioner/', ''))
       ?.filter((id) => id !== undefined) as string[]) || []
@@ -473,8 +471,9 @@ export const getMediSpanIdForInteraction = (medication: Medication): string | un
   // sometimes the MEDICATION_DISPENSABLE_DRUG_ID selected by end users isn't a valid medication
   // in the interactions database anymore. but it's the one they want to use because it's what
   // is on their shelf. So we should use the interaction id when available
-  const maybeMedicationDispensableDrugId = medicationCoding.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)
-    ?.code;
+  const maybeMedicationDispensableDrugId = medicationCoding.find(
+    (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID
+  )?.code;
   const maybeMedicationInteractionDrugId = medicationCoding.find(
     (c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS
   )?.code;

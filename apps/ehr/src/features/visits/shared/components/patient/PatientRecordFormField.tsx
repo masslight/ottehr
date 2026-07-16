@@ -296,7 +296,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldContentProps> = ({
                 control={
                   <Checkbox
                     {...field}
-                    checked={item.key === 'pcp-active' ? !(value ?? false) : value ?? false} // this is incredibly silly but needed to invert the logic for this one field. todo...
+                    checked={item.key === 'pcp-active' ? !(value ?? false) : (value ?? false)} // this is incredibly silly but needed to invert the logic for this one field. todo...
                     onChange={(e) => field.onChange(item.key === 'pcp-active' ? !e.target.checked : e.target.checked)}
                     disabled={isDisabled || isLoading}
                   />

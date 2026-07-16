@@ -14,7 +14,7 @@ const makeOystehr = (overrides: {
 }): { oystehr: Oystehr; create: any; update: any } => {
   const create = vi.fn(async (resource: Basic) => resource);
   const update = vi.fn(async (resource: Basic) => resource);
-  const results = overrides.existing ? [overrides.existing] : overrides.search ?? [];
+  const results = overrides.existing ? [overrides.existing] : (overrides.search ?? []);
   const oystehr = {
     fhir: {
       search: vi.fn(async () => ({ unbundle: () => results })),

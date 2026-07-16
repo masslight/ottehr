@@ -270,11 +270,10 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
   const { diagnosticReport, readyTasks, labOrg } = resources;
 
   const { unsolicitedPatient, unsolicitedProvider } = getUnsolicitedResourcesFromDr(diagnosticReport);
-  const task = readyTasks.find(
-    (task) =>
-      task.code?.coding?.find(
-        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
-      )
+  const task = readyTasks.find((task) =>
+    task.code?.coding?.find(
+      (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+    )
   );
   if (!task?.id) throw Error(`Could not parse match unsolicited result task id`);
 
@@ -438,22 +437,20 @@ const formateResourcesIntoUnsolicitedLabListPageDTO = (resourcesByDr: ResourcesB
     const { diagnosticReport, labOrg, completedTasks, readyTasks } = resources;
 
     // todo this logic is used in two places, we should consolidate into helper
-    const matchTask = [...readyTasks, ...completedTasks].find(
-      (task) =>
-        task.code?.coding?.some(
-          (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
-        )
+    const matchTask = [...readyTasks, ...completedTasks].find((task) =>
+      task.code?.coding?.some(
+        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+      )
     );
-    const reviewTask = [...readyTasks, ...completedTasks].find(
-      (task) =>
-        task.code?.coding?.some(
-          (c) =>
-            c.system === LAB_ORDER_TASK.system &&
-            (c.code === LAB_ORDER_TASK.code.reviewFinalResult ||
-              c.code === LAB_ORDER_TASK.code.reviewPreliminaryResult ||
-              c.code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
-              c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
-        )
+    const reviewTask = [...readyTasks, ...completedTasks].find((task) =>
+      task.code?.coding?.some(
+        (c) =>
+          c.system === LAB_ORDER_TASK.system &&
+          (c.code === LAB_ORDER_TASK.code.reviewFinalResult ||
+            c.code === LAB_ORDER_TASK.code.reviewPreliminaryResult ||
+            c.code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+            c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
+      )
     );
 
     // console.log('check matchTask', JSON.stringify(matchTask));

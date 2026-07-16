@@ -220,8 +220,8 @@ async function getOrderPackages(
       (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
     ) as MedicationRequest;
 
-    const relatedMedicationStatement = medicationStatements.find(
-      (ms) => ms.partOf?.some((partOf: Reference) => partOf.reference === `MedicationAdministration/${ma.id}`)
+    const relatedMedicationStatement = medicationStatements.find((ms) =>
+      ms.partOf?.some((partOf: Reference) => partOf.reference === `MedicationAdministration/${ma.id}`)
     );
 
     resultPackages.push({

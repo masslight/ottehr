@@ -293,8 +293,8 @@ export interface PractitionerLicense {
 }
 
 export enum ProviderNotificationMethod {
-  'phone' = 'Phone',
-  'computer' = 'Computer',
+  phone = 'Phone',
+  computer = 'Computer',
   'phone and computer' = 'Phone and Computer',
 }
 

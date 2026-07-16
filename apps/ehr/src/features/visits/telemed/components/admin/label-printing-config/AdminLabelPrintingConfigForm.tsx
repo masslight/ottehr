@@ -12,7 +12,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { ReactElement } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -32,7 +32,7 @@ export interface AdminPrintingConfigFormProps {
   formMode: 'add' | 'edit';
   onSubmit: (data: LabelPrintingConfig) => void;
   isSubmitting?: boolean;
-  submitError?: OystehrSdkError | APIError;
+  submitError?: Oystehr.OystehrSdkError | APIError;
 }
 
 export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigFormProps): ReactElement {
@@ -153,8 +153,10 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                               const labelType = e.target.value;
                               field.onChange(labelType);
 
-                              const defaultLabelOrientation = getLabelTypeMetadata(selectedManufacturer, labelType)
-                                ?.defaultOrientation;
+                              const defaultLabelOrientation = getLabelTypeMetadata(
+                                selectedManufacturer,
+                                labelType
+                              )?.defaultOrientation;
 
                               if (defaultLabelOrientation)
                                 methods.setValue('printerAndLabelConfig.orientation', defaultLabelOrientation, {

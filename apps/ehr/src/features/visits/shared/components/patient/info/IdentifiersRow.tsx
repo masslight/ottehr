@@ -68,7 +68,7 @@ export const IdentifiersRow: FC<Props> = ({ patient, loading, showPidPrefix = tr
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography variant="body2" data-testid={dataTestIds.patientHeader.patientId} sx={{ userSelect: 'none' }}>
-            {showPidPrefix ? `PID: ${patient?.id ?? ''}` : patient?.id ?? ''}
+            {showPidPrefix ? `PID: ${patient?.id ?? ''}` : (patient?.id ?? '')}
           </Typography>
           <CopyButton value={patient?.id ?? ''} />
         </Box>

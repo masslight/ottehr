@@ -106,8 +106,8 @@ const complexValidation = async (
     getTemplateEncounterBundle(oystehr, encounterId),
   ]);
 
-  const globalTemplatesHolders = lists.filter(
-    (list) => list.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
+  const globalTemplatesHolders = lists.filter((list) =>
+    list.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
   );
 
   if (globalTemplatesHolders.length === 0) {
@@ -719,15 +719,14 @@ export const makeCreateRequests = (
         continue;
       }
       synthesizedCodes.add(dx.code);
-      const alreadyOnEncounter = encounterDiagnosesConditions.some(
-        (c) =>
-          c.code?.coding?.some(
-            (coding) =>
-              (coding.system === CODE_SYSTEM_ICD_10 ||
-                // legacy system
-                coding.system === ICD_10_CODE_SYSTEM) &&
-              coding.code === dx.code
-          )
+      const alreadyOnEncounter = encounterDiagnosesConditions.some((c) =>
+        c.code?.coding?.some(
+          (coding) =>
+            (coding.system === CODE_SYSTEM_ICD_10 ||
+              // legacy system
+              coding.system === ICD_10_CODE_SYSTEM) &&
+            coding.code === dx.code
+        )
       );
       if (alreadyOnEncounter) continue;
 

@@ -1,0 +1,6 @@
+{
+  "*.{ts,tsx}": [
+    "oxlint --fix --deny-warnings --report-unused-disable-directives",
+    "prettier --write"
+  ]
+}

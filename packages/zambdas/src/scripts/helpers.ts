@@ -28,14 +28,7 @@ import {
 import { getAuth0Token } from '../shared';
 
 type GroupMemberType =
-  | Patient
-  | RelatedPerson
-  | Practitioner
-  | PractitionerRole
-  | Device
-  | Medication
-  | Substance
-  | Group;
+  Patient | RelatedPerson | Practitioner | PractitionerRole | Device | Medication | Substance | Group;
 export function makeGroup<T extends GroupMemberType>(thingsToGroup: T[]): Group {
   const member = thingsToGroup.map((ttg) => {
     return {

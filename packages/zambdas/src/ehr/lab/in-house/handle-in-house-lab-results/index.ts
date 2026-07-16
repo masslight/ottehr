@@ -354,7 +354,10 @@ const getInHouseLabResultResources = async (
 
   const relatedServiceRequests =
     serviceRequests.length > 1 ? getRelatedServiceRequests(serviceRequests, serviceRequestId) : undefined;
-  console.log('relatedServiceRequests ids ', relatedServiceRequests?.map((sr) => sr.id));
+  console.log(
+    'relatedServiceRequests ids ',
+    relatedServiceRequests?.map((sr) => sr.id)
+  );
 
   const patient = patients[0];
 
@@ -603,7 +606,10 @@ const makeObservationPostRequests = (
       activityDefContained
     );
     if (nonNormalResult) {
-      console.log('flagging non-normal result for', activityDefinition.code?.coding?.map((coding) => coding.code));
+      console.log(
+        'flagging non-normal result for',
+        activityDefinition.code?.coding?.map((coding) => coding.code)
+      );
       nonNormalResultRecorded.push(nonNormalResult);
     }
     const obsFinalConfig: Observation = {

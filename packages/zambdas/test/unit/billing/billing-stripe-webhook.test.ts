@@ -74,10 +74,10 @@ const makeOystehr = (
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     const results =
       resourceType === 'Claim'
-        ? claimQueue.shift() ?? []
+        ? (claimQueue.shift() ?? [])
         : resourceType === 'Organization'
-        ? orgQueue.shift() ?? []
-        : [];
+          ? (orgQueue.shift() ?? [])
+          : [];
     return Promise.resolve({ unbundle: () => results });
   });
   const create = vi

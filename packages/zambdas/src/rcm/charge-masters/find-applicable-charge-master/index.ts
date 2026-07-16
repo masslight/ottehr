@@ -57,8 +57,8 @@ export const index = wrapHandler(
     const findBestOrgMatch = (orgChargeMasters: ChargeItemDefinition[]): ChargeItemDefinition | undefined => {
       if (locationId) {
         const locationMatch = findMostRecentEffective(
-          orgChargeMasters.filter(
-            (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
+          orgChargeMasters.filter((cm) =>
+            cm.useContext?.some((uc) => uc.valueReference?.reference === `Location/${locationId}`)
           ),
           dateOfService
         );
@@ -75,8 +75,8 @@ export const index = wrapHandler(
 
     // 1. Try employer-specific charge master (highest priority when employer is provided)
     if (employerOrganizationId) {
-      const employerSpecific = allChargeMasters.filter(
-        (cm) => cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
+      const employerSpecific = allChargeMasters.filter((cm) =>
+        cm.useContext?.some((uc) => uc.valueReference?.reference === `Organization/${employerOrganizationId}`)
       );
       const employerMatch = findBestOrgMatch(employerSpecific);
       if (employerMatch) {
@@ -89,8 +89,8 @@ export const index = wrapHandler(
 
     // 2. Try payer-specific charge master
     if (payerOrganizationId) {
-      const payerSpecific = allChargeMasters.filter(
-        (cm) => cm.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, payerOrganizationId))
+      const payerSpecific = allChargeMasters.filter((cm) =>
+        cm.useContext?.some((uc) => orgIdMatchesReference(uc.valueReference?.reference, payerOrganizationId))
       );
       const payerMatch = findBestOrgMatch(payerSpecific);
       if (payerMatch) {
@@ -103,8 +103,8 @@ export const index = wrapHandler(
 
     // 3. Try default-insurance designated charge masters
     if (payerOrganizationId || employerOrganizationId) {
-      const defaultInsurance = allChargeMasters.filter(
-        (cm) => cm.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === 'default-insurance')
+      const defaultInsurance = allChargeMasters.filter((cm) =>
+        cm.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === 'default-insurance')
       );
 
       const match = findMostRecentEffective(defaultInsurance, dateOfService);
@@ -118,8 +118,8 @@ export const index = wrapHandler(
 
     // 4. Self-pay fallback (when no payer or employer provided)
     if (!payerOrganizationId && !employerOrganizationId) {
-      const selfPay = allChargeMasters.filter(
-        (cm) => cm.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === 'self-pay')
+      const selfPay = allChargeMasters.filter((cm) =>
+        cm.meta?.tag?.some((t) => t.system === RCM_TAG_SYSTEM && t.code === 'self-pay')
       );
 
       const match = findMostRecentEffective(selfPay, dateOfService);

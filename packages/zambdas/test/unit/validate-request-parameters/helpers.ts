@@ -5,7 +5,7 @@ import { ZambdaInput } from '../../../src/shared';
  * Creates a mock ZambdaInput with a JSON-stringified body.
  */
 export const createMockZambdaInput = (body: any, overrides?: Partial<ZambdaInput>): ZambdaInput => ({
-  body: body != null ? JSON.stringify(body) : body ?? null,
+  body: body != null ? JSON.stringify(body) : (body ?? null),
   headers: {
     Authorization: 'Bearer test-token',
   },

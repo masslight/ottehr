@@ -45,12 +45,11 @@ const globalSetup = async (_config: FullConfig): Promise<void> => {
       console.log('Cookies count:', parsed.cookies?.length || 0);
       console.log('Origins count:', parsed.origins?.length || 0);
 
-      const hasAuth0Token = parsed.origins?.some?.(
-        (origin: any) =>
-          origin?.localStorage?.some?.(
-            // cSpell:disable-next spa js?
-            (item: any) => item?.name?.includes('@@auth0spajs@@') && !item?.name?.includes('@@user@@')
-          )
+      const hasAuth0Token = parsed.origins?.some?.((origin: any) =>
+        origin?.localStorage?.some?.(
+          // cSpell:disable-next spa js?
+          (item: any) => item?.name?.includes('@@auth0spajs@@') && !item?.name?.includes('@@user@@')
+        )
       );
       console.log('Has Auth0 token:', hasAuth0Token);
     } else {

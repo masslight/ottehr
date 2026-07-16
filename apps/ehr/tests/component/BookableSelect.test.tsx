@@ -606,8 +606,8 @@ describe('BookableSelect — filter props', () => {
     // PR-Only Clinic in the document body rather than insisting on a
     // listbox existing.
     await waitFor(() => {
-      const matches = Array.from(document.querySelectorAll('li[role="option"]')).filter(
-        (li) => li.textContent?.includes('PR-Only Clinic')
+      const matches = Array.from(document.querySelectorAll('li[role="option"]')).filter((li) =>
+        li.textContent?.includes('PR-Only Clinic')
       );
       expect(matches).toHaveLength(0);
     });

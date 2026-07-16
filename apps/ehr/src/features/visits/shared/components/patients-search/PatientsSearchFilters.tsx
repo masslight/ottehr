@@ -14,7 +14,7 @@ export const PatientsSearchFilters: React.FC<{
   setSearchField: ({ field, value }: { field: keyof SearchOptionsFilters; value: string }) => void;
   resetFilters: () => void;
   search: (overriddenParams?: PartialSearchOptionsState) => void;
-}> = ({ searchFilters, setSearchField, resetFilters: resetFilters, search }) => {
+}> = ({ searchFilters, setSearchField, resetFilters, search }) => {
   const [showAdditionalSearch, setShowAdditionalSearch] = useState(true);
   const { location: locationOptions } = useLocationsOptions();
 

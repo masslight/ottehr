@@ -77,8 +77,7 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
 );
 
 interface BookAppointmentContext
-  extends Omit<BookingState, 'redirectToStart'>,
-    Omit<BookingStoreActions, 'setLocationPath' | 'handleLogout'> {
+  extends Omit<BookingState, 'redirectToStart'>, Omit<BookingStoreActions, 'setLocationPath' | 'handleLogout'> {
   slotId: string;
   scheduleOwnerName: string;
   scheduleOwnerType: string;

@@ -91,11 +91,11 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
           valueString: payerInfo.payerNote,
         }
       : payerInfo.payerNameOverride
-      ? {
-          url: ottehrExtensionUrl('insurance-override-name'),
-          valueString: payerInfo.payerNameOverride,
-        }
-      : undefined;
+        ? {
+            url: ottehrExtensionUrl('insurance-override-name'),
+            valueString: payerInfo.payerNameOverride,
+          }
+        : undefined;
 
   try {
     return await oystehr.fhir.patch<List>(

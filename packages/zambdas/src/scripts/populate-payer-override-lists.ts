@@ -66,8 +66,8 @@ async function main(): Promise<void> {
   const nonZeroPayers = payers.filter((org) => getPayerId(org) !== '00000');
   const activePayers = nonZeroPayers.filter((org) => org.active === true);
   const activePayersWithNameOverrides = activePayers.filter((org) => org.alias?.length);
-  const payersWithNotes = nonZeroPayers.filter(
-    (org) => org.extension?.some((e) => e.url === FHIR_EXTENSION.InsurancePlan.notes.url)
+  const payersWithNotes = nonZeroPayers.filter((org) =>
+    org.extension?.some((e) => e.url === FHIR_EXTENSION.InsurancePlan.notes.url)
   );
 
   let patientOverrideList = await getInsuranceOverrideList(oystehr, 'patient');
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
     id: patientOverrideList.id,
     operations: [
       {
-        op: patientOverrideList.entry?.length ?? 0 > 0 ? 'replace' : 'add',
+        op: (patientOverrideList.entry?.length ?? 0 > 0) ? 'replace' : 'add',
         path: '/entry',
         value: patientOverrideEntries,
       },
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
     id: ehrOverrideList.id,
     operations: [
       {
-        op: ehrOverrideList.entry?.length ?? 0 > 0 ? 'replace' : 'add',
+        op: (ehrOverrideList.entry?.length ?? 0 > 0) ? 'replace' : 'add',
         path: '/entry',
         value: ehrOverrideEntries,
       },

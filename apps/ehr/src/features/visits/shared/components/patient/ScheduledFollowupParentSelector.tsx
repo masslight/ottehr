@@ -79,7 +79,7 @@ export default function ScheduledFollowupParentSelector({
 
     // Diagnosis is server-side: maps to followUpOptions.skipPatientDiagnosis.
     const diagnosisEmpty = parentChartData
-      ? COPYABLE_FOLLOWUP_FIELDS.find((f) => f.key === 'diagnosis')?.isEmpty(parentChartData) ?? true
+      ? (COPYABLE_FOLLOWUP_FIELDS.find((f) => f.key === 'diagnosis')?.isEmpty(parentChartData) ?? true)
       : true;
     const skipPatientDiagnosis = !checkedFields.diagnosis || diagnosisEmpty;
 

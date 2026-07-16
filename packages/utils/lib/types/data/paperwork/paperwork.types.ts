@@ -163,8 +163,7 @@ export interface UCGetPaperworkResponse extends QAndQRResponse {
   updateTimestamp: number | undefined;
 }
 export interface IntakeQuestionnaireItem
-  extends QuestionnaireItemExtension,
-    Omit<QuestionnaireItem, 'item' | 'extension'> {
+  extends QuestionnaireItemExtension, Omit<QuestionnaireItem, 'item' | 'extension'> {
   item?: IntakeQuestionnaireItem[];
 }
 

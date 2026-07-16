@@ -1,5 +1,5 @@
 import { Grid, Paper } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import type Oystehr from '@oystehr/sdk';
 import { ReactElement, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
@@ -15,7 +15,7 @@ export default function AdminAddInHouseLab(): ReactElement {
   const currentUser = useEvolveUser();
 
   const currentUserId = currentUser?.id ?? '';
-  const [submitError, setSubmitError] = useState<OystehrSdkError | APIError | undefined>(undefined);
+  const [submitError, setSubmitError] = useState<Oystehr.OystehrSdkError | APIError | undefined>(undefined);
 
   const onSubmit = useCallback(
     async (formData: AdminInHouseLabItemDefinition) => {
@@ -32,7 +32,7 @@ export default function AdminAddInHouseLab(): ReactElement {
         navigate(`/admin/in-house-labs/${result.activityDefinitionId}`);
       } catch (err: unknown) {
         console.error('add in house lab failed', err);
-        setSubmitError(err as OystehrSdkError | APIError);
+        setSubmitError(err as Oystehr.OystehrSdkError | APIError);
       }
     },
     [addInHouseLabMutateAsync, navigate, currentUserId]

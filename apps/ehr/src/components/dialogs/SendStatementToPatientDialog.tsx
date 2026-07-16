@@ -270,8 +270,8 @@ export default function SendStatementToPatientDialog({
                   {isGeneratingStatement
                     ? 'Generating...'
                     : hasGeneratedStatement
-                    ? 'Regenerate Statement'
-                    : 'Generate Statement'}
+                      ? 'Regenerate Statement'
+                      : 'Generate Statement'}
                 </RoundedButton>
                 <RoundedButton
                   variant="contained"
@@ -467,14 +467,14 @@ function getMailStatusText(mailProcessor?: StatementStatusResponse['mailProcesso
     status === 'completed'
       ? 'Mailed'
       : status === 'printing' || status === 'processed_for_delivery'
-      ? 'Printing mail'
-      : status === 'ready'
-      ? 'Preparing to mail'
-      : status === 'cancelled'
-      ? 'Mail cancelled'
-      : status
-      ? `Mail Status: ${mailProcessor.status}`
-      : 'Unknown Mail Status';
+        ? 'Printing mail'
+        : status === 'ready'
+          ? 'Preparing to mail'
+          : status === 'cancelled'
+            ? 'Mail cancelled'
+            : status
+              ? `Mail Status: ${mailProcessor.status}`
+              : 'Unknown Mail Status';
 
   const formattedSendDate = formatLocalDateTime(mailProcessor.sendDate);
   if (formattedSendDate) {

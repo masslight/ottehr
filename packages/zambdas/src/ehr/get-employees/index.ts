@@ -157,7 +157,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       status: status,
       isProvider: Boolean(providerMemberIds.includes(employee.id)),
       isCustomerSupport: Boolean(customerSupportMemberIds.includes(employee.id)),
-      lastLogin: lite ? '' : practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? '',
+      lastLogin: lite ? '' : (practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? ''),
       firstName: getFirstName(practitioner) ?? '',
       lastName: getLastName(practitioner) ?? '',
       phoneNumber: phone ? standardizePhoneNumber(phone)! : '',
