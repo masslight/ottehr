@@ -14,15 +14,30 @@ import {
   OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM,
   OYSTEHR_OUTBOUND_FAX_STATUS_CODES,
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
+  RoleType,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  requireUserWithRole,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-fax-logs';
 
 // Per-request cap that keeps _id search URLs bounded; batches run in parallel so nothing is dropped.
 const COMMUNICATION_ID_BATCH_SIZE = 100;
+const COMMUNICATION_SEARCH_CONCURRENCY = 5;
 const SEARCH_PAGE_SIZE = 1000;
+const FAX_LOG_VIEWER_ROLES = [
+  RoleType.Administrator,
+  RoleType.Manager,
+  RoleType.CustomerSupport,
+  RoleType.Staff,
+  RoleType.Provider,
+];
 
 const FAX_INCLUDE_PARAMS: SearchParam[] = [
   { name: '_include', value: 'Communication:subject' },
@@ -39,6 +54,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.groupEnd();
   const { secrets, ...loggableParameters } = validatedParameters;
   console.debug('validateRequestParameters success', JSON.stringify(loggableParameters));
+
+  await requireUserWithRole(input.headers.Authorization.replace('Bearer ', ''), secrets, FAX_LOG_VIEWER_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
@@ -146,19 +163,32 @@ const getFaxLogsPageByIds = async (
   for (let i = 0; i < communicationIds.length; i += COMMUNICATION_ID_BATCH_SIZE) {
     chunks.push(communicationIds.slice(i, i + COMMUNICATION_ID_BATCH_SIZE));
   }
-  const batches = await Promise.all(
-    chunks.map(async (chunk) =>
-      (
-        await oystehr.fhir.search<Communication>({
-          resourceType: 'Communication',
-          params: [
-            ...filterParams,
-            { name: '_id', value: chunk.join(',') },
-            { name: '_count', value: COMMUNICATION_ID_BATCH_SIZE.toString() },
-          ],
-        })
-      ).unbundle()
-    )
+  const batches: Communication[][] = new Array(chunks.length);
+  let nextChunkIndex = 0;
+  let searchFailed = false;
+  const searchWorker = async (): Promise<void> => {
+    while (!searchFailed && nextChunkIndex < chunks.length) {
+      const chunkIndex = nextChunkIndex++;
+      const chunk = chunks[chunkIndex];
+      try {
+        batches[chunkIndex] = (
+          await oystehr.fhir.search<Communication>({
+            resourceType: 'Communication',
+            params: [
+              ...filterParams,
+              { name: '_id', value: chunk.join(',') },
+              { name: '_count', value: COMMUNICATION_ID_BATCH_SIZE.toString() },
+            ],
+          })
+        ).unbundle();
+      } catch (error) {
+        searchFailed = true;
+        throw error;
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(COMMUNICATION_SEARCH_CONCURRENCY, chunks.length) }, () => searchWorker())
   );
   const matching = batches.flat().filter(isFaxCommunication);
   // newest first with id tiebreaker, mirroring the '-sent,-_id' sort of the single-query path
@@ -229,14 +259,17 @@ const composeFaxLogEntries = (resources: (Appointment | Communication | Patient 
     const appointmentId = provenance && findTargetId(provenance, 'Appointment');
     const appointment = appointments.find((candidate) => candidate.id === appointmentId);
 
+    const faxNumber = getFaxNumberFromCommunication(communication);
     return {
       communicationId: communication.id!,
       status: getFaxStatus(communication),
       sentAt: communication.sent,
-      faxNumber: getFaxNumberFromCommunication(communication),
+      faxNumber,
       patientId,
       patientName: patient && getFormattedPatientFullName(patient, { skipNickname: true }),
-      recipientName: getRecipientNameFromProvenance(provenance),
+      recipientName:
+        getRecipientNameFromProvenance(provenance) ??
+        (patient && faxNumber ? findRecipientNameByFaxNumber(patient, faxNumber) : undefined),
       appointmentId,
       visitDate: appointment?.start,
     };
@@ -268,6 +301,23 @@ const getRecipientNameFromProvenance = (provenance: Provenance | undefined): str
     (resource): resource is Practitioner => resource.resourceType === 'Practitioner'
   );
   return contained?.name?.length ? getFullName(contained) : undefined;
+};
+
+/** Legacy fax Provenances did not snapshot the recipient name, so fall back to the current PCP record. */
+const findRecipientNameByFaxNumber = (patient: Patient, faxNumber: string): string | undefined => {
+  const faxDigits = normalizeFaxNumber(faxNumber);
+  if (!faxDigits) return undefined;
+  const match = patient.contained?.find(
+    (resource): resource is Practitioner =>
+      resource.resourceType === 'Practitioner' &&
+      Boolean(resource.telecom?.some((telecom) => normalizeFaxNumber(telecom.value) === faxDigits))
+  );
+  return match?.name?.length ? getFullName(match) : undefined;
+};
+
+const normalizeFaxNumber = (value: string | undefined): string | undefined => {
+  const digits = value?.replace(/\D/g, '');
+  return digits ? digits.slice(-10) : undefined;
 };
 
 const isFaxCommunication = (communication: Communication): boolean =>

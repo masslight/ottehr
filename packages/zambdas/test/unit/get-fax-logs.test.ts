@@ -5,11 +5,13 @@ import {
   GetFaxLogsOutput,
   OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM,
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
+  RoleType,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 
 const mockFhirSearch = vi.fn();
+const mockRequireUserWithRole = vi.fn().mockResolvedValue(undefined);
 const mockOystehrClient = { fhir: { search: mockFhirSearch } };
 
 vi.mock('../../src/shared', async (importOriginal) => {
@@ -18,6 +20,7 @@ vi.mock('../../src/shared', async (importOriginal) => {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
     createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
+    requireUserWithRole: (...args: unknown[]) => mockRequireUserWithRole(...args),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
@@ -73,6 +76,20 @@ function makePatient(): Patient {
   };
 }
 
+function makePatientWithPcp(): Patient {
+  return {
+    ...makePatient(),
+    contained: [
+      {
+        resourceType: 'Practitioner',
+        id: 'primary-care-physician',
+        name: [{ given: ['Olivia'], family: 'Green' }],
+        telecom: [{ system: 'fax', value: '(111) 222-3333' }],
+      },
+    ],
+  };
+}
+
 /** Mirrors what send-fax creates: targets both resources and snapshots the recipient name. */
 function makeFaxProvenance(communicationId: string, appointmentId = APPOINTMENT_ID): Provenance {
   return {
@@ -91,6 +108,16 @@ function makeFaxProvenance(communicationId: string, appointmentId = APPOINTMENT_
       },
     ],
   };
+}
+
+function makeLegacyFaxProvenance(communicationId: string): Provenance {
+  const provenance = makeFaxProvenance(communicationId);
+  provenance.contained = provenance.contained?.map((resource) => {
+    if (resource.resourceType !== 'Practitioner') return resource;
+    const { name: _name, ...legacyPractitioner } = resource;
+    return legacyPractitioner;
+  });
+  return provenance;
 }
 
 /** Oystehr audit provenance — versioned target reference, CREATE activity — must be ignored. */
@@ -129,6 +156,15 @@ function searchParamsOfCall(callIndex: number): { resourceType: string; params: 
 describe('get-fax-logs - performEffect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('rejects callers that do not have a fax-log viewer role before querying FHIR', async () => {
+    mockRequireUserWithRole.mockRejectedValueOnce(new Error('not authorized'));
+
+    await expect((index as any)(createMockZambdaInput({}, { secrets: createMockSecrets() }))).rejects.toThrow(
+      'not authorized'
+    );
+    expect(mockFhirSearch).not.toHaveBeenCalled();
   });
 
   it('composes full log entries and queries with the 30-day window by default', async () => {
@@ -178,6 +214,28 @@ describe('get-fax-logs - performEffect', () => {
         { name: 'sent', value: expect.stringMatching(/^ge/) },
       ])
     );
+    expect(mockRequireUserWithRole).toHaveBeenCalledWith('test-token', expect.anything(), [
+      RoleType.Administrator,
+      RoleType.Manager,
+      RoleType.CustomerSupport,
+      RoleType.Staff,
+      RoleType.Provider,
+    ]);
+  });
+
+  it('falls back to the current PCP name for legacy Provenances without a recipient snapshot', async () => {
+    mockFhirSearch.mockResolvedValueOnce(
+      makeBundle([
+        makeFaxCommunication({ faxStatusCode: 'DELIVERED' }),
+        makePatientWithPcp(),
+        makeLegacyFaxProvenance('comm-1'),
+        makeAppointment(),
+      ])
+    );
+
+    const output = await invoke({});
+
+    expect(output.logs[0].recipientName).toBe('Olivia Green');
   });
 
   it('maps fax statuses: STOPPED → failed, in-flight → pending, missing extension + completed → sent', async () => {
@@ -304,14 +362,23 @@ describe('get-fax-logs - performEffect', () => {
         });
       });
 
+    let activeCommunicationBatches = 0;
+    let maxActiveCommunicationBatches = 0;
     mockFhirSearch.mockImplementation(
-      (request: { resourceType: string; params: { name: string; value: string }[] }) => {
+      async (request: { resourceType: string; params: { name: string; value: string }[] }) => {
         if (request.resourceType === 'Provenance') {
           const offset = Number(request.params.find((param) => param.name === '_offset')?.value ?? '0');
-          return Promise.resolve(makeBundle(provenances.slice(offset, offset + 1000)));
+          return makeBundle(provenances.slice(offset, offset + 1000));
         }
         const idParam = request.params.find((param) => param.name === '_id')?.value ?? '';
-        return Promise.resolve(makeBundle(communicationsOf(idParam.split(','))));
+        const ids = idParam.split(',');
+        if (ids.length === 100) {
+          activeCommunicationBatches++;
+          maxActiveCommunicationBatches = Math.max(maxActiveCommunicationBatches, activeCommunicationBatches);
+          await new Promise((resolve) => setTimeout(resolve, 1));
+          activeCommunicationBatches--;
+        }
+        return makeBundle(communicationsOf(ids));
       }
     );
 
@@ -331,6 +398,7 @@ describe('get-fax-logs - performEffect', () => {
     ]);
     // 2 provenance pages + 15 id batches of ≤100 + 1 includes page
     expect(mockFhirSearch).toHaveBeenCalledTimes(18);
+    expect(maxActiveCommunicationBatches).toBe(5);
   });
 
   it('returns the total without an includes query when the requested page is beyond the results', async () => {

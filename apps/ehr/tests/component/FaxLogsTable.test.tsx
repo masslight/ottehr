@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { FaxLogEntry } from 'utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -80,6 +80,10 @@ describe('FaxLogsTable', () => {
     mockGetFaxLogs.mockResolvedValue({ logs: [sentLog, failedLog], totalCount: 2 });
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders fax log rows with patient, visit, recipient, fax number and status', async () => {
     render(<FaxLogsTable />, { wrapper: createWrapper() });
 
@@ -92,6 +96,34 @@ describe('FaxLogsTable', () => {
 
     // only the failed fax offers a retry
     expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1);
+  });
+
+  it('uses the original fax number as the recipient display when no name was captured', async () => {
+    mockGetFaxLogs.mockResolvedValue({ logs: [{ ...sentLog, recipientName: undefined }], totalCount: 1 });
+
+    render(<FaxLogsTable />, { wrapper: createWrapper() });
+
+    expect(await screen.findAllByText('(111) 222-3333')).toHaveLength(2);
+  });
+
+  it('applies patient and visit searches independently when both are entered before the debounce expires', async () => {
+    render(<FaxLogsTable />, { wrapper: createWrapper() });
+    await screen.findAllByText('Dr. Green');
+
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Patient' }), { target: { value: 'Black' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Visit ID' }), {
+      target: { value: sentLog.appointmentId },
+    });
+    await act(async () => vi.advanceTimersByTime(800));
+    vi.useRealTimers();
+
+    await waitFor(() =>
+      expect(mockGetFaxLogs).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ patientName: 'Black', visitId: sentLog.appointmentId })
+      )
+    );
   });
 
   it('hides the patient search and column when scoped to a patient', async () => {

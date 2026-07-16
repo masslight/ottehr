@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ChangeEvent, FC, ReactElement, useMemo, useState } from 'react';
+import { ChangeEvent, FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   FAX_LOGS_PAGE_SIZE,
@@ -72,13 +72,19 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
   // one debouncer per field — a shared one would cancel the other field's pending update
   const debouncedApplyPatientName = useMemo(
     () => debounce((value: string) => applySearch(setPatientNameSearch, value), 800),
-
     []
   );
   const debouncedApplyVisitId = useMemo(
     () => debounce((value: string) => applySearch(setVisitIdSearch, value), 800),
-
     []
+  );
+
+  useEffect(
+    () => () => {
+      debouncedApplyPatientName.clear();
+      debouncedApplyVisitId.clear();
+    },
+    [debouncedApplyPatientName, debouncedApplyVisitId]
   );
 
   // Appointment ids are UUIDs, so anything else can't match a visit.
@@ -238,7 +244,9 @@ export const FaxLogsTable: FC<FaxLogsTableProps> = ({ patientId }) => {
                     '-'
                   )}
                 </TableCell>
-                <TableCell>{log.recipientName ?? '-'}</TableCell>
+                <TableCell>
+                  {log.recipientName ?? (log.faxNumber ? formatPhoneNumberDisplay(log.faxNumber) : '-')}
+                </TableCell>
                 <TableCell>{log.faxNumber ? formatPhoneNumberDisplay(log.faxNumber) : '-'}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
