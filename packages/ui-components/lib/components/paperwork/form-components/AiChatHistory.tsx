@@ -3,11 +3,11 @@ import { Box } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { BRANDING_CONFIG } from 'utils';
-// import { secondaryIcon } from '../branding/assets';
+import { defaultSecondaryIcon } from '../../intake/icons';
 const MESSAGES_CONTAINER_ID = 'messages-container';
 
-// todo sarah fix
-export const secondaryIcon = BRANDING_CONFIG.intake.assets?.secondaryIcon;
+// todo we should probably move up all the icons into ui-components
+export const secondaryIcon = BRANDING_CONFIG.intake.assets?.secondaryIcon ?? defaultSecondaryIcon;
 
 export interface AiChatHistoryProps {
   questionnaireResponse?: QuestionnaireResponse;
@@ -22,7 +22,6 @@ interface Message {
   text: string;
 }
 
-// todo sarah might need to rename this because theres an AiChatHistory in ehr and i don't want to get them confused
 export const AiChatHistory: FC<AiChatHistoryProps> = ({
   questionnaireResponse,
   unprocessedUserAnswer,

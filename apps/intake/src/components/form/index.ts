@@ -12,7 +12,6 @@ export { default as SelectInput } from './SelectInput';
 export { default as UploadComponent } from './UploadComponent';
 export { default as YearInput } from './YearInput';
 export { default as CustomRadioButtonIcon } from './CustomRadioButtonIcon';
-export * from './BoldPurpleInputLabel';
 export * from './FormList';
 export * from './InputHelperText';
 export * from './VisuallyHiddenInput';

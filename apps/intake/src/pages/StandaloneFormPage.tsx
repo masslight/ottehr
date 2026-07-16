@@ -54,6 +54,7 @@ export const StandaloneFormPage: FC = () => {
     patchCompletedPaperwork,
     saveProgress,
     setContinueLabel,
+    continueLabel,
   } = getSelectors(usePaperworkStore, [
     'paperworkInProgress',
     'setResponse',
@@ -62,6 +63,7 @@ export const StandaloneFormPage: FC = () => {
     'patchCompletedPaperwork',
     'saveProgress',
     'setContinueLabel',
+    'continueLabel',
   ]);
 
   const { allItems, questionnaireResponse, appointment, patient, questionnaireTitle } = useMemo(() => {
@@ -163,6 +165,7 @@ export const StandaloneFormPage: FC = () => {
       paymentMethodStateInitializing: false, // not relevant at the moment
       stripeSetupData: undefined, // not relevant at the moment
       setContinueLabel,
+      continueLabel,
       refetchPaymentMethods: (async () => ({ data: { cards: [] } })) as any, // not relevant at the moment
       refetchSetupData: (async () => ({})) as any, // not relevant at the moment
       setSaveButtonDisabled,
@@ -182,6 +185,7 @@ export const StandaloneFormPage: FC = () => {
       updateTimestamp,
       saveButtonDisabled,
       setContinueLabel,
+      continueLabel,
       paperworkComponentHelpers,
     ]
   );

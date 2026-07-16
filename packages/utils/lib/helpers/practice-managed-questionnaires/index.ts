@@ -78,8 +78,6 @@ const omitManagedFields = (item: PracticeManagedQuestionnaireItem): Questionnair
     if (item.answerOption.length === 0) {
       delete item.answerOption;
     }
-
-    console.log('whats left', item.answerOption);
   }
 
   const { _key, dataType: _dataType, inputWidth: _inputWidth, ...fhirItem } = item;

@@ -58,7 +58,7 @@ export const QuestionnaireDetail: FC = () => {
       <PageContainer>
         <Box sx={{ p: 3 }}>
           <Typography color="error" sx={{ mb: 2 }}>
-            Questionnaire not found.
+            Questionnaire could not be loaded.
           </Typography>
           {fetchError?.message && (
             <Typography color="error" sx={{ mb: 2 }}>

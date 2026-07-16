@@ -1,7 +1,3 @@
-// todo sarah double check all of these against other places intake may be using them
-// i want to avoid code duplication as much as possible so we should just have intake grab from here
-// if they are being used else where
-
 import { SxProps } from '@mui/system';
 
 export interface ControlButtonsProps {

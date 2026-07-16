@@ -163,7 +163,7 @@ export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): Pa
       } else if (item.type === 'attachment') {
         // the file upload component will give us the attachment directly; de don't pull it from an event
         return renderOnChange({ ...base, answer: [{ valueAttachment: e }] });
-      } else if (item.type === 'date' && item.dataType === 'DOB') {
+      } else if (item.type === 'date') {
         const luxonDate = DateTime.fromObject(e?.c);
         if (luxonDate.isValid) {
           const dateString = luxonDate.toFormat(DOB_DATE_FORMAT);

@@ -15,8 +15,9 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { practiceManagedQuestionnaireList, sendPatientForm } from 'src/api/api';
+import { FC, useCallback, useMemo, useState } from 'react';
+import { sendPatientForm } from 'src/api/api';
+import { usePracticeManagedQuestionnaireList } from 'src/features/visits/telemed/components/admin/admin.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
 
 interface SendFormDialogProps {
@@ -32,39 +33,12 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
   const [selectedId, setSelectedId] = useState('');
   const [questionnaireResponseId, setQuestionnaireResponseId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
-  const [questionnaires, setQuestionnaires] = useState<{ id: string; title: string }[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    if (!open || !oystehrZambda) return;
-    // Guard against out-of-order results from rapid close/reopen.
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(false);
-    practiceManagedQuestionnaireList(oystehrZambda)
-      .then((result) => {
-        if (cancelled) return;
-        setQuestionnaires(
-          (result.practiceManagedQuestionnaires || [])
-            .filter((q) => q.status === 'active')
-            .map((q) => ({ id: q.id, title: q.title || 'Untitled' }))
-            .sort((a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title))
-        );
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        // A failed fetch must not masquerade as "no questionnaires available".
-        console.error('Failed to load questionnaires:', err);
-        setLoadError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, oystehrZambda]);
+  const { data, isLoading: loading, error: loadError } = usePracticeManagedQuestionnaireList();
+
+  const questionnaires = (data?.practiceManagedQuestionnaires || [])
+    .slice()
+    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 
   const formUrl = useMemo(() => {
     if (!questionnaireResponseId || !PATIENT_APP_URL) return '';

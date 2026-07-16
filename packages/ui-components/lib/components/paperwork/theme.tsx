@@ -1,10 +1,28 @@
-import { BreakpointsOptions, Components, createTheme, PaletteOptions, ThemeProvider } from '@mui/material';
+import {
+  BreakpointsOptions,
+  Components,
+  createTheme,
+  PaletteColor,
+  PaletteOptions,
+  ThemeProvider,
+} from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import _ from 'lodash';
 import { createContext, FC, PropsWithChildren, useContext } from 'react';
 import { BRANDING_CONFIG } from 'utils';
 
 // todo i think it might make more sense to just move the intake theme provider up but it may be too disruptive to do so atm
+
+// Mirrors apps/intake/src/providers/IntakeThemeProviderBase.tsx, which augments MUI's Palette
+// the same way for the same custom color.
+declare module '@mui/material/styles' {
+  interface Palette {
+    destructive: PaletteColor;
+  }
+  interface PaletteOptions {
+    destructive: PaperworkPaletteColor;
+  }
+}
 
 interface PaperworkPaletteColor {
   main: string;
@@ -17,6 +35,7 @@ interface PaperworkPaletteOptions {
   primary: PaperworkPaletteColor;
   secondary: PaperworkPaletteColor;
   error: PaperworkPaletteColor;
+  destructive: PaperworkPaletteColor;
   action: { hover: string };
   background: { paper: string };
 }
@@ -45,6 +64,11 @@ const DEFAULT_PAPERWORK_PALETTE: PaperworkPaletteOptions = {
   },
   error: {
     main: '#EC6930',
+  },
+  destructive: {
+    main: '#EB5757',
+    dark: '#EB5757',
+    contrastText: '#FFFFFF',
   },
   action: {
     hover: 'rgba(0, 0, 0, 0.04)',

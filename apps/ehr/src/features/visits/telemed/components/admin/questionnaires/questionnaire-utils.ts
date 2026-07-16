@@ -8,6 +8,7 @@ import {
   IntakeQuestionnaireItem,
   mapQuestionnaireAndValueSetsToItemsList,
   QAndQRResponse,
+  QR_DISTRIBUTION_TAG,
 } from 'utils';
 
 export const stubPaperworkResponseForPreview = (questionnaire: Questionnaire): QAndQRResponse => {
@@ -18,6 +19,7 @@ export const stubPaperworkResponseForPreview = (questionnaire: Questionnaire): Q
 
   const stubQuestionnaireResponse: QuestionnaireResponse = {
     resourceType: 'QuestionnaireResponse',
+    meta: { tag: [QR_DISTRIBUTION_TAG] }, // need this so the pagedQuestionnaire treats the stub as a one off form
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
     status: 'in-progress',
     item: questionnaire.item?.map((item) => {

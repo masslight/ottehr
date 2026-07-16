@@ -59,7 +59,6 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
 
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
-  // todo sarah fix
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       appointment: paperworkData?.appointment,

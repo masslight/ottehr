@@ -631,9 +631,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
   const error = useFieldError(fieldId);
   const displayFilteredOptions = useDisplayFilteredOptions(item.answerDisplayFilters, item.answerOption ?? []);
   const answerOptions = useFilterAnswersOptions(displayFilteredOptions);
-  // todo sarah
-  // const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
-  const colorForButton = unwrappedValue ? '#EB5757' : '#0F347C';
+  const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
   let attachmentType: AttachmentType = 'image';
   if (item.dataType === 'PDF') {
     attachmentType = 'pdf';

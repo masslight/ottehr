@@ -5,6 +5,7 @@ import React, { memo, ReactElement, useMemo, useRef } from 'react';
 import { FieldValues, FormProvider, FormState, SubmitHandler, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { ControlButtons } from 'ui-components/lib/components/paperwork/form-components';
+import { ControlButtonsProps } from 'ui-components/lib/components/paperwork/types';
 import {
   checkEnable,
   DATE_ERROR_MESSAGE,
@@ -19,7 +20,7 @@ import {
 import * as Yup from 'yup';
 import { PageFormContext } from '../contexts';
 import { filterFormInputFields } from '../helpers/form';
-import { ControlButtonsProps, FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../types';
+import { FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../types';
 
 export const PAGE_FORM_INNER_FORM_ID = 'page-form-inner-form';
 

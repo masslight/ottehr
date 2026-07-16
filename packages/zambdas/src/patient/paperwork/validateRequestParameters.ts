@@ -268,6 +268,7 @@ export const validateSubmitInputs = async (
 ): Promise<SubmitPaperworkEffectInput> => {
   const basic = basicValidation(input);
   const { answers } = basic;
+
   if (!Array.isArray(answers)) {
     throw new Error(`"answers" must be an array`);
   }

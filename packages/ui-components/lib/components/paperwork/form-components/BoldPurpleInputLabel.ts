@@ -1,7 +1,5 @@
 import { InputLabel, styled } from '@mui/material';
 
-// todo sarah this is currently duplicated
-
 export const BoldPurpleInputLabel = styled(InputLabel)(({ theme }) => ({
   fontWeight: 700,
   fontSize: 16,
