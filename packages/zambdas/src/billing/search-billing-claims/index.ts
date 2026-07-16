@@ -16,6 +16,7 @@ import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-
 import {
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  determineRulesEngineForClaim,
   fhirName,
   findRef,
   getClaimService,
@@ -154,6 +155,7 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     type: getClaimType(claim),
     status: getClaimStatus(claim),
     statuses: getClaimStatusValues(claim),
+    rulesEngine: determineRulesEngineForClaim(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',

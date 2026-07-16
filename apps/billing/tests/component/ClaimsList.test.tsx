@@ -86,7 +86,12 @@ vi.mock('@mui/x-data-grid-pro', () => ({
   ),
 }));
 
-const makeRow = (id: string, patientName: string, arStage: string): BillingClaimItem => ({
+const makeRow = (
+  id: string,
+  patientName: string,
+  arStage: string,
+  rulesEngine?: BillingClaimItem['rulesEngine']
+): BillingClaimItem => ({
   id,
   type: 'professional',
   status: '',
@@ -94,6 +99,7 @@ const makeRow = (id: string, patientName: string, arStage: string): BillingClaim
     ...emptyClaimStatusValues(),
     arStage,
   },
+  rulesEngine,
   patientName,
   patientDob: '1990-01-01',
   payerName: 'Acme',
@@ -128,46 +134,55 @@ describe('ClaimsList — submit claims', () => {
     enqueueSnackbarMock.mockReset();
   });
 
-  it('blocks non-Insurance-Payer-AR rows from selection and kicks off the rules engine for the selected claim', async () => {
+  it('lets claims in different AR stages be selected together and kicks off the rules for all of them', async () => {
     searchBillingClaimsMock.mockResolvedValue({
       claims: [
-        makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer),
-        makeRow('c-pat', 'Self-Pay Patient', AR_STAGE.patient),
+        makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer, 'claim-submission'),
+        makeRow('c-self', 'Self-Pay Patient', AR_STAGE.patient, 'patient-ar-pre-invoice'),
+        makeRow('c-cov', 'Covered Patient AR', AR_STAGE.patient),
       ],
-      total: 2,
+      total: 3,
     });
-    runBillingRulesEngineMock.mockResolvedValue({ taskIds: ['task-1'] });
+    runBillingRulesEngineMock.mockResolvedValue({
+      results: [
+        { claimId: 'c-ins', taskId: 'task-1', engine: 'claim-submission' },
+        { claimId: 'c-self', taskId: 'task-2', engine: 'patient-ar-pre-invoice' },
+      ],
+    });
     renderList();
 
-    const eligible = await screen.findByLabelText('select Insurable Patient');
-    expect(eligible).toBeEnabled();
-    expect(screen.getByLabelText('select Self-Pay Patient')).toBeDisabled();
+    const insurable = await screen.findByLabelText('select Insurable Patient');
+    const selfPay = screen.getByLabelText('select Self-Pay Patient');
+    expect(insurable).toBeEnabled();
+    expect(selfPay).toBeEnabled();
+    // A row no engine applies to (Patient AR with coverage) stays unselectable.
+    expect(screen.getByLabelText('select Covered Patient AR')).toBeDisabled();
 
-    fireEvent.click(eligible);
+    fireEvent.click(insurable);
+    fireEvent.click(selfPay);
 
-    const submitButton = await screen.findByRole('button', { name: 'Submit (1)' });
-    fireEvent.click(submitButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Run rules (2)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
-
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['c-ins'] }));
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['c-ins', 'c-self'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
-      'Rules engine started for 1 claim(s) — it will submit or hold each claim shortly. Refresh to see the results.',
+      'Rules started for 2 claim(s) — each claim will be submitted, made ready to invoice, or held shortly. ' +
+        'Refresh to see the results.',
       { variant: 'info' }
     );
   });
 
   it('surfaces a kickoff failure as an error snackbar', async () => {
     searchBillingClaimsMock.mockResolvedValue({
-      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer)],
+      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer, 'claim-submission')],
       total: 1,
     });
     runBillingRulesEngineMock.mockRejectedValue(new Error('kickoff failed'));
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit (1)' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run rules (1)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
     await waitFor(() =>
       expect(enqueueSnackbarMock).toHaveBeenCalledWith('kickoff failed', {
@@ -178,16 +193,16 @@ describe('ClaimsList — submit claims', () => {
 
   it('clears the selection when the claims reload (e.g. on page change)', async () => {
     searchBillingClaimsMock.mockResolvedValue({
-      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer)],
+      claims: [makeRow('c-ins', 'Insurable Patient', AR_STAGE.insurancePayer, 'claim-submission')],
       total: 50,
     });
     renderList();
 
     fireEvent.click(await screen.findByLabelText('select Insurable Patient'));
-    expect(await screen.findByRole('button', { name: 'Submit (1)' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Run rules (1)' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'next page' }));
 
-    await waitFor(() => expect(screen.queryByRole('button', { name: /^Submit \(/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Run rules \(/ })).not.toBeInTheDocument());
   });
 });

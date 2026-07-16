@@ -19,7 +19,6 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AR_STAGE,
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
@@ -318,17 +317,18 @@ export default function ClaimsList(): ReactElement {
     typeFilter ||
     selectedService;
 
-  // Submission goes through the Claim Submission Rules (selection is limited to Insurance Payer AR
-  // claims, so that is every selected claim's engine): one engine run is kicked off per claim, and
-  // each run applies the configured rules, then submits — or holds — its claim in the background.
+  // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
+  // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
+  // applies the configured rules, then performs its engine's success effect — submit to the payer
+  // or make ready to invoice — or holds its claim, in the background.
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || selected.length === 0) return;
     setSubmitting(true);
     try {
       await runBillingRulesEngine(oystehrZambda, { claimIds: selected.map(String) });
       enqueueSnackbar(
-        `Rules engine started for ${selected.length} claim(s) — it will submit or hold each claim shortly. ` +
-          'Refresh to see the results.',
+        `Rules started for ${selected.length} claim(s) — each claim will be submitted, made ready to invoice, ` +
+          'or held shortly. Refresh to see the results.',
         { variant: 'info' }
       );
       setSelected([]);
@@ -358,7 +358,7 @@ export default function ClaimsList(): ReactElement {
             <Tooltip
               title={
                 selected.length > MAX_RUN_RULES_ENGINE_CLAIMS
-                  ? `Select up to ${MAX_RUN_RULES_ENGINE_CLAIMS} claims to submit at once`
+                  ? `Select up to ${MAX_RUN_RULES_ENGINE_CLAIMS} claims to run rules on at once`
                   : ''
               }
             >
@@ -369,7 +369,7 @@ export default function ClaimsList(): ReactElement {
                   disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
                   onClick={() => setConfirmingSubmit(true)}
                 >
-                  Submit ({selected.length})
+                  Run rules ({selected.length})
                 </Button>
               </span>
             </Tooltip>
@@ -565,7 +565,7 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
-        isRowSelectable={(params) => (params.row as BillingClaimItem).statuses?.arStage === AR_STAGE.insurancePayer}
+        isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
         rowSelectionModel={selected}
         onRowSelectionModelChange={setSelected}
         slots={dataGridSlots}
@@ -575,14 +575,15 @@ export default function ClaimsList(): ReactElement {
 
       <ConfirmDialog
         open={confirmingSubmit}
-        title="Submit claims"
-        confirmLabel="Submit"
+        title="Run claim rules"
+        confirmLabel="Run rules"
         loading={submitting}
         onConfirm={() => void handleSubmit()}
         onCancel={() => setConfirmingSubmit(false)}
       >
-        Submit {selected.length} claim(s)? Each claim runs through the Claim Submission Rules, which submit it to the
-        payer or hold it for review.
+        Run rules for {selected.length} claim(s)? Each claim runs its AR stage&apos;s rules engine — when every rule
+        passes, Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a
+        Hold keeps a claim for review.
       </ConfirmDialog>
     </Box>
   );
