@@ -359,7 +359,7 @@ export default function ClaimsList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims
         </Typography>
@@ -384,8 +384,8 @@ export default function ClaimsList(): ReactElement {
               </span>
             </Tooltip>
           )}
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
-            Create
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
+            Add Claim
           </Button>
         </Box>
       </Box>

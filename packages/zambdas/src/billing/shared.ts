@@ -25,11 +25,13 @@ import {
 } from 'fhir/r4b';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  AR_STAGE,
   BILLING_INSURANCE_TYPE_LABELS,
   BILLING_RESOURCE_TAG,
   BillingInsuranceType,
   BillingPolicyHolderInput,
   BillingProviderOption,
+  BillingRule,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
   ChargeItemDefinitionDefault,
@@ -52,6 +54,7 @@ import {
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getClaimStatusFieldValue,
   getClaimStatusValues,
   getNPI,
   getPatchBinary,
@@ -66,7 +69,7 @@ import {
   isValidClaimStatusValue,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
-  PreSubmissionRule,
+  RulesEngineType,
   Secrets,
   SecretsKeys,
   setCoveragePlanType,
@@ -75,7 +78,7 @@ import {
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { sendErrors } from '../shared';
-import { PRESUBMISSION_RULES_LIST_CODE, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
+import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
 // Type alias for resources relevant to billing
@@ -301,18 +304,18 @@ export async function fetchById<T extends FhirResource>(
   return resource;
 }
 
-// The singleton pre-submission rules List (undefined when no rules have been configured yet).
-export async function findPresubmissionRulesList(oystehr: Oystehr): Promise<List | undefined> {
+// An engine's singleton rules List (undefined when no rules have been configured for it yet).
+export async function findRulesEngineList(oystehr: Oystehr, engine: RulesEngineType): Promise<List | undefined> {
   const result = await oystehr.fhir.search<List>({
     resourceType: 'List',
-    params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${PRESUBMISSION_RULES_LIST_CODE}` }],
+    params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${RULES_ENGINE_FHIR[engine].listCode}` }],
   });
   return result.unbundle()[0];
 }
 
 // listToRules with malformed-rule observability: each unparseable rule (returned as a disabled
 // placeholder) is also reported to Sentry, with the rule's identity as event tags.
-export async function listToRulesReportingMalformed(list: List, env: string): Promise<PreSubmissionRule[]> {
+export async function listToRulesReportingMalformed(list: List, env: string): Promise<BillingRule[]> {
   const failures: { error: unknown; tags: Record<string, string> }[] = [];
   const rules = listToRules(list, (error, { ruleId, ruleName }) =>
     failures.push({ error, tags: { ruleId, ruleName } })
@@ -321,19 +324,42 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
   return rules;
 }
 
-// Enqueue the pre-submission rules engine for a claim; a Subscription runs it asynchronously. The
-// claim is already committed when this runs, so a kickoff failure must not fail the request (a retry
-// would create a duplicate claim) — that is why the catch lives here rather than in the callers: the
-// failure is logged and reported to Sentry, and the engine can be run on demand via
-// run-billing-rules-engine.
-export async function kickOffRulesEngine(oystehr: Oystehr, claimId: string, secrets: Secrets | null): Promise<void> {
+/**
+ * The rules engine responsible for a claim, decided by its AR Stage:
+ * - Insurance Payer AR -> Claim Submission Rules
+ * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
+ * - Patient AR, self-pay only (no real coverage on the claim) -> Patient AR Pre-Invoice Rules
+ * Undefined when no engine applies (no AR Stage, or Patient AR with insurance coverage).
+ *
+ * An engine runs automatically only when a claim is created in its stage. Changing an existing
+ * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
+ * biller runs the rules explicitly (Submit claim / Prepare for invoice).
+ */
+export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | undefined {
+  const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
+  if (arStage === AR_STAGE.insurancePayer) return 'claim-submission';
+  if (arStage === AR_STAGE.nonInsurancePayer) return 'non-insurance-payer-pre-invoice';
+  if (arStage === AR_STAGE.patient && !claimHasRealCoverage(claim.insurance)) return 'patient-ar-pre-invoice';
+  return undefined;
+}
+
+// Enqueue a rules engine for a claim; a Subscription runs it asynchronously. The claim is already
+// committed when this runs, so a kickoff failure must not fail the request (a retry would create a
+// duplicate claim) — that is why the catch lives here rather than in the callers: the failure is
+// logged and reported to Sentry, and the engine can be run on demand via run-billing-rules-engine.
+export async function kickOffRulesEngine(
+  oystehr: Oystehr,
+  engine: RulesEngineType,
+  claimId: string,
+  secrets: Secrets | null
+): Promise<void> {
   // Resolved before the try so the best-effort catch cannot itself throw on a missing secret.
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   try {
-    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(claimId));
+    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId));
   } catch (error) {
-    console.error(`Failed to enqueue rules-engine Task for Claim/${claimId}:`, error);
-    await sendErrors(error, env, { claimId });
+    console.error(`Failed to enqueue ${engine} rules-engine Task for Claim/${claimId}:`, error);
+    await sendErrors(error, env, { claimId, engine });
   }
 }
 

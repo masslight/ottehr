@@ -109,7 +109,7 @@ export function BillingProvidersList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Billing Providers
         </Typography>
