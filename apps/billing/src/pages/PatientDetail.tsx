@@ -20,6 +20,7 @@ import {
   BILLING_INSURANCE_TYPE_TITLES,
   BillingCoverageOption,
   BillingInsuranceType,
+  commaFormattedName,
   getApiError,
   PatientDetailResponse,
   UpdateBillingPatientInput,
@@ -148,8 +149,6 @@ export default function PatientDetail(): ReactElement {
     );
   }
 
-  const patientName = `${patient.firstName} ${patient.lastName}`.trim() || 'Unknown';
-
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
@@ -158,7 +157,7 @@ export default function PatientDetail(): ReactElement {
         </IconButton>
         <Box>
           <Typography variant="h5" color="primary.dark" fontWeight={600}>
-            {patientName}
+            {commaFormattedName(patient)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             DOB {patient.dob} | MRN {patient.id}
@@ -234,8 +233,6 @@ export function PatientDemographicsSection({
     return onSave(patientToUpdateInput(data, patient.id));
   };
 
-  const patientName = `${patient.firstName} ${patient.lastName}`.trim() || 'Unknown';
-
   return (
     <EditableSection
       title={title ?? 'Demographics'}
@@ -250,7 +247,7 @@ export function PatientDemographicsSection({
         </Box>
       }
     >
-      <Row label="Patient" value={patientName} />
+      <Row label="Patient" value={commaFormattedName(patient)} />
       <Row label="DOB" value={patient.dob} />
       <Row label="Gender" value={patient.gender} />
       <Row label="Phone" value={patient.phone} />
@@ -389,9 +386,7 @@ export function CoverageCard({
   };
 
   const title = BILLING_INSURANCE_TYPE_TITLES[coverage.insuranceType ?? 'primary'];
-  const policyHolderName = coverage.policyHolder
-    ? `${coverage.policyHolder.firstName} ${coverage.policyHolder.lastName}`.trim()
-    : '';
+  const policyHolderName = commaFormattedName(coverage.policyHolder);
 
   return (
     <EditableSection

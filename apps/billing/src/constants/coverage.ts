@@ -4,6 +4,7 @@ import {
   BillingSubscriberRelationship,
   ClaimDetailResponse,
   CreateBillingCoverageInput,
+  GenderOption,
   UpdateBillingCoverageInput,
 } from 'utils';
 import { buildAddressInput } from '../utils/format';
@@ -130,12 +131,14 @@ export function coverageToUpdateInput(data: CoverageForm, coverageId: string): U
     relationship: data.relationship!,
     ...(data.relationship !== 'Self'
       ? {
-          firstName: data.firstName?.trim(),
-          ...(data.middleName?.trim() ? { middleName: data.middleName.trim() } : {}),
-          lastName: data.lastName?.trim(),
-          dob: data.dob,
-          gender: data.gender,
-          ...(address ? { address } : {}),
+          policyHolder: {
+            firstName: data.firstName?.trim(),
+            ...(data.middleName?.trim() ? { middleName: data.middleName.trim() } : {}),
+            lastName: data.lastName?.trim(),
+            dob: data.dob,
+            gender: data.gender as GenderOption,
+            ...(address ? { address } : {}),
+          },
         }
       : {}),
   };
