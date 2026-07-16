@@ -1488,6 +1488,17 @@
         "expression": "cron(0 * * * ? *)"
       }
     },
+    "CREATE-BILLING-INVOICES-TASKS": {
+      "name": "create-billing-invoices-tasks",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "300",
+      "src": "src/cron/create-billing-invoices-tasks/index",
+      "zip": ".dist/zips/create-billing-invoices-tasks.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    },
     "GET-PATIENT-VISIT-HISTORY": {
       "name": "get-patient-visit-history",
       "type": "http_auth",
