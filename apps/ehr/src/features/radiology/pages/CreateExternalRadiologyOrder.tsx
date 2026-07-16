@@ -21,12 +21,11 @@ import {
   useTheme,
 } from '@mui/material';
 import { ClearIcon } from '@mui/x-date-pickers';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyExternalOrderDetailsUrl, getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
-import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import {
   useGetCPTHCPCSSearch,
   useICD10SearchNew,
@@ -45,13 +44,11 @@ import {
   LateralityValue,
   RADIOLOGY_SAFETY_FLAGS,
   RadiologyPerformingOrganization,
-  RadiologyQuickPickData,
   RadiologySafetyFlag,
   radiologyStudiesConfig,
 } from 'utils';
 import { createRadiologyOrder, updateRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
@@ -102,7 +99,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
   const [timeWindow, setTimeWindow] = useState<string>(initialOrder?.timeWindow ?? '');
   const [safetyFlags, setSafetyFlags] = useState<RadiologySafetyFlag[]>(initialOrder?.safetyFlags ?? []);
 
-  const { quickPicks: mergedQuickPicks, loading: mergedQuickPicksLoading } = useMergedRadiologyQuickPicks();
   const cptCodes = chartData?.cptCodes || [];
 
   const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
@@ -124,19 +120,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
   const debouncedCptHandleInputChange = (data: string): void => {
     debounce(() => setCptDebouncedSearchTerm(data));
   };
-
-  const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
-    if (quickPick.cptCode && quickPick.cptDisplay) {
-      setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
-    } else {
-      setOrderCpt(undefined);
-    }
-    setStudyName(quickPick.studyName ?? '');
-    setLaterality((quickPick.laterality as LateralityValue) ?? '');
-    setClinicalHistory(quickPick.clinicalHistory ?? '');
-  };
-  const onQuickPickSelectRef = useRef(onQuickPickSelect);
-  onQuickPickSelectRef.current = onQuickPickSelect;
 
   const toggleSafetyFlag = (flag: RadiologySafetyFlag): void => {
     setSafetyFlags((prev) => (prev.includes(flag) ? prev.filter((f) => f !== flag) : [...prev, flag]));
@@ -241,21 +224,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
           <form onSubmit={handleSubmit}>
             <Paper sx={{ p: 3 }}>
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
-                <Grid item xs={12}>
-                  <QuickPicksButton
-                    quickPicks={mergedQuickPicks}
-                    loading={mergedQuickPicksLoading}
-                    getLabel={(qp) => {
-                      const parts = [qp.name] as string[];
-                      if (qp.cptCode) parts.push(qp.cptCode);
-                      return parts.join(' — ');
-                    }}
-                    onSelect={onQuickPickSelect}
-                    disabled={submitting}
-                    searchable
-                  />
-                </Grid>
-
                 <Grid item xs={12}>
                   <Autocomplete
                     multiple
