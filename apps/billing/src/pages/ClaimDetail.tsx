@@ -45,7 +45,6 @@ import {
   ERA_CLAIM_STATUS_CODE,
   EraClaimStatusCode,
   formatClaimStatusValue,
-  formatDate,
   getApiError,
   SaveServiceFacilityInput,
   ServiceFacilityItem,
@@ -65,6 +64,7 @@ import {
   searchBillingServiceFacilities,
   searchBillingTags,
   tagBillingClaim,
+  updateBillingCoverage,
   updateBillingPatient,
   updateBillingProvider,
   updateBillingResource,
@@ -81,13 +81,18 @@ import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
-import { CoverageForm, coverageToCreateInput, defaultCoverageFormValues } from '../constants/coverage';
+import {
+  CoverageForm,
+  coverageToCreateInput,
+  coverageToUpdateInput,
+  defaultCoverageFormValues,
+} from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
-import { buildAddressInput, formatCurrency } from '../utils/format';
+import { formatCurrency, formatDate } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
@@ -588,44 +593,33 @@ export function InsuranceSection({
   const handleSave = async (data: CoverageForm): Promise<string | null> => {
     if (!oystehrZambda) return null;
     const claimFields: { payerId?: string; planType?: string } = {};
-    // By default, update existing coverage below
-    let coverageId = claim.coverageFhirId;
-    if (!coverageId) {
-      if (selectedCoverage?.id) {
-        // Selected from some base, add it to claim and update below
-        await updateResource('Claim', claim.id, { coverageId: selectedCoverage.id });
-        const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
-        coverageId = updatedClaim.coverageFhirId;
-      } else {
-        // No base selected, make a new one and attach it
-        const result = await createBillingCoverage(oystehrZambda, coverageToCreateInput(data, claim.patientId));
-        return updateResource('Claim', claim.id, { coverageId: result.id });
+    try {
+      // By default, update existing coverage below
+      let coverageId = claim.coverageFhirId;
+      if (!coverageId) {
+        if (selectedCoverage?.id) {
+          // Selected from some base, add it to claim and update below
+          await updateResource('Claim', claim.id, { coverageId: selectedCoverage.id });
+          const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
+          coverageId = updatedClaim.coverageFhirId;
+        } else {
+          // No base selected, make a new one and attach it
+          const result = await createBillingCoverage(oystehrZambda, coverageToCreateInput(data, claim.patientId));
+          return updateResource('Claim', claim.id, { coverageId: result.id });
+        }
       }
+      if (data.payerId && data.payerId !== claim.payorFhirId) claimFields.payerId = data.payerId;
+      if (data.planType && data.planType !== claim.planType) claimFields.planType = data.planType;
+      if (Object.keys(claimFields).length > 0) {
+        const err = await updateResource('Claim', claim.id, claimFields);
+        if (err) return err;
+      }
+      await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(data, coverageId));
+      resetFields();
+      return null;
+    } catch (err) {
+      return getApiError({ error: err, defaultError: 'Failed to save changes' });
     }
-    if (data.payerId && data.payerId !== claim.payorFhirId) claimFields.payerId = data.payerId;
-    if (data.planType && data.planType !== claim.planType) claimFields.planType = data.planType;
-    if (Object.keys(claimFields).length > 0) {
-      const err = await updateResource('Claim', claim.id, claimFields);
-      if (err) return err;
-    }
-    const address = buildAddressInput(data.line1, data.line2, data.city, data.state, data.zip);
-    return updateResource('Coverage', coverageId, {
-      subscriberId: data.memberId,
-      status: 'active',
-      relationship: data.relationship,
-      ...(data.relationship !== 'Self'
-        ? {
-            policyHolder: {
-              firstName: data.firstName!.trim(),
-              ...(data.middleName?.trim() ? { middleName: data.middleName.trim() } : {}),
-              lastName: data.lastName!.trim(),
-              dob: data.dob,
-              gender: data.gender,
-              ...(address ? { address } : {}),
-            },
-          }
-        : {}),
-    });
   };
 
   const handleRemove = async (): Promise<void> => {
