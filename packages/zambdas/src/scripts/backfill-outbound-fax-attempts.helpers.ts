@@ -1,8 +1,8 @@
 import { Communication, Practitioner, Provenance, Task } from 'fhir/r4b';
-import { getFullestAvailableName, makeOutboundDeliveryAttempt } from 'utils';
+import { getFullestAvailableName, getReferenceId, makeOutboundDeliveryAttempt } from 'utils';
 
 export function buildLegacyFaxAttempt(communication: Communication, provenance?: Provenance): Task | undefined {
-  const patientId = communication.subject?.reference?.split('/')[1];
+  const patientId = getReferenceId(communication.subject?.reference, 'Patient');
   const recipientReference = communication.recipient?.[0]?.reference;
   const faxRecipient = recipientReference?.startsWith('#')
     ? communication.contained?.find((resource) => resource.id === recipientReference.slice(1))
@@ -15,8 +15,8 @@ export function buildLegacyFaxAttempt(communication: Communication, provenance?:
   if (!communication.id || !patientId || !recipientAddress) return undefined;
 
   const appointmentId = provenance?.target
-    .find((target) => target.reference?.startsWith('Appointment/'))
-    ?.reference?.split('/')[1];
+    .map((target) => getReferenceId(target.reference, 'Appointment'))
+    .find(Boolean);
   const recipientName = provenanceRecipient?.name?.length
     ? getFullestAvailableName(provenanceRecipient)
     : faxRecipient?.resourceType === 'Practitioner' && faxRecipient.name?.length

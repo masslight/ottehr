@@ -8,6 +8,7 @@ import {
   getAddressStringForScheduleResource,
   getFullestAvailableName,
   getPatientContactEmail,
+  getReferenceId,
   InPersonCompletionTemplateData,
   isFollowupEncounter,
   OTTEHR_MODULE,
@@ -76,8 +77,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
     console.log('getting appointment Id from the task');
-    const appointmentId =
-      task.focus?.type === 'Appointment' ? task.focus?.reference?.replace('Appointment/', '') : undefined;
+    const appointmentId = getReferenceId(task.focus?.reference, 'Appointment');
     console.log('appointment ID parsed: ', appointmentId);
 
     if (!appointmentId) {
@@ -89,7 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehr,
       appointmentId,
       true,
-      task.encounter?.reference?.split('/')[1]
+      getReferenceId(task.encounter?.reference, 'Encounter')
     );
     if (!visitResources) {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);

@@ -1,5 +1,6 @@
 import { Communication, Provenance, Task } from 'fhir/r4b';
 import {
+  getReferenceId,
   OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM,
   OUTBOUND_DELIVERY_TASK_CODES,
   OUTBOUND_DELIVERY_TASK_SYSTEM,
@@ -40,8 +41,8 @@ async function backfill(config: Secrets): Promise<void> {
   const provenanceByCommunication = new Map<string, Provenance>();
   for (const provenance of provenances) {
     const communicationId = provenance.target
-      .find((target) => target.reference?.startsWith('Communication/'))
-      ?.reference?.split('/')[1];
+      .map((target) => getReferenceId(target.reference, 'Communication'))
+      .find(Boolean);
     if (communicationId) provenanceByCommunication.set(communicationId, provenance);
   }
 

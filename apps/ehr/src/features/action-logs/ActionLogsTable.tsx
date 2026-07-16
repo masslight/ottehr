@@ -246,12 +246,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
                     '-'
                   )}
                 </TableCell>
-                <TableCell>
-                  {log.recipientName ||
-                    (channel === 'fax' && log.recipientAddress
-                      ? formatPhoneNumberDisplay(log.recipientAddress)
-                      : log.recipientAddress || '-')}
-                </TableCell>
+                <TableCell>{log.recipientName ?? '-'}</TableCell>
                 <TableCell>
                   {channel === 'fax' && log.recipientAddress
                     ? formatPhoneNumberDisplay(log.recipientAddress)

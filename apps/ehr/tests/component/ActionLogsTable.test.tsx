@@ -126,14 +126,16 @@ describe('ActionLogsTable', () => {
     await waitFor(() => expect(screen.queryByText('Resend Fax')).toBeNull());
   });
 
-  it('renders email addresses without phone formatting', async () => {
+  it('renders email addresses without phone formatting and dashes out unknown recipients', async () => {
     mockGetActionLogs.mockResolvedValue({
-      logs: [{ ...sentLog, channel: 'email', recipientAddress: 'patient@example.com' }],
+      logs: [{ ...sentLog, channel: 'email', recipientAddress: 'patient@example.com', recipientName: undefined }],
       totalCount: 1,
     });
     render(<ActionLogsTable channel="email" />, { wrapper: createWrapper() });
-    expect(await screen.findByText('patient@example.com')).toBeVisible();
+    // the address belongs to its own column only — the recipient cell shows '-' when no name was captured
+    expect(await screen.findAllByText('patient@example.com')).toHaveLength(1);
     expect(screen.getByText('Email Address')).toBeVisible();
+    expect(screen.getByText('-')).toBeVisible();
   });
 
   it('renders empty and error states', async () => {

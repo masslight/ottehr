@@ -31,6 +31,7 @@ export * from './stripeIntegration';
 export * from './support-dialog';
 export * from './mailed-statement-sync-state';
 export * from './outbound-delivery';
+export * from './send-fax-attempt';
 export * from './sync-mailed-statement-statuses';
 export * from './template-placeholders';
 export * from './types';

@@ -4,6 +4,7 @@ import { Provenance, Task } from 'fhir/r4b';
 import {
   getOutboundDeliveryInput,
   getOutboundDeliveryRecipientSnapshot,
+  getReferenceId,
   GetVisitFaxHistoryInput,
   GetVisitFaxHistoryInputSchema,
   GetVisitFaxHistoryInputValidated,
@@ -109,8 +110,8 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
   const legacyFaxes = faxProvenances
     .filter((provenance) => {
       const communicationId = provenance.target
-        .find((target) => target.reference?.startsWith('Communication/'))
-        ?.reference?.split('/')[1];
+        .map((target) => getReferenceId(target.reference, 'Communication'))
+        .find(Boolean);
       return !communicationId || !communicationIdsInTasks.has(communicationId);
     })
     .map((provenance) => {

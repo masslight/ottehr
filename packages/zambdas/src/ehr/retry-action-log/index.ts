@@ -25,13 +25,14 @@ import {
   getUser,
   makeAddressUrl,
   requireUserWithRole,
+  sendFaxAttempt,
+  SendFaxAttemptInput,
   sendVisitNoteEmailAttempt,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { getNameForOwner } from '../schedules/shared';
-import { EffectInput, sendFaxAttempt } from '../send-fax';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'retry-action-log';
@@ -68,7 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       resourceType: 'Practitioner',
       id: user.profile.split('/')[1],
     });
-    const faxInput: EffectInput = {
+    const faxInput: SendFaxAttemptInput = {
       appointmentId,
       faxNumber: recipientAddress,
       organizationId: getSecret(SecretsKeys.ORGANIZATION_ID, parameters.secrets),

@@ -1,6 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DocumentReference, Patient, Practitioner, Task } from 'fhir/r4b';
+import { Appointment, DocumentReference, Patient, Practitioner } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullestAvailableName,
@@ -11,11 +11,10 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  completeOutboundDeliveryAttempt,
   createClinicalOystehrClient,
-  createOutboundDeliveryAttempt,
-  failOutboundDeliveryAttempt,
   getUser,
+  sendFaxAttempt,
+  SendFaxAttemptInput,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -55,24 +54,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return response;
 });
 
-export interface EffectInput {
-  appointmentId: string;
-  faxNumber: string;
-  organizationId: string;
-  patientId: string;
-  media: string;
-  documentReferenceId: string;
-  userPractitioner: Practitioner;
-  recipientName?: string;
-  parentAttemptId?: string;
-  senderId: string;
-}
-
 const complexValidation = async (
   validatedInput: SendFaxZambdaInput & Pick<ZambdaInput, 'secrets'>,
   oystehr: Oystehr,
   user: User
-): Promise<EffectInput> => {
+): Promise<SendFaxAttemptInput> => {
   const { appointmentId, faxNumber, secrets } = validatedInput;
   const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
@@ -152,7 +138,7 @@ const normalizeFaxNumber = (value: string | undefined): string | undefined => {
 };
 
 const performEffect = async (
-  input: EffectInput,
+  input: SendFaxAttemptInput,
   oystehr: Oystehr,
   _user: User
 ): Promise<{ body: string; statusCode: number }> => {
@@ -162,57 +148,3 @@ const performEffect = async (
     statusCode: 200,
   };
 };
-
-export async function sendFaxAttempt(input: EffectInput, oystehr: Oystehr): Promise<Task> {
-  const {
-    appointmentId,
-    faxNumber,
-    organizationId,
-    patientId,
-    media,
-    documentReferenceId,
-    userPractitioner,
-    recipientName,
-    parentAttemptId,
-    senderId,
-  } = input;
-  const attempt = await createOutboundDeliveryAttempt(oystehr, {
-    channel: 'fax',
-    patientId,
-    appointmentId,
-    recipientAddress: faxNumber,
-    recipientName,
-    documentReferenceId,
-    requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
-    parentAttemptId,
-    senderId,
-    senderDisplay: getFullestAvailableName(userPractitioner),
-  });
-  if (!attempt.id) throw new Error('Outbound fax attempt was created without an id');
-
-  let communicationId: string;
-  try {
-    console.log('Sending fax to', faxNumber);
-    const { communicationResource } = await oystehr.fax.send({
-      media,
-      quality: 'standard',
-      patient: `Patient/${patientId}`,
-      recipientNumber: faxNumber,
-      sender: `Organization/${organizationId}`,
-    });
-    if (!communicationResource.id) throw new Error('Fax service returned a Communication without an id');
-    communicationId = communicationResource.id;
-  } catch (error) {
-    await failOutboundDeliveryAttempt(oystehr, attempt.id, error);
-    throw error;
-  }
-
-  try {
-    return await completeOutboundDeliveryAttempt(oystehr, attempt.id, `Communication/${communicationId}`);
-  } catch (linkError) {
-    // The provider accepted the fax. Keep the Task in-progress so the accepted delivery remains visible and
-    // distinguishable from a provider rejection, then surface the persistence failure to the caller.
-    console.error(`Fax was accepted but Task/${attempt.id} could not be linked to the Communication`, linkError);
-    throw new Error(`Fax was accepted but its outbound attempt could not be completed: ${attempt.id}`);
-  }
-}

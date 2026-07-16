@@ -16,6 +16,9 @@ export const RetryActionButton: FC<RetryActionButtonProps> = ({ log, onResent })
   const [isPending, setIsPending] = useState(false);
   const isPendingRef = useRef(false);
 
+  const address = log.channel === 'fax' ? formatPhoneNumberDisplay(log.recipientAddress) : log.recipientAddress;
+  const label = log.channel === 'fax' ? 'fax' : 'email';
+
   const handleResend = async (): Promise<void> => {
     if (!oystehrZambda || isPendingRef.current) return;
     isPendingRef.current = true;
@@ -32,9 +35,6 @@ export const RetryActionButton: FC<RetryActionButtonProps> = ({ log, onResent })
       setIsPending(false);
     }
   };
-
-  const address = log.channel === 'fax' ? formatPhoneNumberDisplay(log.recipientAddress) : log.recipientAddress;
-  const label = log.channel === 'fax' ? 'fax' : 'email';
 
   return (
     <ConfirmationDialog

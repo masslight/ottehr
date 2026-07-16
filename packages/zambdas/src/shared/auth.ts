@@ -38,8 +38,7 @@ export const requireUserWithRole = async (
 ): Promise<void> => {
   const user = await getUser(userToken, secrets);
   if (!user) throw NOT_AUTHORIZED;
-  const roles = (user as any).roles as { name?: string }[] | undefined;
-  const hasAllowedRole = roles?.some((role) => allowedRoles.some((allowed) => role.name === allowed)) ?? false;
+  const hasAllowedRole = user.roles?.some((role) => allowedRoles.some((allowed) => role.name === allowed)) ?? false;
   if (!hasAllowedRole) throw NOT_AUTHORIZED;
 };
 
