@@ -29,6 +29,7 @@ import {
   BILLING_RESOURCE_TAG,
   BillingInsuranceType,
   BillingPolicyHolderInput,
+  BillingProviderOption,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
   ChargeItemDefinitionDefault,
@@ -52,12 +53,14 @@ import {
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getClaimStatusValues,
+  getNPI,
   getPatchBinary,
   getPayerId,
   getPayerUrl,
   getResourcesFromBatchInlineRequests,
   getSecret,
   getSubscriberRelationshipCodeableConcept,
+  getTaxID,
   INVALID_INPUT_ERROR,
   isPayerUrl,
   isValidClaimStatusValue,
@@ -582,6 +585,14 @@ export function prepareCopy<T extends CopyableBillingResource>(resource: CRT<T>,
   return copy;
 }
 
+export function isWorkingCopy<T extends CopyableBillingResource>(resource: CRT<T>): boolean {
+  return (
+    resource.meta?.tag?.some(
+      (tag) => tag.system === BILLING_WORKING_COPY_TAG.system && tag.code === BILLING_WORKING_COPY_TAG.code
+    ) ?? false
+  );
+}
+
 /**
  * Map of resource types and their valid properties
  */
@@ -967,4 +978,40 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
     console.warn(`reconcilePaymentNoticesForClaim: ${failed.length} of ${unlinked.length} patches failed`);
   }
   console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
+}
+
+export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
+  const addr = resource.address?.[0];
+  const common = {
+    id: resource.id ?? '',
+    npi: getNPI(resource) ?? '',
+    taxonomyCode:
+      resource.identifier?.find((id) =>
+        id.type?.coding?.some(
+          (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+        )
+      )?.value ?? '',
+    licenseType: getTag(resource, LICENSE_TAG),
+    taxId: getTaxID(resource) ?? '',
+    address: formatAddress(addr),
+    addressParts: toAddressParts(addr),
+    renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
+    bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
+    isWorkingCopy: hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code),
+  };
+  if (resource.resourceType === 'Practitioner') {
+    return {
+      ...common,
+      kind: 'individual',
+      name: fhirName(resource),
+      firstName: resource.name?.[0]?.given?.join(' ') ?? '',
+      lastName: resource.name?.[0]?.family ?? '',
+    };
+  }
+  return {
+    ...common,
+    kind: 'organization',
+    name: resource.name ?? '',
+    stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
+  };
 }

@@ -126,6 +126,20 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     };
   }
 
+  // Persist a bell Communication only for computer-destined ('in-progress') rows; phone-only ('completed')
+  // rows are SMS-only and never persisted, so they can't surface in the bell. SMS goes out via the buffer.
+  function enqueueNotification(
+    practitioner: Practitioner,
+    request: BatchInputPostRequest<Communication>,
+    status: Communication['status'],
+    method: ProviderNotificationMethod | undefined
+  ): void {
+    if (status === 'in-progress') {
+      createCommunicationRequests.push(request);
+    }
+    addNewSMSCommunicationForPractitioner(practitioner, request.resource as Communication, status, method);
+  }
+
   console.group('validateRequestParameters');
   const { secrets } = validateRequestParameters(input);
   console.groupEnd();
@@ -281,8 +295,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
                 payload: [{ contentString: buildMessage(provider) }],
               },
             };
-            createCommunicationRequests.push(request);
-            addNewSMSCommunicationForPractitioner(provider, request.resource as Communication, status, row.method);
+            enqueueNotification(provider, request, status, row.method);
           }
         };
 
@@ -404,8 +417,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             payload: [{ contentString: message }],
           },
         };
-        createCommunicationRequests.push(request);
-        addNewSMSCommunicationForPractitioner(practitioner, request.resource as Communication, status, row.method);
+        enqueueNotification(practitioner, request, status, row.method);
         categoryNotifiedThisRun.add(categoryNotifiedKey(task.id!, practitioner.id!));
       }
     } catch (error) {
@@ -482,8 +494,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           },
         };
 
-        createCommunicationRequests.push(request);
-        addNewSMSCommunicationForPractitioner(recipient, request.resource as Communication, status, method);
+        enqueueNotification(recipient, request, status, method);
       }
     } catch (error) {
       console.error(`Error trying to process task assignment notification for task ${taskId}`, error);

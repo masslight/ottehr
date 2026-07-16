@@ -4,11 +4,10 @@ import { useParams } from 'react-router-dom';
 import { uploadDotVisionDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  areVitalsSameDay,
   calculateBMI,
   getAbnormalVitals,
   GetVitalsResponseData,
-  isHeightVitalObservation,
-  isWeightVitalObservation,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
@@ -110,13 +109,15 @@ const getValidationErrorMessage = (state: VitalLocalState): string | undefined =
   return 'validationErrorMessage' in state ? state.validationErrorMessage : undefined;
 };
 
-// Weight for BMI: a refused weight is a hard stop (no fallback); else this encounter's value, else history.
-const resolveWeightForBMI = (
-  currentWeight: VitalsWeightObservationDTO | undefined,
-  historicalWeight: VitalsWeightObservationDTO | undefined
-): number | undefined => {
-  if (currentWeight?.extraWeightOptions?.includes('patient_refused')) return undefined;
-  return currentWeight ? currentWeight.value : historicalWeight?.value;
+// BMI derives only from a height and weight recorded on the same day (encounters can span days).
+const deriveBMIInputs = (
+  vitals: GetVitalsResponseData | undefined
+): { heightCm: number | undefined; weightKg: number | undefined } => {
+  const height = vitals?.[VitalFieldNames.VitalHeight]?.[0];
+  const weight = vitals?.[VitalFieldNames.VitalWeight]?.[0];
+  return areVitalsSameDay(height?.lastUpdated, weight?.lastUpdated)
+    ? { heightCm: height?.value, weightKg: weight?.value }
+    : { heightCm: undefined, weightKg: undefined };
 };
 
 export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): UseVitalsManagementReturn => {
@@ -327,14 +328,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         const savedFields = validVitals.map((v) => v.field);
         if (savedFields.includes(VitalFieldNames.VitalHeight) || savedFields.includes(VitalFieldNames.VitalWeight)) {
           try {
-            const currentHeight = refetchResult.data?.[VitalFieldNames.VitalHeight]?.[0];
-            const heightCm = currentHeight
-              ? currentHeight.value
-              : historicalVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value;
-            const weightKg = resolveWeightForBMI(
-              refetchResult.data?.[VitalFieldNames.VitalWeight]?.[0],
-              historicalVitals?.[VitalFieldNames.VitalWeight]?.[0]
-            );
+            const { heightCm, weightKg } = deriveBMIInputs(refetchResult.data);
             if (await saveBMI(weightKg, heightCm)) {
               await refetchEncounterVitals();
             }
@@ -391,7 +385,6 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     batchSaveVitals,
     refetchEncounterVitals,
     saveBMI,
-    historicalVitals,
   ]);
 
   // Helper to create field save handler with validation
@@ -416,28 +409,18 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           try {
             setFieldSavingStates((prev) => ({ ...prev, [field]: true }));
             await saveVitals(dto);
-            // Derive BMI from the just-saved value plus the counterpart in state (no extra refetch);
-            // isolated so a BMI failure doesn't flag the saved height/weight.
+            // Refetch first so BMI derivation sees the just-saved reading with its server date.
+            const refetchResult = await refetchEncounterVitals();
             if (triggerBMI) {
-              const currentHeight = encounterVitals?.[VitalFieldNames.VitalHeight]?.[0];
-              const heightCm = isHeightVitalObservation(dto)
-                ? dto.value
-                : currentHeight
-                  ? currentHeight.value
-                  : historicalVitals?.[VitalFieldNames.VitalHeight]?.[0]?.value;
-              const weightKg = isWeightVitalObservation(dto)
-                ? dto.value
-                : resolveWeightForBMI(
-                    encounterVitals?.[VitalFieldNames.VitalWeight]?.[0],
-                    historicalVitals?.[VitalFieldNames.VitalWeight]?.[0]
-                  );
               try {
-                await saveBMI(weightKg, heightCm);
+                const { heightCm, weightKg } = deriveBMIInputs(refetchResult.data);
+                if (await saveBMI(weightKg, heightCm)) {
+                  await refetchEncounterVitals();
+                }
               } catch {
                 enqueueSnackbar('Error saving BMI data', { variant: 'error' });
               }
             }
-            await refetchEncounterVitals();
             state.clearForm();
           } catch {
             const fieldNameMap: Record<VitalFieldNames, string> = {
@@ -458,7 +441,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           }
         }
       },
-    [fieldSavingStates, saveVitals, refetchEncounterVitals, encounterVitals, historicalVitals, saveBMI]
+    [fieldSavingStates, saveVitals, refetchEncounterVitals, saveBMI]
   );
 
   const saveHandlers = useMemo(() => {

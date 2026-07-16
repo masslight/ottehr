@@ -302,7 +302,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       if (patientId) patientIds.push(`Patient/${patientId}`);
     } else if (resource.resourceType === 'Patient' && resource.id) {
       patientIdMap[resource.id] = resource as Patient;
-    } else if (resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource as Encounter)) {
+    } else if (resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource)) {
       const asEnc = resource as Encounter;
       const apptRef = asEnc.appointment?.[0].reference;
       if (apptRef) {

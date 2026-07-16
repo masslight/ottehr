@@ -13,6 +13,7 @@ import {
   getPayerId,
   getResourcesFromBatchInlineRequests,
   getTaxID,
+  SubscriberRelationship,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -167,7 +168,7 @@ async function performEffect(
     subscriberId: coverage?.subscriberId ?? '',
     coverageStatus: coverage?.status ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
-    relationship: coverage?.relationship?.coding?.[0]?.display ?? '',
+    relationship: (coverage?.relationship?.coding?.[0]?.display as SubscriberRelationship) ?? '',
     policyHolder,
     responsibleParty: 'Primary',
     secondaryCoverageFhirId: secondaryCoverage?.id ?? '',
@@ -197,6 +198,7 @@ async function performEffect(
     billingTaxonomy: provider ? getTaxonomy(provider) : '',
     facilityFhirId: facility?.id ?? '',
     serviceFacility: facility?.name ?? '',
+    serviceFacilityId: facility?.id ?? '',
     serviceFacilityAddress: formatAddress(facility?.address),
     serviceFacilityAddressParts: toAddressParts(facility?.address),
     serviceFacilityNpi: facility ? (getNPI(facility) ?? '') : '',
