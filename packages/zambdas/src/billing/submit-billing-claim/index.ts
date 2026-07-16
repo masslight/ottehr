@@ -25,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
-  const agent = await resolveClaimActor(oystehr, input.headers?.Authorization, secrets);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, secrets);
 
   console.group('performEffect');
   const response = await performEffect(oystehr, params, agent);

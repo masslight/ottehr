@@ -64,6 +64,9 @@ const { validateRequestParameters } = await import('../../src/subscriptions/task
 const { index: _index } = await import('../../src/subscriptions/task/sub-send-claim/index');
 const index = _index as unknown as (input: any) => Promise<{ statusCode: number; body: string }>;
 
+const { createCandidDiagnoses } = await import('../../src/shared/candid');
+const { DiagnosisTypeCode } = await import('candidhealth/api');
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const CANDID_ENCOUNTER_ID_SYSTEM = 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
@@ -357,5 +360,56 @@ describe('sub-send-claim', () => {
         operations: [],
       })
     );
+  });
+});
+
+describe('createCandidDiagnoses', () => {
+  function makeCondition(id: string, code: string): any {
+    return {
+      resourceType: 'Condition',
+      id,
+      code: { coding: [{ code }] },
+    };
+  }
+
+  it('emits the primary diagnosis as Abk and secondaries as Abf', () => {
+    const encounter: any = {
+      resourceType: 'Encounter',
+      diagnosis: [
+        { condition: { reference: 'Condition/primary' }, rank: 1 },
+        { condition: { reference: 'Condition/secondary' }, rank: 2 },
+      ],
+    };
+    const diagnoses = [makeCondition('primary', 'A00'), makeCondition('secondary', 'B00')];
+
+    const result = createCandidDiagnoses(encounter, diagnoses);
+
+    expect(result).toEqual(
+      expect.arrayContaining([
+        { codeType: DiagnosisTypeCode.Abk, code: 'A00' },
+        { codeType: DiagnosisTypeCode.Abf, code: 'B00' },
+      ])
+    );
+    expect(result).toHaveLength(2);
+  });
+
+  it('keeps the primary diagnosis (Abk) when the same code is also entered as a secondary listed first', () => {
+    // Regression: the duplicate secondary appears before the primary in encounter.diagnosis.
+    // Without the primary-first ordering, the secondary would claim the code first and the
+    // primary would be deduped away, leaving no Abk entry -> "Primary diagnosis is absent".
+    const encounter: any = {
+      resourceType: 'Encounter',
+      diagnosis: [
+        { condition: { reference: 'Condition/secondary' }, rank: 2 },
+        { condition: { reference: 'Condition/primary' }, rank: 1 },
+      ],
+    };
+    const diagnoses = [makeCondition('secondary', 'A00'), makeCondition('primary', 'A00')];
+
+    const result = createCandidDiagnoses(encounter, diagnoses);
+
+    // The duplicate code collapses to a single entry, and it must be the primary.
+    expect(result).toEqual([{ codeType: DiagnosisTypeCode.Abk, code: 'A00' }]);
+    expect(result.some((diagnosis) => diagnosis.codeType === DiagnosisTypeCode.Abk)).toBe(true);
   });
 });

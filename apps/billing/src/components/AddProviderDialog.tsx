@@ -1,13 +1,19 @@
+import { Close as CloseIcon, Save as SaveIcon } from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   FormControlLabel,
+  FormHelperText,
+  IconButton,
+  InputLabel,
   Link,
   MenuItem,
   Select,
@@ -16,12 +22,19 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { CreateBillingProviderInput, getApiError, PractitionerQualificationCodesDisplay } from 'utils';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
+import {
+  CreateBillingProviderInput,
+  getApiError,
+  isNPIValidWithChecksum,
+  PractitionerQualificationCodesDisplay,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+  taxIdRegex,
+} from 'utils';
 import { createBillingProvider } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { buildAddressInput } from '../utils/format';
-import { validateProviderFields } from '../utils/validation';
-import { Field } from './Field';
+import { AddressFields } from './AddressFields';
 
 type ProviderKind = 'individual' | 'organization';
 
@@ -32,217 +45,357 @@ interface AddProviderDialogProps {
   onCreated: () => void;
 }
 
+interface AddProviderForm {
+  kind: ProviderKind;
+  firstName: string | null;
+  lastName: string | null;
+  orgName: string | null;
+  npi: string | null;
+  licenseType: string | null;
+  taxonomyCode: string | null;
+  taxId: string | null;
+  line1: string | null;
+  line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  renders: boolean;
+  bills: boolean;
+}
+
+const defaultValues: AddProviderForm = {
+  kind: 'individual',
+  firstName: null,
+  lastName: null,
+  orgName: null,
+  npi: null,
+  licenseType: null,
+  taxonomyCode: null,
+  taxId: null,
+  line1: null,
+  line2: null,
+  city: null,
+  state: null,
+  zip: null,
+  renders: false,
+  bills: false,
+};
+
 export function AddProviderDialog({ open, defaultRole, onClose, onCreated }: AddProviderDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
+  const methods = useForm<AddProviderForm>({
+    defaultValues: {
+      ...defaultValues,
+      kind: defaultRole === 'rendering' ? 'individual' : 'organization',
+      renders: defaultRole === 'rendering',
+      bills: defaultRole === 'billing',
+    },
+  });
+  const {
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { isSubmitting },
+  } = methods;
 
-  const [kind, setKind] = useState<ProviderKind>('individual');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [orgName, setOrgName] = useState('');
-  const [npi, setNpi] = useState('');
-  const [licenseType, setLicenseType] = useState('');
-  const [taxonomyCode, setTaxonomyCode] = useState('');
-  const [taxId, setTaxId] = useState('');
-  const [line1, setLine1] = useState('');
-  const [line2, setLine2] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [zip, setZip] = useState('');
-  const [renders, setRenders] = useState(false);
-  const [bills, setBills] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const selectedKind = watch('kind');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setKind('individual');
-    setFirstName('');
-    setLastName('');
-    setOrgName('');
-    setNpi('');
-    setLicenseType('');
-    setTaxonomyCode('');
-    setTaxId('');
-    setLine1('');
-    setLine2('');
-    setCity('');
-    setState('');
-    setZip('');
-    setRenders(defaultRole === 'rendering');
-    setBills(defaultRole === 'billing');
-    setSaving(false);
     setError(null);
-  }, [open, defaultRole]);
+    reset();
+  }, [open, reset]);
 
-  const nameValid = kind === 'individual' ? !!firstName.trim() && !!lastName.trim() : !!orgName.trim();
-  const canSave = nameValid && (renders || bills);
-
-  const handleSave = async (): Promise<void> => {
-    if (!oystehrZambda || !canSave) return;
-    const validationError = validateProviderFields({ npi, taxId, taxonomyCode, zip });
-    if (validationError) {
-      setError(validationError);
-      return;
+  const handleSave = async (data: AddProviderForm): Promise<void> => {
+    if (!oystehrZambda) return;
+    if (!data.renders && !data.bills) {
+      return setError('Provider must render or bill');
     }
-    setSaving(true);
     setError(null);
     try {
-      const roles = [...(bills ? ['billing'] : []), ...(renders ? ['rendering'] : [])];
-      const address = buildAddressInput(line1, line2, city, state, zip);
+      const roles = [...(data.bills ? ['billing'] : []), ...(data.renders ? ['rendering'] : [])];
+      const address = buildAddressInput(data.line1, data.line2, data.city, data.state, data.zip);
       const common = {
         roles,
-        ...(npi.trim() ? { npi: npi.trim() } : {}),
-        ...(taxonomyCode.trim() ? { taxonomyCode: taxonomyCode.trim() } : {}),
-        ...(taxId.trim() ? { taxId: taxId.trim() } : {}),
+        ...(data.npi?.trim() ? { npi: data.npi.trim() } : {}),
+        ...(data.taxonomyCode?.trim() ? { taxonomyCode: data.taxonomyCode.trim() } : {}),
+        ...(data.taxId?.trim() ? { taxId: data.taxId.trim() } : {}),
         ...(address ? { address } : {}),
       };
       const payload =
-        kind === 'individual'
+        data.kind === 'individual'
           ? {
-              kind,
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-              ...(licenseType ? { licenseType } : {}),
+              kind: data.kind,
+              firstName: data.firstName?.trim(),
+              lastName: data.lastName?.trim(),
+              ...(data.licenseType ? { licenseType: data.licenseType } : {}),
               ...common,
             }
-          : { kind, name: orgName.trim(), ...common };
+          : { kind: data.kind, name: data.orgName?.trim(), ...common };
 
-      const data = await createBillingProvider(oystehrZambda, payload as CreateBillingProviderInput);
-      if (!data.id) throw new Error('Provider was not created');
+      const result = await createBillingProvider(oystehrZambda, payload as CreateBillingProviderInput);
+      if (!result.id) throw new Error('Provider was not created');
       onCreated();
       onClose();
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to create provider' }));
-    } finally {
-      setSaving(false);
     }
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 980, maxWidth: '95vw' } }}>
-      <DialogTitle sx={{ fontWeight: 700 }}>Add Provider</DialogTitle>
+      <DialogTitle sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h5">Add Provider</Typography>
+        <IconButton size="small" onClick={onClose} aria-label="Close">
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
-        <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
-          {/* Left: provider */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            <Field label="Provider Type">
-              <Select size="small" fullWidth value={kind} onChange={(e) => setKind(e.target.value as ProviderKind)}>
-                <MenuItem value="individual">Individual</MenuItem>
-                <MenuItem value="organization">Organization</MenuItem>
-              </Select>
-            </Field>
+        <FormProvider {...methods}>
+          <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
+            {/* Left: provider */}
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              <Controller
+                name="kind"
+                control={control}
+                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                render={({ field, fieldState: { error: fieldError } }) => (
+                  <FormControl size="small" fullWidth>
+                    <InputLabel id="kind-select-label" error={!!fieldError}>
+                      Provider Type *
+                    </InputLabel>
+                    <Select
+                      aria-describedby={fieldError ? 'kind-helper-text' : undefined}
+                      label="Provider Type *"
+                      labelId="kind-select-label"
+                      size="small"
+                      fullWidth
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                    >
+                      <MenuItem value="individual">Individual</MenuItem>
+                      <MenuItem value="organization">Organization</MenuItem>
+                    </Select>
+                    {fieldError ? (
+                      <FormHelperText id={`kind-helper-text`} error={true}>
+                        {fieldError?.message}
+                      </FormHelperText>
+                    ) : (
+                      <></>
+                    )}
+                  </FormControl>
+                )}
+              />
 
-            {kind === 'individual' ? (
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Field label="First Name" sx={{ flex: 1 }}>
-                  <TextField size="small" fullWidth value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                </Field>
-                <Field label="Last Name" sx={{ flex: 1 }}>
-                  <TextField size="small" fullWidth value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                </Field>
-              </Box>
-            ) : (
-              <Field label="Organization Name">
-                <TextField size="small" fullWidth value={orgName} onChange={(e) => setOrgName(e.target.value)} />
-              </Field>
-            )}
-
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Field label="NPI" sx={{ flex: 1 }}>
-                <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
-              </Field>
-              <Field label="Tax ID" sx={{ flex: 1 }}>
-                <TextField size="small" fullWidth value={taxId} onChange={(e) => setTaxId(e.target.value)} />
-              </Field>
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              {kind === 'individual' && (
-                <Field label="License Type" sx={{ flex: 1 }}>
-                  <Autocomplete
-                    size="small"
-                    options={PractitionerQualificationCodesDisplay}
-                    getOptionLabel={(o) => o.label}
-                    value={PractitionerQualificationCodesDisplay.find((o) => o.value === licenseType) ?? null}
-                    onChange={(_, v) => setLicenseType(v?.value ?? '')}
-                    isOptionEqualToValue={(o, v) => o.value === v.value}
-                    renderInput={(params) => <TextField {...params} placeholder="Select..." />}
+              {selectedKind === 'individual' ? (
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Controller
+                    name="firstName"
+                    control={control}
+                    rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                    render={({ field, fieldState: { error: fieldError } }) => (
+                      <TextField
+                        label="First name *"
+                        size="small"
+                        fullWidth
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        error={!!fieldError}
+                        helperText={fieldError?.message}
+                      />
+                    )}
                   />
-                </Field>
-              )}
-              <Field label="Taxonomy Code" sx={{ flex: 1 }}>
-                <TextField
-                  size="small"
-                  fullWidth
-                  value={taxonomyCode}
-                  onChange={(e) => setTaxonomyCode(e.target.value)}
+                  <Controller
+                    name="lastName"
+                    control={control}
+                    rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                    render={({ field, fieldState: { error: fieldError } }) => (
+                      <TextField
+                        label="Last name *"
+                        size="small"
+                        fullWidth
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        error={!!fieldError}
+                        helperText={fieldError?.message}
+                      />
+                    )}
+                  />
+                </Box>
+              ) : (
+                <Controller
+                  name="orgName"
+                  control={control}
+                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      label="Organization name *"
+                      size="small"
+                      fullWidth
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
                 />
-                <Typography variant="caption">
-                  Look up taxonomy codes{' '}
-                  <Link target="_blank" href="https://npiregistry.cms.hhs.gov/search">
-                    here
-                  </Link>
-                  .
-                </Typography>
-              </Field>
+              )}
+
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Controller
+                  name="npi"
+                  control={control}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                    validate: (value) =>
+                      (value && isNPIValidWithChecksum(value)) ||
+                      'NPI must be a valid 10-digit number with a correct check digit',
+                  }}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      label="NPI *"
+                      size="small"
+                      fullWidth
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="taxId"
+                  control={control}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                    validate: (value) => (value && taxIdRegex.test(value)) || 'Tax ID / EIN must be exactly 9 digits',
+                  }}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <TextField
+                      label="Tax ID *"
+                      size="small"
+                      fullWidth
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                  )}
+                />
+              </Box>
+
+              {selectedKind === 'individual' && (
+                <Controller
+                  name="licenseType"
+                  control={control}
+                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                  render={({ field, fieldState: { error: fieldError } }) => (
+                    <Autocomplete
+                      size="small"
+                      options={PractitionerQualificationCodesDisplay}
+                      getOptionLabel={(o) => o.label}
+                      value={PractitionerQualificationCodesDisplay.find((o) => o.value === field.value) ?? null}
+                      onChange={(_, v) => field.onChange(v?.value ?? '')}
+                      isOptionEqualToValue={(o, v) => o.value === v.value}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="License Type *"
+                          error={!!fieldError}
+                          helperText={fieldError?.message}
+                        />
+                      )}
+                    />
+                  )}
+                />
+              )}
+              <Controller
+                name="taxonomyCode"
+                control={control}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  validate: (value) => (value && value.length === 10) || 'Taxonomy code must be exactly 10 characters',
+                }}
+                render={({ field, fieldState: { error: fieldError } }) => (
+                  <Box>
+                    <TextField
+                      label="Taxonomy Code *"
+                      size="small"
+                      fullWidth
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      error={!!fieldError}
+                      helperText={fieldError?.message}
+                    />
+                    <Typography variant="caption">
+                      Look up taxonomy codes{' '}
+                      <Link target="_blank" href="https://npiregistry.cms.hhs.gov/search">
+                        here
+                      </Link>
+                      .
+                    </Typography>
+                  </Box>
+                )}
+              />
+
+              <Box sx={{ display: 'flex', gap: 4 }}>
+                <Controller
+                  name="renders"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={<Switch checked={field.value} onChange={(_event, checked) => field.onChange(checked)} />}
+                      label="Renders medical services"
+                    />
+                  )}
+                />
+                <Controller
+                  name="bills"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControlLabel
+                      control={<Switch checked={field.value} onChange={(_event, checked) => field.onChange(checked)} />}
+                      label="Bills medical services"
+                    />
+                  )}
+                />
+              </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 4 }}>
-              <FormControlLabel
-                control={<Switch checked={renders} onChange={(e) => setRenders(e.target.checked)} />}
-                label="Renders medical services"
-              />
-              <FormControlLabel
-                control={<Switch checked={bills} onChange={(e) => setBills(e.target.checked)} />}
-                label="Bills medical services"
-              />
+            {/* Right: address */}
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+                borderLeft: 1,
+                borderColor: 'divider',
+                pl: 5,
+              }}
+            >
+              <AddressFields />
             </Box>
           </Box>
-
-          {/* Right: address */}
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2.5,
-              borderLeft: 1,
-              borderColor: 'divider',
-              pl: 5,
-            }}
-          >
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Address
-            </Typography>
-            <Field label="Address 1">
-              <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
-            </Field>
-            <Field label="Address 2 (Optional)">
-              <TextField size="small" fullWidth value={line2} onChange={(e) => setLine2(e.target.value)} />
-            </Field>
-            <Field label="City">
-              <TextField size="small" fullWidth value={city} onChange={(e) => setCity(e.target.value)} />
-            </Field>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Field label="State" sx={{ flex: 1 }}>
-                <TextField size="small" fullWidth value={state} onChange={(e) => setState(e.target.value)} />
-              </Field>
-              <Field label="Zip Code" sx={{ flex: 1 }}>
-                <TextField size="small" fullWidth value={zip} onChange={(e) => setZip(e.target.value)} />
-              </Field>
-            </Box>
-          </Box>
-        </Box>
+        </FormProvider>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={() => void handleSave()} disabled={saving || !canSave}>
-          {saving ? 'Saving...' : 'Save'}
+        <Button
+          variant="contained"
+          startIcon={isSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+          onClick={handleSubmit(handleSave)}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? 'Saving...' : 'Save'}
         </Button>
       </DialogActions>
     </Dialog>

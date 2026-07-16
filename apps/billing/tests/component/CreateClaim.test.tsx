@@ -40,7 +40,7 @@ describe('CreateClaim — required-field validation', () => {
   it('keeps Create enabled and surfaces required errors instead of submitting when the form is empty', async () => {
     renderCreateClaim();
 
-    const createButton = screen.getByRole('button', { name: 'Create' });
+    const createButton = screen.getAllByRole('button', { name: 'Create' })[0];
     expect(createButton).toBeEnabled();
 
     fireEvent.click(createButton);
@@ -48,14 +48,11 @@ describe('CreateClaim — required-field validation', () => {
     // Patient, Rendering Provider, Service Facility, and Billing Provider are all required RHF
     // fields → shared "This field is required" message (≥4). Date of service is now per service line.
     const requiredMessages = await screen.findAllByText('This field is required');
-    expect(requiredMessages.length).toBeGreaterThanOrEqual(4);
+    expect(requiredMessages.length).toBeGreaterThanOrEqual(5);
 
     // Diagnoses and Service Lines have their own validation messages.
     expect(screen.getByText('At least one diagnosis is required')).toBeInTheDocument();
     expect(screen.getByText('At least one service line with a CPT code is required')).toBeInTheDocument();
-
-    // AR Stage (outside RHF) turns red with its own "Required" placeholder only after the click.
-    expect(screen.getByText('Required')).toBeInTheDocument();
 
     // Nothing should have been submitted.
     expect(createBillingClaimMock).not.toHaveBeenCalled();

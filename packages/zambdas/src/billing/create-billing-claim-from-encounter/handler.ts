@@ -181,7 +181,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
-  const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
+  const agent = await resolveClaimActor('system', billingOystehr, undefined, params.secrets);
 
   const response = await performEffect(billingOystehr, cvo, agent);
   // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).

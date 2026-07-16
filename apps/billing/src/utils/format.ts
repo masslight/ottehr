@@ -23,18 +23,18 @@ export function splitDisplayName(name: string): { firstName: string; lastName: s
 
 // Returns undefined when every field is blank.
 export function buildAddressInput(
-  line1: string,
-  line2: string,
-  city: string,
-  state: string,
-  zip: string
+  line1: string | null,
+  line2: string | null,
+  city: string | null,
+  state: string | null,
+  zip: string | null
 ): { line1?: string; line2?: string; city?: string; state?: string; postalCode?: string } | undefined {
   const address = {
-    ...(line1.trim() ? { line1: line1.trim() } : {}),
-    ...(line2.trim() ? { line2: line2.trim() } : {}),
-    ...(city.trim() ? { city: city.trim() } : {}),
-    ...(state.trim() ? { state: state.trim() } : {}),
-    ...(zip.trim() ? { postalCode: zip.trim() } : {}),
+    ...(line1?.trim() ? { line1: line1.trim() } : {}),
+    ...(line2?.trim() ? { line2: line2.trim() } : {}),
+    ...(city?.trim() ? { city: city.trim() } : {}),
+    ...(state?.trim() ? { state: state.trim().toUpperCase() } : {}),
+    ...(zip?.trim() ? { postalCode: zip.trim() } : {}),
   };
   return Object.keys(address).length ? address : undefined;
 }
