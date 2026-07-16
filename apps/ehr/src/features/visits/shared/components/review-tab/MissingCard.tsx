@@ -6,15 +6,23 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useCreateExternalLabStore } from 'src/features/external-labs/store/external-lab.store';
+import {
+  getAssessmentUrl,
+  getChiefComplaintUrl,
+  getExternalLabOrderCreateUrl,
+  getHPIUrl,
+} from 'src/features/visits/in-person/routing/helpers';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
-import { useChartData } from '../../stores/appointment/appointment.store';
+import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
+  const { encounter } = useAppointmentData();
   const { chartData } = useChartData();
+  const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
 
   const { data: chartFields, isFetching } = useChartFields({
     requestedFields: {
@@ -79,12 +87,14 @@ export const MissingCard: FC = () => {
     return null;
   }
 
-  const navigateTo = (target: 'patient-info' | 'chief-complaint' | 'hpi' | 'assessment'): void => {
-    const inPersonRoutes: Record<'patient-info' | 'chief-complaint' | 'hpi' | 'assessment', string> = {
+  type NavigationKey = 'patient-info' | 'chief-complaint' | 'hpi' | 'assessment' | 'external-lab';
+  const navigateTo = (target: NavigationKey): void => {
+    const inPersonRoutes: Record<NavigationKey, string> = {
       'patient-info': getChiefComplaintUrl(appointmentIdFromUrl || ''),
       'chief-complaint': getChiefComplaintUrl(appointmentIdFromUrl || ''),
       hpi: getHPIUrl(appointmentIdFromUrl || ''),
       assessment: getAssessmentUrl(appointmentIdFromUrl || ''),
+      'external-lab': getExternalLabOrderCreateUrl(appointmentIdFromUrl || ''),
     };
 
     requestAnimationFrame(() => {
@@ -207,6 +217,16 @@ export const MissingCard: FC = () => {
                 {suggestionNote}
               </Link>
             </div>
+          )}
+          {encounter?.id && hasExternalLabDraft(encounter.id) && (
+            <Link
+              component="button"
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={() => navigateTo('external-lab')}
+            >
+              Draft External Lab Order
+            </Link>
           )}
         </Box>
       </Box>

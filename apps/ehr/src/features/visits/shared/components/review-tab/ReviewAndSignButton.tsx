@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { useCreateExternalLabStore } from 'src/features/external-labs/store/external-lab.store';
 import { usePractitionerActions } from 'src/features/visits/shared/hooks/usePractitioner';
 import { usePendingSupervisorApproval } from 'src/features/visits/telemed/hooks/usePendingSupervisorApproval';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -34,6 +35,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { chartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isFollowup = appointmentAccessibility.visitType === 'follow-up';
+  const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
 
   const { data: chartFields } = useChartFields({
     requestedFields: {
@@ -139,6 +141,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       );
     }
 
+    if (encounter.id && hasExternalLabDraft(encounter.id)) {
+      messages.push('Complete or clear the in-progress external lab order to sign');
+    }
+
     return messages;
   }, [
     completed,
@@ -154,6 +160,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     inHouseLabResultsPending,
     isFollowup,
     inHouseLabReflexTestPending,
+    hasExternalLabDraft,
+    encounter.id,
   ]);
 
   const handleCloseTooltip = (): void => {
