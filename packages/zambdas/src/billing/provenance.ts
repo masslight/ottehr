@@ -22,6 +22,8 @@ import {
   CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   CLAIM_STATUS_FIELDS,
+  CLAIM_SYSTEM_DEVICE_IDENTIFIER,
+  CLAIM_SYSTEM_DEVICE_NAME,
   CLAIM_TAG_SYSTEM,
   ClaimFieldChange,
   ClaimProvenanceActivityKey,
@@ -35,7 +37,6 @@ import {
   getTaxID,
   HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
-  removePrefix,
   Secrets,
   userMe,
 } from 'utils';
@@ -261,6 +262,7 @@ export function diffResources(before: Resource | undefined, after: Resource | un
 
 // Cached across warm invocations (per module scope), like the M2M token.
 let rulesEngineDeviceId: string | undefined;
+let systemDeviceId: string | undefined;
 
 /**
  * Resolve (and lazily provision) the singleton Device representing the automated billing rules engine.
@@ -301,6 +303,45 @@ export async function ensureRulesEngineDevice(oystehr: Oystehr): Promise<string>
 }
 
 /**
+ * Resolve (and lazily provision) the singleton Device representing general system automation
+ * that is not specifically attributable to the rules engine.
+ */
+export async function ensureSystemDevice(oystehr: Oystehr): Promise<string> {
+  if (systemDeviceId) return systemDeviceId;
+
+  const identifierToken = `${CLAIM_SYSTEM_DEVICE_IDENTIFIER.system}|${CLAIM_SYSTEM_DEVICE_IDENTIFIER.value}`;
+  const tx = await oystehr.fhir.transaction<Device>({
+    requests: [
+      {
+        method: 'POST',
+        url: '/Device',
+        resource: {
+          resourceType: 'Device',
+          identifier: [CLAIM_SYSTEM_DEVICE_IDENTIFIER],
+          deviceName: [{ name: CLAIM_SYSTEM_DEVICE_NAME, type: 'user-friendly-name' }],
+          status: 'active',
+        },
+        ifNoneExist: [{ name: 'identifier', value: identifierToken }],
+      },
+    ],
+  });
+  let device = tx.entry?.[0]?.resource;
+  if (!device?.id) {
+    device = (
+      await oystehr.fhir.search<Device>({
+        resourceType: 'Device',
+        params: [{ name: 'identifier', value: identifierToken }],
+      })
+    ).unbundle()[0];
+  }
+  if (!device?.id) throw new Error('Failed to resolve the system Device');
+  systemDeviceId = device.id;
+  return systemDeviceId;
+}
+
+type ClaimProvenanceActorWho = 'caller' | 'system' | 'rules';
+
+/**
  * Resolve the acting agent for a billing mutation. FHIR operations run on the M2M client — the
  * Authorization header is identity-only. A caller with a Practitioner profile is the human actor;
  * an authenticated caller without one (M2M automation) is the rules-engine Device. A failure to
@@ -308,26 +349,38 @@ export async function ensureRulesEngineDevice(oystehr: Oystehr): Promise<string>
  * retryable error.
  */
 export async function resolveClaimActor(
+  who: ClaimProvenanceActorWho,
   oystehr: Oystehr,
   authorizationHeader: string | undefined,
   secrets: Secrets | null
 ): Promise<ProvenanceAgent> {
-  const token = authorizationHeader?.replace('Bearer ', '');
-  if (token) {
-    const user = await userMe(token, secrets);
-    const practitionerId = user.profile ? removePrefix('Practitioner/', user.profile) : undefined;
-    if (practitionerId) {
+  switch (who) {
+    case 'caller': {
+      if (!authorizationHeader) throw new Error('Missing Authorization header for caller actor');
+      const token = authorizationHeader?.replace('Bearer ', '');
+      if (!token) throw new Error('Missing token for caller actor');
+      const user = await userMe(token, secrets);
+      if (!user.profile?.includes('Practitioner/')) throw new Error('Caller is not a Practitioner for caller actor');
       return {
         type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] },
-        who: { reference: `Practitioner/${practitionerId}` },
+        who: { reference: user.profile },
+      };
+    }
+    case 'system': {
+      const deviceId = await ensureSystemDevice(oystehr);
+      return {
+        type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] },
+        who: { reference: `Device/${deviceId}` },
+      };
+    }
+    case 'rules': {
+      const deviceId = await ensureRulesEngineDevice(oystehr);
+      return {
+        type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] },
+        who: { reference: `Device/${deviceId}` },
       };
     }
   }
-  const deviceId = await ensureRulesEngineDevice(oystehr);
-  return {
-    type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] },
-    who: { reference: `Device/${deviceId}` },
-  };
 }
 
 // --- Provenance request building --------------------------------------------

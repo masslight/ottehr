@@ -68,7 +68,7 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
   const oystehr = createBillingClient(m2mToken, secrets);
   // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
   // change the engine writes lands in the claim history attributed to it.
-  const agent = await resolveClaimActor(oystehr, undefined, secrets);
+  const agent = await resolveClaimActor('rules', oystehr, undefined, secrets);
   const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
   try {

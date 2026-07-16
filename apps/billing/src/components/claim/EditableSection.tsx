@@ -1,6 +1,6 @@
 import { Edit as EditIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Card, CardContent, Collapse, Typography } from '@mui/material';
-import { ReactElement, ReactNode, useState } from 'react';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Collapse, Typography } from '@mui/material';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
 import { DefaultValues, FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils';
 
@@ -30,6 +30,10 @@ export const EditableSection = <T extends FieldValues>({
     formState: { isSubmitting },
   } = methods;
 
+  useEffect(() => {
+    reset(defaultValues);
+  }, [reset, defaultValues]);
+
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +54,7 @@ export const EditableSection = <T extends FieldValues>({
   const handleCancel = (): void => {
     setEditing(false);
     setError(null);
-    reset();
+    reset(defaultValues);
     onCancel?.();
   };
 
@@ -84,11 +88,37 @@ export const EditableSection = <T extends FieldValues>({
         )}
         <Collapse in={!editing}>{children}</Collapse>
         <Collapse in={editing}>
+          {/* {defaultValues ? ( */}
           <FormProvider {...methods}>
             <Box sx={{ mt: 2 }}>{editForm}</Box>
           </FormProvider>
+          {/* ) : ( */}
+          {/* <></> */}
+          {/* )} */}
         </Collapse>
       </CardContent>
     </Card>
   );
 };
+
+export function EditableSectionSkeleton({ title }: { title: string }): ReactElement {
+  return (
+    <Card variant="outlined" sx={{ mb: 2 }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
+            {title}
+          </Typography>
+          <Button size="small" startIcon={<EditIcon fontSize="small" />} disabled={true}>
+            Edit
+          </Button>
+        </Box>
+        <Collapse in={true}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <CircularProgress />
+          </Box>
+        </Collapse>
+      </CardContent>
+    </Card>
+  );
+}

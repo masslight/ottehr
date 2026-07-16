@@ -27,7 +27,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.7';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.8';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -1536,6 +1536,14 @@ function buildFormFields(
           label: '',
           type: 'boolean',
           dataType: 'Payment Validation',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-has-medicaid',
+              effect: ['require'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+          ],
         },
         detailsText: {
           key: 'card-payment-details-text',

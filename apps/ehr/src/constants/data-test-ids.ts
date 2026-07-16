@@ -417,6 +417,7 @@ export const dataTestIds = {
     heightItem: 'height-item',
     bmiCard: 'bmi-card',
     bmiInfoMessage: 'bmi-info-message',
+    bmiWeightRefusedWarning: 'bmi-weight-refused-warning',
     bmiItem: 'bmi-item',
     visionHeader: 'vision-header',
     visionLeftInput: 'vision-left-input',

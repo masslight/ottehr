@@ -183,7 +183,7 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
-  const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
+  const agent = await resolveClaimActor('system', billingOystehr, undefined, params.secrets);
 
   const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
   const engine = determineRulesEngineForClaim(claim);
