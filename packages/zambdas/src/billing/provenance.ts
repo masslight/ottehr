@@ -349,14 +349,17 @@ export interface ClaimProvenanceArgs {
   extraChanges?: ClaimFieldChange[];
 }
 
+// Activities that record an event rather than a mutation — always written, even with an empty diff.
+const ALWAYS_RECORDED_ACTIVITIES: ReadonlySet<ClaimProvenanceActivityKey> = new Set(['create', 'delete', 'submit']);
+
 /**
  * Build the POST request for a Provenance describing a single change. Returns null for an update
- * whose diff is empty (a no-op mutation gets no history entry); creates/deletes always produce a
- * record. target[0] is the changed resource; the claim is appended as a second target.
+ * whose diff is empty (a no-op mutation gets no history entry); creates/deletes/submits always
+ * produce a record. target[0] is the changed resource; the claim is appended as a second target.
  */
 export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPostRequest<Provenance> | null {
   const changes = [...diffResources(args.before, args.after), ...(args.extraChanges ?? [])];
-  if (args.activity !== 'create' && args.activity !== 'delete' && changes.length === 0) return null;
+  if (!ALWAYS_RECORDED_ACTIVITIES.has(args.activity) && changes.length === 0) return null;
 
   const target = [{ reference: args.targetReference }];
   if (args.claimReference !== args.targetReference) target.push({ reference: args.claimReference });
@@ -481,6 +484,25 @@ export async function commitClaimMetaTagsWithProvenance(
   });
   const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
   await oystehr.fhir.transaction<FhirResource>({ requests });
+}
+
+/**
+ * Record a claim's submission to the payer as its own Provenance. The submission is an event, not a
+ * resource mutation, so it is written on its own rather than riding along with the follow-up status
+ * change — a status write that fails or diffs to a no-op (e.g. a re-submission) must not erase the
+ * record of who submitted the claim.
+ */
+export async function recordClaimSubmission(oystehr: Oystehr, claim: Claim, agent: ProvenanceAgent): Promise<void> {
+  const claimReference = `Claim/${claim.id}`;
+  const request = claimProvenanceRequest({
+    targetReference: claimReference,
+    claimReference,
+    agent,
+    activity: 'submit',
+    recorded: recordedNow(),
+  });
+  if (!request) throw new Error(`Failed to build the submission Provenance for ${claimReference}`);
+  await oystehr.fhir.transaction<Provenance>({ requests: [request] });
 }
 
 /**

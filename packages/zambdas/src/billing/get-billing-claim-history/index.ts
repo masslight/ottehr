@@ -234,6 +234,8 @@ function activityDisplay(code: string, resourceType: string): string {
       return `Update ${label}`;
     case CLAIM_PROVENANCE_ACTIVITY_CODES.delete:
       return `Delete ${label}`;
+    case CLAIM_PROVENANCE_ACTIVITY_CODES.submit:
+      return `Submit ${label}`;
     case CLAIM_PROVENANCE_ACTIVITY_CODES.statusChange:
       return 'Status change';
     case CLAIM_PROVENANCE_ACTIVITY_CODES.tagChange:

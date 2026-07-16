@@ -9,7 +9,7 @@ import {
   SubmitBillingClaimsResponse,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { applyClaimStatusField, resolveClaimActor } from '../provenance';
+import { applyClaimStatusField, recordClaimSubmission, resolveClaimActor } from '../provenance';
 import { assertValidClaimStatusField, createBillingClient, fetchById } from '../shared';
 import { SubmitBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -59,6 +59,14 @@ export async function performEffect(
       }
 
       await oystehr.rcm.submitClaim({ claimId });
+
+      // The payer already has the claim, so a failure to write either record below must not fail
+      // the submission (an 'error' result would invite a duplicate re-submit) — log and move on.
+      try {
+        await recordClaimSubmission(oystehr, claim, agent);
+      } catch (provenanceErr) {
+        console.error(`Claim ${claimId} submitted but failed to record the submission Provenance:`, provenanceErr);
+      }
 
       try {
         const value = assertValidClaimStatusField('insuranceArStatus', 'submitted');

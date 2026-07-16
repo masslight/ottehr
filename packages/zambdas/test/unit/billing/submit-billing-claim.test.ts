@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ProvenanceAgent } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils';
+import { Claim, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { AR_STAGE, CLAIM_PROVENANCE_ACTIVITY_CODES, CLAIM_STATUS_TAG_SYSTEMS } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/submit-billing-claim';
 
@@ -72,15 +72,27 @@ const makeOystehr = (
   };
 };
 
-// The status change commits as a transaction: a JSON-Patch Binary against the claim plus a
-// Provenance. Pull the patched /meta/tag array out of the Binary's base64-encoded operations.
+// Every request posted across all transactions, flattened. A submission commits two transactions:
+// the submission Provenance, then the status change (a JSON-Patch Binary plus its own Provenance).
+const allRequests = (transaction: ReturnType<typeof vi.fn>): { resource?: { resourceType?: string } }[] =>
+  transaction.mock.calls.flatMap((call) => call[0].requests);
+
+// Pull the patched /meta/tag array out of the status-change Binary's base64-encoded operations.
 const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; code: string }[] => {
-  const binary = transaction.mock.calls[0][0].requests.find(
-    (r: { resource?: { resourceType?: string } }) => r.resource?.resourceType === 'Binary'
-  );
+  const binary = allRequests(transaction).find((r) => r.resource?.resourceType === 'Binary') as {
+    resource: { data: string };
+  };
   const ops = JSON.parse(Buffer.from(binary.resource.data, 'base64').toString('utf-8'));
   return ops[0].value;
 };
+
+const submissionProvenances = (transaction: ReturnType<typeof vi.fn>): Provenance[] =>
+  allRequests(transaction)
+    .map((r) => r.resource as Provenance | undefined)
+    .filter(
+      (r): r is Provenance =>
+        r?.resourceType === 'Provenance' && r.activity?.coding?.[0]?.code === CLAIM_PROVENANCE_ACTIVITY_CODES.submit
+    );
 
 describe('submit-billing-claim performEffect', () => {
   it('submits an Insurance Payer AR claim and sets its insurance AR status to submitted', async () => {
@@ -106,6 +118,24 @@ describe('submit-billing-claim performEffect', () => {
       system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
       code: 'submitted',
     });
+  });
+
+  it('records a submission Provenance attributing the acting user', async () => {
+    const { oystehr, transaction } = makeOystehr([makeClaim('c1', AR_STAGE.insurancePayer)]);
+
+    await performEffect(
+      oystehr,
+      {
+        claimIds: ['c1'],
+        secrets,
+      },
+      agent
+    );
+
+    const provenances = submissionProvenances(transaction);
+    expect(provenances).toHaveLength(1);
+    expect(provenances[0].target).toEqual([{ reference: 'Claim/c1' }]);
+    expect(provenances[0].agent).toEqual([agent]);
   });
 
   it('rejects a claim that is not in Insurance Payer AR without calling the payer', async () => {
@@ -192,6 +222,52 @@ describe('submit-billing-claim performEffect', () => {
         status: 'submitted',
       },
     ]);
+    errorSpy.mockRestore();
+  });
+
+  it('still records the submission Provenance when the status write fails', async () => {
+    const { oystehr, transaction } = makeOystehr([makeClaim('c6', AR_STAGE.insurancePayer)]);
+    // Fail only the status-change transaction (the one carrying the JSON-Patch Binary).
+    transaction.mockImplementation(({ requests }: { requests: { resource?: { resourceType?: string } }[] }) =>
+      requests.some((r) => r.resource?.resourceType === 'Binary')
+        ? Promise.reject(new Error('version conflict'))
+        : Promise.resolve({ entry: [] })
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await performEffect(
+      oystehr,
+      {
+        claimIds: ['c6'],
+        secrets,
+      },
+      agent
+    );
+
+    expect(response.results).toEqual([{ claimId: 'c6', status: 'submitted' }]);
+    expect(submissionProvenances(transaction)).toHaveLength(1);
+    errorSpy.mockRestore();
+  });
+
+  it('still sets the status and reports submitted when the submission Provenance write fails', async () => {
+    const { oystehr, transaction } = makeOystehr([makeClaim('c7', AR_STAGE.insurancePayer)]);
+    transaction.mockRejectedValueOnce(new Error('provenance write failed'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await performEffect(
+      oystehr,
+      {
+        claimIds: ['c7'],
+        secrets,
+      },
+      agent
+    );
+
+    expect(response.results).toEqual([{ claimId: 'c7', status: 'submitted' }]);
+    expect(patchedTags(transaction)).toContainEqual({
+      system: CLAIM_STATUS_TAG_SYSTEMS.insuranceArStatus,
+      code: 'submitted',
+    });
     errorSpy.mockRestore();
   });
 

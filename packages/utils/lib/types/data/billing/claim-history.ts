@@ -9,6 +9,7 @@ export const CLAIM_PROVENANCE_ACTIVITY_CODES = {
   create: 'CREATE',
   update: 'UPDATE',
   delete: 'DELETE',
+  submit: 'SUBMIT',
   statusChange: 'STATUS CHANGE',
   tagChange: 'TAG CHANGE',
 } as const;
@@ -25,6 +26,7 @@ export const CLAIM_PROVENANCE_ACTIVITY: Record<ClaimProvenanceActivityKey, Codin
   create: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.create, 'Create'),
   update: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.update, 'Update'),
   delete: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.delete, 'Delete'),
+  submit: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.submit, 'Submit'),
   statusChange: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.statusChange, 'Status change'),
   tagChange: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.tagChange, 'Tag change'),
 };

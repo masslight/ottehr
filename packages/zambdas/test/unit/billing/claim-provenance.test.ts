@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
-import { Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils';
+import { Claim, Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import { CLAIM_PROVENANCE_ACTIVITY_CODES, CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import {
   claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimResourceChange,
   diffResources,
+  recordClaimSubmission,
 } from '../../../src/billing/provenance';
 
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/u1' } };
@@ -147,6 +148,20 @@ describe('claimProvenanceRequest', () => {
     expect(req).not.toBeNull();
   });
 
+  it('always records a submit even though it has no diff', () => {
+    const req = claimProvenanceRequest({
+      targetReference: CLAIM_REF,
+      claimReference: CLAIM_REF,
+      agent,
+      activity: 'submit',
+      recorded: 't',
+    });
+    expect(req).not.toBeNull();
+    const prov = req!.resource as Provenance;
+    expect(prov.activity?.coding?.[0]?.code).toBe(CLAIM_PROVENANCE_ACTIVITY_CODES.submit);
+    expect(parseChanges(prov)).toEqual([]);
+  });
+
   it('attaches the prior-version reference when provided', () => {
     const req = claimProvenanceRequest({
       targetReference: 'Coverage/1',
@@ -162,6 +177,26 @@ describe('claimProvenanceRequest', () => {
       role: 'revision',
       what: { reference: 'Coverage/1/_history/3' },
     });
+  });
+});
+
+describe('recordClaimSubmission', () => {
+  it('posts a submit Provenance targeting the claim and attributing the agent', async () => {
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
+    const oystehr = { fhir: { transaction } } as unknown as Oystehr;
+    const claim = { resourceType: 'Claim', id: 'c1' } as Claim;
+
+    await recordClaimSubmission(oystehr, claim, agent);
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+    const requests = transaction.mock.calls[0][0].requests;
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ method: 'POST', url: '/Provenance' });
+    const prov = requests[0].resource as Provenance;
+    expect(prov.activity?.coding?.[0]?.code).toBe(CLAIM_PROVENANCE_ACTIVITY_CODES.submit);
+    expect(prov.target).toEqual([{ reference: CLAIM_REF }]);
+    expect(prov.agent).toEqual([agent]);
+    expect(prov.recorded).toBeTruthy();
   });
 });
 
