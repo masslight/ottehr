@@ -1,0 +1,346 @@
+import { captureException } from '@sentry/aws-serverless';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import {
+  AdHocReportTurn,
+  fixAndParseJsonObjectFromString,
+  GenerateAdHocReportOutput,
+  INVALID_INPUT_ERROR,
+} from 'utils';
+import { wrapHandler, ZambdaInput } from '../../shared';
+import { DEFAULT_VERTEX_MODEL, invokeChatbotVertexAI } from '../../shared/ai';
+import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'generate-adhoc-report';
+
+// Vertex model used to GENERATE the report code. Code generation benefits from a stronger model than
+// the default flash-lite, so this is split out for easy tuning — bump to a larger Gemini model
+// (one provisioned in this project) to improve generated-report quality. Kept at the default until
+// the target model is confirmed available.
+const REPORT_MODEL = DEFAULT_VERTEX_MODEL;
+
+const RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    code: { type: 'string' },
+    needsLayers: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['code'],
+};
+
+const buildPrompt = (
+  schema: object,
+  request: string,
+  conversation?: AdHocReportTurn[],
+  previousAttempt?: { code: string; error: string }
+): string => {
+  // The client rendered a prior generation for this request in its sandboxed iframe and it failed at
+  // runtime (threw, or rendered nothing). Feed the failing code + error back so the regeneration is
+  // an actual fix, not a reroll of the same deterministic output.
+  const previousAttemptBlock = previousAttempt
+    ? `\nIMPORTANT — A PREVIOUS ATTEMPT AT THIS REQUEST FAILED when it ran in the browser. The failure was:\n` +
+      `"${previousAttempt.error}"\n` +
+      `The failing code was:\n${previousAttempt.code}\n` +
+      `Return corrected code that fixes this failure — it must RUN without throwing (guard against ` +
+      `null/undefined field values and variables used outside their scope) and must render visible ` +
+      `content into document.body — while otherwise fulfilling the same request.\n`
+    : '';
+
+  const conversationBlock =
+    conversation && conversation.length > 0
+      ? `\nThis is a REFINEMENT of an earlier report. Prior turns (oldest first) — apply the new USER REQUEST\n` +
+        `as a modification of the most recent generated report:\n` +
+        conversation
+          .map((t) => `- ${t.role === 'assistant' ? 'previously generated code' : 'user'}: ${t.content}`)
+          .join('\n') +
+        `\n`
+      : '';
+
+  return `
+You are a data-reporting code generator for a clinical EHR. You are given the SCHEMA of a tabular
+dataset (column metadata only — never the rows) and a user's plain-language request. Produce
+JavaScript that renders the requested report.
+
+EXECUTION CONTRACT — your code is the BODY of a function executed in a sandboxed browser iframe:
+  function renderReport(data, schema, Chart) { <YOUR CODE HERE> }
+- "data": an array of row objects. Each row has exactly the fields named in the schema below; values
+  match the described types. This is the REAL dataset; you never see it, only its schema.
+- "schema": the schema object shown below (available if you want to introspect it).
+- "Chart": the Chart.js v4 constructor (already loaded). Make charts with new Chart(canvas, config).
+- "document": the iframe document. RENDER THE REPORT INTO document.body.
+
+RULES:
+- Use ONLY "data", "schema", "Chart", and standard built-in JavaScript + DOM APIs + Math.
+- NEVER use the network in any form: no fetch, XMLHttpRequest, WebSocket, import(), require, dynamic
+  script/img/link to external URLs, or any external resource. Everything is computed from "data".
+- Only reference field names that appear in the schema. For categorical filters, match the EXACT
+  value strings from a field's "values" domain (e.g. visitType is "Telemed"/"In-Person", never
+  "telemedicine"). Dates are "yyyy-MM-dd" strings; numbers are plain numbers; some values may be null.
+- LOCAL TIMEZONE (REQUIRED): ALWAYS display dates and times to the user in the browser's LOCAL
+  timezone. For any ISO timestamp field (e.g. a "...Time" / "...At" field), format with
+  new Date(iso).toLocaleString() / .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) /
+  .toLocaleDateString(). NEVER display a raw ISO string, and NEVER slice the time out of an ISO
+  string (e.g. iso.split('T')[1]) — that shows UTC, which is the wrong clock time for the user.
+  Fields already given as "yyyy-MM-dd" (like "date") are day-level labels for grouping; when you
+  need the actual clock time use the ISO timestamp field and format it locally.
+- NULL-SAFETY (REQUIRED): ANY field value may be null/undefined for some rows. NEVER call a method or
+  read a property on a value without guarding it first — e.g. to filter June visits write
+  row.date && row.date.startsWith("2026-06"), and to scan a code array write
+  (row.icdCodes || []).some(c => c && c.startsWith("H66")). A single null (e.g. a visit with no
+  date) calling .startsWith / .toLowerCase / .includes will crash the whole report. Skip or bucket
+  null values explicitly; never assume a field is populated.
+- Render tabular output as a real HTML <table> (with <thead>/<th> for the header row and <tbody> for
+  the data) — NOT a grid of <div>s. The app lifts every <table> out and re-renders it as an
+  interactive data grid (sortable, filterable, exportable columns), so a genuine <table> is what
+  gives the report those features; put a heading (<h2>/<h3>) immediately before a table to title it.
+  Render charts with Chart.js: create a <canvas>, append it to a sized container, then
+  new Chart(canvas, {...}). For a single metric, show a large number with a caption.
+- NEVER use \`element.innerHTML +=\`, and never reassign innerHTML on an element that already
+  contains rendered content (especially a chart <canvas>): it re-parses and re-creates every
+  existing child, silently wiping already-drawn charts to blank canvases. To add content next to
+  existing content, use element.insertAdjacentHTML('beforeend', html) or
+  document.createElement + appendChild. (Overwriting the innerHTML of a dedicated, otherwise-empty
+  drill-down container is fine.)
+- CHART LIBRARY LIMITS — only the bundled Chart.js v4 CORE is available; NO external Chart.js plugins
+  are loaded (chartjs-plugin-annotation, datalabels, zoom, etc. do NOT exist — config referencing
+  them is silently ignored, so the visual won't appear). To draw a threshold / benchmark / median /
+  quadrant reference line, add it as a DATA series instead (e.g. a line dataset holding the constant
+  value across the labels), or omit it — never rely on options.plugins.annotation.
+- BUBBLE / SCATTER RADIUS — never map a raw data value straight to a bubble radius "r": one large or
+  garbage value makes a giant bubble that swamps or blanks the chart. Compute the min and max of the
+  size values across ALL bubbles, normalize to a small pixel range, and ALWAYS hard-cap the result so
+  no single value can produce an oversized bubble — e.g.
+  r = Math.min(24, Math.max(4, 4 + 20 * (value - min) / (max - min || 1))).
+  Do NOT scale by a fixed divisor (like value/100) — that is unbounded. Likewise, for any chart, when
+  a few extreme outliers would flatten everything else, note it (and consider a sensible axis cap)
+  rather than letting the outlier dictate the whole scale.
+- HEATMAP TABLES — a table whose cells you shade by value (a "heatmap") is fine, but the app lifts
+  tables into a plain data grid; per-cell background colors set via inline style ARE preserved, so
+  set them with element.style.backgroundColor on each <td> (not a CSS class) for the shading to carry
+  through.
+- LINKS: when the user asks for clickable links to app pages, render standard anchors with a
+  RELATIVE href ('<a href="/path/...">') built from id fields whose schema descriptions document a
+  route. Links automatically open in a new browser tab — do NOT use window.open(), target
+  attributes, inline HTML onclick= attributes, or alert()/confirm()/prompt() (all blocked in this
+  sandbox). (A Chart.js options.onClick config callback is fine — see INTERACTIVE CHARTS.) Only
+  build hrefs from routes documented in the schema field descriptions — never invent URLs or link
+  to external sites. Match the link target to the words used: "progress note", "the note", "chart",
+  "visit", or "encounter" mean the VISIT's note route (review-and-sign / follow-up-note via
+  appointmentId) — NOT the patient profile. Only link to the patient profile when the user asks for
+  the "patient", "patient record/profile/chart". If a row is a follow-up (encounterType), use its
+  follow-up-note route.
+- INTERACTIVE CHARTS (drill-down): a chart MAY be made clickable to reveal detail. Use the Chart.js
+  config callback options.onClick(evt, elements) — this is a JS callback that runs in the sandbox
+  (NOT an HTML onclick= attribute), and it is allowed. On click, render the corresponding detail
+  rows into a container you created. CRITICAL: look up the detail rows by the SAME value you used to
+  build the axis. When the axis label is a value formatted for display (e.g. hour 13 shown as
+  "13:00", or a number shown with a unit), the safest pattern is to map the clicked element's INDEX
+  back to the original category/array (elements[0].index) rather than keying a lookup object by the
+  raw value and then reading it with the formatted label — those two keys differ ("13:00" !== 13)
+  and the lookup silently returns nothing. The report frame auto-resizes, so a detail table appended
+  on click displays normally (you don't need to pre-size for it).
+- NEVER FABRICATE DATA. Every number, label, and value you render MUST be deterministically derived
+  from the "data" rows and the schema fields. Math.random(), invented values, sample/placeholder
+  numbers, and estimated/made-up metrics are strictly forbidden — this is a clinical report and a
+  fabricated figure is worse than no figure. If the user asks for a metric that CANNOT be computed
+  from the schema fields (e.g. a field that does not exist), do NOT approximate or invent it:
+  render a clearly visible note such as "<metric> is not available in this dataset" (and omit that
+  column/series), while still rendering whatever parts of the request ARE computable.
+- NEVER REPURPOSE AN UNRELATED FIELD to stand in for a requested concept. A field may only be used
+  for what its schema description says it MEANS — not because its values superficially resemble the
+  request (e.g. if the user asks for "AI documentation type" and no such field exists, do NOT
+  present a booking/reason/status field as if it were that concept). When no schema field
+  semantically matches the requested concept, treat it as unavailable and say so, exactly as in the
+  no-fabrication rule above. Mislabeled real data is just as harmful as invented data.
+- NEVER SILENTLY SUBSTITUTE A PROXY FOR A CONCEPT. If the request names a concept the schema does
+  not carry, do not quietly redefine it with a heuristic (e.g. treating "patients with more than
+  one visit" as "patients with follow-up encounters"). Use the real field when one exists; if you
+  must approximate, the approximation MUST be disclosed prominently in the rendered report; if you
+  cannot reasonably approximate, say the concept is not available.
+- AUTO-LOAD MISSING LAYERS — DON'T tell the user to enable anything. The schema may include
+  "availableLayers" (opt-in data layers that EXIST for this dataset but are NOT currently loaded; each
+  has an "id", "label", "description") and "otherDatasets" (other datasets the user could pick). When
+  the requested concept is not in "fields" but clearly matches an availableLayer by name/description
+  (e.g. the user asks for prescribed drugs and a "Medications" layer is listed, or asks about vitals
+  and a "Vital signs" layer is listed), put that layer's "id" into the response's "needsLayers" array.
+  The app will automatically fetch that layer and re-run you with the fuller schema — there are NO
+  checkboxes for the user to tick, so NEVER instruct them to "enable" a layer. For THIS render (before
+  the data arrives), render whatever parts of the request ARE computable and, for the missing part,
+  show a brief note like "Loading <concept> data…" instead of a hard "not available" message. Only
+  when the concept matches NO availableLayer but DOES match an "otherDatasets" entry, render the
+  "<concept> is not available in this dataset" note and tell the user to switch to that dataset
+  (quoting its label) — switching datasets is a real user choice. Use ONLY ids/labels that appear in
+  the schema; never invent one. If the requested concept matches neither, treat it as unavailable per
+  the no-fabrication rule.
+- DON'T RECALL CODE SETS FROM MEMORY. A hand-typed list of full codes varies run to run and
+  silently misses codes actually present in the data, producing wrong or empty results. Instead:
+  - ICD-10 is HIERARCHICAL — select a diagnosis FAMILY by category PREFIX
+    (code.startsWith("H66") || code.startsWith("H65") for otitis media), which is deterministic and
+    catches every subtype.
+  - CPT/HCPCS is NOT hierarchical — never prefix-match it. When a code field's schema provides a
+    value domain (the distinct codes actually present), filter against THOSE codes. For a CPT
+    range/category match by numeric range (e.g. E&M 99202–99499), guarding non-numeric HCPCS codes.
+  - When the user names specific codes, match them exactly.
+  Disclose the actual criteria used (prefixes, ranges, or the matched codes), per the rule below.
+- INTERACTIVE TABLES (drill-down): a TABLE can also be made clickable. Tables you render are lifted
+  out of the frame and shown as interactive grids in the parent; a row click is posted back to your
+  code. To use it, assign a handler: window.reportRowClick = function(row, tableLabel) { ... }.
+  "row" is an object keyed by that table's column header text → the clicked cell's text (e.g.
+  row["Medication"]); "tableLabel" is the table's heading (use it to ignore clicks from other tables
+  if you render several). In the handler, compute the detail from the SAME "data" rows (your handler
+  closes over data) and render a detail <table> into the document — give it an <h3> heading, and
+  REPLACE the previous detail on each click (keep a single container, e.g.
+  document.getElementById("drill") || a div you append once, and overwrite its innerHTML) so detail
+  tables don't stack. The detail table is lifted to its own grid automatically. Define
+  window.reportRowClick during your initial render (not inside a chart callback). Use this when the
+  user asks to click a table row/name to reveal related detail rows.
+- DISCLOSE SELECTION CRITERIA: when a report includes/excludes or groups rows by a criterion the
+  reader cannot see at a glance — a set of codes (e.g. the specific ICD-10 codes you treat as
+  "otitis media"), a value list, a numeric threshold, or a category you defined — state the ACTUAL
+  criteria in the report header or a subtitle (list the matched codes/values, not just a vague label
+  like "otitis media visits"). The reader must be able to see exactly what was counted without
+  reading the code, and how excluded/unmatched rows were handled.
+- DERIVED SCORES / MAPPINGS: when the request requires applying knowledge that is not in the data
+  itself (a scoring scale, a code-to-category mapping, a grouping rule), prefer a mapping documented
+  in the schema field descriptions; only fall back to standard published domain knowledge, applied
+  internally consistently. The report MUST visibly display the mapping/assumption it used (a small
+  legend or footnote table) and state how unmapped values were handled (e.g. "n visits excluded —
+  no mapping") — never bury a derivation rule where only the code shows it.
+- ONLY BUILD REPORTS. If the USER REQUEST is not a comprehensible report specification — a general
+  question ("what should I do?"), a greeting, advice-seeking, chat, or gibberish — do NOT improvise
+  a default report and do NOT answer the question. Instead render a short help panel: one sentence
+  stating that this tool generates reports over the currently fetched dataset, then 3-4 concrete
+  example requests phrased for THIS schema (e.g. a chart by a categorical field, a table grouped by
+  two fields, an average of a numeric field by category), and the dataset's row count and date
+  range. Set the title to "How to use Ad-Hoc Reports".
+- Handle the empty case (data.length === 0) with a friendly "No data for the selected range" message.
+- Be self-contained and side-effecting: render by mutating document.body; return nothing.
+- Return ONLY the statements that go INSIDE the function body — do NOT include the function declaration
+  and do NOT wrap the code in markdown fences.
+
+DATASET SCHEMA:
+${JSON.stringify(schema, null, 2)}
+${conversationBlock}${previousAttemptBlock}
+USER REQUEST:
+"""
+${request}
+"""
+
+Return JSON: { "title": "<short report title>", "code": "<the function-body JavaScript>" }
+`;
+};
+
+// Returns null if the code parses as a JS function body, or the SyntaxError message if not.
+// new Function only COMPILES the body (it never runs it — the returned function is discarded,
+// never invoked), so this is a safe parse check — the same parse the sandboxed iframe does via
+// `new Function('data','schema','Chart', code)`. Catching it here stops a malformed generation
+// reaching the browser as a cryptic "Invalid or unexpected token".
+//
+// This is the ONLY thing the server ever does with the generated code besides string checks: no
+// path executes model output server-side. Runtime validation (does it actually render?) happens in
+// the client's sandboxed iframe, which feeds failures back via `previousAttempt` for regeneration.
+export const jsSyntaxError = (code: string): string | null => {
+  try {
+    new Function('data', 'schema', 'Chart', code);
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
+};
+
+// One real generation per request. The server NEVER executes the generated code — executing
+// untrusted model output server-side is an arbitrary-code-execution surface (the old vm/child-process
+// execute-validator was removed for exactly that reason). The only server-side gates are STATIC
+// (string checks + the compile-only parse above); "does it actually render?" is validated by the
+// CLIENT in its sandboxed iframe, which regenerates via `previousAttempt` on failure. The small
+// attempt budget here only covers those cheap static gates (and model-transport failures), so a
+// trivially malformed generation is retried once without a client round-trip.
+const MAX_ATTEMPTS = 2;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { schema, request, conversation, previousAttempt, secrets } = validateRequestParameters(input);
+
+  const basePrompt = buildPrompt(schema, request, conversation, previousAttempt);
+  let lastError = '';
+
+  // The model is effectively deterministic per prompt, so a plain retry would reproduce the same bad
+  // output — each retry appends the prior failure so the prompt (and thus the output) changes.
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const prompt =
+      attempt === 0
+        ? basePrompt
+        : `${basePrompt}\n\nIMPORTANT: your previous attempt produced output that was not usable ` +
+          `(${lastError}). Return ONLY a valid JSON object whose "code" field is the function BODY — ` +
+          `no markdown fences, no commentary, no \`function renderReport(){…}\` wrapper. The code must ` +
+          `RUN without throwing (watch for variables used outside their scope) and must render into ` +
+          `document.body.`;
+
+    // The model call itself can throw (transport failure, or a malformed/safety-filtered response
+    // with no candidate text). That must consume ONE attempt and retry — not escape the loop as a
+    // generic 500 with the rest of the retry budget unused.
+    let raw: string;
+    try {
+      raw = await invokeChatbotVertexAI([{ text: prompt }], secrets, RESPONSE_SCHEMA, REPORT_MODEL);
+    } catch (error) {
+      captureException(error);
+      lastError = `the model call failed (${error instanceof Error ? error.message : String(error)})`;
+      continue;
+    }
+
+    let parsed: { code?: unknown; title?: unknown; needsLayers?: unknown };
+    try {
+      parsed = fixAndParseJsonObjectFromString(raw) as { code?: unknown; title?: unknown; needsLayers?: unknown };
+    } catch {
+      lastError = 'response was not valid JSON';
+      continue;
+    }
+    if (!parsed || typeof parsed.code !== 'string' || !parsed.code.trim()) {
+      lastError = 'no code field was returned';
+      continue;
+    }
+
+    // Hard backstop for the no-fabrication rule: randomness in a report means invented numbers.
+    // Retryable — the use may be innocuous (jitter, colors, ids), so feed the rule back and let the
+    // model regenerate without it; if every attempt reaches for randomness, the exhaustion error
+    // after the loop still surfaces.
+    if (/Math\.random/.test(parsed.code)) {
+      lastError =
+        'the code used Math.random — reports must NEVER use randomness (random numbers read as ' +
+        'fabricated data). Derive every value from the data rows; if a requested metric is not in ' +
+        'the dataset, omit it and state that in the rendered report instead of inventing it';
+      continue;
+    }
+
+    // Retryable backstop: `innerHTML +=` re-serializes and re-parses every existing child, so an
+    // already-painted chart <canvas> comes back blank — the report silently loses its charts (no
+    // error is thrown, so even the client's render check can't see it). Like the Math.random guard
+    // above, it's a problem the model can fix, so feed it back and regenerate.
+    if (/\.innerHTML\s*\+=/.test(parsed.code)) {
+      lastError =
+        'the code used `innerHTML +=`, which destroys previously-rendered chart canvases — build ' +
+        'content with insertAdjacentHTML("beforeend", …) or appendChild instead';
+      continue;
+    }
+
+    const syntaxError = jsSyntaxError(parsed.code);
+    if (syntaxError) {
+      lastError = `the code did not parse (${syntaxError})`;
+      continue;
+    }
+
+    const needsLayers = Array.isArray(parsed.needsLayers)
+      ? parsed.needsLayers.filter((id): id is string => typeof id === 'string')
+      : undefined;
+    const output: GenerateAdHocReportOutput = {
+      code: parsed.code,
+      title: typeof parsed.title === 'string' ? parsed.title : undefined,
+      ...(needsLayers && needsLayers.length ? { needsLayers } : {}),
+    };
+    return { statusCode: 200, body: JSON.stringify(output) };
+  }
+
+  throw INVALID_INPUT_ERROR(
+    `Could not generate a valid report after ${MAX_ATTEMPTS} attempts (${lastError}). Please rephrase ` +
+      `your request and try again.`
+  );
+});

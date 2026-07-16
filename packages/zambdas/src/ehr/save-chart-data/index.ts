@@ -16,7 +16,6 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
   createCodeableConcept,
-  DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
   getProviderNameWithProfession,
@@ -31,6 +30,7 @@ import {
   createDispositionServiceRequest,
   createProcedureServiceRequest,
   followUpToPerformerMap,
+  followUpTypeFromPerformerType,
   getMyPractitionerId,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
@@ -389,11 +389,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // remove sub follow-ups that are not in the current request
     const existingSubFollowUps = filterServiceRequestsFromFhir(allResources, subFollowUpMetaTag);
     existingSubFollowUps.forEach((subFollowUp) => {
-      const subFollowUpType = Object.keys(followUpToPerformerMap).find(
-        (key) =>
-          followUpToPerformerMap[key as DispositionFollowUpType]?.coding?.[0].code ===
-          subFollowUp.performerType?.coding?.[0].code
-      );
+      const subFollowUpType = followUpTypeFromPerformerType(subFollowUp.performerType);
       if (subFollowUpType && !disposition.followUp?.some((f) => f.type === subFollowUpType)) {
         saveOrUpdateRequests.push(deleteResourceRequest('ServiceRequest', subFollowUp.id!));
       }

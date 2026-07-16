@@ -946,10 +946,7 @@ export function makeDispositionDTO(
       : undefined;
 
   const followUpArr = subFollowUp?.map((element) => {
-    const performerCode = element.performerType?.coding?.[0].code;
-    const followUpType = Object.keys(followUpToPerformerMap).find(
-      (keyName) => performerCode === followUpToPerformerMap[keyName as DispositionFollowUpType]?.coding?.[0].code
-    );
+    const followUpType = followUpTypeFromPerformerType(element.performerType);
 
     return {
       type: followUpType as DispositionFollowUpType,
@@ -1841,6 +1838,22 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
   ]),
   'lurie-ct': createCodeableConcept(undefined, 'lurie-ct'),
   other: createCodeableConcept(undefined, 'other'),
+};
+
+/**
+ * Reverse of followUpToPerformerMap: maps a sub-follow-up ServiceRequest.performerType back to its
+ * DispositionFollowUpType key. Coded types carry a SNOMED coding; 'other'/'lurie-ct' are text-only,
+ * so match on coding[0].code OR text — guarded so undefined never matches undefined.
+ */
+export const followUpTypeFromPerformerType = (
+  performerType: CodeableConcept | undefined
+): DispositionFollowUpType | undefined => {
+  const performerKey = performerType?.coding?.[0]?.code ?? performerType?.text;
+  if (!performerKey) return undefined;
+  return (Object.keys(followUpToPerformerMap) as DispositionFollowUpType[]).find((key) => {
+    const performer = followUpToPerformerMap[key];
+    return performer?.coding?.[0]?.code === performerKey || performer?.text === performerKey;
+  });
 };
 
 export function makeProceduresDTOFromFhirResources(

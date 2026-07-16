@@ -18,6 +18,7 @@ export * from './reports';
 export * from './screening-questions';
 export * from './states';
 export * from './tasks';
+export * from './tracking-board';
 export * from './visit-note';
 export * from './vitals';
 export * from './em-codes';

@@ -124,10 +124,15 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
+// Default Vertex model — small/fast/cheap. Callers that need stronger reasoning (e.g. code
+// generation for ad-hoc reports) can pass a larger model via the `model` argument.
+export const DEFAULT_VERTEX_MODEL = 'gemini-3.1-flash-lite';
+
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
-  responseSchema?: object
+  responseSchema?: object,
+  model: string = DEFAULT_VERTEX_MODEL
 ): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
@@ -156,7 +161,7 @@ export async function invokeChatbotVertexAI(
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${model}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           headers: {
@@ -195,7 +200,77 @@ export async function invokeChatbotVertexAI(
   const response = await (await Promise.any(requests))?.json();
 
   console.log(JSON.stringify(response));
-  return response.candidates[0].content.parts[0].text;
+  // Guard the response shape before drilling into it: a "skipped" request resolves to null (so
+  // `response` is undefined), and a safety-filter / recitation block returns a body with empty
+  // candidates or a candidate with no content.parts. Reading candidates[0].content.parts[0].text
+  // unguarded throws an opaque "Cannot read properties of undefined" — throw a descriptive error
+  // instead so callers can see (and retry on) the actual failure mode.
+  if (response == null) {
+    throw new Error('Vertex AI returned no response body (the winning request resolved without a response)');
+  }
+  const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== 'string') {
+    const candidateCount = Array.isArray(response.candidates) ? response.candidates.length : 'missing';
+    const finishReason = response?.candidates?.[0]?.finishReason ?? 'unknown';
+    const blockReason = response?.promptFeedback?.blockReason ?? 'none';
+    throw new Error(
+      `Vertex AI response contained no candidate text (candidates: ${candidateCount}, finishReason: ${finishReason}, promptFeedback.blockReason: ${blockReason})`
+    );
+  }
+  return text;
+}
+
+// Structured-output via Anthropic. Mirrors invokeChatbotVertexAI's contract: same text input +
+// JSON Schema, same "return the JSON as a string" result. We force a single tool call whose
+// input_schema IS the response schema — Claude's equivalent of Vertex's responseSchema — so the
+// model can only reply with a schema-valid object, which we stringify back to the caller.
+export async function invokeClaudeStructured(
+  input: MessageContentComplex[],
+  secrets: Secrets | null,
+  responseSchema: object,
+  model = 'claude-sonnet-5',
+  maxTokens = 8192
+): Promise<string> {
+  const ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
+  const content = input.map((part) =>
+    typeof part === 'object' && part != null && 'text' in part
+      ? { type: 'text', text: (part as { text: string }).text }
+      : (part as unknown as Record<string, unknown>)
+  );
+  const TOOL_NAME = 'emit_result';
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      // No temperature: current Claude models (sonnet-5 and up) reject non-default sampling params.
+      // Thinking is on-by-default for sonnet-5; this is a deterministic forced-tool extraction, so
+      // disable it to keep the call cheap and reliable.
+      thinking: { type: 'disabled' },
+      tools: [{ name: TOOL_NAME, description: 'Return the structured result.', input_schema: responseSchema }],
+      tool_choice: { type: 'tool', name: TOOL_NAME },
+      messages: [{ role: 'user', content }],
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    const err = new Error(`Anthropic error ${response.status}: ${body.slice(0, 200)}`);
+    captureException(err);
+    throw err;
+  }
+  const json = await response.json();
+  if (json.stop_reason === 'max_tokens') {
+    // A tool_use input cut mid-generation is truncated JSON — not usable output.
+    throw new Error(`Anthropic output truncated (max_tokens, ${model})`);
+  }
+  const toolUse = (json.content ?? []).find((b: { type?: string }) => b.type === 'tool_use');
+  if (!toolUse) throw new Error('Anthropic returned no tool_use block');
+  return JSON.stringify(toolUse.input);
 }
 
 /**
