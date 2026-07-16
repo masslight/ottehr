@@ -1,6 +1,6 @@
-import { CodeableConcept, Task } from 'fhir/r4b';
+import { CodeableConcept, Coding, Task } from 'fhir/r4b';
 import z from 'zod';
-import { ottehrCodeSystemUrl } from '../../fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from '../../fhir/systemUrls';
 import { Secrets } from '../../secrets';
 
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
@@ -32,6 +32,15 @@ export const InvoiceSortDirectionValues = {
 
 export const InvoiceTaskDisplayStatuses = ['ready', 'updating', 'sending', 'sent', 'error'] as const;
 export type InvoiceTaskDisplayStatus = (typeof InvoiceTaskDisplayStatuses)[number];
+
+export const InvoiceTaskSources = ['candid', 'ottehr-billing'] as const;
+export type InvoiceTaskSource = (typeof InvoiceTaskSources)[number];
+export const INVOICE_TASK_SOURCE_SYSTEM = ottehrCodeSystemUrl('invoice-task-source');
+export const invoiceTaskSourceTag = (source: InvoiceTaskSource): Coding => ({
+  system: INVOICE_TASK_SOURCE_SYSTEM,
+  code: source,
+});
+export const INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('invoice-task-claim-id');
 
 export const InvoiceTaskInputSchemaBase = z.object({
   dueDate: z.string(),
@@ -89,6 +98,7 @@ export const GetInvoicesTasksZambdaInputSchema = z.object({
   sortField: z.enum(InvoiceSortFields).optional(),
   sortDirection: z.enum(InvoiceSortDirections).optional(),
   hideZeroBalance: z.boolean().optional(),
+  source: z.enum(InvoiceTaskSources).optional(),
 });
 export const GetInvoicesTasksZambdaValidatedInputSchema = GetInvoicesTasksZambdaInputSchema.extend({
   secrets: z.custom<Secrets>().nullable(),
@@ -138,6 +148,7 @@ export const ExportInvoicesTasksCsvZambdaInputSchema = z.object({
   sortField: z.enum(InvoiceSortFields).optional(),
   sortDirection: z.enum(InvoiceSortDirections).optional(),
   hideZeroBalance: z.boolean().optional(),
+  source: z.enum(InvoiceTaskSources).optional(),
 });
 export const ExportInvoicesTasksCsvZambdaValidatedInputSchema = ExportInvoicesTasksCsvZambdaInputSchema.extend({
   secrets: z.custom<Secrets>().nullable(),

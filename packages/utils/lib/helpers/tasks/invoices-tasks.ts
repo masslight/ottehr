@@ -1,7 +1,14 @@
 import { Task, TaskInput } from 'fhir/r4b';
 import { RcmTaskCode } from '../../fhir';
 import { ottehrCodeSystemUrl } from '../../fhir/systemUrls';
-import { InvoiceTaskDisplayStatus, InvoiceTaskInput, InvoiceTaskInputSchema } from '../../types';
+import {
+  INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
+  INVOICE_TASK_SOURCE_SYSTEM,
+  InvoiceTaskDisplayStatus,
+  InvoiceTaskInput,
+  InvoiceTaskInputSchema,
+  InvoiceTaskSource,
+} from '../../types';
 
 export function createInvoiceTaskInput(input: InvoiceTaskInput): TaskInput[] {
   const fieldsNames = Object.keys(input);
@@ -47,6 +54,15 @@ function getInvoiceTaskInputFieldByCode(code: keyof InvoiceTaskInput, task: Task
     (input) =>
       input.type.coding?.find((type) => type.system === ottehrCodeSystemUrl('invoice-task-input') && type.code === code)
   )?.valueString;
+}
+
+export function getInvoiceTaskSource(task: Pick<Task, 'meta'>): InvoiceTaskSource {
+  const code = task.meta?.tag?.find((tag) => tag.system === INVOICE_TASK_SOURCE_SYSTEM)?.code;
+  return code === 'ottehr-billing' ? 'ottehr-billing' : 'candid';
+}
+
+export function getInvoiceTaskClaimId(task: Pick<Task, 'identifier'>): string | undefined {
+  return task.identifier?.find((identifier) => identifier.system === INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM)?.value;
 }
 
 export function mapInvoiceTaskStatusToDisplay(status: Task['status']): InvoiceTaskDisplayStatus {
