@@ -19,7 +19,6 @@ import {
   RosFindingState,
   SaveChartDataRequest,
 } from 'utils';
-import { icd10Search } from '../../api/api';
 import { HospitalizationOptions } from '../visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from '../visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
 import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
@@ -1854,7 +1853,13 @@ export async function runIntentSearch(
       ? (intent as { code?: string }).code
       : undefined;
   if (intentCode && oystehrZambda) {
-    const codeResp = await icd10Search(oystehrZambda, { search: intentCode });
+    const codeResp = await oystehrZambda.terminology.searchIcd10({
+      query: intentCode,
+      searchType: 'all',
+      includeSynonyms: true,
+      specialty: ['urgent-care'],
+      limit: 100,
+    });
     const exact = (codeResp.codes || []).find((c) => c.code.toLowerCase() === intentCode.toLowerCase());
     if (exact) {
       return [{ name: exact.display, code: exact.code }];
@@ -1879,7 +1884,13 @@ export async function runIntentSearch(
   for (const term of terms) {
     let results: SearchResult[] = [];
     if ((intent.kind === 'add-condition' || intent.kind === 'add-diagnosis') && oystehrZambda) {
-      const response = await icd10Search(oystehrZambda, { search: term });
+      const response = await oystehrZambda.terminology.searchIcd10({
+        query: term,
+        searchType: 'all',
+        includeSynonyms: true,
+        specialty: ['urgent-care'],
+        limit: 100,
+      });
       results = (response.codes || []).map((c) => ({ name: c.display, code: c.code }));
     } else if (intent.kind === 'add-medication' && oystehr) {
       results = (await oystehr.erx.searchMedications({ name: term })) as SearchResult[];

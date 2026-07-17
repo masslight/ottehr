@@ -14,7 +14,7 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
 import { validateIntentCode } from '../../shared/easy-chart/codes';
 import { fetchPatientContext } from '../../shared/easy-chart/patient-context';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-review';
@@ -243,7 +243,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   let oystehr: Oystehr | undefined;
   try {
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    oystehr = createOystehrClient(m2mToken, secrets);
+    oystehr = createClinicalOystehrClient(m2mToken, secrets);
   } catch (e) {
     console.warn('Review: Oystehr client init failed, proceeding without CPT validation:', e);
     captureException(e);
