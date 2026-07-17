@@ -106,12 +106,12 @@ async function performEffect(
     });
 
   const claimItems = claims.map((claim) => {
-    const crs = responsesByClaimId.get(claim.id ?? '') ?? [];
+    const claimResponses = responsesByClaimId.get(claim.id ?? '') ?? [];
     const patient = findRef<Patient>(patients, claim.patient?.reference);
 
     const billed = claim.total?.value ?? 0;
-    const payments = summarizeClaimPayments(crs, billed);
-    const latestStatus = sortClaimResponsesByRecency(crs).at(-1)?.outcome ?? '';
+    const payments = summarizeClaimPayments(claimResponses, billed);
+    const latestStatus = sortClaimResponsesByRecency(claimResponses).at(-1)?.outcome ?? '';
 
     return {
       claimId: claim.id ?? '',
@@ -123,6 +123,7 @@ async function performEffect(
       posted: payments.insurancePaid,
       status: latestStatus,
       matched: !claim.id?.startsWith('unmatched'),
+      claimResponseIds: claimResponses.map((claimResponse) => claimResponse.id).filter((id) => id != null),
     };
   });
 

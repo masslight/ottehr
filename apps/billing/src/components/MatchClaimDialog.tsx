@@ -16,22 +16,23 @@ import {
 import { ReactElement, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ClaimDetailResponse, getApiError, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { getBillingClaimDetail } from '../api/api';
+import { getBillingClaimDetail, matchClaimResponseToClaim } from '../api/api';
 import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { Meta } from '../pages/ClaimDetail';
-import AlertDialog from './AlertDialog';
 
 interface Props {
+  claimResponseId: string;
   onClose: () => void;
+  onMatched: () => void;
 }
 
 interface FormData {
   claimId: string | null;
 }
 
-export function MatchClaimDialog({ onClose }: Props): ReactElement {
+export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props): ReactElement {
   const { oystehrZambda } = useApiClients();
   const methods = useForm<FormData>({ defaultValues: { claimId: null } });
   const {
@@ -42,7 +43,6 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
   } = methods;
 
   const [error, setError] = useState<string | null>(null);
-  const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [claim, setClaim] = useState<ClaimDetailResponse | null>(null);
   const [claimLoading, setClaimLoading] = useState<boolean>(false);
 
@@ -75,16 +75,12 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
     if (!oystehrZambda || !claim) return;
     setError(null);
     try {
-      /*const result = await importEra(oystehrZambda, {
-        era: data.era!,
+      await matchClaimResponseToClaim(oystehrZambda, {
+        claimResponseId,
+        claimId: claim.id,
       });
-      let processedErasCount = 0;
-      if (result.resourceType === 'Bundle') {
-        const dataBundle = result as Bundle;
-        processedErasCount =
-          dataBundle.entry?.filter((entry) => entry.resource?.resourceType === 'ClaimResponse')?.length ?? 0;
-      }*/
-      setResultMessage(`Claim matched`);
+      onClose();
+      onMatched();
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to match' }));
     }
@@ -92,12 +88,7 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
 
   return (
     <>
-      <Dialog
-        open={resultMessage == null}
-        onClose={onClose}
-        maxWidth={false}
-        PaperProps={{ sx: { width: 680, maxWidth: '95vw' } }}
-      >
+      <Dialog open={true} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 680, maxWidth: '95vw' } }}>
         <DialogTitle
           sx={{ px: 3, pt: 3, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
@@ -170,7 +161,6 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
           </Button>
         </DialogActions>
       </Dialog>
-      {resultMessage ? <AlertDialog title="Import result" text={resultMessage} onClose={onClose} /> : null}
     </>
   );
 }

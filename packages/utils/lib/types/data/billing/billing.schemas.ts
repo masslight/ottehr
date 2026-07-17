@@ -601,6 +601,11 @@ export const ImportEraInputSchema = z.object({
   era: nonEmptyString,
 });
 
+export const MatchClaimResponseToClaimInputSchema = z.object({
+  claimResponseId: nonEmptyString,
+  claimId: nonEmptyString,
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
@@ -648,3 +653,4 @@ export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputS
 export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;
 export type ImportEraInput = z.output<typeof ImportEraInputSchema>;
 export type GenderOption = z.input<typeof gender>;
+export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;

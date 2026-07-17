@@ -183,6 +183,13 @@
       "src": "src/billing/import-era/index",
       "zip": ".dist/zips/import-era.zip"
     },
+    "MATCH-CLAIM-RESPONSE": {
+      "name": "match-claim-response",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/match-claim-response/index",
+      "zip": ".dist/zips/match-claim-response.zip"
+    },
     "SEARCH-BILLING-TAGS": {
       "name": "search-billing-tags",
       "type": "http_auth",

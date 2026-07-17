@@ -177,6 +177,7 @@ export interface EraDetailResponse {
     posted: number;
     status: string;
     matched: boolean;
+    claimResponseIds: string[];
   }[];
 }
 

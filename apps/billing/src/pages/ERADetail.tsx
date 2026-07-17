@@ -48,7 +48,7 @@ export default function ERADetail(): ReactElement {
   const [tab, setTab] = useState('1');
   const [claimSearch, setClaimSearch] = useState('');
   const [claimStatusFilter, setClaimStatusFilter] = useState('');
-  const [showMatchClaimDialog, setShowMatchClaimDialog] = useState(false);
+  const [claimResponseToMatch, setClaimResponseToMatch] = useState<string | null>(null);
 
   const claimColumns: GridColDef[] = [
     {
@@ -62,7 +62,7 @@ export default function ERADetail(): ReactElement {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setShowMatchClaimDialog(true);
+                setClaimResponseToMatch(row.claimResponseIds[0]);
               }}
             >
               Match
@@ -251,7 +251,13 @@ export default function ERADetail(): ReactElement {
           </TabPanel>
         </TabContext>
       </Box>
-      {showMatchClaimDialog && <MatchClaimDialog onClose={() => setShowMatchClaimDialog(false)} />}
+      {claimResponseToMatch && (
+        <MatchClaimDialog
+          claimResponseId={claimResponseToMatch}
+          onMatched={() => fetchDetail()}
+          onClose={() => setClaimResponseToMatch(null)}
+        />
+      )}
     </Box>
   );
 }
