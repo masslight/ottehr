@@ -5,8 +5,7 @@ import * as fs from 'fs';
 import { FHIR_EXTENSION, getPayerId, getPayerUrl } from 'utils';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { getInsuranceOverrideList } from '../rcm/get-insurance-override-list/handler';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 async function getPayers(oystehr: Oystehr): Promise<Organization[]> {
   console.log('Fetching payer organizations...');
@@ -55,10 +54,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   const payers = await getPayers(oystehr);
 

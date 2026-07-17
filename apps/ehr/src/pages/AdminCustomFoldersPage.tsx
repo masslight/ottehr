@@ -6,7 +6,6 @@ import {
   Box,
   Grid,
   IconButton,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -23,6 +22,7 @@ import { FC, useCallback, useMemo, useState } from 'react';
 import { createCustomFolder, deleteCustomFolder, renameCustomFolder } from 'src/api/api';
 import Loading from 'src/components/Loading';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { ConfirmDeleteFolderDialog } from 'src/features/visits/shared/components/patient/docs/ConfirmDeleteFolderDialog';
 import { FolderNameDialog } from 'src/features/visits/shared/components/patient/docs/FolderNameDialog';
 import {
@@ -143,10 +143,15 @@ const AdminCustomFoldersPage: FC = () => {
   };
 
   return (
-    <Box sx={{ marginTop: 2 }}>
-      <Paper sx={{ padding: 2 }}>
+    <Box>
+      <AdminHeaderActionSlot>
+        <RoundedButton variant="contained" startIcon={<AddIcon />} onClick={() => setDialogState({ mode: 'create' })}>
+          Add Folder
+        </RoundedButton>
+      </AdminHeaderActionSlot>
+      <Box>
         <TableContainer>
-          <Grid container direction="row" justifyContent="start" alignItems="center" sx={{ p: 2 }}>
+          <Grid container direction="row" justifyContent="start" alignItems="center" sx={{ py: 2 }}>
             <Grid item xs={6}>
               <TextField
                 id="outlined-basic"
@@ -166,15 +171,6 @@ const AdminCustomFoldersPage: FC = () => {
                   <Loading />
                 </Box>
               )}
-            </Grid>
-            <Grid item xs={3} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <RoundedButton
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setDialogState({ mode: 'create' })}
-              >
-                Add Folder
-              </RoundedButton>
             </Grid>
           </Grid>
 
@@ -233,7 +229,7 @@ const AdminCustomFoldersPage: FC = () => {
             onRowsPerPageChange={handleChangeRowsPerPage}
           />
         </TableContainer>
-      </Paper>
+      </Box>
 
       <FolderNameDialog
         open={dialogState?.mode === 'create' || dialogState?.mode === 'rename'}

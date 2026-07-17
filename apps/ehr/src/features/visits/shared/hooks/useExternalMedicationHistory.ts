@@ -15,7 +15,7 @@ export interface ExternalMedication {
   doseForm: string | null;
   route: string | null;
   directions: string | null;
-  writtenDate: string;
+  writtenDate: string | null;
   lastFillDate: string | null;
   refills: string;
   quantity: number;

@@ -1,5 +1,5 @@
 import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, UploadPatientConditionPhotoInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -8,7 +8,7 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const parsed = JSON.parse(input.body) as unknown;
+  const parsed = safeJsonParse(input.body) as unknown;
   if (!parsed || typeof parsed !== 'object') {
     throw INVALID_INPUT_ERROR('Request body must be a valid JSON object');
   }

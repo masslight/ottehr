@@ -12,7 +12,7 @@ import {
   TaskIndicator,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -38,7 +38,7 @@ export const index = wrapHandler(
 
     const { encounterId, practitionerId, secrets } = validatedParameters;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const encounter = (
       await oystehr.fhir.search<Encounter>({

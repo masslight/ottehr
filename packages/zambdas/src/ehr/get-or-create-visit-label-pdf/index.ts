@@ -11,7 +11,7 @@ import {
   getTimezone,
   MIME_TYPES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createVisitLabelPDF,
   VISIT_LABEL_PDF_DOC_REF_DOCTYPE,
@@ -33,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   console.log('token', m2mToken);
 
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const labelDocRefs = (
     await oystehr.fhir.search<DocumentReference>({

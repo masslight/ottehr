@@ -1,6 +1,6 @@
 import { GetUserParams, MISSING_REQUEST_BODY, Secrets, WithRequired } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 export interface GetUserInput extends WithRequired<GetUserParams, 'userId'> {
   secrets: Secrets | null;
@@ -15,7 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): GetUserInput {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { userId } = safeValidate(GetUserBodySchema, JSON.parse(input.body));
+  const { userId } = safeValidate(GetUserBodySchema, safeJsonParse(input.body));
 
   return {
     userId,

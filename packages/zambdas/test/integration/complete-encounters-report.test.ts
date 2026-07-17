@@ -16,7 +16,7 @@ import {
   VisitStatusWithoutUnknown,
 } from 'utils';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import {
@@ -200,14 +200,9 @@ describe('complete-encounters-report zambda', () => {
       AUTH0_AUDIENCE,
     });
 
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      services: {
-        zambdaApiUrl: EXECUTE_ZAMBDA_URL,
-      },
+    oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
+      services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
 
     await ensureM2MPractitionerProfile(token);

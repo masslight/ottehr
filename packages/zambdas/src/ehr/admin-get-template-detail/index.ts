@@ -6,6 +6,7 @@ import {
   Communication,
   Condition,
   List,
+  MedicationAdministration,
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
@@ -16,20 +17,23 @@ import {
   AdminGetTemplateDetailOutput,
   BODY_SITE_SYSTEM,
   chartDataTagSystem,
+  CODE_SYSTEM_ICD_10,
   collectKnownExamFields,
   collectKnownRosFields,
   CPT_CODE_SYSTEM,
   examConfig,
   extractCptCodeModifiersFromCoding,
   FHIR_EXTENSION,
+  getCptCodesFromMA,
+  getDosageUnitsAndRouteOfMedication,
   getRosFindingStateFromKey,
   getSecret,
   getTag,
-  ICD_10_CODE_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   PERFORMER_TYPE_SYSTEM,
   PROCEDURE_TYPE_SYSTEM,
   resourceHasTagSystem,
+  searchRouteByCode,
   SecretsKeys,
   TemplateAccidentInfo,
   TemplateCodeInfo,
@@ -37,11 +41,12 @@ import {
   TemplateExamFinding,
   TemplateExternalLabPlanDetail,
   TemplateInHouseLabPlanDetail,
+  TemplateInHouseMedicationDetail,
   TemplateProcedurePlan,
   TemplateRosFinding,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
   fetchPlanItemsByLabGuid,
   findExternalLabPlans,
@@ -53,9 +58,17 @@ import {
   indexLatestActivityDefinitionsByUrl,
   urlFromInstantiatesCanonical,
 } from '../apply-template/apply-in-house-labs';
+import {
+  deriveMedicationName,
+  isInHouseMedicationTemplatePlan,
+  makeMedicationsByIdMap,
+} from '../apply-template/apply-in-house-medications';
 import { findProcedurePlans } from '../apply-template/apply-procedures';
 import { analyzeTemplateVersionData, isDiagnosisCondition, verifyIsTemplate } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -68,7 +81,7 @@ export const index = wrapHandler(
 
       const { secrets } = validatedInput;
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-      const oystehr = createOystehrClient(m2mToken, secrets);
+      const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
       const result = await performEffect(validatedInput, oystehr, m2mToken);
 
@@ -238,7 +251,12 @@ const performEffect = async (
   const diagnosisConditions = contained.filter((r) => isDiagnosisCondition(r)) as Condition[];
 
   const diagnoses: TemplateCodeInfo[] = diagnosisConditions.map((cond) => {
-    const icdCoding = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM);
+    const icdCoding = cond.code?.coding?.find(
+      (c) =>
+        c.system === CODE_SYSTEM_ICD_10 ||
+        // legacy system
+        c.system === ICD_10_CODE_SYSTEM
+    );
     return {
       code: icdCoding?.code ?? '',
       display: icdCoding?.display ?? '',
@@ -366,7 +384,13 @@ const performEffect = async (
 
     const diagnoses: TemplateCodeInfo[] = (plan.reasonCode ?? [])
       .map((rc) => {
-        const icd = rc.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? rc.coding?.[0];
+        const icd =
+          rc.coding?.find(
+            (c) =>
+              c.system === CODE_SYSTEM_ICD_10 ||
+              // legacy system
+              c.system === ICD_10_CODE_SYSTEM
+          ) ?? rc.coding?.[0];
         return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
       })
       .filter((d) => d.code || d.display);
@@ -472,7 +496,13 @@ const performEffect = async (
       if (!id) return [];
       const cond = conditionById.get(id);
       if (!cond) return [];
-      const icd = cond.code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM) ?? cond.code?.coding?.[0];
+      const icd =
+        cond.code?.coding?.find(
+          (c) =>
+            c.system === CODE_SYSTEM_ICD_10 ||
+            // legacy system
+            c.system === ICD_10_CODE_SYSTEM
+        ) ?? cond.code?.coding?.[0];
       if (!icd?.code && !icd?.display) return [];
       return [{ code: icd?.code ?? '', display: icd?.display ?? '' }];
     });
@@ -518,6 +548,52 @@ const performEffect = async (
     };
   });
 
+  // Parse in-house medication template MAs. Each MedicationAdministration
+  // with the in-house-medication-administration-template tag, carries the drug identity as
+  // medicationReference (pointing to a contained Medication in the template List), dosage, CPT codes, reason notes, and ICD-10 diagnoses.
+  const inHouseMedicationTemplatePlans = contained.filter((r): r is MedicationAdministration =>
+    isInHouseMedicationTemplatePlan(r)
+  );
+  const inHouseMedicationReferencedMedicationsById = makeMedicationsByIdMap(contained);
+
+  const inHouseMedications: TemplateInHouseMedicationDetail[] = inHouseMedicationTemplatePlans.map((templateMA) => {
+    const cptEntries = getCptCodesFromMA(templateMA) ?? [];
+    const maCptCodes: TemplateCptCodeInfo[] = cptEntries.map((e) => ({
+      code: e.code,
+      display: e.display,
+      modifiers: [], // you can't currently add modifiers to in house med cpt codes, but this typing is useful downstream
+    }));
+
+    const maDiagnoses: TemplateCodeInfo[] = (templateMA.reasonCode ?? [])
+      .map((rc) => {
+        const icd =
+          rc.coding?.find(
+            (c) =>
+              c.system === CODE_SYSTEM_ICD_10 ||
+              // legacy system
+              c.system === ICD_10_CODE_SYSTEM
+          ) ?? rc.coding?.[0];
+        return { code: icd?.code ?? '', display: icd?.display ?? rc.text ?? '' };
+      })
+      .filter((d) => d.code || d.display);
+
+    const containedMedicationId = templateMA.medicationReference?.reference?.replace('#', '');
+    const medicationName = deriveMedicationName(containedMedicationId, inHouseMedicationReferencedMedicationsById);
+
+    const { route, dose, units } = getDosageUnitsAndRouteOfMedication(templateMA);
+
+    return {
+      planId: templateMA.id ?? '',
+      medicationName,
+      dose,
+      units,
+      route: searchRouteByCode(route)?.display,
+      instructions: templateMA.dosage?.text,
+      cptCodes: maCptCodes,
+      diagnoses: maDiagnoses,
+    };
+  });
+
   return {
     templateName: templateList.title ?? '',
     templateId: templateList.id!,
@@ -538,6 +614,7 @@ const performEffect = async (
       inHouseLabs,
       externalLabs,
       procedures,
+      inHouseMedications,
     },
   };
 };

@@ -45,6 +45,7 @@ export type PatientInfo = PatientBaseInfo & {
     system: string;
     value: string;
   }[];
+  noEmail?: boolean;
   ssn?: string;
   address?: Address[];
   tags?: Meta['tag'];

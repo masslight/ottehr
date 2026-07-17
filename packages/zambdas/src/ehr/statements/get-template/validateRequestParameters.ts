@@ -5,7 +5,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
 } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export interface GetStatementTemplateInput {
   template: string;
@@ -16,7 +16,7 @@ export function validateRequestParameters(input: ZambdaInput): GetStatementTempl
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const body = JSON.parse(input.body) as Record<string, unknown>;
+  const body = safeJsonParse(input.body) as Record<string, unknown>;
 
   const template = body.template;
   if (typeof template !== 'string' || template.length === 0) {

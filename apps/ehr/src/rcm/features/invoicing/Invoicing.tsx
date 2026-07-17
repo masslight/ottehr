@@ -7,7 +7,6 @@ import {
   Button,
   CircularProgress,
   FormHelperText,
-  Paper,
   Stack,
   Tab,
   TextField,
@@ -356,11 +355,7 @@ export default function Invoicing(): ReactElement {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <Paper sx={{ padding: 3, marginTop: 2 }}>
-        <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important', mb: 2 }}>
-          Default Invoicing Settings
-        </Typography>
-
+      <Box>
         <Stack direction="row" alignItems="flex-start" spacing={3} sx={{ mb: 3 }}>
           <Controller
             name="invoiceDueDays"
@@ -421,7 +416,7 @@ export default function Invoicing(): ReactElement {
         </Stack>
 
         {configData?.questionnaireResponse?.id && <SettingsId value={configData.questionnaireResponse.id} />}
-      </Paper>
+      </Box>
     </form>
   );
 }

@@ -29,37 +29,43 @@ describe('delete-charge-item-definition', () => {
     });
     it('throws validation error on missing required fields', async () => {
       expect(() => validateRequestParameters({ headers: null, body: '{}', secrets: {} })).toThrow(
-        expect.objectContaining(INVALID_INPUT_ERROR('Validation error: Required at "type"; Required at "id"'))
+        expect.objectContaining(
+          INVALID_INPUT_ERROR('Validation error: Required at "type"; Required at "chargeItemDefinitionId"')
+        )
       );
     });
     it('throws validation error on invalid param types', async () => {
       const body = {
         type: 'purple-people-eater',
-        id: 'some-not-uuid',
+        chargeItemDefinitionId: 'some-not-uuid',
       };
       expect(() => validateRequestParameters({ headers: null, body: JSON.stringify(body), secrets: {} })).toThrow(
         expect.objectContaining(
           INVALID_INPUT_ERROR(
-            "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\"; Invalid uuid at \"id\""
+            "Validation error: Invalid enum value. Expected 'charge-master' | 'fee-schedule', received 'purple-people-eater' at \"type\"; Invalid uuid at \"chargeItemDefinitionId\""
           )
         )
       );
     });
     it('succeeds with correct input', async () => {
-      const body = { type: 'charge-master', id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9' };
+      const body = { type: 'charge-master', chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9' };
       const input = validateRequestParameters({
         headers: null,
         body: JSON.stringify(body),
         secrets: {},
       });
-      expect(input).toStrictEqual({ type: 'charge-master', id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9', secrets: {} });
+      expect(input).toStrictEqual({
+        type: 'charge-master',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        secrets: {},
+      });
     });
   });
   describe('complexValidation', () => {
     it('throws validation error on mismatched type and id', async () => {
       const params: DeleteChargeItemDefinitionParams = {
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         secrets: {},
       };
       const oystehr = {
@@ -87,7 +93,7 @@ describe('delete-charge-item-definition', () => {
     it('passes validation', async () => {
       const params: DeleteChargeItemDefinitionParams = {
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         secrets: {},
       };
       const completeResource: ChargeItemDefinition = {
@@ -128,7 +134,7 @@ describe('delete-charge-item-definition', () => {
     it('deletes CID', async () => {
       const params: DeleteChargeItemDefinitionParams = {
         type: 'charge-master',
-        id: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
+        chargeItemDefinitionId: '0f8a9b3c-fd93-42a1-8560-6ca4bc9446c9',
         secrets: {},
       };
       const completeResource: ChargeItemDefinition = {

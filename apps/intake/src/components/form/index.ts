@@ -6,7 +6,6 @@ export { default as FileUpload } from './FileUpload';
 export { default as FormInput } from './FormInput';
 export { default as FreeMultiSelectInput } from './FreeMultiSelectInput';
 export { default as NonImageCardComponent } from './NonImageCardComponent';
-export { default as InputMask } from './InputMask';
 export { default as RadioInput } from './RadioInput';
 export { default as RadioListInput } from './RadioListInput';
 export { default as RenderLabelFromSelect } from './RenderLabelFromSelect';

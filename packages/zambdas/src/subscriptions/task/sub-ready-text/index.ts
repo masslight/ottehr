@@ -3,7 +3,7 @@ import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, PROJECT_WEBSITE, TaskStatus } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   reportMissingUserRelatedPerson,
   wrapHandler,
@@ -30,7 +30,7 @@ export const index = wrapHandler('sub-ready-text', async (input: ZambdaInput): P
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   let taskStatusToUpdate: TaskStatus;
   let statusReasonToUpdate: string | undefined;

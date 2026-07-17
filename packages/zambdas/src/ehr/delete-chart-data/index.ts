@@ -38,7 +38,7 @@ import {
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
 import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
@@ -95,7 +95,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);

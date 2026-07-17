@@ -1,25 +1,24 @@
-import { INVALID_INPUT_ERROR, isISODateTime, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { INVALID_INPUT_ERROR, isISODateTime, MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 import { UpdateAppointmentInput } from '.';
+
+const PrebookUpdateAppointmentBodySchema = z.object({
+  appointmentID: z.string().uuid(),
+  slot: z
+    .object({
+      start: z.string().min(1),
+    })
+    .passthrough(),
+  language: z.string().optional(),
+});
 
 export function validateRequestParameters(input: ZambdaInput): UpdateAppointmentInput {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentID, language, slot } = JSON.parse(input.body);
-
-  const missingFields = [];
-  if (appointmentID === undefined) {
-    missingFields.push('appointmentID');
-  }
-  if (slot === undefined) {
-    missingFields.push('slot');
-  }
-
-  if (missingFields.length > 0) {
-    throw MISSING_REQUIRED_PARAMETERS(missingFields);
-  }
+  const { appointmentID, slot, language } = safeValidate(PrebookUpdateAppointmentBodySchema, safeJsonParse(input.body));
 
   if (!isISODateTime(slot.start)) {
     throw INVALID_INPUT_ERROR(`"slot.start" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS)`);
@@ -27,8 +26,8 @@ export function validateRequestParameters(input: ZambdaInput): UpdateAppointment
 
   return {
     appointmentID,
-    slot,
-    language,
+    slot: slot as unknown as UpdateAppointmentInput['slot'],
+    language: language as string,
     secrets: input.secrets,
   };
 }

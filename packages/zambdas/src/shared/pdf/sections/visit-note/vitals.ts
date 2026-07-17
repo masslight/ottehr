@@ -60,6 +60,7 @@ export const createVitalsSection = <TData extends { encounter?: EncounterInfo; v
         [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen saturation',
         [VitalFieldNames.VitalWeight]: 'Weight',
         [VitalFieldNames.VitalHeight]: 'Height',
+        [VitalFieldNames.VitalBMI]: 'BMI',
         [VitalFieldNames.VitalVision]: 'Vision',
         [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
         notes: 'Vitals notes',
@@ -75,7 +76,10 @@ export const createVitalsSection = <TData extends { encounter?: EncounterInfo; v
             styles.textStyles.blockSubHeader
           );
           data.vitals?.[vitalName as VitalFieldNames]?.forEach((record) => {
-            drawRegularText(client, styles, record);
+            // DOT vision screening records are multi-line (MCSA-5875 layout); render each line separately.
+            record.split('\n').forEach((line) => {
+              drawRegularText(client, styles, line);
+            });
           });
         });
 

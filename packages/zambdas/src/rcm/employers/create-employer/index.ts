@@ -3,7 +3,7 @@ import { Organization } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -25,7 +25,7 @@ export const index = wrapHandler('create-employer', async (input: ZambdaInput): 
     const { name, active, category, identifier, address, contact, secrets } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const categoryText = category || 'Occupational Medicine';
 

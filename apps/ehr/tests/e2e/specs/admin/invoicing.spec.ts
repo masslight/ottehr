@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { adminSidebarItem } from '../../utils/adminNav';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
@@ -6,17 +7,12 @@ test.describe('Invoicing Admin', () => {
   test('navigates to Invoicing tab and loads settings', async ({ page }) => {
     await page.goto('/admin/billing/invoicing');
 
-    await test.step('Invoicing tab is selected', async () => {
-      const tabList = page.getByRole('tablist', { name: 'Billing configuration tabs' });
-      await expect(tabList.getByRole('tab', { name: 'Invoicing' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-        DEFAULT_TIMEOUT
-      );
+    await test.step('Invoicing sidebar item is selected', async () => {
+      await expect(adminSidebarItem(page, '/admin/billing/invoicing', true)).toBeVisible(DEFAULT_TIMEOUT);
     });
 
-    await test.step('Default Invoicing Settings heading is visible', async () => {
-      await expect(page.getByText('Default Invoicing Settings')).toBeVisible(DEFAULT_TIMEOUT);
+    await test.step('Invoicing page heading is visible', async () => {
+      await expect(page.getByRole('heading', { name: 'Invoicing', exact: true })).toBeVisible(DEFAULT_TIMEOUT);
     });
 
     await test.step('Invoice Due Days field is visible with a value', async () => {
@@ -48,7 +44,7 @@ test.describe('Invoicing Admin', () => {
 
   test('can switch between Write and Preview tabs on SMS template', async ({ page }) => {
     await page.goto('/admin/billing/invoicing');
-    await expect(page.getByText('Default Invoicing Settings')).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(page.getByText('Default SMS Message Template')).toBeVisible(DEFAULT_TIMEOUT);
 
     const smsSection = page.getByText('Default SMS Message Template').locator('..');
 
@@ -78,9 +74,9 @@ test.describe('Invoicing Admin', () => {
 
   test('editing Invoice Due Days enables Save and Reset buttons', async ({ page }) => {
     await page.goto('/admin/billing/invoicing');
-    await expect(page.getByText('Default Invoicing Settings')).toBeVisible(DEFAULT_TIMEOUT);
 
     const dueDaysInput = page.getByLabel('Invoice Due Days');
+    await expect(dueDaysInput).toBeVisible(DEFAULT_TIMEOUT);
     const originalValue = await dueDaysInput.inputValue();
 
     await test.step('Change due days value', async () => {
@@ -100,33 +96,26 @@ test.describe('Invoicing Admin', () => {
     });
   });
 
-  test('billing sub-tab navigation works from Invoicing', async ({ page }) => {
+  test('billing sub-page navigation works from Invoicing', async ({ page }) => {
     await page.goto('/admin/billing/invoicing');
-    const tabList = page.getByRole('tablist', { name: 'Billing configuration tabs' });
-    await expect(tabList.getByRole('tab', { name: 'Invoicing' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-      DEFAULT_TIMEOUT
-    );
+    await expect(adminSidebarItem(page, '/admin/billing/invoicing', true)).toBeVisible(DEFAULT_TIMEOUT);
 
-    await test.step('Switch to Fee Schedules tab', async () => {
-      await tabList.getByRole('tab', { name: 'Fee Schedules' }).click();
-      await expect(tabList.getByRole('tab', { name: 'Fee Schedules' })).toHaveAttribute(
-        'aria-selected',
-        'true',
-        DEFAULT_TIMEOUT
-      );
+    await test.step('Switch to Fee Schedules', async () => {
+      await adminSidebarItem(page, '/admin/billing/fee-schedules').click();
+      await page.waitForURL('**/billing/fee-schedules');
+      await expect(adminSidebarItem(page, '/admin/billing/fee-schedules', true)).toBeVisible(DEFAULT_TIMEOUT);
     });
 
-    await test.step('Switch back to Invoicing tab', async () => {
-      await tabList.getByRole('tab', { name: 'Invoicing' }).click();
-      await expect(page.getByText('Default Invoicing Settings')).toBeVisible(DEFAULT_TIMEOUT);
+    await test.step('Switch back to Invoicing', async () => {
+      await adminSidebarItem(page, '/admin/billing/invoicing').click();
+      await page.waitForURL('**/billing/invoicing');
+      await expect(page.getByRole('heading', { name: 'Invoicing', exact: true })).toBeVisible(DEFAULT_TIMEOUT);
     });
   });
 
   test('placeholder chips are visible in SMS template Write tab', async ({ page }) => {
     await page.goto('/admin/billing/invoicing');
-    await expect(page.getByText('Default Invoicing Settings')).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(page.getByText('Default SMS Message Template')).toBeVisible(DEFAULT_TIMEOUT);
 
     await test.step('Placeholder chips are present below the SMS editor', async () => {
       const expectedTokens = [

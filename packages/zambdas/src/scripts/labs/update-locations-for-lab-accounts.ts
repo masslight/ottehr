@@ -2,7 +2,7 @@ import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { Identifier, Location, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import { LAB_ACCOUNT_NUMBER_SYSTEM, OYSTEHR_LAB_GUID_SYSTEM } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../shared';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 const USAGE_STR = `Usage: npm run update-locations-for-lab-accounts [${VALID_ENVS.join(' | ')}]\n`;
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
     process.exit(4);
   }
 
-  const oystehrClient = createOystehrClient(token, envConfig);
+  const oystehrClient = createClinicalOystehrClient(token, envConfig);
 
   const requests: BatchInputRequest<Location>[] = [];
 

@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED, SignAppointmentInput } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const SignAppointmentSchema = z.object({
   appointmentId: z.string().uuid(),
@@ -24,7 +24,7 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsedJSON = JSON.parse(input.body);
+  const parsedJSON = safeJsonParse(input.body);
 
   const { appointmentId, encounterId, timezone, supervisorApprovalEnabled } = safeValidate(
     SignAppointmentSchema,

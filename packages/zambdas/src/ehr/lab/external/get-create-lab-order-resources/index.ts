@@ -9,6 +9,7 @@ import {
   ExternalLabOrderingLocations,
   flattenBundleResources,
   isAppointmentWorkersComp,
+  isLocationInPerson,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_LIST_CODE_CODING,
   LAB_ORG_TYPE_CODING,
@@ -20,7 +21,7 @@ import {
   VALUE_SETS,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler } from '../../../../shared';
-import { createOystehrClient } from '../../../../shared/helpers';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
@@ -46,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const { accounts, coverages, labGuids, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
     await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
@@ -223,16 +224,9 @@ const getResources = async (
     }
     if (resource.resourceType === 'Location') {
       const loc = resource as Location;
-      if (
-        loc.id &&
-        loc.identifier &&
-        loc.name &&
-        !loc.extension?.some(
-          (ext) =>
-            ext.valueCoding?.code === 'vi' &&
-            ext.valueCoding?.system === 'http://terminology.hl7.org/CodeSystem/location-physical-type'
-        )
-      ) {
+      // Lab orders are placed at in-person Locations; a dual-mode Location that
+      // is also virtual still qualifies as long as it's marked in-person.
+      if (loc.id && loc.identifier && loc.name && isLocationInPerson(loc)) {
         orderingLocations.push({
           name: loc.name,
           id: loc.id,

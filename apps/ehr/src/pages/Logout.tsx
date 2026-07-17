@@ -1,12 +1,12 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { ReactElement, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { SESSION_STORAGE_DATE_KEY } from 'src/components/AppointmentsFilters';
+import { SESSION_STORAGE_DATE_RANGE_KEY } from 'src/components/AppointmentsFilters';
 
-// sessionStorage survives the same-tab logout -> Auth0 round-trip, so the date has to be
+// sessionStorage survives the same-tab logout -> Auth0 round-trip, so the date range has to be
 // cleared explicitly here for it to default back to today on the next login.
 function clearPersistedDate(): void {
-  sessionStorage.removeItem(SESSION_STORAGE_DATE_KEY);
+  sessionStorage.removeItem(SESSION_STORAGE_DATE_RANGE_KEY);
 }
 
 export default function Logout(): ReactElement {

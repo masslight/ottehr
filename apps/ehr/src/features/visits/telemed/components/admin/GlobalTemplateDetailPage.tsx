@@ -20,9 +20,9 @@ import { useQuery } from '@tanstack/react-query';
 import { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTemplateDetail } from 'src/api/api';
-import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { QUERY_STALE_TIME } from 'src/constants';
+import { GLOBAL_TEMPLATES_URL } from 'src/features/admin/adminRoutes';
 import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
@@ -534,6 +534,56 @@ export default function GlobalTemplateDetailPage(): ReactElement {
                         <strong>{f.label}:</strong> {f.value}
                       </Typography>
                     ))}
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <NotIncluded />
+            )}
+          </SectionCard>
+
+          {/* In-House Medication Orders */}
+          <SectionCard title="In-House Medication Orders">
+            {sections.inHouseMedications.length > 0 ? (
+              <Stack spacing={2}>
+                {sections.inHouseMedications.map((med) => (
+                  <Box key={med.planId}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      {med.medicationName}
+                    </Typography>
+                    {med.dose !== undefined || med.units || med.route ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {[
+                          med.dose !== undefined ? String(med.dose) : null,
+                          med.units,
+                          med.route ? `via ${med.route}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      </Typography>
+                    ) : null}
+                    {med.instructions ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Instructions:</strong> {med.instructions}
+                      </Typography>
+                    ) : null}
+                    {med.diagnoses.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>Diagnoses:</strong>{' '}
+                        {med.diagnoses.map((d) => (d.display ? `${d.code} — ${d.display}` : d.code)).join('; ')}
+                      </Typography>
+                    ) : null}
+                    {med.cptCodes.length > 0 ? (
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        <strong>CPT codes:</strong>{' '}
+                        {med.cptCodes
+                          .map((c) => {
+                            const label = formatCptCodeAndModifiersForDisplay(c);
+                            return c.display ? `${label} — ${c.display}` : label;
+                          })
+                          .join('; ')}
+                      </Typography>
+                    ) : null}
                   </Box>
                 ))}
               </Stack>

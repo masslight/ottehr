@@ -12,12 +12,13 @@ type UnlockAppointmentButtonProps = {
 };
 
 export const UnlockAppointmentButton: FC<UnlockAppointmentButtonProps> = ({ onUnlocked }) => {
-  const { appointment, appointmentRefetch } = useAppointmentData();
-  const { isAppointmentLocked } = useGetAppointmentAccessibility();
+  const { appointment, encounter, appointmentRefetch } = useAppointmentData();
+  const { isAppointmentReadOnly, visitType } = useGetAppointmentAccessibility();
   const apiClient = useOystehrAPIClient();
   const [isLoading, setIsLoading] = useState(false);
+  const isFollowup = visitType === 'follow-up';
 
-  if (!isAppointmentLocked) {
+  if (!isAppointmentReadOnly) {
     return null;
   }
 
@@ -25,8 +26,8 @@ export const UnlockAppointmentButton: FC<UnlockAppointmentButtonProps> = ({ onUn
     try {
       setIsLoading(true);
 
-      if (!appointment?.id) {
-        enqueueSnackbar('Appointment ID not found.', { variant: 'error' });
+      if (isFollowup ? !encounter?.id : !appointment?.id) {
+        enqueueSnackbar(isFollowup ? 'Encounter ID not found.' : 'Appointment ID not found.', { variant: 'error' });
         return;
       }
 
@@ -36,9 +37,9 @@ export const UnlockAppointmentButton: FC<UnlockAppointmentButtonProps> = ({ onUn
       }
 
       // Call the unlock-appointment zambda
-      const response = await apiClient.unlockAppointment({
-        appointmentId: appointment.id,
-      });
+      const response = await apiClient.unlockAppointment(
+        isFollowup ? { encounterId: encounter.id } : { appointmentId: appointment!.id }
+      );
 
       if (response.message) {
         enqueueSnackbar(response.message, { variant: 'success' });

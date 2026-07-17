@@ -20,7 +20,7 @@ import {
   writeCustomFoldersCatalog,
   ZambdaInput,
 } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -48,7 +48,7 @@ export const index = wrapHandler('rename-custom-folder', async (input: ZambdaInp
     await requireAdminUser(userToken, secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const result = await performEffect(internalName, newName, oystehr);
 

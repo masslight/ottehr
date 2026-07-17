@@ -12,7 +12,7 @@ import {
   OTTEHR_MODULE,
   Secrets,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -29,7 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Get M2M token for FHIR access
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   // TODO: Once billable follow-up visits are available (with their own Appointment and full visit workflow),
   // ensure this report includes them as independent visits on their follow-up date.

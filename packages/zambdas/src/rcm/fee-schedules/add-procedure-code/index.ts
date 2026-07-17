@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition, ChargeItemDefinitionPropertyGroup, Extension } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -9,7 +9,7 @@ export const index = wrapHandler('add-procedure-code', async (input: ZambdaInput
   const { feeScheduleId, code, description, modifier, amount, secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const existing = await oystehr.fhir.get<ChargeItemDefinition>({
     resourceType: 'ChargeItemDefinition',

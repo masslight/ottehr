@@ -16,7 +16,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   wrapHandler,
   ZambdaInput,
@@ -31,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { task, secrets, invoiceTaskInput, taskId } = validatedParams;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const candid = await getOrCreateCandidApiClient(oystehr, secrets);
 
   const inventoryRecord = await getCandidInventoryRecordForTask(oystehr, candid, taskId);

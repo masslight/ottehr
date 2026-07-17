@@ -6,15 +6,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Note: vi.mock is hoisted, so we must inline the constant rather than referencing a variable.
 vi.mock('../../src/shared', () => ({
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-  createOystehrClient: vi.fn(),
+  createClinicalOystehrClient: vi.fn(),
   RCM_TAG_SYSTEM: 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm',
   wrapHandler: (_name: string, handler: any) => handler,
   ZambdaInput: {},
+  safeValidate: (schema: any, input: unknown) => schema.parse(input),
+  safeJsonParse: (body: string) => JSON.parse(body),
 }));
 
 import { getPayerUrl } from 'utils';
 import { index as _handler } from '../../src/rcm/fee-schedules/find-applicable-fee-schedule/index';
-import { createOystehrClient } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared';
 import { ZambdaInput } from '../../src/shared/types';
 
 // Our mock replaces wrapHandler so it returns the raw single-arg function, not the 3-arg Lambda handler.
@@ -71,7 +73,7 @@ function fsWithOrgAndLocation(id: string, orgRef: string, locationId: string, da
 }
 
 function stubSearch(feeSchedules: ChargeItemDefinition[]): void {
-  (createOystehrClient as any).mockReturnValue({
+  (createClinicalOystehrClient as any).mockReturnValue({
     fhir: {
       search: vi.fn().mockResolvedValue({ unbundle: () => feeSchedules }),
     },

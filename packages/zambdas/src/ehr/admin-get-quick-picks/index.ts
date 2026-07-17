@@ -3,7 +3,7 @@ import { INVALID_INPUT_ERROR, QuickPickListInput, Secrets } from 'utils';
 import {
   assertDefined,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -48,7 +48,7 @@ export const index = wrapHandler(
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, category } = validateInput(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     const quickPicks = await searchQuickPicks(oystehr, CATEGORY_MAP[category]);
     return {
       statusCode: 200,

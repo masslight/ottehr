@@ -3,14 +3,14 @@ import {
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaInputSchema,
 } from 'utils/lib/types/api/send-receipt-by-email.types';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): SendReceiptByEmailZambdaInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) throw MISSING_REQUEST_BODY;
 
-  const data = JSON.parse(input.body);
+  const data = safeJsonParse(input.body);
   const { recipientFullName, email, receiptDocRefId } = SendReceiptByEmailZambdaInputSchema.parse(data);
 
   return { recipientFullName, email, receiptDocRefId, secrets: input.secrets };

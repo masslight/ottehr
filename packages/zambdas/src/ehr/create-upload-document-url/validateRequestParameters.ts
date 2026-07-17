@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 import { CreateUploadPatientDocumentInput } from '.';
 
 const CreateUploadDocumentBodySchema = z.object({
@@ -20,7 +20,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateUploadPatie
 
   const { patientId, fileFolderId, fileName, internalName } = safeValidate(
     CreateUploadDocumentBodySchema,
-    JSON.parse(input.body)
+    safeJsonParse(input.body)
   );
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 

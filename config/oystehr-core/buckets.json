@@ -3,83 +3,87 @@
   "buckets": {
     "VISIT_NOTES": {
       "name": "#{var/PROJECT_ID}-visit-notes",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "CONSENT_FORMS": {
       "name": "#{var/PROJECT_ID}-consent-forms",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "PRIVACY_POLICY": {
       "name": "#{var/PROJECT_ID}-privacy-policy",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "INSURANCE_CARDS": {
       "name": "#{var/PROJECT_ID}-insurance-cards",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "PHOTO_ID_CARDS": {
       "name": "#{var/PROJECT_ID}-photo-id-cards",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "PATIENT_PHOTOS": {
       "name": "#{var/PROJECT_ID}-patient-photos",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "SCHOOL_WORK_NOTES": {
       "name": "#{var/PROJECT_ID}-school-work-notes",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "SCHOOL_WORK_NOTE_TEMPLATES": {
       "name": "#{var/PROJECT_ID}-school-work-note-templates",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "AUDIO-RECORDINGS": {
       "name": "#{var/PROJECT_ID}-audio-recordings",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "LABS": {
       "name": "#{var/PROJECT_ID}-labs",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "RECEIPTS": {
       "name": "#{var/PROJECT_ID}-receipts",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "PAPERWORK": {
       "name": "#{var/PROJECT_ID}-exported-questionnaires",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "DISCHARGE_SUMMARIES": {
       "name": "#{var/PROJECT_ID}-discharge-summaries",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "INVOICEABLE_PATIENTS_REPORTS": {
       "name": "#{var/PROJECT_ID}-invoiceable-patients-reports",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "STATEMENTS": {
       "name": "#{var/PROJECT_ID}-statements",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "PATIENT_EDUCATION": {
       "name": "#{var/PROJECT_ID}-patient-education",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "PATIENT_EDUCATION_ADMIN": {
       "name": "#{var/PROJECT_ID}-patient-education-admin",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
+    },
+    "RADIOLOGY_REPORTS": {
+      "name": "#{var/PROJECT_ID}-radiology-reports",
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "LEGACY_DATA": {
       "name": "#{var/PROJECT_ID}-legacy-data",
-      "removalPolicy": "delete"
+      "retainInEnvironments": []
     },
     "PATIENT_DOCS_CUSTOM_FOLDERS": {
       "name": "#{var/PROJECT_ID}-patient-docs-custom-folders",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     },
     "MEDICAL_RECORD_EXPORTS": {
       "name": "#{var/PROJECT_ID}-medical-record-exports",
-      "removalPolicy": "retain"
+      "retainInEnvironments": ["production", "staging", "demo"]
     }
   }
 }

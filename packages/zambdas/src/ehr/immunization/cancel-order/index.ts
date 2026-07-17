@@ -4,7 +4,7 @@ import { MedicationAdministration } from 'fhir/r4b';
 import { CancelImmunizationOrderRequest, mapFhirToOrderStatus, mapOrderStatusToFhir, replaceOperation } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -17,7 +17,7 @@ const ZAMBDA_NAME = 'cancel-immunization-order';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   await cancelImmunizationOrder(oystehr, validatedParameters);
   return {
     statusCode: 200,

@@ -16,7 +16,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   sendErrors,
   wrapHandler,
   ZambdaInput,
@@ -48,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const testItems: DataEntryTestItem[] = [];
   let providerName: string | undefined;

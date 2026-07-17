@@ -1,5 +1,5 @@
 import { Appointment } from 'fhir/r4b';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 import { AppointmentSubscriptionInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): AppointmentSubscriptionInput {
@@ -7,7 +7,7 @@ export function validateRequestParameters(input: ZambdaInput): AppointmentSubscr
     throw new Error('No request body provided');
   }
 
-  const appointment = JSON.parse(input.body) as Appointment;
+  const appointment = safeJsonParse(input.body) as Appointment;
 
   if (appointment.resourceType !== 'Appointment') {
     throw new Error(`resource parsed should be an appointment but was a ${appointment.resourceType}`);

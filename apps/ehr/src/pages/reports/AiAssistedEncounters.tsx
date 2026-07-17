@@ -32,6 +32,7 @@ import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 
 import { getAiAssistedEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
+import { buildTrackingBoardPath } from './trackingBoardLink';
 
 interface AiAssistedEncounterRow {
   id: string;
@@ -426,17 +427,12 @@ export default function AiAssistedEncounters(): React.ReactElement {
           const visitType = params.row.visitType;
           const locationId = params.row.locationId;
           const appointmentTime = params.value;
-
-          // Extract date from appointment start for the search date parameter
           const appointmentStart = params.row.appointmentStart;
-          const searchDate = appointmentStart
-            ? DateTime.fromISO(appointmentStart).toFormat('yyyy-MM-dd')
-            : DateTime.now().toFormat('yyyy-MM-dd');
+          const visitStatus = params.row.visitStatus as VisitStatusLabel | undefined;
 
           // Handle different visit types
           if (visitType === 'In-Person' && locationId) {
-            // cSpell:disable-next %2C
-            const trackingBoardPath = `/visits?locationID=${locationId}&visitType=walk-in%2Cpre-booked%2Cpost-telemed&groups=&searchDate=${searchDate}`;
+            const trackingBoardPath = buildTrackingBoardPath({ appointmentStart, locationId, visitStatus });
 
             return (
               <Link

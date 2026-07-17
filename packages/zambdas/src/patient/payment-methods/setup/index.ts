@@ -9,7 +9,7 @@ import {
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   ensureStripeCustomerId,
   getAuth0Token,
   lambdaResponse,
@@ -36,7 +36,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
   } else {
     console.log('already have a token, no need to update');
   }
-  const oystehrClient = createOystehrClient(m2mClientToken, secrets);
+  const oystehrClient = createClinicalOystehrClient(m2mClientToken, secrets);
   void (await validateUserHasAccessToPatientAccount(
     { beneficiaryPatientId, secrets, zambdaInput: input },
     oystehrClient
@@ -55,7 +55,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
   }
 
   const guarantor = accountResources.guarantorResource;
-  const { customerId } = await ensureStripeCustomerId(
+  const { customerId, createdWithoutEmail } = await ensureStripeCustomerId(
     {
       guarantorResource: guarantor,
       account,
@@ -92,6 +92,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
   const response: PaymentMethodSetupZambdaOutput = {
     clientSecret: setupIntent.client_secret,
     stripeAccount,
+    createdWithoutEmail: createdWithoutEmail || undefined,
   };
 
   return lambdaResponse(200, response);

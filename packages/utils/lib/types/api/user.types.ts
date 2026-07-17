@@ -16,6 +16,7 @@ export type User = OystehrUser & {
 export enum RoleType {
   Administrator = 'Administrator',
   AssistantAdmin = 'AssistantAdmin',
+  BillingAdmin = 'BillingAdmin',
   Billing = 'Billing',
   CallCentre = 'CallCentre',
   CustomerSupport = 'Customer Support',
@@ -59,6 +60,11 @@ export const AVAILABLE_EMPLOYEE_ROLES: {
     value: RoleType.Manager,
     label: 'Manager',
     hint: `Adjust operating hours or schedule overrides; adjust pre-booked visits per hour`,
+  },
+  {
+    value: RoleType.BillingAdmin,
+    label: 'Billing Admin',
+    hint: `Administrator access in the Billing App. No access to the EHR.`,
   },
   {
     value: RoleType.Staff,

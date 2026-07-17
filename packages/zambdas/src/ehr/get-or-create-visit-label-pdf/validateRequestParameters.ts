@@ -1,6 +1,6 @@
 import { GetVisitLabelInput, MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const GetVisitLabelBodySchema = z.object({
   encounterId: z.string().uuid(),
@@ -11,7 +11,7 @@ export function validateRequestParameters(input: ZambdaInput): GetVisitLabelInpu
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body);
+  const parsed = safeJsonParse(input.body);
   const { encounterId } = safeValidate(GetVisitLabelBodySchema, parsed);
 
   return {

@@ -199,6 +199,19 @@ const FormFields: PatientRecordFormFields = {
         options: formValueSets.pointOfDiscoveryOptions,
       },
       commonWellConsent: { key: 'common-well-consent', label: 'CommonWell consent', type: 'boolean' },
+      // Payment-flow flag mirrored from the intake credit-card page. Same
+      // Patient.extension the intake harvest writes, same tri-state
+      // prepopulation semantics — the EHR field is the staff-side view of
+      // whatever the patient checked at intake, with staff able to correct.
+      // Label matches the EHR mockup (patient-third-person phrasing);
+      // hideControlLabel keeps only the inline text next to the checkbox
+      // (see the field-extension mechanism added in the same branch).
+      patientHasMedicaid: {
+        key: 'patient-has-medicaid',
+        label: 'Patient has Medicaid insurance. Credit Card should not be requested.',
+        type: 'boolean',
+        hideControlLabel: true,
+      },
     },
     hiddenFields: [],
     requiredFields: ['patient-ethnicity', 'patient-race'],
@@ -212,7 +225,28 @@ const FormFields: PatientRecordFormFields = {
       city: { key: 'patient-city', type: 'string', label: 'City' },
       state: { key: 'patient-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
       zip: { key: 'patient-zip', type: 'string', label: 'ZIP', dataType: 'ZIP' },
-      email: { key: 'patient-email', type: 'string', label: 'Patient email', dataType: 'Email' },
+      email: {
+        key: 'patient-email',
+        type: 'string',
+        label: 'Patient email',
+        dataType: 'Email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['enable'],
+            operator: '!=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'patient-no-email',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
+      noEmail: { key: 'patient-no-email', type: 'boolean', label: "Don't have email" },
       phone: { key: 'patient-number', type: 'string', label: 'Patient mobile', dataType: 'Phone Number' },
       preferredCommunicationMethod: {
         key: 'patient-preferred-communication-method',
@@ -576,6 +610,14 @@ const FormFields: PatientRecordFormFields = {
         triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
         disabledDisplay: 'hidden',
       },
+      fax: {
+        key: 'pcp-fax',
+        type: 'string',
+        label: 'Fax',
+        dataType: 'Phone Number',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
+        disabledDisplay: 'hidden',
+      },
     },
     hiddenFields: [],
     requiredFields: [],
@@ -638,9 +680,28 @@ const FormFields: PatientRecordFormFields = {
         type: 'string',
         label: 'Email',
         dataType: 'Email',
-        triggers: [RPNotSelfTrigger],
+        triggers: [
+          RPNotSelfTrigger,
+          // filter trigger keeps the value out of submission when no-email is checked;
+          // the actual hide is handled in ResponsibleInformationContainer so that
+          // the field stays visible-but-disabled when Self (independent of no-email state).
+          {
+            targetQuestionLinkId: 'responsible-party-no-email',
+            effect: ['filter'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
         dynamicPopulation: { sourceLinkId: 'patient-email', triggerState: 'disabled' },
         disabledDisplay: 'disabled',
+      },
+      noEmail: {
+        key: 'responsible-party-no-email',
+        type: 'boolean',
+        label: "Don't have email",
+        triggers: [RPNotSelfTrigger],
+        disabledDisplay: 'disabled',
+        dynamicPopulation: { sourceLinkId: 'patient-no-email', triggerState: 'disabled' },
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',

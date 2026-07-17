@@ -36,7 +36,7 @@ import {
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   Validation,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, makeCptModifierExtension } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, makeCptModifierExtension } from '../../shared';
 import { testItems as baseTestItems } from '../data/base-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
@@ -440,7 +440,7 @@ async function main(): Promise<void> {
 
   console.log(`Creating ActivityDefinitions on ${ENV} environment\n`);
 
-  const oystehrClient = createOystehrClient(token, envConfig);
+  const oystehrClient = createClinicalOystehrClient(token, envConfig);
 
   const requests: BatchInputRequest<ActivityDefinition>[] = [];
   const adUrlVersionMap: { [url: string]: string } = {};

@@ -57,7 +57,7 @@ export function useVisionLocalState(): VisionLocalState {
   const getDTO = useCallback((): VitalsVisionObservationDTO | null => {
     const hasBoth = leftEyeSelection.length > 0 && rightEyeSelection.length > 0;
     const hasBothEyes = bothEyesSelection.length > 0;
-    if (!hasBoth && !hasBothEyes) return null;
+    if (!hasBoth && !hasBothEyes && !isChildTooYoungOptionSelected) return null;
     const extraOptions: VitalsVisionOption[] = [];
     if (isChildTooYoungOptionSelected) {
       extraOptions.push('child_too_young');
@@ -94,23 +94,20 @@ export function useVisionLocalState(): VisionLocalState {
 
   const isValid = getDTO() !== null;
   const hasBothEyesValue = bothEyesSelection.length > 0;
-  const isDisabled = hasBothEyesValue ? false : !leftEyeSelection || !rightEyeSelection;
+  const isDisabled =
+    hasBothEyesValue || isChildTooYoungOptionSelected ? false : !leftEyeSelection || !rightEyeSelection;
 
   const isLeftEyeInvalid =
     !leftEyeSelection &&
     !hasBothEyesValue &&
-    (rightEyeSelection.length > 0 ||
-      isChildTooYoungOptionSelected ||
-      isWithGlassesOptionSelected ||
-      isWithoutGlassesOptionSelected);
+    !isChildTooYoungOptionSelected &&
+    (rightEyeSelection.length > 0 || isWithGlassesOptionSelected || isWithoutGlassesOptionSelected);
 
   const isRightEyeInvalid =
     !rightEyeSelection &&
     !hasBothEyesValue &&
-    (leftEyeSelection.length > 0 ||
-      isChildTooYoungOptionSelected ||
-      isWithGlassesOptionSelected ||
-      isWithoutGlassesOptionSelected);
+    !isChildTooYoungOptionSelected &&
+    (leftEyeSelection.length > 0 || isWithGlassesOptionSelected || isWithoutGlassesOptionSelected);
 
   return {
     leftEyeSelection,

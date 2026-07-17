@@ -22,7 +22,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fillMeta,
   getMyPractitionerId,
   wrapHandler,
@@ -52,7 +52,7 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
   const { userToken, secrets, encounterId, notes } = validatedParameters;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
     (

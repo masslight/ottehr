@@ -14,7 +14,7 @@ import {
 } from 'utils';
 import { getContainedPatientFromDiagnosticReport } from '../../../ehr/lab/shared/helpers';
 import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/lab/shared/labs';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { addDocsToLabList, getLabListResource } from '../../../shared/pdf/lab-pdf-utils';
 import {
   createExternalLabResultPDF,
@@ -64,7 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error('ServiceRequest id is not found');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   const { tasks, patient, labOrg, encounter, attachments } = await fetchRelatedResources(diagnosticReport, oystehr);
 
   const requests: BatchInputRequest<Task>[] = [];

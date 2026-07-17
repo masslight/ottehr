@@ -1,7 +1,7 @@
 import { Task } from 'fhir/r4b';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 export interface TaskSubscriptionInput {
   task: Task;
@@ -26,7 +26,7 @@ export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionI
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const task = safeValidate(TaskBodySchema, JSON.parse(input.body)) as unknown as Task;
+  const task = safeValidate(TaskBodySchema, safeJsonParse(input.body)) as unknown as Task;
 
   return {
     task,

@@ -22,7 +22,7 @@ const makeInput = (body: Record<string, unknown>): ZambdaInput =>
 const ehrUser = { id: 'u1', name: 'staff@x.com' } as unknown as User;
 
 describe('create-appointment validateCreateAppointmentParams – followUpOptions', () => {
-  const validBody = { slotId: 's1', patient: validPatient };
+  const validBody = { slotId: '550e8400-e29b-41d4-a716-446655440000', patient: validPatient };
 
   it('accepts request without followUpOptions (regular visit)', () => {
     const result = validateCreateAppointmentParams(makeInput(validBody), ehrUser);
@@ -62,7 +62,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
   it('rejects followUpOptions with empty parentEncounterId', () => {
     expect(() =>
       validateCreateAppointmentParams(makeInput({ ...validBody, followUpOptions: { parentEncounterId: '' } }), ehrUser)
-    ).toThrow(/parentEncounterId/);
+    ).toThrow('"followUpOptions.parentEncounterId" must be a non-empty string');
   });
 
   it('rejects followUpOptions with non-boolean skipPatientDiagnosis', () => {
@@ -71,7 +71,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
         makeInput({ ...validBody, followUpOptions: { parentEncounterId: 'enc-1', skipPatientDiagnosis: 'yes' } }),
         ehrUser
       )
-    ).toThrow(/skipPatientDiagnosis/);
+    ).toThrow('"followUpOptions.skipPatientDiagnosis" must be a boolean if provided');
   });
 
   it('rejects non-object followUpOptions', () => {
@@ -80,7 +80,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
         makeInput({ ...validBody, followUpOptions: 'not-an-object' as unknown as Record<string, unknown> }),
         ehrUser
       )
-    ).toThrow(/followUpOptions/);
+    ).toThrow('"followUpOptions" must be an object');
   });
 
   it('rejects array as followUpOptions', () => {
@@ -89,7 +89,7 @@ describe('create-appointment validateCreateAppointmentParams – followUpOptions
         makeInput({ ...validBody, followUpOptions: ['enc-1'] as unknown as Record<string, unknown> }),
         ehrUser
       )
-    ).toThrow(/followUpOptions/);
+    ).toThrow('"followUpOptions" must be an object');
   });
 
   it('silently ignores unknown fields in followUpOptions (project convention)', () => {

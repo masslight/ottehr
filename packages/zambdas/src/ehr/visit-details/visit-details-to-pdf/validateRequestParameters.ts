@@ -1,6 +1,6 @@
 import { VisitDetailsInputSchema, VisitDetailsInputValidated, VisitDetailsInputValidatedSchema } from 'utils';
 import { ZodError } from 'zod';
-import { formatZodError, ZambdaInput } from '../../../shared';
+import { formatZodError, safeJsonParse, ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): VisitDetailsInputValidated {
   console.group('validateRequestParameters');
@@ -17,7 +17,7 @@ export function validateRequestParameters(input: ZambdaInput): VisitDetailsInput
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(input.body);
+    parsed = safeJsonParse(input.body);
   } catch {
     throw new Error('Invalid JSON in request body.');
   }

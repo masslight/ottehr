@@ -596,9 +596,11 @@ export default function OutreachTasksReport(): ReactElement {
           </>
         )}
         <Tooltip title="Refresh">
-          <IconButton onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? <CircularProgress size={20} /> : <RefreshIcon />}
-          </IconButton>
+          <span>
+            <IconButton onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? <CircularProgress size={20} /> : <RefreshIcon />}
+            </IconButton>
+          </span>
         </Tooltip>
       </Stack>
 

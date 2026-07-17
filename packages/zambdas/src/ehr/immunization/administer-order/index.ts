@@ -37,7 +37,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   fillMeta,
   getMyPractitionerId,
   validateJsonBody,
@@ -60,7 +60,7 @@ const ZAMBDA_NAME = 'administer-immunization-order';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   const userPractitioner = await oystehr.fhir.get<Practitioner>({
@@ -121,14 +121,19 @@ async function administerImmunizationOrder(
   });
 
   if (administrationDetails.emergencyContact) {
-    medicationAdministration.contained?.push(
-      createEmergencyContactRelatedPerson(medicationAdministration.subject, administrationDetails.emergencyContact)
+    const emergencyContactRelatedPerson = createEmergencyContactRelatedPerson(
+      medicationAdministration.subject,
+      administrationDetails.emergencyContact
     );
-    medicationAdministration.supportingInformation = [
-      {
-        reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID,
-      },
-    ];
+
+    if (emergencyContactRelatedPerson) {
+      medicationAdministration.contained?.push(emergencyContactRelatedPerson);
+      medicationAdministration.supportingInformation = [
+        {
+          reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID,
+        },
+      ];
+    }
   }
 
   const medication = getContainedMedication(medicationAdministration);
@@ -285,6 +290,31 @@ export function validateRequestParameters(
 
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
+  // Emergency contact is optional as a whole, but if any field is provided - all three are required.
+  // A partially-filled contact would violates FHIR constraint ele-1.
+  const emergencyContact = administrationDetails?.emergencyContact;
+
+  if (emergencyContact) {
+    const isFilled = (value: unknown): boolean => typeof value === 'string' && value.trim().length > 0;
+
+    const providedCount = [emergencyContact.relationship, emergencyContact.fullName, emergencyContact.mobile].filter(
+      isFilled
+    ).length;
+
+    if (providedCount > 0 && providedCount < 3) {
+      const missing: string[] = [];
+      if (!isFilled(emergencyContact.relationship)) missing.push('relationship');
+      if (!isFilled(emergencyContact.fullName)) missing.push('fullName');
+      if (!isFilled(emergencyContact.mobile)) missing.push('mobile');
+
+      throw INVALID_INPUT_ERROR(
+        `Emergency contact is incomplete. Provide all fields (relationship, full name, mobile) or none. Missing: ${missing.join(
+          ', '
+        )}.`
+      );
+    }
+  }
+
   function validateDate(value: string, input: string): void {
     const dt = DateTime.fromISO(value);
     if (!dt.isValid || dt.year < 1900) {
@@ -364,38 +394,41 @@ function createMedicationStatement(
 function createEmergencyContactRelatedPerson(
   patientReference: Reference,
   emergencyContact: ImmunizationEmergencyContact
-): RelatedPerson {
+): RelatedPerson | undefined {
+  const fullName = emergencyContact.fullName?.trim();
+  const mobile = emergencyContact.mobile?.trim();
+
   const relationshipCoding = EMERGENCY_CONTACT_RELATIONSHIPS.find(
     (relationship) => relationship.code === emergencyContact.relationship
   );
+
+  const name: RelatedPerson['name'] = fullName ? [{ text: fullName }] : undefined;
+  const telecom: RelatedPerson['telecom'] = mobile ? [{ system: 'phone', use: 'mobile', value: mobile }] : undefined;
+
+  const relationship: RelatedPerson['relationship'] = relationshipCoding
+    ? [
+        {
+          coding: [
+            {
+              system: relationshipCoding.system,
+              code: relationshipCoding.code,
+              display: relationshipCoding.display,
+            },
+          ],
+        },
+      ]
+    : undefined;
+
+  if (!name && !telecom && !relationship) {
+    return undefined;
+  }
+
   return {
     resourceType: 'RelatedPerson',
     id: CONTAINED_EMERGENCY_CONTACT_ID,
     patient: patientReference,
-    name: [
-      {
-        text: emergencyContact.fullName,
-      },
-    ],
-    telecom: [
-      {
-        system: 'phone',
-        use: 'mobile',
-        value: emergencyContact.mobile,
-      },
-    ],
-    relationship: relationshipCoding
-      ? [
-          {
-            coding: [
-              {
-                system: relationshipCoding.system,
-                code: relationshipCoding.code,
-                display: relationshipCoding.display,
-              },
-            ],
-          },
-        ]
-      : undefined,
+    name,
+    telecom,
+    relationship,
   };
 }

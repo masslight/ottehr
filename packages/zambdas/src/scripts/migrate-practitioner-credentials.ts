@@ -2,8 +2,8 @@ import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import { getPatchBinary, ProviderTypeCode } from 'utils';
 import { makeProviderTypeExtension, PROVIDER_TYPE_EXTENSION_URL, PROVIDER_TYPE_VALUES } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { performEffectWithEnvFile } from './helpers';
 
 const BATCH_SIZE = 25;
 
@@ -11,10 +11,7 @@ const initializeOystehr = async (config: any): Promise<Oystehr> => {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
 
-  return new Oystehr({
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-    accessToken: token,
-  });
+  return createClinicalOystehrClient(token, config);
 };
 
 export async function getPractitionersBatch(oystehr: Oystehr, offset: number, count: number): Promise<Practitioner[]> {

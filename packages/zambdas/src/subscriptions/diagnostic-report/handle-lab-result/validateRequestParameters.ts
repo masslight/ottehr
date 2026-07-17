@@ -1,4 +1,5 @@
 import { DiagnosticReport } from 'fhir/r4b';
+import { safeJsonParse } from '../../../shared';
 import { ZambdaInput } from '../../../shared/types';
 import { ReviewLabResultSubscriptionInput } from '.';
 import { ACCEPTED_RESULTS_STATUS } from './helpers';
@@ -8,7 +9,7 @@ export function validateRequestParameters(input: ZambdaInput): ReviewLabResultSu
     throw new Error('No request body provided');
   }
 
-  const diagnosticReport = JSON.parse(input.body);
+  const diagnosticReport = safeJsonParse(input.body);
 
   if (diagnosticReport.resourceType !== 'DiagnosticReport') {
     throw new Error(`resource parsed should be a DiagnosticReport but was a ${diagnosticReport.resourceType}`);

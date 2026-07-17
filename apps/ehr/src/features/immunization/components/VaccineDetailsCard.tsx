@@ -157,6 +157,18 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
     return true;
   };
 
+  const validateEmergencyContactField = (value: string | undefined): boolean | string => {
+    const contact = methods.getValues('administrationDetails.emergencyContact') ?? {};
+    const isFilled = (v: unknown): boolean => typeof v === 'string' && v.trim().length > 0;
+    const anyFilled = isFilled(contact.relationship) || isFilled(contact.fullName) || isFilled(contact.mobile);
+
+    if (anyFilled && !isFilled(value)) {
+      return 'Complete all emergency contact fields or leave them all empty';
+    }
+
+    return true;
+  };
+
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
@@ -296,6 +308,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     getOptionLabel={(option) =>
                       RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option
                     }
+                    validate={validateEmergencyContactField}
                     dataTestId={dataTestIds.vaccineDetailsPage.relationship}
                   />
                 </Grid>
@@ -303,6 +316,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <TextInput
                     name="administrationDetails.emergencyContact.fullName"
                     label="Full name"
+                    validate={validateEmergencyContactField}
                     dataTestId={dataTestIds.vaccineDetailsPage.fullName}
                   />
                 </Grid>
@@ -310,6 +324,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   <PhoneInput
                     name="administrationDetails.emergencyContact.mobile"
                     label="Mobile"
+                    validate={validateEmergencyContactField}
                     dataTestId={dataTestIds.vaccineDetailsPage.mobile}
                   />
                 </Grid>

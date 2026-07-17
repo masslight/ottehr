@@ -26,7 +26,7 @@ import {
   Secrets,
   TIMEZONES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mToken: string;
@@ -52,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const { ownerType } = validatedParameters;
 
   let effectInput: EffectInput;
@@ -78,10 +78,12 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
       const { owner, schedules, displayName, address: itemAddress, providerSchedulesSummary } = item;
       let address: Address | undefined;
       let supportPhoneNumber: string | undefined;
+      let active: boolean | undefined;
       if (owner.resourceType === 'Location') {
         const loc = owner as Location;
         address = loc.address;
         supportPhoneNumber = loc.extension?.find((e) => e.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString;
+        active = loc.status === 'active';
       } else if (owner.resourceType === 'Practitioner') {
         address = (owner as Practitioner).address?.[0];
       }
@@ -94,6 +96,7 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
           address: addressString ?? '',
           providerSchedulesSummary,
           supportPhoneNumber,
+          active,
         },
         schedules: schedules.map((schedule) => ({
           resourceType: schedule.resourceType,
@@ -163,16 +166,11 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
   // splitting these into separate requests lest the _include lead to too large a response due to potentially very large json extension on
   // schedule resources.
   // Paginated: >1000 schedules would otherwise silently drop owners whose schedule lands on a later page.
-  // Filter Location owners to status=active. Matches the canonical filter
-  // used at PR creation (apps/ehr/src/components/schedule/PractitionerRoleList
-  // uses `params: [{ name: 'status', value: 'active' }]`), so the admin
-  // surface here doesn't surface schedule owners the rest of the system
-  // treats as invisible. Practitioner/HealthcareService have different
-  // active-flag conventions; leave them alone for now to avoid scope creep.
+  // Location owners are returned regardless of status: the admin Schedules
+  // list shows inactive Locations too (with an "Active" Yes/No column), so a
+  // Location deactivated from the General tab stays visible and can be
+  // reactivated. The owner DTO carries `active` so the table can render it.
   const ownerParams: { name: string; value: string }[] = [];
-  if (ownerType === 'Location') {
-    ownerParams.push({ name: 'status', value: 'active' });
-  }
   const [schedules, owners] = await Promise.all([
     getAllFhirSearchPages<Schedule>(
       {

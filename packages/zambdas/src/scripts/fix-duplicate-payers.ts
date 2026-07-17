@@ -2,8 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Coverage, CoverageEligibilityRequest, CoverageEligibilityResponse, Organization, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 const PAYER_ID_SYSTEM = 'payer-id';
 
@@ -644,10 +643,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   const organizations = await getPayerOrganizations(oystehr);
   await fixOrganizations(oystehr, organizations);

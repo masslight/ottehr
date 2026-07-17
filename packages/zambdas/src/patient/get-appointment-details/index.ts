@@ -12,7 +12,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {
@@ -37,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
     getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)

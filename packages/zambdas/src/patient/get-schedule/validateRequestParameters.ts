@@ -10,7 +10,7 @@ import {
   SLUG_VALIDATION_MESSAGE,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 export const SCHEDULE_TYPES = ['location', 'provider', 'group'] as const;
 
@@ -39,7 +39,7 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     selectedDate,
     serviceCategoryCode: maybeServiceCategoryCode,
     atLocationSlug,
-  } = safeValidate(GetScheduleBodySchema, JSON.parse(input.body));
+  } = safeValidate(GetScheduleBodySchema, safeJsonParse(input.body));
 
   let serviceCategoryCode: ServiceCategoryCode | undefined;
 

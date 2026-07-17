@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, SearchPlacesInput, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const bodySchema = z
   .object({
@@ -25,7 +25,7 @@ export function validateRequestParameters(input: ZambdaInput): SearchPlacesInput
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body);
+  const parsed = safeJsonParse(input.body);
   const { searchTerm, locationBias, placesId } = safeValidate(bodySchema, parsed);
 
   return {

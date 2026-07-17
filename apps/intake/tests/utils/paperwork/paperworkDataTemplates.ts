@@ -197,6 +197,11 @@ const createInsuranceData = (overrides?: {
       'policy-holder-city': overrides?.city || 'InsuranceCity',
       'policy-holder-state': overrides?.state || 'CA',
       'policy-holder-zip': overrides?.zip || '12345',
+      // Attachment fields — value is a placeholder token; fillAttachmentField
+      // maps the linkId to a static test image. Skipped automatically for
+      // projects whose questionnaire omits the field.
+      'insurance-card-front': 'upload',
+      'insurance-card-back': 'upload',
     },
     invalid: {
       'policy-holder-date-of-birth': '13/32/2020', // Invalid date

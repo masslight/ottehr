@@ -1,5 +1,6 @@
+import { ServiceFacilityItem } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { buildAddressInput, formatCurrency, splitDisplayName } from '../../src/utils/format';
+import { buildAddressInput, formatCurrency, formatFacilityAddress, splitDisplayName } from '../../src/utils/format';
 
 describe('formatCurrency', () => {
   it('formats whole and fractional amounts to two decimals', () => {
@@ -37,5 +38,41 @@ describe('buildAddressInput', () => {
       state: 'TX',
       postalCode: '78701',
     });
+  });
+});
+
+describe('formatFacilityAddress', () => {
+  const base: ServiceFacilityItem = {
+    id: 'loc-1',
+    name: 'Main Street Clinic',
+    addressLine1: '123 Main St',
+    addressLine2: '',
+    city: 'Boston',
+    state: 'MA',
+    zip: '',
+    npi: '',
+    clia: '',
+    posCode: '',
+    status: 'active',
+  };
+
+  it('hyphenates a stored 9-digit ZIP', () => {
+    expect(formatFacilityAddress({ ...base, zip: '021181234' })).toBe('123 Main St, Boston, MA, 02118-1234');
+  });
+
+  it('leaves a legacy 5-digit ZIP unchanged', () => {
+    expect(formatFacilityAddress({ ...base, zip: '02118' })).toBe('123 Main St, Boston, MA, 02118');
+  });
+
+  it('drops blank parts', () => {
+    expect(
+      formatFacilityAddress({
+        ...base,
+        addressLine1: '',
+        city: '',
+        state: '',
+        zip: '',
+      })
+    ).toBe('');
   });
 });

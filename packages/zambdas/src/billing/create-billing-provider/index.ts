@@ -2,6 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Organization, Practitioner } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_NPI,
@@ -15,6 +17,7 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  STRIPE_ACCOUNT_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { CreateBillingProviderParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -42,7 +45,13 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
   }));
 
   const identifier: Identifier[] = [];
-  if (params.npi) identifier.push({ system: FHIR_IDENTIFIER_NPI, value: params.npi });
+  if (params.npi) {
+    identifier.push({ system: FHIR_IDENTIFIER_NPI, value: params.npi });
+    identifier.push({
+      type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI }] },
+      value: params.npi,
+    });
+  }
   if (params.taxId) {
     identifier.push({
       type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAX_EMPLOYER }] },
@@ -51,7 +60,7 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
   }
   if (params.taxonomyCode) {
     identifier.push({
-      type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
+      type: { coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
       value: params.taxonomyCode,
     });
   }
@@ -69,6 +78,10 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
     if (identifier.length) practitioner.identifier = identifier;
     if (address) practitioner.address = address;
     return practitioner;
+  }
+
+  if (params.stripeAccountId) {
+    identifier.push({ system: STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, value: params.stripeAccountId });
   }
 
   const organization: Organization = {

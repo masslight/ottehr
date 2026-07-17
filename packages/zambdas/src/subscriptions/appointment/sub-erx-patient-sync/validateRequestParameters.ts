@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface ErxPatientSyncSubscriptionInput {
   patientId: string;
@@ -45,7 +45,7 @@ export function validateRequestParameters(input: ZambdaInput): ErxPatientSyncSub
   }
 
   const secrets = input.secrets;
-  const body = safeValidate(ErxSyncBodySchema, JSON.parse(input.body));
+  const body = safeValidate(ErxSyncBodySchema, safeJsonParse(input.body));
   const triggerType: 'encounter' | 'observation' = body.resourceType.toLocaleLowerCase() as 'encounter' | 'observation';
 
   const patientId = body.subject.reference.split('/')[1];

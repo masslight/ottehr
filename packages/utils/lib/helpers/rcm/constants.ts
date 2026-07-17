@@ -1,3 +1,5 @@
+import { OYSTEHR_EXTENSION_BASE_URL } from '../../fhir/constants';
+
 export const EMERGENCY_REVENUE_CODE = '1001';
 
 export const EXTENSION_PATIENT_PAID = 'http://fhir-api.zapehr.com/extension/patient-paid';
@@ -8,14 +10,21 @@ export const EXTENSION_CLAIM_CONDITION_CODE = 'http://fhir-api.zapehr.com/extens
 export const EXTENSION_OUTSIDE_CHARGES = 'http://fhir-api.zapehr.com/extension/outside-charges';
 export const RAW_RESPONSE = 'http://fhir-api.zapehr.com/extension/raw-response';
 
+export const EXTENSION_CLAIM_INSURANCE_TYPE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-insurance-type`;
+
+export const EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-provider-signature-indicator`;
+export const EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-assignment-or-plan-participation-code`;
+export const EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-benefits-assignment-certification-indicator`;
+export const EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE = `${OYSTEHR_EXTENSION_BASE_URL}/rcm-claim-release-of-information-code`;
+
 export const CODE_SYSTEM_CLAIM_TYPE = 'http://terminology.hl7.org/CodeSystem/claim-type';
 export const CODE_SYSTEM_PROCESS_PRIORITY = 'http://terminology.hl7.org/CodeSystem/processpriority';
 export const CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY = 'http://terminology.hl7.org/CodeSystem/claiminformationcategory';
 export const CODE_SYSTEM_ACT_CODE_V3 = 'http://terminology.hl7.org/CodeSystem/v3-ActCode';
 export const CODE_SYSTEM_ICD_9 = 'http://hl7.org/fhir/sid/icd-9-cm';
 export const CODE_SYSTEM_ICD_10 = 'http://hl7.org/fhir/sid/icd-10-cm';
-export const CODE_SYSTEM_CPT = 'http://www.ama-assn.org/go/cpt';
-export const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets';
+export const CODE_SYSTEM_CPT = 'http://www.ama-assn.org/go/cpt'; // used by both Ottehr and Oystehr
+export const CODE_SYSTEM_HL7_HCPCS = 'http://terminology.hl7.org/CodeSystem/HCPCS'; // used by both Ottehr and Oystehr
 export const CODE_SYSTEM_NDC = 'http://hl7.org/fhir/sid/ndc';
 export const CODE_SYSTEM_CMS_PLACE_OF_SERVICE =
   'http://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set.html';
@@ -249,6 +258,8 @@ export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE = 'https://terminology
 export const EXTENSION_URL_CPT_MODIFIER = 'https://fhir.ottehr.com/Extension/cpt-code-modifier';
 export const CODE_SYSTEM_CPT_MODIFIER = 'https://fhir.ottehr.com/CodeSystem/cpt-code-modifier';
 
+export const CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE =
+  'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-referring-provider-type';
 export const CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER =
   'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier';
 
@@ -258,16 +269,19 @@ export const CODE_SYSTEM_CLAIM_TYPE_CODES = {
   institutional: 'institutional',
 } as const;
 
-export const CODE_SYSTEM_APPOINTMENT_TYPE_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/appointment-type';
-export const CODE_SYSTEM_APPOINTMENT_TYPE_CODE_NAMES = [
+export const CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/billing-service';
+export const CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES = [
   'urgent-care',
   'occupational-medicine',
   'workers-comp',
   'pre-op',
 ] as const;
-export const CODE_SYSTEM_APPOINTMENT_TYPE_CODES = {
+export const CODE_SYSTEM_SERVICE_CATEGORY_CODES = {
   'urgent-care': 'urgent-care',
   'occupational-medicine': 'occupational-medicine',
   'workers-comp': 'workers-comp',
   'pre-op': 'pre-op',
 } as const;
+
+export const CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE =
+  'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-secondary-identifier-type';

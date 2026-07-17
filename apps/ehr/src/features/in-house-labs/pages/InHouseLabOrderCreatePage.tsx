@@ -221,28 +221,27 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     }
   };
 
-  const handleTestSelection = (selectedTest: string): void => {
+  const handleTestSelectionChange = (newSelectedNames: string[]): void => {
     if (!availableTests?.length) {
       return;
     }
 
-    const foundEntry = availableTests.find((test) => test.name === selectedTest);
+    setSelectedTests((currentTests) => {
+      // Add newly checked tests
+      const testsToAdd = newSelectedNames
+        .filter((name) => !currentTests.some((test) => test.name === name))
+        .map((name) => availableTests.find((test) => test.name === name))
+        .filter((test): test is DataEntryTestItem => test !== undefined);
 
-    if (!foundEntry) {
-      return;
-    }
-
-    const alreadySelected = selectedTests.find((tempLab) => {
-      return tempLab.name === selectedTest;
-    });
-
-    if (!alreadySelected) {
-      setSelectedTests([...selectedTests, foundEntry]);
-    } else {
-      enqueueSnackbar('This lab has already been selected', {
-        variant: 'error',
+      // Remove tests that were unchecked in the dropdown
+      // Only remove tests that are present in availableTests (i.e. came from the dropdown)
+      const testsAfterRemovals = currentTests.filter((test) => {
+        const isAvailableTest = availableTests.some((availableTest) => availableTest.name === test.name);
+        return !isAvailableTest || newSelectedNames.includes(test.name);
       });
-    }
+
+      return [...testsAfterRemovals, ...testsToAdd];
+    });
   };
 
   const handleSetSelectedLabsViaLabSets = async (labSet: LabSetDTO): Promise<void> => {
@@ -285,7 +284,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
             <form onSubmit={handleSubmit}>
               <Grid container spacing={3}>
                 <Grid item xs={12}>
-                  <InHouseLabSelect availableTests={availableTests} handleTestSelection={handleTestSelection} />
+                  <InHouseLabSelect
+                    availableTests={availableTests}
+                    selectedTestNames={selectedTests.map((t) => t.name)}
+                    onChange={handleTestSelectionChange}
+                  />
 
                   {labSets && <LabSets labSets={labSets} setSelectedLabs={handleSetSelectedLabsViaLabSets} />}
 

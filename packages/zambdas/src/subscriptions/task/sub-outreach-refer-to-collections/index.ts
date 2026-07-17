@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 let m2mToken: string;
 
@@ -24,7 +24,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
   // Mark as in-progress with optimistic locking to guard against duplicate
   // subscription deliveries racing to execute the same task. If another

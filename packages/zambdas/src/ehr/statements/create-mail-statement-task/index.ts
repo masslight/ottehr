@@ -13,7 +13,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   StatementType,
   wrapHandler,
   ZambdaInput,
@@ -101,7 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const validatedInput = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-  const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',

@@ -5,7 +5,7 @@ import { INVALID_INPUT_ERROR, Secrets } from 'utils';
 import {
   assertDefined,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -88,7 +88,7 @@ export const index = wrapHandler(
     const { secrets, quickPick, category } = validateInput(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const config = CATEGORY_CONFIG_MAP[category];
     if (config.validator) {

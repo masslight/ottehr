@@ -20,7 +20,7 @@ import {
   Secrets,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -61,7 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   logIt(`Got m2mToken`);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   logIt('fetching list .......');
   let documentsFolder: List | undefined;

@@ -11,6 +11,7 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   ServiceMode,
 } from 'utils';
+import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -46,6 +47,7 @@ import {
   createVisitInfoSection,
 } from './sections';
 import { composePrimaryCarePhysicianData, createPrimaryCarePhysicianSection } from './sections/primaryCarePhysician';
+import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, PdfResult, VisitDetailsData, VisitDetailsInput } from './types';
 
 // Build the same `AppointmentContext` the EHR's VisitDetailsPage feeds into
@@ -102,7 +104,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
   return {
     appointmentContext: buildAppointmentContext(input),
     patient: composePatientData({ patient, appointment }),
-    visit: composeVisitData({ appointment, location, timezone }),
+    visit: composeVisitData({ appointment, location, timezone, serviceCategories: input.serviceCategories }),
     contact: composeContactData({ patient, appointment }),
     details: composePatientDetailsData({ patient }),
     pcp: composePrimaryCarePhysicianData({ physician }),
@@ -200,8 +202,9 @@ export const createVisitDetailsPdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
+  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
   return generatePdf(
-    input,
+    { ...input, serviceCategories },
     composeVisitDetailsData,
     visitDetailsRenderConfig,
     {

@@ -1,6 +1,6 @@
 import { MailedStatementsReportZambdaInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const dateRangeSchema = z.object({
   dateRange: z.object({
@@ -16,7 +16,7 @@ export function validateRequestParameters(
 
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const parsedBody = JSON.parse(input.body) as unknown;
+  const parsedBody = safeJsonParse(input.body) as unknown;
   const { dateRange } = safeValidate(dateRangeSchema, parsedBody);
 
   return {

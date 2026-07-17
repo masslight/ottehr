@@ -1,5 +1,5 @@
 import { RecentPatientsReportZambdaInput, Secrets } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): {
   dateRange: { start: string; end: string };
@@ -11,7 +11,7 @@ export function validateRequestParameters(input: ZambdaInput): {
     throw new Error('No request body provided');
   }
 
-  const requestBody = JSON.parse(input.body) as RecentPatientsReportZambdaInput;
+  const requestBody = safeJsonParse(input.body) as RecentPatientsReportZambdaInput;
 
   if (!requestBody.dateRange) {
     throw new Error('dateRange is required');

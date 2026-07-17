@@ -21,7 +21,13 @@ import {
   TaskIndicator,
   VisitType,
 } from 'utils';
-import { checkPaperworkComplete, createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkPaperworkComplete,
+  createClinicalOystehrClient,
+  getAuth0Token,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { getUser } from '../../shared/auth';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -54,7 +60,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   console.log('getting all fhir resources');
   console.time('resource search for check in');

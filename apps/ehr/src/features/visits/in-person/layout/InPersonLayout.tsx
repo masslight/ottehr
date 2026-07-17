@@ -7,6 +7,7 @@ import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPalet
 import { ThemeProvider } from 'styled-components';
 import { getAttendingPractitionerId, getSelectors, isTelemedAppointment } from 'utils';
 import { Sidebar } from '../../shared/components/Sidebar';
+import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPolling';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
@@ -48,6 +49,7 @@ export const InPersonLayout: React.FC = () => {
   const isFollowup = visitType === 'follow-up';
 
   useResetAppointmentStore();
+  useAiSuggestionsPolling();
   const { chartData } = useChartData({ shouldUpdateExams: true });
   const assignedProviderId = getAttendingPractitionerId(encounter);
   const virtual = isTelemedAppointment(appointment);
@@ -60,7 +62,9 @@ export const InPersonLayout: React.FC = () => {
       <div style={mainBlocksStyle}>
         <Sidebar />
         <div style={contentWrapperStyle}>
-          {!isFollowup && (
+          {/* Telemed visits record audio automatically via the Oystehr telemed service, so the manual
+              start/pause/stop Ambient Scribe recorder is only shown for in-person visits. */}
+          {!isFollowup && !virtual && (
             <Container>
               <Fab
                 color="primary"

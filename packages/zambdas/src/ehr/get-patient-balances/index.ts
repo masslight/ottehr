@@ -7,7 +7,7 @@ import { chunkThings, getOrCreateCandidApiClient, GetPatientBalancesZambdaOutput
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   lambdaResponse,
   wrapHandler,
   ZambdaInput,
@@ -37,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   const validatedInput = await validateInput(unsafeInput);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 

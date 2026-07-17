@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
+  APIErrorCode,
   INTEGRATION_TEST_TAG_SYSTEM,
   M2MClientMockType,
   PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
@@ -179,16 +180,16 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
   };
 
   // Helper: attempt a create that's expected to be rejected by the conflict
-  // check. The zambda returns a 400 with `{ code, message, ... }`; the SDK
-  // turns that into an OystehrSdkError whose `.code` is the body's `code`
-  // string and whose `.message` is the body's `message` prose. Other body
-  // fields (conflictingPractitionerRoleId, conflictingCategoryNames) are dropped by
-  // the SDK, so tests assert on the prose message instead.
+  // check. The zambda throws PRACTITIONER_SCHEDULE_CONFLICT_ERROR, which
+  // wrapHandler serializes as a 400 with `{ code, message }`; the SDK
+  // surfaces those on the OystehrSdkError. `code` is the numeric APIErrorCode
+  // value (the convention for every throw-APIError path in the codebase) and
+  // `message` is the admin-facing prose. We assert on both.
   const callCreateExpectingConflict = async (overrides: {
     allCategories?: boolean;
     categoryHealthcareServiceIds?: string[];
     locationId?: string;
-  }): Promise<{ code?: string | number; message: string }> => {
+  }): Promise<{ code?: number; message: string }> => {
     let caught: unknown;
     try {
       await oystehrZambdas.zambda.execute({
@@ -205,7 +206,7 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
     if (!caught) {
       throw new Error('expected create to be rejected by the conflict check, but it succeeded');
     }
-    const err = caught as { code?: string | number; message?: string };
+    const err = caught as { code?: number; message?: string };
     return { code: err.code, message: err.message ?? '' };
   };
 
@@ -307,7 +308,7 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
         allCategories: true,
         locationId: sharedLocation.id!,
       });
-      expect(errorBody.code).toBe('PRACTITIONER_SCHEDULE_CONFLICT');
+      expect(errorBody.code).toBe(APIErrorCode.PRACTITIONER_SCHEDULE_CONFLICT);
       expect(errorBody.message).toContain(cat.name ?? '');
     });
 
@@ -323,7 +324,7 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
         categoryHealthcareServiceIds: [cat.id!],
         locationId: sharedLocation.id!,
       });
-      expect(errorBody.code).toBe('PRACTITIONER_SCHEDULE_CONFLICT');
+      expect(errorBody.code).toBe(APIErrorCode.PRACTITIONER_SCHEDULE_CONFLICT);
       expect(errorBody.message).toContain('All services');
     });
 
@@ -356,8 +357,8 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
         caught = e;
       }
       expect(caught).toBeDefined();
-      const err = caught as { code?: string | number; message?: string };
-      expect(err.code).toBe('PRACTITIONER_SCHEDULE_CONFLICT');
+      const err = caught as { code?: number; message?: string };
+      expect(err.code).toBe(APIErrorCode.PRACTITIONER_SCHEDULE_CONFLICT);
       expect(err.message ?? '').toContain(cat.name ?? '');
     });
 
@@ -453,5 +454,296 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
       // overlap with the other PR's allCategories=true.
       await callUpdate(candidateRole.id, { locationId: sharedLocation.id! });
     });
+  });
+});
+
+// Coverage for the soft-delete/reactivate zambda that backs the Active toggle
+// in the admin schedule list. The lifecycle has two non-trivial behaviors:
+//
+//   1. Both PR.active and the attached Schedule.active flip together — the PR
+//      filter is what hides a soft-deleted row from admin lists, but
+//      Schedule.active is kept in lockstep so the resource graph stays
+//      coherent.
+//   2. Reactivation runs the same conflict guard as create/update — otherwise
+//      the dance "deactivate A → create overlapping B → reactivate A" would
+//      reintroduce the duplicate-coverage problem the guard exists to prevent.
+//
+// Validation errors (PR has no Schedule) and the conflict path are exercised
+// alongside the happy paths so the load-bearing pieces all stay pinned.
+describe('admin-set-practitioner-role-active — activation lifecycle', () => {
+  let oystehrAdmin: Oystehr;
+  let oystehrZambdas: Oystehr;
+  let cleanup: () => Promise<void>;
+  let processId: string;
+  let testPractitioner: Practitioner;
+  const createdPrIds: string[] = [];
+  const createdScheduleIds: string[] = [];
+  const createdServiceCategoryIds: string[] = [];
+  const createdLocationIds: string[] = [];
+
+  beforeAll(async () => {
+    const setup = await setupIntegrationTest('admin-practitioner-role.test.ts:set-active', M2MClientMockType.provider);
+    oystehrAdmin = setup.oystehr;
+    oystehrZambdas = setup.oystehrTestUserM2M;
+    cleanup = setup.cleanup;
+    processId = setup.processId;
+
+    testPractitioner = await oystehrAdmin.fhir.create<Practitioner>({
+      resourceType: 'Practitioner',
+      active: true,
+      name: [{ given: ['SetActive'], family: `Test-${randomUUID().slice(0, 8)}` }],
+      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+    });
+    assert(testPractitioner.id);
+  }, 60_000);
+
+  afterAll(async () => {
+    for (const id of createdScheduleIds) {
+      try {
+        await oystehrAdmin.fhir.delete({ resourceType: 'Schedule', id });
+      } catch {
+        // best-effort
+      }
+    }
+    for (const id of createdPrIds) {
+      try {
+        await oystehrAdmin.fhir.delete({ resourceType: 'PractitionerRole', id });
+      } catch {
+        // best-effort
+      }
+    }
+    for (const id of createdServiceCategoryIds) {
+      try {
+        await oystehrAdmin.fhir.delete({ resourceType: 'HealthcareService', id });
+      } catch {
+        // best-effort
+      }
+    }
+    for (const id of createdLocationIds) {
+      try {
+        await oystehrAdmin.fhir.delete({ resourceType: 'Location', id });
+      } catch {
+        // best-effort
+      }
+    }
+    if (testPractitioner.id) {
+      try {
+        await oystehrAdmin.fhir.delete({ resourceType: 'Practitioner', id: testPractitioner.id });
+      } catch {
+        // best-effort
+      }
+    }
+    await cleanup();
+  });
+
+  const makeFreshLocation = async (): Promise<Location> => {
+    const loc = await oystehrAdmin.fhir.create<Location>({
+      resourceType: 'Location',
+      status: 'active',
+      name: `Set-Active Test Loc ${randomUUID().slice(0, 8)}`,
+      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+    });
+    assert(loc.id);
+    createdLocationIds.push(loc.id);
+    return loc;
+  };
+
+  const createServiceCategoryHs = async (): Promise<HealthcareService> => {
+    const code = `set-active-${randomUUID().slice(0, 8)}`;
+    const created = await oystehrAdmin.fhir.create<HealthcareService>({
+      resourceType: 'HealthcareService',
+      active: true,
+      name: code,
+      meta: {
+        tag: [SERVICE_CATEGORY_TAG, { system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }],
+      },
+      type: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code, display: code }] }],
+      characteristic: serviceCategoryCharacteristics({
+        modes: [ServiceMode['in-person']],
+        visitTypes: [ServiceVisitType.prebook],
+        durationMinutes: 30,
+      }),
+    });
+    assert(created.id);
+    createdServiceCategoryIds.push(created.id);
+    return created;
+  };
+
+  // Provision an active PR + Schedule via the same admin-create zambda the UI
+  // uses, so the test subject is shaped exactly the way production resources
+  // are shaped (extensions, references, all wired through the real handler).
+  const createActivePr = async (
+    overrides: {
+      locationId?: string;
+      categoryHealthcareServiceIds?: string[];
+      allCategories?: boolean;
+    } = {}
+  ): Promise<{ role: PractitionerRole; schedule: Schedule }> => {
+    const locationId = overrides.locationId ?? (await makeFreshLocation()).id!;
+    const response = await oystehrZambdas.zambda.execute({
+      id: 'admin-create-practitioner-role',
+      practitionerId: testPractitioner.id,
+      locationId,
+      categoryHealthcareServiceIds: overrides.categoryHealthcareServiceIds ?? [],
+      timezone: TIMEZONES[0],
+      ...(overrides.allCategories !== undefined ? { allCategories: overrides.allCategories } : {}),
+    });
+    const out = response.output as { role: PractitionerRole; schedule: Schedule };
+    if (out.role.id) createdPrIds.push(out.role.id);
+    if (out.schedule.id) createdScheduleIds.push(out.schedule.id);
+    return out;
+  };
+
+  const callSetActive = async (roleId: string, active: boolean): Promise<void> => {
+    await oystehrZambdas.zambda.execute({
+      id: 'admin-set-practitioner-role-active',
+      roleId,
+      active,
+    });
+  };
+
+  const readPr = (roleId: string): Promise<PractitionerRole> =>
+    oystehrAdmin.fhir.get<PractitionerRole>({ resourceType: 'PractitionerRole', id: roleId });
+  const readSchedule = (scheduleId: string): Promise<Schedule> =>
+    oystehrAdmin.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
+
+  it('deactivation flips both PractitionerRole.active and Schedule.active to false', async () => {
+    const { role, schedule } = await createActivePr({ allCategories: true });
+    assert(role.id);
+    assert(schedule.id);
+
+    await callSetActive(role.id, false);
+
+    const [refreshedPr, refreshedSchedule] = await Promise.all([readPr(role.id), readSchedule(schedule.id)]);
+    expect(refreshedPr.active).toBe(false);
+    expect(refreshedSchedule.active).toBe(false);
+  });
+
+  it('reactivation restores both PractitionerRole.active and Schedule.active to true', async () => {
+    const { role, schedule } = await createActivePr({ allCategories: true });
+    assert(role.id);
+    assert(schedule.id);
+
+    await callSetActive(role.id, false);
+    await callSetActive(role.id, true);
+
+    const [refreshedPr, refreshedSchedule] = await Promise.all([readPr(role.id), readSchedule(schedule.id)]);
+    expect(refreshedPr.active).toBe(true);
+    expect(refreshedSchedule.active).toBe(true);
+  });
+
+  it('rejects reactivation when another active PR now covers the same (location, category) tuple', async () => {
+    // PR-A and PR-B both want the same coverage. Create A, deactivate it,
+    // create B in its place (which passes because A is inactive), then try
+    // to reactivate A — the guard should fire so we don't end up with both
+    // active for the same tuple.
+    const sharedLocation = await makeFreshLocation();
+    const cat = await createServiceCategoryHs();
+    const { role: roleA } = await createActivePr({
+      locationId: sharedLocation.id!,
+      categoryHealthcareServiceIds: [cat.id!],
+    });
+    assert(roleA.id);
+
+    await callSetActive(roleA.id, false);
+
+    await createActivePr({
+      locationId: sharedLocation.id!,
+      categoryHealthcareServiceIds: [cat.id!],
+    });
+
+    let caught: unknown;
+    try {
+      await callSetActive(roleA.id, true);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeDefined();
+    const err = caught as { code?: number; message?: string };
+    expect(err.code).toBe(APIErrorCode.PRACTITIONER_SCHEDULE_CONFLICT);
+    expect(err.message ?? '').toContain(cat.name ?? '');
+
+    // A must still be inactive — the guard fired before any patches ran.
+    const refreshedA = await readPr(roleA.id);
+    expect(refreshedA.active).toBe(false);
+  });
+
+  it('throws Schedule-not-found when the PR has no attached Schedule', async () => {
+    // Plant a PR directly so we can isolate the missing-Schedule path —
+    // admin-create always pairs a PR with a Schedule, so the only way to
+    // hit this branch in a test is to build the PR with raw FHIR.
+    const loc = await makeFreshLocation();
+    const role = await oystehrAdmin.fhir.create<PractitionerRole>({
+      resourceType: 'PractitionerRole',
+      active: true,
+      practitioner: { reference: `Practitioner/${testPractitioner.id}` },
+      location: [{ reference: `Location/${loc.id}` }],
+      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+    });
+    assert(role.id);
+    createdPrIds.push(role.id);
+
+    let caught: unknown;
+    try {
+      await callSetActive(role.id, false);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeDefined();
+    const err = caught as { code?: number; message?: string };
+    expect(err.code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
+  });
+
+  it('refuses to act when multiple Schedules reference the same PR — and leaves resources untouched', async () => {
+    // The zambda's invariant is "exactly one Schedule per PR." Multi-Schedule
+    // is a data anomaly we expect never to happen in production, but if it
+    // does, we want a hard bail rather than an arbitrary pick — picking one
+    // would leave the other in a divergent active state. Plant the anomaly
+    // with raw FHIR, then assert that (a) the call throws and (b) no patches
+    // ran (PR.active and both Schedule.active stay at their pre-call values).
+    const loc = await makeFreshLocation();
+    const role = await oystehrAdmin.fhir.create<PractitionerRole>({
+      resourceType: 'PractitionerRole',
+      active: true,
+      practitioner: { reference: `Practitioner/${testPractitioner.id}` },
+      location: [{ reference: `Location/${loc.id}` }],
+      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+    });
+    assert(role.id);
+    createdPrIds.push(role.id);
+
+    const buildSchedule = (): Schedule => ({
+      resourceType: 'Schedule',
+      active: true,
+      actor: [{ reference: `PractitionerRole/${role.id}` }],
+      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+    });
+    const [scheduleA, scheduleB] = await Promise.all([
+      oystehrAdmin.fhir.create<Schedule>(buildSchedule()),
+      oystehrAdmin.fhir.create<Schedule>(buildSchedule()),
+    ]);
+    assert(scheduleA.id);
+    assert(scheduleB.id);
+    createdScheduleIds.push(scheduleA.id, scheduleB.id);
+
+    let caught: unknown;
+    try {
+      await callSetActive(role.id, false);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeDefined();
+
+    // Nothing should have mutated — partial deactivation would leave the
+    // graph in a worse state than the original anomaly. Re-read all three
+    // resources and check active flags are still true.
+    const [refreshedPr, refreshedA, refreshedB] = await Promise.all([
+      readPr(role.id),
+      readSchedule(scheduleA.id),
+      readSchedule(scheduleB.id),
+    ]);
+    expect(refreshedPr.active).toBe(true);
+    expect(refreshedA.active).toBe(true);
+    expect(refreshedB.active).toBe(true);
   });
 });

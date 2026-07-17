@@ -31,6 +31,6 @@ export const index = wrapHandler(
 export async function performEffect(oystehr: Oystehr, params: DeleteChargeItemDefinitionParams): Promise<void> {
   await oystehr.fhir.delete({
     resourceType: 'ChargeItemDefinition',
-    id: params.id,
+    id: params.chargeItemDefinitionId,
   });
 }

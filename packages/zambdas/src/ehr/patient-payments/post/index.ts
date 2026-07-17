@@ -26,13 +26,14 @@ import {
   TIMEZONES,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   getUser,
   lambdaResponse,
   makeBusinessIdentifierForCandidPayment,
   makeBusinessIdentifierForStripePayment,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -82,7 +83,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have a token, no need to update');
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
   const effectInput: ComplexValidationOutput = await complexValidation(
     {
@@ -189,7 +190,7 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId, paymentDetails } = JSON.parse(input.body);
+  const { patientId, encounterId, paymentDetails } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
 

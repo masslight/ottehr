@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { QuestionnaireResponse } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getOrCreateInvoicingConfig } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -9,7 +9,7 @@ export const index = wrapHandler('save-invoice-config', async (input: ZambdaInpu
   const validated = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validated.secrets);
-  const oystehr = createOystehrClient(m2mToken, validated.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validated.secrets);
 
   // Get or create the config pair (ensures Questionnaire + Response exist)
   const { questionnaire, questionnaireResponse } = await getOrCreateInvoicingConfig(oystehr);

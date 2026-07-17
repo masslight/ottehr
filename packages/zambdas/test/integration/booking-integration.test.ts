@@ -408,6 +408,13 @@ describe('prebook integration - from getting list of slots to booking with selec
       });
     }
     assert(createSlotParams);
+    // The get-schedule fixture above doesn't pass serviceCategoryCode, so the
+    // vended slot has no SERVICE_CATEGORY_SYSTEM coding for the helper to
+    // forward. Default to 'urgent-care' here — tests in this file don't
+    // exercise category resolution; without it create-slot's invariant
+    // guard would reject categoryless creation on the multi-category test
+    // config.
+    createSlotParams.serviceCategoryCode = createSlotParams.serviceCategoryCode ?? 'urgent-care';
     const validatedSlotResponse = await createSlotAndValidate(
       { params: createSlotParams, selectedSlot, schedule },
       oystehrTestUserM2M
@@ -455,10 +462,14 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(rescheduleSlot).toBeDefined();
     assert(rescheduleSlot);
 
-    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
+    const rescheduleSlotParams: CreateSlotParams = {
+      ...createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
+        originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
+        status: 'busy-tentative',
+      }),
+      // See note on createSlotParams above — same rationale.
+      serviceCategoryCode: 'urgent-care',
+    };
 
     const validatedRescheduledSlot = await createSlotAndValidate(
       { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
@@ -817,10 +828,14 @@ describe('prebook integration - from getting list of slots to booking with selec
       expect(rescheduleSlot).toBeDefined();
       assert(rescheduleSlot);
 
-      const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-        postTelemedLabOnly: true,
-        status: 'busy-tentative',
-      });
+      const rescheduleSlotParams: CreateSlotParams = {
+        ...createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
+          postTelemedLabOnly: true,
+          status: 'busy-tentative',
+        }),
+        // See note on createSlotParams above — same rationale.
+        serviceCategoryCode: 'urgent-care',
+      };
 
       const validatedRescheduledSlot = await createSlotAndValidate(
         { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
@@ -1248,6 +1263,9 @@ describe('prebook integration - from getting list of slots to booking with selec
           status: 'busy-tentative',
         }),
         questionnaireCanonical: testCanonical,
+        // get-schedule above doesn't pass serviceCategoryCode; default to
+        // urgent-care so create-slot's invariant guard doesn't reject.
+        serviceCategoryCode: 'urgent-care',
       };
 
       const { slot: createdSlot } = await createSlotAndValidate(
@@ -1296,6 +1314,9 @@ describe('prebook integration - from getting list of slots to booking with selec
           status: 'busy-tentative',
         }),
         questionnaireCanonical: testCanonical,
+        // get-schedule above doesn't pass serviceCategoryCode; default to
+        // urgent-care so create-slot's invariant guard doesn't reject.
+        serviceCategoryCode: 'urgent-care',
       };
 
       const { slot: createdSlot } = await createSlotAndValidate(

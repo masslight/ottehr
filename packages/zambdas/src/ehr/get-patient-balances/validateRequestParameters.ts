@@ -1,6 +1,6 @@
 import { GetPatientBalancesZambdaInput, MISSING_REQUEST_BODY, NOT_AUTHORIZED, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const GetPatientBalancesBodySchema = z.object({
   patientId: z.string().uuid(),
@@ -21,7 +21,7 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body);
+  const parsed = safeJsonParse(input.body);
   const body = safeValidate(GetPatientBalancesBodySchema, parsed);
 
   return {

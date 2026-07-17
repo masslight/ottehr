@@ -1,4 +1,4 @@
-import { RosFindingState } from 'utils';
+import { RosFindingState, TemplateWarning } from 'utils';
 
 // ── admin-create-template ──
 
@@ -10,6 +10,7 @@ export interface AdminCreateTemplateInput {
 export interface AdminCreateTemplateOutput {
   templateName: string;
   templateId: string;
+  warnings: TemplateWarning[];
 }
 
 // ── admin-rename-template ──
@@ -165,6 +166,24 @@ export interface TemplateProcedurePlan {
   cptCodes: TemplateCptCodeInfo[];
 }
 
+// Each in-house medication plan saved on a template carries the inputs needed
+// to recreate the order at apply time: the drug identity (as a CodeableConcept),
+// the dosage (amount, units, route, site), instructions, free-text notes
+// (reason / other reason), any CPT/HCPCS codes, and the ICD-10 diagnoses
+// that were associated with the original order.
+// Patient-specific fields (performer, effectiveDateTime, associated Dx Condition)
+// are NOT stored on the plan — they're visit-specific.
+export interface TemplateInHouseMedicationDetail {
+  planId: string;
+  medicationName: string;
+  dose: number | undefined;
+  units: string | undefined;
+  route: string | undefined;
+  instructions: string | undefined;
+  cptCodes: TemplateCptCodeInfo[];
+  diagnoses: TemplateCodeInfo[];
+}
+
 export interface AdminGetTemplateDetailOutput {
   templateName: string;
   templateId: string;
@@ -185,5 +204,6 @@ export interface AdminGetTemplateDetailOutput {
     inHouseLabs: TemplateInHouseLabPlanDetail[];
     externalLabs: TemplateExternalLabPlanDetail[];
     procedures: TemplateProcedurePlan[];
+    inHouseMedications: TemplateInHouseMedicationDetail[];
   };
 }

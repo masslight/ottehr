@@ -9,10 +9,11 @@ import {
   STATEMENT_CODE,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getPostGridLetter,
   MAIL_VENDOR_EXTENSION_URL,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -60,7 +61,7 @@ function validateRequestParameters(input: ZambdaInput): GetStatementStatusInput 
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const body = JSON.parse(input.body) as Record<string, unknown>;
+  const body = safeJsonParse(input.body) as Record<string, unknown>;
   const encounterId = body.encounterId;
   if (typeof encounterId !== 'string' || encounterId.trim().length === 0) {
     throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
@@ -76,7 +77,7 @@ async function createOystehr(secrets: Secrets): Promise<Oystehr> {
   if (oystehrToken == null) {
     oystehrToken = await getAuth0Token(secrets);
   }
-  return createOystehrClient(oystehrToken, secrets);
+  return createClinicalOystehrClient(oystehrToken, secrets);
 }
 
 function isStatementCommunication(resource: Communication): boolean {

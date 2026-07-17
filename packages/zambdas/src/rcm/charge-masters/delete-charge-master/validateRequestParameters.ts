@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface DeleteChargeMasterParams {
   id: string;
@@ -16,7 +16,7 @@ export function validateRequestParameters(input: ZambdaInput): DeleteChargeMaste
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body);
+  const parsed = safeJsonParse(input.body);
   const { id } = safeValidate(bodySchema, parsed);
 
   return {

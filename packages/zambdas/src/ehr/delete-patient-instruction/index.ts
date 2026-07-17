@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { Secrets, userMe } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -14,7 +14,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Input: ${JSON.stringify(input)}`);
   const { instructionId, secrets, userToken } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const isProviderInstruction = await checkIfBelongsToCurrentProvider(oystehr, userToken, secrets, instructionId);
   if (!isProviderInstruction) throw new Error('Instruction deletion failed. Instruction does not belongs to provider');
   await deleteCommunication(oystehr, instructionId);

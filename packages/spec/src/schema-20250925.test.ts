@@ -125,6 +125,7 @@ describe('Schema20250925 generate()', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'spec-test-'));
+    await fs.mkdir(path.join(tmpDir, 'oystehr'));
   });
 
   afterEach(async () => {
@@ -144,14 +145,14 @@ describe('Schema20250925 generate()', () => {
         },
       };
 
-      const schema = new Schema20250925([spec], {}, tmpDir, '/zambdas');
+      const schema = new Schema20250925([spec], {}, `${tmpDir}/oystehr`, '/zambdas');
       await schema.generate();
 
-      const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
+      const outputsContent = await fs.readFile(path.join(`${tmpDir}/oystehr`, 'outputs.tf.json'), 'utf8');
       const outputs = JSON.parse(outputsContent);
 
-      expect(outputs.output.zambda_secrets_for_local_server).toBeDefined();
-      const value: string = outputs.output.zambda_secrets_for_local_server.value;
+      expect(outputs.locals.zambda_secrets_for_local_server).toBeDefined();
+      const value: string = outputs.locals.zambda_secrets_for_local_server.value;
       // Static secret references
       expect(value).toContain('"MY_API_KEY": oystehr_secret.MY_API_KEY.value');
       expect(value).toContain('"ANOTHER_SECRET": oystehr_secret.ANOTHER_SECRET.value');
@@ -187,6 +188,209 @@ describe('Schema20250925 generate()', () => {
       const outputs = JSON.parse(outputsContent);
 
       expect(outputs.output.zambda_secrets_for_local_server).toBeUndefined();
+    });
+  });
+
+  describe('outputs', () => {
+    it('outputs values are defined as locals', async () => {
+      const spec = {
+        path: 'secrets.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          secrets: {
+            MY_API_KEY: { name: 'my-api-key', value: 'val1' },
+            ANOTHER_SECRET: { name: 'another-secret', value: 'val2' },
+          },
+        },
+      };
+
+      const schema = new Schema20250925([spec], {}, tmpDir, '/zambdas');
+      await schema.generate();
+
+      const outputsContent = await fs.readFile(path.join(tmpDir, 'outputs.tf.json'), 'utf8');
+      const outputs = JSON.parse(outputsContent);
+
+      expect(outputs.locals.zambda_secrets_for_local_server).toBeDefined();
+      expect(outputs.output.zambda_secrets_for_local_server).toBeDefined();
+      const value: string = outputs.output.zambda_secrets_for_local_server.value;
+      expect(value).toContain('local.zambda_secrets_for_local_server');
+    });
+  });
+
+  describe('buckets', () => {
+    const bucketSpecRetainingIn = (
+      retainInEnvironments: string[]
+    ): {
+      path: string;
+      spec: {
+        [key: string]: unknown;
+      };
+    } => ({
+      path: 'buckets.json',
+      spec: {
+        'schema-version': '2025-09-25',
+        buckets: {
+          MY_BUCKET: {
+            name: '#{var/PROJECT_ID}-my-bucket',
+            retainInEnvironments,
+          },
+        },
+      },
+    });
+
+    const readBucket = async (): Promise<{ name: string; removal_policy: string; force_destroy?: boolean }> => {
+      const content = await fs.readFile(path.join(tmpDir, 'buckets.tf.json'), 'utf8');
+      return JSON.parse(content).resource.oystehr_z3_bucket.MY_BUCKET;
+    };
+
+    it('retains the bucket when the current environment is in retainInEnvironments', async () => {
+      const schema = new Schema20250925(
+        [bucketSpecRetainingIn(['production'])],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      const bucket = await readBucket();
+      expect(bucket.removal_policy).toBe('retain');
+      expect(bucket.force_destroy).toBeUndefined();
+    });
+
+    it('deletes the bucket when the current environment is not in retainInEnvironments', async () => {
+      const schema = new Schema20250925(
+        [bucketSpecRetainingIn(['production'])],
+        {
+          ENVIRONMENT: 'local',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      const bucket = await readBucket();
+      expect(bucket.removal_policy).toBe('delete');
+      expect(bucket.force_destroy).toBe(true);
+    });
+
+    it('deletes in every environment when retainInEnvironments is empty', async () => {
+      const schema = new Schema20250925(
+        [bucketSpecRetainingIn([])],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      const bucket = await readBucket();
+      expect(bucket.removal_policy).toBe('delete');
+      expect(bucket.force_destroy).toBe(true);
+    });
+
+    it('resolves #{var/...} references in the bucket name', async () => {
+      const schema = new Schema20250925(
+        [bucketSpecRetainingIn(['production'])],
+        {
+          ENVIRONMENT: 'production',
+          PROJECT_ID: 'proj-123',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      expect((await readBucket()).name).toBe('proj-123-my-bucket');
+    });
+
+    it('throws when buckets are defined but ENVIRONMENT is not set', async () => {
+      const schema = new Schema20250925([bucketSpecRetainingIn(['production'])], {}, tmpDir, '/zambdas');
+
+      await expect(schema.generate()).rejects.toThrow('ENVIRONMENT must be set to resolve bucket removal policies');
+    });
+
+    it('deletes in every environment when retainInEnvironments is omitted', async () => {
+      const spec = {
+        path: 'buckets.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          buckets: {
+            MY_BUCKET: {
+              name: '#{var/PROJECT_ID}-my-bucket',
+            },
+          },
+        },
+      };
+      const schema = new Schema20250925(
+        [spec],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+      await schema.generate();
+
+      const bucket = await readBucket();
+      expect(bucket.removal_policy).toBe('delete');
+      expect(bucket.force_destroy).toBe(true);
+    });
+
+    it('throws when a bucket uses the removed removalPolicy field', async () => {
+      const spec = {
+        path: 'buckets.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          buckets: {
+            MY_BUCKET: {
+              name: '#{var/PROJECT_ID}-my-bucket',
+              removalPolicy: 'retain',
+            },
+          },
+        },
+      };
+      const schema = new Schema20250925(
+        [spec],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+
+      await expect(schema.generate()).rejects.toThrow(
+        'Bucket "MY_BUCKET" uses the removed "removalPolicy" field; use "retainInEnvironments" instead'
+      );
+    });
+
+    it('throws when retainInEnvironments is not an array of strings', async () => {
+      const spec = {
+        path: 'buckets.json',
+        spec: {
+          'schema-version': '2025-09-25',
+          buckets: {
+            MY_BUCKET: {
+              name: '#{var/PROJECT_ID}-my-bucket',
+              retainInEnvironments: 'production',
+            },
+          },
+        },
+      };
+      const schema = new Schema20250925(
+        [spec],
+        {
+          ENVIRONMENT: 'production',
+        },
+        tmpDir,
+        '/zambdas'
+      );
+
+      await expect(schema.generate()).rejects.toThrow(
+        'Bucket "MY_BUCKET" has an invalid "retainInEnvironments"; expected an array of environment name strings'
+      );
     });
   });
 });

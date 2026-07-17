@@ -24,7 +24,7 @@ import {
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   wrapHandler,
   ZambdaInput,
@@ -55,7 +55,7 @@ interface EncounterPackage {
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { secrets } = input;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const candid = await getOrCreateCandidApiClient(oystehr, secrets);
 
   console.log('Fetching invoicing config from FHIR');

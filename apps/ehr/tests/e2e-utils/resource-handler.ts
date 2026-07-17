@@ -34,6 +34,7 @@ import {
 } from 'utils';
 import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
+import { createE2eTestOystehrClient } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -150,11 +151,7 @@ export class ResourceHandler {
 
   public static async getOystehr(): Promise<Oystehr> {
     const authToken = await getAuth0Token();
-    const oystehr = new Oystehr({
-      accessToken: authToken,
-      fhirApiUrl: process.env.FHIR_API,
-      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
-    });
+    const oystehr = createE2eTestOystehrClient(authToken);
     return oystehr;
   }
 
@@ -166,11 +163,7 @@ export class ResourceHandler {
     this.#authToken = getAuth0Token();
 
     this.#apiClient = this.#authToken.then((authToken) => {
-      return new Oystehr({
-        accessToken: authToken,
-        fhirApiUrl: process.env.FHIR_API,
-        projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
-      });
+      return createE2eTestOystehrClient(authToken);
     });
   }
 

@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, RoleType, SecretsKeys, UpdateProgressNoteConfigInputValidated } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   requireUserWithRole,
   saveProgressNoteConfig,
   topLevelCatch,
@@ -30,7 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.debug('complexValidation success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     console.group('performEffect');
     await performEffect(validatedInput, oystehr);
@@ -59,6 +59,7 @@ const performEffect = async (
     pcpNoTypeDispositionDefaultText,
     anotherDispositionDefaultText,
     edDispositionDefaultText,
+    vitalsUnitInputOrder,
   } = validatedInput;
   await saveProgressNoteConfig(oystehr, {
     mdmRequired,
@@ -66,5 +67,6 @@ const performEffect = async (
     pcpNoTypeDispositionDefaultText,
     anotherDispositionDefaultText,
     edDispositionDefaultText,
+    vitalsUnitInputOrder,
   });
 };

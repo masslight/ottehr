@@ -14,7 +14,7 @@ import {
   TemplateVersionData,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { analyzeTemplateVersionData, findHolderList } from '../shared/template-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -26,7 +26,7 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
 
   const { secrets } = validatedInput;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const templates = await performEffect(validatedInput, oystehr);
 

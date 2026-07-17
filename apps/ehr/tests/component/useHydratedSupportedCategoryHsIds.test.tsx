@@ -9,8 +9,16 @@ import {
 // Helpers for catalog map composition. The page keys BOOKING_CONFIG entries
 // by code (urgent-care, workers-comp) and FHIR-managed entries by their
 // HealthcareService id (a UUID); this test mirrors that namespace split.
-const BOOKING_CONFIG_ENTRY = (code: string): [string, SupportedCategoryCatalogEntry] => [code, { code }];
-const FHIR_ENTRY = (hsId: string, code: string): [string, SupportedCategoryCatalogEntry] => [hsId, { code }];
+// `source` mirrors the merged-catalog discriminator and gates hydration —
+// groups can only legitimately cover FHIR-managed categories.
+const BOOKING_CONFIG_ENTRY = (code: string): [string, SupportedCategoryCatalogEntry] => [
+  code,
+  { code, source: 'booking-config' },
+];
+const FHIR_ENTRY = (hsId: string, code: string): [string, SupportedCategoryCatalogEntry] => [
+  hsId,
+  { code, source: 'fhir' },
+];
 
 const groupWithCategories = (...codes: string[]): HealthcareService => ({
   resourceType: 'HealthcareService',
@@ -37,19 +45,26 @@ describe('useHydratedSupportedCategoryHsIds', () => {
     expect(result.current[0]).toEqual([]);
   });
 
-  it('hydrates with BOOKING_CONFIG + FHIR codes when both inputs are ready', () => {
+  it('hydrates only FHIR-managed categories — BOOKING_CONFIG entries are dropped', () => {
+    // Groups reference categories by FHIR HealthcareService id; a
+    // BOOKING_CONFIG (compile-time) category has no HS to reference, so
+    // even if its code is present on group.type[] from historical bad data,
+    // the hydrated set excludes it. The corollary downstream: the group
+    // page's coverage rollup won't show a system category just because a
+    // member provider has the all-categories toggle on.
     const fullMap = new Map([BOOKING_CONFIG_ENTRY('urgent-care'), FHIR_ENTRY('hs-uuid-massage', 'massage')]);
     const group = groupWithCategories('urgent-care', 'massage');
     const { result } = renderHook(() => useHydratedSupportedCategoryHsIds(group, fullMap, true));
 
-    expect(new Set(result.current[0])).toEqual(new Set(['urgent-care', 'hs-uuid-massage']));
+    expect(result.current[0]).toEqual(['hs-uuid-massage']);
   });
 
   it('controlled race: group ready before catalog → hydration waits for catalog → FHIR code surfaces', () => {
     // Reproduce the deployed-env failure mode: group arrives first, catalog
     // arrives later. With the fix in place, hydration deferred to the
     // catalog-ready render and the FHIR-managed code now appears in the
-    // hydrated set. Before the fix this would emit just ['urgent-care'].
+    // hydrated set. Before the catalog-loaded gate this would emit nothing
+    // (or, before the BOOKING_CONFIG filter, just ['urgent-care']).
     const partialMap = new Map([BOOKING_CONFIG_ENTRY('urgent-care')]);
     const fullMap = new Map([BOOKING_CONFIG_ENTRY('urgent-care'), FHIR_ENTRY('hs-uuid-massage', 'massage')]);
     const group = groupWithCategories('urgent-care', 'massage');
@@ -65,7 +80,7 @@ describe('useHydratedSupportedCategoryHsIds', () => {
 
     // Catalog arrives.
     rerender({ map: fullMap, loaded: true });
-    expect(new Set(result.current[0])).toEqual(new Set(['urgent-care', 'hs-uuid-massage']));
+    expect(result.current[0]).toEqual(['hs-uuid-massage']);
   });
 
   it('idempotent: setter wins once user has touched the list', () => {
@@ -80,8 +95,8 @@ describe('useHydratedSupportedCategoryHsIds', () => {
       { initialProps: { map: fullMap, loaded: true } }
     );
 
-    // Initial hydration.
-    expect(new Set(result.current[0])).toEqual(new Set(['urgent-care', 'hs-uuid-massage']));
+    // Initial hydration — BOOKING_CONFIG 'urgent-care' filtered out.
+    expect(result.current[0]).toEqual(['hs-uuid-massage']);
 
     // Admin deselects everything.
     act(() => result.current[1]([]));
@@ -115,7 +130,8 @@ describe('useHydratedSupportedCategoryHsIds', () => {
       ({ group }: { group: HealthcareService }) => useHydratedSupportedCategoryHsIds(group, fullMap, true),
       { initialProps: { group: groupA } }
     );
-    expect(new Set(result.current[0])).toEqual(new Set(['urgent-care', 'hs-uuid-massage']));
+    // Group A hydrates to only its FHIR-managed code; 'urgent-care' is dropped.
+    expect(result.current[0]).toEqual(['hs-uuid-massage']);
 
     // Navigate to group B (same component instance, new id). State should
     // reflect group B's stored codes, not group A's.

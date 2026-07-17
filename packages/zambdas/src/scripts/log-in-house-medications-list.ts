@@ -1,15 +1,11 @@
-import Oystehr from '@oystehr/sdk';
 import { getMedicationName } from 'utils';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience, getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
 
 async function checkInHouseMedications(config: any): Promise<void> {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
-  const oystehr = new Oystehr({
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-    accessToken: token,
-  });
+  const oystehr = createClinicalOystehrClient(token, config);
   const medicationsResources = await getInHouseInventoryMedications(oystehr);
 
   for (const resource of medicationsResources) {

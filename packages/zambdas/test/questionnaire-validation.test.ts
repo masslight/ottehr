@@ -1,7 +1,7 @@
 import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, makeValidationSchema } from 'utils';
 import { expect, vi } from 'vitest';
 import { AnyObjectSchema, AnySchema } from 'yup';
-import { createOystehrClient, getAuth0Token } from '../src/shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../src/shared';
 import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 // import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
@@ -212,7 +212,7 @@ describe.skip('qr page validation tests', () => {
     };
 
     const token = await getAuth0Token(SECRETS);
-    const oystehr = createOystehrClient(token, SECRETS);
+    const oystehr = createClinicalOystehrClient(token, SECRETS);
 
     // get paperwork questions
     const maybeData = await getQuestionnaireItemsAndProgress('some_questionnaire_response_id', oystehr);
@@ -322,7 +322,7 @@ describe.skip('full qr validation tests', () => {
     };
 
     const token = await getAuth0Token(SECRETS);
-    const oystehr = createOystehrClient(token, SECRETS);
+    const oystehr = createClinicalOystehrClient(token, SECRETS);
 
     // get paperwork questions and validation schema
     const maybeData = await getQuestionnaireItemsAndProgress('some_questionnaire_response_id', oystehr);
@@ -395,7 +395,7 @@ describe('QR item type tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
     const token = await getAuth0Token(SECRETS);
-    const oystehr = createOystehrClient(token, SECRETS);
+    const oystehr = createClinicalOystehrClient(token, SECRETS);
 
     // get paperwork questions and validation schema
     const [canonUrl, version] = getSecret(SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE, SECRETS).split('|');

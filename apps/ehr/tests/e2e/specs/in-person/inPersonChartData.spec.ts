@@ -579,7 +579,6 @@ test.describe('In-Person Visit Chart Data', async () => {
         } else {
           await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).not.toBeVisible();
         }
-        await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
         await expect(page.getByTestId(dataTestIds.progressNotePage.hpiLink)).toBeVisible();
       });

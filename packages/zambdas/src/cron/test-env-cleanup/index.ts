@@ -8,7 +8,7 @@ import {
   cleanupIntegrationTestPatients,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 
 let oystehrToken: string;
 export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -18,7 +18,7 @@ export const index = wrapHandler('test-env-cleanup', async (input: ZambdaInput):
   } else {
     console.log('already have token');
   }
-  const oystehr = createOystehrClient(oystehrToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, input.secrets);
 
   // Clean up E2E test resources (Playwright tests)
   await cleanAppointmentGraph({ system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code: '' }, oystehr);

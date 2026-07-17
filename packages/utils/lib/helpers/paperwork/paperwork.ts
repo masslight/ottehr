@@ -195,8 +195,8 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
         })
       : undefined;
 
-  const filterWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen)[0]
-    ?.baseConditionDef;
+  const filterWhenConditions = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen);
+  const filterWhen = filterWhenConditions.length > 0 ? filterWhenConditions.map((c) => c.baseConditionDef) : undefined;
 
   const attachmentText = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;
@@ -244,6 +244,14 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
     extension.find((ext) => {
       return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.alwaysFilter;
     })?.valueBoolean ?? false;
+
+  // hideControlLabel is optional-tri-state: undefined = "extension not
+  // present" (intake styler falls back to the hardcoded linkId list for
+  // back-compat with archived questionnaires that pre-date this extension);
+  // true = hide; false = show (overrides any legacy hardcoded entry).
+  const hideControlLabel = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.hideControlLabel;
+  })?.valueBoolean;
 
   const categoryTag = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.categoryTag;
@@ -390,6 +398,7 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
     acceptsMultipleAnswers,
     alwaysFilter,
     disabledDisplay,
+    hideControlLabel,
     requireWhen,
     textWhen,
     attachmentText,

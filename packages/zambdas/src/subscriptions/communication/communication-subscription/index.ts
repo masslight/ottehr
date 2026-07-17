@@ -5,7 +5,7 @@ import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName, getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token, getEmailClient, sendSlackNotification, wrapHandler } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { ZambdaInput } from '../../../shared/types';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -43,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   const communicationCodes = communication.category;

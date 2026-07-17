@@ -157,6 +157,12 @@ export class BookingFlowHelpers {
           } else if (trigger.answerBoolean !== undefined) {
             return targetValue === trigger.answerBoolean;
           }
+        } else if (trigger.operator === '!=') {
+          if (trigger.answerString !== undefined) {
+            return targetValue !== trigger.answerString;
+          } else if (trigger.answerBoolean !== undefined) {
+            return targetValue !== trigger.answerBoolean;
+          }
         }
         return false;
       });

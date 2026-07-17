@@ -132,6 +132,7 @@ export const CustomContainer: FC<ContainerProps> = ({
               component="img"
               sx={{
                 margin: 1,
+                pl: { xs: 2, md: 0 },
                 height: BRANDING_CONFIG.intake.appBar.logoHeight,
                 width: 'auto',
                 alignSelf: 'center',

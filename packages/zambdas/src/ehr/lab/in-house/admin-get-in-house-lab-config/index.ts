@@ -3,7 +3,7 @@ import { ActivityDefinition } from 'fhir/r4b';
 import { AdminGetInHouseLabConfigInput, getSecret, Secrets, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -25,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const activityDefinition = await oystehr.fhir.get<ActivityDefinition>({
       resourceType: 'ActivityDefinition',

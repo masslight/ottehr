@@ -8,7 +8,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { runExamMigrations } from '../../shared/chart-data/migrations';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getChartData } from '../get-chart-data';
 
 let m2mToken: string;
@@ -18,7 +18,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const { encounterId, normalExternalGenitalExamSex, secrets } = validateInput(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // Load current chart data
     const { response: chartData } = await getChartData(oystehr, m2mToken, encounterId);

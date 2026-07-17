@@ -8,7 +8,7 @@ import {
   tagEncounterAsErxSynced,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -25,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   console.log('Created M2M token and oystehr client');
 
   const [patientBundle, encounterBundle] = await Promise.all([

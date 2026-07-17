@@ -2,7 +2,7 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { Identifier, ServiceRequest, Specimen } from 'fhir/r4b';
 import fs from 'fs';
 import { createOrderNumber, OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../../shared';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 const USAGE_STR = `Usage: npm run reset-lab-order [ORDER NUMBER] [${VALID_ENVS.join(' | ')}]\n`;
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     process.exit(4);
   }
 
-  const oystehrClient = createOystehrClient(token, envConfig);
+  const oystehrClient = createClinicalOystehrClient(token, envConfig);
 
   console.log(`Searching for ServiceRequests matching order number ${orderNumber} on env: ${ENV}`);
   const serviceRequests = (

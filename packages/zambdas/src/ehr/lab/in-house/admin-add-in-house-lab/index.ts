@@ -13,7 +13,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   parseCreatedResourcesBundle,
   topLevelCatch,
   wrapHandler,
@@ -41,7 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('This is your data in the zambda', JSON.stringify(data));
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // determine if the canonical url exists already, error if so
     const { url: canonicalUrl, version } = getInHouseLabTestUrlAndVersion(data, {});

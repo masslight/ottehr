@@ -3,7 +3,8 @@ import { Communication, Extension } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Secrets } from 'utils';
 import { getPostGridLetter, MAIL_VENDOR_EXTENSION_URL, PostGridLetterStatus } from './postgrid';
-const POSTGRID_GET_RATE_LIMIT_DELAY_MS = 1_250; // ~48 req/min, safely under 50/min limit
+// PostGrid allows 50 requests/min. Pace GET calls at ~25 req/min (half the limit) for extra headroom.
+const POSTGRID_GET_RATE_LIMIT_DELAY_MS = 2_400; // ~25 req/min, half of the 50/min limit
 
 export interface SyncMailedStatementStatusesResult {
   total: number;

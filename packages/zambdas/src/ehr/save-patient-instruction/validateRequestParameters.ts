@@ -1,6 +1,6 @@
 import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY, SavePatientInstructionInput } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const SavePatientInstructionBodySchema = z
   .object({
@@ -26,7 +26,7 @@ export function validateRequestParameters(
   }
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const parsed = JSON.parse(input.body) as unknown;
+  const parsed = safeJsonParse(input.body) as unknown;
   const data = safeValidate(SavePatientInstructionBodySchema, parsed);
 
   return { ...data, secrets: input.secrets, userToken };

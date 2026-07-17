@@ -17,7 +17,7 @@ import {
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -27,7 +27,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!oystehrToken) {
     oystehrToken = await getAuth0Token(input.secrets);
   }
-  const result = await makePresignedFileURL(input, createOystehrClient, getAppointmentResourceById, oystehrToken);
+  const result = await makePresignedFileURL(
+    input,
+    createClinicalOystehrClient,
+    getAppointmentResourceById,
+    oystehrToken
+  );
 
   return {
     statusCode: 200,

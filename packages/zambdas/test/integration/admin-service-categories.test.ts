@@ -135,4 +135,84 @@ describe('admin service-category zambdas — validation integration', () => {
       await expectRejection('admin-update-service-category', body, 'visitTypes');
     });
   });
+
+  // Code uniqueness: the FHIR catalog routes downstream lookups by code, so a
+  // duplicate code makes "which record wins" arbitrary. The create/update
+  // zambdas reject any code already held by another tagged HealthcareService.
+  // Self-matches on update are explicitly allowed so saving an unchanged code
+  // doesn't false-positive.
+  describe('code uniqueness across FHIR catalog', () => {
+    it('create rejects a code already held by another FHIR service category', async () => {
+      const sharedCode = `dup-${randomUUID().slice(0, 8)}`;
+      // Seed the first record via the same zambda the prod admin flow uses
+      // — so the seeded record passes through the canonical create path
+      // (which writes the tag, system, characteristic shape we'll look up).
+      const first = (
+        await oystehrZambdas.zambda.execute({
+          id: 'admin-create-service-category',
+          serviceCategory: { ...validPayload().serviceCategory, code: sharedCode },
+        })
+      ).output as { serviceCategory: { id: string } };
+      createdResourceIds.push(first.serviceCategory.id);
+
+      const duplicatePayload = { serviceCategory: { ...validPayload().serviceCategory, code: sharedCode } };
+      await expectRejection('admin-create-service-category', duplicatePayload, sharedCode);
+    });
+
+    it('update rejects changing a code to one held by another FHIR service category', async () => {
+      // Two distinct records, A and B. Try to rename A so its code matches B.
+      const codeA = `upd-a-${randomUUID().slice(0, 8)}`;
+      const codeB = `upd-b-${randomUUID().slice(0, 8)}`;
+      const a = (
+        await oystehrZambdas.zambda.execute({
+          id: 'admin-create-service-category',
+          serviceCategory: { ...validPayload().serviceCategory, code: codeA },
+        })
+      ).output as { serviceCategory: { id: string } };
+      const b = (
+        await oystehrZambdas.zambda.execute({
+          id: 'admin-create-service-category',
+          serviceCategory: { ...validPayload().serviceCategory, code: codeB },
+        })
+      ).output as { serviceCategory: { id: string } };
+      createdResourceIds.push(a.serviceCategory.id, b.serviceCategory.id);
+
+      const collidingUpdate = {
+        serviceCategory: { ...validPayload().serviceCategory, id: a.serviceCategory.id, code: codeB },
+      };
+      await expectRejection('admin-update-service-category', collidingUpdate, codeB);
+    });
+
+    it('update allows re-saving a record without changing its code (exclude-self)', async () => {
+      // Regression guard: a naive uniqueness check would refuse this save
+      // because the record's own code already matches itself in FHIR. The
+      // update path explicitly excludes `serviceCategory.id` from the hit
+      // so unchanged-code saves still go through.
+      const code = `selfsave-${randomUUID().slice(0, 8)}`;
+      const created = (
+        await oystehrZambdas.zambda.execute({
+          id: 'admin-create-service-category',
+          serviceCategory: { ...validPayload().serviceCategory, code },
+        })
+      ).output as { serviceCategory: { id: string } };
+      createdResourceIds.push(created.serviceCategory.id);
+
+      // Save with a different name (proves the update actually ran) but the
+      // same code. Should succeed and the updated record should reflect the
+      // new name.
+      const updated = (
+        await oystehrZambdas.zambda.execute({
+          id: 'admin-update-service-category',
+          serviceCategory: {
+            ...validPayload().serviceCategory,
+            id: created.serviceCategory.id,
+            code,
+            name: 'Self-Save Renamed',
+          },
+        })
+      ).output as { serviceCategory: { id: string; name: string; code: string } };
+      expect(updated.serviceCategory.name).toBe('Self-Save Renamed');
+      expect(updated.serviceCategory.code).toBe(code);
+    });
+  });
 });

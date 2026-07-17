@@ -1,6 +1,11 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, SavePatientEducationPdfInput } from 'utils';
+import {
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  PATIENT_EDUCATION_LANGUAGES,
+  SavePatientEducationPdfInput,
+} from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const PATIENT_TITLE_MAX_LENGTH = 150;
 
@@ -29,6 +34,7 @@ const baseFields = {
   encounterId: z.string().min(1, 'encounterId is required'),
   patientId: z.string().min(1, 'patientId is required'),
   title: z.string().min(1, 'title is required'),
+  language: z.enum(PATIENT_EDUCATION_LANGUAGES).optional(),
 };
 
 const savePatientEducationPdfInputSchema: z.ZodType<SavePatientEducationPdfInput> = z.union([
@@ -54,7 +60,7 @@ export function validateRequestParameters(
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const parsed = safeValidate(savePatientEducationPdfInputSchema, JSON.parse(input.body));
+  const parsed = safeValidate(savePatientEducationPdfInputSchema, safeJsonParse(input.body));
 
   return {
     ...parsed,

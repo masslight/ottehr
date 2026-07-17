@@ -1,5 +1,5 @@
 import { MISSING_REQUEST_SECRETS, Secrets } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export interface SyncMailedStatementStatusesInput {
   secrets: Secrets;
@@ -9,7 +9,7 @@ export interface SyncMailedStatementStatusesInput {
 export function validateRequestParameters(input: ZambdaInput): SyncMailedStatementStatusesInput {
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const body = typeof input.body === 'string' ? JSON.parse(input.body) : input.body;
+  const body = typeof input.body === 'string' ? safeJsonParse(input.body) : input.body;
   const batchSize = body?.batchSize != null ? Number(body.batchSize) : undefined;
 
   return {

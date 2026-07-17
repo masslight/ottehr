@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { getSecret, InitTelemedSessionResponse, MeetingData, Secrets, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
+import { createClinicalOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { createVideoRoom } from './video-room-creation';
 
@@ -20,7 +20,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   console.log('token', m2mToken);
 
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.log(`Getting appointment ${appointmentId}`);
   const { appointment, encounters } = await getAppointmentWithEncounters({ appointmentId, oystehr });

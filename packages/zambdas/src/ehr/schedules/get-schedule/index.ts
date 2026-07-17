@@ -9,6 +9,8 @@ import {
   getTimezone,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
+  isLocationInPerson,
+  isLocationManuallyCreated,
   isLocationVirtual,
   isValidUUID,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
@@ -30,7 +32,7 @@ import {
   TIMEZONES,
   userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner, getNameForPractitionerRole } from '../shared';
 
 let m2mToken: string;
@@ -63,7 +65,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
   const { secrets } = validatedParameters;
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const [effectInput, includePaymentFields] = await Promise.all([
     complexValidation(validatedParameters, oystehr),
     callerCanViewPaymentFields(input.headers?.Authorization, secrets),
@@ -107,6 +109,8 @@ const performEffect = (
 
   let detailText: string | undefined = undefined;
   let isVirtual: boolean | undefined = undefined;
+  let isInPerson: boolean | undefined = undefined;
+  let isManuallyCreated: boolean | undefined = undefined;
   let stripeAccountId: string | undefined = undefined;
   let advapacsLocationId: string | undefined = undefined;
   let rooms: string[] | undefined = undefined;
@@ -124,6 +128,8 @@ const performEffect = (
     description = loc.description;
     telecom = loc.telecom;
     isVirtual = isLocationVirtual(loc);
+    isInPerson = isLocationInPerson(loc);
+    isManuallyCreated = isLocationManuallyCreated(loc);
     reviewLink = loc.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl;
     if (options.includePaymentFields) {
       stripeAccountId = loc.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
@@ -168,6 +174,8 @@ const performEffect = (
     detailText,
     hoursOfOperation: (ownerResource as Location)?.hoursOfOperation,
     isVirtual,
+    isInPerson,
+    isManuallyCreated,
     healthcareServiceIds,
     allCategories,
     locationId,

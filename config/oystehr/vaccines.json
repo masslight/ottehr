@@ -1,7 +1,7 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "VACCINE_TDAP": {
+    "VACCINE_COVID19_ADULT_ADOL": {
       "resource": {
         "resourceType": "Medication",
         "identifier": [
@@ -11,7 +11,22 @@
           },
           {
             "system": "virtual-medication-identifier-name-system",
-            "value": "Tdap (Tetanus, Diphtheria, Pertussis)"
+            "value": "COVID-19 (Adult/Adol)"
+          }
+        ]
+      }
+    },
+    "VACCINE_COVID19_PEDIATRIC": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "COVID-19 (Pediatric)"
           }
         ]
       }
@@ -26,7 +41,247 @@
           },
           {
             "system": "virtual-medication-identifier-name-system",
-            "value": "Dtap (Diptheria, Tetanus, Pertussis)"
+            "value": "DTaP (Infanrix/Daptacel)"
+          }
+        ]
+      }
+    },
+    "VACCINE_FLU_ADULT": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Flu (Adult)"
+          }
+        ]
+      }
+    },
+    "VACCINE_FLU_PEDIATRIC": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Flu (Pediatric)"
+          }
+        ]
+      }
+    },
+    "VACCINE_FLU_SENIOR": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Flu (Senior)"
+          }
+        ]
+      }
+    },
+    "VACCINE_HEP_A_ADULT": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Hep A (Adult)"
+          }
+        ]
+      }
+    },
+    "VACCINE_HEP_A_PEDIATRIC": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Hep A (Pediatric)"
+          }
+        ]
+      }
+    },
+    "VACCINE_HEP_B_ADULT": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Hep B (Engerix-B/Recombivax - Adult - MVX: SKB/MSD)"
+          }
+        ]
+      }
+    },
+    "VACCINE_HEP_B_PED_ADOL": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Hep B (Engerix-B/Recombivax - Ped/Adol - MVX: SKB/MSD)"
+          }
+        ]
+      }
+    },
+    "VACCINE_HEP_B_HEPLISAV": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Hep B (Heplisav-B - MVX: DVA)"
+          }
+        ]
+      }
+    },
+    "VACCINE_MENINGOCOCCAL_ACWY_ADOLESCENT": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Meningococcal ACWY (Adolescent)"
+          }
+        ]
+      }
+    },
+    "VACCINE_MENINGOCOCCAL_ACWY_ADULT_TRAVELER": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Meningococcal ACWY (Adult/Traveler)"
+          }
+        ]
+      }
+    },
+    "VACCINE_MMR_PED_COUNSELING": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "MMR - Ped with Counseling"
+          }
+        ]
+      }
+    },
+    "VACCINE_MMR_STANDARD": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "MMR - Standard Admin"
+          }
+        ]
+      }
+    },
+    "VACCINE_PNEUMOCOCCAL_PCV15_PEDIATRIC": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Pneumococcal (PCV15 - Pediatric)"
+          }
+        ]
+      }
+    },
+    "VACCINE_PNEUMOCOCCAL_PCV20_ADULT": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Pneumococcal (PCV20 - Adult)"
+          }
+        ]
+      }
+    },
+    "VACCINE_RABIES_POST_EXPOSURE": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Rabies (Post-Exposure)"
+          }
+        ]
+      }
+    },
+    "VACCINE_RSV_ADULT": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "RSV (Adult)"
           }
         ]
       }
@@ -41,7 +296,67 @@
           },
           {
             "system": "virtual-medication-identifier-name-system",
-            "value": "Td (Tetanus, Diphtheria)"
+            "value": "Td (Tetanus/Diphtheria)"
+          }
+        ]
+      }
+    },
+    "VACCINE_TDAP": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Tdap (Adacel/Boostrix)"
+          }
+        ]
+      }
+    },
+    "VACCINE_TYPHOID_INJECTABLE": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Typhoid (Injectable)"
+          }
+        ]
+      }
+    },
+    "VACCINE_VARICELLA_PED": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Varicella - Ped"
+          }
+        ]
+      }
+    },
+    "VACCINE_VARICELLA_STANDARD": {
+      "resource": {
+        "resourceType": "Medication",
+        "identifier": [
+          {
+            "system": "virtual-medication-type",
+            "value": "virtual-vaccine-inventory"
+          },
+          {
+            "system": "virtual-medication-identifier-name-system",
+            "value": "Varicella - Standard Admin"
           }
         ]
       }

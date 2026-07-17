@@ -1,9 +1,14 @@
-import { isValidUUID, Secrets, VideoChatNotificationInput } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets, VideoChatNotificationInput } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: VideoChatNotificationInput;
 }
+
+const VideoChatNotificationBodySchema = z.object({
+  appointmentId: z.string().uuid(),
+});
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
   const body = validateBody(input);
@@ -14,19 +19,7 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
 };
 
 const validateBody = (input: ZambdaInput): VideoChatNotificationInput => {
-  const { appointmentId } = validateJsonBody(input);
-
-  if (!appointmentId) {
-    throw new Error('appointmentId is required');
-  }
-
-  if (typeof appointmentId !== 'string') {
-    throw new Error('appointmentId must be a string');
-  }
-
-  if (isValidUUID(appointmentId) === false) {
-    throw new Error('appointmentId must be a valid UUID');
-  }
+  const { appointmentId } = safeValidate(VideoChatNotificationBodySchema, input.body ? safeJsonParse(input.body) : {});
 
   return {
     appointmentId,

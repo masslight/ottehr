@@ -10,12 +10,16 @@ import { FC, useState } from 'react';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { CallSettings } from './CallSettings';
 
 export const VideoControls: FC = () => {
   const theme = useTheme();
 
+  const { oystehr } = useApiClients();
+  const { encounter } = useAppointmentData();
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const { muted, toggleMute } = useToggleLocalMute();
   const meetingManager = useMeetingManager();
@@ -39,6 +43,17 @@ export const VideoControls: FC = () => {
   };
 
   const disconnect = async (): Promise<void> => {
+    if (!oystehr || !encounter.id) {
+      // Throw so ConfirmationDialog surfaces an error and keeps the dialog open, rather than silently
+      // tearing down only the provider's side while the patient stays in the meeting.
+      throw new Error('Unable to end the video call: the session is not ready yet. Please try again in a moment.');
+    }
+    // Immediately end the meeting for all participants. This also triggers the recording pipeline right away
+    // instead of waiting for the room to time out. If endMeeting throws, we intentionally do NOT run cleanup():
+    // the provider stays connected and can retry, instead of being told the call ended for everyone while the
+    // patient is in fact still in the room.
+    await oystehr.telemed.endMeeting({ encounterId: encounter.id });
+    useVideoCallStore.setState({ wasMeetingEnded: true });
     await cleanup();
   };
 
@@ -70,6 +85,7 @@ export const VideoControls: FC = () => {
         </IconButtonContained>
         <ConfirmationDialog
           title="Do you want to end video call with the patient?"
+          description="This will permanently end the meeting for all participants and cannot be undone."
           response={disconnect}
           actionButtons={{
             proceed: {

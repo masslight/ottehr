@@ -1,6 +1,6 @@
 import { CodeableConcept } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE } from '../../../fhir/constants';
-import { SCHOOL_WORK_NOTE } from '../../data';
+import { SCHOOL_WORK_NOTE } from '../../data/paperwork/paperwork.constants';
 import { IN_PERSON_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
 
 export type ProviderChartDataFieldsNames =
@@ -30,7 +30,8 @@ export type ProviderChartDataFieldsNames =
   | 'birth-history'
   | 'procedure'
   | typeof ERX_MEDICATION_META_TAG_CODE
-  | 'accident';
+  | 'accident'
+  | 'radiology';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 
@@ -60,6 +61,7 @@ export enum VitalFieldNames {
   VitalRespirationRate = 'vital-respiration-rate',
   VitalWeight = 'vital-weight',
   VitalHeight = 'vital-height',
+  VitalBMI = 'vital-bmi',
   VitalVision = 'vital-vision',
   VitalLastMenstrualPeriod = 'vital-last-menstrual-period',
 }

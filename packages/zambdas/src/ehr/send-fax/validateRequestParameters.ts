@@ -6,7 +6,7 @@ import {
   SendFaxZambdaInput,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const SendFaxBodySchema = z.object({
   appointmentId: z.string().uuid(),
@@ -22,7 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): SendFaxZambdaInpu
     throw MISSING_REQUEST_BODY;
   }
 
-  const data = JSON.parse(input.body);
+  const data = safeJsonParse(input.body);
   const { appointmentId, faxNumber } = safeValidate(SendFaxBodySchema, data);
 
   if (!isPhoneNumberValid(faxNumber)) {

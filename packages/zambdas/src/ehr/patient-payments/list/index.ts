@@ -14,10 +14,11 @@ import {
   Secrets,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -52,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('already have a token, no need to update');
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
   const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehrClient);
   const account: Account | undefined = accountResources.account;
@@ -142,7 +143,7 @@ const validateRequestParameters = (input: ZambdaInput): ListPatientPaymentInput 
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId } = JSON.parse(input.body);
+  const { patientId, encounterId } = safeJsonParse(input.body);
 
   if (!patientId) {
     throw MISSING_REQUIRED_PARAMETERS(['patientId']);

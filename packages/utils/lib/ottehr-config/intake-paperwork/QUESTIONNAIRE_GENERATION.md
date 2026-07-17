@@ -398,6 +398,8 @@ When config changes affect the generator output shape:
 3. Commit the TS config change, the bumped canonical version, the archive entry, and the refreshed fixtures together
 4. Never manually edit the generated JSON
 
+**If `questionnaire-generation.test.ts` is failing with item-count or shape mismatches on a branch you didn't author the config change on:** the fixture is stale because an earlier PR bumped the TS config without regenerating the JSON. Run `npm run regenerate-questionnaire-json` from `packages/zambdas/` and commit the refreshed `test/data/*.json` files alongside your branch — same command, same workflow as step 2 above. The regen script covers all four fixtures (`patient-record-questionnaire.json`, `booking-questionnaire.json`, `intake-paperwork-questionnaire.json`, `virtual-intake-paperwork-questionnaire.json`), so refresh them as a set even if only one test was failing.
+
 ## Common Patterns in Intake Paperwork
 
 ### Age-Based Logic

@@ -61,4 +61,11 @@ describe('makeAbbreviation', () => {
     expect(makeAbbreviation('---')).toBe('');
     expect(makeAbbreviation(' - - ')).toBe('');
   });
+
+  it('should not leak punctuation or digits into the abbreviation', () => {
+    expect(makeAbbreviation('IT Update Service Category (renamed)')).toBe('IUSCR');
+    expect(makeAbbreviation('Massage (30 minute)')).toBe('MM');
+    expect(makeAbbreviation('Shiatsu Massage (15 minutes)')).toBe('SMM');
+    expect(makeAbbreviation('Swedish Massage (30 minute)')).toBe('SMM');
+  });
 });

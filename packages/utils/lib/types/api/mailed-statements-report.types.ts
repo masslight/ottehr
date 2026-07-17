@@ -29,6 +29,7 @@ export interface MailedStatementItem {
 export interface MailedStatementsReportZambdaOutput {
   message: string;
   statements: MailedStatementItem[];
+  lastSyncRunAt: string | null;
 }
 
 export interface SyncMailedStatementStatusesOutput {

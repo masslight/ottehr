@@ -15,10 +15,11 @@ import {
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
 } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
+  safeJsonParse,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -37,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrM2MClientToken = await getAuth0Token(input.secrets);
   }
 
-  const oystehrClient = createOystehrClient(oystehrM2MClientToken, input.secrets);
+  const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, input.secrets);
   const { stripeCustomerId, stripeAccount } = await getStripePaymentContext(validatedParameters, oystehrClient);
 
   const stripeClient = getStripeClient(input.secrets);
@@ -123,7 +124,7 @@ const validateRequestParameters = (input: ZambdaInput): InitiatePatientPaymentTe
     throw MISSING_REQUEST_BODY;
   }
 
-  const { patientId, encounterId, amountInCents, readerId, simulatedReader, description } = JSON.parse(input.body);
+  const { patientId, encounterId, amountInCents, readerId, simulatedReader, description } = safeJsonParse(input.body);
 
   const missingParams: string[] = [];
   if (!patientId) {

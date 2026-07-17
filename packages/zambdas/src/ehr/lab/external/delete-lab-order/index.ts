@@ -13,7 +13,7 @@ import { DateTime } from 'luxon';
 import { DeleteLabOrderZambdaOutput, EXTERNAL_LAB_ERROR, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getMyPractitionerId,
   wrapHandler,
   ZambdaInput,
@@ -37,7 +37,7 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const practitionerIdFromCurrentUser = await getMyPractitionerId(
     validatedParameters.userToken,
     validatedParameters.secrets

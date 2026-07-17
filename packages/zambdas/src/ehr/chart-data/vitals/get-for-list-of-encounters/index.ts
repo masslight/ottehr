@@ -4,6 +4,7 @@ import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir
 import {
   convertVitalsListToMap,
   extractBloodPressureObservationMethod,
+  extractDotVisionScreening,
   extractHeartbeatObservationMethod,
   extractOxySaturationObservationMethod,
   extractTemperatureObservationMethod,
@@ -31,7 +32,7 @@ import {
   VitalsVisionObservationDTO,
 } from 'utils';
 import * as z from 'zod';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals-for-list-of-encounters';
@@ -39,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`Validating input: ${JSON.stringify(input.body)}`);
   const { encounterIds, secrets } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.log(`Performing complex validation for encounterId: ${encounterIds}`);
   const effectInput = await complexValidation({ encounterIds, secrets }, oystehr);
@@ -196,7 +197,14 @@ const parseVisionObservation = (
     visionOptions,
   } = extractVisionValues(components);
 
-  if (leftEyeVisionText === undefined && rightEyeVisionText === undefined && bothEyesVisionText === undefined) {
+  const dotVisionScreening = extractDotVisionScreening(components, observation.derivedFrom);
+
+  if (
+    leftEyeVisionText === undefined &&
+    rightEyeVisionText === undefined &&
+    bothEyesVisionText === undefined &&
+    dotVisionScreening === undefined
+  ) {
     return undefined;
   }
 
@@ -210,6 +218,7 @@ const parseVisionObservation = (
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
     extraVisionOptions: visionOptions,
+    dotVisionScreening,
   };
 };
 
@@ -219,7 +228,8 @@ type AllOtherFields =
   | VitalFieldNames.VitalTemperature
   | VitalFieldNames.VitalRespirationRate
   | VitalFieldNames.VitalHeight
-  | VitalFieldNames.VitalWeight;
+  | VitalFieldNames.VitalWeight
+  | VitalFieldNames.VitalBMI;
 
 const parseNumericValueObservation = (
   observation: Observation,

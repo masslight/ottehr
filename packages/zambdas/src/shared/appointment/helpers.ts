@@ -15,6 +15,7 @@ import {
   isTelemedAppointment,
   makeSSNIdentifier,
   normalizePhoneNumber,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_NOT_FOUND_ERROR,
   PatientInfo,
   removeTimeFromDate,
@@ -234,13 +235,22 @@ export function creatingPatientUpdateRequest(
     ];
   }
 
+  if (patient.noEmail !== undefined) {
+    const noEmailExtIndex = patientExtension.findIndex((ext) => ext.url === PATIENT_NO_EMAIL_URL);
+    if (noEmailExtIndex >= 0) {
+      patientExtension[noEmailExtIndex] = { url: PATIENT_NO_EMAIL_URL, valueBoolean: patient.noEmail };
+    } else {
+      patientExtension.push({ url: PATIENT_NO_EMAIL_URL, valueBoolean: patient.noEmail });
+    }
+  }
+
   patientPatchOperations.push({
     op: maybeFhirPatient.extension ? 'replace' : 'add',
     path: '/extension',
     value: patientExtension,
   });
 
-  const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.email);
+  const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
   if (emailPatchOps.length >= 1) {
     patientPatchOperations.push(...emailPatchOps);
   }
@@ -360,50 +370,39 @@ export function creatingPatientUpdateRequest(
 
 export function getPatientPatchOpsPatientEmail(maybeFhirPatient: Patient, email: string | undefined): Operation[] {
   const patientPatchOperations: Operation[] = [];
-  // update email
+  const telecom = maybeFhirPatient.telecom;
+
   if (email) {
-    const telecom = maybeFhirPatient.telecom;
-    const curEmail = telecom?.find((telecomToCheck) => telecomToCheck.system === 'email');
-    const curEmailIndex = telecom?.findIndex((telecomToCheck) => telecomToCheck.system === 'email');
+    const curEmail = telecom?.find((t) => t.system === 'email');
+    const curEmailIndex = telecom?.findIndex((t) => t.system === 'email');
     // check email exists in telecom but is different
-    if (telecom && curEmailIndex && curEmailIndex > -1 && email !== curEmail) {
-      telecom[curEmailIndex] = {
-        system: 'email',
-        value: email,
-      };
-      patientPatchOperations.push({
-        op: 'replace',
-        path: '/telecom',
-        value: telecom,
-      });
+    if (telecom && curEmailIndex !== undefined && curEmailIndex > -1 && email !== curEmail?.value) {
+      telecom[curEmailIndex] = { system: 'email', value: email };
+      patientPatchOperations.push({ op: 'replace', path: '/telecom', value: telecom });
     }
     // check if telecom exists but without email
     if (telecom && !curEmail) {
-      telecom.push({
-        system: 'email',
-        value: email,
-      });
-      patientPatchOperations.push({
-        op: 'replace',
-        path: '/telecom',
-        value: telecom,
-      });
+      telecom.push({ system: 'email', value: email });
+      patientPatchOperations.push({ op: 'replace', path: '/telecom', value: telecom });
     }
     // add if no telecom
     if (!telecom) {
-      patientPatchOperations.push({
-        op: 'add',
-        path: '/telecom',
-        value: [
-          {
-            system: 'email',
-            value: email,
-          },
-        ],
-      });
+      patientPatchOperations.push({ op: 'add', path: '/telecom', value: [{ system: 'email', value: email }] });
+    }
+  } else {
+    // noEmail: remove the existing email ContactPoint from telecom if present
+    const curEmailIndex = telecom?.findIndex((t) => t.system === 'email');
+    if (telecom && curEmailIndex !== undefined && curEmailIndex > -1) {
+      const newTelecom = telecom.filter((_, i) => i !== curEmailIndex);
+      if (newTelecom.length > 0) {
+        patientPatchOperations.push({ op: 'replace', path: '/telecom', value: newTelecom });
+      } else {
+        patientPatchOperations.push({ op: 'remove', path: '/telecom' });
+      }
     }
   }
-  return [];
+
+  return patientPatchOperations;
 }
 
 export function creatingPatientCreateRequest(
@@ -451,7 +450,13 @@ export function creatingPatientCreateRequest(
     });
   }
 
-  if (patient.email) {
+  if (patient.noEmail) {
+    if (!patientResource.extension) patientResource.extension = [];
+    patientResource.extension.push({ url: PATIENT_NO_EMAIL_URL, valueBoolean: true });
+    if (isEHRUser && patient.phoneNumber) {
+      patientResource.telecom = [{ system: 'phone', value: normalizePhoneNumber(patient.phoneNumber) }];
+    }
+  } else if (patient.email) {
     if (isEHRUser) {
       patientResource.telecom = [
         {

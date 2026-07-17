@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, RelatedPerson } from 'fhir/r4b';
-import { BillingCoverageOption, genderMap, getMemberIdFromCoverage, getPayerId } from 'utils';
+import { BillingCoverageOption, getCoveragePlanType, getMemberIdFromCoverage, getPayerId } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createBillingClient,
@@ -35,7 +35,7 @@ function extractPolicyHolder(subscriber: RelatedPerson | undefined): BillingCove
     middleName: name?.given?.[1] ?? '',
     lastName: name?.family ?? '',
     dob: subscriber.birthDate ?? '',
-    birthSex: subscriber.gender ? genderMap[subscriber.gender as keyof typeof genderMap] ?? '' : '',
+    gender: subscriber.gender ?? '',
     addressParts: toAddressParts(subscriber.address?.[0]),
   };
 }
@@ -88,6 +88,7 @@ async function performEffect(
       payorId: getPayerId(payorOrg) ?? '',
       payorFhirId: payorOrg?.id ?? '',
       insuranceType: getCoverageInsuranceType(cov, pbillAccount, wcompAccount),
+      planType: getCoveragePlanType(cov),
       relationship: cov.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
       memberId: cov.subscriberId ?? getMemberIdFromCoverage(cov) ?? '',
       policyHolder: extractPolicyHolder(subscriber),

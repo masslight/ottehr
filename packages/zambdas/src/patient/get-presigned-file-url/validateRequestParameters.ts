@@ -13,7 +13,7 @@ import {
   Secrets,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const fileTypes = [
   INSURANCE_CARD_BACK_ID,
@@ -47,7 +47,7 @@ export function validateRequestParameters(input: ZambdaInput): GetPresignedFileU
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body);
+  const parsed = safeJsonParse(input.body);
   const { appointmentID, fileType, fileFormat } = safeValidate(bodySchema, parsed);
 
   return {

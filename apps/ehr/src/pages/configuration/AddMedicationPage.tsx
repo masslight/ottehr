@@ -1,5 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import { Autocomplete, debounce, Grid, TextField, Typography } from '@mui/material';
+import { Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { ReactElement, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -79,94 +79,92 @@ export default function AddMedicationPage(): ReactElement {
 
   return (
     <PageContainer>
-      <>
-        <CustomBreadcrumbs
-          chain={[
-            { link: '/admin', children: 'Admin' },
-            { link: '/admin/medications', children: 'Medications' },
-            { link: '#', children: 'Add medication' },
-          ]}
-        />
-        <form onSubmit={create}>
-          <Grid container spacing={2} paddingTop={2}>
-            <Grid item xs={12}>
-              <Typography variant="h4">Add medication</Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Autocomplete
-                value={selectedMedication}
-                getOptionLabel={(option) => `${option.name}${option.strength ? ` (${option.strength})` : ''}`}
-                fullWidth
-                isOptionEqualToValue={(option, value) => value.id === option.id}
-                loading={isSearching}
-                disablePortal
-                noOptionsText={
-                  debouncedSearchTerm && debouncedSearchTerm.length > 2 && medSearchOptions.length === 0
-                    ? 'Nothing found for this search criteria'
-                    : 'Start typing to load results'
-                }
-                options={medSearchOptions}
-                onChange={(_e, value) => setSelectedMedication(value)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                    label="Medication Name"
-                    placeholder="Search"
-                    required
-                  />
-                )}
-              />
-            </Grid>
-            <Grid item xs={6} />
-            {selectedMedication?.isObsolete === true ? (
-              <>
-                <Grid item xs={6}>
+      <Grid container direction="row" alignItems="center" justifyContent="center">
+        <Grid item maxWidth={'584px'} width={'100%'}>
+          <CustomBreadcrumbs
+            chain={[
+              { link: '/admin', children: 'Admin' },
+              { link: '/admin/medications', children: 'Medications' },
+              { link: '#', children: 'Add medication' },
+            ]}
+          />
+          <Paper sx={{ padding: 3, marginTop: 2, marginBottom: 2 }}>
+            <form onSubmit={create}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="h4">Add medication</Typography>
+                </Grid>
+                <Grid item xs={12}>
                   <Autocomplete
-                    value={selectedMedicationForPrecheck}
+                    value={selectedMedication}
                     getOptionLabel={(option) => `${option.name}${option.strength ? ` (${option.strength})` : ''}`}
                     fullWidth
                     isOptionEqualToValue={(option, value) => value.id === option.id}
-                    loading={isSearchingForPrecheck}
+                    loading={isSearching}
                     disablePortal
                     noOptionsText={
-                      debouncedSearchTermForPrecheck &&
-                      debouncedSearchTermForPrecheck.length > 2 &&
-                      nonObsoleteMedSearchOptions.length === 0
+                      debouncedSearchTerm && debouncedSearchTerm.length > 2 && medSearchOptions.length === 0
                         ? 'Nothing found for this search criteria'
                         : 'Start typing to load results'
                     }
-                    options={nonObsoleteMedSearchOptions}
-                    onChange={(_e, value) => setSelectedMedicationForPrecheck(value)}
+                    options={medSearchOptions}
+                    onChange={(_e, value) => setSelectedMedication(value)}
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        onChange={(e) => debouncedHandleInputChangeForPrecheck(e.target.value)}
-                        label="Medication Name for Interactions"
+                        onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                        label="Medication Name"
                         placeholder="Search"
                         required
                       />
                     )}
                   />
                 </Grid>
-                <Grid item xs={6} />
-              </>
-            ) : (
-              <></>
-            )}
-            <Grid item xs={12}>
-              <LoadingButton
-                type="submit"
-                variant="contained"
-                loading={loading}
-                sx={{ textTransform: 'none', borderRadius: 28, fontWeight: 'bold' }}
-              >
-                Create Medication
-              </LoadingButton>
-            </Grid>
-          </Grid>
-        </form>
-      </>
+                {selectedMedication?.isObsolete === true && (
+                  <Grid item xs={12}>
+                    <Autocomplete
+                      value={selectedMedicationForPrecheck}
+                      getOptionLabel={(option) => `${option.name}${option.strength ? ` (${option.strength})` : ''}`}
+                      fullWidth
+                      isOptionEqualToValue={(option, value) => value.id === option.id}
+                      loading={isSearchingForPrecheck}
+                      disablePortal
+                      noOptionsText={
+                        debouncedSearchTermForPrecheck &&
+                        debouncedSearchTermForPrecheck.length > 2 &&
+                        nonObsoleteMedSearchOptions.length === 0
+                          ? 'Nothing found for this search criteria'
+                          : 'Start typing to load results'
+                      }
+                      options={nonObsoleteMedSearchOptions}
+                      onChange={(_e, value) => setSelectedMedicationForPrecheck(value)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          onChange={(e) => debouncedHandleInputChangeForPrecheck(e.target.value)}
+                          label="Medication Name for Interactions"
+                          placeholder="Search"
+                          required
+                        />
+                      )}
+                    />
+                  </Grid>
+                )}
+                <Grid item xs={12}>
+                  <LoadingButton
+                    type="submit"
+                    variant="contained"
+                    loading={loading}
+                    sx={{ textTransform: 'none', borderRadius: 28, fontWeight: 'bold' }}
+                  >
+                    Create Medication
+                  </LoadingButton>
+                </Grid>
+              </Grid>
+            </form>
+          </Paper>
+        </Grid>
+      </Grid>
     </PageContainer>
   );
 }

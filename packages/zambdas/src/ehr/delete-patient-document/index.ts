@@ -4,7 +4,7 @@ import { DocumentReference, List } from 'fhir/r4b';
 import { replaceOperation } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   deleteZ3Object,
   wrapHandler,
   Z3Error,
@@ -21,7 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { secrets, documentRefId } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const docRef = (
     await oystehr.fhir.search<DocumentReference>({

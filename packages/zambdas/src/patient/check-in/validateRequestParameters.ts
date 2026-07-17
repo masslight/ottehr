@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 import { CheckInInputValidated } from '.';
 
 const CheckInBodySchema = z.object({
@@ -16,7 +16,7 @@ export function validateRequestParameters(input: ZambdaInput): CheckInInputValid
     throw MISSING_REQUEST_SECRETS;
   }
 
-  const { appointmentId } = safeValidate(CheckInBodySchema, JSON.parse(input.body));
+  const { appointmentId } = safeValidate(CheckInBodySchema, safeJsonParse(input.body));
 
   return { appointmentId, secrets: input.secrets };
 }

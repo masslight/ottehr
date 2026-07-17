@@ -160,6 +160,48 @@ describe('ProgressNoteAdminPage', () => {
     expect(adminUpdateProgressNoteConfig).not.toHaveBeenCalled();
   });
 
+  it('renders the configured vitals unit input order', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue({
+      ...requiredProgressNoteConfig,
+      vitalsUnitInputOrder: 'imperial-metric',
+    });
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(screen.getByLabelText('Vital measurement unit input order')).toBeInTheDocument());
+    expect(screen.getByText('Imperial / Metric')).toBeInTheDocument();
+  });
+
+  it('saves the selected vitals unit input order', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+    vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Vital measurement unit input order' })).toBeInTheDocument()
+    );
+    const unitOrderSelect = screen.getByRole('combobox', { name: 'Vital measurement unit input order' });
+
+    // Before: the select reflects the loaded config's default order.
+    expect(unitOrderSelect).toHaveTextContent('Metric / Imperial');
+
+    fireEvent.mouseDown(unitOrderSelect);
+    fireEvent.click(await screen.findByRole('option', { name: 'Imperial / Metric' }));
+
+    // After: the select reflects the newly chosen order before we submit.
+    expect(unitOrderSelect).toHaveTextContent('Imperial / Metric');
+
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => {
+      expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
+        ...requiredProgressNoteConfig,
+        vitalsUnitInputOrder: 'imperial-metric',
+      });
+    });
+  });
+
   it('discards unsaved edits without submitting the form', async () => {
     vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
     vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);

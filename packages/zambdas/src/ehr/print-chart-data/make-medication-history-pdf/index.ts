@@ -16,7 +16,7 @@ import {
   uploadPDF,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getPatientLastFirstName, wrapHandler } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { PdfRenderConfig, renderPdf, StyleFactory } from '../../../shared/pdf/pdf-common';
 import { PdfInfo, rgbNormalized } from '../../../shared/pdf/pdf-utils';
 import {
@@ -41,7 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const formattedData: MedicationHistoryInput = formatData({
     patient,

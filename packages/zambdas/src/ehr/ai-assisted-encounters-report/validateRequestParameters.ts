@@ -1,5 +1,5 @@
 import { AiAssistedEncountersReportZambdaInput, Secrets } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -8,7 +8,7 @@ export function validateRequestParameters(
     throw new Error('Missing request body');
   }
 
-  const { dateRange, locationIds } = JSON.parse(input.body);
+  const { dateRange, locationIds } = safeJsonParse(input.body);
 
   if (!dateRange) {
     throw new Error('Missing dateRange parameter');

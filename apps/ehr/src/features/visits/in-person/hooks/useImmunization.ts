@@ -122,20 +122,23 @@ export const useGetVaccines = (): UseQueryResult<Vaccine[], Error> => {
         resourceType: 'Medication',
         params: [{ name: 'identifier', value: INVENTORY_VACCINE_TYPE_CODE }],
       });
-      return data.unbundle().flatMap((medication) => {
-        const identifier = medication.identifier?.find(
-          (identifier: Identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-        );
-        if (identifier?.value && medication.id) {
-          return [
-            {
-              id: medication.id,
-              name: identifier?.value,
-            },
-          ];
-        }
-        return [];
-      });
+      return data
+        .unbundle()
+        .flatMap((medication) => {
+          const identifier = medication.identifier?.find(
+            (identifier: Identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+          );
+          if (identifier?.value && medication.id) {
+            return [
+              {
+                id: medication.id,
+                name: identifier?.value,
+              },
+            ];
+          }
+          return [];
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
     enabled: oystehr != null,
     retry: 2,

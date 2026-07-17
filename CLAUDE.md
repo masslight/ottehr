@@ -69,11 +69,11 @@ cd apps/ehr && npm run component-tests
 # Run a specific EHR component test file
 npx vitest --config ./apps/ehr/vitest.config.component-tests.ts apps/ehr/tests/component/MyTest.test.tsx
 
-# Zambda unit tests
-cd packages/zambdas && npx vitest run test/   # exclude integration/
+# Zambda unit tests (offline — no Auth0 secrets or network needed; no globalSetup)
+cd packages/zambdas && npx vitest run --project unit
 
-# Zambda integration tests (requires local server running)
-cd packages/zambdas && npx vitest run test/integration/
+# Zambda integration tests (needs Auth0 test secrets; globalSetup starts its own server + runs the leak gate)
+cd packages/zambdas && npx vitest run --project integration
 ```
 
 ### E2E Tests (Playwright)

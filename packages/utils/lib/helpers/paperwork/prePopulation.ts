@@ -12,7 +12,6 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
-import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import { getReasonForVisitOptionsForServiceCategory } from '../../config-helpers/booking';
@@ -39,13 +38,16 @@ import {
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
+  PATIENT_HAS_MEDICAID_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  PATIENT_NO_EMAIL_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
   PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
+  RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../../types';
 import { isValidUUID } from '../../validation';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
@@ -59,7 +61,7 @@ interface PrePopulationInput {
   isNewQrsPatient: boolean;
   verifiedPhoneNumber: string | undefined;
   questionnaire: Questionnaire;
-  contactInfo: { phone: string; email: string } | undefined;
+  contactInfo: { phone: string; email: string; noEmail?: boolean } | undefined;
   newPatientDob?: string;
   rp?: RelatedPerson;
   documents?: DocumentReference[];
@@ -98,6 +100,16 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   const patientPostalCode = patientAddress?.postalCode;
 
   const patientEmail = contactInfo?.email;
+  // Prefer the value supplied from the booking form (contactInfo.noEmail) so that a
+  // patient who switched from no-email → has email during booking sees the correct
+  // state in paperwork immediately, without waiting for harvest to update the extension.
+  const patientNoEmail =
+    contactInfo?.noEmail ?? patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
+  // `undefined` (extension absent) is meaningfully different from `false`
+  // (explicitly unchecked) — the checkbox reads unchecked in both cases,
+  // but leaving it undefined lets a later save avoid stamping a redundant
+  // `false` extension on Patients that never had the field touched.
+  const patientHasMedicaid = patient.extension?.find((e) => e.url === PATIENT_HAS_MEDICAID_URL)?.valueBoolean;
   const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
     ?.valueBoolean;
   const patientCommonWellConsent = patient.extension?.find(
@@ -214,6 +226,12 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
+          }
+          if (linkId === 'patient-no-email') {
+            answer = makeAnswer(patientNoEmail, 'Boolean');
+          }
+          if (linkId === 'patient-has-medicaid' && patientHasMedicaid !== undefined) {
+            answer = makeAnswer(patientHasMedicaid, 'Boolean');
           }
           if (linkId === 'patient-preferred-communication-method' && patientPreferredCommunicationMethod) {
             answer = makeAnswer(patientPreferredCommunicationMethod);
@@ -536,6 +554,10 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
   const patientPhone = patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value;
+  const patientNoEmail = patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
+  // See earlier comment: preserve `undefined` distinct from `false` so we
+  // don't stamp a false extension onto Patients that never touched the flag.
+  const patientHasMedicaid = patient.extension?.find((e) => e.url === PATIENT_HAS_MEDICAID_URL)?.valueBoolean;
 
   const patientEthnicity = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
@@ -634,6 +656,12 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     if (linkId === 'patient-email' && patientEmail) {
       answer = makeAnswer(patientEmail);
     }
+    if (linkId === 'patient-no-email') {
+      answer = makeAnswer(patientNoEmail, 'Boolean');
+    }
+    if (linkId === 'patient-has-medicaid' && patientHasMedicaid !== undefined) {
+      answer = makeAnswer(patientHasMedicaid, 'Boolean');
+    }
     if (linkId === 'patient-number' && patientPhone) {
       const formatted = formatPhoneNumberDisplay(patientPhone);
       if (formatted) {
@@ -702,6 +730,7 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
   const practiceName =
     physician?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString ?? '';
   const phone = physician?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? '';
+  const fax = physician?.telecom?.find((c) => c.system === 'fax' && c.period?.end === undefined)?.value ?? '';
   const address = physician?.address?.[0]?.text ?? '';
   let firstName: string | undefined;
   let lastName: string | undefined;
@@ -734,6 +763,12 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
 
     if (linkId === 'pcp-number' && phone) {
       const formatted = formatPhoneNumberDisplay(phone);
+      if (formatted) {
+        answer = makeAnswer(formatted);
+      }
+    }
+    if (linkId === 'pcp-fax' && fax) {
+      const formatted = formatPhoneNumberDisplay(fax);
       if (formatted) {
         answer = makeAnswer(formatted);
       }
@@ -1293,6 +1328,13 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
   );
   const email =
     guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
+  const rpNoEmail =
+    guarantorResource?.resourceType === 'RelatedPerson'
+      ? (guarantorResource as RelatedPerson).extension?.find((e) => e.url === RESPONSIBLE_PARTY_NO_EMAIL_URL)
+          ?.valueBoolean ?? false
+      : guarantorResource?.resourceType === 'Patient'
+      ? (guarantorResource as Patient).extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false
+      : false;
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
@@ -1361,6 +1403,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     }
     if (linkId === 'responsible-party-email' && email) {
       answer = makeAnswer(email);
+    }
+    if (linkId === 'responsible-party-no-email') {
+      answer = makeAnswer(rpNoEmail, 'Boolean');
     }
     if (linkId === 'responsible-party-address' && line) {
       answer = makeAnswer(line);

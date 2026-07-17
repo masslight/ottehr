@@ -1,4 +1,5 @@
 import { BUCKET_NAMES, Secrets } from 'utils';
+import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
@@ -27,8 +28,10 @@ import {
   composePrescriptions,
   composeProcedures,
   composeProgressNoteVisitDetails,
+  composeRadiology,
   composeReviewOfSystems,
   composeRosObservations,
+  composeSignature,
   composeSurgicalHistory,
   composeUpcomingVisits,
   composeVitals,
@@ -56,21 +59,30 @@ import {
   createProceduresSection,
   createProgressNotePatientInfoSection,
   createProgressNoteVisitDetailsSection,
+  createRadiologySection,
   createReviewOfSystemsSection,
   createRosObservationsSection,
+  createSignatureSection,
   createSurgicalHistorySection,
   createUpcomingVisitsSection,
   createVitalsSection,
 } from './sections';
+import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';
 
 const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData> = (input) => {
   const { patient, encounter, questionnaireResponse, allChartData, appointmentPackage, upcomingFollowUps } = input;
 
+  const visit = composeProgressNoteVisitDetails({
+    allChartData,
+    appointmentPackage,
+    serviceCategories: input.serviceCategories,
+  });
+
   return {
     patient: composePatientInformation({ patient, questionnaireResponse }),
     encounter: composeEncounterData({ encounter }),
-    visit: composeProgressNoteVisitDetails({ allChartData, appointmentPackage }),
+    visit,
     chiefComplaint: composeChiefComplaint({
       allChartData,
       appointmentPackage,
@@ -113,6 +125,9 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     externalLabs: composeExternalLabs({
       allChartData,
     }),
+    radiology: composeRadiology({
+      allChartData,
+    }),
     screening: composeAdditionalQuestions({
       allChartData,
     }),
@@ -149,6 +164,7 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     }),
     prescriptions: composePrescriptions({
       allChartData,
+      erxPharmacies: input.erxPharmacies,
     }),
     plan: composePlanData({
       allChartData,
@@ -163,6 +179,11 @@ const composeProgressNoteData: DataComposer<ProgressNoteInput, ProgressNoteData>
     upcomingVisits: composeUpcomingVisits({ upcomingFollowUps }),
     followupCompleted: composeFollowupCompleted({
       appointmentPackage,
+    }),
+    signature: composeSignature({
+      appointmentPackage,
+      visit,
+      signatures: input.signatures,
     }),
   };
 };
@@ -335,6 +356,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createImmunizationOrdersSection(),
     createInHouseLabsSection(),
     createExternalLabsSection(),
+    createRadiologySection(),
     createAdditionalQuestionsSection(),
     createIntakeNotesSection(),
     createVitalsSection(),
@@ -348,6 +370,7 @@ const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
     createPlanSection(),
     createUpcomingVisitsSection(),
     createFollowupCompletedSection(),
+    createSignatureSection(),
   ],
 };
 
@@ -356,8 +379,9 @@ export const createProgressNotePdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
+  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
   return generatePdf(
-    input,
+    { ...input, serviceCategories },
     composeProgressNoteData,
     progressNoteRenderConfig,
     {

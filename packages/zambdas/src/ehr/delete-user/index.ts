@@ -11,7 +11,7 @@ import {
   userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 
 const ALLOWED_CALLER_ROLES: string[] = [RoleType.Administrator, RoleType.CustomerSupport];
 
@@ -26,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { userId, userToken, secrets } = validatedParameters;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.group('complexValidation');
   await complexValidation(oystehr, userToken, secrets, userId);

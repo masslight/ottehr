@@ -9,14 +9,16 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 // validateRequestParameters
 // ---------------------------------------------------------------------------
 
+const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
 function makeInput(body: Record<string, unknown>): ZambdaInput {
   return { headers: null, body: JSON.stringify(body), secrets: null };
 }
 
 describe('cm-add-procedure-code validateRequestParameters', () => {
   it('returns validated params for valid input', () => {
-    const result = validateRequestParameters(makeInput({ chargeMasterId: 'cm-1', code: '99213', amount: 150 }));
-    expect(result).toMatchObject({ chargeMasterId: 'cm-1', code: '99213', amount: 150 });
+    const result = validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, code: '99213', amount: 150 }));
+    expect(result).toMatchObject({ chargeMasterId: VALID_UUID, code: '99213', amount: 150 });
   });
 
   it('throws when body is missing', () => {
@@ -26,23 +28,25 @@ describe('cm-add-procedure-code validateRequestParameters', () => {
   });
 
   it('throws when chargeMasterId is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ code: '99213', amount: 150 }))).toThrow('chargeMasterId');
+    expect(() => validateRequestParameters(makeInput({ code: '99213', amount: 150 }))).toThrow(
+      'Validation error: Required at "chargeMasterId"'
+    );
   });
 
   it('throws when code is missing', () => {
-    expect(() => validateRequestParameters(makeInput({ chargeMasterId: 'cm-1', amount: 150 }))).toThrow('code');
+    expect(() => validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, amount: 150 }))).toThrow(
+      'Validation error: Required at "code"'
+    );
   });
 
   it('throws when amount is not a number', () => {
     expect(() =>
-      validateRequestParameters(makeInput({ chargeMasterId: 'cm-1', code: '99213', amount: 'abc' }))
-    ).toThrow('amount');
+      validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, code: '99213', amount: 'abc' }))
+    ).toThrow('Validation error: Expected number, received string at "amount"');
   });
 
-  it('normalizes falsy modifier/description to undefined', () => {
-    const result = validateRequestParameters(
-      makeInput({ chargeMasterId: 'cm-1', code: '99213', amount: 100, modifier: '', description: '' })
-    );
+  it('returns undefined modifier/description when omitted', () => {
+    const result = validateRequestParameters(makeInput({ chargeMasterId: VALID_UUID, code: '99213', amount: 100 }));
     expect(result.modifier).toBeUndefined();
     expect(result.description).toBeUndefined();
   });
@@ -70,7 +74,7 @@ function makePropertyGroup(code: string, modifier?: string, amount = 100): Charg
 const fakeExisting = (propertyGroup: ChargeItemDefinition['propertyGroup']): ChargeItemDefinition =>
   ({
     resourceType: 'ChargeItemDefinition',
-    id: 'cm-1',
+    id: VALID_UUID,
     status: 'active',
     url: 'http://example.com',
     propertyGroup: propertyGroup || [],
@@ -81,7 +85,7 @@ vi.mock('../../src/shared', async (importOriginal) => {
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createOystehrClient: vi.fn(() => mockOystehrClient),
+    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
@@ -100,7 +104,7 @@ const { index: handler } = (await import('../../src/rcm/charge-masters/cm-add-pr
 describe('cm-add-procedure-code handler', () => {
   it('rejects duplicate code (no modifier)', async () => {
     mockOystehrClient.fhir.get.mockResolvedValue(fakeExisting(makePropertyGroup('99213')));
-    const result = await handler(makeInput({ chargeMasterId: 'cm-1', code: '99213', amount: 200 }));
+    const result = await handler(makeInput({ chargeMasterId: VALID_UUID, code: '99213', amount: 200 }));
     expect(result.statusCode).toBe(409);
     expect(JSON.parse(result.body).message).toContain('already exists');
     expect(mockOystehrClient.fhir.update).not.toHaveBeenCalled();
@@ -108,7 +112,7 @@ describe('cm-add-procedure-code handler', () => {
 
   it('rejects duplicate code+modifier', async () => {
     mockOystehrClient.fhir.get.mockResolvedValue(fakeExisting(makePropertyGroup('99213', '25')));
-    const result = await handler(makeInput({ chargeMasterId: 'cm-1', code: '99213', modifier: '25', amount: 200 }));
+    const result = await handler(makeInput({ chargeMasterId: VALID_UUID, code: '99213', modifier: '25', amount: 200 }));
     expect(result.statusCode).toBe(409);
     expect(JSON.parse(result.body).message).toContain('modifier 25');
   });
@@ -116,7 +120,7 @@ describe('cm-add-procedure-code handler', () => {
   it('allows same code with different modifier', async () => {
     mockOystehrClient.fhir.get.mockResolvedValue(fakeExisting(makePropertyGroup('99213', '25')));
     mockOystehrClient.fhir.update.mockResolvedValue(fakeExisting([]));
-    const result = await handler(makeInput({ chargeMasterId: 'cm-1', code: '99213', modifier: '26', amount: 200 }));
+    const result = await handler(makeInput({ chargeMasterId: VALID_UUID, code: '99213', modifier: '26', amount: 200 }));
     expect(result.statusCode).toBe(200);
     expect(mockOystehrClient.fhir.update).toHaveBeenCalled();
   });
@@ -124,14 +128,14 @@ describe('cm-add-procedure-code handler', () => {
   it('allows add when no existing codes', async () => {
     mockOystehrClient.fhir.get.mockResolvedValue(fakeExisting([]));
     mockOystehrClient.fhir.update.mockResolvedValue(fakeExisting(makePropertyGroup('99213')));
-    const result = await handler(makeInput({ chargeMasterId: 'cm-1', code: '99213', amount: 100 }));
+    const result = await handler(makeInput({ chargeMasterId: VALID_UUID, code: '99213', amount: 100 }));
     expect(result.statusCode).toBe(200);
   });
 
   it('appends new propertyGroup to existing ones', async () => {
     mockOystehrClient.fhir.get.mockResolvedValue(fakeExisting(makePropertyGroup('99213')));
     mockOystehrClient.fhir.update.mockImplementation(async (resource: ChargeItemDefinition) => resource);
-    const result = await handler(makeInput({ chargeMasterId: 'cm-1', code: '99214', amount: 200 }));
+    const result = await handler(makeInput({ chargeMasterId: VALID_UUID, code: '99214', amount: 200 }));
     expect(result.statusCode).toBe(200);
     const updated = mockOystehrClient.fhir.update.mock.calls[0][0] as ChargeItemDefinition;
     expect(updated.propertyGroup).toHaveLength(2);

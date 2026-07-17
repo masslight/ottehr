@@ -1,5 +1,5 @@
 import { PracticeKpisReportZambdaInput, Secrets } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): {
   dateRange: { start: string; end: string };
@@ -10,7 +10,7 @@ export function validateRequestParameters(input: ZambdaInput): {
     throw new Error('No request body provided');
   }
 
-  const requestBody = JSON.parse(input.body) as PracticeKpisReportZambdaInput;
+  const requestBody = safeJsonParse(input.body) as PracticeKpisReportZambdaInput;
 
   if (!requestBody.dateRange) {
     throw new Error('dateRange is required');

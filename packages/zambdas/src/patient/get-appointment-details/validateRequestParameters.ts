@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 import { GetAppointmentDetailInput } from '.';
 
 const bodySchema = z.object({
@@ -12,7 +12,7 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentDet
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body);
+  const parsed = safeJsonParse(input.body);
   const { appointmentID } = safeValidate(bodySchema, parsed);
 
   return {

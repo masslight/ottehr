@@ -1,7 +1,10 @@
-import Oystehr from '@oystehr/sdk';
 import * as fs from 'fs';
-import { fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from '../packages/zambdas/src/scripts/helpers';
-import { getAuth0Token } from '../packages/zambdas/src/shared';
+import {
+  createClinicalOystehrClient,
+  fhirApiUrlFromAuth0Audience,
+  getAuth0Token,
+  projectApiUrlFromAuth0Audience,
+} from '../packages/zambdas/src/shared';
 
 async function main(): Promise<void> {
   const env = process.argv[2];
@@ -10,10 +13,11 @@ async function main(): Promise<void> {
   const secrets = JSON.parse(fs.readFileSync(envFilePath, 'utf8'));
 
   const token = await getAuth0Token(secrets);
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-    projectApiUrl: projectApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
+  const oystehr = createClinicalOystehrClient(token, secrets, {
+    services: {
+      fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
+      projectApiUrl: projectApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
+    },
   });
 
   const m2ms = await oystehr.m2m.list();

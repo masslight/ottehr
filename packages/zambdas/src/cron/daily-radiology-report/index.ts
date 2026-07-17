@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 
 interface RadiologyStudyReportItem {
   serviceRequestId: string;
@@ -27,7 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehrToken = await getAuth0Token(secrets);
   }
 
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
   const oneMonthAgo = DateTime.now().toUTC().minus({ days: 30 }).startOf('day');
   const now = DateTime.now().toUTC();

@@ -1,5 +1,18 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils';
+import { z } from 'zod';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+
+const BulkProcedureCodeSchema = z.object({
+  code: z.string().min(1),
+  modifier: z.string().optional(),
+  amount: z.number(),
+});
+
+const BulkAddProcedureCodesBodySchema = z.object({
+  feeScheduleId: z.string().uuid(),
+  codes: z.array(BulkProcedureCodeSchema).min(1),
+  replaceAll: z.boolean().optional(),
+});
 
 export interface BulkProcedureCode {
   code: string;
@@ -19,33 +32,15 @@ export function validateRequestParameters(input: ZambdaInput): BulkAddProcedureC
     throw MISSING_REQUEST_BODY;
   }
 
-  const { feeScheduleId, codes, replaceAll } = JSON.parse(input.body);
-
-  if (!feeScheduleId) {
-    throw MISSING_REQUIRED_PARAMETERS(['feeScheduleId']);
-  }
-
-  if (!Array.isArray(codes) || codes.length === 0) {
-    throw INVALID_INPUT_ERROR('"codes" must be a non-empty array');
-  }
-
-  const validated: BulkProcedureCode[] = codes.map((entry: Record<string, unknown>, i: number) => {
-    if (!entry.code || typeof entry.code !== 'string') {
-      throw INVALID_INPUT_ERROR(`Row ${i + 1}: "code" is required and must be a string`);
-    }
-    if (entry.amount == null || typeof entry.amount !== 'number' || isNaN(entry.amount)) {
-      throw INVALID_INPUT_ERROR(`Row ${i + 1}: "amount" must be a valid number`);
-    }
-    return {
-      code: entry.code,
-      modifier: (entry.modifier as string) || undefined,
-      amount: entry.amount,
-    };
-  });
+  const { feeScheduleId, codes, replaceAll } = safeValidate(BulkAddProcedureCodesBodySchema, safeJsonParse(input.body));
 
   return {
     feeScheduleId,
-    codes: validated,
+    codes: codes.map((entry) => ({
+      code: entry.code,
+      modifier: entry.modifier || undefined,
+      amount: entry.amount,
+    })),
     replaceAll: replaceAll === true,
     secrets: input.secrets,
   };

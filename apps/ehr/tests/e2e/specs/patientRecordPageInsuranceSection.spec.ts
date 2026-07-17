@@ -723,8 +723,9 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       display: ic2?.name,
     },
   };
-  const insuranceCarrier1ForResult = `${ic1?.name} (inactive)`; // these are old Organization references so they show up as inactive
-  const insuranceCarrier2ForResult = `${ic2?.name} (inactive)`;
+  // these are old Organization references so they show up as historical
+  const insuranceCarrier1ForResult = `${ic1?.name} (historical)`;
+  const insuranceCarrier2ForResult = `${ic2?.name} (historical)`;
   console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
   await resourceHandler.setResources();

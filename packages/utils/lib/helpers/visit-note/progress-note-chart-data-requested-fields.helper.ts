@@ -20,7 +20,7 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   ros: { _tag: 'ros' },
   episodeOfCare: {},
   prescribedMedications: {},
-  disposition: {},
+  disposition: { _tag: 'disposition-follow-up,sub-follow-up' },
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
@@ -42,6 +42,7 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   vitalsObservations: vitalsObservationsRequest,
   externalLabResults: {},
   inHouseLabResults: {},
+  radiologyOrders: { _tag: 'radiology', _revinclude: 'DiagnosticReport:based-on' },
   practitioners: {},
   medicalDecision: {
     _tag: 'medical-decision',

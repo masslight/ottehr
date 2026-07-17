@@ -7,6 +7,9 @@ export default defineConfig({
     globals: true,
   },
   plugins: [],
+  resolve: {
+    preserveSymlinks: true,
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'lib/main.ts'),

@@ -7,6 +7,17 @@ import { fromZodError } from 'zod-validation-error';
 // \d{10}$ match exactly 10 digits at the end of the string
 export const phoneRegex = /^(\+1)?\d{10}$/;
 
+export function safeJsonParse(body: string): any {
+  try {
+    return JSON.parse(body);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw INVALID_INPUT_ERROR('Request body is not valid JSON');
+    }
+    throw error;
+  }
+}
+
 export function safeValidate<T extends ZodSchema<any>>(schema: T, input: unknown): z.output<T> {
   try {
     return schema.parse(input);

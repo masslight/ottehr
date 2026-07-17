@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { getPresignedURL, InPersonReceiptTemplateData, MIME_TYPES } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   EmailAttachment,
   getEmailClient,
   wrapHandler,
@@ -24,7 +24,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.log('fetching document reference');
   const documentReference = await oystehr.fhir.get<DocumentReference>({

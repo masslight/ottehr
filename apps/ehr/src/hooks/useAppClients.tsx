@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { useEffect } from 'react';
+import { createClinicalOystehrClient } from 'ui-components';
 import { getSelectors } from 'utils';
 import { create } from 'zustand';
 import { useAuthToken } from './useAuthToken';
@@ -19,14 +20,9 @@ export function useApiClients(): ApiClientsState {
   const { oystehr, oystehrZambda } = getSelectors(useApiClientsStore, ['oystehr', 'oystehrZambda']);
 
   useEffect(() => {
-    if (!oystehr || oystehr.config.accessToken !== token) {
+    if (token && (!oystehr || oystehr.config.accessToken !== token)) {
       useApiClientsStore.setState({
-        oystehr: new Oystehr({
-          accessToken: token,
-          fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
-          projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
-          projectId: import.meta.env.VITE_APP_PROJECT_ID,
-        }),
+        oystehr: createClinicalOystehrClient(token),
       });
     }
   }, [oystehr, token]);

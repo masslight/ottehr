@@ -14,6 +14,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_PROJECT_ID: string;
   readonly VITE_APP_PROJECT_API_ZAMBDA_URL: string;
   readonly VITE_APP_MUI_X_LICENSE_KEY: string;
+  readonly VITE_APP_EHR_URL?: string;
 }
 
 interface ImportMeta {

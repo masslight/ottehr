@@ -23,13 +23,15 @@ import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getEmailClient,
   makeAddressUrl,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { fetchErxPharmacies } from '../../../shared/erx';
+import { getEncounterSignatures } from '../../../shared/pdf/get-encounter-signatures';
 import { getUpcomingFollowUps } from '../../../shared/pdf/get-upcoming-follow-ups';
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -69,7 +71,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('already have token');
     }
 
-    oystehr = createOystehrClient(oystehrToken, secrets);
+    oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
     console.log('getting appointment Id from the task');
     const appointmentId =
@@ -129,12 +131,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounter.id
     );
 
-    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps] = await Promise.all([
-      chartDataPromise,
-      additionalChartDataPromise,
-      medicationOrdersPromise,
-      upcomingFollowUpsPromise,
-    ]);
+    // Signature/approval lines for the bottom of the visit note. Supplementary, so a failure here
+    // must not block PDF generation or the completion email.
+    const signaturesPromise = getEncounterSignatures(oystehr, visitResources.encounter.id!).catch((error) => {
+      console.error(`Failed to resolve encounter signatures for encounter ${visitResources.encounter.id}:`, error);
+      return { signedBy: undefined, approvedBy: undefined };
+    });
+
+    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps, signatures] =
+      await Promise.all([
+        chartDataPromise,
+        additionalChartDataPromise,
+        medicationOrdersPromise,
+        upcomingFollowUpsPromise,
+        signaturesPromise,
+      ]);
     const immunizationOrders = (
       await getImmunizationOrders(oystehr, {
         encounterIds: [visitResources.encounter.id!],
@@ -150,6 +161,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Check if we should skip making visit note visible in patient portal
       const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
+      const erxPharmacies = await fetchErxPharmacies(oystehr, additionalChartData?.prescribedMedications);
+
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
         {
@@ -164,11 +177,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           appointmentPackage: visitResources,
           questionnaireResponse: visitResources.questionnaireResponse,
           upcomingFollowUps,
+          erxPharmacies,
+          signatures,
         },
         secrets,
         oystehrToken
       );
       if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+      if (isPDFOnlyTask) {
+        pdfInfo.title = 'Patient Follow-up Note';
+      }
       console.log(`Creating visit note pdf docRef`);
       await makeVisitNotePdfDocumentReference(
         oystehr,

@@ -11,6 +11,7 @@ export interface UpdateScheduleParams {
   active?: Schedule['active'];
   closures?: Closure[];
   isVirtual?: boolean;
+  isInPerson?: boolean;
   stripeAccountId?: string | null;
   advapacsLocationId?: string | null;
   rooms?: string[];
@@ -54,6 +55,8 @@ export interface ScheduleOwnerListItem {
     scheduleCount: number;
   };
   supportPhoneNumber?: string;
+  /** Whether the owner is active. For Location rows: `status === 'active'`. */
+  active?: boolean;
 }
 
 export interface ScheduleListItem {

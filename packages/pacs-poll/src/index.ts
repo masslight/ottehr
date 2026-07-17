@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import {
+  BILLING_RESOURCE_TAG,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
   getPatchOperationToUpdateExtension,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
@@ -40,6 +41,7 @@ const createOystehrClientFromConfig = async (config: ProjectConfig): Promise<any
 
   return new Oystehr({
     accessToken: token,
+    ignoreTags: [BILLING_RESOURCE_TAG],
   });
 };
 

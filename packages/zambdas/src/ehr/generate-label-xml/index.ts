@@ -7,7 +7,7 @@ import {
   MANUFACTURER_TO_LABEL_MAPPING,
   SupportedPrinterManufacturer,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { VisitLabelConfig, VisitLabelContent } from '../../shared/pdf/visit-label-pdf';
 import { getPrintingConfigAndDevice } from '../label-printing-config/get-label-printing-config';
 import { getExternalLabLabelConfig, getVisitLabelConfig } from '../shared/label-printing';
@@ -36,7 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   console.log('token', m2mToken);
 
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const getLabelConfig = async (): Promise<VisitLabelConfig | ExternalLabsLabelConfig> => {
     if (type === 'visit') {

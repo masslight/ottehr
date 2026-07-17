@@ -6,7 +6,7 @@ import {
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -27,7 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { secrets } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const resources = await oystehr.fhir.search<Location>({
     resourceType: 'Location',

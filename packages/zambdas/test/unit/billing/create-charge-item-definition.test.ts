@@ -105,7 +105,13 @@ describe('create-charge-item-definition', () => {
         },
       } as unknown as Oystehr;
       const result = await performEffect(oystehr, params);
-      expect(result).toEqual(completeResource);
+      expect(result).toEqual({
+        id: 'some-uuid',
+        type: 'charge-master',
+        name: 'Fun ny T3s! n4me __',
+        status: 'active',
+        procedureCodes: [],
+      });
       expect(oystehr.fhir.create).toHaveBeenCalledWith({ ...completeResource, id: undefined });
     });
     it('creates CID with maximal input', async () => {
@@ -141,7 +147,16 @@ describe('create-charge-item-definition', () => {
         },
       } as unknown as Oystehr;
       const result = await performEffect(oystehr, params);
-      expect(result).toEqual(completeResource);
+      expect(result).toEqual({
+        id: 'some-uuid',
+        type: 'charge-master',
+        name: 'test',
+        description: 'test description',
+        status: 'active',
+        effectiveDate: '2026-01-01',
+        default: 'self-pay',
+        procedureCodes: [],
+      });
       expect(oystehr.fhir.create).toHaveBeenCalledWith({ ...completeResource, id: undefined });
     });
   });

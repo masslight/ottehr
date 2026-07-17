@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, GetSupportDialogOutput, SecretsKeys } from 'utils';
 import {
-  createOystehrClient,
+  createClinicalOystehrClient,
   getAuth0Token,
   getSupportDialogPayload,
   topLevelCatch,
@@ -20,7 +20,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!oystehrToken) {
       oystehrToken = await getAuth0Token(secrets);
     }
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
     const response = await performEffect(oystehr);
     return { statusCode: 200, body: JSON.stringify(response) };

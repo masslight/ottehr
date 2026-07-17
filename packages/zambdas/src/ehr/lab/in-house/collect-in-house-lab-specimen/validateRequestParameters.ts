@@ -1,5 +1,5 @@
 import { CollectInHouseLabSpecimenParameters, Secrets } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -14,7 +14,7 @@ export function validateRequestParameters(
   let params: CollectInHouseLabSpecimenParameters;
 
   try {
-    params = JSON.parse(input.body);
+    params = safeJsonParse(input.body);
   } catch {
     throw Error('Invalid JSON in request body');
   }

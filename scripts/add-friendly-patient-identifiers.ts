@@ -26,6 +26,7 @@ import { Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
+import { createClinicalOystehrClient } from '../packages/zambdas/src/shared';
 
 const PAGE_SIZE = 200;
 const CONCURRENCY = 20;
@@ -130,11 +131,11 @@ async function migrate(): Promise<void> {
 
   console.log('Authenticating...');
   const token = await getAuthToken();
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: FHIR_API,
-    projectApiUrl: PROJECT_API,
-  });
+  const oystehr = createClinicalOystehrClient(
+    token,
+    {},
+    { services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API } }
+  );
   console.log('Authenticated successfully.');
   console.log();
 

@@ -1,8 +1,9 @@
-import { useAuth0 } from '@auth0/auth0-react';
-import { Bundle } from 'fhir/r4b';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { SEARCH_CONFIG } from './constants';
 import {
   PartialSearchOptionsState,
@@ -31,37 +32,20 @@ if (!projectId) {
 }
 
 const fetchPatients = async ({
-  searchUrl,
+  oystehr,
+  searchParams,
   setSearchResult,
   setArePatientsLoading,
-  getAccessTokenSilently,
 }: {
-  searchUrl: string;
+  oystehr: Oystehr;
+  searchParams: SearchParam[];
   setSearchResult: React.Dispatch<React.SetStateAction<SearchResult>>;
   setArePatientsLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  getAccessTokenSilently: () => Promise<string>;
 }): Promise<void> => {
   setArePatientsLoading(true);
   try {
-    const token = await getAccessTokenSilently();
+    const patientBundle = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params: searchParams });
 
-    const headers = {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'x-zapehr-project-id': projectId,
-    };
-
-    const response = await fetch(searchUrl, {
-      method: 'GET',
-      headers: headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const patientBundle: Bundle = await response.json();
     const parsedSearchResult = parseSearchResults(patientBundle);
     setSearchResult(parsedSearchResult);
   } catch (error) {
@@ -121,7 +105,7 @@ export const usePatientsSearch = (): {
   resetFilters: () => void;
   search: (params?: PartialSearchOptionsState) => void;
 } => {
-  const { getAccessTokenSilently } = useAuth0();
+  const { oystehr } = useApiClients();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchResult, setSearchResult] = useState<SearchResult>(emptySearchResult);
   const [arePatientsLoading, setArePatientsLoading] = useState<boolean>(false);
@@ -200,7 +184,7 @@ export const usePatientsSearch = (): {
   useEffect(() => {
     const hasSearchParams = [...searchParams.entries()].length > 0;
 
-    if (hasSearchParams) {
+    if (oystehr && hasSearchParams) {
       const loadPatients = async (): Promise<void> => {
         setArePatientsLoading(true);
         try {
@@ -208,12 +192,16 @@ export const usePatientsSearch = (): {
           const sort: SearchOptionsSort = getSortFromUrl(searchParams);
           const pagination: SearchOptionsPagination = getPaginationFromUrl(searchParams);
 
-          let url = buildSearchQuery(filter);
-          url = addSearchSort(url, sort);
-          url = addSearchPagination(url, pagination);
-          url = `${import.meta.env.VITE_APP_FHIR_API_URL}/${url}`;
+          const queryParams = buildSearchQuery(filter);
+          const sortParams = addSearchSort(sort);
+          const paginationParams = addSearchPagination(pagination);
 
-          await fetchPatients({ searchUrl: url, setSearchResult, setArePatientsLoading, getAccessTokenSilently });
+          await fetchPatients({
+            oystehr,
+            searchParams: [...queryParams, ...sortParams, ...paginationParams],
+            setSearchResult,
+            setArePatientsLoading,
+          });
         } catch {
           setSearchResult(emptySearchResult);
         } finally {
@@ -222,7 +210,7 @@ export const usePatientsSearch = (): {
       };
       void loadPatients();
     }
-  }, [getAccessTokenSilently, searchParams]);
+  }, [oystehr, searchParams]);
 
   return {
     searchResult,

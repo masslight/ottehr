@@ -1,15 +1,11 @@
-import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { performEffectWithEnvFile } from './helpers';
 
 async function retireADs(config: any): Promise<void> {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
-  const oystehr = new Oystehr({
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-    accessToken: token,
-  });
+  const oystehr = createClinicalOystehrClient(token, config);
   const activityDefinitions = (
     await oystehr.fhir.search<ActivityDefinition>({
       resourceType: 'ActivityDefinition',

@@ -376,3 +376,72 @@ describe('display filter round-trip: config → questionnaire → parse', () => 
     });
   });
 });
+
+describe('createQuestionnaireFromConfig — hideControlLabel round-trip', () => {
+  // Round-trips the hideControlLabel config flag through the write path
+  // (createQuestionnaireFromConfig → FHIR extension) and the read path
+  // (mapQuestionnaireAndValueSetsToItemsList → structureExtension →
+  // IntakeQuestionnaireItem.hideControlLabel), so a regression in either
+  // half surfaces here rather than in the intake UI as a "wait, why is the
+  // label showing again".
+
+  const configFor = (fieldOverride: Record<string, unknown>): QuestionnaireConfigType =>
+    ({
+      questionnaireBase: {
+        resourceType: 'Questionnaire',
+        url: 'https://test.com/q',
+        version: '1.0.0',
+        name: 'Test',
+        title: 'Test',
+        status: 'active',
+      },
+      hiddenFormSections: [],
+      FormFields: {
+        testSection: {
+          linkId: 'test-page',
+          title: 'Test',
+          items: {
+            agreeCheckbox: {
+              key: 'agree-checkbox',
+              label: 'I agree to the terms',
+              type: 'boolean',
+              ...fieldOverride,
+            },
+          },
+          requiredFields: [],
+          hiddenFields: [],
+        },
+      },
+    }) as QuestionnaireConfigType;
+
+  it('writes the extension when hideControlLabel is true, and the reader surfaces true', () => {
+    const questionnaire = createQuestionnaireFromConfig(configFor({ hideControlLabel: true }));
+    const items = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+    const checkbox = items.find((i) => i.linkId === 'test-page')?.item?.find((i) => i.linkId === 'agree-checkbox');
+    expect(checkbox?.hideControlLabel).toBe(true);
+  });
+
+  it('omits the extension when hideControlLabel is unset, and the reader surfaces undefined', () => {
+    // Not writing the extension at all is what preserves the intake styler's
+    // fallback path: undefined means "consult the legacy hardcoded linkId
+    // list for back-compat with archived questionnaires."
+    const questionnaire = createQuestionnaireFromConfig(configFor({}));
+    const items = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+    const checkbox = items.find((i) => i.linkId === 'test-page')?.item?.find((i) => i.linkId === 'agree-checkbox');
+    expect(checkbox?.hideControlLabel).toBeUndefined();
+  });
+
+  it('omits the extension when hideControlLabel is explicitly false, and the reader surfaces undefined', () => {
+    // false in the config is a "no-op" (equivalent to omitting the key) —
+    // the writer only pushes the extension when the value is truthy. This
+    // matches the pattern of alwaysFilter/acceptsMultipleAnswers/etc.
+    // Force-showing on a legacy-list linkId is done at the Questionnaire
+    // level by explicitly writing valueBoolean: false; if we ever need
+    // that from the config schema too, the writer should switch to always
+    // emitting the extension so `false` round-trips.
+    const questionnaire = createQuestionnaireFromConfig(configFor({ hideControlLabel: false }));
+    const items = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
+    const checkbox = items.find((i) => i.linkId === 'test-page')?.item?.find((i) => i.linkId === 'agree-checkbox');
+    expect(checkbox?.hideControlLabel).toBeUndefined();
+  });
+});

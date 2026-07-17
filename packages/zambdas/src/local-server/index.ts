@@ -1,5 +1,6 @@
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
+import billingZambdasSpec from '../../../../config/billing-app-core/zambdas.json';
 import zambdasSpec from '../../../../config/oystehr-core/zambdas.json';
 import { expressLambda } from './utils';
 
@@ -17,7 +18,7 @@ app.use(cors());
 
 // Register routes lazily to avoid Vite SSR import issues during module initialization
 function registerRoutes(): void {
-  Object.entries(zambdasSpec.zambdas).forEach(([_key, spec]) => {
+  Object.entries({ ...zambdasSpec.zambdas, ...billingZambdasSpec.zambdas }).forEach(([_key, spec]) => {
     const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
     const path = `/local/zambda/${spec.name}/${executeOrExecutePublic}`;
     app.post(path, async (req, res) => {

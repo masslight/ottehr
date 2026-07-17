@@ -3,7 +3,7 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { orgIdMatchesReference } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   RCM_TAG_SYSTEM,
   wrapHandler,
   ZambdaInput,
@@ -29,7 +29,7 @@ export const index = wrapHandler(
       validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     // Fetch all fee schedules (active and inactive) for historical lookups
     const allResults = await oystehr.fhir.search<ChargeItemDefinition>({

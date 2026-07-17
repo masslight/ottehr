@@ -53,4 +53,28 @@ describe('admin-update-progress-note-config - validateRequestParameters', () => 
     });
     expect(() => validateRequestParameters(input)).toThrow('default text is required');
   });
+
+  test('should return the provided vitalsUnitInputOrder', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      vitalsUnitInputOrder: 'imperial-metric',
+    });
+    const result = validateRequestParameters(input);
+    expect(result.vitalsUnitInputOrder).toBe('imperial-metric');
+  });
+
+  test('should default vitalsUnitInputOrder to metric-imperial when omitted (backward compatible)', () => {
+    const { vitalsUnitInputOrder: _vitalsUnitInputOrder, ...bodyWithoutOrder } = DEFAULT_PROGRESS_NOTE_CONFIG;
+    const input = createMockZambdaInput(bodyWithoutOrder);
+    const result = validateRequestParameters(input);
+    expect(result.vitalsUnitInputOrder).toBe('metric-imperial');
+  });
+
+  test('should throw when vitalsUnitInputOrder is not a valid option', () => {
+    const input = createMockZambdaInput({
+      ...DEFAULT_PROGRESS_NOTE_CONFIG,
+      vitalsUnitInputOrder: 'something-else',
+    });
+    expect(() => validateRequestParameters(input)).toThrow('vitalsUnitInputOrder');
+  });
 });

@@ -25,7 +25,7 @@ describe('patientRecordValidation', () => {
 
       const result = evaluateFieldTriggers(item, formValues);
 
-      expect(result).toEqual({ required: false, enabled: true });
+      expect(result).toEqual({ required: false, enabled: true, substituteText: undefined, filtered: false });
     });
 
     it('should evaluate "exists" operator with true answer correctly', () => {
@@ -808,6 +808,44 @@ describe('patientRecordValidation', () => {
       requiredFields.forEach((field) => {
         expect(result.errors[field]).toBeDefined();
       });
+    });
+
+    it('should skip responsible-party-email validation when no-email is checked (non-Self relationship)', async () => {
+      const rpSection = PATIENT_RECORD_CONFIG.FormFields.responsibleParty as any;
+      if (isSectionHidden(rpSection)) return;
+
+      const resolver = createDynamicValidationResolver();
+      const enableValues = buildSectionEnableValues(rpSection);
+
+      // Relationship != Self enables the RP fields; no-email = true activates the filter trigger
+      const result = await resolver({
+        ...enableValues,
+        'responsible-party-relationship': 'Parent',
+        'responsible-party-no-email': true,
+        'responsible-party-email': '',
+      });
+
+      // Email should not error — the filter trigger excludes it from validation
+      expect(result.errors['responsible-party-email']).toBeUndefined();
+    });
+
+    it('should require responsible-party-email when no-email is not checked and relationship is non-Self', async () => {
+      const rpSection = PATIENT_RECORD_CONFIG.FormFields.responsibleParty as any;
+      if (isSectionHidden(rpSection)) return;
+      if (!(rpSection.requiredFields ?? []).includes('responsible-party-email')) return;
+
+      const resolver = createDynamicValidationResolver();
+      const enableValues = buildSectionEnableValues(rpSection);
+
+      const result = await resolver({
+        ...enableValues,
+        'responsible-party-relationship': 'Parent',
+        'responsible-party-no-email': false,
+        'responsible-party-email': '',
+      });
+
+      // Email is required when no-email is unchecked
+      expect(result.errors['responsible-party-email']).toBeDefined();
     });
 
     it('should validate required emergency contact fields normally', async () => {

@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, FhirResource, List, Location, Practitioner, ServiceRequest } from 'fhir/r4b';
 import {
-  ApplyTemplateWarning,
   chartDataTagSystem,
   CreateLabPaymentMethod,
   DiagnosisDTO,
@@ -17,6 +16,7 @@ import {
   SecretsKeys,
   STATIC_COMPENDIUM_LAB_GUID,
   TemplateSectionAction,
+  TemplateWarning,
 } from 'utils';
 import { getMyPractitionerId } from '../../shared';
 import { buildExternalLabOrderRequests } from '../lab/external/create-lab-order/build-order';
@@ -138,7 +138,7 @@ interface ApplyExternalLabPlansInput {
 }
 
 interface ApplyExternalLabPlansResult {
-  warnings: ApplyTemplateWarning[];
+  warnings: TemplateWarning[];
 }
 
 /**
@@ -154,7 +154,7 @@ interface ApplyExternalLabPlansResult {
  * draft ServiceRequest with a pre-submission "Collect sample" Task.
  */
 export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): Promise<ApplyExternalLabPlansResult> {
-  const warnings: ApplyTemplateWarning[] = [];
+  const warnings: TemplateWarning[] = [];
   const externalLabsSectionName = 'externalLabs';
   try {
     const {

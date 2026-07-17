@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
 import { makeCommunicationDTO } from '../../shared/chart-data';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getCommunicationResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -12,7 +12,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const { type, secrets, userToken } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     const myPractitionerId = await getMyPractitionerId(userToken, secrets);
     const ORGANIZATION_ID = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
     const communicationsOwnerId = type === 'organization' ? ORGANIZATION_ID : myPractitionerId;

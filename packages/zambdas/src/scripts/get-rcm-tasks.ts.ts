@@ -2,8 +2,7 @@ import Oystehr from '@oystehr/sdk';
 // import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { Task } from 'fhir/r4b';
 import * as fs from 'fs';
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience } from './helpers';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 async function getTasksByType(oystehr: Oystehr, code: string): Promise<Task[]> {
   console.log(`Fetching tasks for code: ${code}`);
@@ -165,10 +164,7 @@ async function main(): Promise<void> {
     throw new Error('❌ Failed to fetch auth token.');
   }
 
-  const oystehr = new Oystehr({
-    accessToken: token,
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
-  });
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   // Fetch all tasks for RCM
   const tasks = await getTasksByType(oystehr, 'send-claim');

@@ -7,7 +7,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
 } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 type BaseContext = {
   secrets: Secrets | null;
@@ -26,7 +26,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   let params: AdminUpdateLabSetInput;
   try {
-    params = JSON.parse(input.body);
+    params = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }

@@ -37,7 +37,7 @@ vi.mock('../../src/shared', async (importOriginal) => {
     performCandidPreEncounterSync: mockPerformCandidPreEncounterSync,
     createPatientPaymentReceiptPdf: mockCreatePatientPaymentReceiptPdf,
     getAuth0Token: mockGetAuth0Token,
-    createOystehrClient: mockCreateOystehrClient,
+    createClinicalOystehrClient: mockCreateOystehrClient,
     getStripeClient: mockGetStripeClient,
     wrapHandler: (_name: string, handler: any) => handler,
     STRIPE_PAYMENT_ID_SYSTEM: 'https://fhir.oystehr.com/PaymentIdSystem/stripe',

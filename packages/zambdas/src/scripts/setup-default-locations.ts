@@ -20,7 +20,7 @@ import {
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - path is correct after copy-secrets.sh runs in CI
 import locationsConfig from '../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
-import { createOystehrClient, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 
 const VIRTUAL_LOCATION_EXTENSION_URL_CHECK = 'https://extensions.fhir.zapehr.com/location-form-pre-release';
 
@@ -257,7 +257,7 @@ const createPhysicalLocation = async (
 // Create Practitioners
 const createPractitionerForEligibilityCheck = async (config: any): Promise<void> => {
   const envToken = await getAuth0Token(config);
-  const oystehr = createOystehrClient(envToken, config);
+  const oystehr = createClinicalOystehrClient(envToken, config);
 
   ELIGIBILITY_PRACTITIONER_TYPES.forEach(async (type) => {
     const eligibilityPractitioners = (

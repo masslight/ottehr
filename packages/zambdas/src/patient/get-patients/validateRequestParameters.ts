@@ -1,4 +1,3 @@
-import {} from 'utils';
 import { ZambdaInput } from '../../shared';
 import { GetPatientsInput } from '.';
 

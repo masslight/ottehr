@@ -13,7 +13,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   getStripeClient,
   wrapHandler,
   ZambdaInput,
@@ -37,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { appointmentId, timezone, secrets } = validatedParameters;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   console.log('Created Oystehr client');
 
   const response = await performEffect(oystehr, appointmentId, secrets, timezone);

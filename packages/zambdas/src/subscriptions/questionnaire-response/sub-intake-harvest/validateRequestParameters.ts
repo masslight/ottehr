@@ -1,6 +1,6 @@
 import { QuestionnaireResponse } from 'fhir/r4b';
 import { Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export interface QRSubscriptionInput {
   qr: QuestionnaireResponse;
@@ -12,7 +12,7 @@ export function validateRequestParameters(input: ZambdaInput): QRSubscriptionInp
     throw new Error('No request body provided');
   }
 
-  const questionnaireResponse = JSON.parse(input.body);
+  const questionnaireResponse = safeJsonParse(input.body);
 
   if (questionnaireResponse.resourceType !== 'QuestionnaireResponse') {
     throw new Error(

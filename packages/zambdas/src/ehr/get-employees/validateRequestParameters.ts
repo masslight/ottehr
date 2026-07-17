@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 import { GetEmployeesInput } from '.';
 
 const GetEmployeesBodySchema = z.object({
@@ -10,7 +10,7 @@ export function validateRequestParameters(input: ZambdaInput): GetEmployeesInput
   let lite = false;
   if (input.body) {
     try {
-      const parsed = JSON.parse(input.body);
+      const parsed = safeJsonParse(input.body);
       const result = GetEmployeesBodySchema.safeParse(parsed);
       lite = result.success ? result.data.lite === true : false;
     } catch {
