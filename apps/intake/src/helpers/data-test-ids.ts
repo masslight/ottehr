@@ -1,7 +1,7 @@
-import { dataTestIds as paperworkDataTestIds } from 'ui-components';
+import { formDataTestIds } from 'utils';
 
 export const dataTestIds = {
-  ...paperworkDataTestIds,
+  ...formDataTestIds,
   continueButton: 'loading-button',
   differentFamilyMember: 'Different family member',
   firstFlowPageTitle: 'first-flow-page-title',

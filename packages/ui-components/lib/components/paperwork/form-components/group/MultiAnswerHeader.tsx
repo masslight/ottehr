@@ -3,7 +3,7 @@ import { Box } from '@mui/system';
 import { FC, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { IntakeQuestionnaireItem } from 'utils';
-import { dataTestIds } from '../../data-test-ids';
+import { formDataTestIds as dataTestIds } from 'utils';
 // import { deleteIcon } from '../../../../themes/ottehr';
 import { getPaperworkFieldId, useFormValues } from '../../hooks/useFormHelpers';
 

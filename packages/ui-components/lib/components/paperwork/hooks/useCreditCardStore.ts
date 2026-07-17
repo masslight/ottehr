@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
-import { AddCreditCardFormHandle } from 'ui-components';
 import { create } from 'zustand';
+import { AddCreditCardFormHandle } from '../../AddCreditCardForm';
 
 interface CardState {
   complete: boolean;

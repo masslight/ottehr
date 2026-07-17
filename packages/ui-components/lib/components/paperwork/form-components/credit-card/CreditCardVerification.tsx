@@ -14,12 +14,15 @@ import { Theme } from '@mui/system';
 import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { AddCreditCardForm, CreditCardBrandIcon, loadStripe, usePaperworkOtherColors } from 'ui-components';
-import { dataTestIds } from 'ui-components';
-import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
-import { useCreditCardContext } from 'ui-components/lib/components/paperwork/hooks/useCreditCardContext';
-import { useCreditCardStore } from 'ui-components/lib/components/paperwork/hooks/useCreditCardStore';
 import { CreditCardInfo, PaymentMethodSetupZambdaOutput } from 'utils';
+import { formDataTestIds as dataTestIds } from 'utils';
+import { loadStripe } from '../../../../utils/stripe';
+import { AddCreditCardForm } from '../../../AddCreditCardForm';
+import { CreditCardBrandIcon } from '../../../CreditCardBrandIcon';
+import { usePaperworkContext } from '../../context';
+import { useCreditCardContext } from '../../hooks/useCreditCardContext';
+import { useCreditCardStore } from '../../hooks/useCreditCardStore';
+import { usePaperworkOtherColors } from '../../theme';
 import { BoldPurpleInputLabel } from '../BoldPurpleInputLabel';
 
 interface CreditCardVerificationProps {

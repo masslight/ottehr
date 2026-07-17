@@ -26,7 +26,6 @@ import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'rea
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
-import { InputMask } from 'ui-components';
 import {
   formatZipcodeForDisplay,
   IntakeQuestionnaireItem,
@@ -40,6 +39,7 @@ import {
   zipRegex,
 } from 'utils';
 import { AnyObjectSchema } from 'yup';
+import { InputMask } from '../InputMask';
 import { usePaperworkContext } from './context';
 import {
   AIInterview,

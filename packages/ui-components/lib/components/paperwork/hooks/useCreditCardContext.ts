@@ -1,7 +1,7 @@
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { AddCreditCardFormHandle } from 'ui-components';
+import { AddCreditCardFormHandle } from '../../AddCreditCardForm';
 import { useCreditCardStore } from './useCreditCardStore';
 
 interface UseCreditCardContextParams {

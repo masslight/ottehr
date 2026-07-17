@@ -1,4 +1,4 @@
-export const dataTestIds = {
+export const formDataTestIds = {
   deletedButton: 'delete-button',
   fileCardUploadingButton: 'file-card-uploading-button',
   fileCardClearButton: 'file-card-clear-button',

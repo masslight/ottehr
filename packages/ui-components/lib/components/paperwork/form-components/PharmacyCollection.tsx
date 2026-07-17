@@ -1,13 +1,14 @@
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { FC, useMemo } from 'react';
-import { dataTestIds } from 'ui-components';
-import { PharmacyDisplay, PharmacySearch } from 'ui-components';
 import {
   clearPharmacyCollectionAnswerSet,
   makePharmacyCollectionAnswerSetForQR,
   PHARMACY_COLLECTION_LINK_IDS,
   PharmacyCollectionAnswerSetInput,
 } from 'utils';
+import { formDataTestIds as dataTestIds } from 'utils';
+import { PharmacyDisplay } from '../../PharmacyDisplay';
+import { PharmacySearch } from '../../PharmacySearch';
 import { usePaperworkContext } from '../context';
 import { useQRState } from '../hooks/useFormHelpers';
 
