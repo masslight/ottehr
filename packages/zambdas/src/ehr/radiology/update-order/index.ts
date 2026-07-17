@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Extension, ServiceRequest } from 'fhir/r4b';
+import { Extension, Procedure, ServiceRequest } from 'fhir/r4b';
 import {
   createOystehrClient,
   FHIR_EXTENSION,
@@ -9,14 +9,15 @@ import {
   UpdateRadiologyOrderZambdaInput,
   UpdateRadiologyOrderZambdaOutput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
-import { buildRadiologyOrderContent } from '../create-order';
+import { checkOrCreateM2MClientToken, makeCptModifierExtension, wrapHandler, ZambdaInput } from '../../../shared';
+import { buildRadiologyOrderContent, ValidatedCPTCode } from '../create-order';
 import {
   validateCPTCode,
   validateICD10Codes,
   validatePerformingOrganization,
   validateSafetyFlags,
 } from '../create-order/validation';
+import { searchRadiologyResultDocRefs } from '../shared/result-doc-refs';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -96,6 +97,23 @@ async function updateOrderContent(
   edit: NonNullable<UpdateRadiologyOrderZambdaInput['edit']>,
   oystehr: Oystehr
 ): Promise<void> {
+  // Only external (print-only) orders are editable. In-house orders are transmitted to AdvaPACS at
+  // creation, and rewriting them here would silently diverge from the PACS copy and drop the
+  // teleradiology extensions that the wholesale extension rebuild below does not preserve.
+  const isExternal =
+    existing.extension?.find((ext) => ext.url === FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
+      ?.valueBoolean === true;
+  if (!isExternal) {
+    throw new Error('Only external radiology orders can be edited');
+  }
+
+  // An external order is editable only until results are uploaded (spec: editable/reprintable up to the
+  // time results have been entered). Once a result DocumentReference exists, the order is locked.
+  const resultDocRefs = await searchRadiologyResultDocRefs(existing.id!, oystehr);
+  if (resultDocRefs.length > 0) {
+    throw new Error('Cannot edit a radiology order after results have been uploaded');
+  }
+
   const diagnoses = await validateICD10Codes(edit.diagnosisCodes, oystehr);
   const cpt = await validateCPTCode(edit.cptCode, oystehr);
 
@@ -118,7 +136,8 @@ async function updateOrderContent(
     clinicalHistory,
     studyName: typeof edit.studyName === 'string' ? edit.studyName.trim() || undefined : undefined,
     consentObtained: edit.consentObtained,
-    external: edit.external === true,
+    // The guard above guarantees this is an external order; the flag is not client-controlled on edit.
+    external: true,
     performingOrganization: validatePerformingOrganization(edit.performingOrganization),
     timeWindow: typeof edit.timeWindow === 'string' ? edit.timeWindow.trim() || undefined : undefined,
     safetyFlags: validateSafetyFlags(edit.safetyFlags),
@@ -146,4 +165,38 @@ async function updateOrderContent(
   await oystehr.fhir.update(updated);
   console.groupEnd();
   console.debug('External radiology order content updated successfully');
+
+  await syncOurProcedure(existing, cpt, edit.lateralityModifier, oystehr);
+}
+
+// create-order writes a billing Procedure (meta-tagged 'cpt-code') whose code surfaces in the chart's
+// Assessment section; an edited CPT must be mirrored there or the chart keeps billing the old code.
+async function syncOurProcedure(
+  serviceRequest: ServiceRequest,
+  cpt: ValidatedCPTCode,
+  lateralityModifier: { display: string; code: string } | undefined,
+  oystehr: Oystehr
+): Promise<void> {
+  const procedures = (
+    await oystehr.fhir.search<Procedure>({
+      resourceType: 'Procedure',
+      params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequest.id}` }],
+    })
+  ).unbundle();
+
+  if (procedures.length === 0) {
+    console.warn(`No billing Procedure found for ServiceRequest/${serviceRequest.id}; skipping CPT sync`);
+    return;
+  }
+
+  const modifierExtension = lateralityModifier ? { extension: [makeCptModifierExtension([lateralityModifier])] } : {};
+  await Promise.all(
+    procedures.map((procedure) =>
+      oystehr.fhir.update<Procedure>({
+        ...procedure,
+        code: { coding: [{ ...cpt, ...modifierExtension }] },
+      })
+    )
+  );
+  console.debug('Billing procedure CPT code synced successfully');
 }

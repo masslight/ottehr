@@ -1,8 +1,11 @@
+import { otherColors } from '@ehrTheme/colors';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
-import PrintIcon from '@mui/icons-material/Print';
+import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
@@ -14,13 +17,12 @@ import {
   InputLabel,
   OutlinedInput,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { phone } from 'phone';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
@@ -29,10 +31,12 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { InputMask } from 'ui-components';
 import { isPhoneNumberValid, LATERALITY_SELECTORS, RadiologyResultDTO, VitalFieldNames } from 'utils';
 import {
+  createZ3Object,
   deleteRadiologyResult,
   getRadiologyOrderPdf,
   listRadiologyResults,
   sendRadiologyOrderFax,
+  uploadRadiologyResult,
 } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getRadiologyExternalOrderEditUrl } from '../../visits/in-person/routing/helpers';
@@ -44,10 +48,18 @@ import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
 import { SAFETY_FLAG_LABELS } from '../constants';
 
-const DetailRow: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, value }) => (
-  <Typography variant="body2" sx={{ mb: 0.5 }}>
-    <b>{label}:</b> {value ?? '—'}
-  </Typography>
+const DetailRow: React.FC<{ label: string; value?: React.ReactNode; icon?: React.ReactNode }> = ({
+  label,
+  value,
+  icon,
+}) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+    {icon}
+    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+      {label}:
+    </Typography>
+    <Typography variant="body2">{value ?? '—'}</Typography>
+  </Box>
 );
 
 export const RadiologyExternalOrderDetailsPage: React.FC = () => {
@@ -63,11 +75,18 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
   const { data: encounterVitals } = useGetVitals(encounter?.id);
   const weight = encounterVitals?.[VitalFieldNames.VitalWeight]?.[0]?.value;
 
-  const { orders, loading } = usePatientRadiologyOrders({ serviceRequestId });
+  const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
+  const {
+    orders,
+    loading,
+    error: ordersError,
+  } = usePatientRadiologyOrders({ serviceRequestId, refreshKey: ordersRefreshKey });
   const [printing, setPrinting] = useState(false);
   const [faxNumber, setFaxNumber] = useState('');
   const [faxError, setFaxError] = useState(false);
   const [results, setResults] = useState<RadiologyResultDTO[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const resultInputRef = useRef<HTMLInputElement>(null);
 
   const order = orders.find((o) => o.serviceRequestId === serviceRequestId);
 
@@ -91,17 +110,58 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
       await deleteRadiologyResult(oystehrZambda, { documentReferenceId });
       enqueueSnackbar('Result deleted.', { variant: 'success' });
       await fetchResults();
+      // The order's derived status/history depend on attached results — refetch it too.
+      setOrdersRefreshKey((key) => key + 1);
     } catch (e) {
       console.error('Failed to delete radiology result', e);
       enqueueSnackbar('Failed to delete result.', { variant: 'error' });
     }
   };
 
-  // Prefill the fax number from the performing organization's fax (digits only) once the order loads.
+  const handleUploadResult = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // reset so the same file can be re-picked
+    if (!file || !oystehrZambda) return;
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const fileFormat =
+      extension === 'png' || extension === 'jpg' || extension === 'jpeg' || extension === 'pdf' ? extension : undefined;
+    if (!fileFormat) {
+      enqueueSnackbar('Only PDF, PNG, JPG, and JPEG files are supported.', { variant: 'error' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const z3URL = await createZ3Object(
+        { appointmentID: appointmentId, fileType: 'patient-photo-radiology-result', fileFormat, file },
+        oystehrZambda
+      );
+      await uploadRadiologyResult(oystehrZambda, { serviceRequestId, z3URL, title: file.name });
+      enqueueSnackbar('Result uploaded.', { variant: 'success' });
+      await fetchResults();
+      // The order's derived status/history depend on attached results — refetch it too.
+      setOrdersRefreshKey((key) => key + 1);
+    } catch (e) {
+      console.error('Failed to upload radiology result', e);
+      enqueueSnackbar('Failed to upload result.', { variant: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Prefill the fax number from the performing organization's fax, but only when it unambiguously
+  // normalizes to a 10-digit NANP number. The stored value is free text and may carry an extension
+  // ("... ext. 22"); guessing at those digits risks faxing PHI to a wrong-but-valid number, so in
+  // that case leave the field empty for the user to fill in.
   const performingOrgFax = order?.performingOrganization?.fax;
   useEffect(() => {
     if (performingOrgFax) {
-      setFaxNumber(performingOrgFax.replace(/\D/g, '').slice(-10));
+      const digits = performingOrgFax.replace(/\D/g, '');
+      const normalized = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+      if (normalized.length === 10) {
+        setFaxNumber(normalized);
+      }
     }
   }, [performingOrgFax]);
 
@@ -134,14 +194,29 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
     }
   };
 
-  if (loading || !order) {
+  if (loading) {
     return <RadiologyOrderLoading />;
+  }
+
+  if (!order) {
+    return (
+      <Stack spacing={2} sx={{ p: 3, alignItems: 'flex-start' }}>
+        <Typography variant="h6">
+          {ordersError ? 'Failed to load the radiology order.' : 'Radiology order not found.'}
+        </Typography>
+        <Button variant="outlined" onClick={() => navigate(-1)}>
+          Back
+        </Button>
+      </Stack>
+    );
   }
 
   const org = order.performingOrganization;
   const safetyFlagLabels = (order.safetyFlags ?? []).map((flag) => SAFETY_FLAG_LABELS[flag]).join(', ');
 
   const editUrl = getRadiologyExternalOrderEditUrl(appointmentId, serviceRequestId);
+  // The order is editable only until results are uploaded (spec).
+  const canEdit = !isReadOnly && results.length === 0;
 
   return (
     <WithRadiologyBreadcrumbs sectionName={order.studyType}>
@@ -175,11 +250,34 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
             <RadiologyTableStatusChip status={order.status} />
           </Box>
 
-          {results.length > 0 && (
-            <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
-              <Typography variant="h6" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
+          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
                 Results
               </Typography>
+              {!isReadOnly && (
+                <>
+                  <input
+                    ref={resultInputRef}
+                    type="file"
+                    hidden
+                    accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                    onChange={handleUploadResult}
+                  />
+                  <LoadingButton
+                    variant="outlined"
+                    size="small"
+                    loading={uploading}
+                    startIcon={<UploadFileOutlinedIcon />}
+                    onClick={() => resultInputRef.current?.click()}
+                    sx={{ borderRadius: 28, textTransform: 'none' }}
+                  >
+                    Upload Result
+                  </LoadingButton>
+                </>
+              )}
+            </Box>
+            {results.length > 0 ? (
               <Stack spacing={1}>
                 {results.map((result) => (
                   <Box
@@ -195,7 +293,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
-                      <DescriptionOutlinedIcon color="primary" fontSize="small" />
+                      <InsertDriveFileOutlinedIcon color="primary" fontSize="small" />
                       <Typography
                         variant="body2"
                         onClick={() => window.open(result.url, '_blank')}
@@ -221,15 +319,19 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
                   </Box>
                 ))}
               </Stack>
-            </Box>
-          )}
+            ) : (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                No results uploaded yet.
+              </Typography>
+            )}
+          </Box>
 
           <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="h6" sx={{ color: theme.palette.primary.dark }}>
+              <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
                 Order Details
               </Typography>
-              {!isReadOnly && (
+              {canEdit && (
                 <IconButton aria-label="edit external radiology order" onClick={() => navigate(editUrl)}>
                   <EditIcon color="primary" />
                 </IconButton>
@@ -244,11 +346,17 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
               />
             )}
             {order.clinicalHistory && <DetailRow label="Clinical History" value={order.clinicalHistory} />}
-            {safetyFlagLabels && <DetailRow label="Patient has" value={safetyFlagLabels} />}
+            {safetyFlagLabels && (
+              <DetailRow
+                label="Patient has"
+                value={safetyFlagLabels}
+                icon={<WarningAmberOutlinedIcon fontSize="small" sx={{ color: otherColors.priorityHighText }} />}
+              />
+            )}
             <DetailRow label="Weight" value={weight != null ? `${weight} kg` : undefined} />
 
             <Box sx={{ mt: 2 }}>
-              <Typography variant="h6" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
+              <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
                 Performing Organization
               </Typography>
               <DetailRow label="Organization Name" value={org?.name} />
@@ -259,14 +367,14 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
           </Box>
 
           <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff', p: 2 }}>
-            <Typography variant="h6" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
+            <Typography variant="h5" sx={{ color: theme.palette.primary.dark, mb: 1 }}>
               Print & Fax
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <LoadingButton
                 variant="outlined"
                 color="primary"
-                startIcon={<PrintIcon />}
+                startIcon={<PrintOutlinedIcon />}
                 loading={printing}
                 onClick={handlePrint}
                 sx={{ borderRadius: 28, textTransform: 'none' }}
@@ -324,31 +432,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
             </Box>
           </Box>
 
-          <RadiologyOrderHistoryCard orderHistory={order.history} />
-
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mt: 2 }}>
-            <Button
-              variant="outlined"
-              color="primary"
-              sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
-              onClick={() => navigate(-1)}
-            >
-              Back
-            </Button>
-            {!isReadOnly && (
-              <Tooltip title="Edit order">
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<EditIcon />}
-                  sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
-                  onClick={() => navigate(editUrl)}
-                >
-                  Edit
-                </Button>
-              </Tooltip>
-            )}
-          </Box>
+          <RadiologyOrderHistoryCard orderHistory={order.history} label="Order History" />
         </Stack>
       </div>
     </WithRadiologyBreadcrumbs>

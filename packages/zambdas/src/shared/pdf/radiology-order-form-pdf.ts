@@ -293,7 +293,15 @@ export async function createRadiologyOrderFormPDF(
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr: input.oystehr,
     // Supersede prior order-form PDFs for THIS order so reprints don't pile up stale copies.
-    searchParams: [{ name: 'related', value: `ServiceRequest/${serviceRequestId}` }],
+    // The type filter keeps the title-based supersede from ever touching uploaded result docRefs
+    // related to the same ServiceRequest.
+    searchParams: [
+      { name: 'related', value: `ServiceRequest/${serviceRequestId}` },
+      {
+        name: 'type',
+        value: `${RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE.system}|${RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE.code}`,
+      },
+    ],
     generateUUID: randomUUID,
     listResources: [],
   });

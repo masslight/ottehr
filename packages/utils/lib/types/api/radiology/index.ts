@@ -71,6 +71,8 @@ export enum RadiologyOrderStatus {
   pendingFinal = 'pending final',
   final = 'final',
   reviewed = 'reviewed',
+  // External (print-only) orders use a simplified lifecycle: ordered -> reviewed (once results uploaded).
+  ordered = 'ordered',
 }
 
 export interface RadiologyDTO {
@@ -181,3 +183,14 @@ export interface DeleteRadiologyResultZambdaInput {
 }
 
 export type DeleteRadiologyResultZambdaOutput = Record<string, never>;
+
+export interface UploadRadiologyResultZambdaInput {
+  serviceRequestId: string;
+  /** Z3 URL of the already-uploaded file (browser PUTs the bytes first via a presigned URL). */
+  z3URL: string;
+  title?: string;
+}
+
+export interface UploadRadiologyResultZambdaOutput {
+  documentReferenceId: string;
+}

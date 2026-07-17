@@ -1,13 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference } from 'fhir/r4b';
-import {
-  getPresignedURL,
-  ListRadiologyResultsZambdaOutput,
-  RADIOLOGY_RESULT_DOC_REF_DOCTYPE,
-  RadiologyResultDTO,
-} from 'utils';
+import { getPresignedURL, ListRadiologyResultsZambdaOutput, RadiologyResultDTO } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { searchRadiologyResultDocRefs } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 
 let m2mToken: string;
@@ -32,19 +27,7 @@ const listResults = async (
   token: string,
   oystehr: Oystehr
 ): Promise<RadiologyResultDTO[]> => {
-  const docRefs = (
-    await oystehr.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: [
-        { name: 'related', value: `ServiceRequest/${serviceRequestId}` },
-        {
-          name: 'type',
-          value: `${RADIOLOGY_RESULT_DOC_REF_DOCTYPE.system}|${RADIOLOGY_RESULT_DOC_REF_DOCTYPE.code}`,
-        },
-        { name: 'status', value: 'current' },
-      ],
-    })
-  ).unbundle();
+  const docRefs = await searchRadiologyResultDocRefs(serviceRequestId, oystehr);
 
   const results = await Promise.all(
     docRefs.map(async (docRef): Promise<RadiologyResultDTO | undefined> => {

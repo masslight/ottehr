@@ -241,6 +241,8 @@ import {
   UploadPatientConditionPhotoInput,
   UploadPatientConditionPhotoOutput,
   UploadPatientProfilePhotoInput,
+  UploadRadiologyResultZambdaInput,
+  UploadRadiologyResultZambdaOutput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
   VisitDocuments,
@@ -1301,6 +1303,22 @@ export const deleteRadiologyResult = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-delete-result',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const uploadRadiologyResult = async (
+  oystehr: Oystehr,
+  parameters: UploadRadiologyResultZambdaInput
+): Promise<UploadRadiologyResultZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-upload-result',
       ...parameters,
     });
     return chooseJson(response);

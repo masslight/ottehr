@@ -1,55 +1,39 @@
-import { LoadingButton } from '@mui/lab';
 import {
-  Autocomplete,
   Box,
   Button,
   Checkbox,
-  FormControl,
   FormControlLabel,
   FormGroup,
   Grid,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  OutlinedInput,
   Paper,
-  Select,
   Stack,
   TextField,
   Typography,
   useTheme,
 } from '@mui/material';
-import { ClearIcon } from '@mui/x-date-pickers';
+import { phone } from 'phone';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyExternalOrderDetailsUrl, getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { InputMask } from 'ui-components';
 import {
-  useGetCPTHCPCSSearch,
-  useICD10SearchNew,
-} from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import {
-  useAppointmentData,
-  useChartData,
-  useSaveChartData,
-} from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { useDebounce } from 'src/shared/hooks/useDebounce';
-import {
-  CPTCodeDTO,
   DiagnosisDTO,
   GetRadiologyOrderListZambdaOrder,
-  LATERALITY_SELECTORS,
-  LateralityValue,
+  isPhoneNumberValid,
   RADIOLOGY_SAFETY_FLAGS,
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
-  radiologyStudiesConfig,
 } from 'utils';
 import { createRadiologyOrder, updateRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import {
+  RadiologyOrderCoreFields,
+  RadiologyOrderFormActions,
+  useRadiologyOrderForm,
+} from '../components/RadiologyOrderFormShared';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
 import { SAFETY_FLAG_LABELS } from '../constants';
@@ -59,6 +43,17 @@ interface CreateExternalRadiologyOrderProps {
   initialOrder?: GetRadiologyOrderListZambdaOrder;
 }
 
+/** True when a non-empty digit string is not a valid 10-digit phone/fax number. Empty is allowed (optional field). */
+const phoneDigitsInvalid = (digits: string): boolean =>
+  digits.length > 0 && !(isPhoneNumberValid(digits) && phone(digits).isValid);
+
+/** Formats raw digits as (xxx) xxx-xxxx for storage/display; returns undefined when empty. */
+const formatPhoneDigits = (digits: string): string | undefined => {
+  const d = digits.replace(/\D/g, '');
+  if (!d) return undefined;
+  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : d;
+};
+
 export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrderProps> = ({ initialOrder }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
@@ -67,91 +62,60 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
   const isEditMode = !!initialOrder;
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const { mutate: saveChartData } = useSaveChartData();
   const { encounter } = useAppointmentData();
-  const { chartData, setPartialChartData } = useChartData();
-  const { diagnosis } = chartData || {};
-  const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
 
-  const initialDx: DiagnosisDTO[] = initialOrder?.diagnoses
-    ? initialOrder.diagnoses.map((d) => ({ code: d.code, display: d.display }) as DiagnosisDTO)
-    : primaryDiagnosis
-    ? [primaryDiagnosis]
-    : [];
-
-  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(initialDx);
-  const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>(
-    initialOrder?.cptCode ? { code: initialOrder.cptCode, display: initialOrder.cptCodeDisplay } : undefined
+  const form = useRadiologyOrderForm(
+    initialOrder
+      ? {
+          orderDx: initialOrder.diagnoses?.map((d) => ({ code: d.code, display: d.display }) as DiagnosisDTO),
+          orderCpt: initialOrder.cptCode
+            ? { code: initialOrder.cptCode, display: initialOrder.cptCodeDisplay }
+            : undefined,
+          studyName: initialOrder.studyName,
+          clinicalHistory: initialOrder.clinicalHistory,
+          laterality: initialOrder.laterality,
+        }
+      : undefined
   );
+  const {
+    orderDx,
+    orderCpt,
+    studyName,
+    clinicalHistory,
+    lateralityModifier,
+    addAdditionalDxToEncounter,
+    chartCptCodes,
+    setPartialChartData,
+  } = form;
+
   // Priority/STAT is an in-house-only concept; external orders are routine. Preserve any prior value on edit.
   const stat = initialOrder?.isStat ?? false;
-  const [studyName, setStudyName] = useState<string | undefined>(initialOrder?.studyName);
-  const [clinicalHistory, setClinicalHistory] = useState<string>(initialOrder?.clinicalHistory ?? '');
-  const [laterality, setLaterality] = useState<LateralityValue | ''>(initialOrder?.laterality ?? '');
   // Consent is not part of the external flow (per design/spec); preserve any prior value on edit.
   const consentObtained = initialOrder?.consentObtained ?? false;
 
   // External-only fields
   const [orgName, setOrgName] = useState<string>(initialOrder?.performingOrganization?.name ?? '');
   const [orgAddress, setOrgAddress] = useState<string>(initialOrder?.performingOrganization?.address ?? '');
-  const [orgPhone, setOrgPhone] = useState<string>(initialOrder?.performingOrganization?.phone ?? '');
-  const [orgFax, setOrgFax] = useState<string>(initialOrder?.performingOrganization?.fax ?? '');
+  // Phone/fax are stored as raw digits; formatted for display via InputMask and on submit.
+  const [orgPhone, setOrgPhone] = useState<string>(
+    (initialOrder?.performingOrganization?.phone ?? '').replace(/\D/g, '')
+  );
+  const [orgPhoneError, setOrgPhoneError] = useState<boolean>(false);
+  const [orgFax, setOrgFax] = useState<string>((initialOrder?.performingOrganization?.fax ?? '').replace(/\D/g, ''));
+  const [orgFaxError, setOrgFaxError] = useState<boolean>(false);
   const [timeWindow, setTimeWindow] = useState<string>(initialOrder?.timeWindow ?? '');
   const [safetyFlags, setSafetyFlags] = useState<RadiologySafetyFlag[]>(initialOrder?.safetyFlags ?? []);
 
-  const cptCodes = chartData?.cptCodes || [];
-
-  const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingDx, data: dxData } = useICD10SearchNew({ search: dxDebouncedSearchTerm });
-  const icdSearchOptions = dxDebouncedSearchTerm === '' && diagnosis ? diagnosis : dxData?.codes || [];
-  const { debounce: debounceDx } = useDebounce(800);
-  const debouncedDxHandleInputChange = (data: string): void => {
-    debounceDx(() => setDxDebouncedSearchTerm(data));
-  };
-
-  const [cptDebouncedSearchTerm, setCptDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingCpt, data: cptData } = useGetCPTHCPCSSearch({
-    search: cptDebouncedSearchTerm,
-    type: 'cpt',
-    radiologyOnly: true,
-  });
-  const cptSearchOptions = cptData?.codes || radiologyStudiesConfig;
-  const { debounce } = useDebounce(800);
-  const debouncedCptHandleInputChange = (data: string): void => {
-    debounce(() => setCptDebouncedSearchTerm(data));
-  };
-
   const toggleSafetyFlag = (flag: RadiologySafetyFlag): void => {
     setSafetyFlags((prev) => (prev.includes(flag) ? prev.filter((f) => f !== flag) : [...prev, flag]));
-  };
-
-  const addAdditionalDxToEncounter = async (): Promise<void> => {
-    if (orderDx.length === 0) return;
-    const newDx = orderDx.filter((dx) => !diagnosis?.some((d) => d.code === dx.code));
-    if (newDx.length === 0) return;
-
-    await new Promise<void>((resolve, reject) => {
-      saveChartData(
-        { diagnosis: newDx },
-        {
-          onSuccess: (data) => {
-            const returnedDiagnosis = data.chartData.diagnosis || [];
-            const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
-            setPartialChartData({ diagnosis: [...allDx] });
-            resolve();
-          },
-          onError: (err) => reject(err),
-        }
-      );
-    });
   };
 
   const buildPerformingOrganization = (): RadiologyPerformingOrganization | undefined => {
     const org: RadiologyPerformingOrganization = {
       name: orgName.trim() || undefined,
       address: orgAddress.trim() || undefined,
-      phone: orgPhone.trim() || undefined,
-      fax: orgFax.trim() || undefined,
+      phone: formatPhoneDigits(orgPhone),
+      fax: formatPhoneDigits(orgFax),
     };
     return org.name || org.address || org.phone || org.fax ? org : undefined;
   };
@@ -159,12 +123,14 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const lateralityModifier =
-      laterality !== ''
-        ? { display: LATERALITY_SELECTORS[laterality].modifierDescription, code: laterality }
-        : undefined;
 
-    const paramsSatisfied = orderDx.length > 0 && orderCpt && encounter.id && clinicalHistory.length <= 255;
+    const paramsSatisfied =
+      orderDx.length > 0 &&
+      orderCpt &&
+      encounter.id &&
+      clinicalHistory.length <= 255 &&
+      !phoneDigitsInvalid(orgPhone) &&
+      !phoneDigitsInvalid(orgFax);
 
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       const sharedFields = {
@@ -192,7 +158,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
         } else {
           const res = await createRadiologyOrder(oystehrZambda, { ...sharedFields, encounterId: encounter.id });
           if (res.cptCodesSaved && res.cptCodesSaved.length > 0) {
-            setPartialChartData({ cptCodes: [...cptCodes, ...res.cptCodesSaved] });
+            setPartialChartData({ cptCodes: [...chartCptCodes, ...res.cptCodesSaved] });
           }
           navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
         }
@@ -205,6 +171,8 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
       if (orderDx.length === 0) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (clinicalHistory.length > 255) errorMessage.push('Clinical history must be 255 characters or less');
+      if (phoneDigitsInvalid(orgPhone)) errorMessage.push('Please enter a valid 10-digit phone number');
+      if (phoneDigitsInvalid(orgFax)) errorMessage.push('Please enter a valid 10-digit fax number');
       if (errorMessage.length === 0) errorMessage.push('There was an error completing the order');
       setError(errorMessage);
     }
@@ -224,144 +192,7 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
           <form onSubmit={handleSubmit}>
             <Paper sx={{ p: 3 }}>
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
-                <Grid item xs={12}>
-                  <Autocomplete
-                    multiple
-                    disableCloseOnSelect
-                    id="select-dx"
-                    size="small"
-                    fullWidth
-                    filterOptions={(x) => x}
-                    filterSelectedOptions
-                    noOptionsText={
-                      dxDebouncedSearchTerm && icdSearchOptions.length === 0
-                        ? 'Nothing found for this search criteria'
-                        : 'Start typing to load results'
-                    }
-                    value={orderDx}
-                    isOptionEqualToValue={(option, value) => value.code === option.code}
-                    onChange={(_event: any, selectedDx: any) => setOrderDx(selectedDx)}
-                    loading={isSearchingDx}
-                    options={icdSearchOptions}
-                    getOptionLabel={(option) =>
-                      typeof option === 'string' ? option : `${option.code} ${option.display}`
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        onChange={(e) => debouncedDxHandleInputChange(e.target.value)}
-                        label="Diagnosis"
-                        placeholder="Select diagnosis from list or search"
-                        multiline
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    )}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <TextField
-                    id="study-name"
-                    label="Study Name"
-                    placeholder="Enter study name"
-                    fullWidth
-                    multiline
-                    size="small"
-                    value={studyName || ''}
-                    onChange={(e) => setStudyName(e.target.value)}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Autocomplete
-                    blurOnSelect
-                    id="select-cpt"
-                    size="small"
-                    fullWidth
-                    filterOptions={(x) => x}
-                    noOptionsText={
-                      cptDebouncedSearchTerm && cptSearchOptions.length === 0
-                        ? 'Nothing found for this search criteria'
-                        : 'Start typing to load results'
-                    }
-                    value={orderCpt || null}
-                    isOptionEqualToValue={(option, value) => value.code === option.code}
-                    onChange={(_event: any, selectedCpt: any) => setOrderCpt(selectedCpt)}
-                    loading={isSearchingCpt}
-                    options={cptSearchOptions}
-                    getOptionLabel={(option) =>
-                      typeof option === 'string' ? option : `${option.code} ${option.display}`
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        onChange={(e) => debouncedCptHandleInputChange(e.target.value)}
-                        label="Study Type"
-                        placeholder="Search for CPT Code"
-                        multiline
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    )}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel size="small" id="laterality-selector-label">
-                      Laterality
-                    </InputLabel>
-                    <Select
-                      size="small"
-                      labelId="laterality-selector-label"
-                      label="Laterality"
-                      id="laterality-selector"
-                      onChange={(e) => setLaterality(e.target.value as LateralityValue)}
-                      value={laterality}
-                      input={
-                        <OutlinedInput
-                          label="Laterality"
-                          endAdornment={
-                            laterality ? (
-                              <InputAdornment sx={{ marginRight: '10px' }} position="end">
-                                <IconButton aria-label="clear laterality" onClick={() => setLaterality('')}>
-                                  <ClearIcon fontSize="small" />
-                                </IconButton>
-                              </InputAdornment>
-                            ) : null
-                          }
-                        />
-                      }
-                    >
-                      {Object.entries(LATERALITY_SELECTORS).map(([selectorKey, selectorDisplay]) => (
-                        <MenuItem key={selectorKey} value={selectorKey}>
-                          {`${selectorKey} (${selectorDisplay.uiDisplay})`}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <TextField
-                    id="clinical-history"
-                    label="Clinical History"
-                    placeholder="Enter clinical history for the radiology order"
-                    fullWidth
-                    multiline
-                    size="small"
-                    InputLabelProps={{ shrink: !!clinicalHistory }}
-                    value={clinicalHistory}
-                    onChange={(e) => {
-                      if (e.target.value.length <= 255) setClinicalHistory(e.target.value);
-                    }}
-                    error={clinicalHistory.length > 255}
-                    helperText={
-                      clinicalHistory.length > 255
-                        ? 'Clinical history must be 255 characters or less'
-                        : `${clinicalHistory.length}/255 characters`
-                    }
-                  />
-                </Grid>
+                <RadiologyOrderCoreFields form={form} lateralityLabel="Laterality" />
 
                 <Grid item xs={12}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'text.secondary' }}>
@@ -423,8 +254,22 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
                     label="Phone"
                     fullWidth
                     size="small"
+                    type="tel"
+                    placeholder="(XXX) XXX-XXXX"
+                    inputMode="numeric"
                     value={orgPhone}
-                    onChange={(e) => setOrgPhone(e.target.value)}
+                    error={orgPhoneError}
+                    helperText={
+                      orgPhoneError ? 'Phone must be 10 digits in the format (xxx) xxx-xxxx and a valid number' : ' '
+                    }
+                    InputProps={{ inputComponent: InputMask as any }}
+                    inputProps={{ mask: '(000) 000-0000' }}
+                    InputLabelProps={{ shrink: true }}
+                    onChange={(e) => {
+                      const number = e.target.value.replace(/\D/g, '');
+                      setOrgPhone(number);
+                      setOrgPhoneError(phoneDigitsInvalid(number));
+                    }}
                   />
                 </Grid>
                 <Grid item xs={6}>
@@ -433,38 +278,31 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
                     label="Fax"
                     fullWidth
                     size="small"
+                    type="tel"
+                    placeholder="(XXX) XXX-XXXX"
+                    inputMode="numeric"
                     value={orgFax}
-                    onChange={(e) => setOrgFax(e.target.value)}
+                    error={orgFaxError}
+                    helperText={
+                      orgFaxError ? 'Fax must be 10 digits in the format (xxx) xxx-xxxx and a valid number' : ' '
+                    }
+                    InputProps={{ inputComponent: InputMask as any }}
+                    inputProps={{ mask: '(000) 000-0000' }}
+                    InputLabelProps={{ shrink: true }}
+                    onChange={(e) => {
+                      const number = e.target.value.replace(/\D/g, '');
+                      setOrgFax(number);
+                      setOrgFaxError(phoneDigitsInvalid(number));
+                    }}
                   />
                 </Grid>
 
-                <Grid item xs={6}>
-                  <Button
-                    variant="outlined"
-                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                    onClick={() => navigate(`/in-person/${appointmentIdFromUrl}/radiology`)}
-                  >
-                    Cancel
-                  </Button>
-                </Grid>
-                <Grid item xs={6} display="flex" justifyContent="flex-end">
-                  <LoadingButton
-                    data-testid={dataTestIds.radiologyPage.submitOrderButton}
-                    loading={submitting}
-                    type="submit"
-                    variant="contained"
-                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                  >
-                    {isEditMode ? 'Save' : 'Order'}
-                  </LoadingButton>
-                </Grid>
-                {error &&
-                  error.length > 0 &&
-                  error.map((msg, idx) => (
-                    <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                      <Typography sx={{ color: theme.palette.error.main }}>{msg}</Typography>
-                    </Grid>
-                  ))}
+                <RadiologyOrderFormActions
+                  appointmentId={appointmentIdFromUrl || ''}
+                  submitting={submitting}
+                  submitLabel={isEditMode ? 'Save' : 'Order'}
+                  errors={error}
+                />
               </Grid>
             </Paper>
           </form>
@@ -480,11 +318,27 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
  */
 export const EditExternalRadiologyOrder: React.FC = () => {
   const { serviceRequestID } = useParams();
+  const navigate = useNavigate();
   const { orders, loading } = usePatientRadiologyOrders({ serviceRequestId: serviceRequestID });
   const order = orders.find((o) => o.serviceRequestId === serviceRequestID);
 
-  if (loading || !order) {
+  if (loading) {
     return <RadiologyOrderLoading />;
+  }
+
+  // Only external (print-only) orders may be edited; in-house orders are synced to AdvaPACS and
+  // must not be rewritten through this form (the backend rejects it too).
+  if (!order || !order.external) {
+    return (
+      <Stack spacing={2} sx={{ p: 3, alignItems: 'flex-start' }}>
+        <Typography variant="h6">
+          {!order ? 'Radiology order not found.' : 'This order is not an external order and cannot be edited here.'}
+        </Typography>
+        <Button variant="outlined" onClick={() => navigate(-1)}>
+          Back
+        </Button>
+      </Stack>
+    );
   }
 
   return <CreateExternalRadiologyOrder initialOrder={order} />;

@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { DeleteRadiologyResultZambdaOutput } from 'utils';
+import { DeleteRadiologyResultZambdaOutput, RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { deleteZ3Object } from '../../../shared/z3Utils';
 import { validateInput, validateSecrets } from './validation';
@@ -20,6 +20,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     resourceType: 'DocumentReference',
     id: body.documentReferenceId,
   });
+
+  // Only radiology result documents attached to a ServiceRequest may be deleted through this endpoint.
+  const isRadiologyResult = docRef.type?.coding?.some(
+    (coding) =>
+      coding.system === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.system && coding.code === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.code
+  );
+  const isRelatedToServiceRequest = docRef.context?.related?.some(
+    (related) => related.reference?.startsWith('ServiceRequest/')
+  );
+  if (!isRadiologyResult || !isRelatedToServiceRequest) {
+    throw new Error('DocumentReference is not a radiology result attached to an order');
+  }
 
   // Best-effort delete of the backing Z3 file before removing the DocumentReference.
   const fileUrl = docRef.content?.[0]?.attachment?.url;

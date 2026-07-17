@@ -133,7 +133,7 @@ const performEffect = async (
     throw new Error('Error creating service request, id is missing');
   }
 
-  const cptCodeDTO = await writeOurProcedure(ourServiceRequest, body, secrets, oystehr);
+  const { cptCodeDTO, procedure } = await writeOurProcedure(ourServiceRequest, body, secrets, oystehr);
   const cptCodesSaved = cptCodeDTO ? [cptCodeDTO] : undefined;
 
   // External (print-only) orders are documented locally and printed/faxed — never transmitted to AdvaPACS.
@@ -151,6 +151,9 @@ const performEffect = async (
       captureException(error);
       console.error('Error sending order to AdvaPACS: ', error);
       await rollbackOurServiceRequest(ourServiceRequest, oystehr);
+      await rollbackOurProcedure(procedure, oystehr);
+      // The order no longer exists — surface the failure instead of returning its id as a success.
+      throw error;
     }
   }
 
@@ -390,7 +393,7 @@ const writeOurProcedure = async (
   validatedBody: EnhancedBody,
   secrets: Secrets,
   oystehr: Oystehr
-): Promise<CPTCodeDTO | undefined> => {
+): Promise<{ cptCodeDTO: CPTCodeDTO | undefined; procedure: Procedure }> => {
   const { cpt, lateralityModifier } = validatedBody;
 
   const modifierExtension = lateralityModifier ? { extension: [makeCptModifierExtension([lateralityModifier])] } : {};
@@ -409,6 +412,8 @@ const writeOurProcedure = async (
     status: 'completed',
     subject: ourServiceRequest.subject,
     encounter: ourServiceRequest.encounter,
+    // Ties this billing Procedure to its order so update-order can keep the CPT in sync on edit.
+    basedOn: [{ reference: `ServiceRequest/${ourServiceRequest.id}` }],
     // ServiceRequest.performer, when present, references the contained external performing Organization —
     // not a valid actor for this billing Procedure — so it is intentionally not copied here.
     code: procedureCode,
@@ -420,7 +425,7 @@ const writeOurProcedure = async (
 
   const cptCodeDTO = makeCPTCodeDTO(fhirProcedure);
 
-  return cptCodeDTO;
+  return { cptCodeDTO, procedure: fhirProcedure };
 };
 
 const getOrderDetailValue = (serviceRequest: ServiceRequest, code: string): string | undefined =>
@@ -639,5 +644,18 @@ const rollbackOurServiceRequest = async (ourServiceRequest: ServiceRequest, oyst
   await oystehr.fhir.delete<ServiceRequest>({
     resourceType: 'ServiceRequest',
     id: ourServiceRequest.id,
+  });
+};
+
+const rollbackOurProcedure = async (procedure: Procedure, oystehr: Oystehr): Promise<void> => {
+  console.log('rolling back our cpt code procedure');
+
+  if (!procedure.id) {
+    throw new Error('rollbackOurProcedure: Procedure id is missing');
+  }
+
+  await oystehr.fhir.delete<Procedure>({
+    resourceType: 'Procedure',
+    id: procedure.id,
   });
 };

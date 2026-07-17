@@ -21,7 +21,6 @@ import {
   isPositiveNumberOrZero,
   ORDER_TYPE_CODE_SYSTEM,
   Pagination,
-  RADIOLOGY_RESULT_DOC_REF_DOCTYPE,
   RADIOLOGY_TASK,
   RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
@@ -37,6 +36,7 @@ import {
   takeMostRecentPreliminaryReport,
   takeTheBestFinalDiagnosticReport,
 } from '../../../shared/radiology';
+import { isCurrentRadiologyResultDocRef } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -268,29 +268,24 @@ const parseResultsToOrder = (
     throw new Error('Order is in an invalid state, could not determine status.');
   }
 
-  // External (print-only) orders never flow through AdvaPACS; instead, results are attached manually as
-  // result DocumentReferences. Once at least one is present, the order is considered reviewed. Deriving
-  // this here (rather than persisting on the SR) keeps it in sync when results are added or deleted.
+  // External (print-only) orders never flow through AdvaPACS; they use a simplified lifecycle driven by
+  // manually-attached result DocumentReferences: `ordered` until a result exists, then `reviewed`. Deriving
+  // it here (rather than persisting on the SR) keeps the status and history in sync as results are added
+  // or deleted. The AdvaPACS-derived status/history above is overridden entirely for these orders.
   const isExternal = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
     ?.valueBoolean;
-  const hasResult = documentReferences.some(
-    (docRef) =>
-      docRef.type?.coding?.some((coding) => coding.code === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.code) &&
-      docRef.context?.related?.some((related) => related.reference === `ServiceRequest/${serviceRequest.id}`)
+  const resultDocRefs = documentReferences.filter((docRef) =>
+    isCurrentRadiologyResultDocRef(docRef, serviceRequest.id ?? '')
   );
-  if (isExternal && hasResult) {
-    status = RadiologyOrderStatus.reviewed;
+  if (isExternal) {
+    status = resultDocRefs.length > 0 ? RadiologyOrderStatus.reviewed : RadiologyOrderStatus.ordered;
   }
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(
-    serviceRequest,
-    bestFinalReport,
-    preliminaryDiagnosticReport,
-    providerName,
-    finalReviewTask
-  );
+  const history = isExternal
+    ? buildExternalHistory(serviceRequest, providerName, resultDocRefs)
+    : buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName, finalReviewTask);
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
@@ -310,6 +305,37 @@ const parseResultsToOrder = (
     task: formattedFinalReviewTask,
     consentObtained,
   };
+};
+
+// External (print-only) orders: a two-row history mirroring the ordered -> reviewed lifecycle.
+const buildExternalHistory = (
+  serviceRequest: ServiceRequest,
+  orderingProviderName: string,
+  resultDocRefs: DocumentReference[]
+): RadiologyOrderHistoryRow[] => {
+  const history: RadiologyOrderHistoryRow[] = [];
+
+  const orderedDate =
+    serviceRequest.extension?.find((ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL)?.valueDateTime ??
+    serviceRequest.authoredOn ??
+    '';
+  history.push({ status: RadiologyOrderStatus.ordered, performer: orderingProviderName, date: orderedDate });
+
+  const latestResultDocRef = resultDocRefs
+    .filter((docRef) => docRef.date ?? docRef.meta?.lastUpdated)
+    .sort((a, b) => (a.date ?? a.meta?.lastUpdated ?? '').localeCompare(b.date ?? b.meta?.lastUpdated ?? ''))
+    .pop();
+  if (latestResultDocRef) {
+    history.push({
+      status: RadiologyOrderStatus.reviewed,
+      // The provider reviews and signs the result before uploading it, so the uploader
+      // (recorded as the DocumentReference author) is the reviewer.
+      performer: latestResultDocRef.author?.[0]?.display ?? '',
+      date: latestResultDocRef.date ?? latestResultDocRef.meta?.lastUpdated ?? '',
+    });
+  }
+
+  return history;
 };
 
 const buildHistory = (
