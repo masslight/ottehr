@@ -14,7 +14,7 @@ import {
   extractHealthcareServiceAndSupportingLocations,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getLastUpdateTimestampForResource,
-  getQuestionnaireViaUrlFromQR,
+  getQuestionnaireForQR,
   MANAGED_QUESTIONNAIRE_ERROR,
   mapQuestionnaireAndValueSetsToItemsList,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
@@ -78,7 +78,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   console.log(`getting related questionnaire for QuestionnaireResponse/${questionnaireResponseId}`);
-  const questionnaire = await getQuestionnaireViaUrlFromQR(questionnaireResponse, oystehr);
+  const questionnaire = await getQuestionnaireForQR(questionnaireResponse, oystehr);
 
   const isManaged = hasTag(questionnaire, PRACTICE_MANAGED_QUESTIONNAIRE_TAG);
   if (!isManaged) {

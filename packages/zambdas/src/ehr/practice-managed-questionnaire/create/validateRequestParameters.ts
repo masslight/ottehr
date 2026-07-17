@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
 import {
   INVALID_INPUT_ERROR,
@@ -39,3 +40,40 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
     secrets,
   };
 }
+
+export const validateQuestionnaireUniqueness = async (
+  questionnaire: Questionnaire,
+  oystehr: Oystehr
+): Promise<void> => {
+  const url = questionnaire.url;
+  const version = questionnaire.version;
+
+  if (!url || !version)
+    throw INVALID_INPUT_ERROR(`Url and/or version is missing from Questionnaire. url: ${url} version: ${version}`);
+
+  console.log(`Validating that Questionnaire has been sent with unique canonical attributes ${url}|${version}`);
+
+  const questionnaireSearch = (
+    await oystehr.fhir.search<Questionnaire>({
+      resourceType: 'Questionnaire',
+      params: [
+        {
+          name: 'url',
+          value: url,
+        },
+        {
+          name: 'version',
+          value: version,
+        },
+      ],
+    })
+  ).unbundle();
+
+  if (questionnaireSearch.length !== 0) {
+    throw INVALID_INPUT_ERROR(
+      `Questionnaire url|version must be unique. Duplicate questionnaire found: ${questionnaireSearch.map(
+        (q) => `Questionnaire/${q.id}`
+      )}`
+    );
+  }
+};

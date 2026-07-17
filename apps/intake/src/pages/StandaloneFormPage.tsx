@@ -101,6 +101,9 @@ export const StandaloneFormPage: FC = () => {
           const apiError = e as APIError;
           if (apiError.code === NO_READ_ACCESS_TO_PATIENT_ERROR.code) {
             setAuthedFetchState(AuthedLoadingState.noReadAccess);
+          } else {
+            setLoadError(true);
+            setAuthedFetchState(AuthedLoadingState.complete);
           }
         } else {
           setLoadError(true);

@@ -85,10 +85,8 @@ export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): Qu
   }) as QuestionnaireResponse | undefined;
 };
 
-export const getQuestionnaireViaUrlFromQR = async (
-  qr: QuestionnaireResponse,
-  oystehr: Oystehr
-): Promise<Questionnaire> => {
+/** uses the canonical url (QuestionnaireResponse.questionnaire) to fetch the related Questionnaire resource */
+export const getQuestionnaireForQR = async (qr: QuestionnaireResponse, oystehr: Oystehr): Promise<Questionnaire> => {
   const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr.questionnaire?.split('|') ?? [null, null];
 
   if (!sourceQuestionnaireUrl || !sourceQuestionnaireVersion) {

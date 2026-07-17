@@ -4,6 +4,7 @@ import { Questionnaire } from 'fhir/r4b';
 import {
   fhirQuestionnaireToPracticeManaged,
   MANAGED_QUESTIONNAIRE_ERROR,
+  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireGetOutput,
 } from 'utils';
@@ -40,6 +41,14 @@ async function getQuestionnaire(
   questionnaireId: string
 ): Promise<PracticeManagedQuestionnaireGetOutput> {
   const questionnaire = await oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId });
+
+  const isPracticeManaged = questionnaire.meta?.tag?.some(
+    (t) => t.system === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.system && t.code === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code
+  );
+
+  if (!isPracticeManaged) {
+    throw new Error(`Attempting to get questionnaire that is not practice managed Questionnaire/${questionnaireId}`);
+  }
 
   let practiceManagedQuestionnaire: PracticeManagedQuestionnaire | undefined;
   try {

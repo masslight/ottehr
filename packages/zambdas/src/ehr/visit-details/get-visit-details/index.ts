@@ -24,7 +24,7 @@ import {
   getEmailForIndividual,
   getFullestAvailableName,
   getNameFromScheduleResource,
-  getQuestionnaireViaUrlFromQR,
+  getQuestionnaireForQR,
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
   isAnnotationFollowupEncounter,
@@ -335,10 +335,16 @@ const getStandaloneFormsForAppointment = async (
 
   if (!questionnaireResponses || questionnaireResponses.length === 0) return;
 
-  return Promise.all(
+  const results = await Promise.allSettled(
     questionnaireResponses.map(async (qr) => {
-      const questionnaire = await getQuestionnaireViaUrlFromQR(qr, oystehr);
+      const questionnaire = await getQuestionnaireForQR(qr, oystehr);
       return makeStandaloneFormDTO(questionnaire, qr);
     })
   );
+
+  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
+
+  return results
+    .filter((r): r is PromiseFulfilledResult<StandaloneFormDTO> => r.status === 'fulfilled')
+    .map((r) => r.value);
 };

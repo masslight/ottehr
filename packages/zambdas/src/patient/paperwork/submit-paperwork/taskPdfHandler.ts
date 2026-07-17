@@ -9,7 +9,7 @@ import {
   EXPORTED_QUESTIONNAIRE_CODE,
   formatQuestionnaireItemValueToString,
   getFullestAvailableName,
-  getQuestionnaireViaUrlFromQR,
+  getQuestionnaireForQR,
   getSecret,
   MANAGED_QUESTIONNAIRE_ERROR,
   MANUAL_TASK,
@@ -171,7 +171,7 @@ const getResources = async (
           id: locationId,
         })
       : Promise.resolve(undefined),
-    await getQuestionnaireViaUrlFromQR(questionnaireResponse, oystehr),
+    await getQuestionnaireForQR(questionnaireResponse, oystehr),
   ]);
   const listResources = listResourcesBundle.unbundle();
 
