@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
 import { practiceManagedQuestionnaireToFhir } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { patchQuestionnaireVersion } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -30,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } else if (updateType === 'update-questionnaire') {
     const { id: previousId, version: previousVersion, ...rest } = data;
 
-    const nextVersion = bumpPatch(previousVersion);
+    const nextVersion = patchQuestionnaireVersion(previousVersion);
     console.log('nextVersion', nextVersion);
 
     console.log('configuring post request for updated resource');
@@ -86,8 +87,3 @@ async function updateQuestionnaireStatus(
   });
   console.log('success');
 }
-
-const bumpPatch = (version: string): string => {
-  const [major, minor, patch] = version.split('.').map(Number);
-  return `${major}.${minor}.${patch + 1}`;
-};
