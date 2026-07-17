@@ -4,12 +4,12 @@ import { Questionnaire } from 'fhir/r4b';
 import {
   fhirQuestionnaireToPracticeManaged,
   MANAGED_QUESTIONNAIRE_ERROR,
-  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireGetOutput,
 } from 'utils';
 import { checkOrCreateM2MClientToken } from '../../../shared';
 import { createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { validateQisPracticeManaged } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -42,13 +42,7 @@ async function getQuestionnaire(
 ): Promise<PracticeManagedQuestionnaireGetOutput> {
   const questionnaire = await oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId });
 
-  const isPracticeManaged = questionnaire.meta?.tag?.some(
-    (t) => t.system === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.system && t.code === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code
-  );
-
-  if (!isPracticeManaged) {
-    throw new Error(`Attempting to get questionnaire that is not practice managed Questionnaire/${questionnaireId}`);
-  }
+  validateQisPracticeManaged(questionnaire, questionnaireId);
 
   let practiceManagedQuestionnaire: PracticeManagedQuestionnaire | undefined;
   try {

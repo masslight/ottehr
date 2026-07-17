@@ -1,5 +1,5 @@
 import { Questionnaire } from 'fhir/r4b';
-import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION } from 'utils';
+import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils';
 
 export const questionnaireElements = ['id', 'title', 'status', 'url', 'version', 'meta'] as const;
 export type FhirQuestionnaireSubset = Pick<Questionnaire, (typeof questionnaireElements)[number]>;
@@ -35,4 +35,14 @@ function compareVersions(versionA: string, versionB: string): number {
 export const patchQuestionnaireVersion = (version: string): string => {
   const [major, minor, patch] = version.split('.').map(Number);
   return `${major}.${minor}.${patch + 1}`;
+};
+
+export const validateQisPracticeManaged = (questionnaire: Questionnaire, questionnaireId: string): void => {
+  const isPracticeManaged = questionnaire.meta?.tag?.some(
+    (t) => t.system === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.system && t.code === PRACTICE_MANAGED_QUESTIONNAIRE_TAG.code
+  );
+
+  if (!isPracticeManaged) {
+    throw new Error(`Attempting to get questionnaire that is not practice managed Questionnaire/${questionnaireId}`);
+  }
 };

@@ -4,7 +4,7 @@ import { Questionnaire } from 'fhir/r4b';
 import { practiceManagedQuestionnaireToFhir } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { patchQuestionnaireVersion } from '../helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateQuestionnaire, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'practice-managed-questionnaire-update';
@@ -19,6 +19,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  // only practice managed questionnaires can be updated via this endpoint
+  await validateQuestionnaire(validatedParameters, oystehr);
 
   let questionnaireIdToReturn: string | undefined;
 

@@ -1,3 +1,5 @@
+import Oystehr from '@oystehr/sdk';
+import { Questionnaire } from 'fhir/r4b';
 import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
@@ -8,6 +10,7 @@ import {
   Secrets,
 } from 'utils';
 import { safeValidate, ZambdaInput } from '../../../shared';
+import { validateQisPracticeManaged } from '../helpers';
 
 type BaseContext = {
   secrets: Secrets | null;
@@ -63,3 +66,24 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   throw INVALID_INPUT_ERROR(`updateType was an unexpected value: ${updateType}`);
 }
+
+export const validateQuestionnaire = async (input: ValidatedRequest, oystehr: Oystehr): Promise<void> => {
+  const { updateType, data } = input;
+
+  let questionnaireId: string | undefined;
+
+  if (updateType === 'update-status') {
+    questionnaireId = data.questionnaireId;
+  } else {
+    questionnaireId = data.id;
+  }
+
+  const questionnaire = await oystehr.fhir.get<Questionnaire>({
+    resourceType: 'Questionnaire',
+    id: questionnaireId ?? '',
+  });
+
+  if (!questionnaire) throw INVALID_INPUT_ERROR(`Could not get Questionnaire/${questionnaireId}`);
+
+  validateQisPracticeManaged(questionnaire, questionnaireId ?? '');
+};
