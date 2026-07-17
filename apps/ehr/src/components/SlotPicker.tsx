@@ -24,12 +24,6 @@ interface TabPanelProps {
 
 const DATETIME_FULL_NO_YEAR = 'MMMM d, h:mm a ZZZZ';
 const DATE_FULL_NO_YEAR = 'EEEE, MMMM d';
-// How far into the future the "Other dates" calendar lets you book, from the
-// per-project booking config (falls back to the historical ~1-month window).
-// Picking a date fetches that day's slots on demand (handleSelectOtherDate), so
-// widening this alone extends the bookable range — no extra preloading needed.
-const bookableMonthsAhead =
-  (BOOKING_CONFIG as { prebookMaxMonthsAhead?: number }).prebookMaxMonthsAhead ?? DEFAULT_PREBOOK_MAX_MONTHS_AHEAD;
 function createLocalDateTime(dateTime: DateTime | undefined, timezone: string): DateTime | undefined {
   let localDateTime: DateTime | undefined;
   if (dateTime !== undefined) {
@@ -90,6 +84,11 @@ const SlotPicker = ({
 }: SlotPickerProps): JSX.Element => {
   const { oystehrZambda } = useApiClients();
   const theme = useTheme();
+  // How far into the future the "Other dates" calendar lets you book, from the
+  // per-project booking config (falls back to the historical ~1-month window).
+  // Picking a date fetches that day's slots on demand (handleSelectOtherDate),
+  // so widening this alone extends the range — no extra preloading needed.
+  const bookableMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead ?? DEFAULT_PREBOOK_MAX_MONTHS_AHEAD;
   const [currentTab, setCurrentTab] = useState(0);
   const [nextDay, setNextDay] = useState<boolean>(false);
   const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);

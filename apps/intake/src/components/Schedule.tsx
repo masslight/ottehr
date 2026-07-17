@@ -3,7 +3,7 @@ import { LocalizationProvider, StaticDatePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BOOKING_CONFIG,
@@ -113,8 +113,10 @@ const Schedule = ({
   const onDemandDates = Boolean(bookableSlug);
   const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);
   const [otherDateSlotsLoading, setOtherDateSlotsLoading] = useState(false);
-  const bookableMonthsAhead =
-    (BOOKING_CONFIG as { prebookMaxMonthsAhead?: number }).prebookMaxMonthsAhead ?? DEFAULT_PREBOOK_MAX_MONTHS_AHEAD;
+  // Tracks the most recently requested other-date so out-of-order slot responses
+  // from earlier clicks are ignored (avoids showing date A's slots under date B).
+  const latestOtherDateReq = useRef<string | null>(null);
+  const bookableMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead ?? DEFAULT_PREBOOK_MAX_MONTHS_AHEAD;
 
   const processingSubmit = useMemo(() => {
     return slotAvailableCheckPending || submitPending;
@@ -128,20 +130,22 @@ const Schedule = ({
 
   const onSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
+    // Guard first so both the custom and default submit paths surface the
+    // "select a time" dialog instead of silently no-oping when nothing's chosen.
+    if (!hasChosenSlot) {
+      setErrorDialog({
+        title: t('schedule.errors.selection.title'),
+        description: t('schedule.errors.selection.description'),
+      });
+      return;
+    }
     if (customOnSubmit) {
       customOnSubmit(locallySelectedSlot);
       return;
     }
 
     try {
-      if (!hasChosenSlot) {
-        setErrorDialog({
-          title: t('schedule.errors.selection.title'),
-          description: t('schedule.errors.selection.description'),
-        });
-      } else {
-        handleSlotSelected(locallySelectedSlot);
-      }
+      handleSlotSelected(locallySelectedSlot);
     } catch (error) {
       console.log(error);
       setSlotAvailableCheckPending(false);
@@ -237,22 +241,30 @@ const Schedule = ({
     async (newDate: DateTime | null): Promise<void> => {
       if (!newDate) return;
       setSelectedOtherDate(newDate);
+      // Drop any slot chosen for a previous date so a stale selection can't be
+      // submitted under the newly picked date.
+      setLocallySelectedSlot(undefined);
       if (!onDemandDates || !bookableSlug || !apiClient) return;
+      const iso = newDate.toISODate() ?? null;
+      latestOtherDateReq.current = iso;
       try {
         setOtherDateSlotsLoading(true);
         const response = await apiClient.getSchedule({
           slug: bookableSlug,
           scheduleType: bookableScheduleType ?? ScheduleType.location,
-          selectedDate: newDate.toISODate() ?? undefined,
+          selectedDate: iso ?? undefined,
           ...(serviceCategoryCode ? { serviceCategoryCode } : {}),
           ...(atLocationSlug ? { atLocationSlug } : {}),
         });
+        // Ignore a response superseded by a newer date selection.
+        if (latestOtherDateReq.current !== iso) return;
         setOtherDateSlots(response.available?.map((s) => s.slot) ?? []);
       } catch (error) {
+        if (latestOtherDateReq.current !== iso) return;
         console.error('Error loading slots for date:', error);
         setOtherDateSlots([]);
       } finally {
-        setOtherDateSlotsLoading(false);
+        if (latestOtherDateReq.current === iso) setOtherDateSlotsLoading(false);
       }
     },
     [apiClient, bookableSlug, bookableScheduleType, serviceCategoryCode, atLocationSlug, onDemandDates]
@@ -284,16 +296,26 @@ const Schedule = ({
   console.log('timezone', timezone);
 */
 
+  // The "Other dates" tab sits at index 2 when the Tomorrow tab is shown,
+  // otherwise index 1. Keep in sync with the tabProps/TabPanel indices below.
+  const otherDatesTabIndex = secondAvailableDay ? 2 : 1;
   const showControlButtons = useMemo(() => {
     if (currentTab === 0 && slotsExist) {
       return true;
-    } else if (currentTab === 1 && secondAvailableDaySlots.length) {
+    }
+    if (currentTab === 1 && secondAvailableDaySlots.length) {
       return true;
-    } else if (currentTab === 2 && (slotsExist || onDemandDates)) {
+    }
+    // On-demand: the Other-dates tab can be at index 1 (no Tomorrow tab) and is
+    // bookable only once a date is picked. Legacy keeps the prior index-2 gate.
+    if (onDemandDates && currentTab === otherDatesTabIndex && selectedOtherDate) {
+      return true;
+    }
+    if (!onDemandDates && currentTab === 2 && slotsExist) {
       return true;
     }
     return false;
-  }, [currentTab, secondAvailableDaySlots.length, slotsExist, onDemandDates]);
+  }, [currentTab, secondAvailableDaySlots.length, slotsExist, onDemandDates, otherDatesTabIndex, selectedOtherDate]);
 
   if (slotsList.length === 0) {
     if (!slotsLoading)
@@ -394,7 +416,7 @@ const Schedule = ({
                 )}
                 <Tab
                   label="Other dates"
-                  {...tabProps(secondAvailableDay ? 2 : 1)}
+                  {...tabProps(otherDatesTabIndex)}
                   sx={{
                     color:
                       currentTab == 2 || !firstTabVisible ? theme.palette.secondary.main : theme.palette.text.secondary,
@@ -436,7 +458,7 @@ const Schedule = ({
                   />
                 </TabPanel>
               )}
-              <TabPanel value={currentTab} index={secondAvailableDay ? 2 : 1} dir={theme.direction}>
+              <TabPanel value={currentTab} index={otherDatesTabIndex} dir={theme.direction}>
                 <LocalizationProvider dateAdapter={AdapterLuxon}>
                   <StaticDatePicker
                     displayStaticWrapperAs="desktop"
