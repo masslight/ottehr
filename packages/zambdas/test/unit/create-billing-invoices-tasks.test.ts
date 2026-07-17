@@ -61,7 +61,7 @@ let handler!: ZambdaHandler;
 const arItem = (overrides: Partial<PatientArClaimItem> = {}): PatientArClaimItem => ({
   claimId: 'claim-1',
   patientId: 'pat-1',
-  patientName: 'Test, Amelia',
+  patientName: 'Test, Katie',
   patientDob: '1990-01-15',
   encounterId: 'enc-1',
   appointmentId: 'appt-1',

@@ -20,6 +20,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
+import { getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
 import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
@@ -80,8 +81,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       );
     }
 
-    const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
-    if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
+    if (getInvoiceTaskSource(task) === 'candid' && !getCandidEncounterIdFromEncounter(encounter)) {
+      throw new Error('CandidEncounterId is not found');
+    }
     console.log('Stripe and candid ids retrieved');
 
     const timezone = resolveTimezone(schedule, location);

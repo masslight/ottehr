@@ -78,7 +78,7 @@ const billingTask = (overrides: Partial<Task> = {}): Task =>
 const arItem = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
   claimId: 'claim-1',
   patientId: 'pat-1',
-  patientName: 'Test, Amelia',
+  patientName: 'Test, Katie',
   patientDob: '1990-01-15',
   encounterId: 'enc-1',
   appointmentId: 'appt-1',
