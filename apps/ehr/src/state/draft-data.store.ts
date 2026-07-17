@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import {
   CreateInHouseLabOrderParameters,
   CreateLabOrderParameters,
   CreateNursingOrderInput,
   CreateRadiologyZambdaOrderInput,
   CreateUpdateImmunizationOrderRequest,
+  DiagnosisDTO,
   ProcedureDTO,
   UpdateMedicationOrderInput,
   VitalsObservationDTO,
@@ -42,7 +44,12 @@ type CreateExternalLabOrderDraft = Partial<
     orderingLocationId: string;
   } & GenericStateDraft
 >;
-type CreateInHouseLabOrderDraft = Partial<CreateInHouseLabOrderParameters & GenericStateDraft>;
+type CreateInHouseLabOrderDraft = Partial<
+  Omit<CreateInHouseLabOrderParameters, 'diagnosesAll' | 'diagnosesNew'> & {
+    selectedNewDx: DiagnosisDTO[];
+    selectedAssessmentDx: DiagnosisDTO[];
+  } & GenericStateDraft
+>;
 type CreateRadiologyOrderDraft = Partial<CreateRadiologyZambdaOrderInput & GenericStateDraft>;
 type CreateProcedureDraft = Partial<ProcedureDTO & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
@@ -94,3 +101,33 @@ export const useNursingOrderStore = createGenericStore<CreateNursingOrderDraft>(
 export const useImmunizationOrderStore = createGenericStore<CreateImmunizationOrderDraft>('immunization');
 export const useInHouseMedicationOrderStore = createGenericStore<CreateInHouseMedicationOrderDraft>('in-house-med');
 export const useVitalsDraftStore = createGenericStore<VitalsDraft>('vitals');
+
+/**
+ * Adds listeners to track is a user navigates away from the page and marks the draft as navigated away.
+ * Useful for conditional warning rendering
+ * @param input
+ */
+export function useMarkDraftNavigatedAway(input: {
+  encounterId: string;
+  setDraft: (encounterId: string, draftData: Partial<GenericStateDraft>) => void;
+  hasDraft: (encounterId: string) => boolean;
+}): void {
+  const { encounterId, setDraft, hasDraft } = input;
+
+  useEffect(() => {
+    const markNavigatedAway = (): void => {
+      if (encounterId && hasDraft(encounterId)) {
+        setDraft(encounterId, {
+          hasNavigatedAway: true,
+        });
+      }
+    };
+
+    window.addEventListener('beforeunload', markNavigatedAway);
+
+    return () => {
+      window.removeEventListener('beforeunload', markNavigatedAway);
+      markNavigatedAway();
+    };
+  }, [encounterId, hasDraft, setDraft]);
+}

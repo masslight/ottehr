@@ -51,7 +51,7 @@ import {
 } from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { useCreateExternalLabStore } from '../../../state/draft-data.store';
+import { useCreateExternalLabStore, useMarkDraftNavigatedAway } from '../../../state/draft-data.store';
 import { ExternalSelectedTests } from '../components/create/ExternalSelectedTests';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
@@ -83,6 +83,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const isFollowup = visitType === 'follow-up';
   const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
   const { setDraft, getDraft, clearDraft, hasDraft } = useCreateExternalLabStore();
+  useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
 
   const diagnosis = useMemo<DiagnosisDTO[]>(
     () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
@@ -242,20 +243,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     setClinicalInfoNotes(formStateDefaults.clinicalInfoNote);
     console.log('this is draft after clearing', getDraft(encounter.id!), hasDraft(encounter.id!));
   };
-
-  // use this to track if the user has navigated away so we can render the banner in a nice way
-  useEffect(() => {
-    const markNavigatedAway = (): void => {
-      if (hasDraft(encounter.id!)) {
-        setDraft(encounter.id!, { hasNavigatedAway: true });
-      }
-    };
-    window.addEventListener('beforeunload', markNavigatedAway);
-    return () => {
-      window.removeEventListener('beforeunload', markNavigatedAway);
-      markNavigatedAway();
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!apptLocation?.id) return;
@@ -452,7 +439,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
             message={
               draft.hasNavigatedAway
                 ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
-                : 'You have an lab order in progress. Your draft will be saved.'
+                : 'You have a lab order in progress. Your draft will be saved.'
             }
           />
         )}
