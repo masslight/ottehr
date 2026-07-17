@@ -1,7 +1,7 @@
 import {
+  BillingRule,
   CLAIM_TAG_SYSTEM,
   HOLD_TAG_NAME,
-  PreSubmissionRule,
   resourceHasTag,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
@@ -240,7 +240,7 @@ export interface RuleExecutionResult {
 // Evaluate one rule against the (mutable) model and apply the matched branch's actions in order.
 // Returns `held: true` as soon as an action applies the Hold tag — the engine then halts the whole
 // run — and stops with `error` when an action cannot be applied. Disabled rules are skipped.
-export const executeRule = (rule: PreSubmissionRule, model: RulesEngineClaimModel): RuleExecutionResult => {
+export const executeRule = (rule: BillingRule, model: RulesEngineClaimModel): RuleExecutionResult => {
   if (!rule.enabled) return { appliedActions: [], held: false };
   const actions = resolveConditionalActions(rule.conditional, model);
   const appliedActions: RuleAction[] = [];

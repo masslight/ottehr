@@ -115,10 +115,11 @@ export interface BillingProviderOption {
   taxonomyCode?: string;
   licenseType?: string;
   taxId?: string;
+  stripeAccountId?: string;
   address?: string;
   addressParts?: {
     line1: string;
-    line2: string;
+    line2?: string;
     city: string;
     state: string;
     postalCode: string;
@@ -310,7 +311,7 @@ export interface ClaimDetailResponse {
   subscriberId: string;
   coverageStatus: string;
   planType: string;
-  relationship: string;
+  relationship: SubscriberRelationship;
   policyHolder: BillingPolicyHolderSummary | null;
   responsibleParty: string;
   secondaryCoverageFhirId: string;
@@ -332,6 +333,7 @@ export interface ClaimDetailResponse {
   billingTaxonomy: string;
   facilityFhirId: string;
   serviceFacility: string;
+  serviceFacilityId: string;
   serviceFacilityAddress: string;
   serviceFacilityAddressParts: {
     line1: string;

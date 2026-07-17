@@ -92,6 +92,7 @@ import {
   BillingFhirResource,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  determineRulesEngineForClaim,
   ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
@@ -101,6 +102,7 @@ import {
   prepareWorkingCopy,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  reconcilePaymentNoticesForClaim,
   resourceDisplayName,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
@@ -181,19 +183,19 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
-  const agent = await resolveClaimActor(billingOystehr, input.headers?.Authorization, params.secrets);
+  const agent = await resolveClaimActor('system', billingOystehr, undefined, params.secrets);
 
-  const response = await performEffect(billingOystehr, cvo, agent);
-  // Kick off the pre-submission rules engine (a Subscription invokes sub-presubmission-rules-engine).
-  await kickOffRulesEngine(billingOystehr, response.claimId, params.secrets);
-  return { statusCode: 200, body: JSON.stringify(response) };
+  const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
+  const engine = determineRulesEngineForClaim(claim);
+  if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, params.secrets);
+  return { statusCode: 200, body: JSON.stringify({ claimId }) };
 }
 
 export async function performEffect(
   billingOystehr: Oystehr,
   cvo: ComplexValidationOutput,
   agent: ProvenanceAgent
-): Promise<{ claimId: string }> {
+): Promise<{ claimId: string; claim: Claim }> {
   const { clinicalResources, billingResources } = cvo;
 
   const requests: CreateClaimFromEncounterRequests = [];
@@ -542,7 +544,14 @@ export async function performEffect(
     throw InternalError;
   }
 
-  return { claimId: createdClaim.id };
+  // Adopt any payments the stripe webhook recorded before this claim existed
+  try {
+    await reconcilePaymentNoticesForClaim(billingOystehr, createdClaim);
+  } catch (err) {
+    console.error('Failed to reconcile PaymentNotices for new claim', err);
+  }
+
+  return { claimId: createdClaim.id, claim: createdClaim };
 }
 
 function uuidOrUrnReference(resourceType: BillingFhirResource['resourceType'], uuidOrUrn: string): Reference {

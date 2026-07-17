@@ -1,4 +1,4 @@
-import { HOLD_TAG_NAME } from './rules-engine.constants';
+import { HOLD_TAG_NAME, RULES_ENGINE_TYPES, RULES_ENGINES } from './rules-engine.constants';
 import {
   RULE_FIELD_CATALOG,
   RULE_FIELD_GROUP_LABELS,
@@ -102,6 +102,15 @@ function renderOperatorTable(): string {
   return lines.join('\n');
 }
 
+function renderEnginesTable(): string {
+  const lines = ['| Engine | Runs automatically | When every rule passes |', '| --- | --- | --- |'];
+  for (const type of RULES_ENGINE_TYPES) {
+    const engine = RULES_ENGINES[type];
+    lines.push(`| ${cell(engine.label)} (\`${type}\`) | ${cell(engine.runsWhen)} | ${cell(engine.onPass)} |`);
+  }
+  return lines.join('\n');
+}
+
 export function generateRulesEngineDocumentation(): string {
   const settableCount = RULE_FIELD_CATALOG.filter((f) => f.settable).length;
 
@@ -112,23 +121,31 @@ export function generateRulesEngineDocumentation(): string {
      packages/utils/lib/types/data/billing/. To update it, change those sources and run
      \`npm run docs:billing-rules\`. A unit test fails when this file is out of date. -->
 
-# Billing pre-submission rules engine
+# Billing rules engines
 
-The rules engine runs after a claim is created (and on demand), before the claim is submitted to the
-payer. Rules run top to bottom; each rule is an **if / else-if / else** conditional whose branches
-end in a list of **actions**. When every rule has run without holding the claim, the claim is
-submitted.
+The billing app runs several independent rules engines. Each engine has its own ordered rule set,
+its own automatic trigger, and its own on-success effect:
 
-- A rule that applies the **${HOLD_TAG_NAME}** tag stops the engine and holds the claim from
-  submission for manual review.
+${renderEnginesTable()}
+
+Engines run automatically only when a claim is created in their AR stage, and on demand from the
+claim detail page. All engines share the same rule shape and the semantics below — everything in
+this reference applies to every engine.
+
+Rules run top to bottom; each rule is an **if / else-if / else** conditional whose branches end in a
+list of **actions**. When every rule has run without holding the claim, the engine performs its
+on-success effect.
+
+- A rule that applies the **${HOLD_TAG_NAME}** tag stops the run and holds the claim for manual
+  review; the engine's on-success effect does not happen.
 - An action that cannot be applied (for example, setting a property whose target is missing from the
-  claim) fails the rule: the engine stops, applies the **${HOLD_TAG_NAME}** tag, and never submits a
-  claim with a silently skipped change.
+  claim) fails the rule: the run stops, the **${HOLD_TAG_NAME}** tag is applied, and the claim never
+  proceeds with a silently skipped change.
 - Disabled rules are skipped.
 
 This reference lists every supported condition property, operator, and action. It is generated from
-the same catalog that drives the rule builder and the engine, so it always matches what the engine
-actually supports (${RULE_FIELD_CATALOG.length} properties, ${settableCount} of them settable).`);
+the same catalog that drives the rule builder and the engines, so it always matches what the engines
+actually support (${RULE_FIELD_CATALOG.length} properties, ${settableCount} of them settable).`);
 
   sections.push(`## Conditions
 
@@ -172,7 +189,7 @@ A matched branch's outcome is a list of actions, applied in order:
 | Action | Description |
 | --- | --- |
 | Set a property (\`setField\`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the rules engine. If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
-| Apply a tag (\`applyTag\`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **${HOLD_TAG_NAME}** tag holds the claim: the engine stops and the claim is not submitted. |
+| Apply a tag (\`applyTag\`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **${HOLD_TAG_NAME}** tag holds the claim: the run stops and the engine's on-success effect does not happen. |
 | Update service lines (\`updateServiceLines\`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
 | Remove service lines (\`removeServiceLines\`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Do nothing (\`noop\`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |

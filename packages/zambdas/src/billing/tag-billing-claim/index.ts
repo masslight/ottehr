@@ -14,7 +14,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor(oystehr, input.headers?.Authorization, params.secrets);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
   const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };

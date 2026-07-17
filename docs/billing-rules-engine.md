@@ -3,23 +3,35 @@
      packages/utils/lib/types/data/billing/. To update it, change those sources and run
      `npm run docs:billing-rules`. A unit test fails when this file is out of date. -->
 
-# Billing pre-submission rules engine
+# Billing rules engines
 
-The rules engine runs after a claim is created (and on demand), before the claim is submitted to the
-payer. Rules run top to bottom; each rule is an **if / else-if / else** conditional whose branches
-end in a list of **actions**. When every rule has run without holding the claim, the claim is
-submitted.
+The billing app runs several independent rules engines. Each engine has its own ordered rule set,
+its own automatic trigger, and its own on-success effect:
 
-- A rule that applies the **Hold** tag stops the engine and holds the claim from
-  submission for manual review.
+| Engine | Runs automatically | When every rule passes |
+| --- | --- | --- |
+| Claim Submission Rules (`claim-submission`) | when an Insurance Payer AR claim is submitted | the claim is submitted to the payer |
+| Non-Insurance Payer Pre-Invoice Rules (`non-insurance-payer-pre-invoice`) | when a claim is created in Non-insurance Payer AR | the Non-insurance AR Status moves to Ready to invoice |
+| Patient AR Pre-Invoice Rules (`patient-ar-pre-invoice`) | when a self-pay claim is created in Patient AR | the Patient AR Status moves to Ready to invoice |
+
+Engines run automatically only when a claim is created in their AR stage, and on demand from the
+claim detail page. All engines share the same rule shape and the semantics below — everything in
+this reference applies to every engine.
+
+Rules run top to bottom; each rule is an **if / else-if / else** conditional whose branches end in a
+list of **actions**. When every rule has run without holding the claim, the engine performs its
+on-success effect.
+
+- A rule that applies the **Hold** tag stops the run and holds the claim for manual
+  review; the engine's on-success effect does not happen.
 - An action that cannot be applied (for example, setting a property whose target is missing from the
-  claim) fails the rule: the engine stops, applies the **Hold** tag, and never submits a
-  claim with a silently skipped change.
+  claim) fails the rule: the run stops, the **Hold** tag is applied, and the claim never
+  proceeds with a silently skipped change.
 - Disabled rules are skipped.
 
 This reference lists every supported condition property, operator, and action. It is generated from
-the same catalog that drives the rule builder and the engine, so it always matches what the engine
-actually supports (68 properties, 55 of them settable).
+the same catalog that drives the rule builder and the engines, so it always matches what the engines
+actually support (68 properties, 55 of them settable).
 
 ## Conditions
 
@@ -81,7 +93,7 @@ Which operators a property supports depends on its type (see the property tables
 | Adjudication Status | `status.adjudicationStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim's Adjudication Status indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do). Allowed values: `approved` (Approved), `rejected` (Rejected), `denied` (Denied). |
 | Patient AR Status | `status.patientArStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim's Patient AR Status indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do). Allowed values: `not-invoiced` (Not invoiced), `ready-to-invoice` (Ready to invoice), `invoiced` (Invoiced), `finalized` (Finalized). |
 | Patient Paid Status | `status.patientPaidStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim's Patient Paid Status indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do). Allowed values: `unpaid` (Unpaid), `partially-paid` (Partially paid), `fully-paid` (Fully paid). |
-| Non-insurance AR Status | `status.nonInsuranceArStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim's Non-insurance AR Status indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do). Allowed values: `created` (Created), `invoiced` (Invoiced), `finalized` (Finalized). |
+| Non-insurance AR Status | `status.nonInsuranceArStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim's Non-insurance AR Status indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do). Allowed values: `created` (Created), `ready-to-invoice` (Ready to invoice), `invoiced` (Invoiced), `finalized` (Finalized). |
 | Non-insurance Paid Status | `status.nonInsurancePaidStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim's Non-insurance Paid Status indicator. Setting it rewrites the corresponding status tag on the claim (setting AR Stage also initializes that stage's progress status, as the claim screens do). Allowed values: `unpaid` (Unpaid), `partially-paid` (Partially paid), `fully-paid` (Fully paid). |
 
 ### Patient
@@ -195,7 +207,7 @@ A matched branch's outcome is a list of actions, applied in order:
 | Action | Description |
 | --- | --- |
 | Set a property (`setField`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the rules engine. If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
-| Apply a tag (`applyTag`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **Hold** tag holds the claim: the engine stops and the claim is not submitted. |
+| Apply a tag (`applyTag`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **Hold** tag holds the claim: the run stops and the engine's on-success effect does not happen. |
 | Update service lines (`updateServiceLines`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
 | Remove service lines (`removeServiceLines`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Do nothing (`noop`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |

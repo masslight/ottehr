@@ -2,13 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Basic, List } from 'fhir/r4b';
-import { BillingRulesResponse, getSecret, HOLD_TAG_NAME, PreSubmissionRule, SecretsKeys } from 'utils';
+import { BillingRule, BillingRulesResponse, getSecret, HOLD_TAG_NAME, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { HOLD_TAG_DESCRIPTION } from '../rules-engine/constants';
 import { rulesToList } from '../rules-engine/serialization';
 import {
   createBillingClient,
-  findPresubmissionRulesList,
+  findRulesEngineList,
   listToRulesReportingMalformed,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
@@ -19,21 +19,21 @@ import { SaveBillingRulesParams, validateRequestParameters } from './validateReq
 let m2mToken: string;
 const ZAMBDA_NAME = 'save-billing-rules';
 
-// Saves the full ordered rule set as the singleton rules List (create/edit/reorder/delete all in one
-// atomic write). Echoes back the saved rules + new versionId.
+// Saves the full ordered rule set as the engine's singleton rules List (create/edit/reorder/delete
+// all in one atomic write). Echoes back the saved rules + new versionId.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const existing = await complexValidation(oystehr);
+  const existing = await complexValidation(oystehr, params);
   const response = await performEffect(oystehr, params, existing, getSecret(SecretsKeys.ENVIRONMENT, params.secrets));
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-export async function complexValidation(oystehr: Oystehr): Promise<List | undefined> {
-  return findPresubmissionRulesList(oystehr);
+export async function complexValidation(oystehr: Oystehr, params: SaveBillingRulesParams): Promise<List | undefined> {
+  return findRulesEngineList(oystehr, params.engine);
 }
 
 export async function performEffect(
@@ -43,8 +43,8 @@ export async function performEffect(
   env: string
 ): Promise<BillingRulesResponse> {
   // The backend owns rule identifiers: rules arriving without an id (newly created) get one here.
-  const rules: PreSubmissionRule[] = params.rules.map((rule) => ({ ...rule, id: rule.id ?? randomUUID() }));
-  const newList = rulesToList(rules);
+  const rules: BillingRule[] = params.rules.map((rule) => ({ ...rule, id: rule.id ?? randomUUID() }));
+  const newList = rulesToList(params.engine, rules);
 
   let saved: List;
   if (existing?.id) {

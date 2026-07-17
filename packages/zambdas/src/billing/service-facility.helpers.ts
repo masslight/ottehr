@@ -28,7 +28,7 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
     addressLine2: address?.line?.[1] ?? '',
     city: address?.city ?? '',
     state: address?.state ?? '',
-    zip: (address?.postalCode ?? '').replace(/\D/g, ''),
+    zip: address?.postalCode ?? '',
     npi: getNPI(location) ?? '',
     clia: getCLIA(location) ?? '',
     posCode: getPlaceOfServiceCode(location) ?? '',

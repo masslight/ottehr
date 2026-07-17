@@ -10,13 +10,14 @@ export function formatDate(iso: string): string {
 
 const POS_LABEL_BY_CODE = new Map(CMS_PLACE_OF_SERVICE_CODES.map((pos) => [pos.code, pos.display]));
 
-export function placeOfServiceLabel(code: string): string {
+export function placeOfServiceLabel(code?: string): string {
   if (!code) return '';
   const display = POS_LABEL_BY_CODE.get(code);
   return display ? `${code} - ${display}` : code;
 }
 
-export function formatFacilityAddress(facility: ServiceFacilityItem): string {
+export function formatFacilityAddress(facility: ServiceFacilityItem | null): string {
+  if (!facility) return '';
   const zip = formatZipcodeForDisplay(facility.zip);
   return [facility.addressLine1, facility.addressLine2, facility.city, facility.state, zip].filter(Boolean).join(', ');
 }
