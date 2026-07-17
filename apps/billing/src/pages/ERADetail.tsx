@@ -60,7 +60,6 @@ export default function ERADetail(): ReactElement {
           return (
             <Button
               onClick={(e) => {
-                e.preventDefault();
                 e.stopPropagation();
                 setClaimResponseToMatch(row.claimResponseIds[0]);
               }}
@@ -239,7 +238,7 @@ export default function ERADetail(): ReactElement {
               rows={filteredClaims}
               columns={claimColumns}
               getRowId={(row) => row.claimId}
-              //onRowClick={(params) => navigate(`/claims/${params.id}`)}
+              onRowClick={(params) => (params.row.matched ? navigate(`/claims/${params.id}`) : {})}
               disableRowSelectionOnClick
               disableColumnMenu
               autoHeight
