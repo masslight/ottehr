@@ -28,13 +28,13 @@ import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   APIError,
+  buildPrebookModeLinks,
   CreateScheduleParams,
   getAllFhirSearchPages,
   isApiError,
   isValidSlug,
   isValidUUID,
   ScheduleDTO,
-  scheduleTypeFromFHIRType,
   SLUG_VALIDATION_MESSAGE,
   TIMEZONES,
   UpdateScheduleParams,
@@ -103,16 +103,15 @@ export default function SchedulePage(): ReactElement {
   // free pattern that lives on a Location, not a per-provider role).
   const bookingLinks = (() => {
     const fhirType = item?.owner.type;
-    const locationType = item?.owner.isVirtual ? 'virtual' : 'in-person';
     const links: Array<{ label: string; url: string; copyKey: string }> = [];
-    if (slug && fhirType) {
-      links.push({
-        label: 'Prebook',
-        url: `${INTAKE_URL}/prebook/${locationType}?bookingOn=${slug}&scheduleType=${scheduleTypeFromFHIRType(
-          fhirType
-        )}`,
-        copyKey: 'prebook',
-      });
+    // One prebook link per enabled service mode — a Location may be both.
+    for (const link of buildPrebookModeLinks({
+      fhirType,
+      slug,
+      isVirtual: item?.owner.isVirtual,
+      isInPerson: item?.owner.isInPerson,
+    })) {
+      links.push({ label: link.label, url: `${INTAKE_URL}${link.relativeUrl}`, copyKey: link.key });
     }
     if (fhirType === 'Location' && scheduleId && isValidUUID(scheduleId)) {
       links.push({
