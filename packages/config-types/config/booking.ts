@@ -83,6 +83,11 @@ export const BookingConfigSchema = z.object({
     })
   ),
   defaultWalkinLocationName: z.string().optional(),
+  // How many months into the future the prebook "Other dates" calendar lets a
+  // patient/staff member pick. Optional; consumers default to
+  // DEFAULT_PREBOOK_MAX_MONTHS_AHEAD (1) when unset, preserving the historical
+  // ~1-month window.
+  prebookMaxMonthsAhead: z.number().int().positive().max(60).optional(),
   FormFields: z.record(z.string(), z.union([FormSectionSimpleSchema, FormSectionArraySchema])).optional(),
   questionnaireBase: QuestionnaireBaseSchema.optional(),
   hiddenFormSections: z.array(z.string()).optional(),

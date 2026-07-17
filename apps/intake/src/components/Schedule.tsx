@@ -6,17 +6,22 @@ import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  BOOKING_CONFIG,
   BRANDING_CONFIG,
   createLocalDateTime,
   DATE_FULL_NO_YEAR,
   DATETIME_FULL_NO_YEAR,
+  DEFAULT_PREBOOK_MAX_MONTHS_AHEAD,
   nextAvailableFrom,
+  ScheduleType,
+  ServiceCategoryCode,
 } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { breakpoints } from '../providers';
+import { useOystehrAPIClient } from '../telemed/utils';
 import { SelectSlot } from '.';
 import { ErrorDialog, ErrorDialogConfig } from './ErrorDialog';
 import { ControlButtons } from './form';
@@ -68,6 +73,14 @@ interface ScheduleProps {
   forceClosedToday: boolean;
   forceClosedTomorrow: boolean;
   customOnSubmit?: (slot?: Slot) => void;
+  // On-demand "Other dates" mode (mirrors the EHR slot picker): when a bookable
+  // target is supplied, picking a date in the calendar fetches that day's slots
+  // instead of only allowing dates that were preloaded into slotData. Omit these
+  // for the legacy preloaded-only behavior (e.g. the reschedule flow).
+  bookableSlug?: string;
+  bookableScheduleType?: ScheduleType;
+  serviceCategoryCode?: ServiceCategoryCode;
+  atLocationSlug?: string;
 }
 
 const Schedule = ({
@@ -81,6 +94,10 @@ const Schedule = ({
   forceClosedToday,
   submitPending,
   customOnSubmit,
+  bookableSlug,
+  bookableScheduleType,
+  serviceCategoryCode,
+  atLocationSlug,
 }: ScheduleProps): JSX.Element => {
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
@@ -88,6 +105,16 @@ const Schedule = ({
   const [locallySelectedSlot, setLocallySelectedSlot] = useState<Slot | undefined>(existingSelectedSlot);
   const [slotAvailableCheckPending, setSlotAvailableCheckPending] = useState(false);
   const { t } = useTranslation();
+
+  // On-demand "Other dates" mode: when a bookable target is supplied, the
+  // calendar fetches the picked day's slots (like the EHR picker) rather than
+  // being limited to the days preloaded in slotData.
+  const apiClient = useOystehrAPIClient({ tokenless: true });
+  const onDemandDates = Boolean(bookableSlug);
+  const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);
+  const [otherDateSlotsLoading, setOtherDateSlotsLoading] = useState(false);
+  const bookableMonthsAhead =
+    (BOOKING_CONFIG as { prebookMaxMonthsAhead?: number }).prebookMaxMonthsAhead ?? DEFAULT_PREBOOK_MAX_MONTHS_AHEAD;
 
   const processingSubmit = useMemo(() => {
     return slotAvailableCheckPending || submitPending;
@@ -163,10 +190,13 @@ const Schedule = ({
   const [selectedOtherDate, setSelectedOtherDate] = useState<DateTime | undefined>();
 
   useEffect(() => {
+    // In on-demand mode the user picks the "Other dates" day explicitly (slots
+    // are fetched on click), so skip the legacy auto-select of a preloaded day.
+    if (onDemandDates) return;
     if (selectedOtherDate === undefined && secondAvailableDay != undefined) {
       setSelectedOtherDate(nextAvailableFrom(secondAvailableDay, slotsList, timezone));
     }
-  }, [secondAvailableDay, selectedOtherDate, slotsList, timezone]);
+  }, [secondAvailableDay, selectedOtherDate, slotsList, timezone, onDemandDates]);
 
   const selectedDate = useMemo(() => {
     if (currentTab === 0) {
@@ -200,6 +230,34 @@ const Schedule = ({
     [daySlotsMap]
   );
 
+  // Fetch the picked day's slots on demand (on-demand mode only). Mirrors the
+  // EHR SlotPicker: the calendar itself only needs a wide maxDate; slots for the
+  // selected day are loaded here when it's clicked.
+  const handleSelectOtherDate = useCallback(
+    async (newDate: DateTime | null): Promise<void> => {
+      if (!newDate) return;
+      setSelectedOtherDate(newDate);
+      if (!onDemandDates || !bookableSlug || !apiClient) return;
+      try {
+        setOtherDateSlotsLoading(true);
+        const response = await apiClient.getSchedule({
+          slug: bookableSlug,
+          scheduleType: bookableScheduleType ?? ScheduleType.location,
+          selectedDate: newDate.toISODate() ?? undefined,
+          ...(serviceCategoryCode ? { serviceCategoryCode } : {}),
+          ...(atLocationSlug ? { atLocationSlug } : {}),
+        });
+        setOtherDateSlots(response.available?.map((s) => s.slot) ?? []);
+      } catch (error) {
+        console.error('Error loading slots for date:', error);
+        setOtherDateSlots([]);
+      } finally {
+        setOtherDateSlotsLoading(false);
+      }
+    },
+    [apiClient, bookableSlug, bookableScheduleType, serviceCategoryCode, atLocationSlug, onDemandDates]
+  );
+
   const [firstAvailableDaySlots, secondAvailableDaySlots, slotsExist] = useMemo(() => {
     const firstAvailableDaySlots = getSlotsForDate(firstAvailableDay);
     const secondAvailableDaySlots = getSlotsForDate(secondAvailableDay);
@@ -231,11 +289,11 @@ const Schedule = ({
       return true;
     } else if (currentTab === 1 && secondAvailableDaySlots.length) {
       return true;
-    } else if (currentTab === 2 && slotsExist) {
+    } else if (currentTab === 2 && (slotsExist || onDemandDates)) {
       return true;
     }
     return false;
-  }, [currentTab, secondAvailableDaySlots.length, slotsExist]);
+  }, [currentTab, secondAvailableDaySlots.length, slotsExist, onDemandDates]);
 
   if (slotsList.length === 0) {
     if (!slotsLoading)
@@ -387,31 +445,58 @@ const Schedule = ({
                     views={['month', 'day']}
                     value={selectedDate ?? null}
                     onChange={(newDate) => {
-                      if (newDate != null) {
+                      if (onDemandDates) {
+                        void handleSelectOtherDate(newDate);
+                      } else if (newDate != null) {
                         setSelectedOtherDate(newDate);
                       }
                     }}
                     // renderInput={(params) => <TextField {...params} />}
-                    shouldDisableDate={(date) =>
+                    shouldDisableDate={(date) => {
+                      // On-demand mode: any future date is selectable (its slots
+                      // are fetched on click); only today/tomorrow are handled by
+                      // their own tabs. Legacy mode: only preloaded days.
+                      if (onDemandDates) {
+                        const tomorrow = DateTime.now().startOf('day').plus({ days: 1 });
+                        return date <= tomorrow.endOf('day');
+                      }
                       // date.ordinal < firstAvailableDay.ordinal ||
                       // date.ordinal > lastSlotDate.ordinal ||
-                      daySlotsMap[date.ordinal] == null
-                    }
+                      return daySlotsMap[date.ordinal] == null;
+                    }}
                     // Minus one day for timezone shenanigans
                     minDate={firstAvailableDay?.minus({ days: 1 })}
-                    // Plus one month for month picker dropdown
-                    maxDate={DateTime.fromISO(slotsList[slotsList.length - 1].start)?.plus({ months: 1 })}
+                    maxDate={
+                      onDemandDates
+                        ? firstAvailableDay?.plus({ months: bookableMonthsAhead })
+                        : // Plus one month for month picker dropdown
+                          DateTime.fromISO(slotsList[slotsList.length - 1].start)?.plus({ months: 1 })
+                    }
                   />
                 </LocalizationProvider>
-                <Typography variant="h3" color="#000000" sx={{ textAlign: 'center' }}>
-                  {selectedDate ? selectedDate.toLocaleString(DateTime.DATE_HUGE) : 'Unknown date'}
-                </Typography>
-                <SelectSlot
-                  slots={getSlotsForDate(selectedDate)}
-                  timezone={timezone}
-                  currentSelectedSlot={locallySelectedSlot}
-                  handleSlotSelected={setLocallySelectedSlot}
-                />
+                {/* On-demand mode: only show the day's slots once a date is
+                    picked (slots are fetched on click). Legacy mode always has a
+                    selected date from the preloaded set. */}
+                {(!onDemandDates || selectedOtherDate) && (
+                  <>
+                    <Typography variant="h3" color="#000000" sx={{ textAlign: 'center' }}>
+                      {selectedDate ? selectedDate.toLocaleString(DateTime.DATE_HUGE) : 'Unknown date'}
+                    </Typography>
+                    {onDemandDates && otherDateSlotsLoading ? (
+                      <Typography variant="body2" m={1} textAlign={'center'}>
+                        {t('schedule.loading')}
+                      </Typography>
+                    ) : (
+                      <SelectSlot
+                        slots={onDemandDates ? otherDateSlots : getSlotsForDate(selectedDate)}
+                        timezone={timezone}
+                        currentSelectedSlot={locallySelectedSlot}
+                        handleSlotSelected={setLocallySelectedSlot}
+                        noSlotsMessage={onDemandDates ? t('schedule.noSlotsForDate') : undefined}
+                      />
+                    )}
+                  </>
+                )}
               </TabPanel>
             </Box>
           </Box>
