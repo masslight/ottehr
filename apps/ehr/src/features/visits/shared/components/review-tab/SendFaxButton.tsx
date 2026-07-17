@@ -3,7 +3,7 @@ import { Box, FormControl, FormHelperText, InputLabel, OutlinedInput, Tooltip, T
 import { Appointment, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { phone } from 'phone';
-import { FC, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InputMask } from 'ui-components';
 import { getInPersonVisitStatus, isPhoneNumberValid } from 'utils';
@@ -13,11 +13,22 @@ import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAcc
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 
 interface SendFaxButtonProps {
+  /**
+   * Visit-note fax (default behavior): gates the button until the visit note is signed and faxes a
+   * copy of that note for this appointment.
+   */
   appointment?: Appointment;
   encounter?: Encounter;
+  /**
+   * Overrides the default (visit-note) send — e.g. faxing a radiology order instead. Should throw on
+   * failure so the error snackbar is shown. When provided, the visit-note gating does not apply.
+   */
+  onSend?: (faxNumber: string) => Promise<void>;
+  /** Optional prefill (10 digits); synced into the field if it resolves asynchronously. */
+  initialFaxNumber?: string;
 }
 
-export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter }: SendFaxButtonProps) => {
+export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, onSend, initialFaxNumber }) => {
   const apiClient = useOystehrAPIClient();
   const [openTooltip, setOpenTooltip] = useState(false);
 
@@ -27,10 +38,20 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter }
   );
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
-  const [faxNumber, setFaxNumber] = useState('');
+  const [faxNumber, setFaxNumber] = useState(initialFaxNumber ?? '');
   const [faxError, setFaxError] = useState(false);
 
+  useEffect(() => {
+    if (initialFaxNumber) {
+      setFaxNumber(initialFaxNumber);
+    }
+  }, [initialFaxNumber]);
+
   const errorMessage = useMemo(() => {
+    // The signed-note gating only applies to the default visit-note fax; a custom onSend opts out.
+    if (onSend) {
+      return null;
+    }
     if (
       appointmentAccessibility.visitType === 'follow-up'
         ? encounter?.status === 'in-progress'
@@ -39,7 +60,7 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter }
       return "Once the visit note has been signed, you will have the option to fax a copy to the patient's Primary Care Physician.";
     }
     return null;
-  }, [appointmentAccessibility.visitType, encounter?.status, inPersonStatus]);
+  }, [onSend, appointmentAccessibility.visitType, encounter?.status, inPersonStatus]);
 
   const handleSendFax = async (): Promise<void> => {
     if (faxError) {
@@ -47,15 +68,15 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter }
       return;
     }
 
-    if (!apiClient || !appointment?.id) {
-      throw new Error('api client not defined or appointment ID is missing');
-    }
-
     try {
-      await apiClient.sendFax({
-        appointmentId: appointment.id,
-        faxNumber,
-      });
+      if (onSend) {
+        await onSend(faxNumber);
+      } else {
+        if (!apiClient || !appointment?.id) {
+          throw new Error('api client not defined or appointment ID is missing');
+        }
+        await apiClient.sendFax({ appointmentId: appointment.id, faxNumber });
+      }
       enqueueSnackbar('Fax sent.', { variant: 'success' });
     } catch (error: any) {
       console.error('Error sending fax:', error);

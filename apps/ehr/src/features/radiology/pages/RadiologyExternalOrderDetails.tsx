@@ -1,35 +1,23 @@
 import { otherColors } from '@ehrTheme/colors';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditIcon from '@mui/icons-material/Edit';
-import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { LoadingButton } from '@mui/lab';
-import {
-  Box,
-  Button,
-  Chip,
-  FormControl,
-  FormHelperText,
-  IconButton,
-  InputLabel,
-  OutlinedInput,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Chip, IconButton, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
-import { phone } from 'phone';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { SendFaxButton } from 'src/features/visits/shared/components/review-tab/SendFaxButton';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { InputMask } from 'ui-components';
-import { isPhoneNumberValid, LATERALITY_SELECTORS, RadiologyResultDTO, VitalFieldNames } from 'utils';
+import { LATERALITY_SELECTORS, RadiologyResultDTO, VitalFieldNames } from 'utils';
 import {
   createZ3Object,
   deleteRadiologyResult,
@@ -82,8 +70,6 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
     error: ordersError,
   } = usePatientRadiologyOrders({ serviceRequestId, refreshKey: ordersRefreshKey });
   const [printing, setPrinting] = useState(false);
-  const [faxNumber, setFaxNumber] = useState('');
-  const [faxError, setFaxError] = useState(false);
   const [results, setResults] = useState<RadiologyResultDTO[]>([]);
   const [uploading, setUploading] = useState(false);
   const resultInputRef = useRef<HTMLInputElement>(null);
@@ -155,14 +141,11 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
   // ("... ext. 22"); guessing at those digits risks faxing PHI to a wrong-but-valid number, so in
   // that case leave the field empty for the user to fill in.
   const performingOrgFax = order?.performingOrganization?.fax;
-  useEffect(() => {
-    if (performingOrgFax) {
-      const digits = performingOrgFax.replace(/\D/g, '');
-      const normalized = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
-      if (normalized.length === 10) {
-        setFaxNumber(normalized);
-      }
-    }
+  const initialFaxNumber = useMemo(() => {
+    if (!performingOrgFax) return undefined;
+    const digits = performingOrgFax.replace(/\D/g, '');
+    const normalized = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+    return normalized.length === 10 ? normalized : undefined;
   }, [performingOrgFax]);
 
   const handlePrint = async (): Promise<void> => {
@@ -179,19 +162,9 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
     }
   };
 
-  const handleSendFax = async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    if (faxError || !faxNumber) {
-      enqueueSnackbar('Please enter a valid fax number.', { variant: 'error' });
-      return;
-    }
-    try {
-      await sendRadiologyOrderFax(oystehrZambda, { serviceRequestId, faxNumber });
-      enqueueSnackbar('Fax sent.', { variant: 'success' });
-    } catch (e) {
-      console.error('Failed to send radiology order fax', e);
-      enqueueSnackbar('Error sending fax.', { variant: 'error' });
-    }
+  const handleSendFax = async (faxNumber: string): Promise<void> => {
+    if (!oystehrZambda) throw new Error('API client not available');
+    await sendRadiologyOrderFax(oystehrZambda, { serviceRequestId, faxNumber });
   };
 
   if (loading) {
@@ -371,64 +344,16 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
               Print & Fax
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <LoadingButton
+              <RoundedButton
                 variant="outlined"
                 color="primary"
                 startIcon={<PrintOutlinedIcon />}
                 loading={printing}
                 onClick={handlePrint}
-                sx={{ borderRadius: 28, textTransform: 'none' }}
               >
                 Print Order
-              </LoadingButton>
-              <ConfirmationDialog
-                title="Send Fax"
-                description={
-                  <FormControl variant="outlined" fullWidth error={faxError} sx={{ mt: 2, mb: -2 }}>
-                    <InputLabel shrink required htmlFor="radiology-fax-number">
-                      Fax number
-                    </InputLabel>
-                    <OutlinedInput
-                      id="radiology-fax-number"
-                      label="Fax number"
-                      notched
-                      required
-                      type="tel"
-                      placeholder="(XXX) XXX-XXXX"
-                      value={faxNumber}
-                      inputMode="numeric"
-                      inputComponent={InputMask as any}
-                      inputProps={{ mask: '(000) 000-0000' }}
-                      onChange={(e) => {
-                        const number = e.target.value.replace(/\D/g, '');
-                        setFaxNumber(number);
-                        setFaxError(!(isPhoneNumberValid(number) && phone(number).isValid));
-                      }}
-                    />
-                    <FormHelperText error sx={{ visibility: faxError ? 'visible' : 'hidden' }}>
-                      Fax number must be 10 digits in the format (xxx) xxx-xxxx and a valid number
-                    </FormHelperText>
-                  </FormControl>
-                }
-                response={handleSendFax}
-                actionButtons={{
-                  proceed: { text: 'Send', disabled: faxNumber === '' || faxError },
-                  back: { text: 'Cancel' },
-                  reverse: true,
-                }}
-              >
-                {(showDialog) => (
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    startIcon={<FaxOutlinedIcon />}
-                    onClick={showDialog}
-                    sx={{ borderRadius: 28, textTransform: 'none' }}
-                  >
-                    Send Fax
-                  </Button>
-                )}
-              </ConfirmationDialog>
+              </RoundedButton>
+              <SendFaxButton onSend={handleSendFax} initialFaxNumber={initialFaxNumber} />
             </Box>
           </Box>
 
