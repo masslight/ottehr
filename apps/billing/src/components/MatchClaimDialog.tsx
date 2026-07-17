@@ -17,8 +17,10 @@ import { ReactElement, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ClaimDetailResponse, getApiError, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { getBillingClaimDetail } from '../api/api';
+import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
+import { Meta } from '../pages/ClaimDetail';
 import AlertDialog from './AlertDialog';
 
 interface Props {
@@ -116,7 +118,7 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
                     <TextField
                       size="small"
                       fullWidth
-                      label="Enter claim id"
+                      label="Claim id"
                       value={field.value}
                       onChange={(e) => field.onChange(e.target.value)}
                       error={!!fieldError}
@@ -139,7 +141,20 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
               </Box>
             </Box>
           </FormProvider>
-          {claim ? <Box>{claim.patientName}</Box> : null}
+          {claim ? (
+            <Box sx={{ my: 2.5 }}>
+              <Typography variant="h5" color="primary.dark" fontWeight={600}>
+                {claim.patientName}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
+                <Meta label="Date of Service" value={claim.serviceLines[0]?.serviceDate ?? claim.created} />
+                <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+                <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
+                <Meta label="Service" value={formatAntCaseString(claim.service)} />
+                <Meta label="Patient DOB" value={claim.patientDob} />
+              </Box>
+            </Box>
+          ) : null}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2.5 }}>
           <Button onClick={onClose} sx={{ color: 'text.secondary' }}>

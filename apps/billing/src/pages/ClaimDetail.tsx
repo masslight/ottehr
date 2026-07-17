@@ -1397,7 +1397,7 @@ function ReadOnlySection({ title, children }: { title: string; children: React.R
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }): ReactElement {
+export function Meta({ label, value }: { label: string; value: string }): ReactElement {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
