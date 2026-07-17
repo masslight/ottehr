@@ -23,7 +23,7 @@ import { makeRadiologyDTO } from '../radiology';
 import { drawFieldLine } from './helpers/render';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
-import { composeVisitData, createPatientHeaderForDischargeSummary, createVisitInfoSection } from './sections';
+import { composeVisitData, createCompactPatientHeader, createVisitInfoSection } from './sections';
 import {
   AssetPaths,
   PatientInfoForDischargeSummary,
@@ -133,43 +133,27 @@ const radiologyOrderFormAssetPaths: AssetPaths = {
   },
 };
 
-const createRadiologyOrderFormStyles: StyleFactory = (assets) => ({
-  textStyles: {
-    header: { fontSize: 18, font: assets.fonts.bold, side: 'right', spacing: 5, newLineAfter: true },
-    subHeader: {
-      fontSize: 16,
-      font: assets.fonts.bold,
-      spacing: 5,
-      newLineAfter: true,
+const createRadiologyOrderFormStyles: StyleFactory = (assets) => {
+  const heading = { fontSize: 16, font: assets.fonts.bold, spacing: 5, newLineAfter: true };
+  const bodyLine = { fontSize: 11, font: assets.fonts.regular, spacing: 2, newLineAfter: true };
+
+  return {
+    textStyles: {
+      header: { ...heading, side: 'right' },
+      subHeader: heading,
+      patientName: heading,
+      blockHeading: { fontSize: 14, font: assets.fonts.bold, spacing: 5, newLineAfter: true },
+      orgName: { fontSize: 14, font: assets.fonts.regular, spacing: 3, newLineAfter: true },
+      regular: bodyLine,
+      fieldText: bodyLine,
+      text: { fontSize: 11, font: assets.fonts.regular, spacing: 2 },
+      fieldHeader: { fontSize: 11, font: assets.fonts.bold, spacing: 1 },
     },
-    columnHeader: { fontSize: 13, font: assets.fonts.bold, spacing: 5, newLineAfter: true },
-    orgName: { fontSize: 14, font: assets.fonts.regular, spacing: 3, newLineAfter: true },
-    patientName: { fontSize: 16, font: assets.fonts.bold, spacing: 5, newLineAfter: true },
-    regular: { fontSize: 11, font: assets.fonts.regular, spacing: 2, newLineAfter: true },
-    regularText: { fontSize: 11, font: assets.fonts.regular, spacing: 2, newLineAfter: true },
-    text: { fontSize: 11, font: assets.fonts.regular, spacing: 2 },
-    bold: { fontSize: 11, font: assets.fonts.bold, spacing: 2, newLineAfter: true },
-    muted: {
-      fontSize: 11,
-      font: assets.fonts.regular,
-      color: rgbNormalized(102, 102, 102),
-      spacing: 2,
-      newLineAfter: true,
+    lineStyles: {
+      separator: { thickness: 1, color: rgbNormalized(227, 230, 239), margin: { top: 8, bottom: 8 } },
     },
-    alternativeRegularText: {
-      fontSize: 11,
-      font: assets.fonts.regular,
-      color: rgbNormalized(143, 154, 167),
-      spacing: 2,
-      newLineAfter: true,
-    },
-    fieldHeader: { fontSize: 11, font: assets.fonts.bold, spacing: 1 },
-    fieldText: { fontSize: 11, font: assets.fonts.regular, spacing: 2, newLineAfter: true },
-  },
-  lineStyles: {
-    separator: { thickness: 1, color: rgbNormalized(227, 230, 239), margin: { top: 8, bottom: 8 } },
-  },
-});
+  };
+};
 
 const drawOrganizationBlock = (
   client: Parameters<PdfSection<RadiologyOrderFormData, unknown>['render']>[0],
@@ -178,7 +162,7 @@ const drawOrganizationBlock = (
   org: OrganizationBlock,
   extraLine?: string
 ): void => {
-  client.drawText(heading, styles.textStyles.columnHeader);
+  client.drawText(heading, styles.textStyles.blockHeading);
   client.drawText(org.name || '—', styles.textStyles.orgName);
   if (org.address) client.drawText(org.address, styles.textStyles.regular);
   if (org.fax) client.drawText(`Fax: ${org.fax}`, styles.textStyles.regular);
@@ -213,34 +197,34 @@ const orderDetailsSection: PdfSection<RadiologyOrderFormData, RadiologyOrderForm
 
     if (order.diagnoses.length) {
       drawFieldLine(client, styles, {
-        label: 'DX',
+        label: 'DX:',
         value: order.diagnoses.map((d) => `${d.code} - ${d.display}`).join('; '),
       });
     }
     if (order.studyName) {
-      drawFieldLine(client, styles, { label: 'Study Name', value: order.studyName });
+      drawFieldLine(client, styles, { label: 'Study Name:', value: order.studyName });
     }
-    drawFieldLine(client, styles, { label: 'Study Type', value: order.studyType });
+    drawFieldLine(client, styles, { label: 'Study Type:', value: order.studyType });
     if (order.laterality) {
       drawFieldLine(client, styles, {
-        label: 'Laterality',
+        label: 'Laterality:',
         value: `${order.laterality} (${LATERALITY_SELECTORS[order.laterality].uiDisplay})`,
       });
     }
     if (order.timeWindow) {
-      drawFieldLine(client, styles, { label: 'Time frame', value: order.timeWindow });
+      drawFieldLine(client, styles, { label: 'Time frame:', value: order.timeWindow });
     }
     if (order.safetyFlags.length) {
       drawFieldLine(client, styles, {
-        label: 'Patient has',
+        label: 'Patient has:',
         value: order.safetyFlags.map((flag) => RADIOLOGY_SAFETY_FLAG_LABELS[flag]).join(', '),
       });
     }
     if (order.weight) {
-      drawFieldLine(client, styles, { label: 'Weight', value: `${order.weight.value} ${order.weight.unit}` });
+      drawFieldLine(client, styles, { label: 'Weight:', value: `${order.weight.value} ${order.weight.unit}` });
     }
     if (order.clinicalHistory) {
-      drawFieldLine(client, styles, { label: 'Clinical History', value: order.clinicalHistory });
+      drawFieldLine(client, styles, { label: 'Clinical History:', value: order.clinicalHistory });
     }
   },
 };
@@ -248,7 +232,7 @@ const orderDetailsSection: PdfSection<RadiologyOrderFormData, RadiologyOrderForm
 const radiologyOrderFormRenderConfig: PdfRenderConfig<RadiologyOrderFormData> = {
   header: {
     title: 'RADIOLOGY ORDER',
-    leftSection: createPatientHeaderForDischargeSummary(),
+    leftSection: createCompactPatientHeader(),
     rightSection: createVisitInfoSection(),
   },
   headerBodySeparator: true,
