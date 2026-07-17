@@ -3,7 +3,7 @@ import { Box, FormControl, FormHelperText, InputLabel, OutlinedInput, Tooltip, T
 import { Appointment, Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { phone } from 'phone';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InputMask } from 'ui-components';
 import { getInPersonVisitStatus, isPhoneNumberValid } from 'utils';
@@ -40,9 +40,12 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
 
   const [faxNumber, setFaxNumber] = useState(initialFaxNumber ?? '');
   const [faxError, setFaxError] = useState(false);
+  // Once the user types a number, a late-arriving prefill must not overwrite it — the user could
+  // miss the swap and fax PHI to the prefilled number instead of the one they entered.
+  const userEditedFaxNumber = useRef(false);
 
   useEffect(() => {
-    if (initialFaxNumber) {
+    if (initialFaxNumber && !userEditedFaxNumber.current) {
       setFaxNumber(initialFaxNumber);
     }
   }, [initialFaxNumber]);
@@ -115,6 +118,7 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
                     mask: '(000) 000-0000',
                   }}
                   onChange={(e) => {
+                    userEditedFaxNumber.current = true;
                     const number = e.target.value.replace(/\D/g, '');
                     setFaxNumber(number);
                     if (isPhoneNumberValid(number) && phone(number).isValid) {

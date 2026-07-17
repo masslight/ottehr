@@ -106,7 +106,8 @@ export const makeRadiologyDTO = (
     cptCodeDisplay,
     cptCode: baseCptCode,
     laterality,
-    studyType: `${cptCode} — ${cptCodeDisplay}`,
+    // Laterality is surfaced via its own field; keep it out of studyType so it isn't shown twice.
+    studyType: `${baseCptCode} — ${cptCodeDisplay}`,
     diagnosis,
     diagnoses,
     clinicalHistory,

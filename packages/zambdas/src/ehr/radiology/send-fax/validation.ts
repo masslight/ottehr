@@ -3,6 +3,7 @@ import { validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: SendRadiologyOrderFaxZambdaInput;
+  callerAccessToken: string;
 }
 
 export const validateInput = (input: ZambdaInput): ValidatedInput => {
@@ -21,7 +22,12 @@ export const validateInput = (input: ZambdaInput): ValidatedInput => {
   // Normalize to E.164 (+1XXXXXXXXXX) from whatever formatting the client sent.
   const tenDigits = faxNumber.replace(/\D/g, '').slice(-10);
 
-  return { body: { serviceRequestId, faxNumber: `+1${tenDigits}` } };
+  const callerAccessToken = input.headers.Authorization?.replace('Bearer ', '');
+  if (!callerAccessToken) {
+    throw new Error('Authorization header is required');
+  }
+
+  return { body: { serviceRequestId, faxNumber: `+1${tenDigits}` }, callerAccessToken };
 };
 
 export const validateSecrets = (secrets: Secrets | null): Secrets => {

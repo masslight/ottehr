@@ -30,9 +30,9 @@ const ZAMBDA_NAME = 'radiology-send-fax';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const secrets = validateSecrets(unsafeInput.secrets);
-  const { body } = validateInput(unsafeInput);
+  const { body, callerAccessToken } = validateInput(unsafeInput);
 
-  const user = await getUser(unsafeInput.headers.Authorization.replace('Bearer ', ''), secrets);
+  const user = await getUser(callerAccessToken, secrets);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
