@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { HOLD_TAG_NAME } from './rules-engine.constants';
-import { validateRuleFieldReferences } from './rules-engine.field-catalog';
-import { BillingRule, RuleActionSchema, SaveBillingRulesInputSchema } from './rules-engine.schemas';
+import { ADD_SERVICE_LINE_FIELDS, validateRuleFieldReferences } from './rules-engine.field-catalog';
+import {
+  AddServiceLineInputSchema,
+  BillingRule,
+  RuleActionSchema,
+  SaveBillingRulesInputSchema,
+} from './rules-engine.schemas';
 
 // Schema-layer tests only: the engine's evaluator/serialization are backend code and are tested in
 // packages/zambdas/test/unit/billing/rules-engine.test.ts.
@@ -53,6 +58,36 @@ describe('service line action schemas', () => {
       }).success
     ).toBe(false);
     expect(RuleActionSchema.safeParse({ type: 'removeServiceLines' }).success).toBe(false);
+  });
+});
+
+describe('addServiceLine action schema', () => {
+  it('the add-line field list matches the schema keys', () => {
+    const schemaKeys = Object.keys(AddServiceLineInputSchema.shape).sort();
+    const fieldIds = ADD_SERVICE_LINE_FIELDS.map((field) => field.id).sort();
+    expect(fieldIds).toEqual(schemaKeys);
+  });
+
+  it('parses full and minimal lines, rejecting missing required fields', () => {
+    const full = {
+      type: 'addServiceLine',
+      line: {
+        cptCode: '87880',
+        modifiers: 'QW, 59',
+        units: '2',
+        charges: '45.25',
+        placeOfService: '11',
+        serviceDate: '2026-02-02',
+        diagnosisPointers: '1,2',
+      },
+    };
+    expect(RuleActionSchema.parse(full)).toEqual(full);
+
+    const minimal = { type: 'addServiceLine', line: { cptCode: '99050', charges: '30' } };
+    expect(RuleActionSchema.parse(minimal)).toEqual(minimal);
+
+    expect(RuleActionSchema.safeParse({ type: 'addServiceLine', line: { charges: '30' } }).success).toBe(false);
+    expect(RuleActionSchema.safeParse({ type: 'addServiceLine', line: { cptCode: '99050' } }).success).toBe(false);
   });
 });
 
@@ -185,5 +220,30 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[1]).toContain('updates unknown service line property "alsoNotOne"');
     expect(problems[2]).toContain('matches service lines on "modifiers" with unsupported operator "gt"');
     expect(problems[3]).toContain('uses operation "add" on non-list service line property "units"');
+  });
+
+  it('validates add-service-line field formats', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'addServiceLine',
+                  line: { cptCode: '99050', charges: 'a lot', units: '-1', diagnosisPointers: '1,x' },
+                },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(3);
+    expect(problems[0]).toContain('adds a service line: Charges must be a non-negative number');
+    expect(problems[1]).toContain('adds a service line: Units must be a positive number');
+    expect(problems[2]).toContain('adds a service line: Diagnosis pointers must be comma-separated numbers');
   });
 });

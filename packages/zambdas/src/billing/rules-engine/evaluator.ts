@@ -164,6 +164,68 @@ export const serviceLineMatches = (line: ClaimServiceLine, match: ServiceLineMat
   return evaluateOperator(match.operator, readServiceLineProperty(line, match.property), match.value);
 };
 
+// Resolve the diagnosis pointers for a new line: explicit pointers are validated strictly against
+// the claim's diagnosis list (a rule must never silently re-point a line), while a blank input falls
+// back to the claim editor's default — the first diagnosis, or none when the claim has none.
+const resolveDiagnosisPointers = (
+  raw: string | undefined,
+  diagnosisCount: number
+): { pointers?: number[]; error?: string } => {
+  const trimmed = raw?.trim() ?? '';
+  if (!trimmed) return { pointers: diagnosisCount > 0 ? [1] : undefined };
+  const pointers = trimmed.split(',').map((part) => Number(part.trim()));
+  if (pointers.length === 0 || pointers.some((pointer) => !Number.isInteger(pointer) || pointer < 1)) {
+    return { error: `invalid diagnosis pointers "${raw}"` };
+  }
+  const outOfRange = pointers.find((pointer) => pointer > diagnosisCount);
+  if (outOfRange != null) {
+    return { error: `diagnosis pointer ${outOfRange} is beyond the claim's ${diagnosisCount} diagnosis(es)` };
+  }
+  return { pointers: [...new Set(pointers)] };
+};
+
+// Append a new service line built from the action's fields, using the same per-line writers as
+// updateServiceLines and the claim editor's defaults for blank optional fields (units 1, service
+// date inherited from the first line, pointing at the first diagnosis, tied to the rendering
+// provider when the claim has one). Recomputes the billed total.
+const applyAddServiceLine = (
+  action: Extract<RuleAction, { type: 'addServiceLine' }>,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  const { claim } = model;
+  const input = action.line;
+  const existing = claim.item ?? [];
+
+  const serviceDate =
+    input.serviceDate?.trim() || existing[0]?.servicedPeriod?.start || existing[0]?.servicedDate || '';
+  if (!serviceDate) {
+    return 'could not add service line — specify a service date (the claim has no existing lines to inherit one from)';
+  }
+
+  const resolved = resolveDiagnosisPointers(input.diagnosisPointers, claim.diagnosis?.length ?? 0);
+  if (resolved.error) return `could not add service line — ${resolved.error}`;
+
+  const line: ClaimServiceLine = {
+    sequence: existing.reduce((max, item) => Math.max(max, item.sequence), 0) + 1,
+    productOrService: { coding: [] },
+  };
+  const set = (property: string, value: string): boolean => writeServiceLineProperty(line, property, value, 'set');
+  if (!set('cptCode', input.cptCode.trim())) return `could not add service line — invalid CPT code "${input.cptCode}"`;
+  if (!set('charges', input.charges.trim())) return `could not add service line — invalid charges "${input.charges}"`;
+  const units = input.units?.trim() || '1';
+  if (!set('units', units)) return `could not add service line — invalid units "${input.units}"`;
+  if (input.modifiers?.trim()) set('modifiers', input.modifiers);
+  if (input.placeOfService?.trim()) set('placeOfService', input.placeOfService.trim());
+  set('serviceDate', serviceDate);
+  line.diagnosisSequence = resolved.pointers;
+  // Mirror the claim editor: tie the line to the rendering provider (careTeam sequence 1) when set.
+  if ((claim.careTeam ?? []).some((member) => member.sequence === 1)) line.careTeamSequence = [1];
+
+  claim.item = [...existing, line];
+  recomputeClaimTotal(claim);
+  return undefined;
+};
+
 // Apply one change to every line matching the predicate. Zero matching lines is a legitimate no-op
 // (like an UPDATE matching no rows) — pair the action with a condition (e.g. cptCodes contains X)
 // when a match must exist. A line the value cannot be applied to fails the rule.
@@ -215,6 +277,8 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): s
       return writeField(model, action.field, action.value)
         ? undefined
         : `could not set "${action.field}" — the field is unknown or read-only, or the target is missing from this claim`;
+    case RULE_ACTION_TYPE.addServiceLine:
+      return applyAddServiceLine(action, model);
     case RULE_ACTION_TYPE.updateServiceLines:
       return applyServiceLineUpdate(action, model);
     case RULE_ACTION_TYPE.removeServiceLines:

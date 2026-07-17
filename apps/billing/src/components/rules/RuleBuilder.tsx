@@ -14,6 +14,8 @@ import {
 import { ReactElement } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import {
+  ADD_SERVICE_LINE_FIELDS,
+  addServiceLineFieldProblem,
   getRuleFieldDef,
   getServiceLinePropertyDef,
   HOLD_TAG_NAME,
@@ -422,6 +424,42 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
   );
 }
 
+// Form for the addServiceLine action: one input per field of the new line, driven by
+// ADD_SERVICE_LINE_FIELDS. Required fields and value formats validate through react-hook-form (the
+// same shared checks save-time validation runs), so submitting an invalid line highlights the exact
+// input; blank optional fields fall back to the claim editor's defaults, shown as helper text.
+function AddServiceLineEditor({ name }: { name: string }): ReactElement {
+  const { control } = useFormContext();
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {ADD_SERVICE_LINE_FIELDS.map((lineField) => (
+        <Controller
+          key={lineField.id}
+          name={`${name}.line.${lineField.id}`}
+          control={control}
+          rules={{ validate: (value: string | undefined) => addServiceLineFieldProblem(lineField.id, value) ?? true }}
+          render={({ field: { ref, ...field }, fieldState: { error } }) => (
+            <TextField
+              {...field}
+              value={field.value ?? ''}
+              inputRef={ref}
+              size="small"
+              type={lineField.valueType === 'number' || lineField.valueType === 'date' ? lineField.valueType : 'text'}
+              label={lineField.required ? lineField.label : `${lineField.label} (optional)`}
+              InputLabelProps={
+                lineField.valueType === 'number' || lineField.valueType === 'date' ? { shrink: true } : undefined
+              }
+              error={!!error}
+              helperText={error?.message ?? (lineField.whenBlank ? `Blank: ${lineField.whenBlank}` : undefined)}
+              sx={{ minWidth: 200 }}
+            />
+          )}
+        />
+      ))}
+    </Box>
+  );
+}
+
 // Editor for an updateServiceLines set clause: which line property to change, how (for list-valued
 // properties: replace / add / remove), and the value.
 function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
@@ -496,6 +534,8 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
             const next = e.target.value as RuleAction['type'];
             if (next === RULE_ACTION_TYPE.setField) replace(newAction());
             else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
+            else if (next === RULE_ACTION_TYPE.addServiceLine)
+              replace({ type: RULE_ACTION_TYPE.addServiceLine, line: { cptCode: '', charges: '' } });
             else if (next === RULE_ACTION_TYPE.updateServiceLines)
               replace({
                 type: RULE_ACTION_TYPE.updateServiceLines,
@@ -509,6 +549,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
         >
           <MenuItem value={RULE_ACTION_TYPE.setField}>Set a property</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.applyTag}>Apply a tag</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.addServiceLine}>Add a service line</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.updateServiceLines}>Update service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.removeServiceLines}>Remove service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
@@ -535,6 +576,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           />
         </>
       )}
+      {value.type === RULE_ACTION_TYPE.addServiceLine && <AddServiceLineEditor name={name} />}
       {value.type === RULE_ACTION_TYPE.updateServiceLines && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <ServiceLineMatchEditor name={`${name}.match`} />

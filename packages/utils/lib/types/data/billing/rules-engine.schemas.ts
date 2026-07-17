@@ -89,6 +89,7 @@ export const RULE_CONDITION_TYPE = { all: 'all', field: 'field', group: 'group' 
 export const RULE_ACTION_TYPE = {
   setField: 'setField',
   applyTag: 'applyTag',
+  addServiceLine: 'addServiceLine',
   updateServiceLines: 'updateServiceLines',
   removeServiceLines: 'removeServiceLines',
   noop: 'noop',
@@ -151,10 +152,28 @@ export const ServiceLineMatchSchema: z.ZodType<ServiceLineMatch> = z.discriminat
 export const SERVICE_LINE_SET_OPERATIONS = ['set', 'add', 'remove'] as const;
 export type ServiceLineSetOperation = (typeof SERVICE_LINE_SET_OPERATIONS)[number];
 
+// The fields of a new service line added by the addServiceLine action. All values are strings (the
+// rule value model) and are validated at save time (format) and apply time (claim-dependent checks);
+// blank optional fields fall back to the same defaults the claim editor uses — see
+// ADD_SERVICE_LINE_FIELDS in the field catalog, which documents each field and drives the UI.
+export const AddServiceLineInputSchema = z.object({
+  cptCode: z.string().min(1),
+  // Comma-separated modifier codes.
+  modifiers: z.string().optional(),
+  units: z.string().optional(),
+  charges: z.string().min(1),
+  placeOfService: z.string().optional(),
+  serviceDate: z.string().optional(),
+  // Comma-separated 1-based pointers into the claim's diagnosis list.
+  diagnosisPointers: z.string().optional(),
+});
+export type AddServiceLineInput = z.output<typeof AddServiceLineInputSchema>;
+
 // --- Action ---
 export type RuleAction =
   | { type: 'setField'; field: string; value: string | null }
   | { type: 'applyTag'; tag: string }
+  | { type: 'addServiceLine'; line: AddServiceLineInput }
   | {
       type: 'updateServiceLines';
       match: ServiceLineMatch;
@@ -174,6 +193,7 @@ const tagNameSchema = z
 export const RuleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal(RULE_ACTION_TYPE.setField), field: z.string().min(1), value: z.string().nullable() }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.applyTag), tag: tagNameSchema }),
+  z.object({ type: z.literal(RULE_ACTION_TYPE.addServiceLine), line: AddServiceLineInputSchema }),
   z.object({
     type: z.literal(RULE_ACTION_TYPE.updateServiceLines),
     match: ServiceLineMatchSchema,

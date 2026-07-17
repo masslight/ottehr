@@ -3,7 +3,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { generateRulesEngineDocumentation } from './rules-engine.docs';
-import { RULE_FIELD_CATALOG, SERVICE_LINE_PROPERTY_CATALOG } from './rules-engine.field-catalog';
+import {
+  ADD_SERVICE_LINE_FIELDS,
+  RULE_FIELD_CATALOG,
+  SERVICE_LINE_PROPERTY_CATALOG,
+} from './rules-engine.field-catalog';
 import { RULE_OPERATOR_METADATA, RULE_OPERATORS } from './rules-engine.schemas';
 
 // docs/billing-rules-engine.md at the repo root, relative to this file
@@ -18,6 +22,9 @@ describe('rules-engine documentation', () => {
     }
     for (const property of SERVICE_LINE_PROPERTY_CATALOG) {
       expect(doc, `service line property ${property.id} missing from docs`).toContain(`\`${property.id}\``);
+    }
+    for (const field of ADD_SERVICE_LINE_FIELDS) {
+      expect(doc, `add-service-line field ${field.id} missing from docs`).toContain(`\`${field.id}\``);
     }
     for (const op of RULE_OPERATORS) {
       expect(doc, `operator ${op} missing from docs`).toContain(RULE_OPERATOR_METADATA[op].label);

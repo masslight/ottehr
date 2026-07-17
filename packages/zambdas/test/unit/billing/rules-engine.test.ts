@@ -437,6 +437,78 @@ describe('service line actions', () => {
     expect(readField(m, 'cptCodes')).toEqual([]);
   });
 
+  it('adds a service line with every field specified and recomputes the total', () => {
+    const m = makeModel();
+    const error = applyAction(
+      {
+        type: 'addServiceLine',
+        line: {
+          cptCode: '87880',
+          modifiers: 'QW, 59',
+          units: '2',
+          charges: '45.25',
+          placeOfService: '11',
+          serviceDate: '2026-02-02',
+          diagnosisPointers: '1',
+        },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(m.claim.item).toHaveLength(2);
+    const added = m.claim.item![1];
+    expect(added.sequence).toBe(2);
+    expect(readServiceLineProperty(added, 'cptCode')).toBe('87880');
+    expect(readServiceLineProperty(added, 'modifiers')).toEqual(['QW', '59']);
+    expect(readServiceLineProperty(added, 'units')).toBe('2');
+    expect(readServiceLineProperty(added, 'charges')).toBe('45.25');
+    expect(readServiceLineProperty(added, 'placeOfService')).toBe('11');
+    expect(readServiceLineProperty(added, 'serviceDate')).toBe('2026-02-02');
+    expect(added.diagnosisSequence).toEqual([1]);
+    expect(m.claim.total?.value).toBe(170.75);
+    expect(readField(m, 'billed')).toBe('170.75');
+  });
+
+  it('fills the claim editor defaults for blank optional fields on an added line', () => {
+    const m = makeModel();
+    m.claim.careTeam = [{ sequence: 1, provider: { reference: 'Practitioner/rp' } }];
+    const error = applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30' } }, m);
+    expect(error).toBeUndefined();
+    const added = m.claim.item![1];
+    expect(readServiceLineProperty(added, 'units')).toBe('1');
+    // Inherited from the claim's first line.
+    expect(readServiceLineProperty(added, 'serviceDate')).toBe('2026-01-05');
+    // Points at the first diagnosis, and ties to the rendering provider, like the claim editor.
+    expect(added.diagnosisSequence).toEqual([1]);
+    expect(added.careTeamSequence).toEqual([1]);
+    expect(readServiceLineProperty(added, 'modifiers')).toEqual([]);
+    expect(readServiceLineProperty(added, 'placeOfService')).toBeUndefined();
+  });
+
+  it('fails adding a line without an inheritable service date or with invalid values', () => {
+    const m = makeModel();
+    m.claim.item = [];
+    expect(applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30' } }, m)).toContain(
+      'service date'
+    );
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', serviceDate: '2026-02-02' } }, m)
+    ).toBeUndefined();
+    expect(m.claim.item).toHaveLength(1);
+    expect(m.claim.item![0].sequence).toBe(1);
+    expect(m.claim.total?.value).toBe(30);
+
+    expect(applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: 'abc' } }, m)).toContain('charges');
+    expect(applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', units: '0' } }, m)).toContain(
+      'units'
+    );
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', diagnosisPointers: '3' } }, m)
+    ).toContain('diagnosis pointer 3');
+    // The failed adds must not have appended anything.
+    expect(m.claim.item).toHaveLength(1);
+  });
+
   it('detects duplicate CPT codes and executes the canonical hold-on-duplicates rule', () => {
     const m = makeModel();
     expect(readField(m, 'duplicateCptCodes')).toEqual([]);
@@ -674,6 +746,7 @@ describe('rules-engine serialization', () => {
                   type: 'removeServiceLines',
                   match: { type: 'field', property: 'charges', operator: 'eq', value: '0' },
                 },
+                { type: 'addServiceLine', line: { cptCode: '99050', charges: '25' } },
               ],
             },
           },

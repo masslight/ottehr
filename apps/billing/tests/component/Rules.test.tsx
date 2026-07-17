@@ -145,6 +145,31 @@ describe('ConditionalEditor', () => {
     expect(screen.getAllByText('CPT code').length).toBeGreaterThan(0);
   });
 
+  it('renders the add-service-line form and blocks submit on missing required fields', async () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: {
+            type: 'actions',
+            actions: [{ type: 'addServiceLine', line: { cptCode: '', charges: '' } }],
+          },
+        },
+      ],
+    };
+    const onValid = vi.fn();
+    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+
+    expect(screen.getByLabelText(/CPT code/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Service date/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(await screen.findByText('CPT code is required')).toBeInTheDocument();
+    expect(screen.getByText('Charges are required')).toBeInTheDocument();
+    expect(onValid).not.toHaveBeenCalled();
+  });
+
   it('blocks submit, highlights, and focuses an empty tag name instead of round-tripping to the server', async () => {
     const conditional: RuleConditional = {
       branches: [

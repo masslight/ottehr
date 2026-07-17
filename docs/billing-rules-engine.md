@@ -208,8 +208,21 @@ A matched branch's outcome is a list of actions, applied in order:
 | --- | --- |
 | Set a property (`setField`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the rules engine. If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
 | Apply a tag (`applyTag`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **Hold** tag holds the claim: the run stops and the engine's on-success effect does not happen. |
+| Add a service line (`addServiceLine`) | Appends a new service line built from the fields below and recomputes the claim's billed total. Blank optional fields use the claim editor's defaults, and the new line is tied to the claim's rendering provider when one is set. An invalid field value fails the rule and holds the claim. |
 | Update service lines (`updateServiceLines`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
 | Remove service lines (`removeServiceLines`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Do nothing (`noop`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |
+
+### "Add a service line" fields
+
+| Field | Type | Required | When left blank |
+| --- | --- | --- | --- |
+| CPT code (`cptCode`) | text | yes | — |
+| Charges (`charges`) | number | yes | — |
+| Units (`units`) | number | no | 1 |
+| Modifiers (comma-separated) (`modifiers`) | text | no | no modifiers |
+| Place of service code (`placeOfService`) | text | no | none |
+| Service date (`serviceDate`) | date | no | inherited from the claim's first service line; the action fails if the claim has no lines |
+| Diagnosis pointers (comma-separated) (`diagnosisPointers`) | text | no | points at the first diagnosis (1) |
 
 Actions after a failed action or after the **Hold** tag do not run.

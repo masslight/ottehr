@@ -2,6 +2,7 @@ import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
+  AddServiceLineInput,
   RuleAction,
   RuleCondition,
   RuleConditional,
@@ -701,6 +702,84 @@ export const getServiceLinePropertyDef = (id: string): ServiceLinePropertyDef | 
   SERVICE_LINE_PROPERTIES_BY_ID.get(id);
 
 // ---------------------------------------------------------------------------
+// "Add a service line" fields.
+//
+// The addServiceLine action appends a new line with these fields (ids match AddServiceLineInput's
+// keys — a unit test guards the pairing). This list drives the rule builder's add-line form, the
+// shared field validation below, and the generated documentation.
+// ---------------------------------------------------------------------------
+
+export interface AddServiceLineFieldDef {
+  id: keyof AddServiceLineInput;
+  label: string;
+  valueType: ServiceLineValueType;
+  required: boolean;
+  // What happens when an optional field is left blank (docs table + UI helper text).
+  whenBlank?: string;
+}
+
+export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
+  { id: 'cptCode', label: 'CPT code', valueType: 'string', required: true },
+  { id: 'charges', label: 'Charges', valueType: 'number', required: true },
+  { id: 'units', label: 'Units', valueType: 'number', required: false, whenBlank: '1' },
+  {
+    id: 'modifiers',
+    label: 'Modifiers (comma-separated)',
+    valueType: 'string',
+    required: false,
+    whenBlank: 'no modifiers',
+  },
+  { id: 'placeOfService', label: 'Place of service code', valueType: 'string', required: false, whenBlank: 'none' },
+  {
+    id: 'serviceDate',
+    label: 'Service date',
+    valueType: 'date',
+    required: false,
+    whenBlank: "inherited from the claim's first service line; the action fails if the claim has no lines",
+  },
+  {
+    id: 'diagnosisPointers',
+    label: 'Diagnosis pointers (comma-separated)',
+    valueType: 'string',
+    required: false,
+    whenBlank: 'points at the first diagnosis (1)',
+  },
+];
+
+// One add-line field's format problem, or undefined when the value is acceptable. Shared by the rule
+// builder (per-field validation messages) and save-time validation; claim-dependent checks (e.g. a
+// pointer beyond the claim's diagnosis count) happen at apply time in the engine.
+export function addServiceLineFieldProblem(
+  fieldId: AddServiceLineFieldDef['id'],
+  value: string | undefined
+): string | undefined {
+  const trimmed = value?.trim() ?? '';
+  switch (fieldId) {
+    case 'cptCode':
+      return trimmed ? undefined : 'CPT code is required';
+    case 'charges': {
+      if (!trimmed) return 'Charges are required';
+      const charges = Number(trimmed);
+      return Number.isFinite(charges) && charges >= 0 ? undefined : 'Charges must be a non-negative number';
+    }
+    case 'units': {
+      if (!trimmed) return undefined;
+      const units = Number(trimmed);
+      return Number.isFinite(units) && units > 0 ? undefined : 'Units must be a positive number';
+    }
+    case 'diagnosisPointers': {
+      if (!trimmed) return undefined;
+      const pointers = trimmed.split(',').map((part) => Number(part.trim()));
+      return pointers.every((pointer) => Number.isInteger(pointer) && pointer >= 1)
+        ? undefined
+        : 'Diagnosis pointers must be comma-separated numbers (1 = first diagnosis)';
+    }
+    default:
+      return undefined;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Save-time validation: walk a rule's conditional tree and report references to unknown properties
 // in conditions and unknown/read-only properties in setField actions. The engine also fails safe at
 // runtime (an unknown reader evaluates to "missing", an unknown/read-only writer holds the claim),
@@ -742,6 +821,13 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
     }
     if (action.type === 'removeServiceLines') {
       visitServiceLineMatch(action.match);
+      return;
+    }
+    if (action.type === 'addServiceLine') {
+      for (const field of ADD_SERVICE_LINE_FIELDS) {
+        const problem = addServiceLineFieldProblem(field.id, action.line[field.id]);
+        if (problem) problems.push(`rule "${rule.name}" adds a service line: ${problem}`);
+      }
       return;
     }
     if (action.type === 'updateServiceLines') {

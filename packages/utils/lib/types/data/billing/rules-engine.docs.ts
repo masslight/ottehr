@@ -1,5 +1,6 @@
 import { HOLD_TAG_NAME, RULES_ENGINE_TYPES, RULES_ENGINES } from './rules-engine.constants';
 import {
+  ADD_SERVICE_LINE_FIELDS,
   RULE_FIELD_CATALOG,
   RULE_FIELD_GROUP_LABELS,
   RULE_FIELD_GROUPS,
@@ -102,6 +103,18 @@ function renderOperatorTable(): string {
   return lines.join('\n');
 }
 
+function renderAddServiceLineFieldTable(): string {
+  const lines = ['| Field | Type | Required | When left blank |', '| --- | --- | --- | --- |'];
+  for (const field of ADD_SERVICE_LINE_FIELDS) {
+    lines.push(
+      `| ${cell(field.label)} (\`${field.id}\`) | ${VALUE_TYPE_LABELS[field.valueType]} | ${
+        field.required ? 'yes' : 'no'
+      } | ${cell(field.whenBlank ?? '—')} |`
+    );
+  }
+  return lines.join('\n');
+}
+
 function renderEnginesTable(): string {
   const lines = ['| Engine | Runs automatically | When every rule passes |', '| --- | --- | --- |'];
   for (const type of RULES_ENGINE_TYPES) {
@@ -190,9 +203,14 @@ A matched branch's outcome is a list of actions, applied in order:
 | --- | --- |
 | Set a property (\`setField\`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the rules engine. If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
 | Apply a tag (\`applyTag\`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **${HOLD_TAG_NAME}** tag holds the claim: the run stops and the engine's on-success effect does not happen. |
+| Add a service line (\`addServiceLine\`) | Appends a new service line built from the fields below and recomputes the claim's billed total. Blank optional fields use the claim editor's defaults, and the new line is tied to the claim's rendering provider when one is set. An invalid field value fails the rule and holds the claim. |
 | Update service lines (\`updateServiceLines\`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
 | Remove service lines (\`removeServiceLines\`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
 | Do nothing (\`noop\`) | Explicitly does nothing. Useful as an else branch that intentionally takes no action. |
+
+### "Add a service line" fields
+
+${renderAddServiceLineFieldTable()}
 
 Actions after a failed action or after the **${HOLD_TAG_NAME}** tag do not run.`);
 
