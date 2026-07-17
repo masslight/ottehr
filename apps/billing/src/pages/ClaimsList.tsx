@@ -581,7 +581,7 @@ export default function ClaimsList(): ReactElement {
         onConfirm={() => void handleSubmit()}
         onCancel={() => setConfirmingSubmit(false)}
       >
-        Run rules for {selected.length} claim(s)? Each claim runs its AR stage&apos;s rules engine — when every rule
+        Run rules for {selected.length} claim(s)? Each claim runs its AR stage's rules engine — when every rule
         passes, Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a
         Hold keeps a claim for review.
       </ConfirmDialog>
