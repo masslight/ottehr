@@ -278,10 +278,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   useEffect(() => {
     const initialPaymentMethod = determineInitialPaymentMethod();
 
-    if (initialPaymentMethod) {
+    if (draft.selectedPaymentMethod) setSelectedPaymentMethod(draft.selectedPaymentMethod);
+    else if (initialPaymentMethod) {
       setSelectedPaymentMethod(initialPaymentMethod);
     }
-  }, [determineInitialPaymentMethod]);
+  }, [determineInitialPaymentMethod, draft]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
