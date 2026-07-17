@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { Operation } from 'fast-json-patch';
-import { Encounter } from 'fhir/r4b';
+import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createInvoiceTaskInput,
@@ -14,6 +14,9 @@ import {
   mapDisplayToInvoiceTaskStatus,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
+import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { searchPatientArClaims } from '../../../billing/search-billing-patient-ar-claims/handler';
+import { createBillingClient, createEraReadClient } from '../../../billing/shared';
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
@@ -26,30 +29,51 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'sub-refresh-invoice-task';
 
+interface RefreshedInvoiceData {
+  finalizationDateIso: string;
+  claimId?: string;
+  amountCents?: number;
+}
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParams = validateRequestParameters(input);
   const { task, secrets, invoiceTaskInput, taskId } = validatedParams;
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const candid = await getOrCreateCandidApiClient(oystehr, secrets);
 
-  const inventoryRecord = await getCandidInventoryRecordForTask(oystehr, candid, taskId);
-  if (inventoryRecord) {
-    console.log(`Found inventory record for task, ${JSON.stringify(inventoryRecord)}`);
+  const source = getInvoiceTaskSource(task);
+  console.log(`Refreshing ${source} invoice task ${taskId}`);
 
-    invoiceTaskInput.finalizationDate = inventoryRecord.timestamp.toISOString();
-    console.log('Updating finalization date: ', invoiceTaskInput.finalizationDate);
+  let refreshed: RefreshedInvoiceData | undefined;
+  if (source === 'ottehr-billing') {
+    refreshed = await getBillingRefreshData({
+      billingClient: createBillingClient(m2mToken, secrets),
+      eraReadClient: createEraReadClient(m2mToken, secrets),
+      task,
+    });
+  } else {
+    const candid = await getOrCreateCandidApiClient(oystehr, secrets);
+    refreshed = await getCandidRefreshData({
+      oystehr,
+      candid,
+      taskId,
+    });
+  }
 
-    if (!invoiceTaskInput.claimId) {
-      invoiceTaskInput.claimId = inventoryRecord.claimId.toString();
+  if (refreshed) {
+    if (refreshed.finalizationDateIso) {
+      invoiceTaskInput.finalizationDate = refreshed.finalizationDateIso;
+      console.log('Updating finalization date: ', invoiceTaskInput.finalizationDate);
+    }
+
+    if (!invoiceTaskInput.claimId && refreshed.claimId) {
+      invoiceTaskInput.claimId = refreshed.claimId;
       console.log('Updating claim id: ', invoiceTaskInput.claimId);
     }
 
-    const itemization = await getItemizationForClaim(candid, inventoryRecord.claimId);
-    if (itemization) {
-      console.log(`Found itemization for claim`);
-      invoiceTaskInput.amountCents = itemization.patientBalanceCents;
+    if (refreshed.amountCents !== undefined) {
+      invoiceTaskInput.amountCents = refreshed.amountCents;
       console.log('Updating amount cents: ', invoiceTaskInput.amountCents);
     }
     console.log('Updating task input...', JSON.stringify(createInvoiceTaskInput(invoiceTaskInput), null, 2));
@@ -57,12 +81,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const isZeroBalance = invoiceTaskInput.amountCents === 0;
     const updateOperations: Operation[] = [
       { op: 'replace', path: '/input', value: createInvoiceTaskInput(invoiceTaskInput) },
-      {
+    ];
+
+    if (invoiceTaskInput.finalizationDate) {
+      updateOperations.push({
         op: task.authoredOn ? 'replace' : 'add',
         path: '/authoredOn',
         value: invoiceTaskInput.finalizationDate,
-      },
-    ];
+      });
+    }
 
     // Ensure executionPeriod.end stays in sync with start (appointment date).
     // executionPeriod encodes the appointment date on both bounds so FHIR _sort=period
@@ -107,7 +134,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  console.warn('Task was not updated because no inventory record was found for the task.'); // todo how i can better manage this situation
+  console.warn('Task was not updated because no billing record was found for the task.'); // todo how i can better manage this situation
   await oystehr.fhir.patch({
     resourceType: 'Task',
     id: taskId,
@@ -116,9 +143,58 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ message: 'Task was not updated because no inventory record was found for the task.' }),
+    body: JSON.stringify({ message: 'Task was not updated because no billing record was found for the task.' }),
   };
 });
+
+async function getBillingRefreshData(params: {
+  billingClient: Oystehr;
+  eraReadClient: Oystehr;
+  task: Task;
+}): Promise<RefreshedInvoiceData | undefined> {
+  const { billingClient, eraReadClient, task } = params;
+  const claimId = getInvoiceTaskClaimId(task);
+  if (!claimId) {
+    console.warn(`Billing-sourced task ${task.id} has no claim id identifier`);
+    return undefined;
+  }
+
+  const response = await searchPatientArClaims({
+    billingClient,
+    eraReadClient,
+    claimIds: [claimId],
+    includeZeroBalance: true,
+  });
+  const item = response.claims.find((claim) => claim.claimId === claimId);
+  if (!item) return undefined;
+
+  console.log(`Found patient AR record for claim ${claimId}, balance: ${item.balance}`);
+  return {
+    finalizationDateIso: item.finalizationDate,
+    claimId: item.claimId,
+    amountCents: Math.round(item.balance * 100),
+  };
+}
+
+async function getCandidRefreshData(params: {
+  oystehr: Oystehr;
+  candid: CandidApiClient;
+  taskId: string;
+}): Promise<RefreshedInvoiceData | undefined> {
+  const { oystehr, candid, taskId } = params;
+  const inventoryRecord = await getCandidInventoryRecordForTask(oystehr, candid, taskId);
+  if (!inventoryRecord) return undefined;
+
+  console.log(`Found inventory record for task, ${JSON.stringify(inventoryRecord)}`);
+  const itemization = await getItemizationForClaim(candid, inventoryRecord.claimId);
+  if (itemization) console.log(`Found itemization for claim`);
+
+  return {
+    finalizationDateIso: inventoryRecord.timestamp.toISOString(),
+    claimId: inventoryRecord.claimId.toString(),
+    amountCents: itemization?.patientBalanceCents,
+  };
+}
 
 async function getCandidInventoryRecordForTask(
   oystehr: Oystehr,
