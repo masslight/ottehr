@@ -139,7 +139,7 @@ export function MatchClaimDialog({ claimResponseId, onMatched, onClose }: Props)
               </Typography>
               <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
                 <Meta label="Date of Service" value={claim.serviceLines[0]?.serviceDate ?? claim.created} />
-                <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+                <Meta label="Claim ID" value={claim.id} />
                 <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
                 <Meta label="Service" value={formatAntCaseString(claim.service)} />
                 <Meta label="Patient DOB" value={claim.patientDob} />
