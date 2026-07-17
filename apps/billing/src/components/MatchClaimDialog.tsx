@@ -9,38 +9,71 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   TextField,
   Typography,
 } from '@mui/material';
-import { Bundle } from 'fhir/r4b';
 import { ReactElement, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { getApiError, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { importEra } from '../api/api';
+import { ClaimDetailResponse, getApiError, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { getBillingClaimDetail } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
+import { useDebounce } from '../hooks/useDebounce';
 import AlertDialog from './AlertDialog';
 
 interface Props {
   onClose: () => void;
 }
 
+interface FormData {
+  claimId: string | null;
+}
+
 export function MatchClaimDialog({ onClose }: Props): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const methods = useForm<{ era: string | null }>({ defaultValues: { era: null } });
+  const methods = useForm<FormData>({ defaultValues: { claimId: null } });
   const {
     control,
     handleSubmit,
     formState: { isSubmitting },
+    subscribe,
   } = methods;
 
   const [error, setError] = useState<string | null>(null);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [claim, setClaim] = useState<ClaimDetailResponse | null>(null);
+  const [claimLoading, setClaimLoading] = useState<boolean>(false);
 
-  const handleImport = async (data: { era: string | null }): Promise<void> => {
-    if (!oystehrZambda) return;
+  const { debounce } = useDebounce();
+
+  subscribe({
+    formState: {
+      values: true,
+    },
+    callback: ({ values }) => {
+      debounce(async () => {
+        const claimId = values.claimId;
+        if (!oystehrZambda || !claimId) return;
+        try {
+          setError(null);
+          setClaim(null);
+          setClaimLoading(true);
+          const data = await getBillingClaimDetail(oystehrZambda, { claimId });
+          setClaim(data);
+        } catch {
+          setError('Claim not found');
+        } finally {
+          setClaimLoading(false);
+        }
+      });
+    },
+  });
+
+  const handleMatch = async (_data: FormData): Promise<void> => {
+    if (!oystehrZambda || !claim) return;
     setError(null);
     try {
-      const result = await importEra(oystehrZambda, {
+      /*const result = await importEra(oystehrZambda, {
         era: data.era!,
       });
       let processedErasCount = 0;
@@ -48,10 +81,10 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
         const dataBundle = result as Bundle;
         processedErasCount =
           dataBundle.entry?.filter((entry) => entry.resource?.resourceType === 'ClaimResponse')?.length ?? 0;
-      }
-      setResultMessage(`Imported ${processedErasCount} ERAs`);
+      }*/
+      setResultMessage(`Claim matched`);
     } catch (err) {
-      setError(getApiError({ error: err, defaultError: 'Failed to import ERA' }));
+      setError(getApiError({ error: err, defaultError: 'Failed to match' }));
     }
   };
 
@@ -76,7 +109,7 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
             <Box sx={{ display: 'flex', gap: 5, mt: 1 }}>
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                 <Controller
-                  name="era"
+                  name="claimId"
                   control={control}
                   rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                   render={({ field, fieldState: { error: fieldError } }) => (
@@ -88,6 +121,13 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
                       onChange={(e) => field.onChange(e.target.value)}
                       error={!!fieldError}
                       helperText={fieldError?.message}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            {claimLoading ? <CircularProgress sx={{ color: 'text.secondary' }} size={18} /> : null}
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                   )}
                 />
@@ -99,6 +139,7 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
               </Box>
             </Box>
           </FormProvider>
+          {claim ? <Box>{claim.patientName}</Box> : null}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2.5 }}>
           <Button onClick={onClose} sx={{ color: 'text.secondary' }}>
@@ -107,8 +148,8 @@ export function MatchClaimDialog({ onClose }: Props): ReactElement {
           <Button
             variant="contained"
             startIcon={isSubmitting ? <CircularProgress size={14} /> : null}
-            onClick={handleSubmit(handleImport)}
-            disabled={isSubmitting}
+            onClick={handleSubmit(handleMatch)}
+            disabled={isSubmitting || !claim}
           >
             {isSubmitting ? 'Matching...' : 'Match'}
           </Button>
