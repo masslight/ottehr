@@ -150,6 +150,29 @@ describe('rules-engine evaluator', () => {
     expect(evaluateOperator('notExists', undefined)).toBe(true);
   });
 
+  it('matches string prefixes with startsWith / notStartsWith', () => {
+    expect(evaluateOperator('startsWith', 'XKD-4451', 'XKD')).toBe(true);
+    expect(evaluateOperator('startsWith', 'AXKD-4451', 'XKD')).toBe(false);
+    expect(evaluateOperator('notStartsWith', 'AXKD-4451', 'XKD')).toBe(true);
+    expect(evaluateOperator('notStartsWith', 'XKD-4451', 'XKD')).toBe(false);
+    // Prefix matching is for text values: lists and missing values never start with anything.
+    expect(evaluateOperator('startsWith', ['XKD-1'], 'XKD')).toBe(false);
+    expect(evaluateOperator('startsWith', undefined, 'XKD')).toBe(false);
+    expect(evaluateOperator('startsWith', 'XKD-4451', undefined)).toBe(false);
+    expect(evaluateOperator('notStartsWith', undefined, 'XKD')).toBe(true);
+  });
+
+  it('evaluates the canonical "member id starts with XKD" condition', () => {
+    const m = makeModel();
+    m.coverages[0].subscriberId = 'XKD-889-12';
+    expect(
+      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'XKD' }, m)
+    ).toBe(true);
+    expect(
+      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'ZZZ' }, m)
+    ).toBe(false);
+  });
+
   it('compares numerically when both sides are numbers, lexicographically for ISO dates', () => {
     // Numeric: "9" > "100" as strings but not as numbers.
     expect(evaluateOperator('gt', '9', '100')).toBe(false);

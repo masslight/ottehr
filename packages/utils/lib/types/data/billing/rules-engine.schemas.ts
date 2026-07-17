@@ -27,6 +27,8 @@ export const RULE_OPERATORS = [
   'lte',
   'contains',
   'notContains',
+  'startsWith',
+  'notStartsWith',
   'exists',
   'notExists',
 ] as const;
@@ -77,6 +79,11 @@ export const RULE_OPERATOR_METADATA: Record<RuleOperator, RuleOperatorMetadata> 
     description: 'A text property contains the value as a substring; a list property includes the value as an entry.',
   },
   notContains: { label: 'does not contain', description: 'The negation of "contains".' },
+  startsWith: {
+    label: 'starts with',
+    description: 'A text property begins with the value (e.g. member ID starts with XKD).',
+  },
+  notStartsWith: { label: 'does not start with', description: 'The negation of "starts with".' },
   exists: { label: 'is present', description: 'The property has a (non-empty) value on the claim.' },
   notExists: { label: 'is empty', description: 'The property is missing or empty on the claim.' },
 };

@@ -87,7 +87,18 @@ export interface RuleFieldDef {
   options?: RuleFieldOption[];
 }
 
-const SCALAR_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'contains', 'notContains', 'exists', 'notExists'];
+const SCALAR_OPS: RuleOperator[] = [
+  'eq',
+  'neq',
+  'in',
+  'notIn',
+  'contains',
+  'notContains',
+  'startsWith',
+  'notStartsWith',
+  'exists',
+  'notExists',
+];
 const ENUM_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'exists', 'notExists'];
 const DATE_OPS: RuleOperator[] = ['eq', 'neq', 'in', 'notIn', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];
 const NUMBER_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'exists', 'notExists'];

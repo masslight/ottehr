@@ -63,6 +63,10 @@ export const evaluateOperator = (
     if (Array.isArray(actual)) return actual.includes(expectedScalar);
     return typeof actual === 'string' && actual.includes(expectedScalar);
   };
+  const startsWith = (): boolean => {
+    if (expectedScalar == null) return false;
+    return typeof actual === 'string' && actual.startsWith(expectedScalar);
+  };
   // Ordering for gt/gte/lt/lte: numeric when both sides parse as numbers (amounts), otherwise
   // lexicographic — which is chronological for ISO dates (YYYY-MM-DD). Returns undefined (condition
   // false either way) when either side is missing/empty.
@@ -108,6 +112,10 @@ export const evaluateOperator = (
       return contains();
     case 'notContains':
       return !contains();
+    case 'startsWith':
+      return startsWith();
+    case 'notStartsWith':
+      return !startsWith();
     default:
       return false;
   }
