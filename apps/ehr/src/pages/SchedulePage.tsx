@@ -737,7 +737,7 @@ export default function SchedulePage(): ReactElement {
                               arrow
                               onClose={() => {
                                 setTimeout(() => {
-                                  if (copiedLinkKey === link.copyKey) setCopiedLinkKey(null);
+                                  setCopiedLinkKey((prev) => (prev === link.copyKey ? null : prev));
                                 }, 200);
                               }}
                             >
@@ -755,7 +755,7 @@ export default function SchedulePage(): ReactElement {
                               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                 {link.label}
                               </Typography>
-                              <Link to={link.url} target="_blank">
+                              <Link to={link.url} target="_blank" rel="noopener noreferrer">
                                 <Typography variant="body2">{link.url}</Typography>
                               </Link>
                             </Box>

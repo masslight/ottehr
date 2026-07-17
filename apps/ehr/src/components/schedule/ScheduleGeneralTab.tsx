@@ -310,7 +310,7 @@ export default function ScheduleGeneralTab({
                   arrow
                   onClose={() => {
                     setTimeout(() => {
-                      if (copiedLinkKey === link.key) setCopiedLinkKey(null);
+                      setCopiedLinkKey((prev) => (prev === link.key ? null : prev));
                     }, 200);
                   }}
                 >
@@ -331,7 +331,7 @@ export default function ScheduleGeneralTab({
                       {link.label}
                     </Typography>
                   )}
-                  <Link to={link.url} target="_blank">
+                  <Link to={link.url} target="_blank" rel="noopener noreferrer">
                     <Typography variant="body2">{link.url}</Typography>
                   </Link>
                 </Box>
