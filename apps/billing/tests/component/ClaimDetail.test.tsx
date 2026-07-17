@@ -290,7 +290,9 @@ describe('ClaimDetail — run rules engine button', () => {
 
   it('runs the claim submission rules through the confirm dialog', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
-    runBillingRulesEngineMock.mockResolvedValue({ taskId: 'task-1', engine: 'claim-submission' });
+    runBillingRulesEngineMock.mockResolvedValue({
+      results: [{ claimId: 'claim-1', taskId: 'task-1', engine: 'claim-submission' }],
+    });
     renderDetail();
 
     const submitButton = await screen.findByRole('button', { name: 'Submit claim' });
@@ -299,7 +301,7 @@ describe('ClaimDetail — run rules engine button', () => {
     const confirmButton = await screen.findByRole('button', { name: 'Run rules' });
     fireEvent.click(confirmButton);
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimId: 'claim-1' }));
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Claim Submission Rules started — when every rule passes, the claim is submitted to the payer; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }
@@ -308,13 +310,15 @@ describe('ClaimDetail — run rules engine button', () => {
 
   it('runs the pre-invoice rules through the Prepare for invoice dialog', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
-    runBillingRulesEngineMock.mockResolvedValue({ taskId: 'task-1', engine: 'non-insurance-payer-pre-invoice' });
+    runBillingRulesEngineMock.mockResolvedValue({
+      results: [{ claimId: 'claim-1', taskId: 'task-1', engine: 'non-insurance-payer-pre-invoice' }],
+    });
     renderDetail();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Prepare for invoice' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimId: 'claim-1' }));
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
       'Non-Insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }

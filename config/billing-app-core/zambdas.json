@@ -239,13 +239,6 @@
       "src": "src/billing/set-billing-claim-status/index",
       "zip": ".dist/zips/set-billing-claim-status.zip"
     },
-    "SUBMIT-BILLING-CLAIM": {
-      "name": "submit-billing-claim",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/submit-billing-claim/index",
-      "zip": ".dist/zips/submit-billing-claim.zip"
-    },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
       "type": "http_auth",

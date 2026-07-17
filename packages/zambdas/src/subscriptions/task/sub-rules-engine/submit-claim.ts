@@ -4,10 +4,10 @@ import { applyClaimStatusFieldClearingHold } from '../../../billing/provenance';
 import { assertValidClaimStatusField, fetchById } from '../../../billing/shared';
 import { FinalizeRunInput, FinalizeRunResult } from './finalize';
 
-// The Claim Submission engine's success effect. Submits via the Oystehr claim service, mirroring
-// submit-billing-claim: only Insurance-Payer-AR claims are submittable; on success the Insurance AR
-// Status moves to Submitted — with the Hold tag lifted in the same commit — recorded in the claim
-// history with the rules-engine agent.
+// The Claim Submission engine's success effect. Submits via the Oystehr claim service: only
+// Insurance-Payer-AR claims are submittable; on success the Insurance AR Status moves to Submitted —
+// with the Hold tag lifted in the same commit — recorded in the claim history with the rules-engine
+// agent.
 export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunResult> {
   const { oystehr, model, agent } = input;
   const claimId = model.claim.id;

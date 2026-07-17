@@ -282,13 +282,23 @@ export interface BillingRulesResponse {
   versionId?: string;
 }
 
-// run-billing-rules-engine: manually kick off the rules engine for an existing claim. The backend
-// picks the engine from the claim's AR stage (Submit claim / Prepare for invoice both land here) and
-// enqueues that engine's Task; a Subscription then runs it asynchronously.
-export const RunBillingRulesEngineInputSchema = z.object({ claimId: z.string().min(1) });
+export const MAX_RUN_RULES_ENGINE_CLAIMS = 20;
+
+// run-billing-rules-engine: manually kick off the rules engine for one or more existing claims
+// (claim detail Submit claim / Prepare for invoice, claims list bulk submit). The backend picks each
+// claim's engine from its AR stage and enqueues that engine's Task; a Subscription then runs it
+// asynchronously.
+export const RunBillingRulesEngineInputSchema = z.object({
+  claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+});
 export type RunBillingRulesEngineInput = z.output<typeof RunBillingRulesEngineInputSchema>;
 
-export interface RunBillingRulesEngineResponse {
+export interface RunBillingRulesEngineResult {
+  claimId: string;
   taskId: string;
   engine: RulesEngineType;
+}
+
+export interface RunBillingRulesEngineResponse {
+  results: RunBillingRulesEngineResult[];
 }

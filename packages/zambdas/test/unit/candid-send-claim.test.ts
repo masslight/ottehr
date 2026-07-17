@@ -64,8 +64,9 @@ const { validateRequestParameters } = await import('../../src/subscriptions/task
 const { index: _index } = await import('../../src/subscriptions/task/sub-send-claim/index');
 const index = _index as unknown as (input: any) => Promise<{ statusCode: number; body: string }>;
 
-const { createCandidDiagnoses } = await import('../../src/shared/candid');
+const { createCandidDiagnoses, buildRelatedCausesInformation } = await import('../../src/shared/candid');
 const { DiagnosisTypeCode } = await import('candidhealth/api');
+const { ACCIDENT_TYPE_SYSTEM, ACCIDENT_STATE_EXTENSION } = await import('utils');
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -411,5 +412,50 @@ describe('createCandidDiagnoses', () => {
     // The duplicate code collapses to a single entry, and it must be the primary.
     expect(result).toEqual([{ codeType: DiagnosisTypeCode.Abk, code: 'A00' }]);
     expect(result.some((diagnosis) => diagnosis.codeType === DiagnosisTypeCode.Abk)).toBe(true);
+  });
+});
+
+describe('buildRelatedCausesInformation', () => {
+  function makeAccident(opts: { codes?: (string | undefined)[]; state?: string }): any {
+    return {
+      resourceType: 'Condition',
+      id: 'accident-1',
+      code: opts.codes ? { coding: opts.codes.map((code) => ({ system: ACCIDENT_TYPE_SYSTEM, code })) } : undefined,
+      extension: opts.state ? [{ url: ACCIDENT_STATE_EXTENSION, valueString: opts.state }] : undefined,
+    };
+  }
+
+  it('returns undefined when there is no accident condition', () => {
+    expect(buildRelatedCausesInformation(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined when the accident condition has no coding (checkbox toggled on then off)', () => {
+    // Regression: an "accident"-tagged Condition can linger with an empty code ({}). Building
+    // relatedCausesInformation from it would put undefined into the required relatedCausesCode1 and
+    // Candid rejects the claim with "Expected string. Received undefined.".
+    const accident = makeAccident({});
+    accident.code = {}; // matches the observed lingering resource
+    expect(buildRelatedCausesInformation(accident)).toBeUndefined();
+  });
+
+  it('returns undefined when coding exists but carries no accident-type codes', () => {
+    const accident = makeAccident({ codes: [undefined] });
+    expect(buildRelatedCausesInformation(accident)).toBeUndefined();
+  });
+
+  it('builds relatedCausesCode1 (and optional code2 / state) when accident type codes are present', () => {
+    const result = buildRelatedCausesInformation(makeAccident({ codes: ['AA', 'EM'], state: 'CA' }));
+    expect(result).toEqual({
+      relatedCausesCode1: 'AA',
+      relatedCausesCode2: 'EM',
+      stateOrProvinceCode: 'CA',
+    });
+  });
+
+  it('leaves relatedCausesCode2 and stateOrProvinceCode undefined when only one code and no state', () => {
+    const result = buildRelatedCausesInformation(makeAccident({ codes: ['AA'] }));
+    expect(result?.relatedCausesCode1).toBe('AA');
+    expect(result?.relatedCausesCode2).toBeUndefined();
+    expect(result?.stateOrProvinceCode).toBeUndefined();
   });
 });
