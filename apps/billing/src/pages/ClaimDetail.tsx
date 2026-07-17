@@ -216,7 +216,7 @@ export default function ClaimDetail(): ReactElement {
     }
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimId: id });
+      await runBillingRulesEngine(oystehrZambda, { claimIds: [id] });
       enqueueSnackbar(
         `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review. Refresh to see the result.`,
         { variant: 'info' }

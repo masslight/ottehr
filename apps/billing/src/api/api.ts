@@ -63,8 +63,6 @@ import {
   SearchServiceFacilitiesInputSchema,
   SearchServiceFacilitiesResponse,
   ServiceFacilityItem,
-  SubmitBillingClaimsInputSchema,
-  SubmitBillingClaimsResponse,
   TagBillingClaimInputSchema,
   TaggedClaimResponse,
   UpdateBillingCoverageInputSchema,
@@ -162,11 +160,6 @@ export const tagBillingClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof TagBillingClaimInputSchema>
 ): Promise<TaggedClaimResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
-
-export const submitBillingClaims = (
-  oystehr: Oystehr,
-  parameters: z.input<typeof SubmitBillingClaimsInputSchema>
-): Promise<SubmitBillingClaimsResponse> => executeBillingZambda(oystehr, 'submit-billing-claim', parameters);
 
 // --- Providers ---
 
