@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 export class VisitsPage {
@@ -106,14 +107,17 @@ export class VisitsPage {
    * tomorrow because the day's schedule is past closing).
    */
   async selectDate(date: string): Promise<void> {
-    const dateFromInput = this.#page.getByTestId(dataTestIds.dashboard.dateFromFilter);
-    const dateToInput = this.#page.getByTestId(dataTestIds.dashboard.dateToFilter);
-    await dateFromInput.click();
-    await dateFromInput.fill(date);
-    await dateFromInput.blur();
-    await dateToInput.click();
-    await dateToInput.fill(date);
-    await dateToInput.blur();
+    const target = DateTime.fromFormat(date, 'MM/dd/yyyy');
+    await this.#page.getByTestId(dataTestIds.dashboard.dateFilter).click();
+    const dayButton = this.#page.getByTestId(dataTestIds.dashboard.datePickerDay(target.toISODate() ?? ''));
+    // The calendar opens on the currently selected month; step toward the target month until its
+    // day cell is shown (dates under test are always within a few months of today).
+    const monthArrowLabel = target < DateTime.now() ? 'Previous month' : 'Next month';
+    for (let i = 0; i < 24 && !(await dayButton.isVisible()); i++) {
+      await this.#page.getByRole('button', { name: monthArrowLabel }).click();
+    }
+    // Clicking a day in single-date mode commits it as both range boundaries and closes the picker.
+    await dayButton.click();
   }
 
   async selectGroup(groupName: string): Promise<void> {
