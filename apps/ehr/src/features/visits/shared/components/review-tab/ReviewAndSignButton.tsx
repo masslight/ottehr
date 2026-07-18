@@ -10,7 +10,16 @@ import { usePendingSupervisorApproval } from 'src/features/visits/telemed/hooks/
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { getPatientName } from 'src/shared/utils';
-import { useCreateExternalLabStore } from 'src/state/draft-data.store';
+import {
+  useCreateExternalLabStore,
+  useCreateInHouseLabStore,
+  useCreateRadiologyOrderStore,
+  useImmunizationOrderStore,
+  useInHouseMedicationOrderStore,
+  useNursingOrderStore,
+  useProcedureStore,
+  useVitalsDraftStore,
+} from 'src/state/draft-data.store';
 import {
   getInPersonVisitStatus,
   getProviderType,
@@ -36,6 +45,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isFollowup = appointmentAccessibility.visitType === 'follow-up';
   const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
+  const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
+  const { hasDraft: hasRadiologyDraft } = useCreateRadiologyOrderStore();
+  const { hasDraft: hasProcedureDraft } = useProcedureStore();
+  const { hasDraft: hasNursingOrderDraft } = useNursingOrderStore();
+  const { hasDraft: hasImmunizationDraft } = useImmunizationOrderStore();
+  const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
+  const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
 
   const { data: chartFields } = useChartFields({
     requestedFields: {
@@ -141,8 +157,36 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       );
     }
 
-    if (encounter.id && hasExternalLabDraft(encounter.id)) {
-      messages.push('Complete or clear the in-progress external lab order to sign');
+    if (encounter.id) {
+      const makeDraftWarningMessage = (infoType: string): string => {
+        return `Complete or clear the in-progress ${infoType} to sign`;
+      };
+      if (hasExternalLabDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('external lab order'));
+      }
+
+      if (hasInHouseLabDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('in house lab order'));
+      }
+
+      if (hasRadiologyDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('radiology order'));
+      }
+      if (hasProcedureDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('procedure'));
+      }
+      if (hasNursingOrderDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('nursing order'));
+      }
+      if (hasImmunizationDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('immunization'));
+      }
+      if (hasMedDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('in house medication order'));
+      }
+      if (hasVitalsDraft(encounter.id)) {
+        messages.push(makeDraftWarningMessage('vitals'));
+      }
     }
 
     return messages;
@@ -161,6 +205,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     isFollowup,
     inHouseLabReflexTestPending,
     hasExternalLabDraft,
+    hasInHouseLabDraft,
+    hasRadiologyDraft,
+    hasProcedureDraft,
+    hasNursingOrderDraft,
+    hasImmunizationDraft,
+    hasMedDraft,
+    hasVitalsDraft,
     encounter.id,
   ]);
 
