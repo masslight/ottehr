@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
 import {
+  CPTCodeDTO,
   CreateInHouseLabOrderParameters,
   CreateLabOrderParameters,
   CreateNursingOrderInput,
   CreateRadiologyZambdaOrderInput,
   CreateUpdateImmunizationOrderRequest,
   DiagnosisDTO,
+  LateralityValue,
   ProcedureDTO,
   UpdateMedicationOrderInput,
   VitalsObservationDTO,
@@ -50,7 +52,13 @@ type CreateInHouseLabOrderDraft = Partial<
     selectedAssessmentDx: DiagnosisDTO[];
   } & GenericStateDraft
 >;
-type CreateRadiologyOrderDraft = Partial<CreateRadiologyZambdaOrderInput & GenericStateDraft>;
+type CreateRadiologyOrderDraft = Partial<
+  Omit<CreateRadiologyZambdaOrderInput, 'diagnosisCode' | 'cptCode' | 'lateralityModifier'> & {
+    dx: DiagnosisDTO;
+    cptCode: CPTCodeDTO;
+    laterality: LateralityValue | '';
+  } & GenericStateDraft
+>;
 type CreateProcedureDraft = Partial<ProcedureDTO & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
 type CreateImmunizationOrderDraft = Partial<CreateUpdateImmunizationOrderRequest & GenericStateDraft>;

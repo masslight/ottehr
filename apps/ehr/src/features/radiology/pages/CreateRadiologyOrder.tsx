@@ -29,6 +29,7 @@ import { ClearIcon } from '@mui/x-date-pickers';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -46,6 +47,7 @@ import {
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { useCreateRadiologyOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
 import {
   CPTCodeDTO,
   DiagnosisDTO,
@@ -84,13 +86,49 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
-  const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(primaryDiagnosis ? primaryDiagnosis : undefined);
-  const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>();
-  const [stat, setStat] = useState<boolean>(false);
-  const [studyName, setStudyName] = useState<string | undefined>();
-  const [clinicalHistory, setClinicalHistory] = useState<string | undefined>();
-  const [laterality, setLaterality] = useState<LateralityValue | ''>('');
-  const [consentObtained, setConsentObtained] = useState<boolean>(false);
+
+  const { setDraft, getDraft, clearDraft, hasDraft } = useCreateRadiologyOrderStore();
+  useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
+  const draft = getDraft(encounter.id!);
+
+  const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(draft.dx ?? primaryDiagnosis);
+  const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>(draft.cptCode);
+  const [stat, setStat] = useState<boolean>(draft.stat ?? false);
+  const [studyName, setStudyName] = useState<string | undefined>(draft.studyName);
+  const [clinicalHistory, setClinicalHistory] = useState<string | undefined>(draft.clinicalHistory);
+  const [laterality, setLaterality] = useState<LateralityValue | ''>(draft.laterality ?? '');
+  const [consentObtained, setConsentObtained] = useState<boolean>(draft.consentObtained ?? false);
+
+  const handleCptUpdate = (cpt: CPTCodeDTO | undefined): void => {
+    setOrderCpt(cpt);
+    setDraft(encounter.id!, { cptCode: cpt });
+  };
+
+  const handleStudyNameUpdate = (studyName: string | undefined): void => {
+    setStudyName(studyName);
+    setDraft(encounter.id!, { studyName });
+  };
+
+  const handleClinicalHistoryUpdate = (history: string | undefined): void => {
+    setClinicalHistory(history);
+    setDraft(encounter.id!, { clinicalHistory: history });
+  };
+
+  const handleLateralityUpdate = (laterality: LateralityValue | ''): void => {
+    setLaterality(laterality);
+    setDraft(encounter.id!, { laterality });
+  };
+
+  const handleClearForm = (): void => {
+    clearDraft(encounter.id!);
+    setOrderDx(primaryDiagnosis);
+    setOrderCpt(undefined);
+    setStat(false);
+    setStudyName(undefined);
+    setClinicalHistory('');
+    setLaterality('');
+    setConsentObtained(false);
+  };
 
   // Quick picks state
   const {
@@ -140,13 +178,13 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   // Quick pick handlers
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
     if (quickPick.cptCode && quickPick.cptDisplay) {
-      setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
+      handleCptUpdate({ code: quickPick.cptCode, display: quickPick.cptDisplay });
     } else {
-      setOrderCpt(undefined);
+      handleCptUpdate(undefined);
     }
-    setStudyName(quickPick.studyName ?? '');
-    setLaterality((quickPick.laterality as LateralityValue) ?? '');
-    setClinicalHistory(quickPick.clinicalHistory ?? '');
+    handleStudyNameUpdate(quickPick.studyName ?? '');
+    handleLateralityUpdate((quickPick.laterality as LateralityValue) ?? '');
+    handleClinicalHistoryUpdate(quickPick.clinicalHistory ?? '');
     // stat and consentObtained not applied — encounter-specific
   };
 
@@ -265,6 +303,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           });
         }
 
+        clearDraft(encounter.id!);
         navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
       } catch (e) {
         const error = e as any;
@@ -328,6 +367,15 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
               Order Radiology
             </Typography>
           </Box>
+          {hasDraft(encounter.id!) && (
+            <UnsavedDraftWarning
+              message={
+                draft.hasNavigatedAway
+                  ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                  : 'You have a radiology order in progress. Your draft will be saved.'
+              }
+            />
+          )}
 
           <form onSubmit={handleSubmit}>
             <Paper sx={{ p: 3 }}>
@@ -365,6 +413,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     isOptionEqualToValue={(option, value) => value.code === option.code}
                     onChange={(_event: any, selectedDx: any) => {
                       setOrderDx(selectedDx);
+                      setDraft(encounter.id!, { dx: selectedDx });
                     }}
                     loading={isSearchingDx}
                     options={icdSearchOptions}
@@ -392,7 +441,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     multiline
                     size="small"
                     value={studyName || ''}
-                    onChange={(e) => setStudyName(e.target.value)}
+                    onChange={(e) => handleStudyNameUpdate(e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -410,7 +459,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     value={orderCpt || null}
                     isOptionEqualToValue={(option, value) => value.code === option.code}
                     onChange={(_event: any, selectedCpt: any) => {
-                      setOrderCpt(selectedCpt);
+                      handleCptUpdate(selectedCpt);
                     }}
                     loading={isSearchingCpt}
                     options={cptSearchOptions}
@@ -439,7 +488,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                       labelId="laterality-selector-label"
                       label="Laterality Selector"
                       id="laterality-selector"
-                      onChange={(e) => setLaterality(e.target.value as LateralityValue)}
+                      onChange={(e) => handleLateralityUpdate(e.target.value as LateralityValue)}
                       value={laterality}
                       input={
                         <OutlinedInput
@@ -447,7 +496,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                           endAdornment={
                             laterality ? (
                               <InputAdornment sx={{ marginRight: '10px' }} position="end">
-                                <IconButton aria-label="clear laterality" onClick={() => setLaterality('')}>
+                                <IconButton aria-label="clear laterality" onClick={() => handleLateralityUpdate('')}>
                                   <ClearIcon fontSize="small" />
                                 </IconButton>
                               </InputAdornment>
@@ -477,7 +526,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     onChange={(e) => {
                       const value = e.target.value;
                       if (value.length <= 255) {
-                        setClinicalHistory(value);
+                        handleClinicalHistoryUpdate(value);
                       }
                     }}
                     error={clinicalHistory !== undefined && clinicalHistory.length > 255}
@@ -490,7 +539,13 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 </Grid>
                 <Grid item xs={12}>
                   <Box style={{ display: 'flex', alignItems: 'center' }}>
-                    <Checkbox checked={consentObtained} onChange={() => setConsentObtained(!consentObtained)} />
+                    <Checkbox
+                      checked={consentObtained}
+                      onChange={() => {
+                        setConsentObtained(!consentObtained);
+                        setDraft(encounter.id!, { consentObtained: !consentObtained });
+                      }}
+                    />
                     <Typography>
                       I have obtained the{' '}
                       {consentExists ? (
@@ -511,20 +566,37 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <Grid item xs={12}>
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
-                    control={<Switch checked={stat} onChange={() => setStat(!stat)} />}
+                    control={
+                      <Switch
+                        checked={stat}
+                        onChange={() => {
+                          setStat(!stat);
+                          setDraft(encounter.id!, { stat: !stat });
+                        }}
+                      />
+                    }
                     label={<Typography variant="body2">STAT</Typography>}
                   />
                 </Grid>
                 <Grid item xs={6}>
-                  <Button
-                    variant="outlined"
-                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                    onClick={() => {
-                      navigate(`/in-person/${appointmentIdFromUrl}/radiology`);
-                    }}
-                  >
-                    Cancel
-                  </Button>
+                  <Stack direction="row" spacing={2}>
+                    <Button
+                      variant="outlined"
+                      sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                      onClick={() => {
+                        navigate(`/in-person/${appointmentIdFromUrl}/radiology`);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                      onClick={handleClearForm}
+                    >
+                      Clear Form
+                    </Button>
+                  </Stack>
                 </Grid>
                 <Grid item xs={6} display="flex" justifyContent="flex-end">
                   <LoadingButton
