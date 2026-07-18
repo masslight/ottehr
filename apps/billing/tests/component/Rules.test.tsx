@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { MemoryRouter } from 'react-router-dom';
-import { PreSubmissionRule, RuleConditional } from 'utils';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { BillingRule, RuleConditional, RulesEngineType } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
@@ -26,7 +26,7 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => stableClients,
 }));
 
-const ruleA: PreSubmissionRule = {
+const ruleA: BillingRule = {
   id: 'rule-a',
   name: 'Remap legacy payer',
   description: 'If payer 123456 then set payer to 999999',
@@ -41,10 +41,13 @@ const ruleA: PreSubmissionRule = {
   },
 };
 
-function renderRules(): ReactElement {
+// The page resolves its engine from the /rules/:engine route param, so mount it behind a real route.
+function renderRules(engine: RulesEngineType = 'claim-submission'): ReactElement {
   return render(
-    <MemoryRouter>
-      <Rules />
+    <MemoryRouter initialEntries={[`/rules/${engine}`]}>
+      <Routes>
+        <Route path="/rules/:engine" element={<Rules />} />
+      </Routes>
     </MemoryRouter>
   ) as unknown as ReactElement;
 }
@@ -60,7 +63,20 @@ describe('Rules list', () => {
     renderRules();
 
     expect(await screen.findByText('Remap legacy payer')).toBeInTheDocument();
-    expect(screen.getByText('When all rules pass, the claim is submitted.')).toBeInTheDocument();
+    expect(screen.getByText('Claim Submission Rules')).toBeInTheDocument();
+    expect(screen.getByText('When all rules pass, the claim is submitted to the payer.')).toBeInTheDocument();
+    expect(getBillingRulesMock).toHaveBeenCalledWith(expect.anything(), { engine: 'claim-submission' });
+  });
+
+  it("loads the routed engine's rules and describes its outcome", async () => {
+    getBillingRulesMock.mockResolvedValue({ rules: [], versionId: 'v1' });
+    renderRules('non-insurance-payer-pre-invoice');
+
+    expect(await screen.findByText('Non-Insurance Payer Pre-Invoice Rules')).toBeInTheDocument();
+    expect(
+      screen.getByText('When all rules pass, the Non-insurance AR Status moves to Ready to invoice.')
+    ).toBeInTheDocument();
+    expect(getBillingRulesMock).toHaveBeenCalledWith(expect.anything(), { engine: 'non-insurance-payer-pre-invoice' });
   });
 
   it('shows the empty state when there are no rules', async () => {

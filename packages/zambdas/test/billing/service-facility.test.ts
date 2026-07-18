@@ -53,7 +53,7 @@ const validPayload: SaveServiceFacilityInput = {
   addressLine2: 'Suite 200',
   city: 'Boston',
   state: 'MA',
-  zip: '021181234',
+  zip: '02118-1234',
   npi: '1234567893',
   clia: '05D1234567',
   posCode: '11',
@@ -72,7 +72,7 @@ describe('save-billing-service-facility validateRequestParameters', () => {
         addressLine1: '1 A St',
         city: 'Boston',
         state: 'MA',
-        zip: '021181234',
+        zip: '02118-1234',
       })
     );
     expect(result.name).toBe('X');
@@ -157,7 +157,7 @@ describe('applyServiceFacilityInput', () => {
     expect(location.status).toBe('active');
     expect(location.name).toBe('Main Street Clinic');
     expect(location.address?.line).toEqual(['123 Main St', 'Suite 200']);
-    expect(location.address?.postalCode).toBe('021181234');
+    expect(location.address?.postalCode).toBe('02118-1234');
     expect(location.identifier).toContainEqual({
       system: FHIR_IDENTIFIER_NPI,
       value: '1234567893',
@@ -185,7 +185,7 @@ describe('applyServiceFacilityInput', () => {
 
   it('stores the 9-digit ZIP verbatim, without a hyphen', () => {
     const location = applyServiceFacilityInput(validPayload);
-    expect(location.address?.postalCode).toBe('021181234');
+    expect(location.address?.postalCode).toBe('02118-1234');
   });
 
   it('leaves existing identifiers and POS extension untouched when those params are omitted', () => {
@@ -442,7 +442,7 @@ describe('mapServiceFacility', () => {
         postalCode: '02118-1234',
       },
     };
-    expect(mapServiceFacility(location).zip).toBe('021181234');
+    expect(mapServiceFacility(location).zip).toBe('02118-1234');
   });
 
   it('flattens a Location into the UI shape with a 9-digit ZIP', () => {

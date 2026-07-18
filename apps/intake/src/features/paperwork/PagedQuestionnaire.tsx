@@ -28,6 +28,7 @@ import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
 import { zipRegex } from 'src/helpers';
 import { usePaperworkStore } from 'src/pages/PaperworkPage';
+import { InputMask } from 'ui-components';
 import {
   formatZipcodeForDisplay,
   IntakeQuestionnaireItem,
@@ -43,7 +44,6 @@ import {
   BoldPurpleInputLabel,
   ControlButtons,
   DescriptionRenderer,
-  InputMask,
   LightToolTip,
   LinkRenderer,
 } from '../../components/form';
@@ -838,7 +838,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
           <CreditCardVerification
             fieldId={fieldId}
             onChange={smartOnChange}
-            required={item.required ?? false}
+            required={item.isRequired}
             value={unwrappedValue}
           />
         );

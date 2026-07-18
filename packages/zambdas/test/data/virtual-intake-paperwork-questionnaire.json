@@ -2981,11 +2981,51 @@
       {
         "linkId": "valid-card-on-file",
         "type": "boolean",
-        "required": true,
+        "required": false,
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
             "valueString": "Payment Validation"
+          },
+          {
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "patient-has-medicaid"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "!="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ],
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when"
+          }
+        ]
+      },
+      {
+        "linkId": "card-payment-details-text",
+        "type": "display",
+        "text": "If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.",
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+            "valueString": "p"
+          }
+        ]
+      },
+      {
+        "linkId": "patient-has-medicaid",
+        "type": "boolean",
+        "text": "I have Medicaid insurance coverage, credit card information not required",
+        "required": false,
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label",
+            "valueBoolean": true
           }
         ]
       }

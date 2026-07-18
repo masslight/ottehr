@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { HOLD_TAG_NAME } from './rules-engine.constants';
+import { HOLD_TAG_NAME, RULES_ENGINE_TYPES, RulesEngineType } from './rules-engine.constants';
 
 // ---------------------------------------------------------------------------
 // Rule structure
@@ -9,8 +9,12 @@ import { HOLD_TAG_NAME } from './rules-engine.constants';
 // nested `Conditional` (for else-if / deeper branching), or an explicit no-op.
 //
 // These schemas are the single contract shared by the serializer (rule <-> FHIR Basic), the engine
-// evaluator, and the billing app's rule-builder UI.
+// evaluator, and the billing app's rule-builder UI. Every rules engine (see RULES_ENGINE_TYPES)
+// uses the same rule shape; the `engine` parameter on the CRUD schemas selects which engine's rule
+// set an operation targets.
 // ---------------------------------------------------------------------------
+
+export const RulesEngineTypeSchema = z.enum(RULES_ENGINE_TYPES);
 
 export const RULE_OPERATORS = ['eq', 'neq', 'in', 'notIn', 'contains', 'notContains', 'exists', 'notExists'] as const;
 export type RuleOperator = (typeof RULE_OPERATORS)[number];
@@ -116,29 +120,35 @@ export const RuleConditionalSchema: z.ZodType<RuleConditional> = z.lazy(() =>
   })
 );
 
-export const PreSubmissionRuleSchema = z.object({
+export const BillingRuleSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   description: z.string().default(''),
   enabled: z.boolean().default(true),
   conditional: RuleConditionalSchema,
 });
-export type PreSubmissionRule = z.output<typeof PreSubmissionRuleSchema>;
+export type BillingRule = z.output<typeof BillingRuleSchema>;
 
 // Save input variant: a new rule arrives without an id — save-billing-rules assigns one server-side,
 // so the backend owns rule identifiers.
-export const PreSubmissionRuleInputSchema = PreSubmissionRuleSchema.extend({
+export const BillingRuleInputSchema = BillingRuleSchema.extend({
   id: z.string().min(1).optional(),
 });
-export type PreSubmissionRuleInput = z.output<typeof PreSubmissionRuleInputSchema>;
+export type BillingRuleInput = z.output<typeof BillingRuleInputSchema>;
 
 // --- CRUD API contract (save-billing-rules / get-billing-rules) ---
+//
+// Every operation names the engine whose rule set it targets.
 
-// The whole ordered rule set is saved at once (the rules live in a single FHIR List), so create,
-// edit, reorder, and delete are all expressed as "save this full ordered array".
+export const GetBillingRulesInputSchema = z.object({ engine: RulesEngineTypeSchema });
+export type GetBillingRulesInput = z.output<typeof GetBillingRulesInputSchema>;
+
+// The whole ordered rule set is saved at once (each engine's rules live in a single FHIR List), so
+// create, edit, reorder, and delete are all expressed as "save this full ordered array".
 export const SaveBillingRulesInputSchema = z
   .object({
-    rules: z.array(PreSubmissionRuleInputSchema),
+    engine: RulesEngineTypeSchema,
+    rules: z.array(BillingRuleInputSchema),
     // Optimistic-locking guard: the List versionId the client last read. When provided, the save is
     // rejected if the rules List changed in the meantime.
     expectedVersionId: z.string().optional(),
@@ -160,16 +170,28 @@ export const SaveBillingRulesInputSchema = z
 export type SaveBillingRulesInput = z.output<typeof SaveBillingRulesInputSchema>;
 
 export interface BillingRulesResponse {
-  rules: PreSubmissionRule[];
+  rules: BillingRule[];
   // List.meta.versionId, echoed so the client can pass it back as expectedVersionId on the next save.
   versionId?: string;
 }
 
-// run-billing-rules-engine: manually kick off the engine for an existing claim (testing / ops). It
-// just enqueues the engine Task; a Subscription runs sub-presubmission-rules-engine asynchronously.
-export const RunBillingRulesEngineInputSchema = z.object({ claimId: z.string().min(1) });
+export const MAX_RUN_RULES_ENGINE_CLAIMS = 20;
+
+// run-billing-rules-engine: manually kick off the rules engine for one or more existing claims
+// (claim detail Submit claim / Prepare for invoice, claims list bulk submit). The backend picks each
+// claim's engine from its AR stage and enqueues that engine's Task; a Subscription then runs it
+// asynchronously.
+export const RunBillingRulesEngineInputSchema = z.object({
+  claimIds: z.array(z.string().min(1)).min(1).max(MAX_RUN_RULES_ENGINE_CLAIMS),
+});
 export type RunBillingRulesEngineInput = z.output<typeof RunBillingRulesEngineInputSchema>;
 
-export interface RunBillingRulesEngineResponse {
+export interface RunBillingRulesEngineResult {
+  claimId: string;
   taskId: string;
+  engine: RulesEngineType;
+}
+
+export interface RunBillingRulesEngineResponse {
+  results: RunBillingRulesEngineResult[];
 }

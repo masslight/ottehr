@@ -1,21 +1,20 @@
 import {
+  GetServiceFacilityInput,
+  GetServiceFacilityInputSchema,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
-  SubmitBillingClaimsInput,
-  SubmitBillingClaimsInputSchema,
 } from 'utils';
 import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
 
-export interface SubmitBillingClaimsParams extends SubmitBillingClaimsInput {
+export interface GetServiceFacilityParams extends GetServiceFacilityInput {
   secrets: ZambdaInput['secrets'];
 }
 
-export function validateRequestParameters(input: ZambdaInput): SubmitBillingClaimsParams {
+export function validateRequestParameters(input: ZambdaInput): GetServiceFacilityParams {
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const data = safeValidate(SubmitBillingClaimsInputSchema, validateJsonBody(input));
-
+  const data = safeValidate(GetServiceFacilityInputSchema, validateJsonBody(input));
   return {
     ...data,
     secrets: input.secrets,
