@@ -8,7 +8,7 @@ import {
   CreateUpdateImmunizationOrderRequest,
   DiagnosisDTO,
   LateralityValue,
-  ProcedureDTO,
+  ProcedurePageState,
   UpdateMedicationOrderInput,
   VitalsObservationDTO,
 } from 'utils';
@@ -59,7 +59,7 @@ type CreateRadiologyOrderDraft = Partial<
     laterality: LateralityValue | '';
   } & GenericStateDraft
 >;
-type CreateProcedureDraft = Partial<ProcedureDTO & GenericStateDraft>;
+type CreateProcedureDraft = Partial<ProcedurePageState & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
 type CreateImmunizationOrderDraft = Partial<CreateUpdateImmunizationOrderRequest & GenericStateDraft>;
 type CreateInHouseMedicationOrderDraft = Partial<Pick<UpdateMedicationOrderInput, 'orderData'> & GenericStateDraft>;
