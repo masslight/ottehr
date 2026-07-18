@@ -92,6 +92,10 @@ export default function Appointments(): ReactElement {
     const serviceCategories = serviceCategoryParam?.split(',') ?? [];
     const providers = providerParam?.split(',') ?? [];
 
+    const discardStaleFetch = (): void => {
+      setLoadingState((prev) => (prev.status === 'loading' && prev.id === queryId ? { status: 'initial' } : prev));
+    };
+
     const fetchStuff = async (client: Oystehr): Promise<void> => {
       setLoadingState({ status: 'loading', id: queryId });
 
@@ -114,9 +118,9 @@ export default function Appointments(): ReactElement {
           });
 
           if (latestQueryIdRef.current !== queryId) {
-            // The filters changed while this request was in flight and the effect has already
-            // started a fetch for the new ones; rendering this response would briefly show the
-            // old filters' results.
+            // The filters changed while this request was in flight; rendering this response would
+            // briefly show the old filters' results.
+            discardStaleFetch();
             return;
           }
 
@@ -127,6 +131,7 @@ export default function Appointments(): ReactElement {
 
           debounce(() => {
             if (latestQueryIdRef.current !== queryId) {
+              discardStaleFetch();
               return;
             }
             setSearchResults(searchResults || []);
@@ -134,6 +139,7 @@ export default function Appointments(): ReactElement {
           });
         } catch (error) {
           if (latestQueryIdRef.current !== queryId) {
+            discardStaleFetch();
             return;
           }
           console.error('error fetching appointments', error);
