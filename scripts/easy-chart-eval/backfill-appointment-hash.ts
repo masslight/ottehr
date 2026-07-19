@@ -16,6 +16,11 @@
  *
  * Idempotent (records already carrying appointmentHash are skipped). Env: identical to
  * harvest-prod-cases.ts; set HARVEST_DAYS to cover the window the target cases came from.
+ * Optional CASE_FILTER: a JS regex source tested against each record's caseId; non-matching
+ * records are excluded from the run entirely (not pending, never patched). Needed because the
+ * manifest mixes cases from two different production projects — when run with one practice's
+ * credentials, Phase B could otherwise false-match the other practice's records to this
+ * practice's report rows and silently write a wrong appointmentHash.
  * PHI safety: stdout carries only counts, dates, and caseIds.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -86,7 +91,20 @@ export function matchPendingByUniqueDate(
   return { matches, ambiguous, unmatched };
 }
 
+/** Parse the optional CASE_FILTER caseId regex (see header doc); an invalid pattern is fatal. */
+function parseCaseFilter(): RegExp | undefined {
+  const source = process.env.CASE_FILTER;
+  if (!source) return undefined;
+  try {
+    return new RegExp(source);
+  } catch (err) {
+    console.error(`Invalid CASE_FILTER regex: ${describeError(err)}`);
+    process.exit(1);
+  }
+}
+
 async function main(): Promise<void> {
+  const caseFilter = parseCaseFilter();
   const { oystehr, outDir, days, chunkDays, locationIds } = initFromEnv();
 
   const manifestPath = join(outDir, 'manifest.json');
@@ -95,9 +113,13 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const manifest = loadManifest(outDir);
-  const pendingRecs = manifest.filter((r) => !r.appointmentHash);
+  const inScope = caseFilter == null ? manifest : manifest.filter((r) => caseFilter.test(r.caseId));
+  if (caseFilter != null) {
+    console.log(`CASE_FILTER active: ${inScope.length} of ${manifest.length} records in scope`);
+  }
+  const pendingRecs = inScope.filter((r) => !r.appointmentHash);
   console.log(
-    `Cases: ${manifest.length} in manifest, ${manifest.length - pendingRecs.length} already keyed, ${
+    `Cases: ${manifest.length} in manifest, ${inScope.length - pendingRecs.length} already keyed, ${
       pendingRecs.length
     } pending`
   );

@@ -15,6 +15,12 @@
  * HARVEST_CHUNK_DAYS, HARVEST_LOCATION_IDS honored. Set HARVEST_DAYS to cover the window the
  * target cases were harvested from.
  *
+ * Optional CASE_FILTER: a JS regex source tested against each record's caseId; non-matching
+ * records are excluded from the run entirely (not pending, never patched). Needed because the
+ * manifest mixes cases from two different production projects — when run with one practice's
+ * credentials, the other practice's records would otherwise be matched/derived against the
+ * wrong project.
+ *
  * PHI safety: stdout carries only counts, dates, caseIds, and statuses — never ids or content.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -35,7 +41,20 @@ import {
   UnauthorizedError,
 } from './harvest-prod-cases';
 
+/** Parse the optional CASE_FILTER caseId regex (see header doc); an invalid pattern is fatal. */
+function parseCaseFilter(): RegExp | undefined {
+  const source = process.env.CASE_FILTER;
+  if (!source) return undefined;
+  try {
+    return new RegExp(source);
+  } catch (err) {
+    console.error(`Invalid CASE_FILTER regex: ${describeError(err)}`);
+    process.exit(1);
+  }
+}
+
 async function main(): Promise<void> {
+  const caseFilter = parseCaseFilter();
   const { oystehr, outDir, days, chunkDays, locationIds } = initFromEnv();
 
   if (!existsSync(join(outDir, 'manifest.json'))) {
@@ -43,6 +62,10 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const manifest = loadManifest(outDir);
+  const inScope = caseFilter == null ? manifest : manifest.filter((r) => caseFilter.test(r.caseId));
+  if (caseFilter != null) {
+    console.log(`CASE_FILTER active: ${inScope.length} of ${manifest.length} records in scope`);
+  }
 
   // hash -> caseId for cases whose file exists and lacks meta.patientStatus. Keyed by BOTH
   // encounterHash and (when present) appointmentHash: Encounters can be recreated between
@@ -50,7 +73,7 @@ async function main(): Promise<void> {
   const pending = new Map<string, string>();
   let alreadySet = 0;
   let missingFile = 0;
-  for (const rec of manifest) {
+  for (const rec of inScope) {
     const path = join(outDir, `${rec.caseId}.json`);
     if (!existsSync(path)) {
       missingFile += 1;
