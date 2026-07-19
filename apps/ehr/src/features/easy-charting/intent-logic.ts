@@ -152,34 +152,47 @@ export function findRemoveMatches(intent: RemoveIntent, data: GetChartDataRespon
   return out;
 }
 
-// The review's "diagnosis" category swaps a dx as remove-diagnosis + add-diagnosis, and its prompt
-// requires the add to restate the removed dx's isPrimary — but flash-lite reliably OMITS it, and a
-// missing isPrimary charts as SECONDARY, so swapping the primary left the note with NO primary dx
-// (billing-invalid). Deterministic carry-over: resolve the remove against the STRUCTURED chart
-// (must run BEFORE any of the actions execute) with the same matcher the dispatcher will use, and
-// stamp the matched dx's isPrimary onto the first add-diagnosis that lacks a boolean one (any
-// further unmarked adds become explicitly secondary — exactly one primary). A model-stated boolean
-// isPrimary is never overridden, and with no resolvable remove match the actions pass through
-// untouched (pickPrimaryPromotion backstops that case). Returns a new array; never mutates input.
-export function carryReviewSwapPrimary(
-  actions: EasyChartAgentIntent[],
-  data: GetChartDataResponse | null
-): EasyChartAgentIntent[] {
+// A diagnosis SWAP (remove-diagnosis + add-diagnosis in one batch) must never demote the chart's
+// primary: a missing/false isPrimary on the add charts it as SECONDARY, so swapping the primary
+// left the note with NO primary dx (billing-invalid). Used by BOTH replay paths:
+//  - review suggestions (the "diagnosis" card): flash-lite reliably OMITS isPrimary despite the
+//    prompt/schema requiring it — carry the removed dx's status onto the first add that lacks a
+//    boolean one (further unmarked adds become explicitly secondary — exactly one primary). A
+//    model-stated boolean is never overridden here; pickPrimaryPromotion backstops the rest.
+//  - the PLANNER's plan execution (a dictated correction: "remove the strep diagnosis, it's
+//    mono"): on an incremental re-message the planner SERVER demotes every new add to an explicit
+//    isPrimary:false (the never-usurp rule) — correct for pure additions, wrong when the same plan
+//    REMOVES the primary. Pass reclaimPrimary to let the first add reclaim primary over an
+//    explicit false in exactly that case (removed dx is primary AND no add claims primary).
+// Deterministic: resolves the remove against the STRUCTURED chart with the same matcher the
+// dispatcher uses, so it must run BEFORE any of the actions execute. No remove, no adds, or no
+// resolvable match → input returned untouched. Returns a new array; never mutates input.
+export function carrySwapPrimary<T extends EasyChartAgentIntent>(
+  actions: T[],
+  data: GetChartDataResponse | null,
+  opts?: { reclaimPrimary?: boolean }
+): T[] {
   const removeDx = actions.find((a) => a.kind === 'remove-diagnosis');
-  const needsCarry = actions.some(
-    (a) => a.kind === 'add-diagnosis' && typeof (a as { isPrimary?: unknown }).isPrimary !== 'boolean'
-  );
-  if (!removeDx || !needsCarry) return actions;
+  const addIdxs = actions.map((a, i) => (a.kind === 'add-diagnosis' ? i : -1)).filter((i) => i >= 0);
+  if (!removeDx || addIdxs.length === 0) return actions;
+  const isPrimaryOf = (a: EasyChartAgentIntent): unknown => (a as { isPrimary?: unknown }).isPrimary;
+  const missingIdxs = addIdxs.filter((i) => typeof isPrimaryOf(actions[i]) !== 'boolean');
+  const hasExplicitPrimary = addIdxs.some((i) => isPrimaryOf(actions[i]) === true);
+  const mayReclaim = !!opts?.reclaimPrimary && !hasExplicitPrimary;
+  if (missingIdxs.length === 0 && !mayReclaim) return actions;
   const matches = findRemoveMatches(removeDx as RemoveIntent, data);
   if (matches.length === 0) return actions;
   // Same pick as handleRemovePick on the non-interactive path: the first match is the one removed.
   const removedIsPrimary = !!(matches[0].dto as { isPrimary?: boolean }).isPrimary;
-  let carried = false;
-  return actions.map((a) => {
-    if (a.kind !== 'add-diagnosis' || typeof (a as { isPrimary?: unknown }).isPrimary === 'boolean') return a;
-    const isPrimary = !carried && removedIsPrimary;
-    carried = true;
-    return { ...a, isPrimary };
+  // The add that ends up primary: the first UNMARKED one normally; under reclaimPrimary, the first
+  // add even over an explicit false (the planner-server demotion case). Never mint a second
+  // primary when the model already marked one, and never promote anything for a secondary swap.
+  const primaryIdx = removedIsPrimary && !hasExplicitPrimary ? missingIdxs[0] ?? (mayReclaim ? addIdxs[0] : -1) : -1;
+  if (primaryIdx < 0 && missingIdxs.length === 0) return actions;
+  return actions.map((a, i) => {
+    if (i === primaryIdx) return { ...a, isPrimary: true } as T;
+    if (missingIdxs.includes(i)) return { ...a, isPrimary: false } as T;
+    return a;
   });
 }
 

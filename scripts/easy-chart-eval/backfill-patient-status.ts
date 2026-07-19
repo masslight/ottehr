@@ -28,7 +28,7 @@ import {
   describeError,
   fetchReportChunked,
   guarded,
-  hashEncounterId,
+  hashId,
   initFromEnv,
   loadManifest,
   resolveHarvestWindow,
@@ -44,7 +44,9 @@ async function main(): Promise<void> {
   }
   const manifest = loadManifest(outDir);
 
-  // encounterHash -> caseId for cases whose file exists and lacks meta.patientStatus
+  // hash -> caseId for cases whose file exists and lacks meta.patientStatus. Keyed by BOTH
+  // encounterHash and (when present) appointmentHash: Encounters can be recreated between
+  // harvest and backfill, changing their ids, while appointment ids stay stable.
   const pending = new Map<string, string>();
   let alreadySet = 0;
   let missingFile = 0;
@@ -60,9 +62,11 @@ async function main(): Promise<void> {
       continue;
     }
     pending.set(rec.encounterHash, rec.caseId);
+    if (rec.appointmentHash) pending.set(rec.appointmentHash, rec.caseId);
   }
+  const pendingCases = new Set(pending.values()).size;
   console.log(
-    `Cases: ${manifest.length} in manifest, ${alreadySet} already set, ${pending.size} pending` +
+    `Cases: ${manifest.length} in manifest, ${alreadySet} already set, ${pendingCases} pending` +
       `${missingFile ? `, ${missingFile} missing case files` : ''}`
   );
   if (pending.size === 0) {
@@ -110,7 +114,10 @@ async function main(): Promise<void> {
         tally.unmatched += 1;
         continue;
       }
-      const caseId = pending.get(hashEncounterId(encounter.id));
+      // match by either key (see pending-map comment)
+      const caseId =
+        pending.get(hashId(encounter.id)) ??
+        (item.appointmentId ? pending.get(hashId(String(item.appointmentId))) : undefined);
       if (!caseId) {
         tally.unmatched += 1;
         continue;
@@ -127,7 +134,10 @@ async function main(): Promise<void> {
       const caseFile = JSON.parse(readFileSync(path, 'utf-8'));
       caseFile.meta = { ...(caseFile.meta ?? {}), patientStatus };
       writeFileSync(path, JSON.stringify(caseFile, null, 2));
-      pending.delete(hashEncounterId(encounter.id));
+      // drop every key pointing at this case (it may be registered under both hashes)
+      for (const [key, value] of pending) {
+        if (value === caseId) pending.delete(key);
+      }
       tally.patched += 1;
       console.log(`${caseId}: patched (${patientStatus})`);
     } catch (err) {
@@ -140,7 +150,7 @@ async function main(): Promise<void> {
 
   console.log(
     `Done. patched=${tally.patched} unresolved=${tally.unresolved} unmatchedItems=${tally.unmatched} ` +
-      `errors=${tally.error} stillPending=${pending.size}`
+      `errors=${tally.error} stillPending=${new Set(pending.values()).size}`
   );
 }
 

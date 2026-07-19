@@ -1,12 +1,12 @@
 import { DiagnosisDTO, EasyChartAgentIntent, GetChartDataResponse } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { carryReviewSwapPrimary, pickPrimaryPromotion } from '../../src/features/easy-charting/intent-logic';
+import { carrySwapPrimary, pickPrimaryPromotion } from '../../src/features/easy-charting/intent-logic';
 
 // The review's diagnosis-swap card (remove-diagnosis + add-diagnosis) must never demote the chart's
 // primary: the model reliably omits isPrimary on the add, and a missing flag charts as secondary —
 // leaving the note with NO primary dx (billing-invalid). These two pure helpers are the client's
 // deterministic fix; the eval harness's apply-loop sim mirrors them, so lock the contract in.
-describe('carryReviewSwapPrimary', () => {
+describe('carrySwapPrimary', () => {
   const chart = {
     diagnosis: [
       { resourceId: 'dx1', code: 'H66.003', display: 'Acute suppurative otitis media, bilateral', isPrimary: true },
@@ -21,7 +21,7 @@ describe('carryReviewSwapPrimary', () => {
     ({ kind: 'add-diagnosis', display, searchTerms: [], code }) as unknown as EasyChartAgentIntent;
 
   it('carries isPrimary: true when the removed dx is the primary', () => {
-    const out = carryReviewSwapPrimary(
+    const out = carrySwapPrimary(
       [remove('Acute suppurative otitis media, bilateral'), addNoFlag('Recurrent AOM, bilateral', 'H66.006')],
       chart
     );
@@ -29,7 +29,7 @@ describe('carryReviewSwapPrimary', () => {
   });
 
   it('carries isPrimary: false when the removed dx is a secondary', () => {
-    const out = carryReviewSwapPrimary([remove('Streptococcal pharyngitis'), addNoFlag('Acute pharyngitis')], chart);
+    const out = carrySwapPrimary([remove('Streptococcal pharyngitis'), addNoFlag('Acute pharyngitis')], chart);
     expect((out[1] as { isPrimary?: boolean }).isPrimary).toBe(false);
   });
 
@@ -40,22 +40,22 @@ describe('carryReviewSwapPrimary', () => {
       searchTerms: [],
       isPrimary: false,
     } as unknown as EasyChartAgentIntent;
-    const out = carryReviewSwapPrimary([remove('Acute suppurative otitis media, bilateral'), explicit], chart);
+    const out = carrySwapPrimary([remove('Acute suppurative otitis media, bilateral'), explicit], chart);
     expect((out[1] as { isPrimary?: boolean }).isPrimary).toBe(false);
   });
 
   it('passes through untouched when the remove matches nothing on the chart', () => {
     const actions = [remove('Fracture of distal radius'), addNoFlag('Torus fracture')];
-    expect(carryReviewSwapPrimary(actions, chart)).toBe(actions);
+    expect(carrySwapPrimary(actions, chart)).toBe(actions);
   });
 
   it('passes through untouched without a remove-diagnosis in the card', () => {
     const actions = [addNoFlag('Contact dermatitis')];
-    expect(carryReviewSwapPrimary(actions, chart)).toBe(actions);
+    expect(carrySwapPrimary(actions, chart)).toBe(actions);
   });
 
   it('gives the carried primary to the FIRST unmarked add only; later adds become secondary', () => {
-    const out = carryReviewSwapPrimary(
+    const out = carrySwapPrimary(
       [remove('Acute suppurative otitis media, bilateral'), addNoFlag('Recurrent AOM'), addNoFlag('Otitis externa')],
       chart
     );
@@ -65,8 +65,60 @@ describe('carryReviewSwapPrimary', () => {
 
   it('does not mutate the input actions', () => {
     const actions = [remove('Acute suppurative otitis media, bilateral'), addNoFlag('Recurrent AOM')];
-    carryReviewSwapPrimary(actions, chart);
+    carrySwapPrimary(actions, chart);
     expect((actions[1] as { isPrimary?: unknown }).isPrimary).toBeUndefined();
+  });
+
+  // PLANNER path (reclaimPrimary): on an incremental plan the planner server's never-usurp rule
+  // stamps explicit isPrimary:false on every add — correct for pure additions, wrong when the same
+  // plan REMOVES the primary. reclaimPrimary lets the replacement reclaim it in exactly that case.
+  describe('reclaimPrimary (planner plan path)', () => {
+    const addExplicit = (display: string, isPrimary: boolean): EasyChartAgentIntent =>
+      ({ kind: 'add-diagnosis', display, searchTerms: [], isPrimary }) as unknown as EasyChartAgentIntent;
+
+    it('remove-primary + explicit-false add: the replacement reclaims primary', () => {
+      const out = carrySwapPrimary(
+        [remove('Acute suppurative otitis media, bilateral'), addExplicit('Recurrent AOM, bilateral', false)],
+        chart,
+        { reclaimPrimary: true }
+      );
+      expect((out[1] as { isPrimary?: boolean }).isPrimary).toBe(true);
+    });
+
+    it('remove-secondary + explicit-false add: stays secondary (untouched)', () => {
+      const actions = [remove('Streptococcal pharyngitis'), addExplicit('Acute pharyngitis', false)];
+      expect(carrySwapPrimary(actions, chart, { reclaimPrimary: true })).toBe(actions);
+    });
+
+    it('add-only plan: untouched — never-usurp stays intact', () => {
+      const actions = [addExplicit('Contact dermatitis', false)];
+      expect(carrySwapPrimary(actions, chart, { reclaimPrimary: true })).toBe(actions);
+    });
+
+    it('never reclaims over an add the model already marked primary', () => {
+      const actions = [
+        remove('Acute suppurative otitis media, bilateral'),
+        addExplicit('Recurrent AOM, bilateral', true),
+        addExplicit('Otitis externa', false),
+      ];
+      expect(carrySwapPrimary(actions, chart, { reclaimPrimary: true })).toBe(actions);
+    });
+
+    it('remove-primary + unmarked add: carries primary same as the review path', () => {
+      const out = carrySwapPrimary(
+        [remove('Acute suppurative otitis media, bilateral'), addNoFlag('Recurrent AOM')],
+        chart,
+        {
+          reclaimPrimary: true,
+        }
+      );
+      expect((out[1] as { isPrimary?: boolean }).isPrimary).toBe(true);
+    });
+
+    it('without reclaimPrimary an explicit false is never overridden (review behavior)', () => {
+      const actions = [remove('Acute suppurative otitis media, bilateral'), addExplicit('Recurrent AOM', false)];
+      expect(carrySwapPrimary(actions, chart)).toBe(actions);
+    });
   });
 });
 

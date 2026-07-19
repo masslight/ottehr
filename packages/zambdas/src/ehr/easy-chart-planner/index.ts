@@ -331,7 +331,9 @@ doesn't mention):
      They are patient-specific and a template cannot supply them; its defaults are generic
      boilerplate that the patient-specific text must supersede. Write HPI as the narrative's
      history of the presenting problem (opening with the brief one-liner identifier), and MDM as
-     the assessment + plan + medications + counseling + return precautions.
+     the assessment + plan the provider ACTUALLY dictated — the charted diagnosis's reasoning, the
+     treatment with drug/dose when stated, the stated follow-up. Never pad the MDM with generic
+     boilerplate the provider didn't say (see the MDM rules under VOICE below).
      chiefComplaint is CONDITIONAL — most providers leave it blank because the HPI's opening
      one-liner already states the reason for the visit. Emit a chiefComplaint edit-note-text ONLY
      when it adds information the HPI's first line does not already carry (e.g. the provider
@@ -584,10 +586,28 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
         good" → "CTAB", "tummy soft" → "abdomen soft", etc.
       * CC: 2-6 words ("Right ear pain", "Cough x3 days", "Auto accident"). Not a sentence. Emit
         the CC step at all only per step 3's rule (when it adds something the HPI opener doesn't).
-      * MDM: clinical reasoning + plan rationale, not patient instructions. Use "consistent
-        with…", "differential includes…", "no red flags for…", "treated with…". The MDM may state
-        the plan in shorthand, but every patient-FACING part of that plan (how to take meds incl. any
-        taper, OTC/supportive care, return precautions, follow-up) STILL needs its own
+      * MDM: clinical reasoning + plan rationale, not patient instructions — and EVERY statement
+        in it must be anchored in what the provider actually dictated. Build it from:
+          (a) the pertinent positives / exam findings the provider voiced ("bulging erythematous
+              right TM with loss of light reflex") — the actual findings, not generic restatements;
+          (b) the assessment for the diagnosis THIS PLAN is charting: the MDM's assessment must
+              restate the plan's add-diagnosis / template diagnosis ("consistent with acute otitis
+              media, right ear"), NEVER a hedged alternative differential that contradicts it — if
+              the plan charts AOM and starts an antibiotic, an MDM saying "likely viral URI,
+              supportive care" is a charting error;
+          (c) the treatment actually ordered, with drug + dose/duration when the provider stated
+              them ("started amoxicillin 400 mg/5 mL, 9 mL BID x10 days") — never "appropriate
+              antibiotics", "conservative management", or an unnamed "therapy";
+          (d) the follow-up interval and return conditions ONLY as the provider stated them.
+        FORBIDDEN unless the provider actually said it: "supportive care", "conservative
+        management", "monitor for worsening", "follow up as needed", "return precautions
+        discussed", stock red-flag lists, or any differential the provider never voiced. A SHORT
+        MDM made only of dictated specifics is correct; padding it with unvoiced clinical-sounding
+        filler is fabrication. Aim for a provider-quality paragraph (roughly 2-6 sentences), not an
+        essay. Shorthand like "consistent with…" and "treated with…" is good; write "differential
+        includes…" or "no red flags for…" ONLY when the provider reasoned through that aloud. The
+        MDM may state the plan in shorthand, but every patient-FACING part of that plan (how to
+        take meds incl. any taper, OTC care, return precautions, follow-up) STILL needs its own
         add-patient-instruction — mentioning it in the MDM does NOT relieve you of that step.
       * Skip pleasantries, marketing language, and obvious safety-net statements that the
         chart template already provides — focus on what's specific to THIS encounter.

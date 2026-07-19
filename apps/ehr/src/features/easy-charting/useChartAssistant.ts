@@ -76,7 +76,7 @@ import {
   AUTO_CHART_KINDS,
   buildExamRemoveItems,
   buildIntentPayload,
-  carryReviewSwapPrimary,
+  carrySwapPrimary,
   chartedItemDisplay,
   collectResourceIds,
   fetchEasyChartData,
@@ -630,7 +630,7 @@ export function useChartAssistant({
         // secondary, so swapping the PRIMARY dx left the note with no primary. Stamp the removed
         // dx's isPrimary onto the add from the structured chart, BEFORE the remove executes.
         // (The planner path's never-usurp rule is untouched — this runs only on review replays.)
-        const actions = carryReviewSwapPrimary(s.actions, chartDataRef.current);
+        const actions = carrySwapPrimary(s.actions, chartDataRef.current);
         for (const action of actions) {
           // A rewrite of a note field that already has content requires explicit confirmation —
           // queue it as a proposal card instead of silently replacing the provider's prose.
@@ -1536,7 +1536,13 @@ export function useChartAssistant({
           incremental,
         });
         recordUsage(planRes.usage);
-        const { steps } = planRes;
+        // Planner-path primary carry-over (same class as the review swap bug): a dictated
+        // correction can remove the charted PRIMARY dx and add its replacement in ONE plan — and
+        // on an incremental message the planner server's never-usurp rule has already demoted the
+        // adds to explicit isPrimary:false, so nothing would restore a primary. Resolve the remove
+        // against the chart BEFORE execution and reclaim the primary onto the replacement.
+        // Add-only plans (no remove-diagnosis) pass through untouched — never-usurp stays intact.
+        const steps = carrySwapPrimary(planRes.steps, chartDataRef.current, { reclaimPrimary: true });
         if (steps.length === 0) {
           setConv({
             kind: 'unknown',
@@ -1832,11 +1838,18 @@ export function useChartAssistant({
             if (s.kind === 'add-cpt' && 'code' in s && s.code) return chartedCptCodes.has(s.code.toUpperCase());
             return false;
           };
-          const mergedSteps = [
-            ...refreshedFiltered.filter((s) => !isNoteEdit(s) && !isAlreadyCharted(s)),
-            ...missingExam,
-            ...firstPassNoteEdits,
-          ];
+          // Same planner-path primary carry-over as the initial plan, resolved against the
+          // POST-template chart: if the pending steps swap out the current primary dx, the
+          // replacement add reclaims primary instead of leaving the note with none.
+          const mergedSteps = carrySwapPrimary(
+            [
+              ...refreshedFiltered.filter((s) => !isNoteEdit(s) && !isAlreadyCharted(s)),
+              ...missingExam,
+              ...firstPassNoteEdits,
+            ],
+            fresh,
+            { reclaimPrimary: true }
+          );
           // Splice: keep completed steps + their results; replace pending steps with the merge.
           // The apply-template step itself hasn't terminally settled yet (we're still inside
           // handleApplyTemplate), so it's still at currentIdx. Move forward into the merged steps.

@@ -84,6 +84,8 @@ import {
 // v2 is ADDITIVE over v1 (all 38 v1 cases still load): adds meta.patientStatus,
 // gold.instructionItems, and the full disposition field set (reason/specialty/specialtyOther/
 // labService/virusTest/nothingToEatOrDrink/refusalOfEmsTransport). Readers must accept both.
+// meta.appointmentHash (+ manifest appointmentHash) was added later, still within v2 —
+// also additive/optional; records and cases without it remain valid.
 const SCHEMA_VERSION = 2;
 export const AMBIENT_SCRIBE_MARKER = 'ambient scribe';
 
@@ -95,6 +97,7 @@ const CHUNK_PAUSE_MS = 3_000; // between successive chunk calls
 export interface ManifestRecord {
   caseId: string;
   encounterHash: string;
+  appointmentHash?: string; // sha256(appointmentId); absent on records predating the dual dedup key
   appointmentDate?: string;
   providerProfession?: string;
   visitType?: string;
@@ -112,6 +115,7 @@ interface CaseFile {
   caseId: string;
   meta: {
     encounterHash: string;
+    appointmentHash?: string; // sha256(appointmentId); stable dedup key (see isAlreadyHarvested)
     appointmentDate?: string;
     providerProfession?: string;
     visitType?: string;
@@ -145,7 +149,8 @@ function normalizeCode(code: string | undefined): string {
   return (code ?? '').toUpperCase().replace(/\s+/g, '').replace(/\./g, '');
 }
 
-export function hashEncounterId(id: string): string {
+/** 16-hex sha256 of a FHIR resource id (used for both Encounter and Appointment ids). */
+export function hashId(id: string): string {
   return createHash('sha256').update(id).digest('hex').slice(0, 16);
 }
 
@@ -478,6 +483,26 @@ export function buildGold(
 // ---------------------------------------------------------------------------
 // Manifest helpers
 // ---------------------------------------------------------------------------
+/**
+ * Dual-key cross-run dedup: a visit is already harvested if EITHER hash matches a manifest
+ * record. Rationale: some practice stacks replace/recreate Encounter resources (live probe:
+ * ~113/117 encounter ids changed one day after harvest), so encounterHash alone re-imports
+ * overlapping visits; appointmentIds come from the Appointment resource, which nothing
+ * recreates, so appointmentHash is presumed stable. Old records may lack appointmentHash.
+ * Exported for tests.
+ */
+export function isAlreadyHarvested(
+  manifest: Pick<ManifestRecord, 'encounterHash' | 'appointmentHash'>[],
+  encounterHash: string | undefined,
+  appointmentHash: string | undefined
+): boolean {
+  return manifest.some(
+    (r) =>
+      (encounterHash != null && r.encounterHash === encounterHash) ||
+      (appointmentHash != null && r.appointmentHash != null && r.appointmentHash === appointmentHash)
+  );
+}
+
 export function loadManifest(outDir: string): ManifestRecord[] {
   const path = join(outDir, 'manifest.json');
   if (!existsSync(path)) return [];
@@ -711,7 +736,6 @@ async function main(): Promise<void> {
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
   const manifest = loadManifest(outDir);
-  const harvestedHashes = new Set(manifest.map((r) => r.encounterHash));
   let caseNum = nextCaseNumber(manifest, outDir);
 
   // 1. Report (chunked + retried; see fetchReportChunked)
@@ -764,6 +788,15 @@ async function main(): Promise<void> {
 
   // --- per-encounter worker (closure over shared state) ---
   async function harvestOne(item: AiAssistedEncounterItem): Promise<void> {
+    // Dedup key #2 first — checked before any FHIR round-trip, and reliable across runs even
+    // where Encounters get recreated (see isAlreadyHarvested)
+    const appointmentHash = item.appointmentId ? hashId(String(item.appointmentId)) : undefined;
+    if (isAlreadyHarvested(manifest, undefined, appointmentHash)) {
+      tally.alreadyHarvested += 1;
+      console.log('skipped: already harvested');
+      return;
+    }
+
     // a. Resolve the Encounter from the appointment
     const encBundle = await guarded(() =>
       oystehr.fhir.search<Encounter>({
@@ -779,8 +812,8 @@ async function main(): Promise<void> {
       return;
     }
 
-    const encounterHash = hashEncounterId(encounterId);
-    if (harvestedHashes.has(encounterHash)) {
+    const encounterHash = hashId(encounterId);
+    if (isAlreadyHarvested(manifest, encounterHash, appointmentHash)) {
       tally.alreadyHarvested += 1;
       console.log('skipped: already harvested');
       return;
@@ -872,6 +905,7 @@ async function main(): Promise<void> {
       caseId,
       meta: {
         encounterHash,
+        ...(appointmentHash ? { appointmentHash } : {}),
         appointmentDate,
         providerProfession,
         visitType: item.visitType,
@@ -894,6 +928,7 @@ async function main(): Promise<void> {
     const manifestRecord: ManifestRecord = {
       caseId,
       encounterHash,
+      ...(appointmentHash ? { appointmentHash } : {}),
       appointmentDate,
       providerProfession,
       visitType: item.visitType,
@@ -905,8 +940,8 @@ async function main(): Promise<void> {
       hasErx,
       hasImmunizations,
     };
+    // pushing into `manifest` also feeds isAlreadyHarvested for the rest of this run
     manifest.push(manifestRecord);
-    harvestedHashes.add(encounterHash);
     writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
     tally.written += 1;

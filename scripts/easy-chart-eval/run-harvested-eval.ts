@@ -64,7 +64,7 @@ import {
 } from '../../apps/ehr/src/features/easy-charting/exam-ros-catalog';
 import {
   buildExamRemoveItems,
-  carryReviewSwapPrimary,
+  carrySwapPrimary,
   findExamLeafMatchesScored,
   findExamRemoveMatchesScored,
   findRosLeafMatchesScored,
@@ -507,6 +507,22 @@ function dxDtoView(state: SimFinalState): DiagnosisDTO[] {
     })) as DiagnosisDTO[];
 }
 
+// Mirrors the client's handleSend hook: before a PLAN executes, carrySwapPrimary runs over the
+// full planner step list against the current chart with { reclaimPrimary: true } — when the plan
+// removes the charted primary and no add claims primary, the first add reclaims it even over an
+// explicit isPrimary:false (the planner server's never-usurp normalization stamps false on
+// incremental-plan adds). Add-only plans and explicit-true adds pass through untouched. In the
+// harvested eval the pre-plan chart is EMPTY (fresh-visit sim), so the remove resolves to
+// nothing and the helper is an identity for most plans — kept for exact client parity.
+// Exported for the --self-test fixtures.
+export function applyPlanSteps(state: SimFinalState, rawSteps: Step[]): void {
+  const before = { diagnosis: dxDtoView(state) } as GetChartDataResponse;
+  const steps = carrySwapPrimary(rawSteps as unknown as EasyChartAgentIntent[], before, {
+    reclaimPrimary: true,
+  }) as unknown as Step[];
+  for (const step of steps) applyStep(state, step, 'planner');
+}
+
 // Exported for the --self-test fixtures. Returns whether the fix actually engaged: a primary
 // flag was carried onto an add, and/or a promotion fired.
 export function applyReviewSuggestion(
@@ -515,8 +531,8 @@ export function applyReviewSuggestion(
 ): { carriedPrimary: boolean; promoted: boolean } {
   // (a) BEFORE applying — the to-be-removed dx's primary flag must still be readable.
   const before = { diagnosis: dxDtoView(state) } as GetChartDataResponse;
-  const actions = carryReviewSwapPrimary(rawActions as unknown as EasyChartAgentIntent[], before) as unknown as Step[];
-  // carryReviewSwapPrimary preserves order/length, so index-wise comparison finds a stamped
+  const actions = carrySwapPrimary(rawActions as unknown as EasyChartAgentIntent[], before) as unknown as Step[];
+  // carrySwapPrimary preserves order/length, so index-wise comparison finds a stamped
   // isPrimary:true the raw action lacked (an explicit stamped `false` is behaviorally a no-op).
   const carriedPrimary = actions.some(
     (a, i) =>
@@ -699,7 +715,9 @@ async function runCase(
     }
 
     const state = emptySimState();
-    for (const step of planSteps) applyStep(state, step as Record<string, any> as EasyChartPlannerStep, 'planner');
+    // Shared by full mode and --review-only replay: pre-plan carrySwapPrimary(reclaimPrimary)
+    // then step application (see applyPlanSteps).
+    applyPlanSteps(state, planSteps as Record<string, any>[] as Step[]);
 
     stage = 'review';
     const chartState = buildChartStateText(state);
@@ -1019,6 +1037,33 @@ function runSimSelfTest(): void {
       true
     );
     check('S5 fixture is non-trivial (charted content present)', buildChartStateText(original).length > 0, true);
+  }
+
+  // S6 — plan-path reclaim: a plan that removes the charted primary with its add explicitly
+  // marked isPrimary:false (the planner server's never-usurp demotion) reclaims primary onto
+  // that add when applied against a pre-populated chart.
+  {
+    const state = emptySimState();
+    state.diagnoses = [{ display: 'Acute otitis media', code: 'H66.90', isPrimary: true, source: 'planner' }];
+    applyPlanSteps(state, [
+      { kind: 'remove-diagnosis', display: 'Acute otitis media', searchTerms: ['h66.90'] },
+      { kind: 'add-diagnosis', display: 'Otitis media with effusion', code: 'H65.91', isPrimary: false }, // explicit false
+    ] as Step[]);
+    const active = activeDx(state);
+    check('S6 one active dx after swap', active.length, 1);
+    check('S6 reclaim promoted the explicit-false add', [active[0].code, !!active[0].isPrimary], ['H65.91', true]);
+  }
+
+  // S7 — add-only plan is untouched by the reclaim path: no remove ⇒ helper passthrough, the
+  // explicit-false add charts secondary, existing primary survives.
+  {
+    const state = emptySimState();
+    state.diagnoses = [{ display: 'Pharyngitis', code: 'J02.9', isPrimary: true, source: 'planner' }];
+    applyPlanSteps(state, [{ kind: 'add-diagnosis', display: 'Cough', code: 'R05.9', isPrimary: false }] as Step[]);
+    const active = activeDx(state);
+    check('S7 both dx active', active.length, 2);
+    check('S7 existing primary intact', active.find((d) => d.code === 'J02.9')?.isPrimary, true);
+    check('S7 add-only add stays secondary', !!active.find((d) => d.code === 'R05.9')?.isPrimary, false);
   }
 
   console.log(failures === 0 ? '\nSIM SELF-TEST PASS' : `\nSIM SELF-TEST FAIL (${failures} failing checks)`);
