@@ -9,6 +9,8 @@ import {
   EasyChartReviewOutput,
   EasyChartSuggestion,
   EasyChartTokenUsage,
+  getOptionalSecret,
+  SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
@@ -375,12 +377,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // flash-lite over-suggested pertinent negatives the provider never voiced (e.g. "Denies nausea"
   // inferred from "no emesis") despite the prompt requiring a near-verbatim quote — the verbatim
   // guard below now enforces that deterministically.
+  // EASY_CHART_REVIEW_MODEL exists for review-pass model A/B: the flash-lite-by-design decision
+  // covers the PLANNER; the review pass writes into the note, so its model is a separate question
+  // currently being measured. Unset → undefined → invokeChatbotStructured's normal
+  // planner-secret/default chain, identical to before this knob existed.
+  const reviewModelOverride = getOptionalSecret(SecretsKeys.EASY_CHART_REVIEW_MODEL, secrets) || undefined;
   let usage: EasyChartTokenUsage | undefined;
   const raw = await invokeChatbotStructured(
     [{ text: buildPrompt(narrative, chartState, noteContext, patientContext, patientStatus) }],
     secrets,
     RESPONSE_SCHEMA,
-    undefined,
+    reviewModelOverride,
     (u) => {
       usage = u;
     }

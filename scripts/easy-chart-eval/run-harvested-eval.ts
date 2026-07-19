@@ -26,9 +26,24 @@
  *                                re-scoring via score-harvested.ts standalone mode).
  *   --self-test                  offline fixtures for the review dx-swap primary carry/promotion
  *                                sim (runs the real client helpers; no zambdas, no case data).
+ *   --review-only=<srcDir>       A/B the REVIEW model without re-running the (nondeterministic)
+ *                                planner: per case, load the recorded planSteps (+ the recorded
+ *                                patientStatusSent, reused verbatim for parity) from
+ *                                <srcDir>/caseNNN.result.json, rebuild the pre-review sim state
+ *                                by replaying them through the current applyStep, then run the
+ *                                review call + suggestion application + scoring as normal into
+ *                                outDir. Source results with a recorded error are skipped with a
+ *                                note. Composes with --cases. Typical A/B: source = a completed
+ *                                full run (harvested-results/run3), target outDir = a fresh dir
+ *                                (harvested-results/run3-sonnet-review), review model switched
+ *                                via the EASY_CHART_REVIEW_MODEL secret in the local server env.
+ *                                Replay fidelity: the rebuilt chartState is byte-compared to the
+ *                                source's recorded chartStateSentToReview and the verdict stored
+ *                                as replayChartStateMatches (a mismatch means matcher/catalog
+ *                                drift since the source run).
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import {
   DiagnosisDTO,
@@ -631,33 +646,72 @@ interface ReviewOutput {
   usage?: EasyChartTokenUsage;
 }
 
+// Shape of a source-run result file consumed by --review-only.
+interface SourceResult {
+  error?: string;
+  planSteps?: EasyChartPlannerStep[];
+  patientStatusSent?: 'new' | 'established' | null;
+  chartStateSentToReview?: string;
+}
+
 async function runCase(
   caseFile: CaseFile,
   token: string,
-  outDir: string
+  outDir: string,
+  reviewOnly?: string // source results dir — skip the planner, replay its recorded planSteps
 ): Promise<{
   score?: CaseScore;
   planSteps: number;
   reviewSuggestions: number;
   primaryFixFired?: boolean;
   error?: string;
+  skipped?: string;
 }> {
   const { caseId, transcript, gold } = caseFile;
-  let stage = 'planner';
-  const patientStatus = inferPatientStatus(gold);
+  let stage = reviewOnly ? 'load-source' : 'planner';
+  let patientStatus = inferPatientStatus(gold);
   try {
-    const plan = await callZambda<PlannerOutput>(
-      'easy-chart-planner',
-      { narrative: transcript, noteContext: { ...(patientStatus ? { patientStatus } : {}) } },
-      token
-    );
-    if (!Array.isArray(plan.steps)) throw new Error('planner returned no steps array');
+    let planSteps: EasyChartPlannerStep[];
+    let plannerUsage: EasyChartTokenUsage | undefined;
+    let sourceChartState: string | undefined;
+    if (reviewOnly) {
+      const srcPath = join(reviewOnly, `${caseId}.result.json`);
+      if (!existsSync(srcPath)) return { planSteps: 0, reviewSuggestions: 0, skipped: 'no source result file' };
+      const src = JSON.parse(readFileSync(srcPath, 'utf8')) as SourceResult;
+      if (src.error)
+        return { planSteps: 0, reviewSuggestions: 0, skipped: `source run failed: ${src.error.slice(0, 80)}` };
+      if (!Array.isArray(src.planSteps))
+        return { planSteps: 0, reviewSuggestions: 0, skipped: 'source result has no planSteps' };
+      planSteps = src.planSteps;
+      sourceChartState = src.chartStateSentToReview;
+      // A/B parity: reuse the source run's recorded patientStatus decision verbatim (absent on
+      // pre-patientStatus source runs ⇒ this review sees none, exactly like the source's review).
+      patientStatus = src.patientStatusSent ?? undefined;
+    } else {
+      const plan = await callZambda<PlannerOutput>(
+        'easy-chart-planner',
+        { narrative: transcript, noteContext: { ...(patientStatus ? { patientStatus } : {}) } },
+        token
+      );
+      if (!Array.isArray(plan.steps)) throw new Error('planner returned no steps array');
+      planSteps = plan.steps;
+      plannerUsage = plan.usage;
+    }
 
     const state = emptySimState();
-    for (const step of plan.steps) applyStep(state, step as Record<string, any> as EasyChartPlannerStep, 'planner');
+    for (const step of planSteps) applyStep(state, step as Record<string, any> as EasyChartPlannerStep, 'planner');
 
     stage = 'review';
     const chartState = buildChartStateText(state);
+    // Replay fidelity: the matchers are pure, so the rebuild is deterministic — a mismatch with
+    // the source run's recorded chartState means matcher/catalog drift since that run.
+    let replayChartStateMatches: boolean | undefined;
+    if (reviewOnly && typeof sourceChartState === 'string') {
+      replayChartStateMatches = chartState === sourceChartState;
+      if (!replayChartStateMatches) {
+        console.warn(`${caseId}: replayed chartState DIFFERS from the source run (matcher/catalog drift?)`);
+      }
+    }
     const noteContext = { ...buildNoteContextFromState(state), ...(patientStatus ? { patientStatus } : {}) };
     const review = await callZambda<ReviewOutput>(
       'easy-chart-review',
@@ -675,7 +729,7 @@ async function runCase(
     }
 
     const usage: CaseUsage = {
-      ...(plan.usage ? { planner: plan.usage } : {}),
+      ...(plannerUsage ? { planner: plannerUsage } : {}),
       ...(review.usage ? { review: review.usage } : {}),
     };
     writeFileSync(
@@ -684,8 +738,14 @@ async function runCase(
         {
           caseId,
           patientStatusSent: patientStatus ?? null,
+          ...(reviewOnly
+            ? {
+                reviewOnlyFrom: reviewOnly,
+                ...(replayChartStateMatches !== undefined ? { replayChartStateMatches } : {}),
+              }
+            : {}),
           primaryFix: { carried: primaryCarried, promoted: primaryPromoted },
-          planSteps: plan.steps,
+          planSteps,
           reviewSuggestions: suggestions,
           chartStateSentToReview: chartState,
           finalState: state,
@@ -700,7 +760,7 @@ async function runCase(
     writeFileSync(join(outDir, `${caseId}.score.json`), JSON.stringify(score, null, 2));
     return {
       score,
-      planSteps: plan.steps.length,
+      planSteps: planSteps.length,
       reviewSuggestions: suggestions.length,
       primaryFixFired: primaryCarried + primaryPromoted > 0,
     };
@@ -766,10 +826,36 @@ async function main(): Promise<void> {
     if (files.length === 0) throw new Error(`--cases matched no case files in ${casesDir}`);
   }
   console.log(`${files.length} harvested cases from ${casesDir}${only ? ' (--cases filter active)' : ''}`);
+
+  const reviewOnlyFlag = flags.find((f) => f.startsWith('--review-only='));
+  const reviewOnly = reviewOnlyFlag ? reviewOnlyFlag.slice('--review-only='.length) : undefined;
+  if (reviewOnly) {
+    if (!existsSync(reviewOnly)) throw new Error(`--review-only source dir not found: ${reviewOnly}`);
+    // Writing the A/B into its own source would clobber the baseline it reads from.
+    if (resolve(reviewOnly) === resolve(outDir)) {
+      throw new Error('--review-only target outDir must differ from the source dir (pass a fresh outDir positional)');
+    }
+    if (positional[1] === undefined) {
+      console.warn(`warning: no outDir given — review-only results will land in the default ${outDir}`);
+    }
+    // Pre-flight (before auth): show how many selected cases have usable recorded plan steps.
+    const usable = files.filter((f) => {
+      const p = join(reviewOnly, f.replace('.json', '.result.json'));
+      if (!existsSync(p)) return false;
+      const src = JSON.parse(readFileSync(p, 'utf8')) as SourceResult;
+      return !src.error && Array.isArray(src.planSteps);
+    });
+    console.log(
+      `review-only mode: ${usable.length}/${files.length} selected cases have usable plan steps in ${reviewOnly}` +
+        ` (planner skipped; review + apply + score into ${outDir})`
+    );
+  }
   const token = await getToken();
 
   const CONCURRENCY = 3;
-  const results: { caseId: string; ok: boolean; line: string; score?: CaseScore }[] = new Array(files.length);
+  const results: { caseId: string; ok: boolean; skipped?: boolean; line: string; score?: CaseScore }[] = new Array(
+    files.length
+  );
   let idx = 0;
   async function worker(): Promise<void> {
     while (idx < files.length) {
@@ -777,8 +863,10 @@ async function main(): Promise<void> {
       const file = files[i];
       const caseFile = JSON.parse(readFileSync(join(casesDir, file), 'utf8')) as CaseFile;
       const caseId = caseFile.caseId ?? file.replace('.json', '');
-      const r = await runCase({ ...caseFile, caseId }, token, outDir);
-      results[i] = r.score
+      const r = await runCase({ ...caseFile, caseId }, token, outDir, reviewOnly);
+      results[i] = r.skipped
+        ? { caseId, ok: true, skipped: true, line: `${caseId}: SKIPPED (${r.skipped})` }
+        : r.score
         ? {
             caseId,
             ok: true,
@@ -792,10 +880,15 @@ async function main(): Promise<void> {
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
   const succeeded = results.filter((r) => r?.score).length;
+  const skipped = results.filter((r) => r?.skipped).length;
   const failed = results.filter((r) => r && !r.ok).length;
   console.log('');
   rebuildSummary(outDir);
-  console.log(`\ndone this run: ${succeeded} succeeded, ${failed} failed`);
+  console.log(
+    `\ndone this run: ${succeeded} succeeded, ${failed} failed${
+      skipped > 0 ? `, ${skipped} skipped (no usable source result)` : ''
+    }`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -900,6 +993,32 @@ function runSimSelfTest(): void {
     const score = scoreCase('simS4', gold, state);
     check('S4 final scope sees the promoted primary', score.scopes.final.primaryDx.match, true);
     check('S4 plannerOnly scope does NOT', score.scopes.plannerOnly.primaryDx.match, null);
+  }
+
+  // S5 — --review-only replay fidelity: re-applying JSON-round-tripped planSteps through the
+  // current applyStep reproduces the identical pre-review state AND chartState summary (the
+  // matchers are pure, so the rebuild is deterministic).
+  {
+    const steps: Step[] = [
+      { kind: 'add-diagnosis', display: 'Acute URI', code: 'J06.9', isPrimary: true },
+      { kind: 'add-ros-finding', display: 'Denies fever', searchTerms: ['fever'] },
+      { kind: 'add-exam-finding', display: 'lungs clear to auscultation', searchTerms: ['clear lungs'] },
+      { kind: 'edit-note-text', field: 'historyOfPresentIllness', newText: 'Three days of runny nose and cough.' },
+      { kind: 'set-em-code', code: '99213', display: 'Established E/M 3' },
+      { kind: 'add-medication', display: 'Amoxicillin', strength: '400 mg/5 mL' },
+    ] as Step[];
+    const original = emptySimState();
+    for (const s of steps) applyStep(original, s, 'planner');
+    // Round-trip through JSON exactly like a source result file stores planSteps, then replay.
+    const replayed = emptySimState();
+    for (const s of JSON.parse(JSON.stringify(steps)) as Step[]) applyStep(replayed, s, 'planner');
+    check('S5 replay reproduces the pre-review state', JSON.stringify(replayed) === JSON.stringify(original), true);
+    check(
+      'S5 replay reproduces the chartState summary',
+      buildChartStateText(replayed) === buildChartStateText(original),
+      true
+    );
+    check('S5 fixture is non-trivial (charted content present)', buildChartStateText(original).length > 0, true);
   }
 
   console.log(failures === 0 ? '\nSIM SELF-TEST PASS' : `\nSIM SELF-TEST FAIL (${failures} failing checks)`);
