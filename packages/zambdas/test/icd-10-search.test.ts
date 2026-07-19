@@ -147,6 +147,18 @@ describe('icd-10-search ranking (clinical-default + region synonyms + head word)
     expect(await top('hives')).toBe('L50.9');
   });
 
+  it('prefers the unspecified-side default over a lateralized sibling for side-less queries', async () => {
+    // "bilateral" has a shorter display than "unspecified ear" and used to win on brevity.
+    expect(await top('otitis media')).toBe('H66.90');
+  });
+
+  it('resolves trunk sites via synonyms (coccyx/tailbone→lower back, bruise→contusion)', async () => {
+    // Without the synonym, "coccyx" matched no contusion display and the tie went to the
+    // document-order-first contusion code — a HEAD-block (ear) code for a tailbone injury.
+    expect(await top('contusion of coccyx')).toBe('S30.0XXA');
+    expect(await top('tailbone bruise')).toBe('S30.0XXA');
+  });
+
   it('prefers the head-word disease over a qualifier-only match', async () => {
     // "cervical strain" must resolve to a STRAIN, never a same-region different disease
     // (the old ranking picked M40.202 kyphosis because only "cervical" matched).

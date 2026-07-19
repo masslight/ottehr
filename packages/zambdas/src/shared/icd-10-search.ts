@@ -23,7 +23,7 @@ interface ParsedXmlData {
   };
 }
 
-interface Icd10Code {
+export interface Icd10Code {
   code: string;
   display: string;
 }
@@ -160,6 +160,18 @@ const WORD_SYNONYMS: Record<string, string[]> = {
   drug: ['medicament', 'medication'],
   calf: ['lower limb', 'lower leg'],
   shin: ['lower leg', 'lower limb'],
+  // Trunk sites: ICD-10 files superficial tailbone/buttock injuries under "lower back and pelvis"
+  // (S30.x) — without these the site word matches nothing and the ranking hands the tie to a
+  // same-injury code for the WRONG body region (document order puts head-block codes first).
+  coccyx: ['lower back'],
+  coccygeal: ['lower back'],
+  tailbone: ['coccyx', 'lower back'],
+  sacrum: ['lower back'],
+  sacral: ['lower back'],
+  buttock: ['lower back'],
+  buttocks: ['lower back'],
+  bruise: ['contusion'],
+  bruised: ['contusion'],
 };
 
 function wordMatchesDisplay(searchWord: string, displayWords: string[], normalizedDisplay: string): boolean {
@@ -216,6 +228,12 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
     // but only when the query itself didn't specify a side.
     const unspecifiedBonus = !queryHasLaterality && /\bunspecified\b/.test(normalizedDisplay) ? 14 : 0;
 
+    // (c') The converse: when the query names NO side, a lateralized sibling must not beat the
+    // unspecified default on brevity — bare "otitis media" is H66.90 ("…, unspecified ear"), not
+    // H66.93 ("…, bilateral", a shorter display). Inert once the query names a side.
+    const unwantedLateralityPenalty =
+      !queryHasLaterality && /\b(left|right|bilateral)\b/.test(normalizedDisplay) ? 8 : 0;
+
     // (d) Complication penalty: a bare disease query should resolve to the uncomplicated default,
     // not a severe/complicated sibling that ties on the same tier (e.g. "Migraine" → G43.909
     // "not intractable, without status migrainosus", NOT G43.911 "intractable, with status
@@ -263,7 +281,10 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
 
     return Math.min(
       99,
-      Math.max(0, coverage * 60 + brevity + unspecifiedBonus - complicationPenalty - encounterPenalty)
+      Math.max(
+        0,
+        coverage * 60 + brevity + unspecifiedBonus - unwantedLateralityPenalty - complicationPenalty - encounterPenalty
+      )
     );
   }
 

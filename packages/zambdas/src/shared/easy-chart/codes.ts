@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { searchIcd10Codes } from '../icd-10-search';
+import { loadAndParseIcd10Data, searchIcd10Codes } from '../icd-10-search';
 
 // ── Easy-chart code validation (the invariant) ──────────────────────────────────────────────────
 // No code may reach the note unless the canonical source actually returned it. A model's `code`
@@ -53,6 +53,82 @@ function contradictsAnatomy(intentText: string, codeDisplay: string): boolean {
   const b = anatomyClasses(codeDisplay);
   if (b.size === 0) return false;
   return ![...b].some((c) => a.has(c));
+}
+
+// ICD-10 injury codes (S-chapter) are partitioned by body region in the digit after the S:
+// S0x head, S1x neck, S2x thorax, S3x abdomen/lower back/pelvis, S4x shoulder/upper arm,
+// S5x elbow/forearm, S6x wrist/hand, S7x hip/thigh, S8x knee/lower leg, S9x ankle/foot. When the
+// intent's own text names a site, a code from a different block is the wrong body region even
+// though the code is real and the injury word matches — a head-block contusion code once attached
+// to a dictated TAILBONE contusion because "contusion" matched and no anatomy class covered the
+// trunk. Conservative, unambiguous site words only; multi-word entries are matched as substrings
+// of the whole text. Text naming no listed site imposes no constraint.
+const S_BLOCK_SITE_WORDS: string[][] = [
+  [
+    'head',
+    'scalp',
+    'skull',
+    'face',
+    'facial',
+    'ear',
+    'eye',
+    'eyes',
+    'eyelid',
+    'orbit',
+    'nose',
+    'nasal',
+    'cheek',
+    'jaw',
+    'chin',
+    'lip',
+    'lips',
+    'forehead',
+    'temple',
+    'mouth',
+    'tongue',
+  ], // S00–S09
+  ['neck', 'cervical', 'throat', 'larynx', 'pharynx', 'trachea'], // S10–S19
+  ['thorax', 'thoracic', 'chest', 'rib', 'ribs', 'sternum', 'breast'], // S20–S29
+  [
+    'abdomen',
+    'abdominal',
+    'lumbar',
+    'lower back',
+    'pelvis',
+    'pelvic',
+    'coccyx',
+    'coccygeal',
+    'tailbone',
+    'sacrum',
+    'sacral',
+    'buttock',
+    'buttocks',
+    'groin',
+    'flank',
+  ], // S30–S39
+  ['shoulder', 'clavicle', 'collarbone', 'scapula', 'axilla', 'armpit', 'upper arm', 'humerus'], // S40–S49
+  ['elbow', 'forearm', 'radius', 'ulna'], // S50–S59
+  ['wrist', 'hand', 'finger', 'fingers', 'thumb', 'palm'], // S60–S69
+  ['hip', 'thigh', 'femur', 'femoral'], // S70–S79
+  ['knee', 'kneecap', 'patella', 'lower leg', 'calf', 'shin', 'tibia', 'fibula'], // S80–S89
+  ['ankle', 'foot', 'heel', 'toe', 'toes', 'metatarsal'], // S90–S99
+];
+function injuryRegionsIn(text: string): Set<number> {
+  const lower = text.toLowerCase();
+  const words = new Set(lower.split(/[^a-z]+/));
+  const out = new Set<number>();
+  S_BLOCK_SITE_WORDS.forEach((siteWords, block) => {
+    if (siteWords.some((w) => (w.includes(' ') ? lower.includes(w) : words.has(w)))) out.add(block);
+  });
+  return out;
+}
+// Exported for direct unit tests of the guard's word lists.
+export function contradictsInjuryRegion(intentText: string, code: string): boolean {
+  const block = /^S([0-9])/.exec(code.trim().toUpperCase());
+  if (!block) return false; // not an injury code → no block constraint
+  const intentRegions = injuryRegionsIn(intentText);
+  if (intentRegions.size === 0) return false;
+  return !intentRegions.has(Number(block[1]));
 }
 
 function contradictsQualifiers(intentText: string, codeDisplay: string): boolean {
@@ -113,11 +189,105 @@ function displaysOverlap(intentText: string, codeDisplay: string): boolean {
   return shared.length >= Math.min(2, intentWords.size);
 }
 
+// ── Specificity upgrade ─────────────────────────────────────────────────────────────────────────
+// The model often charts the base/unspecified variant when the narrative names laterality ("left
+// ankle") or recurrence ("frequent ear infections") — attributes ICD-10 encodes as sibling codes
+// inside the same 3-character category (H66.90 "…, unspecified ear" vs H66.92 "…, left ear"). When
+// the intent's own text (display / searchTerms / sourceText) names exactly one such attribute and
+// exactly ONE same-category sibling encodes it — its display differing from the validated code's
+// only by that attribute — upgrade to the sibling. Anything else (conflicting sides, several
+// candidates, no exact sibling, code already specific in that dimension) keeps the validated code:
+// never cross-condition, never downgrade. Purely deterministic over the tabular data.
+const LATERALITY_VALUES = ['left', 'right', 'bilateral'];
+const RECURRENCE_INTENT = /\b(recurrent|recurring|frequent|repeated)\b/i;
+// Displays phrase the side inconsistently ("…, unspecified ear" vs "…, bilateral" with no noun) —
+// these filler nouns may differ between otherwise-identical siblings without meaning a different
+// condition.
+const SIDE_NOUN_SLACK = new Set(['ear', 'ears', 'eye', 'eyes', 'side']);
+
+// Digits are load-bearing here ("stage 0" vs "stage 1", "type 1" vs "type 2") — a letters-only
+// split would make numerically distinct siblings look base-identical.
+function displayWords(display: string): Set<string> {
+  return new Set(
+    display
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean)
+  );
+}
+function baseTokens(display: string, neutral: string[]): Set<string> {
+  const out = displayWords(display);
+  neutral.forEach((w) => out.delete(w));
+  return out;
+}
+function differOnlyBySideNouns(a: Set<string>, b: Set<string>): boolean {
+  for (const w of a) if (!b.has(w) && !SIDE_NOUN_SLACK.has(w)) return false;
+  for (const w of b) if (!a.has(w) && !SIDE_NOUN_SLACK.has(w)) return false;
+  return true;
+}
+
+// One attribute dimension: find same-category siblings whose display carries `want` (and none of
+// `forbid`) and equals the current display once the dimension's words (`neutral`) are set aside.
+// Exactly one such sibling → upgrade; zero or several → keep the current code.
+async function upgradeOneDimension(
+  current: { code: string; display: string },
+  want: string,
+  forbid: string[],
+  neutral: string[]
+): Promise<{ code: string; display: string }> {
+  const all = await loadAndParseIcd10Data();
+  const category = current.code.slice(0, 3);
+  const base = baseTokens(current.display, neutral);
+  const candidates = all.filter((c) => {
+    if (!c.code.startsWith(category) || c.code === current.code) return false;
+    const words = displayWords(c.display);
+    if (!words.has(want) || forbid.some((w) => words.has(w))) return false;
+    return differOnlyBySideNouns(base, baseTokens(c.display, neutral));
+  });
+  return candidates.length === 1 ? { code: candidates[0].code, display: candidates[0].display } : current;
+}
+
+// Exported for direct unit tests. Dimensions apply in sequence (laterality, then recurrence), so a
+// narrative naming both can chain two single-attribute steps (H66.009 → H66.002 → H66.005).
+export async function upgradeCodeSpecificity(
+  current: { code: string; display: string },
+  intentTexts: Array<string | undefined>
+): Promise<{ code: string; display: string }> {
+  const intent = intentTexts
+    .filter((t): t is string => typeof t === 'string' && !!t.trim())
+    .join(' ')
+    .toLowerCase();
+  const intentWords = new Set(intent.split(/[^a-z]+/));
+  let out = current;
+
+  // Laterality: exactly one side named across the intent texts (two or more = conflicting → keep),
+  // and the validated code encodes none.
+  const sides = LATERALITY_VALUES.filter((v) => intentWords.has(v));
+  if (sides.length === 1 && !LATERALITY_VALUES.some((v) => displayWords(out.display).has(v))) {
+    out = await upgradeOneDimension(
+      out,
+      sides[0],
+      LATERALITY_VALUES.filter((v) => v !== sides[0]),
+      [...LATERALITY_VALUES, 'unspecified']
+    );
+  }
+
+  // Recurrence: the narrative names it and the validated code doesn't already encode it. Base
+  // comparison neutralizes only "recurrent", so a candidate may not smuggle in a laterality the
+  // current code lacks.
+  if (RECURRENCE_INTENT.test(intent) && !displayWords(out.display).has('recurrent')) {
+    out = await upgradeOneDimension(out, 'recurrent', [], ['recurrent']);
+  }
+  return out;
+}
+
 export async function resolveIcd(
   suggestedCode: string | undefined,
   display: string,
-  searchTerms: string[]
+  searchTerms: string[],
+  sourceText?: string
 ): Promise<{ code: string; display: string } | undefined> {
+  const intentTexts = [display, ...searchTerms, sourceText];
   const code = suggestedCode?.trim().toUpperCase();
   // 1. Exact-lookup the model's proposed code — the happy path needs no ranking.
   if (code && STRICT_ICD10.test(code)) {
@@ -131,20 +301,28 @@ export async function resolveIcd(
       exact &&
       !contradictsQualifiers(display, exact.display) &&
       !contradictsAnatomy(display, exact.display) &&
+      !contradictsInjuryRegion(display, exact.code) &&
       displaysOverlap(display, exact.display)
     ) {
-      return { code: exact.code, display: exact.display };
+      return upgradeCodeSpecificity({ code: exact.code, display: exact.display }, intentTexts);
     }
   }
   // 2. Miss → text search by display, then each search term; take the top non-contradicting result
   //    (the ranking can surface a cross-organ code — "retained foreign body" once returned the
-  //    EYELID code for a palm splinter — so anatomy/laterality sanity applies here too).
+  //    EYELID code for a palm splinter, and a tailbone contusion once resolved to the EAR contusion
+  //    code — so anatomy/laterality/region sanity applies here too). A query whose results ALL
+  //    contradict the intent yields nothing rather than its top result: attaching a code the guard
+  //    says is anatomically wrong is worse than making the client picker resolve by display.
   for (const q of [display, ...searchTerms]) {
     if (!q || !q.trim()) continue;
     const res = await searchIcd10Codes(q.trim());
-    const ok = res.find((r) => !contradictsQualifiers(display, r.display) && !contradictsAnatomy(display, r.display));
-    if (ok) return { code: ok.code, display: ok.display };
-    if (res.length) return { code: res[0].code, display: res[0].display };
+    const ok = res.find(
+      (r) =>
+        !contradictsQualifiers(display, r.display) &&
+        !contradictsAnatomy(display, r.display) &&
+        !contradictsInjuryRegion(display, r.code)
+    );
+    if (ok) return upgradeCodeSpecificity({ code: ok.code, display: ok.display }, intentTexts);
   }
   // 3. Nothing valid found — caller drops the code and lets the client picker resolve by display.
   return undefined;
@@ -165,7 +343,12 @@ export async function validateIntentCode(
     const searchTerms = Array.isArray(r.searchTerms)
       ? (r.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
       : [];
-    const resolved = await resolveIcd(typeof r.code === 'string' ? r.code : undefined, display, searchTerms);
+    const resolved = await resolveIcd(
+      typeof r.code === 'string' ? r.code : undefined,
+      display,
+      searchTerms,
+      typeof r.sourceText === 'string' ? r.sourceText : undefined
+    );
     if (resolved) r.code = resolved.code;
     else delete r.code; // nothing valid → the client picker resolves by display
   } else if ((r.kind === 'set-em-code' || r.kind === 'add-cpt') && typeof r.code === 'string' && r.code.trim()) {
