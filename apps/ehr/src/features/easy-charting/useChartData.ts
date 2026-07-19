@@ -251,6 +251,12 @@ export function useChartData({
       next.emCode = saved.emCode;
       trackScalar(saved.emCode);
     }
+    // Disposition: a scalar like emCode. Without this merge, a disposition set by the assistant
+    // (or a review suggestion) stays invisible to the next chart-state summary and gets
+    // re-suggested/re-written.
+    if (saved.disposition) {
+      next.disposition = saved.disposition;
+    }
     setChartData(next);
     if (newIds.length > 0) {
       setFreshlyAdded((prev) => {

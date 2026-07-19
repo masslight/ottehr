@@ -13,7 +13,7 @@ import {
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
 import { validateIntentCode } from '../../shared/easy-chart/codes';
-import { fetchPatientContext } from '../../shared/easy-chart/patient-context';
+import { derivePatientStatus, fetchPatientContext } from '../../shared/easy-chart/patient-context';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -29,6 +29,8 @@ const CATEGORY_VALUES = [
   'pertinent-negative',
   'em-level',
   'secondary-dx',
+  'disposition',
+  'cpt',
   'other',
 ] as const;
 
@@ -50,6 +52,7 @@ const ACTION_KINDS = [
   'remove-exam-finding',
   'add-medication',
   'remove-medication',
+  'set-disposition',
 ] as const;
 
 const RESPONSE_SCHEMA = {
@@ -81,8 +84,18 @@ const RESPONSE_SCHEMA = {
                 finding: { type: 'string', enum: ['reports', 'denies'] },
                 strength: { type: 'string' },
                 doseForm: { type: 'string' },
+                // set-disposition (the "disposition" check): where the patient goes next.
+                text: { type: 'string' },
+                dispositionType: { type: 'string' },
+                followUpInDays: { type: 'number' },
               },
-              required: ['kind'],
+              // isPrimary is REQUIRED (not just allowed): the diagnosis-swap card is a
+              // remove-diagnosis + add-diagnosis pair, and when the model omits isPrimary on the
+              // add the client charts it as secondary — swapping the primary dx then leaves the
+              // note with NO primary (billing-invalid). One action shape serves every kind here,
+              // so the requirement is global: the prompt tells the model to set false on kinds
+              // where it's meaningless, and the client ignores it everywhere but add-diagnosis.
+              required: ['kind', 'isPrimary'],
             },
           },
         },
@@ -97,7 +110,8 @@ const buildPrompt = (
   narrative: string,
   chartState?: string,
   noteContext?: EasyChartNoteContext,
-  patientContext?: string
+  patientContext?: string,
+  patientStatus?: 'new' | 'established'
 ): string => {
   const noteLines: string[] = [];
   if (noteContext) {
@@ -115,12 +129,21 @@ const buildPrompt = (
   const patientBlock = patientContext
     ? `\nPATIENT (authoritative — from the chart, not the narrative): ${patientContext}.\nSuggest ONLY items concerning this patient; ignore narrative mentions of other people.\n`
     : '';
+  // Per-call E&M family selector for the em-level check. Rendered in the per-visit tail — not the
+  // static prefix — so prompt caching is unaffected. When unknown, no line is emitted and the
+  // fixed instructions direct the model to assume the established family.
+  const patientStatusBlock =
+    patientStatus === 'new'
+      ? `\nPATIENT STATUS (authoritative — from the chart): NEW patient — no professional services in the past 3 years. The correct E&M family is 99202-99205.\n`
+      : patientStatus === 'established'
+      ? `\nPATIENT STATUS (authoritative — from the chart): ESTABLISHED patient. The correct E&M family is 99212-99215.\n`
+      : '';
 
   return `You are a clinical documentation reviewer. A provider just charted a visit note from the
 NARRATIVE below; the structured items now on the chart are in ALREADY ON THE CHART. Your job is to
 surface clarifications the provider can accept with ONE CLICK to improve the note.
 
-Work through ALL SIX checks below and emit one suggestion for EACH check that finds a real gap
+Work through ALL EIGHT checks below and emit one suggestion for EACH check that finds a real gap
 (commonly 2–5 total). Don't invent low-value suggestions, but don't skip a check that genuinely
 applies either. If truly nothing warrants a prompt, return {"suggestions": []}.
 
@@ -142,6 +165,9 @@ Each suggestion is in exactly one of these categories, with the given action sha
    ACTION: TWO intents in order: { "kind":"remove-diagnosis", "display": <the charted diagnosis text> }
    then { "kind":"add-diagnosis", "display": <more specific diagnosis>, "searchTerms":[...],
    "isPrimary": <same as the one removed>, "code": <best ICD-10> }.
+   "isPrimary" on the add is REQUIRED and MUST restate the removed diagnosis's primary status
+   (ALREADY ON THE CHART marks it "(primary)"): swapping the PRIMARY diagnosis without
+   "isPrimary": true on the add leaves the note with NO primary diagnosis — billing-invalid.
 
 3) "pertinent-negative" — a negative the provider EXPLICITLY voiced in THIS dictation is not charted.
    It must be a near-verbatim quote from the narrative — e.g. the dictation literally says "denies
@@ -160,9 +186,16 @@ Each suggestion is in exactly one of these categories, with the given action sha
    - Never deny the chief complaint or a symptom the patient is PRESENTING WITH (a visit for ear
      pain must never get "Denies ear pain" — the patient HAS it).
 
-4) "em-level" — assess the charted E&M against the documented complexity. In particular, if a NEW
-   prescription was given (prescription drug management = moderate risk) and the charted code is 99213,
-   suggest 99214; if documentation clearly supports a different level, suggest it. ACTION: one
+4) "em-level" — assess the charted E&M against the documented complexity, WITHIN the correct code
+   family for the patient's status: NEW patient (no professional services in the past 3 years) →
+   99202-99205; ESTABLISHED patient → 99212-99215. Read the status from the PATIENT STATUS line
+   below; when NO such line is present the status is unknown — assume established and stay in
+   99212-99215. If the charted code is in the WRONG family for the stated status, suggest the
+   same-level code in the correct family. The MDM-complexity logic is identical in both families
+   (the last digit is the level): e.g. if a NEW prescription was given (prescription drug
+   management = moderate risk) and the charted code is the family's level-3 code (99213
+   established / 99203 new), suggest the SAME family's level-4 code (99214 / 99204); if
+   documentation clearly supports a different level, suggest it. ACTION: one
    { "kind":"set-em-code", "code": <99xxx>, "display": <short>}. REQUIRED: a one-line "rationale"
    explaining the level by MDM elements (problems / data / risk).
 
@@ -189,6 +222,33 @@ Each suggestion is in exactly one of these categories, with the given action sha
    text. Set "highlight" to the corrected value (e.g. "7.5 mg"). The order is already correct, so do
    NOT set partial.
 
+7) "disposition" — the narrative clearly STATES where the patient goes next or a follow-up plan
+   ("follow up with your PCP in a week", "go to the ER if it worsens", "referral to ortho",
+   "come back here in 3 days if no better"), but NO disposition is charted (skip this check when
+   ALREADY ON THE CHART shows a "Disposition already set" line). A stated follow-up/disposition is
+   a patient-safety item — it must never silently vanish from the note. ACTION: one
+   { "kind":"set-disposition", "dispositionType": <type>, "text": <the disposition as one clinical
+   sentence>, "followUpInDays": <interval in DAYS, only when one is stated — "in 1 week" → 7> }.
+   dispositionType is one of: "pcp" (follow up with their own PCP / "see your doctor"),
+   "specialty" (referral/follow-up with a named specialist — use this even when offered as
+   "<specialist> or PCP"), "ed" (go to the ER / call 911), "another" (return to THIS clinic /
+   any other follow-up), "ip" (admitted to hospital). A CONDITIONAL follow-up ("if not improving")
+   still counts — keep the condition in "text". STRICT: only a disposition the narrative actually
+   voices — never invent one from the visit type or from what would be typical.
+
+8) "cpt" — a procedure or point-of-care test the narrative states was PERFORMED during THIS visit
+   has no billing code charted: splinting, laceration repair, ear lavage / cerumen removal, foreign
+   body removal, I&D, burn dressing, a rapid strep/flu/COVID/RSV or urinalysis that was run in the
+   office ("rapid strep came back positive"), a nebulizer treatment given in clinic. ACTION: one or
+   more { "kind":"add-cpt", "code": <best CPT>, "display": <short procedure/test name> } — one card
+   may carry several. Provide your best CPT; it is validated downstream and dropped if not real.
+   STRICT LIMITS — bill only what was actually DONE this visit:
+   - NOT send-out labs (they bill through the lab order), NOT imaging orders, NOT prescriptions.
+   - NOT planned/future or conditional procedures ("we'll splint it next week if still swollen"),
+     and NOT procedures merely discussed or declined.
+   - NOT a code already charted (or a procedure listed in ALREADY ON THE CHART — its CPT is
+     already carried by the procedure entry).
+
 RULES:
 - NEVER suggest adding something that already appears in ALREADY ON THE CHART.
 - Phrase "question" as a short question the provider reads on a card (e.g. "You wrote 'Ciner' — did you
@@ -197,9 +257,12 @@ RULES:
   confident but it's fine if you're unsure of the exact code.
 - One suggestion per check that applies — don't merge unrelated gaps into one card, and don't pad with
   marginal ones.
+- Every action object must include "isPrimary" (the schema requires it). It is meaningful ONLY on
+  add-diagnosis (see checks 2 and 5); on every other action kind set "isPrimary": false — it is
+  ignored there.
 
 ═══ END OF FIXED INSTRUCTIONS — review the note + narrative below ═══
-${patientBlock}${chartBlock}${noteBlock}
+${patientBlock}${patientStatusBlock}${chartBlock}${noteBlock}
 NARRATIVE:
 """${narrative}"""
 `;
@@ -212,6 +275,34 @@ NARRATIVE:
 async function validateActionCodes(actions: Record<string, unknown>[], oystehr: Oystehr | undefined): Promise<boolean> {
   const results = await Promise.all(actions.map((a) => validateIntentCode(a, oystehr)));
   return !results.includes('invalid-billing');
+}
+
+// Diagnosis-swap primary carry-over, server half. A "diagnosis" card pairs remove-diagnosis +
+// add-diagnosis and the prompt/schema require the add to restate the removed dx's isPrimary — but
+// flash-lite has reliably omitted it, and a missing isPrimary charts as SECONDARY, leaving the
+// note with NO primary when the swap replaced the primary dx. The server only sees chartState as
+// free text, so this is best-effort: find the removed diagnosis's text in chartState and read the
+// "(primary)" / "[PRIMARY]" marker from ITS OWN list segment (up to the next ";" or newline —
+// the client's summary puts all diagnoses on one "Diagnoses:" line). When the text can't be
+// located, leave the action untouched — the client's structured-chart carry-over is authoritative.
+function carrySwapPrimaryFromChartState(actions: Record<string, unknown>[], chartState: string | undefined): void {
+  if (!chartState) return;
+  const add = actions.find((a) => a.kind === 'add-diagnosis' && typeof a.isPrimary !== 'boolean');
+  const remove = actions.find((a) => a.kind === 'remove-diagnosis' && typeof a.display === 'string');
+  if (!add || !remove) return;
+  // The remove display is often "<display> (H66.003)" or "<code> — <display>" — strip a trailing
+  // parenthesized code and a leading "code — " so we search for the bare diagnosis text.
+  const display = String(remove.display)
+    .replace(/\s*\([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?\)\s*$/, '')
+    .replace(/^[A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?\s*—\s*/, '')
+    .trim();
+  if (!display) return;
+  const idx = chartState.toLowerCase().indexOf(display.toLowerCase());
+  if (idx < 0) return;
+  const tail = chartState.slice(idx + display.length);
+  const segEnd = tail.search(/[;\n]/);
+  const segment = segEnd >= 0 ? tail.slice(0, segEnd) : tail;
+  add.isPrimary = /\(primary\)|\[PRIMARY\]/i.test(segment);
 }
 
 // A single action is well-formed enough for the client to replay.
@@ -229,6 +320,16 @@ function isValidAction(a: unknown): a is Record<string, unknown> {
   }
   if (r.kind === 'set-em-code' || r.kind === 'add-cpt' || r.kind === 'remove-cpt') {
     return typeof r.code === 'string' && !!r.code.trim();
+  }
+  if (r.kind === 'set-disposition') {
+    // The client's set-disposition dispatch needs a type (falls back to 'another' for an unknown
+    // value) and the disposition note text; followUpInDays is optional.
+    return (
+      typeof r.dispositionType === 'string' &&
+      !!r.dispositionType.trim() &&
+      typeof r.text === 'string' &&
+      !!r.text.trim()
+    );
   }
   // add/remove-* search-based intents only need a display to drive the client search/match.
   return typeof r.display === 'string' && !!r.display.trim();
@@ -250,23 +351,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   // Patient anchor (best-effort): keeps suggestions about THIS patient when the narrative carries
-  // cross-talk, and demographics from the chart rather than the transcript.
+  // cross-talk, and demographics from the chart rather than the transcript. The new/established
+  // status derivation is likewise best-effort (it resolves undefined on any failure) and is
+  // skipped when the caller supplied noteContext.patientStatus explicitly — that always wins
+  // (headless eval harnesses set it directly with no encounterId).
   let patientContext: string | undefined;
+  let derivedPatientStatus: 'new' | 'established' | undefined;
   if (oystehr && encounterId) {
     try {
-      patientContext = await fetchPatientContext(oystehr, encounterId);
+      [patientContext, derivedPatientStatus] = await Promise.all([
+        fetchPatientContext(oystehr, encounterId),
+        noteContext?.patientStatus ? Promise.resolve(undefined) : derivePatientStatus(oystehr, encounterId),
+      ]);
     } catch (e) {
       console.warn('Review: patient-context fetch failed, proceeding without:', e);
       captureException(e);
     }
   }
+  const patientStatus = noteContext?.patientStatus ?? derivedPatientStatus;
 
-  // Use the same backend as the planner (sonnet by default). flash-lite over-suggested pertinent
-  // negatives the provider never voiced (e.g. "Denies nausea" inferred from "no emesis"), despite
-  // the prompt requiring a near-verbatim quote.
+  // Use the same backend selection as the planner (flash-lite by default, with Sonnet only as the
+  // structural-failure backup). Historical note: the review briefly pinned Sonnet because
+  // flash-lite over-suggested pertinent negatives the provider never voiced (e.g. "Denies nausea"
+  // inferred from "no emesis") despite the prompt requiring a near-verbatim quote — the verbatim
+  // guard below now enforces that deterministically.
   let usage: EasyChartTokenUsage | undefined;
   const raw = await invokeChatbotStructured(
-    [{ text: buildPrompt(narrative, chartState, noteContext, patientContext) }],
+    [{ text: buildPrompt(narrative, chartState, noteContext, patientContext, patientStatus) }],
     secrets,
     RESPONSE_SCHEMA,
     undefined,
@@ -312,6 +423,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const suggestions: EasyChartSuggestion[] = [];
   candidates.forEach(({ s, actions, question }, i) => {
     if (!keepFlags[i]) return;
+    // Best-effort server half of the diagnosis-swap primary carry-over (see the helper above);
+    // the client re-runs the same logic against its structured chart state.
+    carrySwapPrimaryFromChartState(actions, chartState);
     // Self-defeating diagnosis swap: after code validation, the ADD may have resolved to the very
     // code the card REMOVES (e.g. "replace M65.051" whose replacement re-resolved to M65.051 —
     // the ICD search itself was the reason for the bad code). Applying it would churn the chart

@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Encounter, Patient } from 'fhir/r4b';
 
 // Build the PATIENT block content from the chart, e.g. "name Jane Doe, age 7 years (DOB
@@ -21,4 +22,50 @@ export async function fetchPatientContext(oystehr: Oystehr, encounterId: string)
   }
   if (patient.gender) parts.push(`sex ${patient.gender}`);
   return parts.length > 0 ? parts.join(', ') : undefined;
+}
+
+// NEW vs ESTABLISHED patient per the E&M definition: "new" = no professional services in the past
+// 3 years. Derived from the FHIR history: any FINISHED Encounter for the same patient that ENDED
+// before this encounter began, within the 3-year lookback → 'established'; none → 'new'.
+// Best-effort by contract: ANY failure returns undefined (never throws) so the calling zambda
+// proceeds without a status — the prompts treat unknown as established, the no-regression default.
+// Shared by the planner and the review so both pick the same E&M code family.
+export async function derivePatientStatus(
+  oystehr: Oystehr,
+  encounterId: string
+): Promise<'new' | 'established' | undefined> {
+  try {
+    const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+    const patientId = encounter.subject?.reference?.replace('Patient/', '');
+    if (!patientId) return undefined;
+    const startMs = encounter.period?.start ? new Date(encounter.period.start).getTime() : Date.now();
+    if (isNaN(startMs)) return undefined;
+    const lookbackMs = startMs - 3 * 365.25 * 24 * 3600 * 1000;
+    // Server-side narrowing only (date matches the Encounter period loosely across FHIR prefix
+    // semantics); the authoritative ended-before-start + lookback check is applied in code below.
+    const prior = (
+      await oystehr.fhir.search<Encounter>({
+        resourceType: 'Encounter',
+        params: [
+          { name: 'subject', value: `Patient/${patientId}` },
+          { name: 'status', value: 'finished' },
+          { name: 'date', value: `ge${new Date(lookbackMs).toISOString()}` },
+          { name: 'date', value: `lt${new Date(startMs).toISOString()}` },
+          { name: '_count', value: '100' },
+        ],
+      })
+    ).unbundle();
+    const hasPrior = prior.some((e) => {
+      if (e.id === encounterId) return false;
+      const end = e.period?.end ?? e.period?.start;
+      if (!end) return false;
+      const endMs = new Date(end).getTime();
+      return !isNaN(endMs) && endMs < startMs && endMs >= lookbackMs;
+    });
+    return hasPrior ? 'established' : 'new';
+  } catch (e) {
+    console.warn('derivePatientStatus failed, proceeding without patient status:', e);
+    captureException(e);
+    return undefined;
+  }
 }

@@ -76,6 +76,7 @@ import {
   AUTO_CHART_KINDS,
   buildExamRemoveItems,
   buildIntentPayload,
+  carryReviewSwapPrimary,
   chartedItemDisplay,
   collectResourceIds,
   fetchEasyChartData,
@@ -92,6 +93,7 @@ import {
   isRemoveIntent,
   KIND_TO_FIELD,
   matchRadiologyStudy,
+  pickPrimaryPromotion,
   preferredExamLeaf,
   procedureDtoFromQuickPick,
   rosObsLabel,
@@ -623,7 +625,13 @@ export function useChartAssistant({
         const note = [s.question, s.rationale, s.partialNote].filter(Boolean).join(' — ');
         let any = false;
         let anyFailed = false;
-        for (const action of s.actions) {
+        // Diagnosis-swap primary carry-over: a "diagnosis" suggestion pairs remove-diagnosis +
+        // add-diagnosis, and the model reliably omits isPrimary on the add — which charts as
+        // secondary, so swapping the PRIMARY dx left the note with no primary. Stamp the removed
+        // dx's isPrimary onto the add from the structured chart, BEFORE the remove executes.
+        // (The planner path's never-usurp rule is untouched — this runs only on review replays.)
+        const actions = carryReviewSwapPrimary(s.actions, chartDataRef.current);
+        for (const action of actions) {
           // A rewrite of a note field that already has content requires explicit confirmation —
           // queue it as a proposal card instead of silently replacing the provider's prose.
           if (action.kind === 'edit-note-text' && typeof action.newText === 'string') {
@@ -645,6 +653,21 @@ export function useChartAssistant({
             console.error('Applying review suggestion failed:', e);
             captureException(e);
             anyFailed = true;
+          }
+        }
+        // Safety net: a signable note needs exactly one primary dx, and a swap can still lose it
+        // (no resolvable remove match for the carry-over, or a failed add). Yield one tick so the
+        // last dispatch's setChartData commits to chartDataRef (the ref syncs via effect), then —
+        // if diagnoses exist but none is primary — promote the dx the swap just added (else the
+        // first charted one). No-op whenever a primary is present.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const promote = pickPrimaryPromotion(actions, chartDataRef.current?.diagnosis);
+        if (promote?.resourceId) {
+          try {
+            await saveAndMerge({ encounterId, diagnosis: [{ ...promote, isPrimary: true }] });
+          } catch (e) {
+            console.error('Restoring the primary diagnosis after a review swap failed:', e);
+            captureException(e);
           }
         }
         if (any) applied += 1;
@@ -1632,6 +1655,20 @@ export function useChartAssistant({
     if (data.emCode?.code) {
       lines.push(
         `E&M code already charted: ${data.emCode.code}${data.emCode.display ? ` — ${data.emCode.display}` : ''}.`
+      );
+    }
+    // CPT + disposition lines: the review's "cpt" and "disposition" checks skip anything already
+    // charted, and they can only see it through this summary.
+    if (data.cptCodes?.length) {
+      lines.push(
+        `CPT codes already charted: ${data.cptCodes
+          .map((c) => `${c.code}${c.display ? ` — ${c.display}` : ''}`)
+          .join('; ')}`
+      );
+    }
+    if (data.disposition?.type) {
+      lines.push(
+        `Disposition already set: ${data.disposition.type}${data.disposition.note ? ` — ${data.disposition.note}` : ''}`
       );
     }
     // Lab orders live outside chartData; include them so a re-plan doesn't re-order the same test.

@@ -16,7 +16,7 @@ import {
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
 import { STRICT_ICD10, validateIntentCode } from '../../shared/easy-chart/codes';
-import { fetchPatientContext } from '../../shared/easy-chart/patient-context';
+import { derivePatientStatus, fetchPatientContext } from '../../shared/easy-chart/patient-context';
 import {
   detectSpeakerLabels,
   recoverSourceText,
@@ -175,7 +175,8 @@ export const buildPrompt = (
   templateTitles?: string[],
   chartState?: string,
   patientContext?: string,
-  incremental?: boolean
+  incremental?: boolean,
+  patientStatus?: 'new' | 'established'
 ): string => {
   const contextLines: string[] = [];
   if (noteContext) {
@@ -199,6 +200,16 @@ export const buildPrompt = (
       `Use exactly this age and sex in the note (e.g. the HPI one-liner). Do NOT infer the ` +
       `patient's age or sex from the transcript.\n`
     : '';
+
+  // Per-call E&M family selector (see set-em-code in the fixed instructions). Rendered in the
+  // per-visit tail — not the static prefix — so prompt caching is unaffected. When unknown, no
+  // line is emitted and the fixed instructions direct the model to the established family.
+  const patientStatusBlock =
+    patientStatus === 'new'
+      ? `\nPATIENT STATUS (authoritative — from the chart): NEW patient — no professional services in the past 3 years. Use the NEW-patient E&M family (99202-99205) for set-em-code.\n`
+      : patientStatus === 'established'
+      ? `\nPATIENT STATUS (authoritative — from the chart): ESTABLISHED patient. Use the ESTABLISHED-patient E&M family (99212-99215) for set-em-code.\n`
+      : '';
 
   const templatesBlock =
     templateTitles && templateTitles.length > 0
@@ -315,15 +326,20 @@ doesn't mention):
   3. Free-text fields, in note order: edit-note-text for chiefComplaint, historyOfPresentIllness,
      mechanismOfInjury, medicalDecision. (Review of Systems is NOT free text — it is structured
      checkboxes; use add-ros-finding, NOT edit-note-text, for ROS.)
-     ALWAYS emit edit-note-text for chiefComplaint, historyOfPresentIllness, AND medicalDecision
-     (MDM) on EVERY visit, even when a template was applied — all three are required for a complete,
-     signable note. They are patient-specific and a template cannot supply them; its defaults are
-     generic boilerplate that the patient-specific text must supersede. chiefComplaint is a brief
-     2–6 word reason for the visit (NOT a sentence — e.g. "Low back pain", "Right ear pain", "Cough
-     x3 days") and must NEVER be left blank or merged into the HPI; emit it as its OWN edit-note-text
-     step. Write HPI as the narrative's history of the presenting problem, and MDM as the assessment
-     + plan + medications + counseling + return precautions. mechanismOfInjury is conditional: emit
-     it only for injury visits.
+     ALWAYS emit edit-note-text for historyOfPresentIllness AND medicalDecision (MDM) on EVERY
+     visit, even when a template was applied — both are required for a complete, signable note.
+     They are patient-specific and a template cannot supply them; its defaults are generic
+     boilerplate that the patient-specific text must supersede. Write HPI as the narrative's
+     history of the presenting problem (opening with the brief one-liner identifier), and MDM as
+     the assessment + plan + medications + counseling + return precautions.
+     chiefComplaint is CONDITIONAL — most providers leave it blank because the HPI's opening
+     one-liner already states the reason for the visit. Emit a chiefComplaint edit-note-text ONLY
+     when it adds information the HPI's first line does not already carry (e.g. the provider
+     explicitly dictates a chief complaint distinct from the HPI opener); when it would merely
+     restate the HPI's first line, SKIP the chiefComplaint step entirely. When you do emit it, it
+     is a brief 2–6 word label (NOT a sentence — e.g. "Low back pain", "Right ear pain", "Cough
+     x3 days"), as its OWN edit-note-text step, never merged into the HPI. mechanismOfInjury is
+     conditional: emit it only for injury visits.
   3b. Vitals (set-vital) — emit ONE set-vital for EACH vital sign the narrative states (temperature,
      heart rate, respiration rate, blood pressure, oxygen saturation, weight, height). Pass the value
      and its unit exactly as stated (e.g. Temp "98.9" unit "F"); the client converts to the stored
@@ -485,14 +501,18 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
 - remove-allergy / remove-condition / remove-medication / remove-surgical-history /
   remove-hospitalization / remove-diagnosis / remove-exam-finding: { kind, display, searchTerms }.
 - set-em-code: { kind, code, display } — ALWAYS emit exactly one (templates do not carry an E&M
-  code, so you must estimate the level from the documented complexity). Default to established-patient
-  office-visit codes: 99213 for a straightforward, low-complexity visit (a single self-limited
-  problem with simple management); 99214 for moderate complexity — which prescription drug
-  management, an acute illness needing a procedure, an injury needing imaging, or multiple problems
-  commonly support (i.e. most visits where you start an antibiotic, give an injection, do a
-  procedure, or order an x-ray lean 99214). Reserve 99215 for high-complexity/high-risk. When torn
-  between two levels choose the lower — the goal is that a defensible level is always present and the
-  provider can adjust.
+  code, so you must estimate the level from the documented complexity). Pick the code FAMILY from
+  the PATIENT STATUS line in the per-visit context at the end of this message: NEW patient (no
+  professional services in the past 3 years) → 99202-99205; ESTABLISHED patient → 99212-99215.
+  When NO patient-status line is present the status is UNKNOWN — do not guess; default to the
+  established-patient family (99212-99215). The MDM-complexity logic is IDENTICAL in both families
+  (the last digit is the level): level 3 (99203 new / 99213 established) for a straightforward,
+  low-complexity visit (a single self-limited problem with simple management); level 4 (99204 /
+  99214) for moderate complexity — which prescription drug management, an acute illness needing a
+  procedure, an injury needing imaging, or multiple problems commonly support (i.e. most visits
+  where you start an antibiotic, give an injection, do a procedure, or order an x-ray lean level 4).
+  Reserve level 5 (99205 / 99215) for high-complexity/high-risk. When torn between two levels choose
+  the lower — the goal is that a defensible level is always present and the provider can adjust.
 - add-cpt: { kind, code, display }       (additional CPT codes)
     INJECTION ADMINISTRATION BILLING — the one case where you SHOULD supply codes yourself:
     ONLY when a medication is GIVEN IN CLINIC by an INJECTED/INFUSED route — IM, SC, or IV (a
@@ -562,7 +582,8 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
         right otalgia", "fussy" → "irritable", "sleeping poorly" → "decreased sleep",
         "no vomiting or diarrhea" → "no N/V/D", "throwing up" → "vomiting", "lung sounds
         good" → "CTAB", "tummy soft" → "abdomen soft", etc.
-      * CC: 2-6 words ("Right ear pain", "Cough x3 days", "Auto accident"). Not a sentence.
+      * CC: 2-6 words ("Right ear pain", "Cough x3 days", "Auto accident"). Not a sentence. Emit
+        the CC step at all only per step 3's rule (when it adds something the HPI opener doesn't).
       * MDM: clinical reasoning + plan rationale, not patient instructions. Use "consistent
         with…", "differential includes…", "no red flags for…", "treated with…". The MDM may state
         the plan in shorthand, but every patient-FACING part of that plan (how to take meds incl. any
@@ -715,7 +736,7 @@ The provider's free-text NARRATIVE:
 """
 ${narrative}
 """
-${patientBlock}${contextBlock}${chartStateBlock}`;
+${patientBlock}${patientStatusBlock}${contextBlock}${chartStateBlock}`;
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -727,6 +748,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // them — but every failure is captured: these silently degrading for days IS the incident.
   let templateTitles: string[] = [];
   let patientContext: string | undefined;
+  let derivedPatientStatus: 'new' | 'established' | undefined;
   let oystehr: Oystehr | undefined;
   try {
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -736,9 +758,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     captureException(e);
   }
   if (oystehr) {
-    const [titlesRes, patientRes] = await Promise.allSettled([
+    const [titlesRes, patientRes, statusRes] = await Promise.allSettled([
       fetchTemplateTitles(oystehr),
       encounterId ? fetchPatientContext(oystehr, encounterId) : Promise.resolve(undefined),
+      // Skip derivation when the caller supplied the status explicitly (it wins) — derivation is
+      // itself best-effort and resolves undefined on any failure.
+      encounterId && !noteContext?.patientStatus
+        ? derivePatientStatus(oystehr, encounterId)
+        : Promise.resolve(undefined),
     ]);
     if (titlesRes.status === 'fulfilled') {
       templateTitles = titlesRes.value;
@@ -752,11 +779,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.warn('Planner: patient-context fetch failed, proceeding without:', patientRes.reason);
       captureException(patientRes.reason);
     }
+    if (statusRes.status === 'fulfilled') derivedPatientStatus = statusRes.value;
   }
+  // Explicit noteContext.patientStatus (e.g. from a headless eval harness with no encounterId)
+  // takes precedence over the server-side derivation.
+  const patientStatus = noteContext?.patientStatus ?? derivedPatientStatus;
 
   let usage: EasyChartTokenUsage | undefined;
   const raw = await invokeChatbotStructured(
-    [{ text: buildPrompt(narrative, noteContext, templateTitles, chartState, patientContext, incremental) }],
+    [
+      {
+        text: buildPrompt(
+          narrative,
+          noteContext,
+          templateTitles,
+          chartState,
+          patientContext,
+          incremental,
+          patientStatus
+        ),
+      },
+    ],
     secrets,
     RESPONSE_SCHEMA,
     undefined,

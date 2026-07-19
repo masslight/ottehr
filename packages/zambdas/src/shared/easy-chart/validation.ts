@@ -30,5 +30,10 @@ export function validateNoteContext(noteContext: unknown): EasyChartNoteContext 
     const v = (noteContext as Record<string, unknown>)[key];
     if (typeof v === 'string') ctx[key] = v;
   }
+  // patientStatus rides on noteContext but is NOT a note text field: it picks the E&M code family
+  // (new → 99202-99205, established → 99212-99215). Whitelist the two valid values; anything else
+  // is dropped and the zambda falls back to server-side derivation / the established default.
+  const patientStatus = (noteContext as Record<string, unknown>).patientStatus;
+  if (patientStatus === 'new' || patientStatus === 'established') ctx.patientStatus = patientStatus;
   return Object.keys(ctx).length > 0 ? ctx : undefined;
 }

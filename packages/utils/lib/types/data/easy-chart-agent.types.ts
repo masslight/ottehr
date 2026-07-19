@@ -202,6 +202,12 @@ export interface EasyChartNoteContext {
   mechanismOfInjury?: string;
   ros?: string;
   medicalDecision?: string;
+  // NEW vs ESTABLISHED patient (the E&M definition: new = no professional services in the past
+  // 3 years). Drives which E&M code family the planner/review pick (99202-99205 vs 99212-99215).
+  // Optional: when omitted, the zambdas derive it server-side from the encounter's prior-visit
+  // history (best-effort), and treat unknown as established. An explicitly supplied value wins
+  // over derivation — headless eval harnesses set it directly with no encounterId.
+  patientStatus?: 'new' | 'established';
 }
 
 export interface EasyChartAgentInput {
@@ -273,7 +279,16 @@ export interface EasyChartSuggestion {
   // Stable id for this card within a review response, used to track accept/dismiss in the UI.
   id: string;
   // What kind of gap this addresses. Drives grouping/iconography; not load-bearing logic.
-  category: 'med-name' | 'med-reconcile' | 'diagnosis' | 'pertinent-negative' | 'em-level' | 'secondary-dx' | 'other';
+  category:
+    | 'med-name'
+    | 'med-reconcile'
+    | 'diagnosis'
+    | 'pertinent-negative'
+    | 'em-level'
+    | 'secondary-dx'
+    | 'disposition'
+    | 'cpt'
+    | 'other';
   // The question shown on the card, e.g. "You wrote 'Ciner' — did you mean Cefdinir?".
   question: string;
   // Short "why", surfaced under the question. Most useful for E&M level changes.

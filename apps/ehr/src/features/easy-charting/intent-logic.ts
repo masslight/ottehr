@@ -5,6 +5,7 @@ import Oystehr from '@oystehr/sdk';
 import {
   AllergyDTO,
   CPTCodeDTO,
+  DiagnosisDTO,
   EasyChartAgentIntent,
   type ExamObservationDTO,
   GetChartDataResponse,
@@ -149,6 +150,67 @@ export function findRemoveMatches(intent: RemoveIntent, data: GetChartDataRespon
     });
   }
   return out;
+}
+
+// The review's "diagnosis" category swaps a dx as remove-diagnosis + add-diagnosis, and its prompt
+// requires the add to restate the removed dx's isPrimary — but flash-lite reliably OMITS it, and a
+// missing isPrimary charts as SECONDARY, so swapping the primary left the note with NO primary dx
+// (billing-invalid). Deterministic carry-over: resolve the remove against the STRUCTURED chart
+// (must run BEFORE any of the actions execute) with the same matcher the dispatcher will use, and
+// stamp the matched dx's isPrimary onto the first add-diagnosis that lacks a boolean one (any
+// further unmarked adds become explicitly secondary — exactly one primary). A model-stated boolean
+// isPrimary is never overridden, and with no resolvable remove match the actions pass through
+// untouched (pickPrimaryPromotion backstops that case). Returns a new array; never mutates input.
+export function carryReviewSwapPrimary(
+  actions: EasyChartAgentIntent[],
+  data: GetChartDataResponse | null
+): EasyChartAgentIntent[] {
+  const removeDx = actions.find((a) => a.kind === 'remove-diagnosis');
+  const needsCarry = actions.some(
+    (a) => a.kind === 'add-diagnosis' && typeof (a as { isPrimary?: unknown }).isPrimary !== 'boolean'
+  );
+  if (!removeDx || !needsCarry) return actions;
+  const matches = findRemoveMatches(removeDx as RemoveIntent, data);
+  if (matches.length === 0) return actions;
+  // Same pick as handleRemovePick on the non-interactive path: the first match is the one removed.
+  const removedIsPrimary = !!(matches[0].dto as { isPrimary?: boolean }).isPrimary;
+  let carried = false;
+  return actions.map((a) => {
+    if (a.kind !== 'add-diagnosis' || typeof (a as { isPrimary?: unknown }).isPrimary === 'boolean') return a;
+    const isPrimary = !carried && removedIsPrimary;
+    carried = true;
+    return { ...a, isPrimary };
+  });
+}
+
+// Post-suggestion safety net for the swap above: when the chart holds diagnoses but NONE is
+// primary (the remove demoted the primary and the add didn't restore it), pick the dx to promote —
+// prefer one matching a suggestion add-diagnosis (by code, then display substring either way, in
+// action order: the dx the swap just charted), else the first with a resourceId. Returns undefined
+// when no promotion is needed (no diagnoses, or a primary already exists).
+export function pickPrimaryPromotion(
+  actions: EasyChartAgentIntent[],
+  diagnoses: DiagnosisDTO[] | undefined
+): DiagnosisDTO | undefined {
+  const dx = (diagnoses ?? []).filter((d) => d.resourceId);
+  if (dx.length === 0 || dx.some((d) => d.isPrimary)) return undefined;
+  for (const a of actions) {
+    if (a.kind !== 'add-diagnosis') continue;
+    const code = typeof a.code === 'string' ? a.code.trim().toUpperCase() : '';
+    if (code) {
+      const byCode = dx.find((d) => (d.code ?? '').trim().toUpperCase() === code);
+      if (byCode) return byCode;
+    }
+    const disp = (a.display ?? '').trim().toLowerCase();
+    if (disp) {
+      const byDisplay = dx.find((d) => {
+        const h = (d.display ?? '').trim().toLowerCase();
+        return !!h && (h.includes(disp) || disp.includes(h));
+      });
+      if (byDisplay) return byDisplay;
+    }
+  }
+  return dx[0];
 }
 
 export function filterStaticOptions(options: { display: string; code: string }[], term: string): SearchResult[] {
