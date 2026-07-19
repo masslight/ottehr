@@ -9,13 +9,21 @@
  * fields pair up.
  *
  * Per section, one structured call per case (claude-sonnet-5, forced tool_use, thinking
- * disabled — shared claudeStructured/coerceArrayField from tag-voiced.ts) scores CONTENT only:
- *   coverage    0-2 — how much of the gold section's clinical content the prediction carries
- *               (null when the gold section is empty — nothing to cover)
- *   fabrication 0-2 — 2 = no unsupported clinical claims; a claim is supported when it appears
- *               in the GOLD note OR the TRANSCRIPT (passed for exactly this reason); null when
- *               the prediction is empty. Style/format/length are never judged.
+ * disabled — shared claudeStructured/coerceArrayField from tag-voiced.ts) scores CONTENT only
+ * (criteriaVersion 2 — same lesson as the structured sections' voiced-scoping):
+ *   coverage          0-2 — of the gold facts that are stated or clearly implied IN THE
+ *                     TRANSCRIPT, how many appear in predicted. Gold content with no transcript
+ *                     basis (prior-chart knowledge, discharge/education boilerplate) is OUT of
+ *                     the coverage denominator by design — a transcript-anchored note must not
+ *                     be penalized for omitting it. (null when the gold section is empty)
+ *   unvoicedGoldShare 0-1 — the judge's estimate of the fraction of the gold section's content
+ *                     that is NOT transcript-derivable, so a low coverage number is
+ *                     interpretable per case. (null when gold empty or section not judged)
+ *   fabrication       0-2 — UNCHANGED from v1: 2 = no unsupported clinical claims; a claim is
+ *                     supported when it appears in the GOLD note OR the TRANSCRIPT; null when
+ *                     the prediction is empty. Style/format/length are never judged.
  * plus a one-line rationale each (file-only — stdout carries scores, never clinical text).
+ * freetext-summary.json refuses to aggregate mixed criteriaVersions — re-judge with --force.
  *
  * Outputs: caseNNN.freetext.json per case in the results dir; freetext-summary.json aggregate
  * (rebuilt from ALL freetext files present, so partial reruns stay consistent).
@@ -41,6 +49,11 @@ import { claudeStructured, coerceArrayField, JUDGE_MODEL } from './tag-voiced';
 
 const SECTIONS = ['historyOfPresentIllness', 'medicalDecisionMaking'] as const;
 type SectionName = (typeof SECTIONS)[number];
+
+// Bumped whenever the judging criteria change, so old and new judgments can never be silently
+// mixed in one aggregate. v1 (implicit — files without the field): coverage vs ALL gold content.
+// v2: coverage vs transcript-derivable gold only + unvoicedGoldShare.
+const CRITERIA_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // Per-case inputs
@@ -74,11 +87,19 @@ const RESPONSE_SCHEMA = {
         type: 'object',
         properties: {
           section: { type: 'string', enum: [...SECTIONS] },
+          unvoicedGoldShare: {
+            type: 'number',
+            minimum: 0,
+            maximum: 1,
+            description:
+              'fraction (0.0-1.0) of the GOLD section content that is NOT stated or clearly implied in the TRANSCRIPT',
+          },
           coverage: {
             type: 'integer',
             minimum: 0,
             maximum: 2,
-            description: '0 = most gold facts missing, 1 = partial, 2 = all or nearly all gold facts present',
+            description:
+              'over ONLY the transcript-derivable gold facts: 0 = most missing from predicted, 1 = partial, 2 = all or nearly all present',
           },
           fabrication: {
             type: 'integer',
@@ -89,7 +110,7 @@ const RESPONSE_SCHEMA = {
           },
           rationale: { type: 'string', description: 'one line, content-focused' },
         },
-        required: ['section', 'coverage', 'fabrication', 'rationale'],
+        required: ['section', 'unvoicedGoldShare', 'coverage', 'fabrication', 'rationale'],
       },
     },
   },
@@ -109,12 +130,21 @@ function buildPrompt(transcript: string, sections: SectionInput[]): string {
     `You are grading an AI ambient scribe's free-text note sections against the provider's own ` +
     `signed note (GOLD) for the same visit. The raw dictation TRANSCRIPT is additional ground ` +
     `truth: a predicted claim grounded in the transcript is NOT a fabrication even when the ` +
-    `gold note omits it.\n\n` +
-    `For EACH section below return two integer scores (0-2) and a one-line rationale:\n` +
-    `- coverage: how much of the GOLD section's clinical content appears in PREDICTED ` +
-    `(0 = most gold facts missing, 1 = partial, 2 = all or nearly all gold facts present). ` +
-    `When GOLD is (empty), return 2 — it is ignored downstream.\n` +
-    `- fabrication: unsupported clinical claims in PREDICTED. A claim is supported when it ` +
+    `gold note omits it. The predicted note is transcript-anchored BY DESIGN: it must only ` +
+    `document what was dictated, while GOLD often carries content with no transcript basis ` +
+    `(prior-chart knowledge, standing discharge/education/caregiver-understanding boilerplate). ` +
+    `The three judgments below keep those concerns explicitly distinct.\n\n` +
+    `For EACH section below return three scores and a one-line rationale:\n` +
+    `- unvoicedGoldShare (0.0-1.0): FIRST, estimate the fraction of the GOLD section's clinical ` +
+    `content that is NOT stated or clearly implied anywhere in the TRANSCRIPT. 0 = every gold ` +
+    `fact is transcript-derivable; 1 = none of it is. When GOLD is (empty), return 0 — ignored ` +
+    `downstream.\n` +
+    `- coverage (0-2): THEN, over ONLY the transcript-derivable part of GOLD (the complement of ` +
+    `unvoicedGoldShare): how many of those gold facts appear in PREDICTED? 0 = most missing, ` +
+    `1 = partial, 2 = all or nearly all. NEVER penalize PREDICTED for omitting gold content ` +
+    `that is absent from the transcript — that content is out of scope by design. When GOLD is ` +
+    `(empty), return 2 — ignored downstream.\n` +
+    `- fabrication (0-2): unsupported clinical claims in PREDICTED. A claim is supported when it ` +
     `appears in GOLD or in the TRANSCRIPT (stated or clearly implied). 2 = no unsupported ` +
     `claims, 1 = minor unsupported detail(s), 0 = one or more significant unsupported clinical ` +
     `claims.\n` +
@@ -127,11 +157,15 @@ interface SectionJudgment {
   goldPresent: boolean;
   predictedPresent: boolean;
   coverage: number | null;
+  // v2: judge-estimated fraction (0-1) of gold content NOT transcript-derivable — the context
+  // needed to interpret coverage per case. null when gold empty or the section wasn't judged.
+  unvoicedGoldShare: number | null;
   fabrication: number | null;
   rationale: string;
 }
 
 const isScore = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 2;
+const isShare = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
 
 async function judgeCaseSections(
   transcript: string,
@@ -147,6 +181,7 @@ async function judgeCaseSections(
         goldPresent: !!s.goldText,
         predictedPresent: false,
         coverage: s.goldText ? 0 : null, // gold present + nothing predicted = zero coverage
+        unvoicedGoldShare: null, // not judged — no LLM call for this section
         fabrication: null, // nothing predicted → nothing to fabricate
         rationale: s.goldText
           ? 'predicted section empty — coverage 0 by definition'
@@ -159,19 +194,22 @@ async function judgeCaseSections(
   const input = await claudeStructured(buildPrompt(transcript, toJudge), RESPONSE_SCHEMA, TOOL_NAME, apiKey);
   const raw = coerceArrayField(input, 'sections') as {
     section?: string;
+    unvoicedGoldShare?: number;
     coverage?: number;
     fabrication?: number;
     rationale?: string;
   }[];
   for (const s of toJudge) {
     const j = raw.find((r) => r.section === s.name);
-    if (!j || !isScore(j.coverage) || !isScore(j.fabrication)) {
+    if (!j || !isScore(j.coverage) || !isScore(j.fabrication) || !isShare(j.unvoicedGoldShare)) {
       throw new Error(`judge returned no valid scores for section ${s.name}`);
     }
     out[s.name] = {
       goldPresent: !!s.goldText,
       predictedPresent: true,
-      coverage: s.goldText ? j.coverage : null, // empty gold → coverage meaningless (judge told to emit 2)
+      // empty gold → coverage/share meaningless (judge told to emit 2 / 0 there)
+      coverage: s.goldText ? j.coverage : null,
+      unvoicedGoldShare: s.goldText ? j.unvoicedGoldShare : null,
       fabrication: j.fabrication,
       rationale: (j.rationale ?? '').trim() || '(no rationale)',
     };
@@ -186,6 +224,7 @@ interface FreetextFile {
   caseId: string;
   model: string;
   judgedAt: string;
+  criteriaVersion?: number; // absent = v1 (pre-transcript-scoped coverage)
   sections: Record<SectionName, SectionJudgment>;
 }
 
@@ -194,8 +233,18 @@ function rebuildSummary(resultsDir: string): void {
     .filter((f) => /^case\d+\.freetext\.json$/.test(f))
     .sort();
   const judged = files.map((f) => JSON.parse(readFileSync(join(resultsDir, f), 'utf8')) as FreetextFile);
+  // Coverage means different things across criteria versions — refuse a mixed aggregate.
+  const versions = [...new Set(judged.map((c) => c.criteriaVersion ?? 1))].sort();
+  if (versions.length > 1) {
+    throw new Error(
+      `freetext files in ${resultsDir} mix judge criteria versions (${versions.join(', ')}) — their coverage ` +
+        `numbers are not comparable. Re-judge the whole dir on the current criteria with --force:\n` +
+        `  npx env-cmd -f packages/zambdas/.env/local.json npx tsx scripts/easy-chart-eval/judge-freetext.ts ${resultsDir} --force`
+    );
+  }
   const summary = {
     judgedCases: judged.length,
+    criteriaVersion: versions[0] ?? CRITERIA_VERSION,
     sections: {} as Record<
       SectionName,
       {
@@ -203,6 +252,8 @@ function rebuildSummary(resultsDir: string): void {
         predictedPresent: number;
         coverageJudged: number;
         coverageMean: number | null;
+        unvoicedShareJudged: number;
+        unvoicedShareMean: number | null;
         fabricationJudged: number;
         fabricationMean: number | null;
         fabricationFlagged: number; // sections judged < 2 (any unsupported claim)
@@ -212,12 +263,15 @@ function rebuildSummary(resultsDir: string): void {
   for (const name of SECTIONS) {
     const rows = judged.map((c) => c.sections[name]).filter(Boolean);
     const cov = rows.map((r) => r.coverage).filter((v): v is number => v != null);
+    const share = rows.map((r) => r.unvoicedGoldShare).filter((v): v is number => v != null);
     const fab = rows.map((r) => r.fabrication).filter((v): v is number => v != null);
     summary.sections[name] = {
       goldPresent: rows.filter((r) => r.goldPresent).length,
       predictedPresent: rows.filter((r) => r.predictedPresent).length,
       coverageJudged: cov.length,
       coverageMean: cov.length > 0 ? cov.reduce((a, b) => a + b, 0) / cov.length : null,
+      unvoicedShareJudged: share.length,
+      unvoicedShareMean: share.length > 0 ? share.reduce((a, b) => a + b, 0) / share.length : null,
       fabricationJudged: fab.length,
       fabricationMean: fab.length > 0 ? fab.reduce((a, b) => a + b, 0) / fab.length : null,
       fabricationFlagged: fab.filter((v) => v < 2).length,
@@ -226,16 +280,20 @@ function rebuildSummary(resultsDir: string): void {
   writeFileSync(join(resultsDir, 'freetext-summary.json'), JSON.stringify(summary, null, 2));
 
   const fmtMean = (v: number | null): string => (v === null ? '   —' : v.toFixed(2));
-  console.log(`\nfreetext-summary.json rebuilt from ${judged.length} freetext files in ${resultsDir}`);
-  console.log('section                    gold  pred  covN  covMean  fabN  fabMean  fabFlagged');
+  console.log(
+    `\nfreetext-summary.json rebuilt from ${judged.length} freetext files in ${resultsDir} (criteria v${summary.criteriaVersion})`
+  );
+  console.log('section                    gold  pred  covN  covMean  unvN  unvMean  fabN  fabMean  fabFlagged');
   for (const name of SECTIONS) {
     const s = summary.sections[name];
     console.log(
       `${name.padEnd(26)} ${String(s.goldPresent).padStart(4)} ${String(s.predictedPresent).padStart(5)} ${String(
         s.coverageJudged
-      ).padStart(5)} ${fmtMean(s.coverageMean).padStart(8)} ${String(s.fabricationJudged).padStart(5)} ${fmtMean(
-        s.fabricationMean
-      ).padStart(8)} ${String(s.fabricationFlagged).padStart(11)}`
+      ).padStart(5)} ${fmtMean(s.coverageMean).padStart(8)} ${String(s.unvoicedShareJudged).padStart(5)} ${fmtMean(
+        s.unvoicedShareMean
+      ).padStart(8)} ${String(s.fabricationJudged).padStart(5)} ${fmtMean(s.fabricationMean).padStart(8)} ${String(
+        s.fabricationFlagged
+      ).padStart(11)}`
     );
   }
 }
@@ -250,11 +308,13 @@ interface ResultFile {
 }
 
 const fmtScore = (v: number | null): string => (v === null ? '—' : String(v));
+const fmtShare = (v: number | null): string => (v === null ? '—' : v.toFixed(2));
+const sectionPart = (label: string, s: SectionJudgment): string =>
+  `${label} cov ${fmtScore(s.coverage)} unv ${fmtShare(s.unvoicedGoldShare)} fab ${fmtScore(s.fabrication)}`;
 const caseLine = (caseId: string, sections: Record<SectionName, SectionJudgment>): string =>
-  `${caseId}: HPI cov ${fmtScore(sections.historyOfPresentIllness.coverage)} fab ${fmtScore(
-    sections.historyOfPresentIllness.fabrication
-  )} | MDM cov ${fmtScore(sections.medicalDecisionMaking.coverage)} fab ${fmtScore(
-    sections.medicalDecisionMaking.fabrication
+  `${caseId}: ${sectionPart('HPI', sections.historyOfPresentIllness)} | ${sectionPart(
+    'MDM',
+    sections.medicalDecisionMaking
   )}`;
 
 async function main(): Promise<void> {
@@ -355,6 +415,7 @@ async function main(): Promise<void> {
           caseId: c.caseId,
           model: JUDGE_MODEL,
           judgedAt: new Date().toISOString(),
+          criteriaVersion: CRITERIA_VERSION,
           sections,
         };
         writeFileSync(join(resultsDir, `${c.caseId}.freetext.json`), JSON.stringify(out, null, 2));
