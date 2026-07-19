@@ -1,0 +1,919 @@
+/**
+ * run-harvested-eval.ts — run every harvested prod case (caseNNN.json) through the full
+ * easy-chart flow headlessly and score the result against the provider-charted gold:
+ *
+ *   1. easy-chart-planner over the raw transcript (empty note, fresh chart);
+ *   2. replay the plan steps through the REAL client matchers (intent-logic / exam-ros-catalog)
+ *      into a simulated charted state, mirroring useChartAssistant's dispatch rules;
+ *   3. easy-chart-review over (narrative + chartState summary + current note text), then apply
+ *      the suggestions' actions into the state the way the client's runReview does (review
+ *      edit-note-text on a non-empty field queues for confirmation instead of applying);
+ *   4. score with score-harvested.ts (planner-only vs post-review) and aggregate.
+ *
+ * Per-case artifacts land in <outDir>: caseNNN.result.json (full plan/review/state) and
+ * caseNNN.score.json; the run ends with summary.json + an aggregate table.
+ *
+ * Usage (local zambda server must be running):
+ *   npx env-cmd -f packages/zambdas/.env/local.json \
+ *     npx tsx scripts/easy-chart-eval/run-harvested-eval.ts [casesDir] [outDir] [flags]
+ *
+ * Flags:
+ *   --cases=case002,case019,...  run only these caseIds (retry filter); per-case result/score
+ *                                files interleave safely with an existing results dir, and the
+ *                                aggregate summary.json is rebuilt from ALL score files present.
+ *   --rescore-summary            no zambda calls — just rebuild summary.json from the score
+ *                                files already in outDir (use after a partial rerun, or after
+ *                                re-scoring via score-harvested.ts standalone mode).
+ *   --self-test                  offline fixtures for the review dx-swap primary carry/promotion
+ *                                sim (runs the real client helpers; no zambdas, no case data).
+ */
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { pathToFileURL } from 'url';
+import {
+  DiagnosisDTO,
+  EasyChartAgentIntent,
+  EasyChartPlannerStep,
+  EasyChartSuggestion,
+  EasyChartTokenUsage,
+  ExamObservationDTO,
+  GetChartDataResponse,
+  rosField,
+  RosFindingState,
+} from 'utils';
+import {
+  EXAM_LEAVES,
+  ExamLeaf,
+  FIELD_TO_SECTION_LABEL,
+  ROS_LEAVES,
+} from '../../apps/ehr/src/features/easy-charting/exam-ros-catalog';
+import {
+  buildExamRemoveItems,
+  carryReviewSwapPrimary,
+  findExamLeafMatchesScored,
+  findExamRemoveMatchesScored,
+  findRosLeafMatchesScored,
+  findRosRemoveMatchesScored,
+  inferExamSectionLabel,
+  pickPrimaryPromotion,
+  preferredExamLeaf,
+} from '../../apps/ehr/src/features/easy-charting/intent-logic';
+import { GoldData } from './harvest-shared';
+import {
+  aggregateScores,
+  CaseScore,
+  CaseUsage,
+  emptySimState,
+  formatCaseLine,
+  formatSummary,
+  nameMatch,
+  normCode,
+  normName,
+  scoreCase,
+  SimFinalState,
+  SimSource,
+} from './score-harvested';
+
+// ---------------------------------------------------------------------------
+// Auth + zambda plumbing (same pattern as run-eval-batch.ts / run-planner-batch.ts)
+// ---------------------------------------------------------------------------
+function need(n: string): string {
+  const v = process.env[n];
+  if (!v) throw new Error(`Missing env: ${n}`);
+  return v;
+}
+
+async function getToken(): Promise<string> {
+  const res = await fetch(need('AUTH0_ENDPOINT'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: need('AUTH0_CLIENT'),
+      client_secret: need('AUTH0_SECRET'),
+      audience: need('AUTH0_AUDIENCE'),
+      grant_type: 'client_credentials',
+    }),
+  });
+  if (!res.ok) throw new Error(`auth failed: ${res.status}`);
+  return ((await res.json()) as { access_token: string }).access_token;
+}
+
+async function callZambda<T>(name: string, body: unknown, token: string): Promise<T> {
+  const res = await fetch(`http://localhost:3000/local/zambda/${name}/execute`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': need('PROJECT_ID'),
+    },
+    body: JSON.stringify(body),
+  });
+  const j: any = await res.json().catch(() => undefined);
+  if (!res.ok) {
+    const msg = typeof j?.error === 'string' ? j.error : typeof j?.message === 'string' ? j.message : '';
+    throw new Error(`${name} HTTP ${res.status}${msg ? `: ${msg.slice(0, 200)}` : ''}`);
+  }
+  return (j?.output ?? j) as T;
+}
+
+// ---------------------------------------------------------------------------
+// Plan/suggestion step simulation — mirrors useChartAssistant.dispatchIntent's
+// non-interactive paths using the same matchers the client uses.
+// ---------------------------------------------------------------------------
+type Step = EasyChartPlannerStep & Record<string, any>;
+
+// Verbatim from useChartAssistant's add-exam-finding dispatch (negation + normalcy detection).
+const EXAM_NEGATED_RE = /\b(no|not|non|without|denies?|denied|negative|absent|neg)\b/i;
+const EXAM_NORMAL_RE =
+  /\b(?:normal|intact|unremarkable|brisk|strong|supple|patent|clear|symmetric|regular|calm|comfortable|playful|interactive|consolable)\b|\bwell[- ](?:appearing|hydrated)\b|\b[0-9]\s*(?:\+|plus)\b|\b5 out of 5\b|\b5\s*\/\s*5\b|\b20\/20\b/i;
+
+const norm = (t: string): string =>
+  t
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+function writeExamComment(state: SimFinalState, section: string, text: string, source: SimSource): void {
+  // Dedupe like the client's writeExamComment: skip when the section note already contains it.
+  const existing = state.examComments.find((c) => c.section === section && norm(c.text).includes(norm(text)));
+  if (existing) return;
+  state.examComments.push({ section, text, source });
+}
+
+function activeExam(state: SimFinalState): SimExamObsList {
+  return state.examObservations.filter((o) => !o.removed);
+}
+type SimExamObsList = SimFinalState['examObservations'];
+
+function applyExamFinding(state: SimFinalState, step: Step, source: SimSource): void {
+  const intent = {
+    kind: 'add-exam-finding' as const,
+    display: String(step.display),
+    searchTerms: step.searchTerms ?? [],
+  };
+  const scoredMatches = findExamLeafMatchesScored(intent, EXAM_LEAVES);
+  const isNegated = EXAM_NEGATED_RE.test(intent.display);
+  const inferSection = (): string | undefined =>
+    inferExamSectionLabel(`${intent.display} ${(intent.searchTerms ?? []).join(' ')}`);
+  // Negation guard: a negated finding whose every match is an abnormal checkbox must not chart
+  // (it would assert the opposite) — it goes to the section's free-text area instead.
+  if (isNegated && scoredMatches.length > 0 && scoredMatches.every((s) => s.leaf.normalAbnormal === 'abnormal')) {
+    writeExamComment(state, inferSection() ?? scoredMatches[0].leaf.section, intent.display, source);
+    return;
+  }
+  const obs = activeExam(state);
+  const isAlreadyChecked = (leaf: ExamLeaf): boolean => {
+    const parent = obs.find((o) => o.field === leaf.field);
+    if (!parent) return false;
+    if (leaf.modalOption)
+      return (parent.components ?? []).some((c) => !c.removed && c.code === leaf.modalOption!.optionCode);
+    return true;
+  };
+  const remainingScored = scoredMatches.filter((s) => !isAlreadyChecked(s.leaf));
+  const chartLeaf = (leaf: ExamLeaf): void => {
+    if (leaf.modalOption) {
+      const parent = obs.find((o) => o.field === leaf.field);
+      const component = {
+        code: leaf.modalOption.optionCode,
+        label: leaf.modalOption.optionLabel,
+        abnormal: leaf.modalOption.abnormal,
+        source,
+      };
+      if (parent) {
+        parent.components = [...(parent.components ?? []).filter((c) => c.code !== component.code), component];
+      } else {
+        state.examObservations.push({
+          field: leaf.field,
+          label: leaf.modalOption.parentLabel,
+          components: [component],
+          source,
+        });
+      }
+    } else {
+      state.examObservations.push({ field: leaf.field, label: leaf.label, source });
+    }
+  };
+  if (scoredMatches.length === 0) {
+    writeExamComment(state, inferSection() ?? 'General Appearance', intent.display, source);
+  } else if (remainingScored.length === 0) {
+    state.skipped.push({ kind: intent.kind, display: intent.display, reason: 'already on the exam' });
+  } else if (isAlreadyChecked(scoredMatches[0].leaf)) {
+    // Top match already charted: skip, unless it's a NORMAL that lexically shadowed a comparable
+    // not-yet-charted ABNORMAL (chart the abnormal in that case).
+    const top = scoredMatches[0];
+    const abnormalAlt = remainingScored.find((s) => s.leaf.normalAbnormal === 'abnormal' && s.score >= top.score * 0.5);
+    if (top.leaf.normalAbnormal === 'normal' && abnormalAlt) chartLeaf(abnormalAlt.leaf);
+    else state.skipped.push({ kind: intent.kind, display: intent.display, reason: 'top match already charted' });
+  } else if (remainingScored[0].score < 3) {
+    // Confidence floor for the no-stopping auto-pick — free-text the finding rather than guess.
+    writeExamComment(state, inferSection() ?? remainingScored[0].leaf.section, intent.display, source);
+  } else {
+    chartLeaf(
+      preferredExamLeaf(remainingScored, { queryNegated: isNegated, queryNormal: EXAM_NORMAL_RE.test(intent.display) })
+    );
+  }
+}
+
+function applyRosFinding(state: SimFinalState, step: Step, source: SimSource): void {
+  const display = String(step.display);
+  const verb = /^(denies|reports)\b[:\s-]*/i.exec(display);
+  const finding: 'reports' | 'denies' = verb
+    ? verb[1].toLowerCase() === 'denies'
+      ? 'denies'
+      : 'reports'
+    : step.finding === 'denies'
+    ? 'denies'
+    : 'reports';
+  const symptom = display.replace(/^(denies|reports)\b[:\s-]*/i, '').trim();
+  const scored = findRosLeafMatchesScored(
+    { kind: 'add-ros-finding', display: symptom || display, searchTerms: step.searchTerms ?? [] },
+    ROS_LEAVES
+  );
+  const active = state.rosObservations.filter((o) => !o.removed);
+  const remaining = scored.filter((s) => !active.some((o) => o.baseKey === s.leaf.baseKey && o.finding === finding));
+  if (scored.length === 0) {
+    state.skipped.push({ kind: 'add-ros-finding', display, reason: 'no ROS catalog match' });
+  } else if (remaining.length === 0) {
+    state.skipped.push({ kind: 'add-ros-finding', display, reason: 'already charted' });
+  } else {
+    const leaf = remaining[0].leaf;
+    // Paired-state flip: charting denies un-checks a charted reports for the same item (and
+    // vice versa), same as handleRosPick.
+    const paired = active.find((o) => o.baseKey === leaf.baseKey && o.finding !== finding);
+    if (paired) {
+      paired.removed = true;
+      paired.removedBy = source;
+    }
+    state.rosObservations.push({
+      baseKey: leaf.baseKey,
+      field: rosField(leaf.baseKey, finding === 'denies' ? RosFindingState.Denies : RosFindingState.Reports),
+      label: leaf.label,
+      finding,
+      source,
+    });
+  }
+}
+
+// Extract an ICD-10-looking code embedded in a remove-diagnosis display, same regex the review
+// zambda uses for its self-defeating-swap guard.
+const ICD_IN_DISPLAY = /\(([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\)/;
+
+function removeByMatch<T extends { display: string; code?: string; removed?: boolean; removedBy?: SimSource }>(
+  items: T[],
+  step: Step,
+  source: SimSource
+): boolean {
+  const active = items.filter((i) => !i.removed);
+  const codeRaw = typeof step.code === 'string' ? step.code : ICD_IN_DISPLAY.exec(String(step.display ?? ''))?.[1];
+  const code = normCode(codeRaw);
+  let hit = code ? active.find((i) => normCode(i.code) === code) : undefined;
+  if (!hit && step.display) hit = active.find((i) => nameMatch(i.display, String(step.display)));
+  if (!hit) return false;
+  hit.removed = true;
+  hit.removedBy = source;
+  return true;
+}
+
+// Exported so the sim can be replayed/smoke-tested from persisted planSteps without zambda calls.
+export function applyStep(state: SimFinalState, step: Step, source: SimSource): void {
+  switch (step.kind) {
+    case 'apply-template':
+      // Template CONTENTS (its default dx/exam/MDM) are not simulated headlessly — recorded so
+      // the review's chartState and the score report both carry the caveat.
+      state.templatesApplied.push(String(step.display ?? ''));
+      return;
+    case 'add-diagnosis': {
+      const code = normCode(step.code);
+      const active = state.diagnoses.filter((d) => !d.removed);
+      if (
+        active.some((d) => (code ? normCode(d.code) === code : normName(d.display) === normName(String(step.display))))
+      ) {
+        state.skipped.push({ kind: step.kind, display: step.display, reason: 'duplicate diagnosis' });
+        return;
+      }
+      // A charted primary is never usurped by a later add (matches the client's incremental rule);
+      // a review dx-swap removes the primary first, freeing the slot.
+      const hasPrimary = active.some((d) => d.isPrimary);
+      state.diagnoses.push({
+        display: String(step.display ?? ''),
+        ...(step.code ? { code: String(step.code) } : {}),
+        ...(step.isPrimary && !hasPrimary ? { isPrimary: true } : {}),
+        source,
+      });
+      return;
+    }
+    case 'remove-diagnosis':
+      if (!removeByMatch(state.diagnoses, step, source))
+        state.skipped.push({ kind: step.kind, display: step.display, reason: 'no charted diagnosis matched' });
+      return;
+    case 'add-condition':
+      state.conditions.push({
+        display: String(step.display ?? ''),
+        ...(step.code ? { code: String(step.code) } : {}),
+        source,
+      });
+      return;
+    case 'remove-condition':
+      if (!removeByMatch(state.conditions, step, source))
+        state.skipped.push({ kind: step.kind, display: step.display, reason: 'no charted condition matched' });
+      return;
+    case 'add-allergy':
+      state.allergies.push({ display: String(step.display ?? ''), source });
+      return;
+    case 'remove-allergy':
+      if (!removeByMatch(state.allergies, step, source))
+        state.skipped.push({ kind: step.kind, display: step.display, reason: 'no charted allergy matched' });
+      return;
+    case 'add-surgical-history':
+      state.surgicalHistory.push({ display: String(step.display ?? ''), source });
+      return;
+    case 'add-hospitalization':
+      state.hospitalizations.push({ display: String(step.display ?? ''), source });
+      return;
+    case 'add-medication':
+      state.medications.push({
+        display: String(step.display ?? ''),
+        ...(step.strength ? { strength: String(step.strength) } : {}),
+        source,
+      });
+      return;
+    case 'remove-medication':
+      if (!removeByMatch(state.medications, step, source))
+        state.skipped.push({ kind: step.kind, display: step.display, reason: 'no charted medication matched' });
+      return;
+    case 'set-em-code':
+      state.emEvents.push({ type: 'set', code: String(step.code ?? ''), display: step.display, source });
+      return;
+    case 'remove-em-code':
+      state.emEvents.push({ type: 'remove', source });
+      return;
+    case 'add-cpt': {
+      const code = normCode(step.code);
+      if (state.cptCodes.some((c) => !c.removed && normCode(c.code) === code)) {
+        state.skipped.push({ kind: step.kind, display: step.display, reason: 'duplicate CPT' });
+        return;
+      }
+      state.cptCodes.push({ display: String(step.display ?? ''), code: String(step.code ?? ''), source });
+      return;
+    }
+    case 'remove-cpt': {
+      const code = normCode(step.code);
+      const hit = state.cptCodes.find((c) => !c.removed && normCode(c.code) === code);
+      if (hit) {
+        hit.removed = true;
+        hit.removedBy = source;
+      } else state.skipped.push({ kind: step.kind, display: step.code, reason: 'no charted CPT matched' });
+      return;
+    }
+    case 'add-exam-finding':
+      applyExamFinding(state, step, source);
+      return;
+    case 'remove-exam-finding': {
+      // Reuse the client's remove matcher over DTO-shaped copies of the simulated observations.
+      const dtos: ExamObservationDTO[] = activeExam(state).map((o) => ({
+        field: o.field,
+        label: o.label,
+        value: true,
+        resourceId: o.field,
+        components: (o.components ?? [])
+          .filter((c) => !c.removed)
+          .map((c) => ({ code: c.code, label: c.label, value: true, abnormal: c.abnormal })),
+      })) as unknown as ExamObservationDTO[];
+      const scored = findExamRemoveMatchesScored(
+        { kind: 'remove-exam-finding', display: String(step.display ?? ''), searchTerms: step.searchTerms ?? [] },
+        buildExamRemoveItems(dtos)
+      );
+      const top = scored[0]?.leaf;
+      if (!top) {
+        state.skipped.push({ kind: step.kind, display: step.display, reason: 'no charted exam finding matched' });
+        return;
+      }
+      const target = activeExam(state).find((o) => o.field === top.observationField);
+      if (!target) return;
+      if (top.componentCode) {
+        const comp = (target.components ?? []).find((c) => !c.removed && c.code === top.componentCode);
+        if (comp) {
+          comp.removed = true;
+          comp.removedBy = source;
+        }
+      } else {
+        target.removed = true;
+        target.removedBy = source;
+      }
+      return;
+    }
+    case 'add-ros-finding':
+      applyRosFinding(state, step, source);
+      return;
+    case 'remove-ros-finding': {
+      const dtos = state.rosObservations
+        .filter((o) => !o.removed)
+        .map((o) => ({
+          field: o.field,
+          label: o.label,
+          value: true,
+          resourceId: o.field,
+        })) as unknown as ExamObservationDTO[];
+      const scored = findRosRemoveMatchesScored(String(step.display ?? ''), step.searchTerms ?? [], dtos);
+      const top = scored[0]?.leaf;
+      const target = top && state.rosObservations.find((o) => !o.removed && o.field === top.field);
+      if (target) {
+        target.removed = true;
+        target.removedBy = source;
+      } else state.skipped.push({ kind: step.kind, display: step.display, reason: 'no charted ROS finding matched' });
+      return;
+    }
+    case 'edit-note-text': {
+      const field = step.field as keyof SimFinalState['noteText'];
+      const newText = String(step.newText ?? '');
+      // Review rewrites of a non-empty field queue for provider confirmation (client's
+      // pendingNoteEdits rule); planner edits and empty-field fills apply directly (overwrite).
+      if (source === 'review' && state.noteText[field]?.text?.trim()) {
+        state.pendingNoteEdits.push({ field: String(field), newText, source });
+      } else {
+        state.noteText[field] = { text: newText, source };
+      }
+      return;
+    }
+    case 'add-patient-instruction':
+      state.instructions.push(String(step.text ?? ''));
+      return;
+    case 'set-disposition':
+      state.disposition = { type: step.dispositionType, text: step.text };
+      return;
+    case 'add-nursing-order':
+      state.nursingOrders.push(String(step.text ?? ''));
+      return;
+    case 'add-radiology':
+      state.radiology.push(String(step.display ?? ''));
+      return;
+    case 'add-in-house-lab':
+      state.labsOrdered.push({ kind: 'in-house', display: String(step.display ?? '') });
+      return;
+    case 'add-external-lab':
+      state.labsOrdered.push({ kind: 'external', display: String(step.display ?? '') });
+      return;
+    case 'add-procedure':
+      state.procedures.push(String(step.display ?? ''));
+      return;
+    case 'set-vital':
+      state.vitals.push({ field: String(step.field ?? ''), display: String(step.display ?? '') });
+      return;
+    case 'provider-note':
+      state.providerNotes.push(String(step.text ?? ''));
+      return;
+    default:
+      state.otherSteps.push({ kind: String(step.kind) });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Review dx-swap primary fix — mirrors useChartAssistant's per-suggestion sequence using the
+// SAME pure client helpers (carryReviewSwapPrimary / pickPrimaryPromotion from intent-logic):
+//   (a) carry the to-be-removed dx's isPrimary onto an unmarked add BEFORE any action executes;
+//   (b) apply the actions (add-diagnosis with missing isPrimary charts secondary, as before);
+//   (c) if the chart ends with diagnoses but no primary, promote the dx the swap just added
+//       (else the first charted one) — a review-provenance mutation.
+// ---------------------------------------------------------------------------
+
+// Minimal chart-data DTO view of the ACTIVE simulated diagnoses, shaped for the client helpers
+// (GetChartDataResponse.diagnosis / DiagnosisDTO). resourceId encodes the state.diagnoses index
+// so a promotion can be mapped back onto the sim record (indices are stable — removals are
+// soft-delete flags, never splices).
+function dxDtoView(state: SimFinalState): DiagnosisDTO[] {
+  return state.diagnoses
+    .map((d, i) => ({ d, i }))
+    .filter(({ d }) => !d.removed)
+    .map(({ d, i }) => ({
+      resourceId: `sim-dx-${i}`,
+      code: d.code ?? '',
+      display: d.display,
+      isPrimary: !!d.isPrimary,
+    })) as DiagnosisDTO[];
+}
+
+// Exported for the --self-test fixtures. Returns whether the fix actually engaged: a primary
+// flag was carried onto an add, and/or a promotion fired.
+export function applyReviewSuggestion(
+  state: SimFinalState,
+  rawActions: Step[]
+): { carriedPrimary: boolean; promoted: boolean } {
+  // (a) BEFORE applying — the to-be-removed dx's primary flag must still be readable.
+  const before = { diagnosis: dxDtoView(state) } as GetChartDataResponse;
+  const actions = carryReviewSwapPrimary(rawActions as unknown as EasyChartAgentIntent[], before) as unknown as Step[];
+  // carryReviewSwapPrimary preserves order/length, so index-wise comparison finds a stamped
+  // isPrimary:true the raw action lacked (an explicit stamped `false` is behaviorally a no-op).
+  const carriedPrimary = actions.some(
+    (a, i) =>
+      a.kind === 'add-diagnosis' && a.isPrimary === true && (rawActions[i] as Step | undefined)?.isPrimary !== true
+  );
+  // (b)
+  for (const action of actions) applyStep(state, action, 'review');
+  // (c) post-suggestion safety net, against the post-apply active diagnoses.
+  const promote = pickPrimaryPromotion(actions as unknown as EasyChartAgentIntent[], dxDtoView(state));
+  let promoted = false;
+  if (promote?.resourceId) {
+    const dx = state.diagnoses[Number(promote.resourceId.replace('sim-dx-', ''))];
+    if (dx) {
+      dx.isPrimary = true;
+      // Review-provenance mutation: the scorer's plannerOnly scope must not see this promotion.
+      dx.promotedPrimaryBy = 'review';
+      promoted = true;
+    }
+  }
+  return { carriedPrimary, promoted };
+}
+
+// ---------------------------------------------------------------------------
+// chartState summary for the review call — mirrors the client's buildChartStateSummary,
+// built from the simulated state (plus the template caveat line, since template contents
+// aren't simulated).
+// ---------------------------------------------------------------------------
+export function buildChartStateText(state: SimFinalState): string {
+  const lines: string[] = [];
+  if (state.templatesApplied.length) {
+    lines.push(`Template applied: ${state.templatesApplied.join('; ')} (may add its own default diagnosis/exam/MDM)`);
+  }
+  const dx = state.diagnoses.filter((d) => !d.removed);
+  if (dx.length) {
+    lines.push(
+      `Diagnoses: ${dx.map((d) => `${d.code ?? '?'} — ${d.display}${d.isPrimary ? ' (primary)' : ''}`).join('; ')}`
+    );
+  }
+  const conditions = state.conditions.filter((c) => !c.removed);
+  if (conditions.length) lines.push(`Past medical conditions: ${conditions.map((c) => c.display).join('; ')}`);
+  const meds = state.medications.filter((m) => !m.removed);
+  if (meds.length)
+    lines.push(`Medications: ${meds.map((m) => `${m.display}${m.strength ? ` ${m.strength}` : ''}`).join('; ')}`);
+  const allergies = state.allergies.filter((a) => !a.removed);
+  if (allergies.length) lines.push(`Allergies: ${allergies.map((a) => a.display).join('; ')}`);
+  const surg = state.surgicalHistory.filter((s) => !s.removed);
+  if (surg.length) lines.push(`Surgical history: ${surg.map((s) => s.display).join('; ')}`);
+  const hosp = state.hospitalizations.filter((h) => !h.removed);
+  if (hosp.length) lines.push(`Hospitalizations: ${hosp.map((h) => h.display).join('; ')}`);
+  if (state.procedures.length) lines.push(`Procedures on encounter: ${state.procedures.join('; ')}`);
+  const exam = state.examObservations.filter((o) => !o.removed);
+  if (exam.length) {
+    const bySection: Record<string, string[]> = {};
+    for (const o of exam) {
+      const section = FIELD_TO_SECTION_LABEL[o.field] ?? 'Other';
+      const checked = (o.components ?? []).filter((c) => !c.removed);
+      const label = checked.length > 0 ? `${o.label} (${checked.map((c) => c.label).join(', ')})` : o.label;
+      (bySection[section] ??= []).push(label);
+    }
+    lines.push(
+      'Exam findings already checked:\n' +
+        Object.entries(bySection)
+          .map(([sec, items]) => `  ${sec}: ${items.join('; ')}`)
+          .join('\n')
+    );
+  }
+  const ros = state.rosObservations.filter((o) => !o.removed);
+  if (ros.length) {
+    lines.push(
+      'ROS findings already charted: ' +
+        ros.map((o) => `${o.finding === 'denies' ? 'Denies' : 'Reports'} ${o.label}`).join('; ')
+    );
+  }
+  const mdm = state.noteText.medicalDecision?.text?.trim();
+  if (mdm) lines.push(`MDM already present (length ${mdm.length} chars).`);
+  const currentEm = state.emEvents.reduce<{ code?: string; display?: string } | undefined>(
+    (cur, e) => (e.type === 'set' ? { code: e.code, display: e.display } : undefined),
+    undefined
+  );
+  if (currentEm?.code) {
+    lines.push(`E&M code already charted: ${currentEm.code}${currentEm.display ? ` — ${currentEm.display}` : ''}.`);
+  }
+  if (state.labsOrdered.length) {
+    lines.push(`Labs already ordered: ${state.labsOrdered.map((o) => `${o.display} (${o.kind})`).join('; ')}`);
+  }
+  return lines.join('\n');
+}
+
+// noteContext for the review call: the note text the planner just wrote, keyed by the
+// model-visible field names — same content the client's buildNoteContext supplies.
+function buildNoteContextFromState(state: SimFinalState): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [field, v] of Object.entries(state.noteText)) {
+    if (v?.text?.trim()) out[field] = v.text;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Case runner
+// ---------------------------------------------------------------------------
+interface CaseFile {
+  caseId: string;
+  transcript: string;
+  gold: GoldData;
+}
+
+// NEW-vs-ESTABLISHED patient status for the zambdas' E&M-family selector. This is legitimate
+// chart context — at charting time the EHR knows from registration/visit history whether the
+// patient is new (and the zambdas derive it server-side from the encounter when given one) —
+// NOT gold leakage: it never reveals the E&M *level*, only the family the provider could see
+// anyway. Headless runs have no encounterId, so infer the family from the gold E&M code
+// (9920x = new, 9921x = established) and pass it explicitly; an explicit
+// noteContext.patientStatus wins over server-side derivation.
+function inferPatientStatus(gold: GoldData): 'new' | 'established' | undefined {
+  const code = gold.billing?.emCode?.code ?? '';
+  if (/^9920\d$/.test(code)) return 'new';
+  if (/^9921\d$/.test(code)) return 'established';
+  return undefined;
+}
+interface PlannerOutput {
+  steps?: EasyChartPlannerStep[];
+  usage?: EasyChartTokenUsage;
+}
+interface ReviewOutput {
+  suggestions?: EasyChartSuggestion[];
+  usage?: EasyChartTokenUsage;
+}
+
+async function runCase(
+  caseFile: CaseFile,
+  token: string,
+  outDir: string
+): Promise<{
+  score?: CaseScore;
+  planSteps: number;
+  reviewSuggestions: number;
+  primaryFixFired?: boolean;
+  error?: string;
+}> {
+  const { caseId, transcript, gold } = caseFile;
+  let stage = 'planner';
+  const patientStatus = inferPatientStatus(gold);
+  try {
+    const plan = await callZambda<PlannerOutput>(
+      'easy-chart-planner',
+      { narrative: transcript, noteContext: { ...(patientStatus ? { patientStatus } : {}) } },
+      token
+    );
+    if (!Array.isArray(plan.steps)) throw new Error('planner returned no steps array');
+
+    const state = emptySimState();
+    for (const step of plan.steps) applyStep(state, step as Record<string, any> as EasyChartPlannerStep, 'planner');
+
+    stage = 'review';
+    const chartState = buildChartStateText(state);
+    const noteContext = { ...buildNoteContextFromState(state), ...(patientStatus ? { patientStatus } : {}) };
+    const review = await callZambda<ReviewOutput>(
+      'easy-chart-review',
+      { narrative: transcript, chartState, noteContext },
+      token
+    );
+    const suggestions = review.suggestions ?? [];
+    stage = 'apply-review';
+    let primaryCarried = 0;
+    let primaryPromoted = 0;
+    for (const s of suggestions) {
+      const fix = applyReviewSuggestion(state, (s.actions ?? []) as Record<string, any>[] as Step[]);
+      if (fix.carriedPrimary) primaryCarried++;
+      if (fix.promoted) primaryPromoted++;
+    }
+
+    const usage: CaseUsage = {
+      ...(plan.usage ? { planner: plan.usage } : {}),
+      ...(review.usage ? { review: review.usage } : {}),
+    };
+    writeFileSync(
+      join(outDir, `${caseId}.result.json`),
+      JSON.stringify(
+        {
+          caseId,
+          patientStatusSent: patientStatus ?? null,
+          primaryFix: { carried: primaryCarried, promoted: primaryPromoted },
+          planSteps: plan.steps,
+          reviewSuggestions: suggestions,
+          chartStateSentToReview: chartState,
+          finalState: state,
+          usage,
+        },
+        null,
+        2
+      )
+    );
+    stage = 'score';
+    const score = scoreCase(caseId, gold, state, usage);
+    writeFileSync(join(outDir, `${caseId}.score.json`), JSON.stringify(score, null, 2));
+    return {
+      score,
+      planSteps: plan.steps.length,
+      reviewSuggestions: suggestions.length,
+      primaryFixFired: primaryCarried + primaryPromoted > 0,
+    };
+  } catch (e) {
+    const message = `${stage}: ${e instanceof Error ? e.message : String(e)}`;
+    writeFileSync(
+      join(outDir, `${caseId}.result.json`),
+      JSON.stringify({ caseId, patientStatusSent: patientStatus ?? null, error: message }, null, 2)
+    );
+    // A failed rerun must not leave a stale score file from an earlier successful run behind —
+    // the aggregate summary is rebuilt from ALL score files present in outDir.
+    const staleScore = join(outDir, `${caseId}.score.json`);
+    if (existsSync(staleScore)) unlinkSync(staleScore);
+    return { planSteps: 0, reviewSuggestions: 0, error: message };
+  }
+}
+
+// Rebuild the aggregate summary from every score file present in outDir — not just the cases
+// of one invocation — so partial reruns (--cases) keep summary.json consistent with the full
+// result set on disk. (runCase deletes a stale score file when a rerun of that case fails.)
+function rebuildSummary(outDir: string): void {
+  const scoreFiles = readdirSync(outDir)
+    .filter((f) => /^case\d+\.score\.json$/.test(f))
+    .sort();
+  const scores = scoreFiles.map((f) => JSON.parse(readFileSync(join(outDir, f), 'utf8')) as CaseScore);
+  const summary = aggregateScores(scores);
+  writeFileSync(join(outDir, 'summary.json'), JSON.stringify(summary, null, 2));
+  console.log(`summary.json rebuilt from ${scores.length} score files in ${outDir}`);
+  console.log(formatSummary(summary));
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const flags = args.filter((a) => a.startsWith('--'));
+  const positional = args.filter((a) => !a.startsWith('--'));
+  const casesDir = positional[0] ?? 'scripts/easy-chart-eval/harvested-cases';
+  const outDir = positional[1] ?? 'scripts/easy-chart-eval/harvested-results';
+  mkdirSync(outDir, { recursive: true });
+
+  if (flags.includes('--rescore-summary')) {
+    rebuildSummary(outDir);
+    return;
+  }
+
+  const casesFlag = flags.find((f) => f.startsWith('--cases='));
+  const only = casesFlag
+    ? new Set(
+        casesFlag
+          .slice('--cases='.length)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      )
+    : undefined;
+  let files = readdirSync(casesDir)
+    .filter((f) => /^case\d+\.json$/.test(f))
+    .sort();
+  if (only) {
+    files = files.filter((f) => only.has(f.replace('.json', '')));
+    const found = new Set(files.map((f) => f.replace('.json', '')));
+    const missing = [...only].filter((id) => !found.has(id));
+    if (missing.length > 0) console.warn(`warning: --cases ids not found in ${casesDir}: ${missing.join(', ')}`);
+    if (files.length === 0) throw new Error(`--cases matched no case files in ${casesDir}`);
+  }
+  console.log(`${files.length} harvested cases from ${casesDir}${only ? ' (--cases filter active)' : ''}`);
+  const token = await getToken();
+
+  const CONCURRENCY = 3;
+  const results: { caseId: string; ok: boolean; line: string; score?: CaseScore }[] = new Array(files.length);
+  let idx = 0;
+  async function worker(): Promise<void> {
+    while (idx < files.length) {
+      const i = idx++;
+      const file = files[i];
+      const caseFile = JSON.parse(readFileSync(join(casesDir, file), 'utf8')) as CaseFile;
+      const caseId = caseFile.caseId ?? file.replace('.json', '');
+      const r = await runCase({ ...caseFile, caseId }, token, outDir);
+      results[i] = r.score
+        ? {
+            caseId,
+            ok: true,
+            line: formatCaseLine(r.score, r.planSteps, r.reviewSuggestions, r.primaryFixFired),
+            score: r.score,
+          }
+        : { caseId, ok: false, line: `${caseId}: FAILED (${r.error})` };
+      console.log(results[i].line);
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+
+  const succeeded = results.filter((r) => r?.score).length;
+  const failed = results.filter((r) => r && !r.ok).length;
+  console.log('');
+  rebuildSummary(outDir);
+  console.log(`\ndone this run: ${succeeded} succeeded, ${failed} failed`);
+}
+
+// ---------------------------------------------------------------------------
+// Sim self-test (invented data only) — the review dx-swap primary carry/promotion sequence,
+// run through the REAL client helpers:  npx tsx scripts/easy-chart-eval/run-harvested-eval.ts --self-test
+// ---------------------------------------------------------------------------
+function runSimSelfTest(): void {
+  let failures = 0;
+  const check = (label: string, actual: unknown, expected: unknown): void => {
+    const ok = JSON.stringify(actual) === JSON.stringify(expected);
+    if (!ok) failures++;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}  (got ${JSON.stringify(actual)}, want ${JSON.stringify(expected)})`);
+  };
+  const activeDx = (state: SimFinalState): SimFinalState['diagnoses'] => state.diagnoses.filter((d) => !d.removed);
+
+  // S1 — swapping the PRIMARY dx carries primary onto the unmarked add.
+  {
+    const state = emptySimState();
+    state.diagnoses = [{ display: 'Bilateral AOM', code: 'H66.003', isPrimary: true, source: 'planner' }];
+    const fix = applyReviewSuggestion(state, [
+      { kind: 'remove-diagnosis', display: 'Bilateral AOM', searchTerms: ['h66.003'] },
+      { kind: 'add-diagnosis', display: 'Recurrent bilateral AOM', code: 'H66.006' }, // isPrimary omitted
+    ] as Step[]);
+    const active = activeDx(state);
+    check('S1 carried', fix.carriedPrimary, true);
+    check('S1 no promotion needed', fix.promoted, false);
+    check('S1 one active dx', active.length, 1);
+    check('S1 replacement is primary', [active[0].code, !!active[0].isPrimary], ['H66.006', true]);
+  }
+
+  // S2 — swapping a SECONDARY dx does NOT move primary; the existing primary survives.
+  {
+    const state = emptySimState();
+    state.diagnoses = [
+      { display: 'Pharyngitis', code: 'J02.9', isPrimary: true, source: 'planner' },
+      { display: 'GERD', code: 'K21.9', source: 'planner' },
+    ];
+    const fix = applyReviewSuggestion(state, [
+      { kind: 'remove-diagnosis', display: 'GERD', searchTerms: ['k21.9'] },
+      { kind: 'add-diagnosis', display: 'Reflux esophagitis', code: 'K21.0' },
+    ] as Step[]);
+    const active = activeDx(state);
+    check('S2 nothing carried', fix.carriedPrimary, false);
+    check('S2 nothing promoted', fix.promoted, false);
+    check('S2 original primary intact', active.find((d) => d.code === 'J02.9')?.isPrimary, true);
+    check('S2 replacement is secondary', !!active.find((d) => d.code === 'K21.0')?.isPrimary, false);
+  }
+
+  // S3 — no resolvable remove match (carry passes through) + no-primary end state: promotion
+  // picks the swap-added dx.
+  {
+    const state = emptySimState();
+    state.diagnoses = [{ display: 'Cough', code: 'R05.9', source: 'planner' }]; // no primary charted
+    const fix = applyReviewSuggestion(state, [
+      { kind: 'remove-diagnosis', display: 'Completely Unmatchable Dx', searchTerms: [] },
+      { kind: 'add-diagnosis', display: 'Acute URI', code: 'J06.9' },
+    ] as Step[]);
+    const active = activeDx(state);
+    check('S3 nothing carried (no remove match)', fix.carriedPrimary, false);
+    check('S3 promotion fired', fix.promoted, true);
+    check('S3 swap-added dx promoted', active.find((d) => d.code === 'J06.9')?.isPrimary, true);
+    check('S3 promotion attributed to review', active.find((d) => d.code === 'J06.9')?.promotedPrimaryBy, 'review');
+    check('S3 other dx untouched', !!active.find((d) => d.code === 'R05.9')?.isPrimary, false);
+  }
+
+  // S4 — promotion fallback onto a PLANNER-sourced dx stays out of the plannerOnly scope.
+  {
+    const state = emptySimState();
+    state.diagnoses = [{ display: 'Cough', code: 'R05.9', source: 'planner' }];
+    const fix = applyReviewSuggestion(state, [
+      { kind: 'remove-diagnosis', display: 'Completely Unmatchable Dx', searchTerms: [] }, // no add in this suggestion
+    ] as Step[]);
+    check('S4 promotion fired (fallback dx[0])', fix.promoted, true);
+    check('S4 planner dx promoted with review provenance', state.diagnoses[0].promotedPrimaryBy, 'review');
+    const gold: GoldData = {
+      reviewOfSystems: { observations: [] },
+      exam: [],
+      assessment: {
+        diagnoses: [
+          {
+            system: 'ICD-10-CM',
+            code: 'R05.9',
+            codeNormalized: 'R059',
+            display: 'Cough',
+            primary: true,
+            fromLabOrder: false,
+          },
+        ],
+      },
+      billing: { cptCodes: [] },
+      medications: { prescribed: [], inHouseAdministered: [], immunizations: [], currentReconciled: [] },
+      allergies: [],
+      medicalHistory: [],
+      surgicalHistory: [],
+      hospitalizations: [],
+      procedures: [],
+      labs: { external: undefined, inHouse: undefined },
+      radiology: [],
+      vitals: [],
+      instructions: [],
+    };
+    const score = scoreCase('simS4', gold, state);
+    check('S4 final scope sees the promoted primary', score.scopes.final.primaryDx.match, true);
+    check('S4 plannerOnly scope does NOT', score.scopes.plannerOnly.primaryDx.match, null);
+  }
+
+  console.log(failures === 0 ? '\nSIM SELF-TEST PASS' : `\nSIM SELF-TEST FAIL (${failures} failing checks)`);
+  if (failures > 0) process.exit(1);
+}
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  if (process.argv[2] === '--self-test') {
+    runSimSelfTest();
+  } else {
+    main().catch((e) => {
+      console.error(e instanceof Error ? e.message : e);
+      process.exit(1);
+    });
+  }
+}

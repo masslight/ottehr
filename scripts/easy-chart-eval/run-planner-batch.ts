@@ -84,9 +84,11 @@ async function main(): Promise<void> {
   const casesDir = process.argv[2] ?? 'scripts/easy-chart-eval/urgent-care-cases';
   const outDir = process.argv[3] ?? '/tmp/uc-results';
   mkdirSync(outDir, { recursive: true });
-  const files = readdirSync(casesDir)
-    .filter((f) => f.endsWith('.txt'))
-    .sort();
+  const listing = readdirSync(casesDir);
+  // Pair convention (see eval-case.ts): caseNNN.txt = gold note, caseNNNa.txt = transcript — if any a-files exist, use only those.
+  const aFiles = listing.filter((f) => /^case\d+a\.txt$/.test(f));
+  const files = (aFiles.length ? aFiles : listing.filter((f) => f.endsWith('.txt') && !f.endsWith('.eval.txt'))).sort();
+  process.stderr.write(`${files.length} transcripts from ${casesDir}\n`);
   const token = await getToken();
 
   // Run with limited concurrency (planner is gemini-flash-lite with backoff; keep it gentle).
