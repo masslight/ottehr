@@ -142,7 +142,12 @@ export async function invokeChatbotVertexAI(
   // flash-lite runaway loop fails fast and cheap. When omitted, the model defaults apply (no output
   // cap, dynamic thinking) — long-output callers like transcription must not be truncated at an
   // arbitrary ceiling.
-  maxOutputTokens?: number
+  maxOutputTokens?: number,
+  // Optional caller-owned timeout/abort budget (invokeChatbotStructured passes AbortSignal.timeout
+  // so a hung request can't eat the whole zambda invocation). When it fires we bail out
+  // immediately: an abort means the caller's budget is spent, so it is deliberately NOT retried
+  // like a transient network failure.
+  signal?: AbortSignal
 ): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
@@ -166,6 +171,8 @@ export async function invokeChatbotVertexAI(
   let httpResponse: Response | undefined;
   for (let attempt = 0; attempt < RETRY_COUNT; attempt++) {
     if (attempt > 0) {
+      // Don't sleep out a backoff on a budget that has already expired.
+      signal?.throwIfAborted();
       const backoff = 2 ** (attempt - 1) * FIRST_DELAY_MS * (1 - JITTER + Math.random() * JITTER * 2);
       await new Promise((resolve) => setTimeout(resolve, backoff));
     }
@@ -199,9 +206,14 @@ export async function invokeChatbotVertexAI(
               }),
             },
           }),
+          signal,
         }
       );
     } catch (error) {
+      // A caller-signal abort/timeout is a spent budget, not a transient blip — rethrow now so
+      // invokeChatbotStructured's single escalation gets the remaining time (its catch does the
+      // capture). Retrying here would burn the backup's window on a request we know is dead.
+      if (signal?.aborted) throw error;
       // Network-level failure — retryable, like a 5xx.
       console.error('Error invoking Vertex AI:', error);
       captureException(error);
@@ -257,7 +269,9 @@ export async function invokeClaudeStructured(
   responseSchema: object,
   model = 'claude-haiku-4-5-20251001',
   onUsage?: (usage: EasyChartTokenUsage) => void,
-  maxTokens = 8192
+  maxTokens = 8192,
+  // Optional caller-owned timeout/abort budget (see invokeChatbotVertexAI's matching param).
+  signal?: AbortSignal
 ): Promise<string> {
   const ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   // Prompt caching: the easy-chart prompts lead with a fixed instruction block and place a
@@ -297,13 +311,16 @@ export async function invokeClaudeStructured(
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      // claude-opus-4-8 rejects an explicit temperature ("temperature is deprecated"); other tiers
-      // accept temperature: 0. Omit it for opus so the call doesn't 400.
-      ...(model.includes('opus') ? {} : { temperature: 0 }),
+      // claude-opus-4-8 and claude-sonnet-5 reject non-default sampling params (400), so omit
+      // temperature entirely. Sonnet 5 also runs adaptive thinking by default when `thinking` is
+      // omitted, which would eat the max_tokens budget and can truncate the forced tool_use output —
+      // disable it: this structured extraction path doesn't need it.
+      thinking: { type: 'disabled' },
       tools: [{ name: TOOL_NAME, description: 'Return the structured result.', input_schema: responseSchema }],
       tool_choice: { type: 'tool', name: TOOL_NAME },
       messages: [{ role: 'user', content }],
     }),
+    signal,
   });
   if (!response.ok) {
     const body = await response.text();
@@ -334,11 +351,15 @@ export async function invokeClaudeStructured(
 }
 
 // Backend-agnostic structured-output entry point used by the easy-chart planner. The backend is
-// chosen by the EASY_CHART_PLANNER_MODEL env/secret, formatted "<provider>:<model>" where provider
-// is `anthropic`, or `vertex` / `gemini` (aliases — both route to the Vertex path). Defaults to anthropic:claude-sonnet-4-6 — a model eval across 10 urgent-
-// care transcripts found it the most reliable at region/laterality-correct ICD-10 (8-9/10 vs flash-
-// lite's text-search failures), which let us delete the spinal-strain region hardcode in
-// easy-chart/codes.ts. Set the secret to override per-environment. Examples:
+// formatted "<provider>:<model>" where provider is `anthropic`, or `vertex` / `gemini` (aliases —
+// both route to the Vertex path). Defaults to gemini flash-lite BY DESIGN, in all environments:
+// it's cheap and fast, and its mistakes are expected — the provider review UX exists to surface
+// and correct them. The Sonnet backup is strictly an escalation path that fires only when
+// flash-lite structurally fails (runaway hitting the output cap, truncated/blocked JSON) — it is
+// not a quality-upgrade knob. The EASY_CHART_PLANNER_MODEL secret is an exceptional
+// per-environment override, not the intended configuration mechanism. (History: a 10-transcript
+// ICD-10 eval of flash-lite's region/laterality misses motivated the matcher guards, not a default
+// switch.) Examples:
 //   vertex:gemini-3.1-flash-lite
 //   anthropic:claude-haiku-4-5-20251001
 export async function invokeChatbotStructured(
@@ -352,31 +373,48 @@ export async function invokeChatbotStructured(
   // cost advantage). On that failure we escalate to the reliable backup with generous room.
   maxOutputTokens = 16384
 ): Promise<string> {
-  const dispatch = (backend: string, maxTokens: number): Promise<string> => {
+  const dispatch = (backend: string, maxTokens: number, timeoutMs: number): Promise<string> => {
     const sep = backend.indexOf(':');
     const provider = sep >= 0 ? backend.slice(0, sep) : backend;
     const model = sep >= 0 ? backend.slice(sep + 1) : '';
+    // Explicit per-attempt deadline. Without one, a hung upstream sits until undici's 300s default
+    // headers timeout (UND_ERR_HEADERS_TIMEOUT) — on the longest transcripts the PRIMARY call did
+    // exactly that and the whole invocation died without the backup ever running.
+    const signal = AbortSignal.timeout(timeoutMs);
     // Providers: 'anthropic' → Claude; anything else → Vertex. In practice configs use both
     // 'vertex:' and 'gemini:' prefixes (the synth secret and easy-chart-agent say 'gemini:') —
     // both intentionally route to the Vertex path.
     if (provider === 'anthropic') {
-      return invokeClaudeStructured(input, secrets, responseSchema, model || undefined, onUsage, maxTokens);
+      return invokeClaudeStructured(input, secrets, responseSchema, model || undefined, onUsage, maxTokens, signal);
     }
-    return invokeChatbotVertexAI(input, secrets, responseSchema, model || undefined, onUsage, maxTokens);
+    return invokeChatbotVertexAI(input, secrets, responseSchema, model || undefined, onUsage, maxTokens, signal);
   };
+
+  // Timeout budget: the easy-chart zambdas set no explicit timeout in
+  // config/oystehr-core/zambdas.json; long-running zambdas there cap at the 595s platform max, and
+  // undici only abandons a hung request at its 300s default headers timeout. Size both attempts to
+  // fit comfortably inside one ~300s request window (and far inside the 595s hard kill), leaving
+  // the caller's remaining FHIR work some slack: the primary gets 120s (~40% of the window — many
+  // multiples of a healthy flash-lite generation, so it trips only on a genuine hang) and the
+  // backup gets the more generous remainder, 170s (sonnet-5 is slower on planner-sized output but
+  // must still finish before the runtime kills the zambda). Worst case: 120s + 170s = 290s.
+  const PRIMARY_TIMEOUT_MS = 120_000;
+  const BACKUP_TIMEOUT_MS = 170_000;
 
   const primary =
     backendOverride ||
     getOptionalSecret(SecretsKeys.EASY_CHART_PLANNER_MODEL, secrets) ||
-    'anthropic:claude-sonnet-4-6';
-  const backup = getOptionalSecret(SecretsKeys.EASY_CHART_BACKUP_MODEL, secrets) || 'anthropic:claude-sonnet-4-6';
+    `gemini:${DEFAULT_VERTEX_MODEL}`;
+  const backup = getOptionalSecret(SecretsKeys.EASY_CHART_BACKUP_MODEL, secrets) || 'anthropic:claude-sonnet-5';
 
   try {
-    return await dispatch(primary, maxOutputTokens);
+    return await dispatch(primary, maxOutputTokens, PRIMARY_TIMEOUT_MS);
   } catch (err) {
-    // Primary failed (a flash-lite runaway hitting the cap, a truncated/blocked response, or a
-    // terminal API error). Capture it — a silent fallback masks a degrading/outaging primary model
-    // from on-call — then escalate ONCE to the backup model with generous output room. When backup
+    // Primary failed (a flash-lite runaway hitting the cap, a truncated/blocked response, a
+    // terminal API error, or a hang that blew the timeout budget — AbortSignal.timeout surfaces as
+    // a TimeoutError/AbortError, caught here like any other structural failure). Capture it — a
+    // silent fallback masks a degrading/outaging primary model from on-call — then escalate ONCE
+    // to the backup model with generous output room and its own (larger) deadline. When backup
     // === primary this is still worth one retry: truncation failures succeed at the larger ceiling.
     console.error(
       `invokeChatbotStructured: primary "${primary}" failed (${
@@ -384,7 +422,7 @@ export async function invokeChatbotStructured(
       }); falling back to "${backup}".`
     );
     captureException(err);
-    return await dispatch(backup, 32768);
+    return await dispatch(backup, 32768, BACKUP_TIMEOUT_MS);
   }
 }
 
