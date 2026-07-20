@@ -239,7 +239,7 @@ export async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs
   return [...byId.values()];
 }
 
-function eraProvenanceTargetIds(provenance: Provenance, resourceType: string): string[] {
+export function eraProvenanceTargetIds(provenance: Provenance, resourceType: string): string[] {
   const prefix = `${resourceType}/`;
   return (provenance.target ?? [])
     .map((target) => target.reference ?? '')

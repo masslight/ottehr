@@ -100,17 +100,24 @@ type ResultsByType = {
   PaymentReconciliation?: PaymentReconciliation[];
 };
 
-// Dispatches search results by resourceType and lets Provenance return a different result per call
-// (to drive the retry loop). transaction just echoes an empty response.
+// Dispatches search results by resourceType and lets Provenance and ClaimResponse each return a
+// different result per call (to drive the retry loop). transaction just echoes an empty response.
 const makeOystehr = (
   resultsByType: ResultsByType,
-  provenancePages?: Provenance[][]
+  provenancePages?: Provenance[][],
+  claimResponsePages?: ClaimResponse[][]
 ): { oystehr: Oystehr; search: Mock; transaction: Mock } => {
   let provenanceCall = 0;
+  let claimResponseCall = 0;
   const search = vi.fn().mockImplementation(({ resourceType }: SearchInput) => {
     if (resourceType === 'Provenance' && provenancePages) {
       const page = provenancePages[Math.min(provenanceCall, provenancePages.length - 1)];
       provenanceCall++;
+      return Promise.resolve(searchBundle(page));
+    }
+    if (resourceType === 'ClaimResponse' && claimResponsePages) {
+      const page = claimResponsePages[Math.min(claimResponseCall, claimResponsePages.length - 1)];
+      claimResponseCall++;
       return Promise.resolve(searchBundle(page));
     }
     return Promise.resolve(searchBundle(resultsByType[resourceType as keyof ResultsByType] ?? []));
@@ -193,17 +200,50 @@ describe('complexValidation', () => {
     vi.useRealTimers();
   });
 
-  it('returns the era-processing Provenance found on the first attempt', async () => {
+  it('returns the Provenance and its ClaimResponses when both are found on the first attempt', async () => {
     const prov = provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1']);
-    const { oystehr, search } = makeOystehr({}, [[prov]]);
+    const cr = claimResponse('cr1');
+    const { oystehr, search } = makeOystehr(
+      {
+        ClaimResponse: [cr],
+      },
+      [[prov]]
+    );
 
     const validated = await complexValidation(oystehr, 'pr1');
 
     expect(validated).toEqual({
       paymentReconciliationId: 'pr1',
       provenances: [prov],
+      claimResponses: [cr],
     });
-    expect(search).toHaveBeenCalledTimes(1);
+    expect(search).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries until the linked ClaimResponses become searchable', async () => {
+    const prov = provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1']);
+    const cr = claimResponse('cr1');
+    const { oystehr, search } = makeOystehr({}, [[prov]], [[], [], [cr]]);
+
+    const promise = complexValidation(oystehr, 'pr1');
+    await vi.runAllTimersAsync();
+    const validated = await promise;
+
+    expect(validated.claimResponses).toEqual([cr]);
+    expect(search.mock.calls.filter((c) => c[0].resourceType === 'ClaimResponse')).toHaveLength(3);
+  });
+
+  it('tags best-effort (without looping forever) when a linked ClaimResponse never appears', async () => {
+    const prov = provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1']);
+    const { oystehr, search } = makeOystehr({}, [[prov]]);
+
+    const promise = complexValidation(oystehr, 'pr1');
+    await vi.runAllTimersAsync();
+    const validated = await promise;
+
+    expect(validated.provenances).toEqual([prov]);
+    expect(validated.claimResponses).toEqual([]);
+    expect(search.mock.calls.filter((c) => c[0].resourceType === 'Provenance')).toHaveLength(5);
   });
 
   it('retries until the Provenance appears', async () => {
@@ -237,30 +277,30 @@ describe('performEffect', () => {
     const prov = provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1', 'ClaimResponse/cr2']);
     const { oystehr, search, transaction } = makeOystehr({
       PaymentReconciliation: [paymentReconciliation('pr1')],
-      ClaimResponse: [claimResponse('cr1'), claimResponse('cr2')],
     });
 
     const result = await performEffect(oystehr, {
       paymentReconciliationId: 'pr1',
       provenances: [prov],
+      claimResponses: [claimResponse('cr1'), claimResponse('cr2')],
     });
 
     expect(result).toEqual({ tagged: 4 });
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(transaction.mock.calls[0][0].requests).toHaveLength(4);
-    expect(search.mock.calls.filter((c) => c[0].resourceType === 'Provenance')).toHaveLength(0);
+    expect(search.mock.calls.filter((c) => c[0].resourceType !== 'PaymentReconciliation')).toHaveLength(0);
   });
 
   it('skips already-tagged resources and makes no transaction when nothing needs tagging', async () => {
     const prov = provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1'], true);
     const { oystehr, transaction } = makeOystehr({
       PaymentReconciliation: [paymentReconciliation('pr1', true)],
-      ClaimResponse: [claimResponse('cr1', true)],
     });
 
     const result = await performEffect(oystehr, {
       paymentReconciliationId: 'pr1',
       provenances: [prov],
+      claimResponses: [claimResponse('cr1', true)],
     });
 
     expect(result).toEqual({ tagged: 0 });

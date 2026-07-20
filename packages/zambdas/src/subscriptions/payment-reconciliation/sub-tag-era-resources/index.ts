@@ -1,8 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PaymentReconciliation, Provenance } from 'fhir/r4b';
+import { ClaimResponse, PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { sleep } from 'utils';
-import { fetchClaimResponsesFromEraProvenances, fetchEraProcessingProvenances } from '../../../billing/claim-amounts';
+import {
+  eraProvenanceTargetIds,
+  fetchClaimResponsesFromEraProvenances,
+  fetchEraProcessingProvenances,
+} from '../../../billing/claim-amounts';
 import { createEraReadClient, fetchById, tagEraResources } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -27,7 +31,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('complexValidation');
   const validated = await complexValidation(oystehr, params.paymentReconciliationId);
   console.groupEnd();
-  console.debug('complexValidation success', { provenanceCount: validated.provenances.length });
+  console.debug('complexValidation success', {
+    provenanceCount: validated.provenances.length,
+    claimResponseCount: validated.claimResponses.length,
+  });
 
   console.group('performEffect');
   const response = await performEffect(oystehr, validated);
@@ -43,36 +50,50 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export interface ValidatedTagging {
   paymentReconciliationId: string;
   provenances: Provenance[];
+  claimResponses: ClaimResponse[];
 }
 
 export async function complexValidation(oystehr: Oystehr, paymentReconciliationId: string): Promise<ValidatedTagging> {
   const targetRef = `PaymentReconciliation/${paymentReconciliationId}`;
+  let found: ValidatedTagging | undefined;
+
   for (let attempt = 1; attempt <= PROVENANCE_LOOKUP_ATTEMPTS; attempt++) {
     const provenances = await fetchEraProcessingProvenances(oystehr, [targetRef]);
     if (provenances.length > 0) {
-      return {
+      const claimResponses =
+        (await fetchClaimResponsesFromEraProvenances(oystehr, provenances)).get(paymentReconciliationId) ?? [];
+      found = {
         paymentReconciliationId,
         provenances,
+        claimResponses,
       };
+      const expectedClaimResponseIds = new Set(provenances.flatMap((p) => eraProvenanceTargetIds(p, 'ClaimResponse')));
+      const foundClaimResponseIds = new Set(claimResponses.map((cr) => cr.id));
+      if ([...expectedClaimResponseIds].every((id) => foundClaimResponseIds.has(id))) {
+        return found;
+      }
+      console.log(
+        `ClaimResponses for ${targetRef} incomplete (${foundClaimResponseIds.size}/${expectedClaimResponseIds.size}) on attempt ${attempt}; retrying`
+      );
+    } else {
+      console.log(`No era-processing Provenance for ${targetRef} yet (attempt ${attempt}); retrying`);
     }
     if (attempt < PROVENANCE_LOOKUP_ATTEMPTS) {
-      console.log(`No era-processing Provenance for ${targetRef} yet (attempt ${attempt}); retrying`);
       await sleep(PROVENANCE_LOOKUP_DELAY_MS);
     }
   }
 
+  if (found) return found;
   throw new Error(`No era-processing Provenance found for ${targetRef} after ${PROVENANCE_LOOKUP_ATTEMPTS} attempts`);
 }
 
 export async function performEffect(oystehr: Oystehr, validated: ValidatedTagging): Promise<{ tagged: number }> {
-  const { paymentReconciliationId, provenances } = validated;
+  const { paymentReconciliationId, provenances, claimResponses } = validated;
   const paymentReconciliation = await fetchById<PaymentReconciliation>(
     oystehr,
     'PaymentReconciliation',
     paymentReconciliationId
   );
-  const claimResponses =
-    (await fetchClaimResponsesFromEraProvenances(oystehr, provenances)).get(paymentReconciliationId) ?? [];
 
   const tagged = await tagEraResources({
     oystehr,
