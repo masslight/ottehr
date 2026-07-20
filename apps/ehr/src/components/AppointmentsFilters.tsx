@@ -9,7 +9,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { PROVIDERS_FILTER } from 'src/shared/utils';
 import { AppointmentType, BOOKING_CONFIG, MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils';
 import { useMergedServiceCategories } from '../hooks/useMergedServiceCategories';
-import { DateInput } from './input/DateInput';
+import { DateRangeInput } from './input/DateRangeInput';
 import { EmployeeSelectInput } from './input/EmployeeSelectInput';
 import { LocationSelectInput } from './input/LocationSelectInput';
 import { SelectInput } from './input/SelectInput';
@@ -51,16 +51,6 @@ export const SESSION_STORAGE_DATE_RANGE_KEY = 'appointments.dateRange';
 
 // Filter params owned by this component; any other param (e.g. `tab`) is preserved.
 const FILTER_PARAM_KEYS = ['location', 'visitType', 'serviceCategory', 'dateFrom', 'dateTo', 'provider'] as const;
-const DATE_RANGE_ERROR_MESSAGE = 'Date From must be on or before Date To.';
-const DATE_FROM_REQUIRED_MESSAGE = 'Date From is required.';
-const DATE_TO_REQUIRED_MESSAGE = 'Date To is required.';
-const DATE_RANGE_TOO_LARGE_MESSAGE = `Date range must not exceed ${MAX_APPOINTMENT_SEARCH_RANGE_DAYS} days.`;
-
-// Mirrors the get-appointments zambda's cap so an over-broad range is caught inline instead of
-// failing server-side. Both sides parse in UTC so the day count is deterministic (24h/day).
-const exceedsMaxRange = (dateFrom: string, dateTo: string): boolean =>
-  DateTime.fromISO(dateTo, { zone: 'utc' }).diff(DateTime.fromISO(dateFrom, { zone: 'utc' }), 'days').days >
-  MAX_APPOINTMENT_SEARCH_RANGE_DAYS;
 
 interface FilterEntity {
   id: string;
@@ -133,8 +123,6 @@ export default function AppointmentsFilters(): ReactElement {
   const methods = useForm<AppointmentsFilterValues>({ defaultValues: defaultFilterValues, mode: 'onChange' });
   const [searchParams, setSearchParams] = useSearchParams();
   const hasTrackingBoardFilterParams = FILTER_PARAM_KEYS.some((key) => searchParams.has(key));
-  const dateFrom = methods.watch('dateFrom');
-  const dateTo = methods.watch('dateTo');
 
   useEffect(() => {
     if (!hasTrackingBoardFilterParams) {
@@ -161,10 +149,6 @@ export default function AppointmentsFilters(): ReactElement {
     };
     methods.reset({ ...defaultFilterValues, ...values });
   }, [hasTrackingBoardFilterParams, searchParams, methods]);
-
-  useEffect(() => {
-    void methods.trigger(['dateFrom', 'dateTo']);
-  }, [dateFrom, dateTo, methods]);
 
   useEffect(() => {
     const callback = methods.subscribe({
@@ -303,51 +287,14 @@ export default function AppointmentsFilters(): ReactElement {
                 multiple
               />
             </Box>
-            <Box sx={{ flex: 0.75, width: '100%' }}>
-              <DateInput
-                name="dateFrom"
-                label="Date From"
+            <Box sx={{ flex: 1, width: '100%' }}>
+              <DateRangeInput
+                dateFromName="dateFrom"
+                dateToName="dateTo"
+                label="Date"
                 size="medium"
-                showTodayButton
-                dataTestId={dataTestIds.dashboard.dateFromFilter}
-                validate={(value) => {
-                  const currentDateTo = methods.getValues('dateTo');
-                  // Required as a pair: a half-cleared range is one the tracking board treats as
-                  // invalid (it won't refetch), so surface it instead of leaving stale results.
-                  if (!value && currentDateTo) {
-                    return DATE_FROM_REQUIRED_MESSAGE;
-                  }
-                  if (value && currentDateTo && value > currentDateTo) {
-                    return DATE_RANGE_ERROR_MESSAGE;
-                  }
-
-                  return true;
-                }}
-              />
-            </Box>
-            <Box sx={{ flex: 0.75, width: '100%' }}>
-              <DateInput
-                name="dateTo"
-                label="Date To"
-                size="medium"
-                showTodayButton
-                dataTestId={dataTestIds.dashboard.dateToFilter}
-                validate={(value) => {
-                  const currentDateFrom = methods.getValues('dateFrom');
-                  // Required as a pair: a half-cleared range is one the tracking board treats as
-                  // invalid (it won't refetch), so surface it instead of leaving stale results.
-                  if (!value && currentDateFrom) {
-                    return DATE_TO_REQUIRED_MESSAGE;
-                  }
-                  if (value && currentDateFrom && currentDateFrom > value) {
-                    return DATE_RANGE_ERROR_MESSAGE;
-                  }
-                  if (value && currentDateFrom && exceedsMaxRange(currentDateFrom, value)) {
-                    return DATE_RANGE_TOO_LARGE_MESSAGE;
-                  }
-
-                  return true;
-                }}
+                dataTestId={dataTestIds.dashboard.dateFilter}
+                maxRangeDays={MAX_APPOINTMENT_SEARCH_RANGE_DAYS}
               />
             </Box>
             <Box sx={{ flex: 1, width: '100%' }}>
