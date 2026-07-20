@@ -330,6 +330,13 @@
       "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-rules-engine/index",
       "zip": ".dist/zips/sub-rules-engine.zip"
+    },
+    "SUB-TAG-ERA-RESOURCES": {
+      "name": "sub-tag-era-resources",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/payment-reconciliation/sub-tag-era-resources/index",
+      "zip": ".dist/zips/sub-tag-era-resources.zip"
     }
   },
   "fhirResources": {
@@ -378,6 +385,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_TAG_ERA_RESOURCES_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Tag ERA resources with the billing app tag on creation",
+        "criteria": "PaymentReconciliation?_tag:not=https://fhir.ottehr.com/billing/resource-type|billing-resource",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-TAG-ERA-RESOURCES/id}"
         },
         "extension": [
           {
