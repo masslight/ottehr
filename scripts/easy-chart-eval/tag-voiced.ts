@@ -9,9 +9,14 @@
  * plus the numbered item list, and writes the judgments back onto each gold item in place:
  *   voiced: boolean            — "stated or clearly implied in the dictation"
  *   voicedEvidence?: string    — <=10-word transcript quote/paraphrase, only when voiced
+ *   nameVoiced: boolean        — prescribed meds only: the drug's NAME (generic/brand) was
+ *                                actually spoken; class/commitment words alone ("an antibiotic",
+ *                                "a nasal spray") are voiced but NOT nameVoiced
  * These are ADDITIVE fields — schemaVersion is untouched and all other fields are preserved
- * (untagged files keep scoring exactly as before). Idempotent: a case whose collectible items
- * all carry a boolean `voiced` is skipped unless --force.
+ * (untagged files keep scoring exactly as before; meds missing nameVoiced score as legacy).
+ * Idempotent: a case whose collectible items all carry a boolean `voiced` (and, for prescribed
+ * meds, a boolean `nameVoiced`) is skipped unless --force — so rerunning naturally upgrades
+ * corpora tagged before nameVoiced existed.
  *
  * Usage (needs ANTHROPIC_API_KEY except in --dry-run):
  *   npx env-cmd -f packages/zambdas/.env/local.json \
@@ -90,7 +95,9 @@ function collectItems(gold: GoldData): TagItem[] {
   return items;
 }
 
-const isTagged = (item: TagItem): boolean => typeof item.ref.voiced === 'boolean';
+const isTagged = (item: TagItem): boolean =>
+  typeof item.ref.voiced === 'boolean' &&
+  (item.section !== 'medsPrescribed' || typeof item.ref.nameVoiced === 'boolean');
 
 // ---------------------------------------------------------------------------
 // LLM judge — direct Anthropic API, forced tool_use with a JSON schema (same call shape as
@@ -173,6 +180,12 @@ const RESPONSE_SCHEMA = {
             type: 'string',
             description: 'Only when voiced: <=10-word transcript quote or close paraphrase',
           },
+          nameVoiced: {
+            type: 'boolean',
+            description:
+              'medsPrescribed items only: true only when the drug NAME (generic, brand, or an ' +
+              'unambiguous brand-family) is spoken; class/commitment words alone are false',
+          },
         },
         required: ['index', 'voiced'],
       },
@@ -193,6 +206,10 @@ function buildPrompt(transcript: string, items: TagItem[]): string {
     `come from prior-chart knowledge, exam-template defaults the provider never dictated, or ` +
     `billing conventions are NOT voiced. When voiced is true, include a short (at most 10 words) ` +
     `verbatim quote or close paraphrase from the transcript as evidence.\n\n` +
+    `For [medsPrescribed] items ONLY, additionally return nameVoiced: true only when the drug's ` +
+    `NAME is actually spoken — generic, brand, or an unambiguous brand-family pointing at it ` +
+    `(e.g. "Zyrtec" names cetirizine). Class or commitment language alone ("an antibiotic", "a ` +
+    `nasal spray", "a medication for the cough") makes the item voiced but NOT nameVoiced.\n\n` +
     `Return a judgment for EVERY item, using the item's number as its index.\n\n` +
     `TRANSCRIPT:\n"""\n${transcript}\n"""\n\nITEMS:\n${list}`
   );
@@ -201,15 +218,31 @@ function buildPrompt(transcript: string, items: TagItem[]): string {
 interface Judgment {
   voiced: boolean;
   evidence?: string;
+  nameVoiced?: boolean; // medsPrescribed items only
 }
 
 async function judgeCase(transcript: string, items: TagItem[], apiKey: string): Promise<Map<number, Judgment>> {
   const input = await claudeStructured(buildPrompt(transcript, items), RESPONSE_SCHEMA, TOOL_NAME, apiKey);
-  const raw = coerceArrayField(input, 'items') as { index?: number; voiced?: boolean; evidence?: string }[];
+  const raw = coerceArrayField(input, 'items') as {
+    index?: number;
+    voiced?: boolean;
+    evidence?: string;
+    nameVoiced?: boolean;
+  }[];
   const out = new Map<number, Judgment>();
   for (const j of raw) {
     if (typeof j.index !== 'number' || typeof j.voiced !== 'boolean') continue;
-    out.set(j.index, { voiced: j.voiced, ...(j.voiced && j.evidence?.trim() ? { evidence: j.evidence.trim() } : {}) });
+    const judgment: Judgment = {
+      voiced: j.voiced,
+      ...(j.voiced && j.evidence?.trim() ? { evidence: j.evidence.trim() } : {}),
+    };
+    if (items[j.index - 1]?.section === 'medsPrescribed') {
+      // An unvoiced med can never be name-voiced — derive rather than trust the judge there.
+      const nameVoiced = j.voiced ? j.nameVoiced : false;
+      if (typeof nameVoiced !== 'boolean') continue; // treat as omitted → completeness check → retryable
+      judgment.nameVoiced = nameVoiced;
+    }
+    out.set(j.index, judgment);
   }
   const missing = items.map((_, i) => i + 1).filter((i) => !out.has(i));
   if (missing.length > 0) {
@@ -235,6 +268,10 @@ function sectionCounts(items: TagItem[], judged?: Map<number, Judgment>): string
     if (idx.length === 0) return `${sec} —`;
     if (!judged) return `${sec} ${idx.length}`;
     const voiced = idx.filter(({ i }) => judged.get(i + 1)?.voiced).length;
+    if (sec === 'medsPrescribed') {
+      const named = idx.filter(({ i }) => judged.get(i + 1)?.nameVoiced).length;
+      return `${sec} ${voiced}/${idx.length} (name ${named})`;
+    }
     return `${sec} ${voiced}/${idx.length}`;
   }).join(', ');
 }
@@ -253,6 +290,7 @@ async function tagCase(casePath: string, apiKey: string, force: boolean): Promis
     items[i].ref.voiced = j.voiced;
     if (j.voiced && j.evidence) items[i].ref.voicedEvidence = j.evidence;
     else delete items[i].ref.voicedEvidence; // keep re-tagging idempotent
+    if (items[i].section === 'medsPrescribed') items[i].ref.nameVoiced = j.nameVoiced;
   }
   // Preserve the file's trailing-newline convention; all untouched fields round-trip as-is.
   writeFileSync(casePath, JSON.stringify(caseJson, null, 2) + (rawText.endsWith('\n') ? '\n' : ''));

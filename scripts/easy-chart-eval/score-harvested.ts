@@ -18,6 +18,13 @@
  * unvoicedMatched, excluded from the precision denominator). Items WITHOUT the flag keep the
  * legacy behavior, so scoring works on untagged case files.
  *
+ * Med voicing fidelity: prescribed meds additionally carry `nameVoiced` (tag-voiced.ts) — the
+ * drug's NAME was spoken, not just a class/commitment ("an antibiotic"). Recall scopes to
+ * nameVoiced meds; voiced meds with nameVoiced ABSENT (legacy-tagged) keep the old behavior and
+ * are counted as legacyVoiced. Intent-voiced meds (voiced && nameVoiced === false) get their own
+ * commitment-coverage metric: covered when the final state charts a matching med OR any
+ * provider-note/instruction shares a substantive token with the med's name/voicedEvidence.
+ *
  * Usable three ways:
  *   - imported by run-harvested-eval.ts (scoreCase / aggregateScores / formatSummary)
  *   - standalone re-score of an existing results dir:
@@ -184,7 +191,9 @@ export interface ScopeScores {
   cpt: SectionScore;
   ros: SectionScore & { polarityAgree: number };
   exam: SectionScore & { abnormalAgree: number };
-  medsPrescribed: SectionScore;
+  // legacyVoiced: voiced meds tagged before nameVoiced existed (still in the recall denominator).
+  // intentVoiced/intentCovered: commitment coverage over intent-voiced meds (see header).
+  medsPrescribed: SectionScore & { legacyVoiced: number; intentVoiced: number; intentCovered: number };
   medsInHouse: SectionScore;
   immunizations: SectionScore;
   // The three med sections share one predicted pool (planner meds are name-only), so precision
@@ -194,6 +203,9 @@ export interface ScopeScores {
     matched: number;
     contextCharted: number;
     unvoicedMatched: number;
+    // predicted meds that matched an intent-voiced gold med — excluded from the precision
+    // denominator like unvoiced (the med was right even though its name was never spoken).
+    intentMatched: number;
     precision: number | null;
   };
 }
@@ -294,6 +306,59 @@ function emForScope(events: SimEmEvent[], scope: Scope): { code?: string; displa
 // `voiced: false` changes behavior — absent/true keeps the item in scope.
 export function isUnvoiced(item: unknown): boolean {
   return (item as { voiced?: boolean }).voiced === false;
+}
+
+// Prescribed-med voicing fidelity (tag-voiced.ts `nameVoiced`, additive like `voiced`):
+// intent-voiced = the commitment/class was spoken but not the drug's name — structurally
+// impossible for a scribe to chart as a med, so it leaves the recall denominator and is scored
+// via commitment coverage instead. voiced:true with nameVoiced ABSENT = legacy-tagged (keeps the
+// old in-denominator behavior, surfaced as legacyVoiced).
+type VoicedMed = { voiced?: boolean; nameVoiced?: boolean; voicedEvidence?: string; name?: string };
+export function isIntentVoiced(item: unknown): boolean {
+  const m = item as VoicedMed;
+  return m.voiced === true && m.nameVoiced === false;
+}
+export function isLegacyVoiced(item: unknown): boolean {
+  const m = item as VoicedMed;
+  return m.voiced === true && typeof m.nameVoiced !== 'boolean';
+}
+
+// Commitment-coverage token matching — deliberately generous but deterministic: drop function
+// words, prescribing verbs, and dose-form/schedule qualifiers; KEEP class words (antibiotic,
+// nasal, spray, cough...) since those are the pointer the provider actually voiced.
+const COMMIT_STOPWORDS = new Set([
+  // function/filler words (transcript evidence is conversational)
+  ...(
+    'the and for you your with that this like kind some something nature going want will well just either way ' +
+    'them they are was can could should would about also then than what when where have has had not but out off ' +
+    'over counter'
+  ).split(' '),
+  // prescribing verbs / generic drug words
+  ...(
+    'give get let start put take use send call prescribe prescribed prescription medication medicine med meds ' +
+    'treat treating treatment'
+  ).split(' '),
+  // dose-form / schedule / units
+  ...(
+    'oral tablet tablets capsule capsules solution suspension daily twice once needed days hours weeks per each ' +
+    'every mcg act dose doses'
+  ).split(' '),
+]);
+export function substantiveTokens(s: string | undefined): string[] {
+  return normName(s)
+    .split(' ')
+    .filter((t) => t.length >= 3 && !/^\d+$/.test(t) && !COMMIT_STOPWORDS.has(t));
+}
+// Exact match, or prefix when the shorter token is >=4 chars — so singular/plural variants
+// ("allergy" / "allergies") still count without a stemmer.
+function tokensOverlap(a: string[], b: string[]): boolean {
+  return a.some((ta) =>
+    b.some((tb) => {
+      if (ta === tb) return true;
+      const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+      return short.length >= 4 && long.startsWith(short);
+    })
+  );
 }
 
 function mkSection(
@@ -491,19 +556,40 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     }
     return matched;
   };
-  const prescribedVoiced = gold.medications.prescribed.filter((m) => !isUnvoiced(m));
+  // Scorable = voiced-with-name-spoken (nameVoiced true), legacy-voiced (tagged before
+  // nameVoiced existed — old behavior, counted as legacyVoiced), and untagged.
+  const prescribedScorable = gold.medications.prescribed.filter((m) => !isUnvoiced(m) && !isIntentVoiced(m));
+  const prescribedIntent = gold.medications.prescribed.filter(isIntentVoiced);
   const prescribedUnvoiced = gold.medications.prescribed.filter(isUnvoiced);
-  const prescribedMatched = consume(prescribedVoiced.map((m) => m.name));
+  const prescribedMatched = consume(prescribedScorable.map((m) => m.name));
   const inHouseMatched = consume(gold.medications.inHouseAdministered.map((m) => m.name));
   const immunizationsMatched = consume(gold.medications.immunizations.map((m) => m.name));
-  // Unvoiced prescribed consume AFTER the scorable sections (so they never steal a match) but
-  // BEFORE context, and leave the precision denominator like context does.
+  // Intent-voiced and unvoiced prescribed consume AFTER the scorable sections (so they never
+  // steal a match) but BEFORE context, and leave the precision denominator like context does.
+  // Commitment coverage: an intent-voiced med is covered when a charted med matches it OR any
+  // provider-note/instruction shares a substantive token with its name/voicedEvidence. The
+  // note/instruction lists carry no source attribution, so both scopes read the same lists —
+  // only the med pool differs per scope.
+  const noteTokens = [...state.providerNotes, ...state.instructions].map(substantiveTokens);
+  let prescribedIntentMatched = 0;
+  let prescribedIntentCovered = 0;
+  for (const m of prescribedIntent) {
+    const hit = pool.find((p) => !p.used && nameMatch(p.display, m.name));
+    if (hit) {
+      hit.used = true;
+      prescribedIntentMatched++;
+      prescribedIntentCovered++;
+      continue;
+    }
+    const medTokens = substantiveTokens(`${m.name ?? ''} ${(m as VoicedMed).voicedEvidence ?? ''}`);
+    if (noteTokens.some((nt) => tokensOverlap(medTokens, nt))) prescribedIntentCovered++;
+  }
   const prescribedUnvoicedMatched = consume(prescribedUnvoiced.map((m) => m.name));
   const medsContextCharted = consume(gold.medications.currentReconciled.map((m) => m.name));
   const totalMedMatched = prescribedMatched + inHouseMatched + immunizationsMatched;
   const medsPrescribed = {
     ...mkSection(
-      prescribedVoiced.length,
+      prescribedScorable.length,
       pool.length,
       prescribedMatched,
       undefined,
@@ -512,6 +598,9 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
       prescribedUnvoicedMatched
     ),
     precision: null, // pool is shared across med sections — see medsCombined
+    legacyVoiced: prescribedScorable.filter(isLegacyVoiced).length,
+    intentVoiced: prescribedIntent.length,
+    intentCovered: prescribedIntentCovered,
   };
   const medsInHouse = {
     ...mkSection(gold.medications.inHouseAdministered.length, pool.length, inHouseMatched),
@@ -521,12 +610,13 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     ...mkSection(gold.medications.immunizations.length, pool.length, immunizationsMatched),
     precision: null,
   };
-  const medsPrecDenom = pool.length - medsContextCharted - prescribedUnvoicedMatched;
+  const medsPrecDenom = pool.length - medsContextCharted - prescribedUnvoicedMatched - prescribedIntentMatched;
   const medsCombined = {
     predicted: pool.length,
     matched: totalMedMatched,
     contextCharted: medsContextCharted,
     unvoicedMatched: prescribedUnvoicedMatched,
+    intentMatched: prescribedIntentMatched,
     precision: medsPrecDenom > 0 ? totalMedMatched / medsPrecDenom : null,
   };
 
@@ -636,8 +726,11 @@ interface AggScope {
     matched: number;
     contextCharted: number;
     unvoicedMatched: number;
+    intentMatched: number;
     precision: number | null;
   };
+  // Prescribed-med voicing fidelity breakdown (see ScopeScores.medsPrescribed).
+  medsVoicing: { legacyVoiced: number; intentVoiced: number; intentCovered: number };
 }
 interface UsageAgg {
   calls: number;
@@ -713,8 +806,10 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
     matched: 0,
     contextCharted: 0,
     unvoicedMatched: 0,
+    intentMatched: 0,
     precision: null as number | null,
   };
+  const medsVoicing = { legacyVoiced: 0, intentVoiced: 0, intentCovered: 0 };
   for (const s of scores) {
     const sc = s.scopes[scope];
     if (sc.em.gold) em.goldCases++;
@@ -732,10 +827,16 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
     medsCombined.matched += sc.medsCombined.matched;
     medsCombined.contextCharted += sc.medsCombined.contextCharted;
     medsCombined.unvoicedMatched += sc.medsCombined.unvoicedMatched ?? 0;
+    // ?? 0: score files written before med voicing fidelity existed still aggregate.
+    medsCombined.intentMatched += sc.medsCombined.intentMatched ?? 0;
+    medsVoicing.legacyVoiced += sc.medsPrescribed.legacyVoiced ?? 0;
+    medsVoicing.intentVoiced += sc.medsPrescribed.intentVoiced ?? 0;
+    medsVoicing.intentCovered += sc.medsPrescribed.intentCovered ?? 0;
   }
-  const medsDenom = medsCombined.predicted - medsCombined.contextCharted - medsCombined.unvoicedMatched;
+  const medsDenom =
+    medsCombined.predicted - medsCombined.contextCharted - medsCombined.unvoicedMatched - medsCombined.intentMatched;
   medsCombined.precision = medsDenom > 0 ? medsCombined.matched / medsDenom : null;
-  return { sections, em, primaryDx, rosPolarity, examAbnormal, medsCombined };
+  return { sections, em, primaryDx, rosPolarity, examAbnormal, medsCombined, medsVoicing };
 }
 
 export function aggregateScores(scores: CaseScore[]): AggregateSummary {
@@ -848,6 +949,12 @@ export function formatSummary(agg: AggregateSummary): string {
         sc.medsCombined.contextCharted
       }, P ${fmt(sc.medsCombined.precision).trim()}`
     );
+    lines.push(
+      `[${label}] meds voicing: legacyVoiced ${sc.medsVoicing.legacyVoiced}; commitment coverage ${sc.medsVoicing.intentCovered}/${sc.medsVoicing.intentVoiced}` +
+        (sc.medsVoicing.intentVoiced > 0
+          ? ` (${((sc.medsVoicing.intentCovered / sc.medsVoicing.intentVoiced) * 100).toFixed(0)}%)`
+          : '')
+    );
   }
   lines.push('');
   lines.push(
@@ -893,7 +1000,11 @@ export function formatCaseLine(
       f.exam.goldInScope
     } | meds ${f.medsCombined.matched}/${
       f.medsPrescribed.goldInScope + f.medsInHouse.goldInScope + f.immunizations.goldInScope
-    }`
+    }` +
+    // Commitment coverage over intent-voiced meds (?? guards score shapes predating the field).
+    ((f.medsPrescribed.intentVoiced ?? 0) > 0
+      ? ` | commitCov ${f.medsPrescribed.intentCovered}/${f.medsPrescribed.intentVoiced}`
+      : '')
   );
 }
 
@@ -1156,6 +1267,96 @@ function runSelfTest(): void {
     check('D agg em levelMatched', agg.scopes.final.em.levelMatched, 1);
     check('D agg dx unvoicedGold', agg.scopes.final.sections.diagnoses.unvoicedGold, 1);
     check('D agg dx precision', agg.scopes.final.sections.diagnoses.precision, 0.5);
+  }
+
+  // Fixture E — prescribed-med voicing fidelity (nameVoiced) + commitment coverage.
+  // Mixes: nameVoiced matched/missed, legacy voiced (no nameVoiced), intent-voiced covered by
+  // med / covered by note token / covered by note prefix-plural / uncovered, unvoiced.
+  {
+    const gold = emptyGold();
+    type GoldMed = (typeof gold.medications.prescribed)[number];
+    const med = (m: { name: string; voiced?: boolean; nameVoiced?: boolean; voicedEvidence?: string }): GoldMed =>
+      m as GoldMed;
+    gold.medications.prescribed = [
+      med({ name: 'Amoxicillin', voiced: true, nameVoiced: true }), // name spoken, charted → matched
+      med({ name: 'Cetirizine', voiced: true, nameVoiced: true }), // name spoken, NOT charted → recall miss
+      med({ name: 'Prednisone', voiced: true }), // legacy-tagged, charted → matched + legacyVoiced
+      // intent — covered by instruction token "cough"
+      med({
+        name: 'Benzonatate',
+        voiced: true,
+        nameVoiced: false,
+        voicedEvidence: 'give you a medication for the cough',
+      }),
+      // intent — covered by a charted matching med
+      med({ name: 'Cephalexin', voiced: true, nameVoiced: false, voicedEvidence: 'get you on an antibiotic' }),
+      // intent — covered via prefix match ("allergies" / "allergy")
+      med({
+        name: 'Loratadine',
+        voiced: true,
+        nameVoiced: false,
+        voicedEvidence: 'over the counter drop for allergies',
+      }),
+      // intent — uncovered (evidence is all stopwords, name never in notes)
+      med({ name: 'Azithromycin', voiced: true, nameVoiced: false, voicedEvidence: 'treat you either way' }),
+      med({ name: 'Fluticasone', voiced: false }), // unvoiced, charted → unvoicedMatched
+    ];
+    const st = emptySimState();
+    st.medications = [
+      { display: 'Amoxicillin 400 mg', source: 'planner' },
+      { display: 'Prednisone 10 mg', source: 'planner' },
+      { display: 'Cephalexin 500 mg', source: 'planner' },
+      { display: 'Fluticasone Propionate nasal spray', source: 'planner' },
+      { display: 'Ibuprofen', source: 'planner' }, // true FP
+    ];
+    st.instructions = ['Take the cough medicine as directed', 'Use allergy eye drops as needed'];
+    const s = scoreCase('fixtureE', gold, st);
+    const f = s.scopes.final;
+    check('E meds goldInScope (nameVoiced + legacy only)', f.medsPrescribed.goldInScope, 3);
+    check('E meds matched', f.medsPrescribed.matched, 2);
+    check('E meds recall', f.medsPrescribed.recall, 2 / 3);
+    check('E meds legacyVoiced', f.medsPrescribed.legacyVoiced, 1);
+    check('E meds intentVoiced', f.medsPrescribed.intentVoiced, 4);
+    check('E meds intentCovered (med + note + prefix)', f.medsPrescribed.intentCovered, 3);
+    check('E meds unvoicedGold', f.medsPrescribed.unvoicedGold, 1);
+    check('E meds unvoicedMatched', f.medsPrescribed.unvoicedMatched, 1);
+    check('E medsCombined intentMatched', f.medsCombined.intentMatched, 1);
+    check('E medsCombined precision (intent+unvoiced excluded)', f.medsCombined.precision, 2 / 3);
+    check(
+      'E planner scope commitCov identical (all planner-sourced)',
+      s.scopes.plannerOnly.medsPrescribed.intentCovered,
+      3
+    );
+    check('E case line shows commitCov', formatCaseLine(s, 0, 0).includes('commitCov 3/4'), true);
+
+    const agg = aggregateScores([s]);
+    check('E agg medsVoicing', agg.scopes.final.medsVoicing, { legacyVoiced: 1, intentVoiced: 4, intentCovered: 3 });
+    check('E agg medsCombined precision', agg.scopes.final.medsCombined.precision, 2 / 3);
+    check(
+      'E agg summary has commitment coverage line',
+      formatSummary(agg).includes('commitment coverage 3/4 (75%)'),
+      true
+    );
+    // Score files written before med voicing fidelity existed still aggregate (fields absent).
+    const legacy = JSON.parse(JSON.stringify(s)) as CaseScore;
+    for (const scope of ['plannerOnly', 'final'] as const) {
+      const mp = legacy.scopes[scope].medsPrescribed as Partial<ScopeScores['medsPrescribed']>;
+      delete mp.legacyVoiced;
+      delete mp.intentVoiced;
+      delete mp.intentCovered;
+      delete (legacy.scopes[scope].medsCombined as Partial<ScopeScores['medsCombined']>).intentMatched;
+    }
+    const aggLegacy = aggregateScores([legacy]);
+    check('E agg tolerates legacy score files (voicing zeroed)', aggLegacy.scopes.final.medsVoicing, {
+      legacyVoiced: 0,
+      intentVoiced: 0,
+      intentCovered: 0,
+    });
+    check(
+      'E agg legacy precision falls back (no intent exclusion)',
+      aggLegacy.scopes.final.medsCombined.precision,
+      0.5
+    );
   }
 
   console.log(failures === 0 ? '\nSELF-TEST PASS' : `\nSELF-TEST FAIL (${failures} failing checks)`);
