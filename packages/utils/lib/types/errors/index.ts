@@ -51,6 +51,7 @@ export enum APIErrorCode {
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
   PRACTITIONER_SCHEDULE_CONFLICT = 4342,
+  APPOINTMENT_SEARCH_TOO_BROAD = 4343,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -247,6 +248,12 @@ export const PRACTITIONER_SCHEDULE_CONFLICT_ERROR = (categoryNames: string[]): A
     ', '
   )}. Remove ${categoryNames.length === 1 ? 'it' : 'them'} from that schedule first, or pick a different location.`,
 });
+
+export const APPOINTMENT_SEARCH_TOO_BROAD_ERROR: APIError = {
+  code: APIErrorCode.APPOINTMENT_SEARCH_TOO_BROAD,
+  message:
+    'This search returned too much data to load. Please narrow the date range or select fewer locations/providers and try again.',
+};
 
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,

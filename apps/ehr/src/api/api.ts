@@ -222,6 +222,8 @@ import {
   UpdateProcedureQuickPickResponse,
   UpdateProgressNoteConfigInput,
   UpdateQuickTextQuickPickResponse,
+  UpdateRadiologyOrderZambdaInput,
+  UpdateRadiologyOrderZambdaOutput,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
   UpdateUserParams,
@@ -1214,6 +1216,22 @@ export const sendForFinalRead = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-send-for-final-read',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateRadiologyOrder = async (
+  oystehr: Oystehr,
+  parameters: UpdateRadiologyOrderZambdaInput
+): Promise<UpdateRadiologyOrderZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-update-order',
       ...parameters,
     });
     return chooseJson(response);

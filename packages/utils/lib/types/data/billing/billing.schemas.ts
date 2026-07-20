@@ -33,6 +33,10 @@ export const GetClaimDetailInputSchema = z.object({
   claimId: z.string().uuid(),
 });
 
+export const GetClaimHistoryInputSchema = z.object({
+  claimId: nonEmptyString.uuid(),
+});
+
 export const ExportClaimX12InputSchema = z.object({
   claimId: z.string().uuid(),
 });
@@ -438,6 +442,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Patient'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString.uuid(),
     fields: z.object({
       firstName: z.string().optional(),
       lastName: z.string().optional(),
@@ -449,6 +454,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Practitioner'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString.uuid(),
     fields: z.object({
       firstName: z.string().optional(),
       lastName: z.string().optional(),
@@ -460,6 +466,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Coverage'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString.uuid(),
     fields: z.object({
       subscriberId: z.string().optional(),
       status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
@@ -470,15 +477,18 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Location'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString.uuid(),
     fields: z.object({
       name: z.string().optional(),
-      npi: z.string().optional(),
+      npi: z.string().nullable().optional(),
+      clia: z.string().nullable().optional(),
       address: updatableAddressSchema,
     }),
   }),
   z.object({
     resourceType: z.literal('Organization'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString.uuid(),
     fields: z.object({
       name: z.string().optional(),
       npi: z.string().optional(),
@@ -491,6 +501,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
   z.object({
     resourceType: z.literal('Claim'),
     resourceId: nonEmptyString,
+    claimId: nonEmptyString.uuid(),
     fields: z.object({
       type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
       service: z.enum(CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES).optional(),
@@ -578,6 +589,7 @@ export const ImportEraInputSchema = z.object({
 });
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
+export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;

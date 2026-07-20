@@ -341,12 +341,19 @@ export const buildPlanTypeSuggestion = (
  * dedicated form field (group / Rx / payer ID / effective date, plus an unmapped plan type).
  * The payer ID is included only when the carrier suggestion did NOT already resolve it
  * (ambiguous/unmatched IDs stay here so they aren't lost), mirroring `planTypeMapped`.
+ *
+ * Unlike the other card-field suggestions, this field is free text staff may already have
+ * written notes into — accepting must never destroy that. `formValue` therefore APPENDS the
+ * card-derived text to whatever is already in the field (comparing against `currentValue`)
+ * rather than replacing it outright. `comparable` stays just the card-derived text so the
+ * caller can detect "already appended" via substring containment, not full-value equality.
  */
 export const buildAdditionalInfoSuggestion = (
   fields: InsuranceCardExtractionFields,
   planTypeMapped: boolean,
-  carrierResolvedByPayerId: boolean
-): string | null => {
+  carrierResolvedByPayerId: boolean,
+  currentValue: string | null | undefined
+): CardFieldSuggestion | null => {
   const parts: string[] = [];
   if (fields.groupNumber) parts.push(`Group #: ${fields.groupNumber}`);
   if (fields.rxBin) parts.push(`RxBIN: ${fields.rxBin}`);
@@ -355,5 +362,13 @@ export const buildAdditionalInfoSuggestion = (
   if (fields.payerId && !carrierResolvedByPayerId) parts.push(`Payer ID: ${fields.payerId}`);
   if (fields.effectiveDate) parts.push(`Effective: ${fields.effectiveDate}`);
   if (!planTypeMapped && fields.insuranceType) parts.push(`Plan type: ${fields.insuranceType}`);
-  return parts.length > 0 ? parts.join('; ') : null;
+  if (parts.length === 0) return null;
+
+  const cardText = parts.join('; ');
+  const existing = (currentValue ?? '').trim();
+  return {
+    display: cardText,
+    formValue: existing ? `${existing}; ${cardText}` : cardText,
+    comparable: cardText,
+  };
 };

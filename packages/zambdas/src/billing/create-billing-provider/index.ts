@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Organization, Practitioner } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
@@ -58,7 +59,7 @@ function buildProvider(params: CreateBillingProviderParams): Practitioner | Orga
   }
   if (params.taxonomyCode) {
     identifier.push({
-      type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
+      type: { coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
       value: params.taxonomyCode,
     });
   }

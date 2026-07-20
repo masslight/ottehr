@@ -32,12 +32,14 @@ import {
   ClaimStatusFieldKey,
   ClaimStatusValues,
   claimStatusValuesToTags,
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
+  FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -95,35 +97,19 @@ export function assertValidClaimStatusField(field: ClaimStatusFieldKey, value: s
   return resolved;
 }
 
-export async function applyClaimStatusField(
-  oystehr: Oystehr,
-  claim: Claim,
-  field: ClaimStatusFieldKey,
-  value: string
-): Promise<void> {
+// The claim's full meta.tag array with one status field changed: current status values plus the
+// update (AR Stage entry runs the same stage-initialization rule used at claim creation), rebuilt
+// while preserving every non-status tag. Committing (with its history record) lives in
+// provenance.ts#applyClaimStatusField.
+export function buildUpdatedClaimStatusTags(claim: Claim, field: ClaimStatusFieldKey, value: string): Coding[] {
   const values: ClaimStatusValues = { ...getClaimStatusValues(claim), [field]: value };
   const updatedValues = field === 'arStage' ? withArStageInitialization(values) : values;
 
   const statusSystems = new Set(CLAIM_STATUS_FIELDS.map((f) => f.system));
-  const updatedTags = [
+  return [
     ...(claim.meta?.tag ?? []).filter((t) => !t.system || !statusSystems.has(t.system)),
     ...claimStatusValuesToTags(updatedValues),
   ];
-
-  await oystehr.fhir.patch(
-    {
-      resourceType: 'Claim',
-      id: claim.id!,
-      operations: [
-        {
-          op: 'add',
-          path: '/meta/tag',
-          value: updatedTags,
-        },
-      ],
-    },
-    claim.meta?.versionId ? { optimisticLockingVersionId: claim.meta.versionId } : undefined
-  );
 }
 
 export function sortClaimInsurance(claim: Pick<Claim, 'insurance'>): NonNullable<Claim['insurance']> {
@@ -189,6 +175,15 @@ export async function resolvePayersByRef(
     })
   );
   return byRef;
+}
+
+// Payer display string used across billing: "Name (Payer ID)".
+export function payerDisplay(org: Organization | undefined): string | undefined {
+  if (!org) return undefined;
+  const name = org.name ?? '';
+  const payerId = getPayerId(org) ?? '';
+  if (name && payerId) return `${name} (${payerId})`;
+  return name || payerId || undefined;
 }
 
 // Provider role: one tag system  (a provider can bill and/or render).
@@ -281,8 +276,12 @@ export function hasTag(resource: Resource, system: string, code: string): boolea
 // Taxonomy is stored as a ZZ-typed identifier
 export function getTaxonomy(resource: Practitioner | Organization): string {
   return (
-    resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === FHIR_IDENTIFIER_CODE_TAXONOMY))?.value ??
-    ''
+    resource.identifier?.find(
+      (id) =>
+        id.type?.coding?.some(
+          (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+        )
+    )?.value ?? ''
   );
 }
 
@@ -323,7 +322,7 @@ export function buildAddress(parts: {
   };
 }
 
-export function setNpi(resource: Practitioner | Organization | Location, npi: string): void {
+export function setNpi(resource: Practitioner | Organization | Location, npi: string | null): void {
   const identifier = resource.identifier ?? [];
 
   // The `system|value` identifier is used for search
@@ -386,14 +385,18 @@ export function setTaxId(resource: Practitioner | Organization, taxId: string): 
 
 export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode: string): void {
   const isTaxonomy = (id: Identifier): boolean =>
-    !!id.type?.coding?.some((tc) => tc.code === FHIR_IDENTIFIER_CODE_TAXONOMY);
+    !!id.type?.coding?.some(
+      (tc) => tc.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && tc.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+    );
   const identifier = resource.identifier ?? [];
   const existing = identifier.find(isTaxonomy);
   if (taxonomyCode) {
     if (existing) existing.value = taxonomyCode;
     else {
       identifier.push({
-        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_TAXONOMY }] },
+        type: {
+          coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_TAXONOMY }],
+        },
         value: taxonomyCode,
       });
     }
@@ -403,9 +406,32 @@ export function setTaxonomy(resource: Practitioner | Organization, taxonomyCode:
   }
 }
 
+export function setClia(resource: Location, clia: string | null): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_CLIA);
+  if (clia) {
+    if (existing) existing.value = clia;
+    else identifier.push({ system: FHIR_IDENTIFIER_CLIA, value: clia });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
+  }
+}
+
 export function fhirName(resource?: Patient | Practitioner): string {
   const name = resource?.name?.[0];
   return name ? convertFhirNameToDisplayName(name) : '';
+}
+
+// Friendly display name for any resource that can be referenced from a claim (undefined when the
+// resource has no usable name, so callers can set Reference.display without empty strings).
+export function resourceDisplayName(resource: Resource | undefined): string | undefined {
+  if (!resource) return undefined;
+  const name =
+    resource.resourceType === 'Practitioner' || resource.resourceType === 'Patient'
+      ? fhirName(resource as Practitioner | Patient)
+      : (resource as Organization | Location).name;
+  return name || undefined;
 }
 
 /**

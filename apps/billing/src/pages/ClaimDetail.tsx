@@ -60,6 +60,7 @@ import {
   tagBillingClaim,
   updateBillingResource,
 } from '../api/api';
+import { ClaimHistory } from '../components/claim/ClaimHistory';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection } from '../components/claim/EditableSection';
@@ -78,6 +79,7 @@ import { claimStatusValueColor, formatAntCaseString } from '../constants/claimSt
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
 import { buildAddressInput, formatCurrency, splitDisplayName } from '../utils/format';
+import { validateServiceFacilityFields } from '../utils/validation';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
 
@@ -123,16 +125,21 @@ export default function ClaimDetail(): ReactElement {
 
   const updateResource = useCallback(
     async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
-      if (!oystehrZambda) return 'Client not ready';
+      if (!oystehrZambda || !id) return 'Client not ready';
       try {
-        await updateBillingResource(oystehrZambda, { resourceType, resourceId, fields } as UpdateBillingResourceInput);
+        await updateBillingResource(oystehrZambda, {
+          resourceType,
+          resourceId,
+          claimId: id,
+          fields,
+        } as UpdateBillingResourceInput);
       } catch (err) {
         return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
       await fetchDetail();
       return null;
     },
-    [oystehrZambda, fetchDetail]
+    [oystehrZambda, fetchDetail, id]
   );
 
   const handleTagAction = useCallback(
@@ -455,6 +462,7 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Write offs & Patient payments" value="3" />
             <Tab label="Other claims" value="4" />
+            <Tab label="History" value="5" />
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
@@ -486,6 +494,10 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <OtherClaimsSection claims={claim.otherClaims} navigate={navigate} />
+          </TabPanel>
+
+          <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
+            <ClaimHistory claimId={claim.id} />
           </TabPanel>
         </TabContext>
       </Box>
@@ -1057,6 +1069,7 @@ function FacilitySection({
 
   const [name, setName] = useState(claim.serviceFacility);
   const [npi, setNpi] = useState(claim.serviceFacilityNpi);
+  const [clia, setClia] = useState(claim.serviceFacilityClia);
   const [line1, setLine1] = useState(claim.serviceFacilityAddressParts.line1);
   const [line2, setLine2] = useState(claim.serviceFacilityAddressParts.line2);
   const [city, setCity] = useState(claim.serviceFacilityAddressParts.city);
@@ -1070,6 +1083,7 @@ function FacilitySection({
   const resetFields = useCallback((): void => {
     setName(claim.serviceFacility);
     setNpi(claim.serviceFacilityNpi);
+    setClia(claim.serviceFacilityClia);
     setLine1(claim.serviceFacilityAddressParts.line1);
     setLine2(claim.serviceFacilityAddressParts.line2);
     setCity(claim.serviceFacilityAddressParts.city);
@@ -1099,10 +1113,13 @@ function FacilitySection({
       return updateResource('Claim', claim.id, { facilityId: selected.id });
     }
     if (!hasFacility) return 'Choose a facility';
+    const validationError = validateServiceFacilityFields({ npi, clia, zip });
+    if (validationError) return validationError;
     const address = buildAddressInput(line1, line2, city, state, zip);
     return updateResource('Location', claim.facilityFhirId, {
       name,
       npi: npi.trim(),
+      clia: clia ? clia.trim() : null,
       ...(address ? { address } : {}),
     });
   };
@@ -1153,6 +1170,9 @@ function FacilitySection({
               <Field label="NPI">
                 <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
               </Field>
+              <Field label="CLIA">
+                <TextField size="small" fullWidth value={clia} onChange={(e) => setClia(e.target.value)} />
+              </Field>
               <Field label="Address line 1">
                 <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
               </Field>
@@ -1184,6 +1204,7 @@ function FacilitySection({
       <Row label="Facility" value={claim.serviceFacility} />
       <Row label="Address" value={claim.serviceFacilityAddress} />
       <Row label="NPI" value={claim.serviceFacilityNpi} />
+      {claim.serviceFacilityClia ? <Row label="CLIA" value={claim.serviceFacilityClia} /> : <></>}
     </EditableSection>
   );
 }
