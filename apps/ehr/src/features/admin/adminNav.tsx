@@ -7,6 +7,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
@@ -42,6 +43,7 @@ import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { ACTION_LOG_VIEWER_ROLES, RoleType } from 'utils';
+import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 import { PaymentLocationsList } from './BillingConfiguration';
 import { FeeSchedulesIcon, InHouseLabsIcon, InsuranceIcon, ProgressNoteIcon, StethoscopeIcon } from './icons';
 
@@ -262,6 +264,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <ProgressNoteIcon />,
         centered: true,
         render: () => <ProgressNoteAdminPage />,
+      },
+      {
+        label: 'Questionnaires',
+        path: '/admin/questionnaires',
+        icon: <ListAltIcon />,
+        render: () => <QuestionnaireAdminPage />,
       },
     ],
   },

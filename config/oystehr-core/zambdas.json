@@ -75,6 +75,13 @@
       "src": "src/ehr/ai-assisted-encounters-report/index",
       "zip": ".dist/zips/ai-assisted-encounters-report.zip"
     },
+    "SEND-PATIENT-FORM": {
+      "name": "send-patient-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-patient-form/index",
+      "zip": ".dist/zips/send-patient-form.zip"
+    },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
@@ -508,6 +515,13 @@
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-paperwork/index",
       "zip": ".dist/zips/get-paperwork.zip"
+    },
+    "GET-STANDALONE-PAPERWORK": {
+      "name": "get-standalone-paperwork",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/get-standalone-paperwork/index",
+      "zip": ".dist/zips/get-standalone-paperwork.zip"
     },
     "CREATE-IN-HOUSE-MEDICATION": {
       "name": "create-in-house-medication",
@@ -2157,6 +2171,34 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-custom-folder/index",
       "zip": ".dist/zips/delete-custom-folder.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_GET": {
+      "name": "practice-managed-questionnaire-get",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/get/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-get.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_LIST": {
+      "name": "practice-managed-questionnaire-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/list/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-list.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_UPDATE": {
+      "name": "practice-managed-questionnaire-update",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/update/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-update.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_CREATE": {
+      "name": "practice-managed-questionnaire-create",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/create/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
     }
   },
   "fhirResources": {

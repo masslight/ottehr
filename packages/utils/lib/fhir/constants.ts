@@ -474,6 +474,21 @@ export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
 /** Extension URL for the JSON-blob runtime config on service-category resources. */
 export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service-category-config');
 
+/** meta.tag identifying a Questionnaire as practice-managed (admin-authored custom form). */
+export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'practice-managed',
+};
+
+/** meta.tag identifying how a one off QR was triggered */
+export const QR_DISTRIBUTION_TAG = {
+  system: ottehrCodeSystemUrl('qr-distribution'),
+  code: 'practitioner', // right now only triggered by users sending from visit details but this could be expanded in the future
+};
+
+/** meta.tag system for who sent triggered QR send, code is expected to be practitioner reference and display is expected to be a human readable name */
+export const QR_SENT_BY_SYSTEM = ottehrCodeSystemUrl('qr-practitioner-distribution-by');
+
 // ── Service-category characteristic systems (one per dimension) ─────────────
 
 /** Service-mode characteristic for a service-category HealthcareService. Codes match the ServiceMode enum. */
