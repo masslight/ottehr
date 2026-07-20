@@ -24,6 +24,7 @@ import {
   isLocationOpen,
   locationSupportsServiceMode,
   PickableLocation,
+  scheduleOwnerSupportsServiceMode,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   SlotListItem,
@@ -247,24 +248,9 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       for (const loc of locs) if (loc.id) pairedLocationById.set(loc.id, loc);
     }
 
-    const modeFiltered = scheduleList.filter((entry) => {
-      if (entry.owner.resourceType === 'Location') {
-        return locationSupportsServiceMode(entry.owner as Location, serviceMode);
-      }
-      if (entry.owner.resourceType === 'PractitionerRole') {
-        // Keep the provider if ANY paired Location can fulfill the mode; the
-        // qualifyingLocationIds loop below admits only the mode-capable
-        // Location(s), and the create-appointment guard backstops the specific
-        // multi-Location case where a mode-incapable Location gets picked.
-        return ((entry.owner as PractitionerRole).location ?? []).some((ref) => {
-          const id = ref.reference?.split('/')[1];
-          const loc = id ? pairedLocationById.get(id) : undefined;
-          return !!loc && locationSupportsServiceMode(loc, serviceMode);
-        });
-      }
-      // Practitioner / HealthcareService owners carry no Location of their own.
-      return true;
-    });
+    const modeFiltered = scheduleList.filter((entry) =>
+      scheduleOwnerSupportsServiceMode(entry.owner, serviceMode, pairedLocationById)
+    );
     scheduleList.length = 0;
     scheduleList.push(...modeFiltered);
   }
