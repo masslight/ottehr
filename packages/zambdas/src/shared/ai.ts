@@ -371,7 +371,13 @@ export async function invokeChatbotStructured(
   // Output ceiling for the PRIMARY model. Kept deliberately limited so a flash-lite runaway loop
   // fails fast and cheap instead of bursting to tens of thousands of tokens (which would erase the
   // cost advantage). On that failure we escalate to the reliable backup with generous room.
-  maxOutputTokens = 16384
+  maxOutputTokens = 16384,
+  // Optional semantic guard on a successfully-parsed result. A syntactically valid response can
+  // still be a known one-off failure (e.g. flash-lite answering {"steps": []} to a rich
+  // narrative). When it returns false the attempt is a soft failure: retry the primary once, then
+  // escalate to the backup; a backup result that is also rejected is returned anyway — the guard
+  // is best-effort and never becomes an error the caller sees.
+  acceptResult?: (parsed: unknown) => boolean
 ): Promise<string> {
   const dispatch = (backend: string, maxTokens: number, timeoutMs: number): Promise<string> => {
     const sep = backend.indexOf(':');
@@ -397,7 +403,9 @@ export async function invokeChatbotStructured(
   // the caller's remaining FHIR work some slack: the primary gets 120s (~40% of the window — many
   // multiples of a healthy flash-lite generation, so it trips only on a genuine hang) and the
   // backup gets the more generous remainder, 170s (sonnet-5 is slower on planner-sized output but
-  // must still finish before the runtime kills the zambda). Worst case: 120s + 170s = 290s.
+  // must still finish before the runtime kills the zambda). Worst case: 120s + 170s = 290s. An
+  // acceptResult-triggered primary retry can add one more primary window (410s worst case) — still
+  // inside the 595s hard kill, and it only happens after a COMPLETED primary response, not a hang.
   const PRIMARY_TIMEOUT_MS = 120_000;
   const BACKUP_TIMEOUT_MS = 170_000;
 
@@ -407,8 +415,29 @@ export async function invokeChatbotStructured(
     `gemini:${DEFAULT_VERTEX_MODEL}`;
   const backup = getOptionalSecret(SecretsKeys.EASY_CHART_BACKUP_MODEL, secrets) || 'anthropic:claude-sonnet-5';
 
+  // Semantic guard check for one attempt's raw output. Only a successfully-parsed result is the
+  // guard's call: with a guard present, unparseable output makes parseStructuredModelOutput throw,
+  // which rides the same escalation path as any other structural failure. Without a guard nothing
+  // is parsed here and the raw string passes through untouched, exactly as before.
+  const rejectedByGuard = (raw: string): boolean =>
+    acceptResult != null && !acceptResult(parseStructuredModelOutput(raw, 'structured result (acceptResult guard)'));
+
   try {
-    return await dispatch(primary, maxOutputTokens, PRIMARY_TIMEOUT_MS);
+    let result = await dispatch(primary, maxOutputTokens, PRIMARY_TIMEOUT_MS);
+    if (rejectedByGuard(result)) {
+      // A valid-but-rejected result (e.g. flash-lite's one-off empty plan) is usually transient —
+      // one primary retry recovers it far cheaper and faster than the backup.
+      console.warn(
+        `invokeChatbotStructured: structured result rejected by acceptResult, retrying primary "${primary}".`
+      );
+      result = await dispatch(primary, maxOutputTokens, PRIMARY_TIMEOUT_MS);
+      if (rejectedByGuard(result)) {
+        // Throw into the escalation below — deliberately the same machinery (logging, capture,
+        // backup budget) as a structural failure.
+        throw new Error('structured result rejected by acceptResult twice');
+      }
+    }
+    return result;
   } catch (err) {
     // Primary failed (a flash-lite runaway hitting the cap, a truncated/blocked response, a
     // terminal API error, or a hang that blew the timeout budget — AbortSignal.timeout surfaces as
@@ -422,7 +451,15 @@ export async function invokeChatbotStructured(
       }); falling back to "${backup}".`
     );
     captureException(err);
-    return await dispatch(backup, 32768, BACKUP_TIMEOUT_MS);
+    const backupResult = await dispatch(backup, 32768, BACKUP_TIMEOUT_MS);
+    if (rejectedByGuard(backupResult)) {
+      // The guard is best-effort: the backup's answer is the last resort, so return it rather
+      // than surface an error the caller (and user) would see.
+      console.warn(
+        `invokeChatbotStructured: backup "${backup}" result also rejected by acceptResult; returning it anyway.`
+      );
+    }
+    return backupResult;
   }
 }
 

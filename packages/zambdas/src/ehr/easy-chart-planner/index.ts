@@ -759,6 +759,10 @@ ${narrative}
 ${patientBlock}${patientStatusBlock}${contextBlock}${chartStateBlock}`;
 };
 
+// Below this many characters a dictation is trivial enough that an empty plan is plausible; at or
+// above it, an empty plan is treated as a model failure (see the acceptResult guard below).
+const NON_TRIVIAL_NARRATIVE_MIN_LENGTH = 300;
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { narrative, noteContext, chartState, encounterId, incremental, secrets } = validateRequestParameters(input);
 
@@ -825,6 +829,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     undefined,
     (u) => {
       usage = u;
+    },
+    undefined,
+    // A non-trivial narrative that plans to ZERO steps is a known flash-lite one-off failure mode
+    // (a syntactically valid {"steps": []} for a rich dictation) — reject it so
+    // invokeChatbotStructured retries the primary and then escalates to the backup. Short
+    // narratives stay acceptable: a trivial dictation can legitimately produce nothing. This
+    // applies in incremental mode too — there the narrative is only the NEW dictation, so a
+    // non-trivial addition should still yield steps.
+    (parsed) => {
+      if (narrative.length < NON_TRIVIAL_NARRATIVE_MIN_LENGTH) return true;
+      const steps = (parsed as { steps?: unknown } | null)?.steps;
+      return Array.isArray(steps) && steps.length > 0;
     }
   );
 
