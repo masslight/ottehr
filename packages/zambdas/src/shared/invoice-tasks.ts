@@ -78,7 +78,7 @@ export function buildInvoiceTask(params: BuildInvoiceTaskParams): Task {
     for: {
       reference: `Patient/${patientId}`,
     },
-    authoredOn: prefilledInvoiceInfo.finalizationDate ?? DateTime.now().toISO(),
+    authoredOn: prefilledInvoiceInfo.finalizationDate || DateTime.now().toISO(),
     ...(encounter.period?.start
       ? {
           executionPeriod: {

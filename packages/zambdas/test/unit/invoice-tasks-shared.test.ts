@@ -147,6 +147,16 @@ describe('buildInvoiceTask', () => {
     expect(task.executionPeriod).toBeUndefined();
   });
 
+  it('falls back to now for authoredOn when the finalization date is empty', () => {
+    const task = buildInvoiceTask({
+      ...buildParams,
+      source: 'ottehr-billing',
+      finalizationDateIso: '',
+    });
+    expect(task.authoredOn).toBeTruthy();
+    expect(task.authoredOn).not.toBe('');
+  });
+
   it('throws when the encounter has no patient reference', () => {
     expect(() =>
       buildInvoiceTask({
