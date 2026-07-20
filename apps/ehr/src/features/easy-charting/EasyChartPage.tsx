@@ -504,6 +504,11 @@ export default function EasyChartPage(): JSX.Element {
     .filter(Boolean)
     .join('  ·  ');
 
+  // Cheap "nothing charted yet" proxy for the transcript prime banner — mirrors the `incremental`
+  // signal in the assistant's narrative path: an E&M code or any charted diagnosis means a
+  // write-up already happened (intake-harvested history alone doesn't count as charted).
+  const chartLooksEmpty = !chartData?.emCode && !chartData?.diagnosis?.length;
+
   return (
     <Container maxWidth={false} sx={{ py: 2 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
@@ -569,7 +574,7 @@ export default function EasyChartPage(): JSX.Element {
         <Box sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>{notePane}</Box>
 
         {/* Right column: the assistant chat (thread + live turn + composer). */}
-        <AssistantColumn assistant={assistant} />
+        <AssistantColumn assistant={assistant} aiChat={chartData?.aiChat} chartLooksEmpty={chartLooksEmpty} />
       </Box>
 
       {/* The assistant composer is pinned to this page's bottom-right, so lift the recorder Fab

@@ -1517,15 +1517,18 @@ export function useChartAssistant({
     void dispatchIntent(augmented, userMsg, true);
   };
 
-  const handleSend = async (): Promise<void> => {
-    const message = refineText.trim();
+  // Programmatic send — the full composer pipeline (thread push, thinking state, narrative→planner
+  // vs single-shot routing, primary carry-over, plan kick-off) for a caller-supplied message. The
+  // transcript-priming UI feeds decoded visit transcripts through here so they behave EXACTLY like
+  // a pasted dictation. `forceNarrative` skips the length/sentence heuristic for callers that KNOW
+  // the text is a whole-visit narrative (a terse chat transcript can fall under both thresholds).
+  const sendText = async (message: string, opts?: { forceNarrative?: boolean }): Promise<void> => {
     if (!message || !oystehrZambda || !encounterId) return;
     pushUserMessage(message);
     setConv({ kind: 'thinking', user: message });
-    setRefineText('');
     try {
       const noteContext = buildNoteContext();
-      if (looksLikeNarrative(message)) {
+      if (opts?.forceNarrative || looksLikeNarrative(message)) {
         // Pass what's already charted so the planner never duplicates existing items — but only
         // mark the call INCREMENTAL when the note has actually been charted (a plan already ran
         // this session, or the chart carries an E&M from an earlier write-up). A FIRST dictation
@@ -1574,6 +1577,14 @@ export function useChartAssistant({
       captureException(e);
       setConv({ kind: 'error', user: message, reply: 'Something went wrong. Please try again.' });
     }
+  };
+
+  // Composer send: read + clear the refine bar, then run the shared pipeline above.
+  const handleSend = async (): Promise<void> => {
+    const message = refineText.trim();
+    if (!message || !oystehrZambda || !encounterId) return;
+    setRefineText('');
+    await sendText(message);
   };
 
   const handleRemovePick = async (match: RemoveMatch, user: string): Promise<void> => {
@@ -2491,6 +2502,7 @@ export function useChartAssistant({
     dispatchIntent,
     describePlanStep,
     handleSend,
+    sendText,
     handleSkipPicker,
     handleRefinePicker,
     handleLabPick,

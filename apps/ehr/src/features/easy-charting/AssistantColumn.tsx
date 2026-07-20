@@ -2,6 +2,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   List,
   ListItemButton,
@@ -13,8 +14,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { DocumentReference } from 'fhir/r4b';
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { EASY_CHART_NOTE_TEXT_FIELD_LABELS, EasyChartAgentIntent } from 'utils';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { AIChatDetails, EASY_CHART_NOTE_TEXT_FIELD_LABELS, EasyChartAgentIntent } from 'utils';
+import { getDocumentReferenceSource, getSource } from '../visits/shared/components/OttehrAi';
 import {
   AddExamFindingIntent,
   AddProcedureIntent,
@@ -76,8 +80,18 @@ function WorkingStatus({ elapsed, text, sx }: { elapsed: number; text: string; s
 // The right column of the easy-chart page: the unified chat thread (history + the live in-progress
 // turn with all its disambiguation pickers), the running-plan card, the review indicator, and the
 // composer pinned at the bottom. Purely presentational over the assistant hook's state/handlers —
-// all behavior lives in useChartAssistant.
-export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): JSX.Element {
+// all behavior lives in useChartAssistant. The one extra input is `aiChat` (encounter transcript
+// DocumentReferences from ambient-scribe recordings / the intake chatbot) + `chartLooksEmpty`,
+// which drive the transcript chips and the prime-from-transcript banner.
+export function AssistantColumn({
+  assistant,
+  aiChat,
+  chartLooksEmpty,
+}: {
+  assistant: ChartAssistant;
+  aiChat: AIChatDetails | undefined;
+  chartLooksEmpty: boolean;
+}): JSX.Element {
   const {
     conv,
     setConv,
@@ -102,6 +116,7 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
     reviewAnchorId,
     describePlanStep,
     handleSend,
+    sendText,
     handleSkipPicker,
     handleRefinePicker,
     handleLabPick,
@@ -178,6 +193,97 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
     }
     void handleSend();
   };
+
+  // ---- Transcript priming --------------------------------------------------------------------
+  // Ambient-scribe recordings and the intake HPI chatbot each leave a DocumentReference on the
+  // encounter with the full transcript as an inline attachment titled 'Transcript'. Surface those
+  // as one chip per document so the provider can feed a transcript through the narrative pipeline
+  // with one click instead of copy-pasting it.
+  const { oystehr } = useApiClients();
+  // Session-only: which transcript documents have already been sent (chips render as done).
+  const [usedTranscriptIds, setUsedTranscriptIds] = useState<Set<string>>(new Set());
+  const transcriptDocs = (aiChat?.documents ?? [])
+    .map((doc) => ({
+      doc,
+      data: doc.content?.find((c) => c.attachment?.title === 'Transcript')?.attachment?.data,
+    }))
+    .filter((t): t is { doc: DocumentReference; data: string } => !!t.data && !!t.doc.id)
+    .sort((a, b) => (a.doc.date ?? '').localeCompare(b.doc.date ?? ''));
+  const unusedTranscripts = transcriptDocs.filter((t) => !usedTranscriptIds.has(t.doc.id!));
+  // Same label on the chip and in the multi-transcript section headers, so the provider can match
+  // a thread section back to the chip it came from.
+  const transcriptLabel = (doc: DocumentReference): string =>
+    `${getDocumentReferenceSource(doc) === 'audio' ? '🎤' : '💬'} ${getSource(doc, oystehr, aiChat?.providers)}`;
+  // Exact inverse of the server-side btoa(unescape(encodeURIComponent(...))) encoding (see
+  // createDocumentReference in the ai zambda shared helpers) — plain atob would mangle non-ASCII.
+  const decodeTranscript = (data: string): string => decodeURIComponent(escape(atob(data)));
+
+  // forceNarrative: a transcript is a whole-visit narrative BY CONSTRUCTION — a short chat
+  // transcript could fall under the length/sentence heuristic and be misrouted to the
+  // single-intent agent.
+  const sendTranscript = (t: { doc: DocumentReference; data: string }): void => {
+    setUsedTranscriptIds((prev) => new Set(prev).add(t.doc.id!));
+    void sendText(decodeTranscript(t.data), { forceNarrative: true });
+  };
+
+  // Prime the whole chart from every unused transcript at once, chronologically; multiple
+  // transcripts get labeled section headers so the planner (and the thread bubble) keeps the
+  // sources distinguishable.
+  const primeFromTranscripts = (): void => {
+    if (unusedTranscripts.length === 0) return;
+    const text =
+      unusedTranscripts.length === 1
+        ? decodeTranscript(unusedTranscripts[0].data)
+        : unusedTranscripts.map((t) => `=== ${transcriptLabel(t.doc)} ===\n${decodeTranscript(t.data)}`).join('\n\n');
+    setUsedTranscriptIds((prev) => {
+      const next = new Set(prev);
+      for (const t of unusedTranscripts) next.add(t.doc.id!);
+      return next;
+    });
+    void sendText(text, { forceNarrative: true });
+  };
+
+  // Offer the one-click prime only while it's clearly the opening move: nothing charted yet and
+  // the provider hasn't sent anything this session (a user thread bubble exists once they have —
+  // including a transcript sent via chip).
+  const showPrimeBanner = unusedTranscripts.length > 0 && chartLooksEmpty && !thread.some((m) => m.role === 'user');
+
+  const transcriptChips = transcriptDocs.length > 0 && (
+    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ px: 1.5, pt: 1 }}>
+      {transcriptDocs.map((t) => {
+        const used = usedTranscriptIds.has(t.doc.id!);
+        return (
+          <Chip
+            key={t.doc.id}
+            size="small"
+            variant="outlined"
+            label={`${used ? '✓' : ''} ${transcriptLabel(t.doc)}`.trim()}
+            disabled={used || isThinking}
+            onClick={() => sendTranscript(t)}
+          />
+        );
+      })}
+    </Stack>
+  );
+
+  const primeBanner = showPrimeBanner && (
+    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+        <Typography variant="body2" color="text.secondary">
+          A visit transcript is available — generate the chart from it?
+        </Typography>
+        <Button
+          size="small"
+          variant="contained"
+          sx={{ textTransform: 'none', flexShrink: 0 }}
+          disabled={isThinking}
+          onClick={primeFromTranscripts}
+        >
+          Generate chart
+        </Button>
+      </Stack>
+    </Paper>
+  );
 
   // Composer pinned to the bottom of the chat column (chat-app style). The thread scrolls above it.
   const refineBar = (
@@ -894,6 +1000,7 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <Box ref={rightColScrollRef} sx={{ flex: 1, overflowY: { md: 'auto' }, pr: { md: 1 }, minHeight: 0 }}>
         <Stack spacing={1.5} sx={{ py: 1 }}>
+          {primeBanner}
           {thread.length === 0 && !conv && !plan && (
             <Box sx={{ display: 'flex' }}>
               <Paper variant="outlined" sx={{ p: 1.75, width: '100%', borderRadius: '14px 14px 14px 4px' }}>
@@ -933,6 +1040,7 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
           {noteEditCards}
         </Stack>
       </Box>
+      {transcriptChips}
       {refineBar}
     </Box>
   );
