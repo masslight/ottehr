@@ -687,6 +687,20 @@ RULES:
   congestion, or sore throat") IS a chartable ROS finding — emit a "Denies …" add-ros-finding for
   each. This is the opposite of the exam/allergy rule above: ROS records both reported AND denied
   symptoms.
+- COMMITTED ORDERS (prescriptions, tests, referrals — ALL of them, not just meds) — an order the
+  provider COMMITS to ("I'll send you...", "let me get you on...", "we'll start...") must NEVER be
+  silently dropped just because the transcript didn't name the specific drug/item — and you must
+  NEVER invent a drug, dose, or strength that wasn't voiced. Fidelity ladder for every commitment:
+    • Drug NAMED (generic or brand) → add-medication as usual.
+    • Only a drug CLASS or brand FAMILY voiced ("start some Zyrtec, Claritin, something of that
+      nature", "an amoxicillin-type antibiotic") → add-medication for the best catalog term for
+      that class/family (e.g. display "Cetirizine", searchTerms ["cetirizine","loratadine"]), and
+      sourceText MUST quote the exact words — the provenance must show precisely what was said.
+    • Only the INTENT voiced ("an antibiotic for the cellulitis", "a nasal spray to dry that up")
+      → provider-note capturing the commitment as an actionable reminder: what was promised, for
+      what indication, plus any pharmacy/logistics stated. E.g. "Prescription committed:
+      antibiotic for cellulitis — drug not named in the dictation; complete the eRx. Send to the
+      HEB on Walnut." Do NOT emit add-medication with a guessed drug.
 - DISPOSITION (set-disposition) — where the patient goes after this visit. Emit ONE set-disposition
   with dispositionType = one of:
     "pcp"       → follow up with their primary care provider / "see your doctor"

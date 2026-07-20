@@ -34,6 +34,7 @@ const CATEGORY_VALUES = [
   'disposition',
   'cpt',
   'coherence',
+  'dropped-commitment',
   'other',
 ] as const;
 
@@ -56,6 +57,7 @@ const ACTION_KINDS = [
   'add-medication',
   'remove-medication',
   'set-disposition',
+  'provider-note',
 ] as const;
 
 const RESPONSE_SCHEMA = {
@@ -146,7 +148,7 @@ const buildPrompt = (
 NARRATIVE below; the structured items now on the chart are in ALREADY ON THE CHART. Your job is to
 surface clarifications the provider can accept with ONE CLICK to improve the note.
 
-Work through ALL NINE checks below and emit one suggestion for EACH check that finds a real gap
+Work through ALL TEN checks below and emit one suggestion for EACH check that finds a real gap
 (commonly 2–5 total). Don't invent low-value suggestions, but don't skip a check that genuinely
 applies either. If truly nothing warrants a prompt, return {"suggestions": []}.
 
@@ -275,6 +277,24 @@ Each suggestion is in exactly one of these categories, with the given action sha
    - A less-specific code of the RIGHT condition is check 2's job, not a coherence flag.
    - When unsure, stay silent.
 
+10) "dropped-commitment" — the provider clearly COMMITTED to a prescription, order, or referral in
+   the NARRATIVE ("I'll send you...", "let me get you on an antibiotic for that", "I'm going to
+   treat you for..."), but the commitment is represented NOWHERE on the chart — no matching
+   medication, no provider note, no patient instruction, and no disposition covering it. Voiced
+   commitments frequently omit the drug name ("a medication for the cough", "a nasal spray that'll
+   dry that up") — that does NOT excuse dropping them.
+   ACTION: one { "kind":"provider-note", "text": <the commitment as an actionable reminder — what
+   was promised, for what indication, plus any pharmacy/logistics stated, e.g. "Prescription
+   committed: antibiotic for cellulitis — drug not named in the dictation; complete the eRx."> }.
+   NEVER invent a specific drug, dose, or strength the narrative did not voice — when only a class
+   or intent was stated, the note carries that class/intent in the provider's words.
+   PRECISION OVER RECALL (same bar as check 9):
+   - Only CLEAR commitments ("I'll send...", "let me get you on...", "we'll start..."), never
+     musings ("we could try...", "one option would be...") and never offers the patient declined.
+   - Skip a commitment ALREADY ON THE CHART covers in ANY form (a charted med treating that
+     indication, an existing note/instruction mentioning it, a disposition carrying the referral).
+   - When unsure, stay silent.
+
 RULES:
 - NEVER suggest adding something that already appears in ALREADY ON THE CHART.
 - Phrase "question" as a short question the provider reads on a card (e.g. "You wrote 'Ciner' — did you
@@ -346,6 +366,10 @@ function isValidAction(a: unknown): a is Record<string, unknown> {
   }
   if (r.kind === 'set-em-code' || r.kind === 'add-cpt' || r.kind === 'remove-cpt') {
     return typeof r.code === 'string' && !!r.code.trim();
+  }
+  if (r.kind === 'provider-note') {
+    // Rendered as a chat bubble client-side (the dropped-commitment check); only needs its text.
+    return typeof r.text === 'string' && !!r.text.trim();
   }
   if (r.kind === 'set-disposition') {
     // The client's set-disposition dispatch needs a type (falls back to 'another' for an unknown

@@ -291,6 +291,9 @@ export interface EasyChartSuggestion {
     // A charted structured item (dx/med/CPT) contradicted or unsupported by the note's own
     // HPI/MDM/narrative — a wrong-condition dx swap or an unsupported item's removal.
     | 'coherence'
+    // A prescription/order/referral the provider clearly committed to in the narrative that is
+    // represented nowhere on the chart — surfaced as a provider-note reminder (never a guessed drug).
+    | 'dropped-commitment'
     | 'other';
   // The question shown on the card, e.g. "You wrote 'Ciner' — did you mean Cefdinir?".
   question: string;
