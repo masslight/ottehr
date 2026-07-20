@@ -26,6 +26,8 @@ import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
   createClinicalOystehrClient,
+  createOutboundDeliveryAttempt,
+  failOutboundDeliveryAttempt,
   getAuth0Token,
   getEmailClient,
   makeAddressUrl,
@@ -306,6 +308,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             `Could not prepare visit note completion email for appointment ${appointment.id}:`,
             emailPreparationError
           );
+          // Preparation failed before sendVisitNoteEmailAttempt could create its own attempt record
+          // (e.g. email client init or presigned URL generation failed), so without this the failure
+          // would be invisible in Action Logs and unretryable. Record it directly.
+          try {
+            const failedAttempt = await createOutboundDeliveryAttempt(oystehr, {
+              channel: 'email',
+              patientId: patient.id,
+              appointmentId,
+              recipientAddress: getPatientContactEmail(patient) ?? '',
+              documentReferenceId: visitNoteDocument.id,
+            });
+            if (failedAttempt.id) {
+              await failOutboundDeliveryAttempt(oystehr, failedAttempt.id, emailPreparationError);
+            }
+          } catch (recordError) {
+            console.error(
+              `Could not record the failed visit note email attempt for appointment ${appointment.id}:`,
+              recordError
+            );
+          }
         }
       }
 

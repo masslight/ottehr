@@ -21,10 +21,10 @@ export const GetActionLogsInputSchema = z.object({
   patientId: z.string().uuid().optional(),
   patientName: z.string().trim().optional(),
   visitId: z.string().uuid().optional(),
-  visitDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
+  // Start of the searched calendar day in the searcher's own timezone (offset required), e.g.
+  // "2026-07-21T00:00:00.000-04:00" — lets the server match against the same local day the
+  // frontend displays, instead of assuming the day boundary lines up with UTC.
+  visitDate: z.string().datetime({ offset: true }).optional(),
   pageIndex: z.number().int().nonnegative().default(0),
 });
 

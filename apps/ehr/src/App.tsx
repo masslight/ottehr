@@ -5,7 +5,7 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { ACTION_LOG_VIEWER_ROLES, parseCommaSeparatedTags, RoleType } from 'utils';
+import { parseCommaSeparatedTags, PRIMARY_EHR_STAFF_ROLES, RoleType } from 'utils';
 import { setupSentry } from 'utils/lib/frontend';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
@@ -138,7 +138,7 @@ function App(): ReactElement {
     debounce: 500,
   });
 
-  const roleUnknown = !currentUser || !currentUser.hasRole(ACTION_LOG_VIEWER_ROLES);
+  const roleUnknown = !currentUser || !currentUser.hasRole(PRIMARY_EHR_STAFF_ROLES);
 
   return (
     <CustomThemeProvider>
@@ -194,7 +194,7 @@ function App(): ReactElement {
                 <Route path="*" element={<LoadingScreen />} />
               </>
             )}
-            {currentUser?.hasRole(ACTION_LOG_VIEWER_ROLES) && (
+            {currentUser?.hasRole(PRIMARY_EHR_STAFF_ROLES) && (
               <>
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />

@@ -91,7 +91,9 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
 
   // Appointment ids are UUIDs, so anything else can't match a visit.
   const visitIdIsInvalid = visitIdSearch !== '' && !isValidUUID(visitIdSearch);
-  const visitDateISO = visitDate?.isValid ? visitDate.toISODate() : undefined;
+  // Sent as the start of the selected day with an explicit offset so the server can match the
+  // same local calendar day this table displays, rather than a UTC calendar day.
+  const visitDateISO = visitDate?.isValid ? visitDate.startOf('day').toISO() ?? undefined : undefined;
 
   const {
     data: actionLogs,
@@ -255,7 +257,9 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <MappedStatusChip status={log.status} mapper={ACTION_STATUS_COLORS_MAP} />
-                    {log.status === 'failed' && <RetryActionButton log={log} onResent={() => void refetch()} />}
+                    {log.status === 'failed' && log.appointmentId && (
+                      <RetryActionButton log={log} onResent={() => void refetch()} />
+                    )}
                   </Box>
                 </TableCell>
               </TableRow>

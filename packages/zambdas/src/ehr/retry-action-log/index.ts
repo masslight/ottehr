@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   ACTION_LOG_VIEWER_ROLES,
   DATETIME_FULL_NO_YEAR,
+  FEATURE_FLAGS_CONFIG,
   getAddressStringForScheduleResource,
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
@@ -22,7 +23,6 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
-  getUser,
   makeAddressUrl,
   requireUserWithRole,
   sendFaxAttempt,
@@ -41,8 +41,7 @@ let m2mToken = '';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const parameters = validateRequestParameters(input);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  await requireUserWithRole(userToken, parameters.secrets, ACTION_LOG_VIEWER_ROLES);
-  const user = await getUser(userToken, parameters.secrets);
+  const user = await requireUserWithRole(userToken, parameters.secrets, ACTION_LOG_VIEWER_ROLES);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
 
@@ -83,6 +82,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
     retried = await sendFaxAttempt(faxInput, oystehr);
   } else {
+    if (FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled) {
+      throw new Error('Visit note email delivery is disabled while the patient portal feature flag is off');
+    }
     const visit = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
     const visitNoteUrl = await getPresignedURL(media, m2mToken);

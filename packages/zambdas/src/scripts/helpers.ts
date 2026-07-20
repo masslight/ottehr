@@ -159,9 +159,16 @@ export const getAll = async <T extends FhirResource>(
         name: '_count',
         value: '1',
       },
+      {
+        name: '_total',
+        value: 'accurate',
+      },
     ],
   });
-  const numChunks = Math.ceil((bundle.total ?? 1000) / 1000);
+  if (bundle.total == null) {
+    throw new Error(`getAll: search for ${resourceType} did not return an accurate total`);
+  }
+  const numChunks = Math.ceil(bundle.total / 1000);
   console.log('num chunks', numChunks);
   const paramArray = new Array(numChunks).fill(1).map((_, idx) => {
     return getBatchParams(idx, params);

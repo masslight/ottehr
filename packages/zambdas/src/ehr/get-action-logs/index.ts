@@ -29,6 +29,13 @@ import { validateRequestParameters } from './validateRequestParameters';
 const ZAMBDA_NAME = 'get-action-logs';
 let m2mToken = '';
 
+// FHIR search values use \, $, and | as syntax characters (list separator, chained-param
+// separator, and OR separator); escape them so a literal value like "Last, First" isn't
+// parsed as two search terms.
+function escapeFhirSearchValue(value: string): string {
+  return value.replace(/[\\,$|]/g, (char) => `\\${char}`);
+}
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const parameters = validateRequestParameters(input);
   await requireUserWithRole(
@@ -57,10 +64,18 @@ export async function performEffect(
     { name: '_include', value: 'Task:focus' },
   ];
   if (patientId) params.push({ name: 'patient', value: `Patient/${patientId}` });
-  if (patientName) params.push({ name: 'patient:Patient.name', value: patientName });
+  if (patientName) params.push({ name: 'patient:Patient.name', value: escapeFhirSearchValue(patientName) });
   if (visitId) params.push({ name: 'focus', value: `Appointment/${visitId}` });
-  if (visitDate) params.push({ name: 'focus:Appointment.date', value: visitDate });
-  if (!patientName && !visitId && !visitDate) {
+  if (visitDate) {
+    // visitDate is the start of a calendar day in the searcher's own offset. Search a UTC range
+    // for that day rather than an exact date match, so the boundary matches the offset the
+    // frontend used to display the date instead of assuming UTC day boundaries.
+    const dayStart = DateTime.fromISO(visitDate, { setZone: true });
+    const dayEnd = dayStart.plus({ days: 1 });
+    params.push({ name: 'focus:Appointment.date', value: `ge${dayStart.toUTC().toISO()}` });
+    params.push({ name: 'focus:Appointment.date', value: `lt${dayEnd.toUTC().toISO()}` });
+  }
+  if (!patientId && !patientName && !visitId && !visitDate) {
     params.push({
       name: 'authored-on',
       value: `ge${DateTime.now().minus({ days: ACTION_LOGS_DISPLAY_WINDOW_DAYS }).toUTC().toISO()}`,
@@ -86,9 +101,6 @@ export async function performEffect(
   const logs = tasks.map((task) => composeEntry(task, patients, appointments, communications));
   return { logs, totalCount: bundle.total ?? 0 };
 }
-
-// Kept as a named export for existing unit consumers while status parsing lives in the shared FHIR helper.
-export const getAttemptStatus = getOutboundDeliveryAttemptStatus;
 
 async function getFaxCommunications(tasks: Task[], oystehr: Oystehr): Promise<Map<string, Communication>> {
   const ids = [

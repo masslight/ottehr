@@ -35,11 +35,12 @@ export const requireUserWithRole = async (
   userToken: string,
   secrets: Secrets | null,
   allowedRoles: RoleType[]
-): Promise<void> => {
+): Promise<User> => {
   const user = await getUser(userToken, secrets);
   if (!user) throw NOT_AUTHORIZED;
   const hasAllowedRole = user.roles?.some((role) => allowedRoles.some((allowed) => role.name === allowed)) ?? false;
   if (!hasAllowedRole) throw NOT_AUTHORIZED;
+  return user;
 };
 
 export const requireAdminUser = async (userToken: string, secrets: Secrets | null): Promise<void> => {

@@ -128,6 +128,9 @@ export function getOutboundDeliveryAttemptStatus(task: Task, communication?: Com
   if (faxStatus === OYSTEHR_OUTBOUND_FAX_STATUS_CODES.delivered) return 'sent';
   if (faxStatus === OYSTEHR_OUTBOUND_FAX_STATUS_CODES.stopped) return 'failed';
   if (!faxStatus && communication?.status === 'completed') return 'sent';
+  // Legacy/backfilled attempts are marked completed at creation time; their Communication may
+  // predate the fax status extension or may no longer be resolvable, so fall back to the Task.
+  if (!faxStatus && task.status === 'completed') return 'sent';
   if (task.status === 'failed') return 'failed';
   return 'pending';
 }
