@@ -9,7 +9,7 @@ import {
   MISSING_REQUEST_SECRETS,
 } from 'utils';
 import { checkOrCreateM2MClientToken, safeValidate, validateJsonBody, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, tagEraResources, untaggedEraResources } from '../shared';
+import { createBillingClient } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'import-era';
@@ -37,17 +37,6 @@ async function performEffect(oystehr: Oystehr, params: ImportEraParams): Promise
     const statusCode =
       typeof sdkError.code === 'number' && sdkError.code >= 400 && sdkError.code <= 499 ? sdkError.code : 500;
     throw ERA_IMPORT_FAILED_ERROR(sdkError.message ?? 'Failed to process ERA', statusCode);
-  }
-
-  // oystehr creates the era resources untagged. don't throw on failure
-  try {
-    const tagged = await tagEraResources({
-      oystehr,
-      resources: untaggedEraResources(bundle),
-    });
-    if (tagged > 0) console.log(`Tagged ${tagged} imported ERA resource(s)`);
-  } catch (error) {
-    console.error('Failed to tag imported ERA resources:', error);
   }
 
   return bundle;

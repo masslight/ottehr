@@ -3,7 +3,6 @@ import {
   Account,
   Address,
   Basic,
-  Bundle,
   ChargeItemDefinition,
   Claim,
   Coding,
@@ -961,15 +960,6 @@ export function getDefaultSettingForChargeItemDefinition(
       ? (defaultCode as 'insurance' | 'self-pay')
       : undefined;
   return defaultValue;
-}
-
-export function untaggedEraResources(bundle: Bundle): FhirResource[] {
-  return (bundle.entry ?? [])
-    .map((entry) => entry.resource)
-    .filter(
-      (resource): resource is FhirResource =>
-        !!resource && !!resource.id && !hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
-    );
 }
 
 export function addBillingTagOperation(resource: FhirResource): {
