@@ -345,24 +345,15 @@ export default function AddPatient(): JSX.Element {
       .sort((a, b) => a.display.localeCompare(b.display));
   }, [mergedSourcedCategories, visitType]);
 
-  // Symmetric filter on the visit-type dropdown: when a service category is
-  // picked first, only offer visit types the category actually supports. This
-  // is what makes the "pick service first, then modality" flow discoverable,
-  // and — combined with the invalidation effects below — prevents the form
-  // from silently swapping the user's service pick when they later change
-  // visit type. With no service category picked (or one we can't find in the
-  // merged catalog) we fall back to the full option list.
-  const filteredVisitTypes = useMemo(() => {
-    const picked = serviceCategory
-      ? mergedSourcedCategories.find((sc) => sc.category.code === serviceCategory)
-      : undefined;
-    if (!picked) return BOOKING_CONFIG.ehrBookingOptions;
-    return BOOKING_CONFIG.ehrBookingOptions.filter((opt) => {
-      const ctx = visitTypeContext[opt.id as VisitType];
-      if (!ctx) return true;
-      return serviceCategorySupportsContext(picked, ctx.mode, ctx.visitCtx);
-    });
-  }, [mergedSourcedCategories, serviceCategory]);
+  // The Visit Type dropdown is authoritative from BOOKING_CONFIG.ehrBookingOptions
+  // and is deliberately NOT filtered by the picked service category. ehrBookingOptions
+  // is the staff-facing booking catalog; gating it through serviceCategorySupportsContext
+  // (the patient-side capability helper keyed on serviceModes/visitTypes) collapsed it to
+  // the patient-bookable subset, so a category not tagged for walk-in / on-demand / post-
+  // telemed silently dropped those EHR options even though they were configured.
+  // Compatibility between the picked visit type and service category is enforced on the
+  // service-category side (filteredServiceCategories) and by required-field validation at
+  // submit. See OTR-2721 history.
 
   // The picker is locked when the merged catalog has exactly one entry —
   // there's nothing to choose between, so we disable the Select and let the
@@ -414,19 +405,6 @@ export default function AddPatient(): JSX.Element {
       setServiceCategory('');
     }
   }, [filteredServiceCategories, serviceCategory, isPickerLocked]);
-
-  // Mirror of the effect above: when the service-category pick makes the
-  // current visit type unsupported, clear the visit type (and any slot tied
-  // to it). Together these guarantee the form never silently swaps one of
-  // the two anchor selections in response to a change in the other — the
-  // invalidated selection is cleared, and the user re-picks.
-  useEffect(() => {
-    if (!visitType) return;
-    if (!filteredVisitTypes.some((opt) => opt.id === visitType)) {
-      setVisitType(undefined);
-      setSlot(undefined);
-    }
-  }, [filteredVisitTypes, visitType]);
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
@@ -703,7 +681,7 @@ export default function AddPatient(): JSX.Element {
                       setVisitType(event.target.value as VisitType);
                     }}
                   >
-                    {filteredVisitTypes.map((option) => (
+                    {BOOKING_CONFIG.ehrBookingOptions.map((option) => (
                       <MenuItem value={option.id} key={option.id}>
                         {option.label}
                       </MenuItem>
