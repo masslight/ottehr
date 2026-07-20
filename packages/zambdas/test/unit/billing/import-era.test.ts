@@ -193,4 +193,17 @@ describe('tagEraResources', () => {
     expect(tagged).toBe(0);
     expect(transaction).not.toHaveBeenCalled();
   });
+
+  it('patches a resource passed more than once only once', async () => {
+    const { oystehr, transaction } = makeOystehr();
+    const cr = claimResponse('cr1');
+
+    const tagged = await tagEraResources({
+      oystehr,
+      resources: [cr, cr, paymentReconciliation('pr1')],
+    });
+
+    expect(tagged).toBe(2);
+    expect(transaction.mock.calls[0][0].requests).toHaveLength(2);
+  });
 });

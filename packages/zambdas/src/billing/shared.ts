@@ -991,11 +991,13 @@ export async function tagEraResources({
   oystehr: Oystehr;
   resources: FhirResource[];
 }): Promise<number> {
-  const untagged = resources.filter(
-    (resource) => resource.id && !hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
-  );
-  if (untagged.length === 0) return 0;
-  const requests = untagged.map((resource) =>
+  const untagged = new Map<string, FhirResource>();
+  for (const resource of resources) {
+    if (!resource.id || hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) continue;
+    untagged.set(`${resource.resourceType}/${resource.id}`, resource);
+  }
+  if (untagged.size === 0) return 0;
+  const requests = [...untagged.values()].map((resource) =>
     getPatchBinary({
       resourceType: resource.resourceType,
       resourceId: resource.id!,
@@ -1003,7 +1005,7 @@ export async function tagEraResources({
     })
   );
   await oystehr.fhir.transaction({ requests });
-  return untagged.length;
+  return untagged.size;
 }
 
 // Links notices the stripe webhook stored before the claim existed. Oystehr matches
