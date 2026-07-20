@@ -100,7 +100,16 @@ const finalizeAndUpload = async (visitID: string, durationMs: number): Promise<v
     // Keep the historical filename/type so the transcription backend keeps receiving a `.webm`.
     const file = new File([blob], `${visitID}.webm`, { type: 'audio/webm' });
     const { z3URL, presignedUploadUrl } = await uploadAudioRecording(oystehr, { visitID });
-    await fetch(presignedUploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+    const uploadResponse = await fetch(presignedUploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+    // Bail before creating resources if the object didn't land — otherwise we'd persist FHIR
+    // resources referencing a missing/corrupt recording.
+    if (!uploadResponse.ok) {
+      throw new Error(`Audio upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+    }
     await createResourcesFromAudioRecording(oystehr, { visitID, duration: durationMs, z3URL });
     onComplete?.();
   } catch (error) {
