@@ -73,8 +73,8 @@ When state 3 is stable and no Candid AR remains collectible:
    (`/admin/outreach/patient-invoices`), and re-point any bookmarks to the billing paths.
 5. Remove `candidInvoicingEnabled` from the flag schema/data/re-export and collapse
    `BOTH_INVOICING_SCREENS_ENABLED` labeling (plain titles, drop the source chip).
-6. Decide the fate of remaining `candid`-tagged/untagged Tasks: leave them readable on the billing
-   screen is NOT possible (they stay excluded by `_tag`), so either archive them or re-tag after
+6. Decide the fate of remaining `candid`-tagged/untagged Tasks: they cannot stay readable on the
+   billing screen (they remain excluded by `_tag`), so either archive them or re-tag them after
    verifying no open AR.
 7. `getInvoiceTaskSource` can then treat absence as `ottehr-billing` or be inlined away once no
    legacy tasks matter.
