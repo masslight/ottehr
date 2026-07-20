@@ -163,10 +163,17 @@ const VideoChatPage: FC = () => {
     }
   );
 
-  if (!meetingData) {
+  // Keep the loader up for the whole connection and only render the room once Chime is actually connected
+  // (Succeeded). Before this, meetingData could already be set (freshly fetched, or stale from a prior call)
+  // while the session is still coming up, so gating on "has meetingData" alone dropped straight to a blank
+  // dark VideoRoom — which is what looked like "no loader" after "Return to call". Failed/terminal states
+  // fall through (handled elsewhere) so we don't spin forever on a hard failure.
+  const isMeetingConnected = meetingStatus === MeetingStatus.Succeeded;
+  const isMeetingFailed = meetingStatus === MeetingStatus.Failed || meetingStatus === MeetingStatus.TerminalFailure;
+  if (!meetingData || (!isMeetingConnected && !isMeetingFailed)) {
     return (
       <CustomContainer useEmptyBody title="">
-        <LoadingSpinner transparent />
+        <LoadingSpinner transparent white />
       </CustomContainer>
     );
   }

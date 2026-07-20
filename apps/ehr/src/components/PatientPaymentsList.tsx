@@ -51,6 +51,7 @@ import {
   CPT_MODIFIER_EXTENSION_URL,
   extractPayerIdFromUrl,
   findOrgMatchingReference,
+  findQuestionnaireItemByLinkId,
   getCoding,
   getLocationIdFromAppointment,
   getPaymentVariantFromEncounter,
@@ -654,6 +655,11 @@ export default function PatientPaymentList({
   // Deep-cloned on each call, so cache once per mount and reuse across toggles.
   const patientRecordQuestionnaire = useMemo(() => PATIENT_RECORD_QUESTIONNAIRE(), []);
 
+  const medicaidFieldEnabled = useMemo(
+    () => !!findQuestionnaireItemByLinkId(patientRecordQuestionnaire.item ?? [], 'patient-has-medicaid'),
+    [patientRecordQuestionnaire]
+  );
+
   const updatePatientHasMedicaid = useMutation({
     mutationFn: async (nextValue: boolean) => {
       if (!apiClient || !patient?.id) {
@@ -850,20 +856,24 @@ export default function PatientPaymentList({
           </ToggleButton>
         ) : null}
       </ToggleButtonGroup>
-      <FormControlLabel
-        sx={{ mt: 1, alignItems: 'center', ml: 0 }}
-        control={
-          <Checkbox
-            checked={patientHasMedicaid}
-            disabled={updatePatientHasMedicaid.isPending || !patient?.id || !apiClient}
-            onChange={(_e, checked) => updatePatientHasMedicaid.mutate(checked)}
-            sx={{ p: 0.5, mr: 1 }}
-          />
-        }
-        label={
-          <Typography variant="body2">Patient has Medicaid insurance. Credit Card should not be requested.</Typography>
-        }
-      />
+      {medicaidFieldEnabled && (
+        <FormControlLabel
+          sx={{ mt: 1, alignItems: 'center', ml: 0 }}
+          control={
+            <Checkbox
+              checked={patientHasMedicaid}
+              disabled={updatePatientHasMedicaid.isPending || !patient?.id || !apiClient}
+              onChange={(_e, checked) => updatePatientHasMedicaid.mutate(checked)}
+              sx={{ p: 0.5, mr: 1 }}
+            />
+          }
+          label={
+            <Typography variant="body2">
+              Patient has Medicaid insurance. Credit Card should not be requested.
+            </Typography>
+          }
+        />
+      )}
       <Container
         style={{
           backgroundColor: theme.palette.background.default,

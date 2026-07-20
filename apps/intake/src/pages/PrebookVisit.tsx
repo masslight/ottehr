@@ -4,6 +4,7 @@ import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
 import {
   APIError,
   BookableItem,
@@ -31,7 +32,6 @@ import {
 } from '../App';
 import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
-import { BoldPurpleInputLabel } from '../components/form';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { useServiceCategories } from '../hooks/useServiceCategories';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';

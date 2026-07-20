@@ -46,6 +46,8 @@ import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/comp
 import AdminAddLabSet from './features/visits/telemed/components/admin/lab-sets/AdminAddLabSet';
 import AdminLabSetDetails from './features/visits/telemed/components/admin/lab-sets/AdminLabSetDetails';
 import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
+import { QuestionnaireDetail } from './features/visits/telemed/components/admin/questionnaires/QuestionnaireDetail';
+import { QuestionnaireNew } from './features/visits/telemed/components/admin/questionnaires/QuestionnaireNew';
 import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
@@ -281,6 +283,8 @@ function App(): ReactElement {
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   <Route path="/admin/lab-sets/add" element={<AdminAddLabSet />} />
                   <Route path="/admin/lab-sets/:listId" element={<AdminLabSetDetails />} />
+                  <Route path="/admin/questionnaires/new" element={<QuestionnaireNew />} />
+                  <Route path="/admin/questionnaires/:questionnaireId" element={<QuestionnaireDetail />} />
                 </Route>
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />

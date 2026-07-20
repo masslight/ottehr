@@ -18,7 +18,11 @@ import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
 import { useGetPaymentMethods, useSetupPaymentMethod } from 'src/telemed/features/paperwork';
+import { PagedQuestionnaire } from 'ui-components';
+import { PaperworkContext } from 'ui-components';
+import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import {
   APIError,
   ComplexValidationResult,
@@ -43,8 +47,6 @@ import { persist } from 'zustand/middleware';
 import { ottehrApi } from '../api';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
-import { PaperworkContext, usePaperworkContext } from '../features/paperwork';
-import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
@@ -238,6 +240,8 @@ export const PaperworkHome: FC = () => {
     setupCompleted: Boolean(stripeSetupData),
   });
 
+  const paperworkComponentHelpers = usePaperworkComponentHelpers();
+
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       appointment,
@@ -262,6 +266,7 @@ export const PaperworkHome: FC = () => {
       findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
         return findQuestionnaireResponseItemLinkId(linkId, completedPaperwork);
       },
+      paperworkComponentHelpers,
     };
   }, [
     appointment,
@@ -280,6 +285,7 @@ export const PaperworkHome: FC = () => {
     setContinueLabel,
     refetchPaymentMethods,
     refetchSetupData,
+    paperworkComponentHelpers,
   ]);
 
   const redirectTarget = useMemo(() => {
@@ -569,6 +575,7 @@ export const PaperworkPage: FC = () => {
                 saveProgress(pageId, data);
               }
             }}
+            skipValidation={false}
           />
           <ComplexValidationRoadblock
             open={validationRoadblockConfig !== undefined}

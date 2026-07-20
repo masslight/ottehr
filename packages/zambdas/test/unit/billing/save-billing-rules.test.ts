@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, List } from 'fhir/r4b';
-import { HOLD_TAG_NAME, PreSubmissionRuleInput } from 'utils';
+import { BillingRuleInput, DEFAULT_RULES_ENGINE, HOLD_TAG_NAME, RulesEngineType } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { performEffect } from '../../../src/billing/save-billing-rules';
 import { SaveBillingRulesParams } from '../../../src/billing/save-billing-rules/validateRequestParameters';
 
@@ -10,7 +11,7 @@ const create = vi.fn();
 const update = vi.fn();
 const oystehr = { fhir: { search, create, update } } as unknown as Oystehr;
 
-const rule = (name: string, id?: string): PreSubmissionRuleInput => ({
+const rule = (name: string, id?: string): BillingRuleInput => ({
   ...(id ? { id } : {}),
   name,
   description: '',
@@ -18,8 +19,11 @@ const rule = (name: string, id?: string): PreSubmissionRuleInput => ({
   conditional: { branches: [{ condition: { type: 'all' }, outcome: { type: 'noop' } }] },
 });
 
-const params = (rules: PreSubmissionRuleInput[], expectedVersionId?: string): SaveBillingRulesParams =>
-  ({ rules, expectedVersionId, secrets: null }) as SaveBillingRulesParams;
+const params = (
+  rules: BillingRuleInput[],
+  expectedVersionId?: string,
+  engine: RulesEngineType = DEFAULT_RULES_ENGINE
+): SaveBillingRulesParams => ({ engine, rules, expectedVersionId, secrets: null }) as SaveBillingRulesParams;
 
 describe('save-billing-rules performEffect', () => {
   beforeEach(() => {
@@ -80,5 +84,21 @@ describe('save-billing-rules performEffect', () => {
     expect(options).toEqual({ optimisticLockingVersionId: 'v41' });
     expect(response.versionId).toBe('2');
     expect(response.rules.map((r) => r.name)).toEqual(['Renamed']);
+  });
+
+  it("stores each engine's rules in a List tagged with that engine's code", async () => {
+    await performEffect(
+      oystehr,
+      params([rule('NI rule')], undefined, 'non-insurance-payer-pre-invoice'),
+      undefined,
+      'test'
+    );
+
+    const savedList = create.mock.calls.find(([r]) => r.resourceType === 'List')?.[0] as List;
+    expect(savedList.meta?.tag).toContainEqual({
+      system: RULES_ENGINE_TAG_SYSTEM,
+      code: RULES_ENGINE_FHIR['non-insurance-payer-pre-invoice'].listCode,
+    });
+    expect(savedList.title).toBe(RULES_ENGINE_FHIR['non-insurance-payer-pre-invoice'].listTitle);
   });
 });

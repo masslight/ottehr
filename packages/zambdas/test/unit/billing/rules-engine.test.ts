@@ -1,11 +1,12 @@
 import { Basic, Claim } from 'fhir/r4b';
 import {
+  BillingRule,
   CLAIM_TAG_SYSTEM,
   FHIR_IDENTIFIER_NPI,
   getPayerUrl,
   HOLD_TAG_NAME,
-  PreSubmissionRule,
   RULE_FIELD_CATALOG,
+  RULES_ENGINE_TYPES,
 } from 'utils';
 import { describe, expect, it } from 'vitest';
 import {
@@ -15,9 +16,11 @@ import {
   WRITABLE_FIELD_IDS,
 } from '../../../src/billing/rules-engine/claim-model';
 import {
-  PRESUBMISSION_RULES_TASK_CODE,
-  PRESUBMISSION_RULES_TASK_SYSTEM,
   RULE_DEFINITION_EXTENSION_URL,
+  RULES_ENGINE_FHIR,
+  RULES_ENGINE_TAG_SYSTEM,
+  RULES_ENGINE_TASK_SYSTEM,
+  rulesEngineForTaskCode,
 } from '../../../src/billing/rules-engine/constants';
 import { evaluateCondition, evaluateOperator, executeRule } from '../../../src/billing/rules-engine/evaluator';
 import { buildRulesEngineKickoffTask, listToRules, rulesToList } from '../../../src/billing/rules-engine/serialization';
@@ -132,7 +135,7 @@ describe('rules-engine evaluator', () => {
 
   it('executes the canonical "remap payer id" rule', () => {
     const m = makeModel();
-    const rule: PreSubmissionRule = {
+    const rule: BillingRule = {
       id: 'r-remap',
       name: 'Remap payer',
       description: 'If payer 123456 then set payer to 999999',
@@ -156,7 +159,7 @@ describe('rules-engine evaluator', () => {
 
   it('follows nested else-if branches', () => {
     const m = makeModel();
-    const rule: PreSubmissionRule = {
+    const rule: BillingRule = {
       id: 'r-nested',
       name: 'Nested',
       description: '',
@@ -192,7 +195,7 @@ describe('rules-engine evaluator', () => {
 
   it('halts on the Hold tag and skips disabled rules', () => {
     const m = makeModel();
-    const holdRule: PreSubmissionRule = {
+    const holdRule: BillingRule = {
       id: 'r-hold',
       name: 'Always hold',
       description: '',
@@ -218,7 +221,7 @@ describe('rules-engine evaluator', () => {
     // The action after the Hold tag must not run.
     expect(readField(m, 'patient.lastName')).toBe('Doe');
 
-    const disabled: PreSubmissionRule = { ...holdRule, id: 'r-off', enabled: false };
+    const disabled: BillingRule = { ...holdRule, id: 'r-off', enabled: false };
     const m2 = makeModel();
     expect(executeRule(disabled, m2).held).toBe(false);
     expect(claimTags(m2)).toEqual([]);
@@ -227,7 +230,7 @@ describe('rules-engine evaluator', () => {
   it('stops with an error when a setField action cannot be applied', () => {
     const m = makeModel();
     m.renderingProvider = undefined; // the action's target is missing from the claim
-    const rule: PreSubmissionRule = {
+    const rule: BillingRule = {
       id: 'r-bad',
       name: 'Set rendering NPI',
       description: '',
@@ -256,7 +259,7 @@ describe('rules-engine evaluator', () => {
 });
 
 describe('rules-engine serialization', () => {
-  const rules: PreSubmissionRule[] = [
+  const rules: BillingRule[] = [
     {
       id: 'rule-a',
       name: 'Rule A',
@@ -288,21 +291,32 @@ describe('rules-engine serialization', () => {
   ];
 
   it('round-trips rules through a contained-Basic List preserving order', () => {
-    const list = rulesToList(rules);
+    const list = rulesToList('claim-submission', rules);
     expect(list.resourceType).toBe('List');
     expect(list.contained).toHaveLength(2);
     expect(list.entry?.map((e) => e.item?.reference)).toEqual(['#rule-a', '#rule-b']);
     expect(listToRules(list)).toEqual(rules);
   });
 
+  it("tags each engine's List with that engine's own code", () => {
+    for (const engine of RULES_ENGINE_TYPES) {
+      const list = rulesToList(engine, rules);
+      expect(list.meta?.tag).toEqual([{ system: RULES_ENGINE_TAG_SYSTEM, code: RULES_ENGINE_FHIR[engine].listCode }]);
+      expect(list.title).toBe(RULES_ENGINE_FHIR[engine].listTitle);
+    }
+    // The list codes must be distinct — each engine has its own rule set.
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].listCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
   it('reflects reordering via entry order', () => {
     const reordered = [rules[1], rules[0]];
-    const list = rulesToList(reordered);
+    const list = rulesToList('claim-submission', reordered);
     expect(listToRules(list).map((r) => r.id)).toEqual(['rule-b', 'rule-a']);
   });
 
   it('surfaces an unparseable rule as a disabled placeholder instead of failing the whole list', () => {
-    const list = rulesToList(rules);
+    const list = rulesToList('claim-submission', rules);
     const badRule = list.contained?.[0] as Basic;
     const definition = badRule.extension?.find((e) => e.url === RULE_DEFINITION_EXTENSION_URL);
     definition!.valueString = '{not valid json';
@@ -316,13 +330,25 @@ describe('rules-engine serialization', () => {
 });
 
 describe('rules-engine kickoff task', () => {
-  it('builds a requested Task focused on the claim with the engine code', () => {
-    const task = buildRulesEngineKickoffTask('claim-123');
-    expect(task.status).toBe('requested');
-    expect(task.focus?.reference).toBe('Claim/claim-123');
-    expect(task.code?.coding?.[0]).toEqual({
-      system: PRESUBMISSION_RULES_TASK_SYSTEM,
-      code: PRESUBMISSION_RULES_TASK_CODE,
-    });
+  it("builds a requested Task focused on the claim, carrying the engine's own code", () => {
+    for (const engine of RULES_ENGINE_TYPES) {
+      const task = buildRulesEngineKickoffTask(engine, 'claim-123');
+      expect(task.status).toBe('requested');
+      expect(task.focus?.reference).toBe('Claim/claim-123');
+      expect(task.code?.coding?.[0]).toEqual({
+        system: RULES_ENGINE_TASK_SYSTEM,
+        code: RULES_ENGINE_FHIR[engine].taskCode,
+      });
+    }
+    const codes = RULES_ENGINE_TYPES.map((engine) => RULES_ENGINE_FHIR[engine].taskCode);
+    expect(new Set(codes).size).toBe(codes.length);
+  });
+
+  it('maps task codes back to their engines', () => {
+    for (const engine of RULES_ENGINE_TYPES) {
+      expect(rulesEngineForTaskCode(RULES_ENGINE_FHIR[engine].taskCode)).toBe(engine);
+    }
+    expect(rulesEngineForTaskCode('run-unknown-rules')).toBeUndefined();
+    expect(rulesEngineForTaskCode(undefined)).toBeUndefined();
   });
 });

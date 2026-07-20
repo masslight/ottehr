@@ -7,7 +7,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from '../../../helpers/rcm/constants';
-import { fullZipRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import {
   CLAIM_STATUS_FIELD_KEYS,
@@ -98,12 +98,6 @@ export const SetClaimStatusInputSchema = z
     }
   });
 
-export const MAX_SUBMIT_BILLING_CLAIMS = 20;
-
-export const SubmitBillingClaimsInputSchema = z.object({
-  claimIds: z.array(z.string().uuid()).min(1).max(MAX_SUBMIT_BILLING_CLAIMS),
-});
-
 // Status indicators keyed by ClaimStatusFieldKey; unknown keys are rejected and each provided value
 // must be a valid option for its field.
 export const claimStatusesSchema = z
@@ -126,6 +120,11 @@ export const GetPatientDetailInputSchema = z.object({
 
 export const GetPatientCoveragesInputSchema = z.object({
   patientId: nonEmptyString,
+});
+
+export const GetBillingProviderInputSchema = z.object({
+  providerType: z.enum(['rendering', 'billing']),
+  providerId: nonEmptyString,
 });
 
 export const SearchBillingClaimsInputSchema = z.object({
@@ -188,6 +187,10 @@ const claimServiceLineSchema = z.object({
   modifiers: z.array(z.string()).optional(),
   // 1-based references into the claim's diagnosis list (FHIR item.diagnosisSequence)
   diagnosisPointers: z.array(z.number().int().positive()).optional(),
+});
+
+export const GetServiceFacilityInputSchema = z.object({
+  facilityId: nonEmptyString,
 });
 
 export const SearchServiceFacilitiesInputSchema = z.object({
@@ -270,6 +273,10 @@ const billingNpiSchema = nonEmptyString.refine(
   'NPI must be a valid 10-digit number with a correct check digit'
 );
 const billingTaxIdSchema = nonEmptyString.regex(taxIdRegex, 'Tax ID / EIN must be exactly 9 digits');
+const billingStripeAccountIdSchema = nonEmptyString.regex(
+  stripeAccountIdRegex,
+  'Stripe account ID must start with acct_'
+);
 const billingTaxonomyCodeSchema = z.string().trim().length(10, 'Taxonomy code must be exactly 10 characters');
 // Providers require a validated ZIP (5-digit or ZIP+4); the base address schema stays loose
 // because patient working copies carry addresses cloned from clinical data.
@@ -298,6 +305,7 @@ export const CreateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
+    stripeAccountId: billingStripeAccountIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
 ]);
@@ -332,6 +340,7 @@ export const UpdateBillingProviderInputSchema = z.discriminatedUnion('kind', [
     npi: billingNpiSchema.optional(),
     taxonomyCode: billingTaxonomyCodeSchema.optional(),
     taxId: billingTaxIdSchema.optional(),
+    stripeAccountId: billingStripeAccountIdSchema.optional(),
     address: billingProviderAddressSchema.optional(),
   }),
 ]);
@@ -586,6 +595,11 @@ export const ImportEraInputSchema = z.object({
   era: nonEmptyString,
 });
 
+export const MatchClaimResponseToClaimInputSchema = z.object({
+  claimResponseId: nonEmptyString,
+  claimId: nonEmptyString,
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
@@ -595,9 +609,9 @@ export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;
 export type TagBillingClaimInput = z.output<typeof TagBillingClaimInputSchema>;
 export type SetClaimStatusInput = z.output<typeof SetClaimStatusInputSchema>;
-export type SubmitBillingClaimsInput = z.output<typeof SubmitBillingClaimsInputSchema>;
 export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
+export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;
 export type SearchBillingPatientsInput = z.output<typeof SearchBillingPatientsInputSchema>;
@@ -626,7 +640,10 @@ export type CreateChargeItemDefinitionInput = z.output<typeof CreateChargeItemDe
 export type GetChargeItemDefinitionInput = z.output<typeof GetChargeItemDefinitionInputSchema>;
 export type UpdateChargeItemDefinitionInput = z.output<typeof UpdateChargeItemDefinitionInputSchema>;
 export type DeleteChargeItemDefinitionInput = z.output<typeof DeleteChargeItemDefinitionInputSchema>;
+export type GetServiceFacilityInput = z.output<typeof GetServiceFacilityInputSchema>;
 export type SearchServiceFacilitiesInput = z.output<typeof SearchServiceFacilitiesInputSchema>;
 export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputSchema>;
 export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;
 export type ImportEraInput = z.output<typeof ImportEraInputSchema>;
+export type GenderOption = z.input<typeof gender>;
+export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;

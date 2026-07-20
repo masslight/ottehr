@@ -2418,6 +2418,55 @@ export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType'])
   return ScheduleType.group;
 };
 
+export interface PrebookModeLink {
+  mode: ServiceMode;
+  /** Stable key for React lists / copy-button state, e.g. `prebook-virtual`. */
+  key: string;
+  /** Human label; disambiguated by mode only when both modes are offered. */
+  label: string;
+  /** Path + query relative to the intake app base URL. */
+  relativeUrl: string;
+}
+
+/**
+ * Prebook booking links for a schedule owner — one per enabled service mode.
+ * A Location may be tagged both virtual and in-person (see isLocationVirtual /
+ * isLocationInPerson), so each enabled mode gets its own `/prebook/{mode}` link;
+ * the intake prebook route derives the mode from that path segment. An owner
+ * with neither flag set falls back to in-person, matching the back-compat
+ * default get-schedule applies to legacy Locations that predate the in-person
+ * modifier.
+ */
+export const buildPrebookModeLinks = (params: {
+  fhirType?: FhirResource['resourceType'];
+  slug?: string;
+  isVirtual?: boolean;
+  isInPerson?: boolean;
+}): PrebookModeLink[] => {
+  const { fhirType, slug, isVirtual, isInPerson } = params;
+  if (!slug || !fhirType) {
+    return [];
+  }
+  const scheduleType = scheduleTypeFromFHIRType(fhirType);
+  const modes: ServiceMode[] = [];
+  if (isInPerson) {
+    modes.push(ServiceMode['in-person']);
+  }
+  if (isVirtual) {
+    modes.push(ServiceMode.virtual);
+  }
+  if (modes.length === 0) {
+    modes.push(ServiceMode['in-person']);
+  }
+  const disambiguate = modes.length > 1;
+  return modes.map((mode) => ({
+    mode,
+    key: `prebook-${mode}`,
+    label: disambiguate ? `Prebook (${mode === ServiceMode.virtual ? 'Virtual' : 'In person'})` : 'Prebook',
+    relativeUrl: `/prebook/${mode}?bookingOn=${slug}&scheduleType=${scheduleType}`,
+  }));
+};
+
 export const getAppointmentDurationFromSlot = (slot: Slot, unit: 'minutes' | 'hours' = 'minutes'): number => {
   const start = DateTime.fromISO(slot.start);
   const end = DateTime.fromISO(slot.end);

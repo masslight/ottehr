@@ -102,7 +102,13 @@ jobs:
 
       - name: Build
         if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
-        run: npm run build
+        # Cap turbo concurrency: with the default (10), several type-aware
+        # ESLint processes (~3GB RSS each) overlap with tsc + vite builds and
+        # peak memory exceeds the 16GB on the 4-core runner, killing the
+        # runner agent ("The operation was canceled", tasks SIGTERMed).
+        # Profiled on a 4-core/16GB box: default = 13.4GB peak @ 7m05s;
+        # --concurrency=3 = 8.8GB peak @ 6m45s (no wall-time cost at 4 cores).
+        run: npm run build -- --concurrency=3
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
 
