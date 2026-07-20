@@ -39,6 +39,7 @@ import {
   TIME_SPENT_VALUE_SET_URL,
 } from 'utils';
 import { showEnvironmentBanner } from '../../App';
+import { AmbientScribeFab } from '../visits/in-person/components/progress-note/AmbientScribeFab';
 import { AssistantColumn } from './AssistantColumn';
 import {} from './chart-types';
 import { computeChartWarnings } from './intent-logic';
@@ -570,6 +571,12 @@ export default function EasyChartPage(): JSX.Element {
         {/* Right column: the assistant chat (thread + live turn + composer). */}
         <AssistantColumn assistant={assistant} />
       </Box>
+
+      {/* The assistant composer is pinned to this page's bottom-right, so lift the recorder Fab
+          (and its popover) above it instead of the layout-default bottom: 8. */}
+      {encounterId && (
+        <AmbientScribeFab encounterId={encounterId} aiChat={chartData?.aiChat} fabBottom={160} popoverBottom={227} />
+      )}
     </Container>
   );
 }
