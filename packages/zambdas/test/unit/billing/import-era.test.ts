@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, PaymentReconciliation } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
-import { addBillingTagOperation, tagEraResources } from '../../../src/billing/shared';
+import { tagEraResources } from '../../../src/billing/shared';
 
 const paymentReconciliation = (id?: string, tagged = false): PaymentReconciliation => ({
   resourceType: 'PaymentReconciliation',
@@ -43,34 +43,6 @@ const claimResponse = (id: string): ClaimResponse => ({
     display: 'Test Payer',
   },
   outcome: 'complete',
-});
-
-describe('addBillingTagOperation', () => {
-  it('creates the tag array when the resource has no tags', () => {
-    expect(addBillingTagOperation(paymentReconciliation('pr1'))).toEqual({
-      op: 'add',
-      path: '/meta/tag',
-      value: [BILLING_RESOURCE_TAG],
-    });
-  });
-
-  it('preserves existing tags', () => {
-    const otherTag = {
-      system: 'https://example.com/tags',
-      code: 'other',
-    };
-    const resource: PaymentReconciliation = {
-      ...paymentReconciliation('pr1'),
-      meta: {
-        tag: [otherTag],
-      },
-    };
-    expect(addBillingTagOperation(resource)).toEqual({
-      op: 'add',
-      path: '/meta/tag',
-      value: [otherTag, BILLING_RESOURCE_TAG],
-    });
-  });
 });
 
 describe('tagEraResources', () => {

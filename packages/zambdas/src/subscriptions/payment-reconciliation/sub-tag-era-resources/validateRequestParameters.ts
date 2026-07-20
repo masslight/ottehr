@@ -1,6 +1,6 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface TagEraResourcesInput {
   paymentReconciliationId: string;
@@ -18,7 +18,7 @@ export function validateRequestParameters(input: ZambdaInput): TagEraResourcesIn
   if (!input.body) throw MISSING_REQUEST_BODY;
   if (!input.secrets) throw MISSING_REQUEST_SECRETS;
 
-  const paymentReconciliation = safeValidate(PaymentReconciliationBodySchema, safeJsonParse(input.body));
+  const paymentReconciliation = safeValidate(PaymentReconciliationBodySchema, validateJsonBody(input));
 
   return {
     paymentReconciliationId: paymentReconciliation.id,

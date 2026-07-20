@@ -57,6 +57,7 @@ import {
   getClaimStatusValues,
   getNPI,
   getPatchBinary,
+  getPatchOperationForNewMetaTag,
   getPayerId,
   getPayerUrl,
   getResourcesFromBatchInlineRequests,
@@ -962,18 +963,6 @@ export function getDefaultSettingForChargeItemDefinition(
   return defaultValue;
 }
 
-export function addBillingTagOperation(resource: FhirResource): {
-  op: 'add';
-  path: string;
-  value: Coding[];
-} {
-  return {
-    op: 'add',
-    path: '/meta/tag',
-    value: [...(resource.meta?.tag ?? []), BILLING_RESOURCE_TAG],
-  };
-}
-
 export async function tagEraResources({
   oystehr,
   resources,
@@ -991,7 +980,7 @@ export async function tagEraResources({
     getPatchBinary({
       resourceType: resource.resourceType,
       resourceId: resource.id!,
-      patchOperations: [addBillingTagOperation(resource)],
+      patchOperations: [getPatchOperationForNewMetaTag(resource, BILLING_RESOURCE_TAG)],
     })
   );
   await oystehr.fhir.transaction({ requests });
