@@ -18,11 +18,7 @@ interface InsuranceCardOrientationHintProps {
   patientId: string | undefined;
   /** Which insurance the displayed card belongs to (primary vs secondary). */
   ordinal: CardOrdinal;
-  /**
-   * Which face of the card is displayed. OCR judges orientation on the FRONT image only, so the
-   * "Card may be rotated" chip is considered for front cards only; back cards get just the
-   * always-available rotate button.
-   */
+  /** Which face of the card is displayed; each face tracks its own orientation verdict. */
   face: 'front' | 'back';
   /**
    * DocumentReference.id of the DISPLAYED card image. Renders nothing when null (no image to
@@ -40,10 +36,10 @@ interface InsuranceCardOrientationHintProps {
 
 /**
  * Always-available rotate-90°-clockwise control for a displayed insurance-card image, plus a
- * conditional "Card may be rotated" warning chip when the OCR judged the FRONT image not
- * right-side-up (stored extraction `readable === false`). The control stays mounted across
- * rotates so a 180°/270° card can be fixed with repeated clicks; each successful rotate
- * refreshes the image and re-reads the extraction.
+ * conditional "Card may be rotated" warning chip when the OCR judged THIS face not right-side-up
+ * (stored extraction `readable === false`). The control stays mounted across rotates so a
+ * 180°/270° card can be fixed with repeated clicks; each successful rotate refreshes the image
+ * and re-reads the extraction.
  *
  * After a successful rotate the chip is also suppressed client-side for that DocumentReference
  * id: the backend resets `readable` to null, but if that reset patch fails, the stale
@@ -62,11 +58,11 @@ export default function InsuranceCardOrientationHint({
   // DocRef ids successfully rotated in this session: their stale `readable === false` verdicts
   // no longer mean "not upright" (keyed by id so a replaced card image is unaffected).
   const [rotatedDocRefIds, setRotatedDocRefIds] = useState<ReadonlySet<string>>(new Set());
-  const { frontOrientation } = useInsuranceCardExtraction(patientId);
+  const { orientation } = useInsuranceCardExtraction(patientId);
 
   if (documentReferenceId == null) return null;
 
-  const hint = face === 'front' ? frontOrientation[ordinal] : null;
+  const hint = orientation[ordinal][face];
   const looksRotated =
     hint != null &&
     hint.docRefId === documentReferenceId &&

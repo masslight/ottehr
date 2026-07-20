@@ -22,9 +22,9 @@ const CARD_SLOT_BY_TITLE: Partial<Record<string, { ordinal: CardOrdinal; face: C
   [DocumentType.InsuranceBackSecondary]: { ordinal: 'secondary', face: 'back' },
 };
 
-/** The stored OCR orientation verdict for the newest front-card image of one insurance ordinal. */
-export interface FrontCardOrientationHint {
-  /** DocumentReference.id of the front-card image the verdict was stored on. */
+/** The stored OCR orientation verdict for the newest DocRef of one card ordinal + face slot. */
+export interface CardOrientationHint {
+  /** DocumentReference.id of the card image the verdict was stored on. */
   docRefId: string;
   /** `InsuranceCardExtraction.readable` for that image; null/absent means "no hint". */
   readable: boolean | null;
@@ -34,11 +34,11 @@ export interface MergedCardExtractions {
   primary: InsuranceCardExtractionFields | null;
   secondary: InsuranceCardExtractionFields | null;
   /**
-   * Orientation verdict of the NEWEST front-card DocRef per ordinal (OCR judges orientation on
-   * the front image only). Bound to that DocRef's id so consumers can verify the hint belongs
-   * to the exact image they display.
+   * Orientation verdict of the NEWEST DocRef per ordinal + face (the OCR call judges orientation
+   * on every uploaded card image, front and back alike). Bound to that DocRef's id so consumers
+   * can verify the hint belongs to the exact image they display.
    */
-  frontOrientation: Record<CardOrdinal, FrontCardOrientationHint | null>;
+  orientation: Record<CardOrdinal, Record<CardFace, CardOrientationHint | null>>;
 }
 
 export interface UseInsuranceCardExtractionResult extends MergedCardExtractions {
@@ -77,30 +77,33 @@ const mergeFrontBack = (
  * Groups stored card extractions by insurance ordinal (primary vs "-2" secondary titles),
  * keeps the newest DocRef per slot (input is expected newest-first), drops notACard /
  * empty extractions, and merges front + back field-wise with front precedence. Also captures
- * each ordinal's front-card orientation verdict (`readable`) keyed to its DocRef id.
+ * each ordinal + face slot's orientation verdict (`readable`) keyed to its DocRef id.
  *
  * Exported for tests.
  */
 export const mergeCardExtractions = (docRefsNewestFirst: DocumentReference[]): MergedCardExtractions => {
   const bySlot: Partial<Record<CardSlotKey, InsuranceCardExtractionFields>> = {};
-  const frontOrientation: Record<CardOrdinal, FrontCardOrientationHint | null> = { primary: null, secondary: null };
-  const frontSeen: Partial<Record<CardOrdinal, true>> = {};
+  const orientation: Record<CardOrdinal, Record<CardFace, CardOrientationHint | null>> = {
+    primary: { front: null, back: null },
+    secondary: { front: null, back: null },
+  };
+  const seenSlot: Partial<Record<CardSlotKey, true>> = {};
   for (const docRef of docRefsNewestFirst) {
     const title = docRef.content?.[0]?.attachment?.title;
     const slot = title ? CARD_SLOT_BY_TITLE[title] : undefined;
     if (!slot) continue; // photo-ID / full-card-PDF titles carry no per-slot extraction
     const slotKey: CardSlotKey = `${slot.ordinal}-${slot.face}`;
     const needsFields = !bySlot[slotKey]; // newest DocRef per slot wins
-    const isNewestFront = slot.face === 'front' && !frontSeen[slot.ordinal];
-    if (!needsFields && !isNewestFront) continue;
+    const isNewestOfSlot = !seenSlot[slotKey];
+    if (!needsFields && !isNewestOfSlot) continue;
     const extraction = readStoredExtraction(docRef);
-    if (isNewestFront) {
-      frontSeen[slot.ordinal] = true;
-      // The rotate hint must bind to the exact image displayed: only the NEWEST front DocRef's
+    if (isNewestOfSlot) {
+      seenSlot[slotKey] = true;
+      // The rotate hint must bind to the exact image displayed: only the NEWEST DocRef per slot's
       // verdict counts — an older card's `readable` must never flag a newer upload (which may
       // have no extraction yet). No extraction / notACard stores readable as null → "no hint".
       if (docRef.id) {
-        frontOrientation[slot.ordinal] = { docRefId: docRef.id, readable: extraction?.readable ?? null };
+        orientation[slot.ordinal][slot.face] = { docRefId: docRef.id, readable: extraction?.readable ?? null };
       }
     }
     if (!needsFields || !extraction || extraction.notACard || !extraction.fields) continue;
@@ -109,7 +112,7 @@ export const mergeCardExtractions = (docRefsNewestFirst: DocumentReference[]): M
   return {
     primary: mergeFrontBack(bySlot['primary-front'], bySlot['primary-back']),
     secondary: mergeFrontBack(bySlot['secondary-front'], bySlot['secondary-back']),
-    frontOrientation,
+    orientation,
   };
 };
 
@@ -141,7 +144,10 @@ export const useInsuranceCardExtraction = (patientId: string | undefined): UseIn
   return {
     primary: data?.primary ?? null,
     secondary: data?.secondary ?? null,
-    frontOrientation: data?.frontOrientation ?? { primary: null, secondary: null },
+    orientation: data?.orientation ?? {
+      primary: { front: null, back: null },
+      secondary: { front: null, back: null },
+    },
     isLoading: enabled && isLoading,
   };
 };
