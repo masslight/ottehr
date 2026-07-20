@@ -11,10 +11,6 @@ import {
 } from 'fhir/r4b';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
-  // AppointmentSummary,
-  // AvailableLocationInformation,
-  // checkEncounterIsVirtual,
-  // Closure,
   DOB_UNCONFIRMED_ERROR,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
@@ -27,13 +23,7 @@ import {
   Secrets,
   UCGetPaperworkResponse,
 } from 'utils';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  // getOtherOfficesForLocation,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 import { formatPatientSexForPaperwork, getPaperworkSupportingInfoForUserWithAccess } from '../sharedHelpers';
 import { validateRequestParameters } from './validateRequestParameters';
