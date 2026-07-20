@@ -126,19 +126,10 @@ const AI_RESPONSE_KEY_TO_FIELD = {
 
 export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
-export interface InvokeChatbotVertexAIOptions {
-  /**
-   * When true, the full model response body is NOT logged (only candidate count / finish reason).
-   * Set this for call paths where the response may contain PHI (e.g. insurance card OCR).
-   */
-  suppressResponseLogging?: boolean;
-}
-
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
-  responseSchema?: object,
-  options?: InvokeChatbotVertexAIOptions
+  responseSchema?: object
 ): Promise<string> {
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
@@ -205,16 +196,7 @@ export async function invokeChatbotVertexAI(
 
   const response = await (await Promise.any(requests))?.json();
 
-  if (options?.suppressResponseLogging) {
-    // response content may contain PHI for this call path — log metadata only
-    console.log(
-      `Vertex AI response received: candidates=${response?.candidates?.length ?? 0}, finishReason=${
-        response?.candidates?.[0]?.finishReason ?? 'unknown'
-      }`
-    );
-  } else {
-    console.log(JSON.stringify(response));
-  }
+  console.log(JSON.stringify(response));
   return response.candidates[0].content.parts[0].text;
 }
 

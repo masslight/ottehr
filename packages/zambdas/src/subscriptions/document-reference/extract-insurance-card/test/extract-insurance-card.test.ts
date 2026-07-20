@@ -224,14 +224,13 @@ describe('extract-insurance-card handler', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toMatchObject({ documentReferenceId: 'docref-1', extracted: true });
 
-    // model call: prompt + inline image, schema, and PHI response logging suppressed
+    // model call: prompt + inline image + schema
     expect(invokeChatbotVertexAI).toHaveBeenCalledTimes(1);
-    const [parts, , schema, options] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    const [parts, , schema] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
     expect(parts[0]).toEqual({ text: EXTRACTION_PROMPT });
     expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
     expect((parts[1] as any).inlineData.data).toBe(IMAGE_BYTES.toString('base64'));
     expect((schema as any).properties.isInsuranceCard).toEqual({ type: 'boolean' });
-    expect(options).toEqual({ suppressResponseLogging: true });
 
     const stored = getPatchedExtraction();
     expect(stored).toMatchObject({
