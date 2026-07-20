@@ -235,8 +235,7 @@ describe('complexValidation', () => {
 describe('performEffect', () => {
   it('tags the PaymentReconciliation, its Provenance, and its ClaimResponses in one transaction', async () => {
     const prov = provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1', 'ClaimResponse/cr2']);
-    const { oystehr, transaction } = makeOystehr({
-      Provenance: [prov],
+    const { oystehr, search, transaction } = makeOystehr({
       PaymentReconciliation: [paymentReconciliation('pr1')],
       ClaimResponse: [claimResponse('cr1'), claimResponse('cr2')],
     });
@@ -249,12 +248,12 @@ describe('performEffect', () => {
     expect(result).toEqual({ tagged: 4 });
     expect(transaction).toHaveBeenCalledTimes(1);
     expect(transaction.mock.calls[0][0].requests).toHaveLength(4);
+    expect(search.mock.calls.filter((c) => c[0].resourceType === 'Provenance')).toHaveLength(0);
   });
 
   it('skips already-tagged resources and makes no transaction when nothing needs tagging', async () => {
     const prov = provenance('prov1', ['PaymentReconciliation/pr1', 'ClaimResponse/cr1'], true);
     const { oystehr, transaction } = makeOystehr({
-      Provenance: [prov],
       PaymentReconciliation: [paymentReconciliation('pr1', true)],
       ClaimResponse: [claimResponse('cr1', true)],
     });

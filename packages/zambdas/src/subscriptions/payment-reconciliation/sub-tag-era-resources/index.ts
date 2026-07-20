@@ -2,10 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentReconciliation, Provenance } from 'fhir/r4b';
 import { sleep } from 'utils';
-import {
-  fetchClaimResponsesByPaymentReconciliations,
-  fetchEraProcessingProvenances,
-} from '../../../billing/claim-amounts';
+import { fetchClaimResponsesFromEraProvenances, fetchEraProcessingProvenances } from '../../../billing/claim-amounts';
 import { createEraReadClient, fetchById, tagEraResources } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -75,9 +72,7 @@ export async function performEffect(oystehr: Oystehr, validated: ValidatedTaggin
     paymentReconciliationId
   );
   const claimResponses =
-    (await fetchClaimResponsesByPaymentReconciliations(oystehr, [paymentReconciliation])).get(
-      paymentReconciliationId
-    ) ?? [];
+    (await fetchClaimResponsesFromEraProvenances(oystehr, provenances)).get(paymentReconciliationId) ?? [];
 
   const tagged = await tagEraResources({
     oystehr,

@@ -286,7 +286,13 @@ export async function fetchClaimResponsesByPaymentReconciliations(
     oystehr,
     prIds.map((id) => `PaymentReconciliation/${id}`)
   );
+  return fetchClaimResponsesFromEraProvenances(oystehr, provenances);
+}
 
+export async function fetchClaimResponsesFromEraProvenances(
+  oystehr: Oystehr,
+  provenances: Provenance[]
+): Promise<Map<string, ClaimResponse[]>> {
   const claimResponseIdsByPrId = new Map<string, string[]>();
   for (const provenance of provenances) {
     const claimResponseIds = eraProvenanceTargetIds(provenance, 'ClaimResponse');
