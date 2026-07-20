@@ -14,9 +14,10 @@ builder in `packages/zambdas/src/shared/invoice-tasks.ts`; everything downstream
 Patients screens, `get-invoices-tasks`, CSV export, the Stripe send subscription, statements,
 outreach) is source-agnostic over those Tasks. A Task's origin is recorded as a `meta.tag` under
 `invoice-task-source` (`candid` | `ottehr-billing`); legacy pre-migration tasks carry no tag and are
-treated as `candid` everywhere (`getInvoiceTaskSource`). Billing-produced tasks additionally carry a
-searchable `invoice-task-claim-id` identifier used for per-claim dedup and for refresh lookups
-against the `search-billing-patient-ar-claims` endpoint.
+treated as `candid` everywhere (`getInvoiceTaskSource`). Billing-produced tasks additionally carry
+an `invoice-task-claim-id` identifier recording the originating claim id, read off the task in
+memory (not via a FHIR search) for per-claim dedupe and for refresh balance lookups against the
+`search-billing-patient-ar-claims` endpoint.
 
 ## 2. The two control knobs
 
