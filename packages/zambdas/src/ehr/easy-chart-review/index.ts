@@ -33,6 +33,7 @@ const CATEGORY_VALUES = [
   'secondary-dx',
   'disposition',
   'cpt',
+  'coherence',
   'other',
 ] as const;
 
@@ -145,7 +146,7 @@ const buildPrompt = (
 NARRATIVE below; the structured items now on the chart are in ALREADY ON THE CHART. Your job is to
 surface clarifications the provider can accept with ONE CLICK to improve the note.
 
-Work through ALL EIGHT checks below and emit one suggestion for EACH check that finds a real gap
+Work through ALL NINE checks below and emit one suggestion for EACH check that finds a real gap
 (commonly 2–5 total). Don't invent low-value suggestions, but don't skip a check that genuinely
 applies either. If truly nothing warrants a prompt, return {"suggestions": []}.
 
@@ -250,6 +251,29 @@ Each suggestion is in exactly one of these categories, with the given action sha
      and NOT procedures merely discussed or declined.
    - NOT a code already charted (or a procedure listed in ALREADY ON THE CHART — its CPT is
      already carried by the procedure entry).
+
+9) "coherence" — a charted structured item the note's OWN content does not support. Cross-check
+   EVERY charted diagnosis (first and foremost), and each charted medication order and CPT, against
+   the note's HPI/MDM text and the NARRATIVE. Flag an item ONLY when it names a condition, body
+   system, or clinical scenario the note clearly does not describe — e.g. the sole charted diagnosis
+   is "Personal history of pneumonia" while the MDM and HPI describe folliculitis of the nasal
+   vestibule.
+   ACTION for a wrong DIAGNOSIS: the same TWO-intent swap as check 2 — { "kind":"remove-diagnosis",
+   "display": <the charted diagnosis text> } then { "kind":"add-diagnosis", "display": <the
+   diagnosis the note actually supports>, "searchTerms":[...], "isPrimary": <same as the one
+   removed>, "code": <best ICD-10> }. Emit only the remove-diagnosis when the note supports no
+   replacement.
+   ACTION for an unsupported medication: one { "kind":"remove-medication", "display": <the charted
+   medication text> }. For an unsupported CPT: one { "kind":"remove-cpt", "code": <the charted
+   code> }.
+   REQUIRED: a "rationale" citing WHAT in the note contradicts the item (e.g. "assessment codes
+   personal history of pneumonia, but the MDM and HPI describe folliculitis of the nasal vestibule").
+   PRECISION OVER RECALL — a false alarm here erodes trust in every card:
+   - Flag only a CLEAR mismatch a reasonable clinician would immediately object to.
+   - Do NOT flag plausible comorbidities, incidental findings, or items the NARRATIVE supports even
+     when the HPI/MDM text omits them.
+   - A less-specific code of the RIGHT condition is check 2's job, not a coherence flag.
+   - When unsure, stay silent.
 
 RULES:
 - NEVER suggest adding something that already appears in ALREADY ON THE CHART.

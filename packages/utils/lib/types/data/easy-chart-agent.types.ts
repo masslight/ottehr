@@ -288,6 +288,9 @@ export interface EasyChartSuggestion {
     | 'secondary-dx'
     | 'disposition'
     | 'cpt'
+    // A charted structured item (dx/med/CPT) contradicted or unsupported by the note's own
+    // HPI/MDM/narrative — a wrong-condition dx swap or an unsupported item's removal.
+    | 'coherence'
     | 'other';
   // The question shown on the card, e.g. "You wrote 'Ciner' — did you mean Cefdinir?".
   question: string;
