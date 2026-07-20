@@ -87,13 +87,7 @@ async function performEffect(params: PerformEffectParams): Promise<{ message: st
 
   const linkedClaims = arClaims.filter((item) => {
     if (item.encounterId) return true;
-    const error = new Error(`Patient AR claim ${item.claimId} has no encounter linkage; cannot create invoice task`);
-    console.warn(error.message);
-    captureException(error, {
-      tags: {
-        claimId: item.claimId,
-      },
-    });
+    console.warn(`Patient AR claim ${item.claimId} has no encounter linkage; cannot create invoice task`);
     return false;
   });
 
@@ -177,14 +171,7 @@ async function getClaimsWithoutTask(params: {
     const encounterId = item.encounterId ?? '';
     const encounter = encountersById.get(encounterId);
     if (!encounter) {
-      const error = new Error(`No clinical encounter ${encounterId} found for patient AR claim ${item.claimId}`);
-      console.warn(error.message);
-      captureException(error, {
-        tags: {
-          claimId: item.claimId,
-          encounterId,
-        },
-      });
+      console.warn(`No clinical encounter ${encounterId} found for patient AR claim ${item.claimId}`);
       continue;
     }
 
@@ -197,17 +184,9 @@ async function getClaimsWithoutTask(params: {
     if (existingTasks.length > 0) {
       const blockingTask = existingTasks[0];
       const blockingSource = getInvoiceTaskSource(blockingTask);
-      const error = new Error(
+      console.warn(
         `Encounter ${encounterId} already has a ${blockingSource}-sourced send-invoice task (${blockingTask.id}); skipping billing claim ${item.claimId}`
       );
-      console.warn(error.message);
-      captureException(error, {
-        tags: {
-          claimId: item.claimId,
-          encounterId,
-          blockingSource,
-        },
-      });
       continue;
     }
 

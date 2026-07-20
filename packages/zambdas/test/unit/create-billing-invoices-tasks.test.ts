@@ -7,7 +7,7 @@ import {
   PatientArClaimItem,
   RcmTaskCodings,
 } from 'utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 const mockClinicalClient = {
@@ -57,6 +57,7 @@ vi.mock('@sentry/aws-serverless', () => ({
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 let handler!: ZambdaHandler;
+let warnSpy!: ReturnType<typeof vi.spyOn>;
 
 const arItem = (overrides: Partial<PatientArClaimItem> = {}): PatientArClaimItem => ({
   claimId: 'claim-1',
@@ -141,10 +142,15 @@ describe('create-billing-invoices-tasks', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockClinicalClient.fhir.create.mockImplementation((task: Task) => Promise.resolve({ ...task, id: 'created-1' }));
     ({ index: handler } = (await import('../../src/cron/create-billing-invoices-tasks/index')) as unknown as {
       index: ZambdaHandler;
     });
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
   });
 
   it('skips without touching any client when the env is candid-only', async () => {
@@ -195,7 +201,7 @@ describe('create-billing-invoices-tasks', () => {
     expect(parseInvoiceTaskInput(createdTask).claimId).toBe('claim-1');
   });
 
-  it('skips claims without encounter linkage, loudly', async () => {
+  it('skips claims without encounter linkage, warning without a Sentry exception', async () => {
     mockFetchAllActivePatientArClaims.mockResolvedValue([
       arItem({
         claimId: 'claim-unlinked',
@@ -206,10 +212,8 @@ describe('create-billing-invoices-tasks', () => {
     await runHandler();
 
     expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
-    expect(mockCaptureException).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('no encounter linkage') }),
-      expect.anything()
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('no encounter linkage'));
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
   it('skips quietly when the claim already has its own invoice task', async () => {
@@ -224,20 +228,18 @@ describe('create-billing-invoices-tasks', () => {
     expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
-  it('skips loudly naming the candid source when a legacy candid task blocks the encounter', async () => {
+  it('warns naming the candid source when a legacy candid task blocks the encounter', async () => {
     mockFetchAllActivePatientArClaims.mockResolvedValue([arItem()]);
     mockClinicalClient.fhir.search.mockResolvedValue(bundleOf([encounter('enc-1'), sendInvoiceTask('enc-1')]));
 
     await runHandler();
 
     expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
-    expect(mockCaptureException).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('candid-sourced') }),
-      expect.anything()
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('candid-sourced'));
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
-  it('skips loudly naming the billing source when a different billing claim already holds the encounter', async () => {
+  it('warns naming the billing source when a different billing claim already holds the encounter', async () => {
     mockFetchAllActivePatientArClaims.mockResolvedValue([arItem({ claimId: 'claim-1' })]);
     mockClinicalClient.fhir.search.mockResolvedValue(
       bundleOf([encounter('enc-1'), sendInvoiceTask('enc-1', 'claim-other')])
@@ -246,10 +248,8 @@ describe('create-billing-invoices-tasks', () => {
     await runHandler();
 
     expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
-    expect(mockCaptureException).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('ottehr-billing-sourced') }),
-      expect.anything()
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ottehr-billing-sourced'));
+    expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
   it('processes the whole AR queue from a single fetch', async () => {
