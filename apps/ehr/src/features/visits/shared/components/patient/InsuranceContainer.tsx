@@ -183,7 +183,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     ? buildAdditionalInfoSuggestion(
         cardFields,
         planTypeSuggestion != null,
-        carrierSuggestion?.resolvedByPayerId === true
+        carrierSuggestion?.resolvedByPayerId === true,
+        watch(FormFields.additionalInformation.key)
       )
     : null;
 
@@ -752,8 +753,17 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         {additionalInfoSuggestion && (
           <InsuranceCardAiSuggestionRow
             fieldKey={FormFields.additionalInformation.key}
-            suggestedDisplay={additionalInfoSuggestion}
-            suggestedFormValue={additionalInfoSuggestion}
+            suggestedDisplay={additionalInfoSuggestion.display}
+            suggestedFormValue={additionalInfoSuggestion.formValue}
+            suggestedComparable={additionalInfoSuggestion.comparable}
+            // The accept writes an appended value, not an exact replacement, so "already
+            // accepted" is "current text contains the card-derived text", not equality.
+            getCurrentComparable={(value) => {
+              const current = value == null ? '' : String(value);
+              return current.includes(additionalInfoSuggestion.comparable)
+                ? additionalInfoSuggestion.comparable
+                : current;
+            }}
           />
         )}
         {isNew ? (
