@@ -105,6 +105,14 @@ const sendInvoiceTask = (encounterId: string, claimId?: string): Task =>
     },
     ...(claimId
       ? {
+          meta: {
+            tag: [
+              {
+                system: INVOICE_TASK_SOURCE_SYSTEM,
+                code: 'ottehr-billing',
+              },
+            ],
+          },
           identifier: [
             {
               system: INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM,
@@ -216,7 +224,7 @@ describe('create-billing-invoices-tasks', () => {
     expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
-  it('skips loudly when the encounter already has a task from another source', async () => {
+  it('skips loudly naming the candid source when a legacy candid task blocks the encounter', async () => {
     mockFetchAllActivePatientArClaims.mockResolvedValue([arItem()]);
     mockClinicalClient.fhir.search.mockResolvedValue(bundleOf([encounter('enc-1'), sendInvoiceTask('enc-1')]));
 
@@ -224,7 +232,22 @@ describe('create-billing-invoices-tasks', () => {
 
     expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
     expect(mockCaptureException).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('another source') }),
+      expect.objectContaining({ message: expect.stringContaining('candid-sourced') }),
+      expect.anything()
+    );
+  });
+
+  it('skips loudly naming the billing source when a different billing claim already holds the encounter', async () => {
+    mockFetchAllActivePatientArClaims.mockResolvedValue([arItem({ claimId: 'claim-1' })]);
+    mockClinicalClient.fhir.search.mockResolvedValue(
+      bundleOf([encounter('enc-1'), sendInvoiceTask('enc-1', 'claim-other')])
+    );
+
+    await runHandler();
+
+    expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
+    expect(mockCaptureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('ottehr-billing-sourced') }),
       expect.anything()
     );
   });

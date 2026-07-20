@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Task } from 'fhir/r4b';
 import { chunkThings, PatientArClaimItem, RcmTaskCodings } from 'utils';
-import { getInvoiceTaskClaimId } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { fetchAllActivePatientArClaims } from '../../billing/search-billing-patient-ar-claims/handler';
 import { createBillingClient, createEraReadClient } from '../../billing/shared';
 import {
@@ -195,14 +195,17 @@ async function getClaimsWithoutTask(params: {
       continue;
     }
     if (existingTasks.length > 0) {
+      const blockingTask = existingTasks[0];
+      const blockingSource = getInvoiceTaskSource(blockingTask);
       const error = new Error(
-        `Encounter ${encounterId} already has a send-invoice task from another source; skipping billing claim ${item.claimId}`
+        `Encounter ${encounterId} already has a ${blockingSource}-sourced send-invoice task (${blockingTask.id}); skipping billing claim ${item.claimId}`
       );
       console.warn(error.message);
       captureException(error, {
         tags: {
           claimId: item.claimId,
           encounterId,
+          blockingSource,
         },
       });
       continue;
