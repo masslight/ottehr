@@ -19,7 +19,7 @@ const mockClinicalClient = {
 const mockBillingClient = { billing: true };
 const mockEraReadClient = { eraRead: true };
 const mockCreateClinicalOystehrClient = vi.fn((..._args: unknown[]) => mockClinicalClient);
-const mockSearchPatientArClaims = vi.fn();
+const mockFetchAllActivePatientArClaims = vi.fn();
 const mockCaptureException = vi.fn();
 
 vi.mock('../../src/shared', async (importOriginal) => {
@@ -38,7 +38,7 @@ vi.mock('../../src/billing/shared', () => ({
 }));
 
 vi.mock('../../src/billing/search-billing-patient-ar-claims/handler', () => ({
-  searchPatientArClaims: (...args: unknown[]) => mockSearchPatientArClaims(...args),
+  fetchAllActivePatientArClaims: (...args: unknown[]) => mockFetchAllActivePatientArClaims(...args),
 }));
 
 vi.mock('../../src/rcm/invoice-config/helpers', () => ({
@@ -151,22 +151,17 @@ describe('create-billing-invoices-tasks', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).message).toContain('disabled');
     expect(mockCreateClinicalOystehrClient).not.toHaveBeenCalled();
-    expect(mockSearchPatientArClaims).not.toHaveBeenCalled();
+    expect(mockFetchAllActivePatientArClaims).not.toHaveBeenCalled();
   });
 
   it('creates a billing-sourced task for an active AR claim', async () => {
-    mockSearchPatientArClaims.mockResolvedValue({
-      claims: [arItem()],
-      total: 1,
-      offset: 0,
-      pageSize: 500,
-    });
+    mockFetchAllActivePatientArClaims.mockResolvedValue([arItem()]);
     mockClinicalClient.fhir.search.mockResolvedValue(bundleOf([encounter('enc-1')]));
 
     const result = await runHandler();
     expect(result.statusCode).toBe(200);
 
-    expect(mockSearchPatientArClaims).toHaveBeenCalledWith(
+    expect(mockFetchAllActivePatientArClaims).toHaveBeenCalledWith(
       expect.objectContaining({
         billingClient: mockBillingClient,
         eraReadClient: mockEraReadClient,
@@ -193,12 +188,12 @@ describe('create-billing-invoices-tasks', () => {
   });
 
   it('skips claims without encounter linkage, loudly', async () => {
-    mockSearchPatientArClaims.mockResolvedValue({
-      claims: [arItem({ claimId: 'claim-unlinked', encounterId: null })],
-      total: 1,
-      offset: 0,
-      pageSize: 500,
-    });
+    mockFetchAllActivePatientArClaims.mockResolvedValue([
+      arItem({
+        claimId: 'claim-unlinked',
+        encounterId: null,
+      }),
+    ]);
 
     await runHandler();
 
@@ -210,12 +205,7 @@ describe('create-billing-invoices-tasks', () => {
   });
 
   it('skips quietly when the claim already has its own invoice task', async () => {
-    mockSearchPatientArClaims.mockResolvedValue({
-      claims: [arItem()],
-      total: 1,
-      offset: 0,
-      pageSize: 500,
-    });
+    mockFetchAllActivePatientArClaims.mockResolvedValue([arItem()]);
     mockClinicalClient.fhir.search.mockResolvedValue(
       bundleOf([encounter('enc-1'), sendInvoiceTask('enc-1', 'claim-1')])
     );
@@ -227,12 +217,7 @@ describe('create-billing-invoices-tasks', () => {
   });
 
   it('skips loudly when the encounter already has a task from another source', async () => {
-    mockSearchPatientArClaims.mockResolvedValue({
-      claims: [arItem()],
-      total: 1,
-      offset: 0,
-      pageSize: 500,
-    });
+    mockFetchAllActivePatientArClaims.mockResolvedValue([arItem()]);
     mockClinicalClient.fhir.search.mockResolvedValue(bundleOf([encounter('enc-1'), sendInvoiceTask('enc-1')]));
 
     await runHandler();
@@ -244,35 +229,22 @@ describe('create-billing-invoices-tasks', () => {
     );
   });
 
-  it('pages through the whole AR queue', async () => {
-    mockSearchPatientArClaims
-      .mockResolvedValueOnce({
-        claims: [
-          arItem({
-            claimId: 'claim-1',
-            encounterId: 'enc-1',
-          }),
-        ],
-        total: 501,
-        offset: 0,
-        pageSize: 500,
-      })
-      .mockResolvedValueOnce({
-        claims: [
-          arItem({
-            claimId: 'claim-2',
-            encounterId: 'enc-2',
-          }),
-        ],
-        total: 501,
-        offset: 500,
-        pageSize: 500,
-      });
+  it('processes the whole AR queue from a single fetch', async () => {
+    mockFetchAllActivePatientArClaims.mockResolvedValue([
+      arItem({
+        claimId: 'claim-1',
+        encounterId: 'enc-1',
+      }),
+      arItem({
+        claimId: 'claim-2',
+        encounterId: 'enc-2',
+      }),
+    ]);
     mockClinicalClient.fhir.search.mockResolvedValue(bundleOf([encounter('enc-1'), encounter('enc-2')]));
 
     await runHandler();
 
-    expect(mockSearchPatientArClaims).toHaveBeenCalledTimes(2);
+    expect(mockFetchAllActivePatientArClaims).toHaveBeenCalledTimes(1);
     expect(mockClinicalClient.fhir.create).toHaveBeenCalledTimes(2);
   });
 });

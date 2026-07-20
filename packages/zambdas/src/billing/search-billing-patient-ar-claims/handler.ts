@@ -34,12 +34,48 @@ export interface SearchPatientArClaimsParams {
   pageSize?: number;
 }
 
+interface PatientArMatch {
+  claim: Claim;
+  claimId: string;
+  patientId: string;
+  statuses: ClaimStatusValues;
+  payments: ClaimPaymentSummary;
+}
+
 export async function searchPatientArClaims(
   params: SearchPatientArClaimsParams
 ): Promise<SearchBillingPatientArClaimsResponse> {
-  const { billingClient, eraReadClient, patientId, claimIds, includeZeroBalance } = params;
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
   const offset = params.offset ?? 0;
+
+  const matches = await collectPatientArMatches(params);
+  const page = matches.slice(offset, offset + pageSize);
+  const items = await buildPatientArClaimItems(params.billingClient, page);
+
+  return {
+    claims: items,
+    total: matches.length,
+    offset,
+    pageSize,
+  };
+}
+
+export async function fetchAllActivePatientArClaims(params: {
+  billingClient: Oystehr;
+  eraReadClient: Oystehr;
+}): Promise<PatientArClaimItem[]> {
+  const matches = await collectPatientArMatches(params);
+  return buildPatientArClaimItems(params.billingClient, matches);
+}
+
+async function collectPatientArMatches(params: {
+  billingClient: Oystehr;
+  eraReadClient: Oystehr;
+  patientId?: string;
+  claimIds?: string[];
+  includeZeroBalance?: boolean;
+}): Promise<PatientArMatch[]> {
+  const { billingClient, eraReadClient, patientId, claimIds, includeZeroBalance } = params;
 
   const claims = await fetchPatientArStageClaims({
     billingClient,
@@ -51,7 +87,7 @@ export async function searchPatientArClaims(
     claims.map((c) => c.id).filter(Boolean) as string[]
   );
 
-  const candidates = claims.map((claim) => {
+  const candidates: PatientArMatch[] = claims.map((claim) => {
     const claimId = claim.id ?? '';
     return {
       claim,
@@ -69,17 +105,22 @@ export async function searchPatientArClaims(
       claimServiceDate(b.claim).localeCompare(claimServiceDate(a.claim)) ||
       (a.claim.id ?? '').localeCompare(b.claim.id ?? '')
   );
-  const page = matches.slice(offset, offset + pageSize);
+  return matches;
+}
 
+async function buildPatientArClaimItems(
+  billingClient: Oystehr,
+  matches: PatientArMatch[]
+): Promise<PatientArClaimItem[]> {
   const [patientsById, provenancesByClaimId] = await Promise.all([
     fetchPatientsById(
       billingClient,
-      page.map(({ patientId }) => patientId)
+      matches.map(({ patientId }) => patientId)
     ),
-    fetchClaimProvenances(billingClient, page.map(({ claimId }) => claimId).filter(Boolean)),
+    fetchClaimProvenances(billingClient, matches.map(({ claimId }) => claimId).filter(Boolean)),
   ]);
 
-  const items = page.map(({ claim, claimId, patientId, payments }) =>
+  return matches.map(({ claim, claimId, patientId, payments }) =>
     mapToPatientArClaimItem({
       claim,
       patient: patientsById.get(patientId),
@@ -87,13 +128,6 @@ export async function searchPatientArClaims(
       finalizationDate: deriveFinalizationDate(provenancesByClaimId.get(claimId) ?? [], claim),
     })
   );
-
-  return {
-    claims: items,
-    total: matches.length,
-    offset,
-    pageSize,
-  };
 }
 
 export function isInActivePatientArStage(statuses: ClaimStatusValues): boolean {

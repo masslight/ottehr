@@ -4,7 +4,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Task } from 'fhir/r4b';
 import { chunkThings, PatientArClaimItem, RcmTaskCodings } from 'utils';
 import { getInvoiceTaskClaimId } from 'utils/lib/helpers/tasks/invoices-tasks';
-import { searchPatientArClaims } from '../../billing/search-billing-patient-ar-claims/handler';
+import { fetchAllActivePatientArClaims } from '../../billing/search-billing-patient-ar-claims/handler';
 import { createBillingClient, createEraReadClient } from '../../billing/shared';
 import {
   getOrCreateInvoicingConfig,
@@ -24,7 +24,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-billing-invoices-tasks';
-const AR_PAGE_SIZE = 500;
 const ENCOUNTER_CHUNK_SIZE = 50;
 
 interface BillingInvoicePackage {
@@ -124,30 +123,6 @@ async function performEffect(params: PerformEffectParams): Promise<{ message: st
   );
 
   return { message: 'Successfully created tasks for billing claims' };
-}
-
-async function fetchAllActivePatientArClaims(params: {
-  billingClient: Oystehr;
-  eraReadClient: Oystehr;
-}): Promise<PatientArClaimItem[]> {
-  const { billingClient, eraReadClient } = params;
-  const items: PatientArClaimItem[] = [];
-  let offset = 0;
-  let total = 0;
-  let lastPageCount = 0;
-  do {
-    const page = await searchPatientArClaims({
-      billingClient,
-      eraReadClient,
-      offset,
-      pageSize: AR_PAGE_SIZE,
-    });
-    items.push(...page.claims);
-    total = page.total;
-    lastPageCount = page.claims.length;
-    offset += AR_PAGE_SIZE;
-  } while (offset < total && lastPageCount > 0);
-  return items;
 }
 
 async function getClaimsWithoutTask(params: {
