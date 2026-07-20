@@ -1,6 +1,6 @@
 # External Labs Module Overview & Flow
 
-The External Labs Module is responsible for lab ordering flows and result flows. The module is a combination of **Ottehr** (frontend EHR) UI, **zambdas** (frontend EHR backed) and **Oystehr** (services backend) calls. The data layer consists of various FHIR resources including (but not limited to): Patient, ServiceRequest, DiagnosticReport, Observation, Location, Organization, Task, Coverage, Account, and DocumentReference.
+The External Labs Module is responsible for lab ordering flows and result flows. The module is a combination of **Ottehr** (frontend EHR) UI, **zambdas** (EHR backend) and **Oystehr** (services backend) calls. The data layer consists of various FHIR resources including (but not limited to): Patient, ServiceRequest, DiagnosticReport, Observation, Location, Organization, Task, Coverage, Account, and DocumentReference.
 
 Various zambdas involved in the External Labs Module make calls to the Oystehr Lab Service. This service provides endpoints responsible for surfacing searchable live lab compendium information (i.e. tests and their codes, along with any available specimen collection information), order submission, result parsing, and route creation. Documentation on each of these functionalities, as well as the FHIR resource requirements necessary for submitting a lab can be found here: [Oystehr Lab Service Documentation](https://docs.oystehr.com/oystehr/services/lab/). API docs can be found [here](https://api-reference.oystehr.com/reference/) (search for "Lab" using the search bar).
 
@@ -37,10 +37,11 @@ The External Labs flow for solicited results at a high level is as follows:
 
 1. Establish a **[route](https://docs.oystehr.com/oystehr/services/lab/onboarding-a-lab/)** to the lab.
 
-- You will need an account number
+- You will need an account number. This will be provided by the laboratory
 - Note that the lab's lab guid is environment dependent (sandbox vs production)
 - For early development, we recommend establishing a route to AutoLab, `labGuid: 790b282d-77e9-4697-9f59-0cef8238033a` (sandbox). See [Testing the Lab Module](#testing-the-lab-module) below.
 - For those forking Ottehr and deploying via Terraform and IaC, lab routes can be configured in `config/oystehr/labRoutes.json`, with references to account numbers and labGuids in the appropriate secrets file. See the [Deploy README](/deploy/README.md) for more information.
+  - For those not forking Ottehr or not using IaC to manage their Ottehr app, routes will need to be created and managed manually on each of your environments. Please see the linked [Oystehr docs](https://docs.oystehr.com/oystehr/services/lab/onboarding-a-lab/) for more information.
 
 2. Create an [Organization](https://docs.oystehr.com/oystehr/services/lab/submit-an-order/#organization) representing the lab
 
@@ -74,10 +75,10 @@ The External Labs flow for solicited results at a high level is as follows:
 
 4. Create a lab order
 
+- Form is populated by the `get-create-lab-order-resources` zambda
 - Hits the Oystehr Lab Service [orderable item search](https://docs.oystehr.com/oystehr/services/lab/explore-the-compendium/#orderable-item-search) to populate the list of tests. Which laboratory's tests are populated is driven by which lab account numbers are associated with the ordering Location
 - Multiple tests can be created at once. The zambda handles putting each test into its proper requisition. Labs prefer as many tests in a single requisition as possible to cut down on their accessioning fees.
 - At least one Dx code is required. The form will pull from Dx currently associated with the chart / Encounter. The form also supports adding Dx directly via the order.
-- The `create-lab-order` zambda is called on submit
 - This is the screen where the provider dictates whether the test will be ordered as PSC (specimen collected at a patient service center) or onsite at the practice
 - This is the screen where the provider dictates the payment type for the test(s). If active patient insurance (Coverage) is detected, the form will render "Insurance" as an option. To enable Client Billing as an option, a Coverage with specific information must exist, see these [docs](https://docs.oystehr.com/oystehr/services/lab/submit-an-order/#client-bill).
   - Client Billing depends on an Organization resource representing the practice. This Organization's id is referenced in the `create-lab-order` zambda as `clientOrgId` and can look like the following. The `create-lab-order` will handle configuring the Coverage resource correctly:
@@ -97,10 +98,12 @@ The External Labs flow for solicited results at a high level is as follows:
   ```
   - In standard Ottehr deployments, this Organization is IaC managed as `"OTTEHR_ORGANIZATION"` in `config/oystehr/miscFhirResources.json`
 - If any lab sets are available in the environment, the form will render the button to add tests from the available lab sets. See [Ordering via Lab Sets](#ordering-via-lab-sets) below.
+- The `create-lab-order` zambda is called on submit
 
-5. Answer AOEs ("answer on entry" questions) and mark the test as ready to submit from the order details page
+5. Collect sample, answer AOEs ("answer on entry" questions), and mark the test as ready to submit from the order details page
 
-- If collecting a specimen in house, a specimen collection label will generated
+- If the test was ordered as PSC, no specimen collection information will render. Otherwise, compendium-driven specimen collection information will render, and a specimen collection datetime must be populated.
+- If collecting a specimen in house, a specimen collection label will generated.
 - AOEs are dynamically pulled from the lab's compendium for the given test. The answers are patient specific. Ottehr does not currently support pre-filling these tests, and we advise caution doing so.
 - Required AOEs must be populated before the test can be marked as ready
 - Labs require even PSC orders to populate AOE questions
@@ -108,6 +111,10 @@ The External Labs flow for solicited results at a high level is as follows:
 5. Submit the lab
 
 - Submit button only available once all tests in a requisition have been marked as "Ready"
+- Labs prefer that as many tests as possible are included in a single requisition /bundle. For a given patient and encounter, tests are added to an in-progress requisition / bundle if they have the same properties listed below. Note that the Oystehr Lab Service will do additional validation to ensure all tests in a requisition are valid members:
+  - Filler laboratory
+  - PSC status
+  - Payment method
 - `submit-lab-order` zambda is called. Hits the Oystehr Submit Lab endpoint to validate the order and electronically submit the order to the lab. If submitted successfully, the zambda will generate a PDF order form to be included with the specimen or given to the patient in the case of a PSC order. LabCorp and Quest have distinct order forms different from the standard order form. These will be returned by the Oystehr Lab Submit endpoint if applicable, see [LabCorp and Quest](https://docs.oystehr.com/oystehr/services/lab/submit-an-order/#labcorp-and-quest).
 - If submitting with Medicare/Medicaid to LabCorp/Quest, an ABN ("advance beneficiary notice") may be generated. This will be returned by the Oystehr Lab Submit endpoint if applicable and an appropriate banner will be displayed indicating a signature on the ABN must be obtained. See [LabCorp and Quest > ABN ](https://docs.oystehr.com/oystehr/services/lab/submit-an-order/#advance-beneficiary-notice-abn-documentreferences)
 
@@ -116,7 +123,7 @@ The External Labs flow for solicited results at a high level is as follows:
 - The Oystehr Lab Service handles parsing HL7 into [results](https://docs.oystehr.com/oystehr/services/lab/results/) in the form of DiagnosticReports, Observations, and DocumentReferences for any lab provided PDFs.
 - Ottehr handles multiple result types, including preliminary, final, corrected, cancelled, reflex and unsolicited results. For more information on unsolicited results, see the section below and the Oystehr Lab Service section on [unsolicited results](https://docs.oystehr.com/oystehr/services/lab/results/#unsolicited-results).
   - Final results will overwrite preliminary results. Corrected results will overwrite final results.
-- The subscription zambda `handle-lab-result` is triggered by creation or updates to DiagnosticReports matching the lab result tag. The zambda handles updating/deleting tasks (which can be used for alert workflows), as well as generating result PDFs.
+- The subscription zambda `handle-lab-result` is triggered by creation or updates to DiagnosticReports matching the lab result tag. The zambda handles updating/deleting tasks (which can be used for alert workflows), as well as generating result PDFs. See the `handle-lab-result` section below for more detail.
 
 7. Mark results as reviewed once a provider has reviewed results.
 
@@ -131,9 +138,67 @@ At a high level:
 1. The Oystehr Lab Service receives an unsolicited result and writes the appropriate FHIR resources.
 2. The `handle-lab-result` zambda is triggered.
 3. A new task to match the result to a patient is created and is available in the `<UnsolicitedResultsInbox>`
+
+- **Note**: The `<UnsolicitedResultsInbox>` is a legacy component. It is discussed here for simplicity, but the correct component for all Task-based workflows is the `<Tasks>` component which renders the Ottehr task inbox.
+
 4. A provider matches the result to an existing order if applicable, or to a patient. If no match can be made, the provider rejects the result.
 5. The `handle-lab-result` zambda is triggered again due to the update. Task resources are updated as necessary, and the result form PDF is created.
 6. Provider reviews the result.
+
+### Lab Order Status Determination
+
+Status is computed by a helper within the `get-lab-orders` zambda. The helper is `parseLabOrderStatus()` (`packages/zambdas/src/ehr/lab/external/get-lab-orders/helpers.ts`). The function evaluates FHIR resources in a fixed priority order and returns the **first** matching status. Possible values come from `ExternalLabsStatus` (`packages/utils/lib/types/data/labs/labs.types.ts`).
+
+**Note**: The result's status (as dictated by the laboratory) and the status in Ottehr are closely related but not identical.
+
+Statuses as dictated by the laboratory are captured in `DiagnosticReport.status` and include values like `preliminary`, `final`, `corrected`, and `cancelled`.
+
+The Ottehr statuses are partially driven by the result status but also encode additional information, e.g. `sent` vs `sent manually`.
+
+#### Resources Consulted
+
+| Resource           | Fields used                                                                                                                             |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `ServiceRequest`   | `status` (`draft` / `active` / `revoked`), `extension` (rejected-ABN marker), `category.coding` (manual-order tag)                      |
+| `Task`             | `status` (`ready` / `in-progress` / `completed` / `cancelled`), `code.coding[].code` (task type), `basedOn` (links to DiagnosticReport) |
+| `DiagnosticReport` | `status` (`preliminary` / `final` / `corrected` / `cancelled`), `id` (matched via `Task.basedOn`)                                       |
+
+Task type codes referenced below:
+
+| Code     | Meaning                        |
+| -------- | ------------------------------ |
+| `PST`    | Pre-Submission Task            |
+| `RFRT`   | Review Final Result Task       |
+| `RCRT`   | Review Corrected Result Task   |
+| `RPRT`   | Review Preliminary Result Task |
+| `RCANRT` | Review Cancelled Result Task   |
+| `MURT`   | Match Unsolicited Result Task  |
+
+#### Status Evaluation Order (First Match Wins)
+
+1. **`rejected abn`** — `ServiceRequest.extension` contains `https://extensions.fhir.oystehr.com/reason-sr-revoked` with `valueCode = "rejected-abn"`. Checked before everything else because an ABN rejection supersedes any result state.
+
+2. **`cancelled by lab`** — One or more `RCANRT` Tasks exist (covering either the ordered test or a reflex test). These tasks are created by `handle-lab-result` when a DiagnosticReport with `status: cancelled` arrives.
+
+3. **`pending`** — PST Task is `ready` or `in-progress` **and** `ServiceRequest.status === 'draft'`. This is the initial state after order creation before the provider has finished collecting the specimen and answering AOEs.
+
+4. **`ready`** — PST Task is `completed` **and** `ServiceRequest.status === 'draft'`. The provider has marked the order ready but it has not been submitted yet.
+
+5. **`sent`** / **`sent manually`** — PST Task is `completed`, `ServiceRequest.status === 'active'`, and no DiagnosticReports (preliminary or final) exist yet. If `ServiceRequest.category.coding` includes the `manual-lab-order` tag the status is `sent manually`; otherwise `sent`.
+
+6. **`prelim`** — One or more DiagnosticReports with `status: preliminary` exist, PST Task is `completed`, and `ServiceRequest.status === 'active'`. Note: preliminary DiagnosticReports for a given test code are discarded once a final result arrives for that same code, so this status is only shown while results are truly still preliminary.
+
+7. **`corrected`** — An `RCRT` Task with status `ready` or `in-progress` exists and its linked DiagnosticReport has `status: corrected`. Corrected results always overwrite previously reviewed final results.
+
+8. **`received`** — An `RFRT` or `RCRT` Task with status `ready` or `in-progress` exists and its linked DiagnosticReport has `status: final` or `corrected`. The provider has not yet reviewed these results.
+
+9. **`reviewed`** — An `RFRT` or `RCRT` Task with status `completed` exists and its linked DiagnosticReport has `status: final` or `corrected`. Provider review is complete.
+
+10. **`unknown`** — No condition above matched. This is a fallback that should not appear in normal operation; when it does, `parseLabOrderStatus()` logs the full condition breakdown to aid debugging.
+
+#### Variant: `parseLabOrderStatusWithSpecificTask()`
+
+Used when a specific DiagnosticReport–Task pair is already known (e.g. for unsolicited or reflex results shown in a detail view). It evaluates the same conditions but scoped to a single Task rather than the full Task list for the order.
 
 ## Ordering via Lab Sets
 
@@ -227,6 +292,21 @@ For users forking core Ottehr and building their systems on top of Ottehr, globa
 
 Ottehr makes available a fake lab capable of receiving orders and transmitting results. This is AutoLab. For more information on testing an end-to-end flow, see [Testing the Results Flow](https://docs.oystehr.com/oystehr/services/lab/results/#testing-the-results-flow).
 
+To submit an order in Ottehr, follow the instructions above to properly configure Autolab. Then, from the EHR:
+
+1. Once logged in, go ahead and add a patient / visit from the tracking board.
+2. Fill out patient details (address, guarantor/responsible party, etc..).
+3. Go to the patient chart where you can start experimenting with the lab module
+4. Click "+ External Lab" to open the form. Fill out the form and submit. This will create a new order in status "Pending"
+
+- **Tip**: Order the CBC test from AutoLab to experiment with AOEs
+
+5. Click into the new row from the list view. This opens the order details
+6. From order details, submit the necessary information, including any AOEs if applicable. Click "Mark as Ready". You will be redirected back to the list view where the order status will now be "Ready"
+7. Submit the test from the list view. A PDF requisition form should open in a new tab, and the status of the test should be "Sent".
+8. AutoLab on average takes 5-10 minutes to result a test. Once a result is generated, the test's status will be "Received". Click on the row to view details
+9. A "Received" test's order details page will allow you to view the PDF of the results
+
 ---
 
 ## Flow: Solicited External Lab Orders and Results (from `ExternalLabOrdersListPage`)
@@ -295,19 +375,21 @@ Ottehr makes available a fake lab capable of receiving orders and transmitting r
 
 ### Zambdas Called — External Labs Order Flow
 
-| Zambda                           | Path                                                                            | When called                                                                                                                                                                           |
-| -------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get-lab-orders`                 | `packages/zambdas/src/ehr/lab/external/get-lab-orders/index.ts`                 | List page & detail page (via `usePatientLabOrders`)                                                                                                                                   |
-| `create-lab-order`               | `packages/zambdas/src/ehr/lab/external/create-lab-order/index.ts`               | Form submission in `CreateExternalLabOrder`                                                                                                                                           |
-| `delete-lab-order`               | `packages/zambdas/src/ehr/lab/external/delete-lab-order/index.ts`               | Delete action in `LabsTableContainer` / `usePatientLabOrders`                                                                                                                         |
-| `submit-lab-order`               | `packages/zambdas/src/ehr/lab/external/submit-lab-order/index.ts`               | Submit bundle in `LabsTableContainer`                                                                                                                                                 |
-| `update-lab-order-resources`     | `packages/zambdas/src/ehr/lab/external/update-lab-order-resources/index.ts`     | Save collection data (`OrderCollection`), mark reviewed (`DetailsWithResults`, `DiagnosticReportCentricResultDetails`, `FinalCardView`), update specimen date (`usePatientLabOrders`) |
-| `get-create-lab-order-resources` | `packages/zambdas/src/ehr/lab/external/get-create-lab-order-resources/index.ts` | Fetch lab compendium, ordering locations, and coverage info in `CreateExternalLabOrder` / `LabsAutocomplete`                                                                          |
-| `icd-10-search`                  | `packages/zambdas/src/ehr/icd-10-search/index.ts`                               | Diagnosis autocomplete in `CreateExternalLabOrder`                                                                                                                                    |
+| Zambda                           | Path                                                                            | When called                                                                                                                                                                           | Purpose                                                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `get-lab-orders`                 | `packages/zambdas/src/ehr/lab/external/get-lab-orders/index.ts`                 | List page & detail page (via `usePatientLabOrders`)                                                                                                                                   | Grabs all lab orders or a specific lab order and details                                                                                   |
+| `create-lab-order`               | `packages/zambdas/src/ehr/lab/external/create-lab-order/index.ts`               | Form submission in `CreateExternalLabOrder`                                                                                                                                           | Creates one or more draft tests using info from form                                                                                       |
+| `delete-lab-order`               | `packages/zambdas/src/ehr/lab/external/delete-lab-order/index.ts`               | Delete action in `LabsTableContainer` / `usePatientLabOrders`                                                                                                                         | Soft-deletes a specific test marking teh ServiceRequest.status as revoked                                                                  |
+| `submit-lab-order`               | `packages/zambdas/src/ehr/lab/external/submit-lab-order/index.ts`               | Submit bundle in `LabsTableContainer`                                                                                                                                                 | Takes the "Ready" tests and submits them. Also handles generating the requisition PDF or displaying the EReq from the Oystehr Lab Service. |
+| `update-lab-order-resources`     | `packages/zambdas/src/ehr/lab/external/update-lab-order-resources/index.ts`     | Save collection data (`OrderCollection`), mark reviewed (`DetailsWithResults`, `DiagnosticReportCentricResultDetails`, `FinalCardView`), update specimen date (`usePatientLabOrders`) | Various functions.                                                                                                                         |
+| `get-create-lab-order-resources` | `packages/zambdas/src/ehr/lab/external/get-create-lab-order-resources/index.ts` | Fetch lab compendium, ordering locations, and coverage info in `CreateExternalLabOrder` / `LabsAutocomplete`                                                                          | Populates the Create Lab Form on load, and handles populating searchable tests on user input.                                              |
+| `icd-10-search`                  | `packages/zambdas/src/ehr/icd-10-search/index.ts`                               | Diagnosis autocomplete in `CreateExternalLabOrder`                                                                                                                                    | Search ICD-10 codes                                                                                                                        |
 
 ---
 
 ## Flow: Unsolicited Results Inbox (from `UnsolicitedResultsInbox`)
+
+**Note**: The `<UnsolicitedResultsInbox>` is a legacy component. It is discussed here for simplicity, but the correct component for all Task-based workflows is the `<Tasks>` component which renders the Ottehr task inbox.
 
 ### Pages
 
@@ -396,11 +478,13 @@ packages/zambdas/src/subscriptions/diagnostic-report/
 
 ---
 
-## Flow 3: Results Handling (`handle-lab-result`)
+## Flow 3: Results Handling (`handle-lab-result`), All Result Types
 
 ### Overview
 
-`handle-lab-result` is a **FHIR subscription zambda** — it has no frontend caller. It fires automatically whenever a `DiagnosticReport` resource is created or updated in FHIR (i.e., when the external lab delivers results). Its job is to translate an incoming DiagnosticReport into the Task-based structures that the rest of the frontend flows consume.
+`handle-lab-result` is a **FHIR subscription zambda** — it has no frontend caller. It fires automatically whenever a `DiagnosticReport` resource is created or updated in FHIR (i.e., when the external lab delivers results). Its job is to translate an incoming DiagnosticReport into the Task-based structures that the rest of the frontend flows consume. It also handles generation of the Ottehr result PDFs. This zambda is responsible for all result types: solicited (preliminary, final, corrected, cancelled), reflex, and unsolicited results.
+
+For more information on subscription zambdas, see [Subscription Zambdas][https://docs.oystehr.com/oystehr/services/zambda/types/subscription/].
 
 | Zambda              | Path                                                                              | Type                                      |
 | ------------------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
