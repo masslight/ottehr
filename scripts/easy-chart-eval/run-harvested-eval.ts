@@ -1066,6 +1066,40 @@ function runSimSelfTest(): void {
     check('S7 add-only add stays secondary', !!active.find((d) => d.code === 'R05.9')?.isPrimary, false);
   }
 
+  // S8 — hallucinated removal on an EMPTY chart (the live O86.20 case): the plan's remove-* step
+  // records a skip (never an error), the add still applies, and scoreCase surfaces the miss via
+  // the removeTargetMissing counter.
+  {
+    const state = emptySimState();
+    applyPlanSteps(state, [
+      { kind: 'remove-diagnosis', display: 'O86.20 — Urinary tract infection following delivery', searchTerms: [] },
+      { kind: 'add-diagnosis', display: 'Acute URI', code: 'J06.9', isPrimary: true },
+    ] as Step[]);
+    check(
+      'S8 hallucinated remove recorded as skip',
+      state.skipped.filter((s) => s.kind === 'remove-diagnosis').length,
+      1
+    );
+    check('S8 add still applied', activeDx(state).length, 1);
+    const gold: GoldData = {
+      reviewOfSystems: { observations: [] },
+      exam: [],
+      assessment: { diagnoses: [] },
+      billing: { cptCodes: [] },
+      medications: { prescribed: [], inHouseAdministered: [], immunizations: [], currentReconciled: [] },
+      allergies: [],
+      medicalHistory: [],
+      surgicalHistory: [],
+      hospitalizations: [],
+      procedures: [],
+      labs: { external: undefined, inHouse: undefined },
+      radiology: [],
+      vitals: [],
+      instructions: [],
+    };
+    check('S8 removeTargetMissing counter', scoreCase('simS8', gold, state).counters.removeTargetMissing, 1);
+  }
+
   console.log(failures === 0 ? '\nSIM SELF-TEST PASS' : `\nSIM SELF-TEST FAIL (${failures} failing checks)`);
   if (failures > 0) process.exit(1);
 }

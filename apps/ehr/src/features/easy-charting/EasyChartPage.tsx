@@ -252,7 +252,7 @@ export default function EasyChartPage(): JSX.Element {
     procedureFieldAllowedValues,
     saveProcedureFromQuickPickRef,
   });
-  const { saveNoteField, handleInlineRemove, aiDiscuss } = assistant;
+  const { saveNoteField, handleInlineRemove, aiDiscuss, reviewLoading } = assistant;
 
   // Look up the encounter's appointmentId (for the "Open in regular chart" link) and its patient
   // (so the header can show name + DOB instead of the raw encounter id).
@@ -335,6 +335,31 @@ export default function EasyChartPage(): JSX.Element {
         // warnings into one banner. Amber when warnings exist, blue when only review remains, green
         // once everything's clear (and something was AI-charted this session). Nothing on a clean
         // fully-manual note.
+        // While the post-chart AI review runs, the banner slot shows a live in-progress state
+        // instead, so a provider watching the note (not the chat) knows suggestions may still
+        // land; on completion this falls through to the normal readiness banner.
+        if (reviewLoading) {
+          return (
+            <Box
+              sx={{
+                mb: 1.5,
+                px: 1.5,
+                py: 1,
+                borderRadius: 1,
+                bgcolor: 'rgba(25,118,210,0.08)',
+                border: '1px solid',
+                borderColor: 'rgba(25,118,210,0.3)',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={18} sx={{ color: 'primary.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Plan applied — AI review in progress…</strong>
+                </Typography>
+              </Box>
+            </Box>
+          );
+        }
         const warnings = computeChartWarnings(chartData);
         const flaggedNoteFields =
           [...noteFieldMeta.values()].filter((m) => m.needsReview).length +

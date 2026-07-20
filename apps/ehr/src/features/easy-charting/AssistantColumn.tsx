@@ -9,10 +9,11 @@ import {
   ListItemText,
   Paper,
   Stack,
+  SxProps,
   TextField,
   Typography,
 } from '@mui/material';
-import { Fragment, useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { EASY_CHART_NOTE_TEXT_FIELD_LABELS, EasyChartAgentIntent } from 'utils';
 import {
   AddExamFindingIntent,
@@ -28,6 +29,49 @@ import { MedicationSearchPicker } from './MedicationSearchPicker';
 import { useChartAssistant } from './useChartAssistant';
 
 export type ChartAssistant = ReturnType<typeof useChartAssistant>;
+
+// Client-side status escalation for long model calls. The server gives the primary model a 120s
+// budget before retrying and then escalating to the backup model, so a turn can legitimately run
+// 2–5 minutes — surface that instead of an indefinite "Thinking…".
+const SLOW_AFTER_S = 25;
+const PRIMARY_TIMEOUT_S = 120;
+
+const formatElapsed = (s: number): string => (s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
+
+const escalatedStatus = (elapsed: number, base: string, slow: string, escalated: string): string =>
+  elapsed >= PRIMARY_TIMEOUT_S ? escalated : elapsed >= SLOW_AFTER_S ? slow : base;
+
+// Seconds since `activeKey` last became (or changed to) a truthy value. Each thinking phase is a
+// fresh conv object, so passing the conv as the key restarts the clock even when two thinking
+// phases run back to back. The 1s interval is cleared on deactivate/unmount.
+function useElapsedSeconds(activeKey: unknown): number {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!activeKey) return undefined;
+    setElapsed(0);
+    const startedAt = Date.now();
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [activeKey]);
+  return elapsed;
+}
+
+// Spinner + escalating status line, with a live elapsed counter once the call is running long.
+function WorkingStatus({ elapsed, text, sx }: { elapsed: number; text: string; sx?: SxProps }): JSX.Element {
+  return (
+    <Stack direction="row" spacing={1} alignItems="center" sx={sx}>
+      <CircularProgress size={14} sx={{ flexShrink: 0 }} />
+      <Typography variant="body2" color="text.secondary">
+        {text}
+      </Typography>
+      {elapsed >= SLOW_AFTER_S && (
+        <Typography variant="caption" color="text.disabled" sx={{ whiteSpace: 'nowrap' }}>
+          {formatElapsed(elapsed)}
+        </Typography>
+      )}
+    </Stack>
+  );
+}
 
 // The right column of the easy-chart page: the unified chat thread (history + the live in-progress
 // turn with all its disambiguation pickers), the running-plan card, the review indicator, and the
@@ -92,13 +136,48 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
   }, [conv, plan, reviewLoading, thread]);
 
   // Restore focus to the refine bar after each action completes so the provider can keep
-  // typing the next request without manually clicking the input. We trigger off the !isThinking
-  // edge — the TextField is `disabled` while thinking, so refocusing must wait for re-enable.
+  // typing the next request without manually clicking the input (a Send click moves focus to
+  // the button). Triggered off the !isThinking edge — the end of a turn.
   useEffect(() => {
     if (!isThinking) {
       requestAnimationFrame(() => refineInputRef.current?.focus());
     }
   }, [isThinking]);
+
+  // Escalating status timers for the thinking and review bubbles (see SLOW_AFTER_S above).
+  const thinkingElapsed = useElapsedSeconds(conv?.kind === 'thinking' ? conv : null);
+  const reviewElapsed = useElapsedSeconds(reviewLoading);
+
+  // One-slot send queue: the composer stays enabled during a turn so the provider can keep
+  // typing, but handleSend must never run concurrently with an active turn — a Send while
+  // thinking stashes the text here and it auto-sends when the turn finishes. A second Send
+  // while one is queued replaces it.
+  const [queuedText, setQueuedText] = useState<string | null>(null);
+  const queuedDraftRef = useRef('');
+  useEffect(() => {
+    if (isThinking || queuedText === null) return;
+    // handleSend reads the composer state, so stage the queued text there first (preserving any
+    // draft typed after queueing), then send on the re-render where the staged value is visible.
+    if (refineText !== queuedText) {
+      queuedDraftRef.current = refineText;
+      setRefineText(queuedText);
+      return;
+    }
+    setQueuedText(null);
+    void handleSend(); // clears the composer synchronously…
+    setRefineText(queuedDraftRef.current); // …then the preserved draft goes back in
+    queuedDraftRef.current = '';
+  }, [isThinking, queuedText, refineText, handleSend, setRefineText]);
+
+  const trySend = (): void => {
+    if (!refineText.trim()) return;
+    if (isThinking) {
+      setQueuedText(refineText.trim());
+      setRefineText('');
+      return;
+    }
+    void handleSend();
+  };
 
   // Composer pinned to the bottom of the chat column (chat-app style). The thread scrolls above it.
   const refineBar = (
@@ -116,11 +195,16 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              void handleSend();
+              trySend();
             }
           }}
-          disabled={isThinking}
         />
+        {queuedText !== null && (
+          <Typography variant="caption" color="text.secondary">
+            Queued — will send when the current step finishes (a new Send replaces it): &ldquo;
+            {queuedText.length > 80 ? `${queuedText.slice(0, 77)}…` : queuedText}&rdquo;
+          </Typography>
+        )}
         {/* The review runs automatically when the AI charts a note (it exists to catch the AI's own
             mistakes); there is no manual "Review note" button — a provider hand-editing the note is
             applying their own judgment and doesn't need the AI to re-review it. */}
@@ -128,8 +212,8 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
           <Button
             variant="contained"
             sx={{ borderRadius: 100, textTransform: 'none' }}
-            onClick={() => void handleSend()}
-            disabled={!refineText.trim() || isThinking}
+            onClick={trySend}
+            disabled={!refineText.trim()}
           >
             {isThinking ? <CircularProgress size={18} color="inherit" /> : 'Send'}
           </Button>
@@ -340,12 +424,15 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
     <Box sx={{ display: 'flex' }}>
       <Paper variant="outlined" sx={{ p: 1.75, width: '100%', borderRadius: '14px 14px 14px 4px' }}>
         {reviewLoading ? (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <CircularProgress size={14} />
-            <Typography variant="body2" color="text.secondary">
-              Reviewing the note and adding suggestions…
-            </Typography>
-          </Stack>
+          <WorkingStatus
+            elapsed={reviewElapsed}
+            text={escalatedStatus(
+              reviewElapsed,
+              'Reviewing the note and adding suggestions…',
+              'Still reviewing — the model is responding slowly right now…',
+              'The primary review model is slow or unavailable — retrying, then a backup model takes over. This can take another minute or two.'
+            )}
+          />
         ) : (
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="body2" color="error">
@@ -373,12 +460,16 @@ export function AssistantColumn({ assistant }: { assistant: ChartAssistant }): J
     <Box sx={{ display: 'flex' }}>
       <Paper variant="outlined" sx={{ p: 1.75, width: '100%', borderRadius: '14px 14px 14px 4px' }}>
         {conv.kind === 'thinking' && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-            <CircularProgress size={14} />
-            <Typography variant="body2" color="text.secondary">
-              Thinking…
-            </Typography>
-          </Stack>
+          <WorkingStatus
+            sx={{ mt: 0.5 }}
+            elapsed={thinkingElapsed}
+            text={escalatedStatus(
+              thinkingElapsed,
+              'Thinking…',
+              'Still working — the model is responding slowly right now…',
+              'The primary model is slow or unavailable — retrying, then a backup model takes over. This can take another minute or two.'
+            )}
+          />
         )}
         {conv.kind === 'unknown' && (
           <Typography variant="body2" sx={{ mt: 0.5 }}>

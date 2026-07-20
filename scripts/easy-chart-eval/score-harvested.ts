@@ -224,6 +224,8 @@ export interface CaseScore {
     predictedInstructions: number;
     goldDisposition: boolean;
     predictedDisposition: boolean;
+    // remove-* steps whose target wasn't on the simulated chart (planner hallucinated a removal).
+    removeTargetMissing: number;
   };
   usage?: CaseUsage;
 }
@@ -603,6 +605,7 @@ export function scoreCase(caseId: string, gold: GoldData, state: SimFinalState, 
       predictedInstructions: state.instructions.length,
       goldDisposition: !!(gold.disposition?.type || gold.disposition?.note),
       predictedDisposition: !!state.disposition,
+      removeTargetMissing: state.skipped.filter((sk) => sk.kind.startsWith('remove-')).length,
     },
     ...(usage ? { usage } : {}),
   };
@@ -658,6 +661,7 @@ export interface AggregateSummary {
     predictedInstructions: number;
     goldDisposition: number;
     predictedDisposition: number;
+    removeTargetMissing: number;
   };
   usage: { planner: UsageAgg; review: UsageAgg };
 }
@@ -759,6 +763,7 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     predictedInstructions: 0,
     goldDisposition: 0,
     predictedDisposition: 0,
+    removeTargetMissing: 0,
   };
   const usage = {
     planner: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
@@ -773,6 +778,8 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     counters.providerNotes += s.counters.providerNotes;
     counters.goldInstructions += s.counters.goldInstructions;
     counters.predictedInstructions += s.counters.predictedInstructions;
+    // ?? 0: score files written before this counter existed can still be aggregated.
+    counters.removeTargetMissing += s.counters.removeTargetMissing ?? 0;
     if (s.counters.goldDisposition) counters.goldDisposition++;
     if (s.counters.predictedDisposition) counters.predictedDisposition++;
     for (const phase of ['planner', 'review'] as const) {
@@ -847,7 +854,7 @@ export function formatSummary(agg: AggregateSummary): string {
     `context items charted: labOrderDx ${agg.contextCharted.labOrderDiagnoses}, conditions ${agg.contextCharted.conditionsMatchingHistory}, allergies ${agg.contextCharted.allergiesMatchingPrior}, reconciledMeds ${agg.contextCharted.medsMatchingReconciled}`
   );
   lines.push(
-    `counters: templates ${agg.counters.templatesApplied}, examComments ${agg.counters.examComments}, pendingNoteEdits ${agg.counters.pendingNoteEdits}, providerNotes ${agg.counters.providerNotes}, instructions gold/pred ${agg.counters.goldInstructions}/${agg.counters.predictedInstructions}, disposition gold/pred ${agg.counters.goldDisposition}/${agg.counters.predictedDisposition}`
+    `counters: templates ${agg.counters.templatesApplied}, examComments ${agg.counters.examComments}, pendingNoteEdits ${agg.counters.pendingNoteEdits}, providerNotes ${agg.counters.providerNotes}, instructions gold/pred ${agg.counters.goldInstructions}/${agg.counters.predictedInstructions}, disposition gold/pred ${agg.counters.goldDisposition}/${agg.counters.predictedDisposition}, removeTargetMissing ${agg.counters.removeTargetMissing}`
   );
   lines.push('free-text presence (gold / predicted / both):');
   for (const [k, v] of Object.entries(agg.freeText)) {
@@ -945,6 +952,11 @@ function runSelfTest(): void {
       { display: 'amoxicillin 400 mg/5 mL suspension', source: 'planner' }, // containment either direction
       { display: 'Fluticasone Propionate nasal spray', source: 'planner' }, // context med charted anyway
     ];
+    st.skipped = [
+      { kind: 'remove-diagnosis', display: 'O86.20 — Not on chart', reason: 'no charted diagnosis matched' },
+      { kind: 'remove-medication', display: 'Never charted', reason: 'no charted medication matched' },
+      { kind: 'add-ros-finding', display: 'Fever', reason: 'already charted' }, // non-remove skip: not counted
+    ];
     const s = scoreCase('fixtureA', gold, st);
     const f = s.scopes.final;
     check('A dx recall', f.diagnoses.recall, 1);
@@ -958,6 +970,12 @@ function runSelfTest(): void {
     check('A meds contextCharted', f.medsCombined.contextCharted, 1);
     check('A meds combined precision', f.medsCombined.precision, 1);
     check('A contextCharted.labOrderDiagnoses', s.contextCharted.labOrderDiagnoses, 1);
+    check('A removeTargetMissing (remove-* skips only)', s.counters.removeTargetMissing, 2);
+    check('A agg removeTargetMissing', aggregateScores([s]).counters.removeTargetMissing, 2);
+    // Pre-counter score files (no removeTargetMissing field) still aggregate to 0, not NaN.
+    const legacy = JSON.parse(JSON.stringify(s)) as CaseScore;
+    delete (legacy.counters as Partial<CaseScore['counters']>).removeTargetMissing;
+    check('A agg tolerates legacy score files', aggregateScores([legacy]).counters.removeTargetMissing, 0);
   }
 
   // Fixture B — review-vs-planner attribution (dx swap by review) + primary-dx handling.

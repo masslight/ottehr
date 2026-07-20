@@ -233,7 +233,7 @@ export const buildPrompt = (
     ? incremental
       ? `\nALREADY ON THE CHART — the note has already been charted and the NARRATIVE above is an INCREMENTAL addition. Emit steps ONLY for information the narrative NEWLY introduces; do NOT re-document anything already present. Specifically: no add-* step for an item listed below; no set-em-code when an E&M is already listed below; and no edit-note-text for a free-text field (Chief Complaint / HPI / Mechanism of Injury / MDM) that the "Current free-text fields" block shows is already non-empty, UNLESS this narrative supplies new wording for that exact field. Do NOT emit apply-template again.\n${chartState}\n`
       : `\nALREADY ON THE CHART — the items below already exist (typically history harvested from intake paperwork), but the note itself has NOT been written yet: the NARRATIVE above is the FIRST full dictation for this visit. Plan the full note as normal — apply-template when one fits, exam findings, E&M, and free-text fields. Do NOT emit an add-* step that duplicates an item listed below, and do NOT re-set an E&M code if one is already listed below.\n${chartState}\n`
-    : '';
+    : `\nALREADY ON THE CHART: nothing. The chart is currently EMPTY — there are no diagnoses, medications, allergies, or other items on it, so there is NOTHING to remove. Do NOT emit any remove-* step.\n`;
 
   // PROMPT ORDER MATTERS: keep the static instructions (and the per-practice template list) as a
   // STABLE PREFIX, and append the per-call NARRATIVE + patient/context/chart-state at the very END —
@@ -502,6 +502,9 @@ ACTION SHAPES (use these intent kinds and the same fields the single-shot agent 
         searchTerms: ["Amoxicillin"], strength: "400 mg/5 mL", doseForm: "Suspension" }
 - remove-allergy / remove-condition / remove-medication / remove-surgical-history /
   remove-hospitalization / remove-diagnosis / remove-exam-finding: { kind, display, searchTerms }.
+  A remove-* step may ONLY target an item explicitly listed in the "ALREADY ON THE CHART" block at
+  the end of this message. NEVER emit a remove-* for anything not listed there — if the chart is
+  EMPTY or the item is not listed, there is nothing to remove and no remove-* step is valid.
 - set-em-code: { kind, code, display } — ALWAYS emit exactly one (templates do not carry an E&M
   code, so you must estimate the level from the documented complexity). Pick the code FAMILY from
   the PATIENT STATUS line in the per-visit context at the end of this message: NEW patient (no

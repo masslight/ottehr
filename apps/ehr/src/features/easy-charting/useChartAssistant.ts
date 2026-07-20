@@ -18,6 +18,7 @@ import {
   GetChartDataResponse,
   LabPaymentMethod,
   LBS_IN_KG,
+  mapDispositionTypeToLabel,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
   ProcedureDTO,
@@ -366,6 +367,11 @@ export function useChartAssistant({
     })();
   };
 
+  // User-facing strings must show the Disposition card's display label, never the raw
+  // DispositionType key; unknown keys coerce to 'another', matching the save path below.
+  const dispositionTypeLabel = (type: string): string =>
+    mapDispositionTypeToLabel[type as DispositionType] ?? mapDispositionTypeToLabel.another;
+
   // Human label for a step shown in the conversation header during plan execution.
   const describePlanStep = (intent: EasyChartAgentIntent): string => {
     switch (intent.kind) {
@@ -417,7 +423,7 @@ export function useChartAssistant({
       case 'add-patient-instruction':
         return `patient instruction: ${intent.text.length > 50 ? `${intent.text.slice(0, 47)}…` : intent.text}`;
       case 'set-disposition':
-        return `set disposition: ${intent.dispositionType}${
+        return `set disposition: ${dispositionTypeLabel(intent.dispositionType)}${
           intent.followUpInDays ? ` (follow up in ${intent.followUpInDays}d)` : ''
         }`;
       case 'add-nursing-order':
@@ -560,7 +566,7 @@ export function useChartAssistant({
         return `I couldn't find a match for “${target(c.intent)}”.`;
       case 'no-match-remove':
       case 'no-match-exam-remove':
-        return `I couldn't find “${target(c.intent)}” on the chart to remove.`;
+        return `Skipped removing “${target(c.intent)}” — it isn't on the chart.`;
       case 'no-match-template':
         return `No template matched “${target(c.intent)}”.`;
       case 'no-procedure-to-update':
@@ -998,15 +1004,16 @@ export function useChartAssistant({
       if (intent.kind === 'remove-em-code') {
         if (!apiClient) return;
         const current = chartData?.emCode;
+        // Missing target = skipped, not error — an error is reserved for a failed save/delete.
         if (!current?.resourceId) {
-          setConv({ kind: 'error', user: message, reply: 'There is no E&M code on this encounter to remove.' });
+          setConv({ kind: 'skipped', user: message, reason: 'There is no E&M code on this encounter to remove.' });
           return;
         }
         if (intent.code && current.code !== intent.code) {
           setConv({
-            kind: 'error',
+            kind: 'skipped',
             user: message,
-            reply: `The current E&M code is ${current.code}, not ${intent.code}. Did you mean to remove ${current.code}?`,
+            reason: `Skipped removing E&M code ${intent.code} — the charted code is ${current.code}.`,
           });
           return;
         }
@@ -1030,7 +1037,11 @@ export function useChartAssistant({
         if (!apiClient) return;
         const match = (chartData?.cptCodes ?? []).find((c) => c.resourceId && c.code === intent.code);
         if (!match || !match.resourceId) {
-          setConv({ kind: 'error', user: message, reply: `I don't see CPT ${intent.code} on this encounter.` });
+          setConv({
+            kind: 'skipped',
+            user: message,
+            reason: `Skipped removing CPT ${intent.code} — it isn't on this encounter.`,
+          });
           return;
         }
         const label = `${match.code}${match.display ? ` — ${match.display}` : ''}`;
@@ -1108,21 +1119,16 @@ export function useChartAssistant({
         return;
       }
       if (intent.kind === 'set-disposition') {
-        // Structured Disposition (Plan tab) — where the patient goes next. Direct save.
-        const VALID_DISPOSITION: DispositionType[] = [
-          'ip',
-          'ip-lab',
-          'pcp',
-          'ed',
-          'ip-oth',
-          'pcp-no-type',
-          'another',
-          'specialty',
-        ];
-        const type: DispositionType = (VALID_DISPOSITION as string[]).includes(intent.dispositionType)
-          ? (intent.dispositionType as DispositionType)
-          : 'another';
-        const label = `disposition: ${type}`;
+        // Structured Disposition (Plan tab) — where the patient goes next. Direct save. The label
+        // map doubles as the valid-key set, so an unknown LLM key coerces to 'another'.
+        const type: DispositionType =
+          intent.dispositionType in mapDispositionTypeToLabel ? (intent.dispositionType as DispositionType) : 'another';
+        const labelParts = [mapDispositionTypeToLabel[type]];
+        if (intent.text?.trim()) labelParts.push(intent.text.trim());
+        if (intent.followUpInDays != null) {
+          labelParts.push(`follow up in ${intent.followUpInDays} day${intent.followUpInDays === 1 ? '' : 's'}`);
+        }
+        const label = `disposition: ${labelParts.join(' — ')}`;
         setConv({ kind: 'saving', user: message, chosenName: label });
         try {
           const disposition: DispositionDTO = {
@@ -1330,7 +1336,7 @@ export function useChartAssistant({
           setConv({
             kind: 'skipped',
             user: message,
-            reason: `I couldn't find “${intent.display}” in the Review of Systems to remove.`,
+            reason: `Skipped removing “${intent.display}” — it isn't on the Review of Systems.`,
           });
           return;
         }
