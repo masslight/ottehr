@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Claim, Patient, Provenance } from 'fhir/r4b';
 import {
   AR_STAGE,
@@ -10,10 +11,11 @@ import {
   isValidClaimStatusValue,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ClaimPaymentSummary } from '../../../src/billing/claim-amounts';
 import {
   deriveFinalizationDate,
+  fetchPatientsById,
   isActivePatientArClaim,
   isInActivePatientArStage,
   mapToPatientArClaimItem,
@@ -344,5 +346,95 @@ describe('mapToPatientArClaimItem', () => {
     expect(mapToPatientArClaimItem({ ...base, claim: withPeriod }).serviceDate).toBe('2026-05-01');
     expect(mapToPatientArClaimItem({ ...base, claim: withDate }).serviceDate).toBe('2026-05-02');
     expect(mapToPatientArClaimItem({ ...base, claim: claim() }).serviceDate).toBe('2026-07-01');
+  });
+});
+
+describe('fetchPatientsById', () => {
+  const PATIENT_BATCH = 100;
+
+  const clientReturning = (
+    knownIds: Set<string>
+  ): { client: Oystehr; search: ReturnType<typeof vi.fn>; batchSizes: () => number[] } => {
+    const search = vi.fn(
+      async ({
+        params,
+      }: {
+        params: {
+          name: string;
+          value: string;
+        }[];
+      }) => {
+        const idsParam = params.find((p) => p.name === '_id')?.value ?? '';
+        const requested = idsParam.split(',').filter(Boolean);
+        const patients = requested
+          .filter((id) => knownIds.has(id))
+          .map(
+            (id) =>
+              ({
+                resourceType: 'Patient',
+                id,
+              }) as Patient
+          );
+        return {
+          unbundle: () => patients,
+        };
+      }
+    );
+    return {
+      client: {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr,
+      search,
+      batchSizes: () =>
+        search.mock.calls.map((call) => {
+          const idsParam = (
+            call[0].params as {
+              name: string;
+              value: string;
+            }[]
+          ).find((p) => p.name === '_id')?.value;
+          return idsParam ? idsParam.split(',').length : 0;
+        }),
+    };
+  };
+
+  it('chunks large id lists so no single search exceeds the batch size', async () => {
+    const ids = Array.from({ length: 250 }, (_, i) => `pat-${i}`);
+    const { client, search, batchSizes } = clientReturning(new Set(ids));
+
+    const result = await fetchPatientsById(client, ids);
+
+    expect(search).toHaveBeenCalledTimes(Math.ceil(ids.length / PATIENT_BATCH));
+    expect(Math.max(...batchSizes())).toBeLessThanOrEqual(PATIENT_BATCH);
+    expect(result.size).toBe(ids.length);
+    expect(result.get('pat-0')?.id).toBe('pat-0');
+    expect(result.get('pat-249')?.id).toBe('pat-249');
+  });
+
+  it('de-dupes and drops empty ids before searching', async () => {
+    const { client, search } = clientReturning(new Set(['pat-1', 'pat-2']));
+
+    const result = await fetchPatientsById(client, ['pat-1', 'pat-1', '', 'pat-2']);
+
+    expect(search).toHaveBeenCalledTimes(1);
+    const idsParam = (
+      search.mock.calls[0][0].params as {
+        name: string;
+        value: string;
+      }[]
+    ).find((p) => p.name === '_id')?.value;
+    expect(idsParam?.split(',').sort()).toEqual(['pat-1', 'pat-2']);
+    expect(result.size).toBe(2);
+  });
+
+  it('returns an empty map without searching when there are no ids', async () => {
+    const { client, search } = clientReturning(new Set());
+
+    const result = await fetchPatientsById(client, ['', '']);
+
+    expect(search).not.toHaveBeenCalled();
+    expect(result.size).toBe(0);
   });
 });

@@ -21,6 +21,7 @@ import { fhirName } from '../shared';
 
 const CLAIM_SCAN_PAGE_SIZE = 200;
 const PROVENANCE_BATCH = 100;
+const PATIENT_BATCH = 100;
 const DEFAULT_PAGE_SIZE = 25;
 
 export interface SearchPatientArClaimsParams {
@@ -236,23 +237,31 @@ async function fetchPatientArStageClaims(params: {
   return claims;
 }
 
-async function fetchPatientsById(billingClient: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
+export async function fetchPatientsById(billingClient: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
   const uniqueIds = [...new Set(patientIds)].filter(Boolean);
   if (uniqueIds.length === 0) return new Map();
-  const bundle = await billingClient.fhir.search<Patient>({
-    resourceType: 'Patient',
-    params: [
-      {
-        name: '_id',
-        value: uniqueIds.join(','),
-      },
-      {
-        name: '_count',
-        value: String(uniqueIds.length),
-      },
-    ],
-  });
-  return new Map(bundle.unbundle().flatMap((patient) => (patient.id ? [[patient.id, patient] as const] : [])));
+  const byId = new Map<string, Patient>();
+  await Promise.all(
+    chunkThings(uniqueIds, PATIENT_BATCH).map(async (chunk) => {
+      const bundle = await billingClient.fhir.search<Patient>({
+        resourceType: 'Patient',
+        params: [
+          {
+            name: '_id',
+            value: chunk.join(','),
+          },
+          {
+            name: '_count',
+            value: String(chunk.length),
+          },
+        ],
+      });
+      for (const patient of bundle.unbundle()) {
+        if (patient.id) byId.set(patient.id, patient);
+      }
+    })
+  );
+  return byId;
 }
 
 async function fetchClaimProvenances(billingClient: Oystehr, claimIds: string[]): Promise<Map<string, Provenance[]>> {
