@@ -73,6 +73,13 @@ export type AddVisitFormState =
 export interface AddVisitErrorState {
   submit?: boolean;
   visitType?: boolean;
+  // Set when the picked visit type isn't supported by the selected service
+  // category. Kept distinct from `visitType` (which means "missing") so the
+  // field renders the right message. This is the submit-time guard for the
+  // locked-picker case: when the category dropdown is disabled (single
+  // restrictive FHIR category) the auto-clear effect can't reconcile an
+  // incompatible pick, so we catch it here instead of letting the request go.
+  visitTypeUnsupported?: boolean;
   serviceCategory?: boolean;
   location?: boolean;
   firstName?: boolean;
@@ -351,9 +358,23 @@ export default function AddPatient(): JSX.Element {
   // (the patient-side capability helper keyed on serviceModes/visitTypes) collapsed it to
   // the patient-bookable subset, so a category not tagged for walk-in / on-demand / post-
   // telemed silently dropped those EHR options even though they were configured.
-  // Compatibility between the picked visit type and service category is enforced on the
-  // service-category side (filteredServiceCategories) and by required-field validation at
-  // submit. See OTR-2721 history.
+  // See OTR-2721 history.
+  //
+  // Since the dropdown no longer hides incompatible visit types, compatibility is
+  // enforced elsewhere: the service-category dropdown drops categories that don't
+  // support the picked visit type (filteredServiceCategories) and clears a stale
+  // pick — except when the picker is locked (single restrictive FHIR category),
+  // where the category can't be cleared. This memo is the submit-time backstop
+  // for exactly that case: it recomputes whether the current (visit type, category)
+  // pair is compatible so handleFormSubmit can block an unsupported combination.
+  const pickedCategorySupportsVisitType = useMemo(() => {
+    if (!visitType || !serviceCategory) return true;
+    const picked = mergedSourcedCategories.find((sc) => sc.category.code === serviceCategory);
+    if (!picked) return true;
+    const ctx = visitTypeContext[visitType];
+    if (!ctx) return true;
+    return serviceCategorySupportsContext(picked, ctx.mode, ctx.visitCtx);
+  }, [visitType, serviceCategory, mergedSourcedCategories]);
 
   // The picker is locked when the merged catalog has exactly one entry —
   // there's nothing to choose between, so we disable the Select and let the
@@ -486,6 +507,14 @@ export default function AddPatient(): JSX.Element {
       },
       { field: 'sexAtBirth', invalid: !patientInfo.sex },
       { field: 'visitType', invalid: !visitType },
+      // Backstop for the locked-picker case (see pickedCategorySupportsVisitType):
+      // block submit when both are chosen but the category doesn't support the
+      // visit type. Only meaningful once both are present, so the presence checks
+      // above take precedence.
+      {
+        field: 'visitTypeUnsupported',
+        invalid: !!visitType && !!serviceCategory && !pickedCategorySupportsVisitType,
+      },
       { field: 'serviceCategory', invalid: !serviceCategory },
       { field: 'location', invalid: !!visitType && !selectedBookable },
       { field: 'reasonForVisit', invalid: shouldShowReasonForVisitFields && !reasonForVisit },
@@ -667,7 +696,7 @@ export default function AddPatient(): JSX.Element {
           <Paper>
             <form noValidate onSubmit={(e) => handleFormSubmit(e)}>
               <Stack spacing={2} padding={4}>
-                <FormControl fullWidth error={!!errors.visitType}>
+                <FormControl fullWidth error={!!errors.visitType || !!errors.visitTypeUnsupported}>
                   <InputLabel id="visit-type-label">Visit type *</InputLabel>
                   <Select
                     data-testid={dataTestIds.addPatientPage.visitTypeDropdown}
@@ -679,6 +708,10 @@ export default function AddPatient(): JSX.Element {
                     onChange={(event) => {
                       setSlot(undefined);
                       setVisitType(event.target.value as VisitType);
+                      // Clear both visit-type errors on change so a stale
+                      // unsupported-combination message doesn't linger after
+                      // the user picks a different visit type.
+                      setErrors((prev) => ({ ...prev, visitType: false, visitTypeUnsupported: false }));
                     }}
                   >
                     {BOOKING_CONFIG.ehrBookingOptions.map((option) => (
@@ -688,6 +721,9 @@ export default function AddPatient(): JSX.Element {
                     ))}
                   </Select>
                   {errors.visitType && <FormHelperText>Visit type is required</FormHelperText>}
+                  {errors.visitTypeUnsupported && !errors.visitType && (
+                    <FormHelperText>This visit type isn’t offered for the selected service category.</FormHelperText>
+                  )}
                 </FormControl>
 
                 <FormControl fullWidth error={!!errors.serviceCategory || isPickerEmpty}>

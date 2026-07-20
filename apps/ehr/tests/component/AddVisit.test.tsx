@@ -544,14 +544,13 @@ describe('AddVisit', () => {
   // configured EHR options. Compatibility is instead enforced on the service-category side and
   // at submit, so these tests assert the visit-type list is never trimmed by the picked category.
   describe('Visit Type dropdown is not filtered by Service Category', () => {
-    // FHIR-sourced categories go through the strict path in
-    // serviceCategorySupportsContext: empty arrays = "supports nothing". So
-    // tagging visitTypes:['prebook'] here gives us a deliberately restrictive
-    // category (prebook + in-person only) without adding new BOOKING_CONFIG
-    // entries — the case that previously trimmed the visit-type list. Kept
-    // in-person-only so the virtual visit types would drop out on the mode axis
-    // (rather than accidentally passing the empty-arrays-supports-all
-    // BOOKING_CONFIG rule).
+    // A deliberately restrictive FHIR category: in-person + prebook only. FHIR
+    // categories take the strict path in serviceCategorySupportsContext (empty
+    // arrays = "supports nothing"), so this is the tightest category a project
+    // can produce — the exact shape that previously trimmed the visit-type list.
+    // We use it to prove the opposite now holds: the Visit Type dropdown still
+    // offers every configured ehrBookingOptions entry (walk-in, post-telemed, and
+    // both virtual modes) despite the category supporting none of them.
     const prebookOnlyFhirCategory = {
       id: 'fhir-svc-prebook-only',
       name: 'Crystal Therapy (Test)',
