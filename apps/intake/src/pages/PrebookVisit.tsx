@@ -174,6 +174,7 @@ const useBookingData = (
       slug: slugToFetch ?? '',
       scheduleType: scheduleType ?? ScheduleType.location,
       serviceCategoryCode,
+      serviceMode,
       ...(atLocationSlug && { atLocationSlug }),
     }
   );

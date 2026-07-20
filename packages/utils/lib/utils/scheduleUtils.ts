@@ -21,6 +21,7 @@ import {
   getPatchOperationForNewMetaTag,
   isAnnotationFollowupEncounter,
   isLocationVirtual,
+  locationSupportsServiceMode,
   makeBookingOriginExtensionEntry,
   makeSlotAtLocationExtensionEntry,
   makeSlotBookedViaGroupExtensionEntry,
@@ -2162,6 +2163,42 @@ export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr
     busySlots,
     cadenceMinutes,
   });
+};
+
+/**
+ * Whether a schedule owner can fulfill a booking in the given service mode —
+ * the predicate the get-schedule surfacing filter uses to prune member
+ * schedules a group offers in a mode their Location can't serve.
+ *
+ * - Location owner: checked directly via the location.ts capability seam.
+ * - PractitionerRole owner: kept if ANY paired Location can fulfill the mode
+ *   (the qualifying-Location gate downstream then admits only the mode-capable
+ *   Location(s), and create-appointment backstops the specific-Location case).
+ *   Paired Locations are supplied via `pairedLocationById` because the PR only
+ *   carries references; the caller resolves them once.
+ * - Practitioner / HealthcareService owner: no Location of its own → passes
+ *   through (rare in the current model; downstream narrowing handles it).
+ *
+ * Extracted from the handler so the mode-pruning decision is unit-testable
+ * without a live FHIR backend. All mode reasoning still funnels through the
+ * locationSupportsServiceMode seam.
+ */
+export const scheduleOwnerSupportsServiceMode = (
+  owner: ScheduleOwnerFhirResource,
+  mode: ServiceMode,
+  pairedLocationById: Map<string, Location>
+): boolean => {
+  if (owner.resourceType === 'Location') {
+    return locationSupportsServiceMode(owner as Location, mode);
+  }
+  if (owner.resourceType === 'PractitionerRole') {
+    return ((owner as PractitionerRole).location ?? []).some((ref) => {
+      const id = ref.reference?.split('/')[1];
+      const loc = id ? pairedLocationById.get(id) : undefined;
+      return !!loc && locationSupportsServiceMode(loc, mode);
+    });
+  }
+  return true;
 };
 
 export const getSlotServiceCategoryCodingFromScheduleOwner = (
