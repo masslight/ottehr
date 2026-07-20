@@ -174,6 +174,44 @@ describe('icd-10-search ranking (clinical-default + region synonyms + head word)
   });
 });
 
+// Qualifier-only overlap: a candidate whose entire word overlap with the query is generic
+// qualifier tokens (history, recurrent, chronic, …) shares no clinical substance and must not be
+// returned — the live failure charted Z87.01 "Personal history of pneumonia (recurrent)" for an
+// ingrown-hair query on "history"+"recurrent" alone. Explicit history/status phrasing waives it.
+describe('icd-10-search qualifier-only overlap', () => {
+  it('regression: "history of recurrent ingrown hairs" must not surface Z87.01', async () => {
+    const res = await searchIcd10Codes('history of recurrent ingrown hairs');
+    expect(res.some((r) => r.code === 'Z87.01')).toBe(false);
+  });
+
+  it('regression: "recurrent ingrown hair nasal vestibule" must not surface Z87.01', async () => {
+    const res = await searchIcd10Codes('recurrent ingrown hair nasal vestibule');
+    expect(res.some((r) => r.code === 'Z87.01')).toBe(false);
+  });
+
+  it('an explicit personal-history query still reaches Z87.01', async () => {
+    const res = await searchIcd10Codes('personal history of pneumonia');
+    expect(res.some((r) => r.code === 'Z87.01')).toBe(true);
+  });
+
+  it('rejects a qualifier-only overlap even outside the history domain', async () => {
+    // Z87.01 shares only "recurrent" with this query; "pain" is the clinical substance.
+    const res = await searchIcd10Codes('chronic recurrent pain');
+    expect(res.some((r) => r.code === 'Z87.01')).toBe(false);
+  });
+
+  it('substantive+qualifier queries keep matching: "recurrent sinusitis" → sinusitis codes', async () => {
+    const res = await searchIcd10Codes('recurrent sinusitis');
+    expect(res.length).toBeGreaterThan(0);
+    expect(res[0].display.toLowerCase()).toContain('sinusitis');
+  });
+
+  it('explicit status-post phrasing still reaches status codes on qualifier words alone', async () => {
+    const res = await searchIcd10Codes('status post appendectomy');
+    expect(res.length).toBeGreaterThan(0);
+  });
+});
+
 // Body-part phrasing: ICD-10 files limb abscesses under "lower limb", never "thigh" — without the
 // synonym the tendon-sheath code (M65.051, literal "thigh") outranked the cutaneous abscess.
 import { searchIcd10Codes as search2 } from '../src/shared/icd-10-search';

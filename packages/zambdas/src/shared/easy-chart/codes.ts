@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { loadAndParseIcd10Data, searchIcd10Codes } from '../icd-10-search';
+import { EXPLICIT_HISTORY_INTENT, loadAndParseIcd10Data, searchIcd10Codes } from '../icd-10-search';
 
 // ── Easy-chart code validation (the invariant) ──────────────────────────────────────────────────
 // No code may reach the note unless the canonical source actually returned it. A model's `code`
@@ -129,6 +129,19 @@ export function contradictsInjuryRegion(intentText: string, code: string): boole
   const intentRegions = injuryRegionsIn(intentText);
   if (intentRegions.size === 0) return false;
   return !intentRegions.has(Number(block[1]));
+}
+
+// Asymptomatic history/status Z-codes (Z80–Z87 personal/family history, Z93–Z99 status) read like
+// active problems lexically — "history of recurrent ingrown hairs" once charted Z87.01 "Personal
+// history of pneumonia (recurrent)" carried entirely by "history"+"recurrent". These codes may
+// only attach when the intent's own text uses explicit history/status phrasing (see
+// EXPLICIT_HISTORY_INTENT); a narrative "history of X" where X is the presenting problem does not
+// qualify. Exported for direct unit tests.
+export function contradictsHistoryContext(intentText: string, code: string, codeDisplay: string): boolean {
+  const isHistoryStatus =
+    /^Z(8[0-7]|9[3-9])/.test(code.trim().toUpperCase()) || /^(personal|family) history of/i.test(codeDisplay);
+  if (!isHistoryStatus) return false;
+  return !EXPLICIT_HISTORY_INTENT.test(intentText);
 }
 
 function contradictsQualifiers(intentText: string, codeDisplay: string): boolean {
@@ -302,6 +315,7 @@ export async function resolveIcd(
       !contradictsQualifiers(display, exact.display) &&
       !contradictsAnatomy(display, exact.display) &&
       !contradictsInjuryRegion(display, exact.code) &&
+      !contradictsHistoryContext(display, exact.code, exact.display) &&
       displaysOverlap(display, exact.display)
     ) {
       return upgradeCodeSpecificity({ code: exact.code, display: exact.display }, intentTexts);
@@ -320,7 +334,8 @@ export async function resolveIcd(
       (r) =>
         !contradictsQualifiers(display, r.display) &&
         !contradictsAnatomy(display, r.display) &&
-        !contradictsInjuryRegion(display, r.code)
+        !contradictsInjuryRegion(display, r.code) &&
+        !contradictsHistoryContext(display, r.code, r.display)
     );
     if (ok) return upgradeCodeSpecificity({ code: ok.code, display: ok.display }, intentTexts);
   }

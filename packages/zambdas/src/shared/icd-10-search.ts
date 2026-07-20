@@ -174,6 +174,38 @@ const WORD_SYNONYMS: Record<string, string[]> = {
   bruised: ['contusion'],
 };
 
+// Query phrasings that EXPLICITLY ask for an asymptomatic history/status code. Clinical
+// narratives use "history of X" loosely for the CURRENT complaint's backstory ("history of
+// recurrent ingrown hairs" = an active ingrown hair), so bare "history of" deliberately does not
+// count — only unambiguous chart shorthand does. Shared with the easy-chart history-code gate
+// (see codes.ts) so the search and the resolver agree on what "explicit" means.
+export const EXPLICIT_HISTORY_INTENT =
+  /\b(?:personal|family|past(?: medical)?) history\b|\bpmh\b|\bhx\b|\bh\/o\b|\bstatus[- ]post\b|\bs\/p\b/i;
+
+// Generic qualifier tokens that must never CARRY a fuzzy match on their own — "history of
+// recurrent ingrown hairs" once resolved to Z87.01 "Personal history of pneumonia (recurrent)"
+// purely on "history"+"recurrent". A candidate sharing ONLY these words with the query shares no
+// clinical substance with it. They still count toward match strength alongside a substantive
+// word; the requirement is waived for EXPLICIT_HISTORY_INTENT queries, whose target displays are
+// made of these words ("status post appendectomy" must still reach postprocedural-status codes).
+const GENERIC_QUALIFIER_TOKENS = new Set([
+  'history',
+  'personal',
+  'family',
+  'recurrent',
+  'chronic',
+  'acute',
+  'unspecified',
+  'status',
+  'post',
+  'other',
+  'specified',
+  'disorder',
+  'disorders',
+  'disease',
+  'diseases',
+]);
+
 function wordMatchesDisplay(searchWord: string, displayWords: string[], normalizedDisplay: string): boolean {
   if (displayWords.some((w) => w.includes(searchWord))) return true;
   for (const syn of WORD_SYNONYMS[searchWord] ?? []) {
@@ -197,6 +229,8 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
   // e.g. "conjunctivitis left eye" must keep "…left eye" ahead of "…unspecified eye".
   const LATERALITY = new Set(['left', 'right', 'bilateral']);
   const queryHasLaterality = searchTokens.some((t) => LATERALITY.has(t));
+  // Waives the substantive-overlap requirement in the fuzzy tiers below.
+  const queryHasHistoryIntent = EXPLICIT_HISTORY_INTENT.test(normalizedSearch);
 
   // Within-tier refinement in [0, 99] — never large enough to cross a 100-point tier, so the
   // primary match quality (exact code, code-prefix, display-prefix, …) always dominates. This
@@ -359,8 +393,24 @@ export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]>
       const displayWords = normalizedDisplay.split(/\s+/);
 
       let matchingWords = 0;
+      let matchedSubstantive = false;
       for (const searchWord of searchWords) {
-        if (wordMatchesDisplay(searchWord, displayWords, normalizedDisplay)) matchingWords++;
+        if (wordMatchesDisplay(searchWord, displayWords, normalizedDisplay)) {
+          matchingWords++;
+          if (!GENERIC_QUALIFIER_TOKENS.has(searchWord)) matchedSubstantive = true;
+        }
+      }
+
+      // When the query has clinical-substance words of its own, at least one must match — a
+      // candidate whose entire overlap is generic qualifier tokens is no match at all (see
+      // GENERIC_QUALIFIER_TOKENS). Explicit history/status queries are exempt.
+      if (
+        matchingWords > 0 &&
+        !matchedSubstantive &&
+        !queryHasHistoryIntent &&
+        searchWords.some((w) => !GENERIC_QUALIFIER_TOKENS.has(w))
+      ) {
+        matchingWords = 0;
       }
 
       if (matchingWords === searchWords.length) {

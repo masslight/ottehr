@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { contradictsInjuryRegion, resolveIcd, upgradeCodeSpecificity } from '../src/shared/easy-chart/codes';
+import {
+  contradictsHistoryContext,
+  contradictsInjuryRegion,
+  resolveIcd,
+  upgradeCodeSpecificity,
+} from '../src/shared/easy-chart/codes';
 
 // resolveIcd is the "no hallucinated code reaches the note" invariant. These cases lock in the
 // laterality sanity check: a hinted code that is REAL but contradicts the intent's own left/right
@@ -81,6 +86,58 @@ describe('contradictsInjuryRegion', () => {
 
   it('passes when the intent names multiple regions and one matches the block', () => {
     expect(contradictsInjuryRegion('Fracture of neck of femur', 'S72.001A')).toBe(false);
+  });
+});
+
+// History/status-code gate: asymptomatic Z-codes (personal/family history, postprocedural status)
+// may only attach when the intent explicitly uses history/status phrasing — a narrative
+// "history of X" for the presenting problem does not qualify.
+describe('contradictsHistoryContext', () => {
+  it('gates a personal-history code when the intent lacks explicit history phrasing', () => {
+    const display = 'Personal history of pneumonia (recurrent)';
+    expect(contradictsHistoryContext('History of recurrent ingrown hairs', 'Z87.01', display)).toBe(true);
+    expect(contradictsHistoryContext('Ingrown hair, nasal vestibule', 'Z87.01', display)).toBe(true);
+  });
+
+  it('passes with explicit personal/family/status-post phrasing', () => {
+    expect(
+      contradictsHistoryContext('Personal history of pneumonia', 'Z87.01', 'Personal history of pneumonia (recurrent)')
+    ).toBe(false);
+    expect(
+      contradictsHistoryContext('Family history of heart disease', 'Z82.49', 'Family history of ischemic heart disease')
+    ).toBe(false);
+    expect(
+      contradictsHistoryContext('Status post appendectomy', 'Z98.890', 'Other specified postprocedural states')
+    ).toBe(false);
+  });
+
+  it('imposes no constraint on active-problem codes', () => {
+    expect(
+      contradictsHistoryContext('History of recurrent ingrown hairs', 'L73.9', 'Follicular disorder, unspecified')
+    ).toBe(false);
+    expect(contradictsHistoryContext('Recurrent sinusitis', 'J32.9', 'Chronic sinusitis, unspecified')).toBe(false);
+  });
+});
+
+// The live failure: an ingrown-hair narrative whose only overlap with Z87.01 was
+// "history"+"(recurrent)". Both the hint path and the fallback search must refuse it, while an
+// explicitly-phrased personal-history intent keeps the code.
+describe('resolveIcd history/status gate', () => {
+  it('regression: a narrative "history of recurrent X" intent never charts a Z8x history code', async () => {
+    const resolved = await resolveIcd(undefined, 'History of recurrent ingrown hairs', [
+      'recurrent ingrown hair nasal vestibule',
+    ]);
+    expect(resolved?.code.startsWith('Z8')).not.toBe(true);
+  });
+
+  it('rejects the Z87.01 hint itself for the same intent', async () => {
+    const resolved = await resolveIcd('Z87.01', 'History of recurrent ingrown hairs', ['recurrent ingrown hair']);
+    expect(resolved?.code).not.toBe('Z87.01');
+  });
+
+  it('keeps Z87.01 for an explicit personal-history intent', async () => {
+    const resolved = await resolveIcd('Z87.01', 'Personal history of pneumonia', []);
+    expect(resolved!.code).toBe('Z87.01');
   });
 });
 
