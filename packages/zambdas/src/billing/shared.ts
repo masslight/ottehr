@@ -984,6 +984,28 @@ export function addBillingTagOperation(resource: FhirResource): {
   };
 }
 
+export async function tagEraResources({
+  oystehr,
+  resources,
+}: {
+  oystehr: Oystehr;
+  resources: FhirResource[];
+}): Promise<number> {
+  const untagged = resources.filter(
+    (resource) => resource.id && !hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
+  );
+  if (untagged.length === 0) return 0;
+  const requests = untagged.map((resource) =>
+    getPatchBinary({
+      resourceType: resource.resourceType,
+      resourceId: resource.id!,
+      patchOperations: [addBillingTagOperation(resource)],
+    })
+  );
+  await oystehr.fhir.transaction({ requests });
+  return untagged.length;
+}
+
 // Links notices the stripe webhook stored before the claim existed. Oystehr matches
 // request:identifier by value only, the system|value form returns nothing.
 export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
