@@ -1906,6 +1906,7 @@ export function matchRadiologyStudy(display: string, searchTerms: string[]): Rad
 export const MED_QUALIFIER_EVIDENCE: Record<string, string[]> = {
   athlete: ['athlete', 'pedis'],
   athletes: ['athlete', 'pedis'],
+  af: ['af', 'athlete', 'pedis'], // OTC catalogs abbreviate athlete's-foot ("Lotrimin AF", "Clotrimazole AF")
   foot: ['foot', 'feet', 'pedis', 'toe', 'plantar'],
   jock: ['jock', 'cruris', 'groin'],
   itch: ['itch', 'prurit'],
@@ -1931,10 +1932,13 @@ export const MED_QUALIFIER_EVIDENCE: Record<string, string[]> = {
 // brand/salt/form words are the fuzzy ranker's job, not this guard's.
 export function unsupportedMedQualifiers(name: string, evidence: string): string[] {
   const hay = evidence.toLowerCase();
+  // A short stem like 'af' would substring-match inside unrelated words ("AFfected", "AFter") —
+  // credit stems that short only when they appear as a standalone evidence token.
+  const hayTokens = new Set(hay.split(/[^a-z0-9]+/));
   const out: string[] = [];
   for (const tok of name.toLowerCase().split(/[^a-z0-9]+/)) {
     const stems = MED_QUALIFIER_EVIDENCE[tok];
-    if (stems && !stems.some((s) => hay.includes(s))) out.push(tok);
+    if (stems && !stems.some((s) => (s.length <= 2 ? hayTokens.has(s) : hay.includes(s)))) out.push(tok);
   }
   return out;
 }

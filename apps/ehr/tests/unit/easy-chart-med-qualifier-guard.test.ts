@@ -78,6 +78,27 @@ describe('medication qualifier guard', () => {
     expect(rankMedicationResults([childrens, adultPlain], ped)[0]).toBe(childrens);
   });
 
+  it('abbreviated "AF" (athlete\'s foot) qualifier loses to the plain product under vaginal context', () => {
+    const afVariant: SearchResult = { name: 'CLOTRIMAZOLE AF TOPICAL CREAM', strength: '1 %' };
+    const i = intent({
+      strength: '1%',
+      // "AFfected" must not count as evidence for the standalone token "af".
+      sourceText: 'vaginal candidiasis — clotrimazole 1% cream applied to the affected vulvovaginal area twice daily',
+    });
+    const ranked = rankMedicationResults([afVariant, plain], i);
+    expect(ranked[0]).toBe(plain);
+    expect(ranked).toHaveLength(2);
+  });
+
+  it('"AF" ranks normally when the context supports athlete\'s foot — spelled out or abbreviated', () => {
+    const afVariant: SearchResult = { name: 'CLOTRIMAZOLE AF TOPICAL CREAM', strength: '1 %' };
+    const spelled = intent({ sourceText: "athlete's foot on the left foot, start clotrimazole cream" });
+    expect(rankMedicationResults([afVariant, plain], spelled)[0]).toBe(afVariant);
+    // The provider searched the abbreviated product name itself.
+    const abbreviated = intent({ display: 'Clotrimazole AF cream', searchTerms: ['clotrimazole af cream'] });
+    expect(rankMedicationResults([afVariant, plain], abbreviated)[0]).toBe(afVariant);
+  });
+
   it('unsupportedMedQualifiers flags only vocabulary words absent from the evidence', () => {
     expect(unsupportedMedQualifiers('CLOTRIMAZOLE ATHLETES FOOT TOPICAL CREAM', 'clotrimazole cream vaginal')).toEqual([
       'athletes',
@@ -87,5 +108,10 @@ describe('medication qualifier guard', () => {
     expect(unsupportedMedQualifiers('CLOTRIMAZOLE ATHLETES FOOT CREAM', 'clotrimazole for tinea pedis')).toEqual([]);
     // Non-vocabulary tokens (brand/salt/form words) are never flagged.
     expect(unsupportedMedQualifiers('AMOXICILLIN TRIHYDRATE ORAL SUSPENSION', 'amoxicillin')).toEqual([]);
+    // Short stems match only as standalone evidence tokens, never inside other words.
+    expect(
+      unsupportedMedQualifiers('CLOTRIMAZOLE AF TOPICAL CREAM', 'applied to the affected area after meals')
+    ).toEqual(['af']);
+    expect(unsupportedMedQualifiers('CLOTRIMAZOLE AF TOPICAL CREAM', 'clotrimazole af cream')).toEqual([]);
   });
 });
