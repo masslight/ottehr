@@ -8,8 +8,8 @@ import {
   DiagnosisDTO,
   InputImmunizationOrderDetails,
   LateralityValue,
+  MedicationData,
   ProcedurePageState,
-  UpdateMedicationOrderInput,
   VitalsObservationDTO,
 } from 'utils';
 import { create, Mutate, StoreApi, UseBoundStore } from 'zustand';
@@ -62,7 +62,7 @@ type CreateRadiologyOrderDraft = Partial<
 type CreateProcedureDraft = Partial<ProcedurePageState & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
 type CreateImmunizationOrderDraft = Partial<InputImmunizationOrderDetails & GenericStateDraft>;
-type CreateInHouseMedicationOrderDraft = Partial<Pick<UpdateMedicationOrderInput, 'orderData'> & GenericStateDraft>;
+type CreateInHouseMedicationOrderDraft = Partial<MedicationData & GenericStateDraft>;
 type VitalsDraft = Partial<VitalsObservationDTO & GenericStateDraft>;
 
 interface DraftState<TDraft extends object> {
