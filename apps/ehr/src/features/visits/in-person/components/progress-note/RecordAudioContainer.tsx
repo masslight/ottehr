@@ -1,7 +1,7 @@
 import { Close, Pause, PlayArrow, Stop } from '@mui/icons-material';
 import { Grid, IconButton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement, useEffect, useRef, useState } from 'react';
+import { ReactElement, useEffect, useRef } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import {
@@ -43,8 +43,8 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
   );
   const duration = useAudioRecordingStore((state) => (state.session?.visitID === visitID ? state.session.duration : 0));
   const uploading = useAudioRecordingStore((state) => state.uploadingVisitID === visitID);
-  // Snapshot at Stop so the "uploading" chip shows the real length (the store session clears on upload).
-  const [uploadedDuration, setUploadedDuration] = useState<number>(0);
+  // From the store (not local state) so the "uploading" chip survives a rotation remount mid-upload.
+  const uploadedDuration = useAudioRecordingStore((state) => state.uploadingDuration);
 
   const waveformRef = useRef<HTMLDivElement | null>(null);
 
@@ -92,8 +92,7 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
   };
 
   const endRecording = (): void => {
-    setUploadedDuration(duration);
-    audioRecordingActions.stop();
+    audioRecordingActions.stop(); // freezes the duration into the store for the "uploading" chip
   };
 
   function getButtonLabel(status: LocalStatus): string {
