@@ -323,6 +323,13 @@
       "src": "src/billing/billing-stripe-webhook/index",
       "zip": ".dist/zips/billing-stripe-webhook.zip"
     },
+    "RECORD-BILLING-PAYMENT": {
+      "name": "record-billing-payment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/record-billing-payment/index",
+      "zip": ".dist/zips/record-billing-payment.zip"
+    },
     "SUB-RULES-ENGINE": {
       "name": "sub-rules-engine",
       "type": "subscription",
