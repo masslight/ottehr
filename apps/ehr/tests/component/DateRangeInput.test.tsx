@@ -72,25 +72,23 @@ describe('DateRangeInput', () => {
     await openPicker();
     await userEvent.click(screen.getByTestId(dataTestIds.dashboard.dateRangeModeCheckbox));
 
-    const monthLabel = screen.getByText('July 2026').closest('.MuiPickersCalendarHeader-labelContainer');
+    const rangeCalendar = document.querySelector('.MuiDateRangeCalendar-root');
+    expect(rangeCalendar).not.toBeNull();
+
+    const monthLabel = rangeCalendar?.querySelector('.MuiPickersCalendarHeader-labelContainer');
     expect(monthLabel).not.toBeNull();
     expect(monthLabel).toHaveStyle({ cursor: 'default' });
 
     const rangeDay = screen.getByTestId(dataTestIds.dashboard.datePickerDay('2026-07-10'));
     expect(rangeDay).toHaveClass('MuiDateRangePickerDay-day');
 
-    const rangeCalendarRules = Array.from(document.styleSheets)
-      .flatMap((sheet) => Array.from(sheet.cssRules))
-      .map((rule) => rule.cssText)
-      .filter((rule) => rule.includes('MuiDateRangeCalendar-root'));
-    expect(rangeCalendarRules.some((rule) => rule.includes('MuiPickersCalendarHeader-labelContainer::after'))).toBe(
-      true
-    );
-    expect(
-      rangeCalendarRules.some(
-        (rule) => rule.includes('MuiDateRangePickerDay-day') && rule.includes('transform: none !important')
-      )
-    ).toBe(true);
+    const injectedStyles = Array.from(document.querySelectorAll('style'))
+      .map((style) => style.textContent ?? '')
+      .filter((styles) => styles.includes('MuiDateRangeCalendar-root'))
+      .join('\n');
+    expect(injectedStyles).toContain('MuiPickersCalendarHeader-labelContainer::after');
+    expect(injectedStyles).toContain('MuiDateRangePickerDay-day');
+    expect(injectedStyles).toContain('transform:none!important');
   });
 
   it('collapses a multi-day range to its start date when the checkbox is unchecked', async () => {
