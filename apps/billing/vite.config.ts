@@ -20,6 +20,9 @@ export default ({ mode }: { mode: string }): UserConfig => {
   return defineConfig({
     envDir,
     plugins: [react(), viteTsconfigPaths()],
+    resolve: {
+      preserveSymlinks: true,
+    },
     server: {
       open: !process.env.VITE_NO_OPEN,
       host: '0.0.0.0',
