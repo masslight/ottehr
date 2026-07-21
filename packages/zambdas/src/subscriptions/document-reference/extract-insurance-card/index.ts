@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createOystehrClient, getPresignedURL, getSecret, InsuranceCardExtraction, MimeType, SecretsKeys } from 'utils';
+import { createOystehrClient, getSecret, InsuranceCardExtraction, MimeType, SecretsKeys } from 'utils';
 import {
   createPresignedUrl,
   getAuth0Token,
@@ -13,6 +13,7 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../../shared/ai';
+import { downloadOcrSourceImage } from '../shared/extraction-helpers';
 import {
   buildAttachmentMetadataOperations,
   buildExtractionPatchOperation,
@@ -100,35 +101,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    // Fetch the card image via presigned Z3 URL. An unreadable / undownloadable image must not
-    // crash the subscription: report it and no-op (no marker is written, so a re-fire or
-    // re-upload can still succeed later).
+    // Fetch the card image via presigned Z3 URL. A download failure is often transient (network
+    // blip, presigned url race); returning 200 here would tell the subscription "handled" and
+    // leave the card permanently unprocessed, so re-throw and let the subscription's retry
+    // semantics (same pattern as the parseModelResponse failure below) get another attempt.
     const startedAt = Date.now();
     let bytes: Buffer;
     let mimeType: string;
     try {
-      const presignedUrl = await getPresignedURL(attachmentUrl, oystehrToken);
-      const imageResponse = await fetch(presignedUrl);
-      if (!imageResponse.ok) {
-        throw new Error(
-          `Failed to download card image for DocumentReference/${docRefId}: HTTP ${imageResponse.status}`
-        );
-      }
-      bytes = Buffer.from(await imageResponse.arrayBuffer());
-      mimeType = (
-        imageResponse.headers.get('Content-Type') ??
-        current.content?.[0]?.attachment?.contentType ??
-        'image/jpeg'
-      )
-        .split(';')[0]
-        .trim();
+      ({ bytes, mimeType } = await downloadOcrSourceImage({
+        attachmentUrl,
+        token: oystehrToken,
+        fallbackContentType: current.content?.[0]?.attachment?.contentType,
+      }));
     } catch (error) {
       console.error(`[${ZAMBDA_NAME}] failed to fetch card image for DocumentReference/${docRefId}:`, error);
       captureException(error);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ documentReferenceId: docRefId, skipped: true, extracted: false }),
-      };
+      throw error;
     }
 
     let imageHash = sha256Hex(bytes);

@@ -425,15 +425,17 @@ describe('extract-insurance-card handler', () => {
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it('handles an undownloadable image gracefully: captureException + 200 no-op, no marker written', async () => {
+  it('propagates a retryable error (not a 200 no-op) when the card image fails to download', async () => {
+    // A download failure is often transient (network blip, presigned url race); returning 200
+    // would tell the subscription "handled" and permanently strand the card unprocessed, so this
+    // must surface as a non-200 the subscription's retry semantics can act on.
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
     fetchMock.mockResolvedValue({ ok: false, status: 403, headers: { get: () => null } });
 
     const result = await invokeHandler(makeInput(docRef));
 
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ skipped: true, extracted: false });
+    expect(result.statusCode).toBe(500);
     expect(captureException).toHaveBeenCalled();
     expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
     expect(mockPatch).not.toHaveBeenCalled();
