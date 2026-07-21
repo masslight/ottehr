@@ -46,7 +46,7 @@ import {
   ServiceLineCreate,
 } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { APIResponse } from 'candidhealth/core';
-import { FailedResponse } from 'candidhealth/core/fetcher/APIResponse';
+import type { FailedResponse } from 'candidhealth/core/fetcher/APIResponse';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -1302,7 +1302,7 @@ export async function recoverCandidEncounterAfter422(
       return candidEncounterId;
     }
   }
-  return undefined;
+  throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
 }
 
 export async function retryCandidCall<T, E>(
