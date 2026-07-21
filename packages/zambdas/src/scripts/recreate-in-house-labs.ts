@@ -1,7 +1,7 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
 import { IN_HOUSE_TAG_DEFINITION } from 'utils';
-import { createClinicalOystehrClient, fhirApiUrlFromAuth0Audience, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 import { testItems } from './data/base-in-house-lab-seed-data';
 import { performEffectWithEnvFile } from './helpers';
 import { buildInHouseLabActivityDefinitions } from './labs/load-in-house-labs-tests';
@@ -27,15 +27,7 @@ import { buildInHouseLabActivityDefinitions } from './labs/load-in-house-labs-te
 const recreateInHouseLabs = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
-  const oystehr = createClinicalOystehrClient(
-    token,
-    {},
-    {
-      services: {
-        fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-      },
-    }
-  );
+  const oystehr = createClinicalOystehrClient(token, config);
 
   // Idempotency guard: any existing active in-house lab test means this environment was already
   // seeded. Do nothing so re-runs (and repeated deploys) are no-ops.

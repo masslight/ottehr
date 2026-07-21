@@ -3,7 +3,7 @@ import { ActivityDefinition } from 'fhir/r4b';
 import { QuickTextQuickPickData } from 'utils';
 import { QUICK_TEXT_QUICK_PICK_CATEGORY } from '../ehr/shared/quick-pick-categories';
 import { quickPickToActivityDefinition, searchQuickPicks } from '../ehr/shared/quick-pick-helpers';
-import { createClinicalOystehrClient, fhirApiUrlFromAuth0Audience, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 import seed from './data/quick-texts-seed.json';
 import { performEffectWithEnvFile } from './helpers';
 
@@ -27,15 +27,7 @@ import { performEffectWithEnvFile } from './helpers';
 const recreateQuickTexts = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
-  const oystehr = createClinicalOystehrClient(
-    token,
-    {},
-    {
-      services: {
-        fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-      },
-    }
-  );
+  const oystehr = createClinicalOystehrClient(token, config);
 
   // Idempotency guard: any existing quick text means this environment was already seeded.
   // Do nothing so re-runs (and repeated deploys) are no-ops.

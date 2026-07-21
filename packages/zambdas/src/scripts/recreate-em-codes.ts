@@ -1,6 +1,6 @@
 import { ValueSet } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM, EM_CODES_VALUE_SET_URL, EmCodeOption } from 'utils';
-import { createClinicalOystehrClient, fhirApiUrlFromAuth0Audience, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 import seed from './data/em-codes-seed.json';
 import { performEffectWithEnvFile } from './helpers';
 
@@ -24,15 +24,7 @@ import { performEffectWithEnvFile } from './helpers';
 const recreateEmCodes = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
-  const oystehr = createClinicalOystehrClient(
-    token,
-    {},
-    {
-      services: {
-        fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-      },
-    }
-  );
+  const oystehr = createClinicalOystehrClient(token, config);
 
   // Idempotency guard: an existing em-codes ValueSet means this environment was already seeded.
   // Do nothing so re-runs (and repeated deploys) are no-ops.

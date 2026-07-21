@@ -7,7 +7,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils';
-import { createClinicalOystehrClient, fhirApiUrlFromAuth0Audience, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 import seed from './data/in-house-medications-seed.json';
 import { getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
 
@@ -37,15 +37,7 @@ interface InHouseMedicationSeed {
 const recreateInHouseMedications = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
-  const oystehr = createClinicalOystehrClient(
-    token,
-    {},
-    {
-      services: {
-        fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-      },
-    }
-  );
+  const oystehr = createClinicalOystehrClient(token, config);
 
   // Idempotency guard: any existing inventory med means this environment was already seeded.
   // Do nothing so re-runs (and repeated deploys) are no-ops.
