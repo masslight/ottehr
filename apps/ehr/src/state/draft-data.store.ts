@@ -5,8 +5,8 @@ import {
   CreateLabOrderParameters,
   CreateNursingOrderInput,
   CreateRadiologyZambdaOrderInput,
-  CreateUpdateImmunizationOrderRequest,
   DiagnosisDTO,
+  InputImmunizationOrderDetails,
   LateralityValue,
   ProcedurePageState,
   UpdateMedicationOrderInput,
@@ -61,7 +61,7 @@ type CreateRadiologyOrderDraft = Partial<
 >;
 type CreateProcedureDraft = Partial<ProcedurePageState & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
-type CreateImmunizationOrderDraft = Partial<CreateUpdateImmunizationOrderRequest & GenericStateDraft>;
+type CreateImmunizationOrderDraft = Partial<InputImmunizationOrderDetails & GenericStateDraft>;
 type CreateInHouseMedicationOrderDraft = Partial<Pick<UpdateMedicationOrderInput, 'orderData'> & GenericStateDraft>;
 type VitalsDraft = Partial<VitalsObservationDTO & GenericStateDraft>;
 
