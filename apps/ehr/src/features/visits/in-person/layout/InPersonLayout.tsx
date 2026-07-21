@@ -52,7 +52,7 @@ export const InPersonLayout: React.FC = () => {
   useResetAppointmentStore();
   useAiSuggestionsPolling();
   // Keep the Ambient Scribe recording alive across rotation; stop & save it on leaving the visit.
-  useStopAmbientScribeOnLeave();
+  useStopAmbientScribeOnLeave({ hostKey: encounter.id ?? '' });
   const { chartData } = useChartData({ shouldUpdateExams: true });
   const assignedProviderId = getAttendingPractitionerId(encounter);
   const virtual = isTelemedAppointment(appointment);

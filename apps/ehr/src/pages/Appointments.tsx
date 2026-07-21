@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import AppointmentsFilters from 'src/components/AppointmentsFilters';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
@@ -39,7 +39,8 @@ export default function Appointments(): ReactElement {
   const pageIsVisible = usePageVisibility(); // goes to false if tab loses focus and gives the fhir api a break
   const { debounce } = useDebounce(300);
   // Mobile appointment rows host the Ambient Scribe recorder; continue across rotation, save on leave.
-  useStopAmbientScribeOnLeave();
+  const { pathname } = useLocation();
+  useStopAmbientScribeOnLeave({ hostKey: pathname });
 
   const locationParam = searchParams.get('location');
   const visitTypeParam = searchParams.get('visitType');

@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
 import { createResourcesFromAudioRecording, uploadAudioRecording } from 'src/api/api';
 import { create } from 'zustand';
 
@@ -202,22 +201,26 @@ export const audioRecordingActions = {
   },
 };
 
+interface UseStopAmbientScribeOnLeaveOptions {
+  hostKey: string;
+}
+
 /**
  * Keeps an active recording alive across phone rotation (which changes neither the host route nor the
  * mount) while stopping and saving it on real navigation away or tab close. Call once in each recorder
  * host (the appointments page and the in-person visit layout).
  */
-export function useStopAmbientScribeOnLeave(): void {
-  const { pathname } = useLocation();
-  const hostPathRef = useRef(pathname);
+export function useStopAmbientScribeOnLeave({ hostKey }: UseStopAmbientScribeOnLeaveOptions): void {
+  const hostKeyRef = useRef(hostKey);
 
-  // Covers navigations that keep the host mounted (e.g. switching patients under the in-person layout).
+  // Covers navigations that keep the host mounted but change identity (e.g. switching patients under
+  // the in-person layout).
   useEffect(() => {
-    if (pathname !== hostPathRef.current) {
+    if (hostKey !== hostKeyRef.current) {
       audioRecordingActions.flushActiveSession();
-      hostPathRef.current = pathname;
+      hostKeyRef.current = hostKey;
     }
-  }, [pathname]);
+  }, [hostKey]);
 
   // Covers navigations that unmount the host (e.g. leaving the appointments page) and tab close/reload.
   useEffect(() => {
