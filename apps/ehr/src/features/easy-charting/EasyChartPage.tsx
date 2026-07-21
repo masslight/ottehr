@@ -49,6 +49,7 @@ import { useAiProvenance } from './useAiProvenance';
 import { useChartAssistant } from './useChartAssistant';
 import { useChartData } from './useChartData';
 import { useEasyChartQuickPicks } from './useEasyChartQuickPicks';
+import { useTranscriptPolling } from './useTranscriptPolling';
 
 export default function EasyChartPage(): JSX.Element {
   const { encounterId } = useParams<{ encounterId: string }>();
@@ -82,6 +83,14 @@ export default function EasyChartPage(): JSX.Element {
   } = useChartData({
     encounterId,
     onResourceDeleted: (resourceId) => onResourceDeletedRef.current(resourceId),
+  });
+  // After an ambient-scribe upload, watch for the asynchronously-created transcript and fold the
+  // fresh aiChat into chartData — the transcript chips and prime banner light up through the
+  // existing data flow, no reload needed.
+  const { transcriptPending, startTranscriptPolling } = useTranscriptPolling({
+    encounterId,
+    aiChat: chartData?.aiChat,
+    onNewAiChat: (aiChat) => setChartData((prev) => (prev ? { ...prev, aiChat } : prev)),
   });
   // AI-provenance layer: which items the assistant wrote (and from what), the needs-review queue,
   // drift flags on AI free text, and the inline correction handlers.
@@ -575,13 +584,24 @@ export default function EasyChartPage(): JSX.Element {
         <Box sx={{ overflowY: { md: 'auto' }, pr: { md: 1 } }}>{notePane}</Box>
 
         {/* Right column: the assistant chat (thread + live turn + composer). */}
-        <AssistantColumn assistant={assistant} aiChat={chartData?.aiChat} chartLooksEmpty={chartLooksEmpty} />
+        <AssistantColumn
+          assistant={assistant}
+          aiChat={chartData?.aiChat}
+          chartLooksEmpty={chartLooksEmpty}
+          transcriptPending={transcriptPending}
+        />
       </Box>
 
       {/* The assistant composer is pinned to this page's bottom-right, so lift the recorder Fab
           (and its popover) above it instead of the layout-default bottom: 8. */}
       {encounterId && (
-        <AmbientScribeFab encounterId={encounterId} aiChat={chartData?.aiChat} fabBottom={160} popoverBottom={227} />
+        <AmbientScribeFab
+          encounterId={encounterId}
+          aiChat={chartData?.aiChat}
+          fabBottom={160}
+          popoverBottom={227}
+          onRecordingSaved={startTranscriptPolling}
+        />
       )}
     </Container>
   );

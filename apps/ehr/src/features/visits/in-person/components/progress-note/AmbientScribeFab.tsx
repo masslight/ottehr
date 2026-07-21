@@ -11,6 +11,9 @@ interface AmbientScribeFabProps {
   // popover clear of its own bottom-right UI (e.g. the easy-chart assistant composer).
   fabBottom?: number;
   popoverBottom?: number;
+  // Fired after a recording upload completes (see RecordAudioContainer.onSaved) — e.g. so the
+  // easy-chart page can start polling for the asynchronously-created transcript.
+  onRecordingSaved?: () => void;
 }
 
 // The Ambient Scribe mic Fab + recorder popover, shared by the in-person visit layout and the
@@ -21,6 +24,7 @@ export const AmbientScribeFab: React.FC<AmbientScribeFabProps> = ({
   aiChat,
   fabBottom = 8,
   popoverBottom = 75,
+  onRecordingSaved,
 }) => {
   const [recordingAnchorElement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
@@ -53,6 +57,7 @@ export const AmbientScribeFab: React.FC<AmbientScribeFabProps> = ({
             visitID={encounterId}
             aiChat={aiChat}
             setRecordingAnchorElement={setRecordingAnchorElement}
+            onSaved={onRecordingSaved}
           />
         </Paper>
       )}

@@ -18,6 +18,10 @@ interface RecordAudioContainerProps {
   width?: string;
   aiChat: AIChatDetails | undefined;
   setRecordingAnchorElement: ((value: React.SetStateAction<HTMLButtonElement | null>) => void) | undefined;
+  // Fired after a recording is uploaded and its resources are created (the transcript itself is
+  // still produced asynchronously server-side). Lets host pages without the appointment store
+  // (e.g. easy-chart) start watching for the transcript.
+  onSaved?: () => void;
 }
 
 enum RecordingStatus {
@@ -28,7 +32,7 @@ enum RecordingStatus {
 }
 
 export function RecordAudioContainer(props: RecordAudioContainerProps): ReactElement {
-  const { visitID, width = '400px', aiChat, setRecordingAnchorElement } = props;
+  const { visitID, width = '400px', aiChat, setRecordingAnchorElement, onSaved } = props;
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>(RecordingStatus.NOT_STARTED);
   const [loading, setLoading] = useState<boolean>(false);
   const [duration, setDuration] = useState<number>(0);
@@ -42,6 +46,10 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const recordPluginRef = useRef<ReturnType<typeof RecordPlugin.create> | null>(null);
   const { refetch } = useChartData();
+  // Latest-callback ref: the record-end handler below is registered once (its effect's deps
+  // deliberately exclude callbacks), so it must read onSaved through a ref.
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
 
   useEffect(() => {
     if (!waveformRef.current) return;
@@ -93,6 +101,7 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
         z3URL,
       });
       await refetch();
+      onSavedRef.current?.();
       setDuration(0);
       setLoading(false);
     });

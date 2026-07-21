@@ -93,10 +93,14 @@ export function AssistantColumn({
   assistant,
   aiChat,
   chartLooksEmpty,
+  transcriptPending,
 }: {
   assistant: ChartAssistant;
   aiChat: AIChatDetails | undefined;
   chartLooksEmpty: boolean;
+  // A recording was uploaded and its transcript is still being produced server-side — show a
+  // placeholder chip so the provider knows the system heard them.
+  transcriptPending?: boolean;
 }): JSX.Element {
   const {
     conv,
@@ -289,7 +293,7 @@ export function AssistantColumn({
   // including a transcript sent via chip).
   const showPrimeBanner = unusedTranscripts.length > 0 && chartLooksEmpty && !thread.some((m) => m.role === 'user');
 
-  const transcriptChips = transcriptDocs.length > 0 && (
+  const transcriptChips = (transcriptDocs.length > 0 || transcriptPending) && (
     <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ px: 1.5, pt: 1 }}>
       {transcriptDocs.map((t) => {
         const used = isUsedTranscript(t);
@@ -307,6 +311,7 @@ export function AssistantColumn({
           />
         );
       })}
+      {transcriptPending && <Chip size="small" variant="outlined" disabled label="🎤 Transcribing…" />}
     </Stack>
   );
 
