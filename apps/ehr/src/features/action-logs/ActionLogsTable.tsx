@@ -119,7 +119,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
   const logs = visitIdIsInvalid ? [] : actionLogs?.logs ?? [];
   const totalCount = visitIdIsInvalid ? 0 : actionLogs?.totalCount ?? 0;
   const showLoading = isFetching && !visitIdIsInvalid;
-  const columnsCount = patientId ? 4 : 5;
+  const columnsCount = patientId ? 5 : 6;
 
   const renderSearchField = (
     label: string,
@@ -194,6 +194,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
       <Table sx={{ mt: 2 }}>
         <TableHead>
           <TableRow>
+            <TableCell>Document</TableCell>
             {!patientId && <TableCell>Patient</TableCell>}
             <TableCell>Visit</TableCell>
             <TableCell>Recipient</TableCell>
@@ -223,6 +224,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
           ) : (
             logs.map((log) => (
               <TableRow key={log.attemptId}>
+                <TableCell>{log.documentReferenceId ? 'Discharge Summary' : '-'}</TableCell>
                 {!patientId && <TableCell>{log.patientName ?? '-'}</TableCell>}
                 <TableCell>
                   {log.appointmentId ? (

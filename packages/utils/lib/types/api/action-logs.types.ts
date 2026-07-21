@@ -49,6 +49,7 @@ export interface ActionLogEntry {
   patientName?: string;
   appointmentId?: string;
   visitDate?: string;
+  documentReferenceId?: string;
 }
 
 export interface GetActionLogsOutput {

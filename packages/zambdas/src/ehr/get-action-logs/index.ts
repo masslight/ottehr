@@ -149,5 +149,6 @@ function composeEntry(
     patientName: patient ? getFormattedPatientFullName(patient, { skipNickname: true }) : undefined,
     appointmentId,
     visitDate: appointment?.start,
+    documentReferenceId: recipient.documentReferenceId,
   };
 }

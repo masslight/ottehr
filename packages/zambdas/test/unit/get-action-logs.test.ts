@@ -54,7 +54,28 @@ describe('get-action-logs', () => {
     expect(taskParams).toContainEqual({ name: '_offset', value: String(ACTION_LOGS_PAGE_SIZE * 2) });
     expect(taskParams).toContainEqual(expect.objectContaining({ name: 'authored-on' }));
     expect(search.mock.calls[1][0].params).toContainEqual({ name: '_id', value: 'comm-1' });
-    expect(result.logs[0]).toMatchObject({ status: 'sent', patientName: 'Lovelace, Ada' });
+    expect(result.logs[0]).toMatchObject({
+      status: 'sent',
+      patientName: 'Lovelace, Ada',
+      documentReferenceId: 'doc-1',
+    });
+  });
+
+  it('supports historical attempts without a document reference', async () => {
+    const historicalTask: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'email',
+        patientId: 'patient-1',
+        appointmentId: 'appointment-1',
+        recipientAddress: 'ada@example.com',
+      }),
+      id: 'attempt-2',
+    };
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [historicalTask, patient, appointment], total: 1 });
+
+    const result = await performEffect({ channel: 'email', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(result.logs[0]).toHaveProperty('documentReferenceId', undefined);
   });
 
   it('removes the 30-day window when an explicit historical search is supplied', async () => {
