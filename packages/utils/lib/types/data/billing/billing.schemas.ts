@@ -98,12 +98,6 @@ export const SetClaimStatusInputSchema = z
     }
   });
 
-export const MAX_SUBMIT_BILLING_CLAIMS = 20;
-
-export const SubmitBillingClaimsInputSchema = z.object({
-  claimIds: z.array(z.string().uuid()).min(1).max(MAX_SUBMIT_BILLING_CLAIMS),
-});
-
 // Status indicators keyed by ClaimStatusFieldKey; unknown keys are rejected and each provided value
 // must be a valid option for its field.
 export const claimStatusesSchema = z
@@ -601,6 +595,11 @@ export const ImportEraInputSchema = z.object({
   era: nonEmptyString,
 });
 
+export const MatchClaimResponseToClaimInputSchema = z.object({
+  claimResponseId: nonEmptyString,
+  claimId: nonEmptyString,
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
@@ -610,7 +609,6 @@ export type SaveBillingTagInput = z.output<typeof SaveBillingTagInputSchema>;
 export type DeleteBillingTagInput = z.output<typeof DeleteBillingTagInputSchema>;
 export type TagBillingClaimInput = z.output<typeof TagBillingClaimInputSchema>;
 export type SetClaimStatusInput = z.output<typeof SetClaimStatusInputSchema>;
-export type SubmitBillingClaimsInput = z.output<typeof SubmitBillingClaimsInputSchema>;
 export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>;
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
@@ -648,3 +646,4 @@ export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputS
 export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;
 export type ImportEraInput = z.output<typeof ImportEraInputSchema>;
 export type GenderOption = z.input<typeof gender>;
+export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;

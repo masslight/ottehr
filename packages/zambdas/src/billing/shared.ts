@@ -3,7 +3,6 @@ import {
   Account,
   Address,
   Basic,
-  Bundle,
   ChargeItemDefinition,
   Claim,
   Coding,
@@ -58,6 +57,7 @@ import {
   getClaimStatusValues,
   getNPI,
   getPatchBinary,
+  getPatchOperationForNewMetaTag,
   getPayerId,
   getPayerUrl,
   getResourcesFromBatchInlineRequests,
@@ -963,25 +963,28 @@ export function getDefaultSettingForChargeItemDefinition(
   return defaultValue;
 }
 
-export function untaggedEraResources(bundle: Bundle): FhirResource[] {
-  return (bundle.entry ?? [])
-    .map((entry) => entry.resource)
-    .filter(
-      (resource): resource is FhirResource =>
-        !!resource && !!resource.id && !hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)
-    );
-}
-
-export function addBillingTagOperation(resource: FhirResource): {
-  op: 'add';
-  path: string;
-  value: Coding[];
-} {
-  return {
-    op: 'add',
-    path: '/meta/tag',
-    value: [...(resource.meta?.tag ?? []), BILLING_RESOURCE_TAG],
-  };
+export async function tagEraResources({
+  oystehr,
+  resources,
+}: {
+  oystehr: Oystehr;
+  resources: FhirResource[];
+}): Promise<number> {
+  const untagged = new Map<string, FhirResource>();
+  for (const resource of resources) {
+    if (!resource.id || hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) continue;
+    untagged.set(`${resource.resourceType}/${resource.id}`, resource);
+  }
+  if (untagged.size === 0) return 0;
+  const requests = [...untagged.values()].map((resource) =>
+    getPatchBinary({
+      resourceType: resource.resourceType,
+      resourceId: resource.id!,
+      patchOperations: [getPatchOperationForNewMetaTag(resource, BILLING_RESOURCE_TAG)],
+    })
+  );
+  await oystehr.fhir.transaction({ requests });
+  return untagged.size;
 }
 
 // Links notices the stripe webhook stored before the claim existed. Oystehr matches

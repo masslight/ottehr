@@ -216,7 +216,7 @@ export default function ClaimDetail(): ReactElement {
     }
     setSubmitting(true);
     try {
-      await runBillingRulesEngine(oystehrZambda, { claimId: id });
+      await runBillingRulesEngine(oystehrZambda, { claimIds: [id] });
       enqueueSnackbar(
         `${engine.label} started — when every rule passes, ${engine.onPass}; a Hold keeps the claim for review. Refresh to see the result.`,
         { variant: 'info' }
@@ -309,7 +309,7 @@ export default function ClaimDetail(): ReactElement {
           {!editingHeader ? (
             <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
               <Meta label="Date of Service" value={dos} />
-              <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+              <Meta label="Claim ID" value={claim.id} />
               <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
               <Meta label="Service" value={formatAntCaseString(claim.service)} />
               <Meta label="Patient DOB" value={claim.patientDob} />
@@ -329,7 +329,7 @@ export default function ClaimDetail(): ReactElement {
                     sx={{ width: 165 }}
                   />
                 </Box>
-                <Meta label="Claim ID" value={claim.id.slice(0, 8)} />
+                <Meta label="Claim ID" value={claim.id} />
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Claim Type
@@ -1421,7 +1421,7 @@ function ReadOnlySection({ title, children }: { title: string; children: React.R
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }): ReactElement {
+export function Meta({ label, value }: { label: string; value: string }): ReactElement {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">

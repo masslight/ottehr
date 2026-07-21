@@ -3,7 +3,7 @@ import { Box, Button, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useSearchParams } from 'react-router-dom';
 import AppointmentsFilters from 'src/components/AppointmentsFilters';
@@ -47,6 +47,10 @@ export default function Appointments(): ReactElement {
   const queryId = [locationParam, visitTypeParam, serviceCategoryParam, dateFromParam, dateToParam, providerParam].join(
     ':'
   );
+  // Latest filters, readable from inside an in-flight fetch: when the filters change mid-request,
+  // the response that comes back is for a query the user is no longer looking at and is discarded.
+  const latestQueryIdRef = useRef(queryId);
+  latestQueryIdRef.current = queryId;
   // Validate as real ISO dates (not just truthy + string ordering) so a malformed `dateFrom`/`dateTo`
   // link can't trigger a get-appointments request that only fails server-side. ISO dates also sort
   // correctly lexicographically, so the string comparison is safe once both are confirmed valid. The
@@ -88,8 +92,12 @@ export default function Appointments(): ReactElement {
     const serviceCategories = serviceCategoryParam?.split(',') ?? [];
     const providers = providerParam?.split(',') ?? [];
 
+    const discardStaleFetch = (): void => {
+      setLoadingState((prev) => (prev.status === 'loading' && prev.id === queryId ? { status: 'initial' } : prev));
+    };
+
     const fetchStuff = async (client: Oystehr): Promise<void> => {
-      setLoadingState({ status: 'loading' });
+      setLoadingState({ status: 'loading', id: queryId });
 
       if (
         (locations.length > 0 || providers.length > 0 || serviceCategories.length > 0) &&
@@ -109,16 +117,31 @@ export default function Appointments(): ReactElement {
             supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
           });
 
+          if (latestQueryIdRef.current !== queryId) {
+            // The filters changed while this request was in flight; rendering this response would
+            // briefly show the old filters' results.
+            discardStaleFetch();
+            return;
+          }
+
           // drives refetch for apis not using react hook query yet
           setAppointmentsVersion(Date.now());
           // drives refetch for apis using react hook query
           void refetchOrders();
 
           debounce(() => {
+            if (latestQueryIdRef.current !== queryId) {
+              discardStaleFetch();
+              return;
+            }
             setSearchResults(searchResults || []);
             setLoadingState({ status: 'loaded', id: queryId });
           });
         } catch (error) {
+          if (latestQueryIdRef.current !== queryId) {
+            discardStaleFetch();
+            return;
+          }
           console.error('error fetching appointments', error);
           const sdkError = error as Oystehr.OystehrSdkError;
           const message =
@@ -135,8 +158,9 @@ export default function Appointments(): ReactElement {
       hasValidDateRange &&
       oystehrZambda &&
       !editingComment &&
+      // A fetch already running for different filters does not block: the new filters' fetch
+      // starts immediately and the stale response is dropped above instead of rendering first.
       loadingState.id !== queryId &&
-      loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
       void fetchStuff(oystehrZambda);
@@ -159,7 +183,12 @@ export default function Appointments(): ReactElement {
   ]);
 
   useEffect(() => {
-    const appointmentInterval = setInterval(() => setLoadingState({ status: 'initial' }), 30000);
+    const appointmentInterval = setInterval(
+      // The periodic refresh skips ticks that land while a fetch is running — unlike a filter
+      // change, it has nothing new to ask for, so preempting would just duplicate the request.
+      () => setLoadingState((prev) => (prev.status === 'loading' ? prev : { status: 'initial' })),
+      30000
+    );
     // Call updateAppointments so we don't need to wait for it to be called
     // getConversations().catch((error) => console.log(error));
     return () => clearInterval(appointmentInterval);

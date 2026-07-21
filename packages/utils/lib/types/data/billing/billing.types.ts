@@ -3,6 +3,7 @@ import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
 import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
+import type { RulesEngineType } from './rules-engine.constants';
 
 // Insurance types in display order, with the labels shown across the billing app.
 export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
@@ -176,6 +177,8 @@ export interface EraDetailResponse {
     paid: number;
     posted: number;
     status: string;
+    matched: boolean;
+    claimResponseIds: string[];
   }[];
 }
 
@@ -186,6 +189,9 @@ export interface BillingClaimItem {
   // list/detail now surface the `statuses` indicators below instead.
   status: string;
   statuses: ClaimStatusValues;
+  // The rules engine the claim's AR stage maps to (undefined when none applies) — the claims list
+  // only lets rows with an engine be selected for a bulk run.
+  rulesEngine?: RulesEngineType;
   patientName: string;
   patientDob: string;
   payerName: string;
@@ -444,16 +450,6 @@ export interface ExportClaimX12Response {
 
 export interface CreatedClaimResponse {
   claimId: string;
-}
-
-export interface SubmitBillingClaimResult {
-  claimId: string;
-  status: 'submitted' | 'error';
-  error?: string;
-}
-
-export interface SubmitBillingClaimsResponse {
-  results: SubmitBillingClaimResult[];
 }
 
 export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';

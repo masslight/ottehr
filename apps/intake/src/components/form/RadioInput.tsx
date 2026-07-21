@@ -15,12 +15,13 @@ import {
 import { FC, SyntheticEvent, useContext, useRef } from 'react';
 import { Controller, FieldValues, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { LightToolTip } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { RadioStyling } from 'ui-components/lib/components/paperwork/types';
 import { IntakeThemeContext } from '../../contexts';
 import { useLabelDimensions } from '../../hooks/useLabelDimensions';
-import { RadioOption, RadioStyling } from '../../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
+import { RadioOption } from '../../types';
 import { InputHelperText } from './InputHelperText';
-import { LightToolTip } from './LightToolTip';
 
 type RadioInputProps = {
   name: string;
