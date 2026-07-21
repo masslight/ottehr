@@ -1051,6 +1051,8 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
 
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audio recording';
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';
+/** Stamped (valueDateTime) on a transcript DocumentReference once easy-chart priming has consumed it, so the one-click prime isn't re-offered after a reload or in another browser. */
+export const EASY_CHART_PRIMED_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/easy-chart-primed`;
 
 export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
 

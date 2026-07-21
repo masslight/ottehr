@@ -41,6 +41,7 @@ import {
 import { showEnvironmentBanner } from '../../App';
 import { AmbientScribeFab } from '../visits/in-person/components/progress-note/AmbientScribeFab';
 import { AssistantColumn } from './AssistantColumn';
+import { chartHasSubstantiveContent } from './chart-content';
 import {} from './chart-types';
 import { computeChartWarnings } from './intent-logic';
 import { NoteSections } from './NoteSections';
@@ -504,10 +505,10 @@ export default function EasyChartPage(): JSX.Element {
     .filter(Boolean)
     .join('  ·  ');
 
-  // Cheap "nothing charted yet" proxy for the transcript prime banner — mirrors the `incremental`
-  // signal in the assistant's narrative path: an E&M code or any charted diagnosis means a
-  // write-up already happened (intake-harvested history alone doesn't count as charted).
-  const chartLooksEmpty = !chartData?.emCode && !chartData?.diagnosis?.length;
+  // "Nothing charted yet" gate for the transcript prime banner: ANY substantive content (not just
+  // E&M/diagnosis — a chart whose diagnosis step errored still has HPI/exam/MDM) blocks the
+  // one-click prime, because save-chart-data does not dedup and re-priming doubles chart content.
+  const chartLooksEmpty = !chartHasSubstantiveContent(chartData ?? undefined);
 
   return (
     <Container maxWidth={false} sx={{ py: 2 }}>

@@ -14,10 +14,16 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { captureException } from '@sentry/react';
 import { DocumentReference } from 'fhir/r4b';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { AIChatDetails, EASY_CHART_NOTE_TEXT_FIELD_LABELS, EasyChartAgentIntent } from 'utils';
+import {
+  AIChatDetails,
+  EASY_CHART_NOTE_TEXT_FIELD_LABELS,
+  EASY_CHART_PRIMED_EXTENSION_URL,
+  EasyChartAgentIntent,
+} from 'utils';
 import { getDocumentReferenceSource, getSource } from '../visits/shared/components/OttehrAi';
 import {
   AddExamFindingIntent,
@@ -209,7 +215,13 @@ export function AssistantColumn({
     }))
     .filter((t): t is { doc: DocumentReference; data: string } => !!t.data && !!t.doc.id)
     .sort((a, b) => (a.doc.date ?? '').localeCompare(b.doc.date ?? ''));
-  const unusedTranscripts = transcriptDocs.filter((t) => !usedTranscriptIds.has(t.doc.id!));
+  // "Used" = sent this session OR carrying the durable primed extension (stamped on the
+  // DocumentReference after a successful prime, so the state survives reloads and other browsers).
+  const isPrimed = (doc: DocumentReference): boolean =>
+    !!doc.extension?.some((e) => e.url === EASY_CHART_PRIMED_EXTENSION_URL);
+  const isUsedTranscript = (t: { doc: DocumentReference }): boolean =>
+    usedTranscriptIds.has(t.doc.id!) || isPrimed(t.doc);
+  const unusedTranscripts = transcriptDocs.filter((t) => !isUsedTranscript(t));
   // Same label on the chip and in the multi-transcript section headers, so the provider can match
   // a thread section back to the chip it came from.
   const transcriptLabel = (doc: DocumentReference): string =>
@@ -218,29 +230,58 @@ export function AssistantColumn({
   // createDocumentReference in the ai zambda shared helpers) — plain atob would mangle non-ASCII.
   const decodeTranscript = (data: string): string => decodeURIComponent(escape(atob(data)));
 
+  // Durable consumed mark: stamp the primed extension on the DocumentReference once its transcript
+  // has been sent, so the prime banner stays gone across reloads and other browsers. Patch, not
+  // update: our in-memory copy of the doc can be stale, and a full update would clobber concurrent
+  // edits to the whole resource — the patch only ever touches the extension array. Best-effort by
+  // design: a failure never blocks the priming UX (the session mark still covers this session).
+  const markTranscriptPrimed = async (doc: DocumentReference): Promise<void> => {
+    if (!oystehr || !doc.id || isPrimed(doc)) return;
+    const ext = { url: EASY_CHART_PRIMED_EXTENSION_URL, valueDateTime: new Date().toISOString() };
+    try {
+      await oystehr.fhir.patch<DocumentReference>({
+        resourceType: 'DocumentReference',
+        id: doc.id,
+        operations: doc.extension
+          ? [{ op: 'add', path: '/extension/-', value: ext }]
+          : [{ op: 'add', path: '/extension', value: [ext] }],
+      });
+      // Keep the in-memory copy consistent so a deliberate re-click doesn't stamp a duplicate.
+      doc.extension = [...(doc.extension ?? []), ext];
+    } catch (e) {
+      console.error('Failed to mark transcript as primed:', e);
+      captureException(e);
+    }
+  };
+
   // forceNarrative: a transcript is a whole-visit narrative BY CONSTRUCTION — a short chat
   // transcript could fall under the length/sentence heuristic and be misrouted to the
-  // single-intent agent.
-  const sendTranscript = (t: { doc: DocumentReference; data: string }): void => {
+  // single-intent agent. sendText never rejects (it surfaces failures in the thread itself), so
+  // its resolution marks the point where the transcript was handed to the pipeline — persist the
+  // durable consumed mark then.
+  const sendTranscript = async (t: { doc: DocumentReference; data: string }): Promise<void> => {
     setUsedTranscriptIds((prev) => new Set(prev).add(t.doc.id!));
-    void sendText(decodeTranscript(t.data), { forceNarrative: true });
+    await sendText(decodeTranscript(t.data), { forceNarrative: true });
+    await markTranscriptPrimed(t.doc);
   };
 
   // Prime the whole chart from every unused transcript at once, chronologically; multiple
   // transcripts get labeled section headers so the planner (and the thread bubble) keeps the
   // sources distinguishable.
-  const primeFromTranscripts = (): void => {
-    if (unusedTranscripts.length === 0) return;
+  const primeFromTranscripts = async (): Promise<void> => {
+    const toSend = unusedTranscripts;
+    if (toSend.length === 0) return;
     const text =
-      unusedTranscripts.length === 1
-        ? decodeTranscript(unusedTranscripts[0].data)
-        : unusedTranscripts.map((t) => `=== ${transcriptLabel(t.doc)} ===\n${decodeTranscript(t.data)}`).join('\n\n');
+      toSend.length === 1
+        ? decodeTranscript(toSend[0].data)
+        : toSend.map((t) => `=== ${transcriptLabel(t.doc)} ===\n${decodeTranscript(t.data)}`).join('\n\n');
     setUsedTranscriptIds((prev) => {
       const next = new Set(prev);
-      for (const t of unusedTranscripts) next.add(t.doc.id!);
+      for (const t of toSend) next.add(t.doc.id!);
       return next;
     });
-    void sendText(text, { forceNarrative: true });
+    await sendText(text, { forceNarrative: true });
+    for (const t of toSend) await markTranscriptPrimed(t.doc);
   };
 
   // Offer the one-click prime only while it's clearly the opening move: nothing charted yet and
@@ -251,15 +292,18 @@ export function AssistantColumn({
   const transcriptChips = transcriptDocs.length > 0 && (
     <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ px: 1.5, pt: 1 }}>
       {transcriptDocs.map((t) => {
-        const used = usedTranscriptIds.has(t.doc.id!);
+        const used = isUsedTranscript(t);
         return (
           <Chip
             key={t.doc.id}
             size="small"
             variant="outlined"
             label={`${used ? '✓' : ''} ${transcriptLabel(t.doc)}`.trim()}
-            disabled={used || isThinking}
-            onClick={() => sendTranscript(t)}
+            // Used (✓) chips stay clickable: the durable primed mark would otherwise permanently
+            // lock out deliberate re-priming (e.g. after a chart wipe). The banner is the
+            // accident-prevention layer; an explicit chip click is deliberate user intent.
+            disabled={isThinking}
+            onClick={() => void sendTranscript(t)}
           />
         );
       })}
@@ -277,7 +321,7 @@ export function AssistantColumn({
           variant="contained"
           sx={{ textTransform: 'none', flexShrink: 0 }}
           disabled={isThinking}
-          onClick={primeFromTranscripts}
+          onClick={() => void primeFromTranscripts()}
         >
           Generate chart
         </Button>
