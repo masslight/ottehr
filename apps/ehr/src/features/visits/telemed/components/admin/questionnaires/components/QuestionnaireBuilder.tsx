@@ -88,6 +88,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
   const [description, setDescription] = useState(initial?.description || '');
   const [items, dispatch] = useReducer(itemsReducer, initial?.item || []);
   const [titleError, setTitleError] = useState(false);
+  const [pagesError, setPagesError] = useState(false);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
 
   const [currentPreviewPageIndex, setCurrentPreviewPageIndex] = useState(0);
@@ -113,7 +114,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
       ...(metaTags && { meta: { tag: metaTags } }),
     };
 
-    const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(structuredClone(questionnaire));
+    const fhirQuestionnaire = practiceManagedQuestionnaireToFhir(structuredClone(questionnaire), true);
     const jsonPreview = JSON.stringify(fhirQuestionnaire, null, 2);
 
     return { questionnaire, fhirQuestionnaire, jsonPreview };
@@ -124,6 +125,23 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
       enqueueSnackbar('JSON copied to clipboard', { variant: 'success' });
     });
   }, [jsonPreview]);
+
+  const handleSave = async (): Promise<void> => {
+    let error = false;
+    if (!title) {
+      setTitleError(true);
+      error = true;
+    }
+
+    if (questionnaire.item.length === 0) {
+      setPagesError(true);
+      error = true;
+    }
+
+    if (error) return;
+
+    await onSave(questionnaire);
+  };
 
   return (
     <Box>
@@ -163,7 +181,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
             </Grid>
           </Paper>
 
-          <Paper variant="outlined" sx={{ p: 3 }}>
+          <Paper variant="outlined" sx={{ p: 3, ...(pagesError && { borderColor: 'error.main' }) }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography variant="h4" sx={{ color: '#0F347C' }}>
                 Pages ({items.length})
@@ -172,7 +190,10 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
                 size="medium"
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => dispatch({ type: 'ADD_PAGE' })}
+                onClick={() => {
+                  dispatch({ type: 'ADD_PAGE' });
+                  setPagesError(false);
+                }}
               >
                 Add Page
               </RoundedButton>
@@ -191,6 +212,11 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
               <QuestionnaireItemEditor key={item._key} item={item} dispatch={dispatch} />
             ))}
           </Paper>
+          {pagesError && (
+            <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 0.5, ml: 1.5 }}>
+              At least one page is required
+            </Typography>
+          )}
 
           {/* Spacer for floating buttons */}
           <Box sx={{ height: 64 }} />
@@ -298,7 +324,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
         >
           Cancel
         </RoundedButton>
-        <RoundedButton variant="contained" size="medium" loading={isSaving} onClick={() => onSave(questionnaire)}>
+        <RoundedButton variant="contained" size="medium" loading={isSaving} onClick={() => handleSave()}>
           Save Questionnaire
         </RoundedButton>
       </Box>

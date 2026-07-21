@@ -35,16 +35,26 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION = '1.0.0';
  * @param questionnaire PracticeManagedQuestionnaire
  * @returns Fhir Questionnaire
  */
-export const practiceManagedQuestionnaireToFhir = (questionnaire: PracticeManagedQuestionnaire): Questionnaire => {
-  const fhirItems = questionnaire.item?.map(PracticeManagedQuestionnaireItemToFhir);
+export const practiceManagedQuestionnaireToFhir = (
+  questionnaire: PracticeManagedQuestionnaire,
+  preview = false
+): Questionnaire => {
+  const fhirItems = questionnaire.item
+    ?.map((item: PracticeManagedQuestionnaireItem) => PracticeManagedQuestionnaireItemToFhir(item, preview))
+    .filter((item): item is QuestionnaireItem => item !== undefined);
 
   const questionnaireWithTag = addPracticeManagedQuestionnaireTag(questionnaire);
 
   return { ...questionnaireWithTag, item: fhirItems };
 };
 
-const PracticeManagedQuestionnaireItemToFhir = (item: PracticeManagedQuestionnaireItem): QuestionnaireItem => {
-  const managedNestedItems = item.item?.map(PracticeManagedQuestionnaireItemToFhir);
+const PracticeManagedQuestionnaireItemToFhir = (
+  item: PracticeManagedQuestionnaireItem,
+  preview: boolean
+): QuestionnaireItem | undefined => {
+  const managedNestedItems = item.item
+    ?.map((nestedItem: PracticeManagedQuestionnaireItem) => PracticeManagedQuestionnaireItemToFhir(nestedItem, preview))
+    .filter((nestedItem): nestedItem is QuestionnaireItem => nestedItem !== undefined);
 
   // Preserve non-Ottehr extensions from imported questionnaires
   const extension: Extension[] =
@@ -59,7 +69,11 @@ const PracticeManagedQuestionnaireItemToFhir = (item: PracticeManagedQuestionnai
     extension.push({ url: INPUT_WIDTH_EXTENSION_URL, valueString: item.inputWidth });
   }
 
-  const fhirItem = omitManagedFields(item);
+  const fhirItem = omitManagedFields(item, preview);
+
+  if (!fhirItem) {
+    return undefined;
+  }
 
   return {
     ...fhirItem,
@@ -68,15 +82,17 @@ const PracticeManagedQuestionnaireItemToFhir = (item: PracticeManagedQuestionnai
   };
 };
 
-const omitManagedFields = (item: PracticeManagedQuestionnaireItem): QuestionnaireItem => {
+const omitManagedFields = (item: PracticeManagedQuestionnaireItem, preview: boolean): QuestionnaireItem | undefined => {
   // the front end reducer automatically assigns text as an empty string to make updates easier
   // this is technically valid for typescript but if you send the object to oystehr for create or update with an empty string it will error
   if (item.text === '') delete item.text;
-  if (item.answerOption) {
+
+  if (!preview && item.answerOption) {
     item.answerOption = item.answerOption.filter((option) => Object.values(option).some((value) => value !== ''));
 
     if (item.answerOption.length === 0) {
-      delete item.answerOption;
+      // an item with no valid answer options left is not usable; drop it from its parent's item array
+      return undefined;
     }
   }
 
