@@ -14,6 +14,11 @@ vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
+vi.mock('heic-to', () => ({
+  heicTo: vi.fn(),
+  isHeic: vi.fn(async () => false),
+}));
+
 vi.mock('ui-components', async () => {
   const actual = await vi.importActual<typeof import('ui-components')>('ui-components');
   return {
