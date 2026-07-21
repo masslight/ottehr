@@ -117,16 +117,7 @@ async function updateOrderContent(
   const diagnoses = await validateICD10Codes(edit.diagnosisCodes, oystehr);
   const cpt = await validateCPTCode(edit.cptCode, oystehr);
 
-  if (typeof edit.stat !== 'boolean') {
-    throw new Error('stat is required and must be a boolean');
-  }
-  if (typeof edit.consentObtained !== 'boolean') {
-    throw new Error('consentObtained is required and must be a boolean');
-  }
-  const clinicalHistory = typeof edit.clinicalHistory === 'string' ? edit.clinicalHistory : '';
-  if (clinicalHistory.length > 255) {
-    throw new Error('Clinical history must be 255 characters or less');
-  }
+  const clinicalHistory = edit.clinicalHistory ?? '';
 
   const content = buildRadiologyOrderContent({
     diagnoses,

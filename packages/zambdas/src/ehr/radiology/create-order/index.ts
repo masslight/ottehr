@@ -75,10 +75,12 @@ export interface ValidatedInput {
 }
 
 export interface EnhancedBody
-  extends Omit<CreateRadiologyZambdaOrderInput, 'encounterId' | 'diagnosisCodes' | 'cptCode'> {
+  extends Omit<CreateRadiologyZambdaOrderInput, 'encounterId' | 'diagnosisCodes' | 'cptCode' | 'clinicalHistory'> {
   encounter: Encounter;
   diagnoses: ValidatedICD10Code[];
   cpt: ValidatedCPTCode;
+  // Normalized during validation: absent clinical history becomes ''.
+  clinicalHistory: string;
 }
 
 // Constants
@@ -168,7 +170,7 @@ const performEffect = async (
 export interface RadiologyOrderContentInput {
   diagnoses: ValidatedICD10Code[];
   cpt: ValidatedCPTCode;
-  lateralityModifier: { display: string; code: string } | undefined;
+  lateralityModifier?: { display: string; code: string };
   stat: boolean;
   clinicalHistory: string;
   studyName?: string;

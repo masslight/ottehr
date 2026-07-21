@@ -1,5 +1,11 @@
-import { INVALID_INPUT_ERROR, isPhoneNumberValid, Secrets, SendRadiologyOrderFaxZambdaInput } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import {
+  INVALID_INPUT_ERROR,
+  isPhoneNumberValid,
+  Secrets,
+  SendRadiologyOrderFaxZambdaInput,
+  SendRadiologyOrderFaxZambdaInputSchema,
+} from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: SendRadiologyOrderFaxZambdaInput;
@@ -7,14 +13,8 @@ export interface ValidatedInput {
 }
 
 export const validateInput = (input: ZambdaInput): ValidatedInput => {
-  const { serviceRequestId, faxNumber } = validateJsonBody(input);
+  const { serviceRequestId, faxNumber } = safeValidate(SendRadiologyOrderFaxZambdaInputSchema, validateJsonBody(input));
 
-  if (!serviceRequestId || typeof serviceRequestId !== 'string') {
-    throw new Error('serviceRequestId is required and must be a string');
-  }
-  if (!faxNumber || typeof faxNumber !== 'string') {
-    throw new Error('faxNumber is required and must be a string');
-  }
   if (!isPhoneNumberValid(faxNumber)) {
     throw INVALID_INPUT_ERROR('"faxNumber" is not a valid phone number');
   }

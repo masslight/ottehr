@@ -1,18 +1,13 @@
-import { DeleteRadiologyResultZambdaInput, Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { DeleteRadiologyResultZambdaInput, DeleteRadiologyResultZambdaInputSchema, Secrets } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: DeleteRadiologyResultZambdaInput;
 }
 
 export const validateInput = (input: ZambdaInput): ValidatedInput => {
-  const { documentReferenceId } = validateJsonBody(input);
-
-  if (!documentReferenceId || typeof documentReferenceId !== 'string') {
-    throw new Error('documentReferenceId is required and must be a string');
-  }
-
-  return { body: { documentReferenceId } };
+  const body = safeValidate(DeleteRadiologyResultZambdaInputSchema, validateJsonBody(input));
+  return { body };
 };
 
 export const validateSecrets = (secrets: Secrets | null): Secrets => {

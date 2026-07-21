@@ -1,5 +1,5 @@
-import { Secrets, UpdateRadiologyOrderZambdaInput } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets, UpdateRadiologyOrderZambdaInput, UpdateRadiologyOrderZambdaInputSchema } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: UpdateRadiologyOrderZambdaInput;
@@ -7,7 +7,8 @@ export interface ValidatedInput {
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const body = validateBody(input);
+  // Shape only; the edit payload's CPT/ICD-10 codes are validated in performEffect.
+  const body = safeValidate(UpdateRadiologyOrderZambdaInputSchema, validateJsonBody(input));
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
@@ -17,33 +18,6 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   return {
     body,
     callerAccessToken,
-  };
-};
-
-const validateBody = (input: ZambdaInput): UpdateRadiologyOrderZambdaInput => {
-  const { serviceRequestId, consentObtained, edit } = validateJsonBody(input);
-
-  if (!serviceRequestId) {
-    throw new Error('serviceRequestId is required');
-  }
-
-  if (typeof serviceRequestId !== 'string') {
-    throw new Error('serviceRequestId must be a string');
-  }
-
-  if (typeof consentObtained !== 'boolean') {
-    throw new Error('consentObtained must be a boolean');
-  }
-
-  if (edit != null && (typeof edit !== 'object' || Array.isArray(edit))) {
-    throw new Error('edit must be an object');
-  }
-
-  // Detailed validation of the edit payload (terminology lookups etc.) happens in performEffect.
-  return {
-    serviceRequestId,
-    consentObtained,
-    edit: edit as UpdateRadiologyOrderZambdaInput['edit'],
   };
 };
 

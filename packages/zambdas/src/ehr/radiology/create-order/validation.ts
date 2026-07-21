@@ -3,6 +3,7 @@ import { Encounter } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_ICD_10,
+  CreateRadiologyZambdaOrderInputSchema,
   INVALID_INPUT_ERROR,
   MISSING_REQUIRED_PARAMETERS,
   RADIOLOGY_SAFETY_FLAGS,
@@ -10,7 +11,7 @@ import {
   RadiologySafetyFlag,
   Secrets,
 } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
@@ -28,6 +29,8 @@ export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promi
 };
 
 const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<EnhancedBody> => {
+  // Schema validates shape; terminology lookups, encounter existence, and the in-house
+  // clinical-history rule are business checks that run below.
   const {
     diagnosisCodes,
     cptCode,
@@ -41,7 +44,7 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Enhan
     performingOrganization,
     timeWindow,
     safetyFlags,
-  } = validateJsonBody(input);
+  } = safeValidate(CreateRadiologyZambdaOrderInputSchema, validateJsonBody(input));
 
   const isExternal = external === true;
 
@@ -49,38 +52,9 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Enhan
   const cpt = await validateCPTCode(cptCode, oystehr);
   const encounter = await fetchEncounter(encounterId, oystehr);
 
-  if (typeof stat !== 'boolean') {
-    throw new Error('Stat is required and must be a boolean');
-  }
-
   // Clinical history is required for in-house orders, optional for external ones.
-  if (clinicalHistory != null && typeof clinicalHistory !== 'string') {
-    throw new Error('Clinical history must be a string');
-  }
   if (!isExternal && !clinicalHistory) {
     throw new Error('Clinical history is required and must be a string');
-  }
-  if (typeof clinicalHistory === 'string' && clinicalHistory.length > 255) {
-    throw new Error('Clinical history must be 255 characters or less');
-  }
-  const normalizedClinicalHistory = typeof clinicalHistory === 'string' ? clinicalHistory : '';
-
-  if (studyName != null && typeof studyName !== 'string') {
-    throw new Error('Study name must be a string');
-  }
-
-  const normalizedStudyName = typeof studyName === 'string' ? studyName.trim() || undefined : undefined;
-
-  if (typeof consentObtained !== 'boolean') {
-    throw new Error('consentObtained');
-  }
-
-  if (external != null && typeof external !== 'boolean') {
-    throw new Error('external must be a boolean');
-  }
-
-  if (timeWindow != null && typeof timeWindow !== 'string') {
-    throw new Error('timeWindow must be a string');
   }
 
   return {
@@ -89,12 +63,12 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Enhan
     lateralityModifier,
     encounter,
     stat,
-    clinicalHistory: normalizedClinicalHistory,
-    studyName: normalizedStudyName,
+    clinicalHistory: clinicalHistory ?? '',
+    studyName: studyName?.trim() || undefined,
     consentObtained,
     external: isExternal,
     performingOrganization: validatePerformingOrganization(performingOrganization),
-    timeWindow: typeof timeWindow === 'string' ? timeWindow.trim() || undefined : undefined,
+    timeWindow: timeWindow?.trim() || undefined,
     safetyFlags: validateSafetyFlags(safetyFlags),
   };
 };

@@ -1,5 +1,5 @@
-import { Secrets, UploadRadiologyResultZambdaInput } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets, UploadRadiologyResultZambdaInput, UploadRadiologyResultZambdaInputSchema } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: UploadRadiologyResultZambdaInput;
@@ -7,24 +7,14 @@ export interface ValidatedInput {
 }
 
 export const validateInput = (input: ZambdaInput): ValidatedInput => {
-  const { serviceRequestId, z3URL, title } = validateJsonBody(input);
-
-  if (!serviceRequestId || typeof serviceRequestId !== 'string') {
-    throw new Error('serviceRequestId is required and must be a string');
-  }
-  if (!z3URL || typeof z3URL !== 'string') {
-    throw new Error('z3URL is required and must be a string');
-  }
-  if (title != null && typeof title !== 'string') {
-    throw new Error('title must be a string');
-  }
+  const body = safeValidate(UploadRadiologyResultZambdaInputSchema, validateJsonBody(input));
 
   const callerAccessToken = input.headers.Authorization?.replace('Bearer ', '');
   if (!callerAccessToken) {
     throw new Error('Authorization header is required');
   }
 
-  return { body: { serviceRequestId, z3URL, title }, callerAccessToken };
+  return { body, callerAccessToken };
 };
 
 export const validateSecrets = (secrets: Secrets | null): Secrets => {

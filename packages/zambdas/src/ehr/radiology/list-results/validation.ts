@@ -1,18 +1,13 @@
-import { ListRadiologyResultsZambdaInput, Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { ListRadiologyResultsZambdaInput, ListRadiologyResultsZambdaInputSchema, Secrets } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: ListRadiologyResultsZambdaInput;
 }
 
 export const validateInput = (input: ZambdaInput): ValidatedInput => {
-  const { serviceRequestId } = validateJsonBody(input);
-
-  if (!serviceRequestId || typeof serviceRequestId !== 'string') {
-    throw new Error('serviceRequestId is required and must be a string');
-  }
-
-  return { body: { serviceRequestId } };
+  const body = safeValidate(ListRadiologyResultsZambdaInputSchema, validateJsonBody(input));
+  return { body };
 };
 
 export const validateSecrets = (secrets: Secrets | null): Secrets => {
