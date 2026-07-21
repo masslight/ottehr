@@ -9,13 +9,14 @@ import {
   ActionLogEntry,
   GetActionLogsInputValidated,
   GetActionLogsOutput,
+  getAllFhirSearchPages,
   getFormattedPatientFullName,
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
   getOutboundDeliveryRecipientSnapshot,
-  getReferenceId,
   OUTBOUND_DELIVERY_TASK_CODES,
   OUTBOUND_DELIVERY_TASK_SYSTEM,
+  removePrefix,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -95,10 +96,12 @@ export async function performEffect(
       .filter((resource): resource is Appointment => resource.resourceType === 'Appointment')
       .map((appointment) => [appointment.id, appointment])
   );
-  const communications =
-    channel === 'fax' ? await getFaxCommunications(tasks, oystehr) : new Map<string, Communication>();
+  const [communications, retriedAttemptIds] = await Promise.all([
+    channel === 'fax' ? getFaxCommunications(tasks, oystehr) : Promise.resolve(new Map<string, Communication>()),
+    getRetriedAttemptIds(tasks, oystehr),
+  ]);
 
-  const logs = tasks.map((task) => composeEntry(task, patients, appointments, communications));
+  const logs = tasks.map((task) => composeEntry(task, patients, appointments, communications, retriedAttemptIds));
   return { logs, totalCount: bundle.total ?? 0 };
 }
 
@@ -116,32 +119,56 @@ async function getFaxCommunications(tasks: Task[], oystehr: Oystehr): Promise<Ma
       resourceType: 'Communication',
       params: [
         { name: '_id', value: ids.join(',') },
-        { name: '_count', value: String(ACTION_LOGS_PAGE_SIZE) },
+        { name: '_count', value: String(ids.length) },
       ],
     })
   ).unbundle();
   return new Map(resources.map((communication) => [communication.id!, communication]));
 }
 
+async function getRetriedAttemptIds(tasks: Task[], oystehr: Oystehr): Promise<Set<string>> {
+  const attemptReferences = tasks.flatMap((task) => (task.id ? [`Task/${task.id}`] : []));
+  if (!attemptReferences.length) return new Set();
+
+  const children = await getAllFhirSearchPages<Task>(
+    {
+      resourceType: 'Task',
+      params: [{ name: 'part-of', value: attemptReferences.join(',') }],
+    },
+    oystehr,
+    ACTION_LOGS_PAGE_SIZE
+  );
+  return new Set(
+    children.flatMap((child) =>
+      (child.partOf ?? []).flatMap((parent) => {
+        const id = removePrefix('Task/', parent.reference ?? '');
+        return id ? [id] : [];
+      })
+    )
+  );
+}
+
 function composeEntry(
   task: Task,
   patients: Map<string | undefined, Patient>,
   appointments: Map<string | undefined, Appointment>,
-  communications: Map<string, Communication>
+  communications: Map<string, Communication>,
+  retriedAttemptIds: Set<string>
 ): ActionLogEntry {
   const channel = getOutboundDeliveryChannel(task)!;
-  const patientId = getReferenceId(task.for?.reference, 'Patient');
-  const appointmentId = getReferenceId(task.focus?.reference, 'Appointment');
+  const patientId = removePrefix('Patient/', task.for?.reference ?? '');
+  const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '');
   const patient = patients.get(patientId);
   const appointment = appointments.get(appointmentId);
   const recipient = getOutboundDeliveryRecipientSnapshot(task);
+  const status = getOutboundDeliveryAttemptStatus(
+    task,
+    recipient.communicationId ? communications.get(recipient.communicationId) : undefined
+  );
   return {
     attemptId: task.id!,
     channel,
-    status: getOutboundDeliveryAttemptStatus(
-      task,
-      recipient.communicationId ? communications.get(recipient.communicationId) : undefined
-    ),
+    status,
     attemptedAt: task.authoredOn,
     recipientAddress: recipient.address ?? '',
     recipientName: recipient.name,
@@ -150,5 +177,10 @@ function composeEntry(
     appointmentId,
     visitDate: appointment?.start,
     documentReferenceId: recipient.documentReferenceId,
+    canRetry:
+      status === 'failed' &&
+      Boolean(appointmentId) &&
+      Boolean(recipient.address?.trim()) &&
+      !retriedAttemptIds.has(task.id!),
   };
 }

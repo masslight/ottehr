@@ -1117,6 +1117,7 @@ export const OUTBOUND_DELIVERY_INPUT_CODES = {
   documentReference: 'document-reference',
   senderId: 'sender-id',
   senderDisplay: 'sender-display',
+  senderOrganization: 'sender-organization',
 } as const;
 export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
 export const OUTBOUND_DELIVERY_OUTPUT_CODES = {

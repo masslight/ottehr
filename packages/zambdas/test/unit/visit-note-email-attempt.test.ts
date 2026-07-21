@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockSendEmail = vi.fn();
 const mockGetFeatureFlag = vi.fn(() => true);
 vi.mock('../../src/shared/communication', () => ({
+  makeAddressUrl: (address: string) => `https://maps.example.test/?q=${encodeURIComponent(address)}`,
   getEmailClient: () => ({
     getFeatureFlag: mockGetFeatureFlag,
     sendVirtualCompletionEmail: mockSendEmail,
@@ -12,7 +13,7 @@ vi.mock('../../src/shared/communication', () => ({
   }),
 }));
 
-import { sendVisitNoteEmailAttempt } from '../../src/shared/visit-note-email';
+import { buildVisitNoteEmailTemplate, sendVisitNoteEmailAttempt } from '../../src/shared/visit-note-email';
 
 describe('visit-note email attempt', () => {
   const create = vi.fn();
@@ -86,5 +87,51 @@ describe('visit-note email attempt', () => {
     ).rejects.toThrow('delivery is disabled');
     expect(create).not.toHaveBeenCalled();
     expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('checks the delivery feature flag before validating correctable input', async () => {
+    mockGetFeatureFlag.mockReturnValue(false);
+    await expect(
+      sendVisitNoteEmailAttempt({
+        mode: 'virtual',
+        oystehr,
+        secrets: null,
+        patientId: 'patient-1',
+        appointmentId: 'appointment-1',
+        recipientEmail: '',
+        documentReferenceId: '',
+        templateData: { location: 'Virtual', 'visit-note-url': 'https://example.com/note' },
+      })
+    ).rejects.toThrow('delivery is disabled');
+  });
+
+  it('builds consistent virtual and in-person completion templates', () => {
+    expect(
+      buildVisitNoteEmailTemplate({
+        isInPerson: false,
+        locationName: 'Virtual',
+        visitNoteUrl: 'https://example.com/note',
+      })
+    ).toEqual({
+      mode: 'virtual',
+      templateData: { location: 'Virtual', 'visit-note-url': 'https://example.com/note' },
+    });
+    expect(
+      buildVisitNoteEmailTemplate({
+        isInPerson: true,
+        locationName: 'Main Street',
+        visitNoteUrl: 'https://example.com/note',
+        address: '123 Main St',
+        prettyStartTime: 'July 21 at 10:00 AM',
+      })
+    ).toMatchObject({
+      mode: 'in-person',
+      templateData: {
+        location: 'Main Street',
+        time: 'July 21 at 10:00 AM',
+        address: '123 Main St',
+        'visit-note-url': 'https://example.com/note',
+      },
+    });
   });
 });

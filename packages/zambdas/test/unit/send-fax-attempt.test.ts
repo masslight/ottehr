@@ -80,6 +80,9 @@ describe('send-fax outbound attempt', () => {
       '+12125551234'
     );
     expect(getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientName)?.valueString).toContain('Green');
+    expect(
+      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference
+    ).toMatch(/^Organization\//);
     expect(mockFhirPatch).toHaveBeenCalledWith(
       expect.objectContaining({ operations: expect.arrayContaining([expect.objectContaining({ value: 'completed' })]) })
     );

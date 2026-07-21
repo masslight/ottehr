@@ -1,5 +1,6 @@
 import { Communication, Task, TaskInput, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { removePrefix } from '../helpers';
 import { ActionLogChannel, ActionLogStatus, OutboundDeliveryAttemptData } from '../types/api/action-logs.types';
 import {
   OUTBOUND_DELIVERY_INPUT_CODES,
@@ -57,6 +58,9 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
         : []),
       ...(data.senderId ? [input(OUTBOUND_DELIVERY_INPUT_CODES.senderId, data.senderId)] : []),
       ...(data.senderDisplay ? [input(OUTBOUND_DELIVERY_INPUT_CODES.senderDisplay, data.senderDisplay)] : []),
+      ...(data.senderOrganizationReference
+        ? [input(OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization, undefined, data.senderOrganizationReference)]
+        : []),
     ],
     output: data.communicationReference
       ? [
@@ -87,12 +91,6 @@ export function getOutboundDeliveryOutput(task: Task, code: string): TaskOutput 
   );
 }
 
-export function getReferenceId(reference: string | undefined, resourceType?: string): string | undefined {
-  const parts = reference?.split('/');
-  if (!parts || parts.length < 2 || (resourceType && parts[0] !== resourceType) || !parts[1]) return undefined;
-  return parts[1];
-}
-
 export interface OutboundDeliveryRecipientSnapshot {
   address?: string;
   name?: string;
@@ -104,13 +102,13 @@ export function getOutboundDeliveryRecipientSnapshot(task: Task): OutboundDelive
   return {
     address: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientAddress)?.valueString,
     name: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientName)?.valueString,
-    documentReferenceId: getReferenceId(
-      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference,
-      'DocumentReference'
+    documentReferenceId: removePrefix(
+      'DocumentReference/',
+      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference ?? ''
     ),
-    communicationId: getReferenceId(
-      getOutboundDeliveryOutput(task, OUTBOUND_DELIVERY_OUTPUT_CODES.communication)?.valueReference?.reference,
-      'Communication'
+    communicationId: removePrefix(
+      'Communication/',
+      getOutboundDeliveryOutput(task, OUTBOUND_DELIVERY_OUTPUT_CODES.communication)?.valueReference?.reference ?? ''
     ),
   };
 }

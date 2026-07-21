@@ -1,33 +1,40 @@
 import { Communication, Provenance, Task } from 'fhir/r4b';
 import {
-  getReferenceId,
+  getAllFhirSearchPages,
   OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM,
   OUTBOUND_DELIVERY_TASK_CODES,
   OUTBOUND_DELIVERY_TASK_SYSTEM,
   OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM,
   PROVENANCE_FAX_ACTIVITY_CODES,
   PROVENANCE_FAX_SYSTEM,
+  removePrefix,
   Secrets,
 } from 'utils';
 import { buildLegacyFaxAttempt } from './backfill-outbound-fax-attempts.helpers';
-import { createOystehrClientFromConfig, getAll, performEffectWithEnvFile } from './helpers';
+import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 async function backfill(config: Secrets): Promise<void> {
   const oystehr = await createOystehrClientFromConfig(config);
   const [communications, provenances, existingTasks] = await Promise.all([
-    getAll<Communication>(
-      'Communication',
-      [{ name: 'identifier', value: `${OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM}|` }],
+    getAllFhirSearchPages<Communication>(
+      {
+        resourceType: 'Communication',
+        params: [{ name: 'identifier', value: `${OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM}|` }],
+      },
       oystehr
     ),
-    getAll<Provenance>(
-      'Provenance',
-      [{ name: 'activity', value: `${PROVENANCE_FAX_SYSTEM}|${PROVENANCE_FAX_ACTIVITY_CODES.faxSent}` }],
+    getAllFhirSearchPages<Provenance>(
+      {
+        resourceType: 'Provenance',
+        params: [{ name: 'activity', value: `${PROVENANCE_FAX_SYSTEM}|${PROVENANCE_FAX_ACTIVITY_CODES.faxSent}` }],
+      },
       oystehr
     ),
-    getAll<Task>(
-      'Task',
-      [{ name: 'code', value: `${OUTBOUND_DELIVERY_TASK_SYSTEM}|${OUTBOUND_DELIVERY_TASK_CODES.fax}` }],
+    getAllFhirSearchPages<Task>(
+      {
+        resourceType: 'Task',
+        params: [{ name: 'code', value: `${OUTBOUND_DELIVERY_TASK_SYSTEM}|${OUTBOUND_DELIVERY_TASK_CODES.fax}` }],
+      },
       oystehr
     ),
   ]);
@@ -41,7 +48,7 @@ async function backfill(config: Secrets): Promise<void> {
   const provenanceByCommunication = new Map<string, Provenance>();
   for (const provenance of provenances) {
     const communicationId = provenance.target
-      .map((target) => getReferenceId(target.reference, 'Communication'))
+      .map((target) => removePrefix('Communication/', target.reference ?? ''))
       .find(Boolean);
     if (communicationId) provenanceByCommunication.set(communicationId, provenance);
   }

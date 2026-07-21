@@ -1,7 +1,7 @@
 import { Communication, DocumentReference, Task } from 'fhir/r4b';
 import { makeOutboundDeliveryAttempt, OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL, VISIT_NOTE_SUMMARY_CODE } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
-import { isRetryable, resolveDocumentReference } from '../../src/ehr/retry-action-log';
+import { hasRetryChild, isRetryable, performEffect, resolveDocumentReference } from '../../src/ehr/retry-action-log';
 
 const emailTask: Task = {
   ...makeOutboundDeliveryAttempt({
@@ -45,6 +45,48 @@ describe('retry-action-log eligibility', () => {
     const get = vi.fn().mockResolvedValue(stopped);
     expect(await isRetryable(faxTask, 'fax', { fhir: { get } } as any)).toBe(true);
     expect(get).toHaveBeenCalledWith({ resourceType: 'Communication', id: 'comm-1' });
+  });
+
+  it('detects an existing child retry', async () => {
+    const child = { ...emailTask, id: 'attempt-child', partOf: [{ reference: 'Task/attempt-1' }] };
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [child] });
+
+    await expect(hasRetryChild('attempt-1', { fhir: { search } } as any)).resolves.toBe(true);
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Task',
+      params: [
+        { name: 'part-of', value: 'Task/attempt-1' },
+        { name: '_count', value: '1' },
+      ],
+    });
+  });
+
+  it('rejects an attempt that has already been retried before sending', async () => {
+    const get = vi.fn().mockResolvedValue({ ...emailTask, status: 'failed' });
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [{ ...emailTask, id: 'attempt-child' }] });
+
+    await expect(
+      performEffect(
+        { attemptId: 'attempt-1', secrets: null },
+        { fhir: { get, search } } as any,
+        { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
+        'token'
+      )
+    ).rejects.toThrow('already been retried');
+  });
+
+  it('rejects an empty stored recipient before preparing the retry', async () => {
+    const get = vi.fn().mockResolvedValue({ ...emailTask, status: 'failed', input: [] });
+    const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
+
+    await expect(
+      performEffect(
+        { attemptId: 'attempt-1', secrets: null },
+        { fhir: { get, search } } as any,
+        { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
+        'token'
+      )
+    ).rejects.toThrow('recipient address');
   });
 
   it('recovers the visit note from the appointment for backfilled fax attempts', async () => {

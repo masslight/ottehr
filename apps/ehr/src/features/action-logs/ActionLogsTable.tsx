@@ -1,3 +1,4 @@
+import { otherColors, palette } from '@ehrTheme/colors';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import {
   Box,
@@ -33,20 +34,21 @@ import { getActionLogs } from '../../api/api';
 import DateSearch from '../../components/DateSearch';
 import { MappedStatusChip, Mapper } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
+import { ACTION_LOG_CHANNEL_COPY } from './actionLogs.constants';
 import { RetryActionButton } from './RetryActionButton';
 
 const ACTION_STATUS_COLORS_MAP: Mapper<ActionLogStatus> = {
   sent: {
-    background: { primary: '#C8E6C9' },
-    color: { primary: '#1B5E20' },
+    background: { primary: otherColors.outreachSuccessBg },
+    color: { primary: palette.success.dark },
   },
   failed: {
-    background: { primary: '#FFCCBC' },
-    color: { primary: '#BF360C' },
+    background: { primary: otherColors.outreachErrorBg },
+    color: { primary: otherColors.outreachErrorText },
   },
   pending: {
-    background: { primary: '#B3E5FC' },
-    color: { primary: '#01579B' },
+    background: { primary: otherColors.outreachInfoBg },
+    color: { primary: palette.info.dark },
   },
 };
 
@@ -58,6 +60,7 @@ interface ActionLogsTableProps {
 
 export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }) => {
   const { oystehrZambda } = useApiClients();
+  const channelCopy = ACTION_LOG_CHANNEL_COPY[channel];
 
   const [patientNameField, setPatientNameField] = useState('');
   const [patientNameSearch, setPatientNameSearch] = useState('');
@@ -198,7 +201,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
             {!patientId && <TableCell>Patient</TableCell>}
             <TableCell>Visit</TableCell>
             <TableCell>Recipient</TableCell>
-            <TableCell>{channel === 'fax' ? 'Fax Number' : 'Email Address'}</TableCell>
+            <TableCell>{channelCopy.addressLabel}</TableCell>
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
@@ -218,7 +221,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
           ) : logs.length === 0 ? (
             <TableRow>
               <TableCell colSpan={columnsCount} align="center">
-                <Typography color="text.secondary">No {channel === 'fax' ? 'faxes' : 'emails'} found</Typography>
+                <Typography color="text.secondary">No {channelCopy.plural} found</Typography>
               </TableCell>
             </TableRow>
           ) : (
@@ -259,9 +262,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <MappedStatusChip status={log.status} mapper={ACTION_STATUS_COLORS_MAP} />
-                    {log.status === 'failed' && log.appointmentId && (
-                      <RetryActionButton log={log} onResent={() => void refetch()} />
-                    )}
+                    {log.canRetry && <RetryActionButton log={log} onResent={() => void refetch()} />}
                   </Box>
                 </TableCell>
               </TableRow>

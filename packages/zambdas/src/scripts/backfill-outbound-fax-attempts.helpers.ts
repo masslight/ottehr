@@ -1,8 +1,8 @@
 import { Communication, Practitioner, Provenance, Task } from 'fhir/r4b';
-import { getFullestAvailableName, getReferenceId, makeOutboundDeliveryAttempt } from 'utils';
+import { getFullestAvailableName, makeOutboundDeliveryAttempt, removePrefix } from 'utils';
 
 export function buildLegacyFaxAttempt(communication: Communication, provenance?: Provenance): Task | undefined {
-  const patientId = getReferenceId(communication.subject?.reference, 'Patient');
+  const patientId = removePrefix('Patient/', communication.subject?.reference ?? '');
   const recipientReference = communication.recipient?.[0]?.reference;
   const faxRecipient = recipientReference?.startsWith('#')
     ? communication.contained?.find((resource) => resource.id === recipientReference.slice(1))
@@ -15,7 +15,7 @@ export function buildLegacyFaxAttempt(communication: Communication, provenance?:
   if (!communication.id || !patientId || !recipientAddress) return undefined;
 
   const appointmentId = provenance?.target
-    .map((target) => getReferenceId(target.reference, 'Appointment'))
+    .map((target) => removePrefix('Appointment/', target.reference ?? ''))
     .find(Boolean);
   const recipientName = provenanceRecipient?.name?.length
     ? getFullestAvailableName(provenanceRecipient)
@@ -29,6 +29,7 @@ export function buildLegacyFaxAttempt(communication: Communication, provenance?:
     recipientAddress,
     recipientName,
     requesterReference: provenance?.agent?.[0]?.who?.reference,
+    senderOrganizationReference: provenance?.agent?.[0]?.onBehalfOf?.reference,
     senderId: provenance?.agent?.[0]?.who?.identifier?.value,
     senderDisplay: provenance?.agent?.[0]?.who?.display,
     authoredOn: communication.sent ?? provenance?.occurredDateTime ?? provenance?.recorded,

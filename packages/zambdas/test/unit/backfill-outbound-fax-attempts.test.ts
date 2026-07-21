@@ -25,7 +25,12 @@ describe('legacy outbound fax backfill', () => {
       resourceType: 'Provenance',
       target: [{ reference: 'Communication/comm-1' }, { reference: 'Appointment/appointment-1' }],
       recorded: '2024-01-01T00:00:00Z',
-      agent: [],
+      agent: [
+        {
+          who: { reference: 'Practitioner/sender-1', display: 'Sender', identifier: { value: 'user-1' } },
+          onBehalfOf: { reference: 'Organization/organization-1' },
+        },
+      ],
       contained: [{ resourceType: 'Practitioner', id: 'recipient', name: [{ family: 'Historical' }] }],
     };
     const task = buildLegacyFaxAttempt(communication, provenance)!;
@@ -34,6 +39,10 @@ describe('legacy outbound fax backfill', () => {
     expect(getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientName)?.valueString).toContain(
       'Historical'
     );
+    expect(task.requester?.reference).toBe('Practitioner/sender-1');
+    expect(
+      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference
+    ).toBe('Organization/organization-1');
   });
 
   it('does not infer a recipient name or visit when no Provenance exists', () => {

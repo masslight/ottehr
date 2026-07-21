@@ -50,6 +50,7 @@ export interface ActionLogEntry {
   appointmentId?: string;
   visitDate?: string;
   documentReferenceId?: string;
+  canRetry: boolean;
 }
 
 export interface GetActionLogsOutput {
@@ -79,6 +80,7 @@ export interface OutboundDeliveryAttemptData {
   documentReferenceId?: string;
   communicationReference?: string;
   requesterReference?: string;
+  senderOrganizationReference?: string;
   senderId?: string;
   senderDisplay?: string;
   parentAttemptId?: string;

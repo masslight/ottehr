@@ -5,8 +5,10 @@ import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullestAvailableName,
   getSecret,
+  removePrefix,
   SecretsKeys,
   SendFaxZambdaInput,
+  standardizePhoneNumber,
   VISIT_NOTE_SUMMARY_CODE,
 } from 'utils';
 import {
@@ -61,6 +63,8 @@ const complexValidation = async (
 ): Promise<SendFaxAttemptInput> => {
   const { appointmentId, faxNumber, secrets } = validatedInput;
   const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+  const practitionerId = removePrefix('Practitioner/', user.profile);
+  if (!practitionerId) throw new Error('User practitioner reference is invalid');
 
   console.log('searching fhir for patient, visit note, and user');
   const [bundle, userPractitioner] = await Promise.all([
@@ -84,7 +88,7 @@ const complexValidation = async (
     }),
     oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
-      id: user.profile.split('/')[1],
+      id: practitionerId,
     }),
   ]);
 
@@ -122,19 +126,14 @@ const complexValidation = async (
  * only when it matches a practitioner contained on the Patient (i.e. their PCP).
  */
 export const findRecipientName = (patient: Patient, faxNumber: string): string | undefined => {
-  const faxDigits = normalizeFaxNumber(faxNumber);
-  if (!faxDigits) return undefined;
+  const standardizedFaxNumber = standardizePhoneNumber(faxNumber);
+  if (!standardizedFaxNumber) return undefined;
   const match = patient.contained?.find(
     (resource): resource is Practitioner =>
       resource.resourceType === 'Practitioner' &&
-      Boolean(resource.telecom?.some((telecom) => normalizeFaxNumber(telecom.value) === faxDigits))
+      Boolean(resource.telecom?.some((telecom) => standardizePhoneNumber(telecom.value) === standardizedFaxNumber))
   );
   return match?.name?.length ? getFullestAvailableName(match) : undefined;
-};
-
-const normalizeFaxNumber = (value: string | undefined): string | undefined => {
-  const digits = value?.replace(/\D/g, '');
-  return digits ? digits.slice(-10) : undefined;
 };
 
 const performEffect = async (

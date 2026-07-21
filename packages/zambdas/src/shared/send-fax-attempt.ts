@@ -42,6 +42,7 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     recipientName,
     documentReferenceId,
     requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
+    senderOrganizationReference: `Organization/${organizationId}`,
     parentAttemptId,
     senderId,
     senderDisplay: getFullestAvailableName(userPractitioner),

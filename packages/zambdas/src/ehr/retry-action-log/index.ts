@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, DocumentReference, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -11,19 +11,18 @@ import {
   getOutboundDeliveryChannel,
   getOutboundDeliveryRecipientSnapshot,
   getPresignedURL,
-  getReferenceId,
   getSecret,
-  InPersonCompletionTemplateData,
   OTTEHR_MODULE,
+  removePrefix,
+  RetryActionLogInputValidated,
   RetryActionLogOutput,
   SecretsKeys,
-  TelemedCompletionTemplateData,
   VISIT_NOTE_SUMMARY_CODE,
 } from 'utils';
 import {
+  buildVisitNoteEmailTemplate,
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
-  makeAddressUrl,
   requireUserWithRole,
   sendFaxAttempt,
   SendFaxAttemptInput,
@@ -45,14 +44,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
 
+  const output = await performEffect(parameters, oystehr, user, m2mToken);
+  return { statusCode: 200, body: JSON.stringify(output) };
+});
+
+export async function performEffect(
+  parameters: RetryActionLogInputValidated,
+  oystehr: Oystehr,
+  user: User,
+  accessToken: string
+): Promise<RetryActionLogOutput> {
   const original = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: parameters.attemptId });
   const channel = getOutboundDeliveryChannel(original);
   if (!channel) throw new Error('Task is not an outbound delivery attempt');
   if (!(await isRetryable(original, channel, oystehr))) throw new Error('Only failed delivery attempts can be retried');
+  if (await hasRetryChild(parameters.attemptId, oystehr)) {
+    throw new Error('This delivery attempt has already been retried');
+  }
 
-  const patientId = requiredString(getReferenceId(original.for?.reference, 'Patient'), 'patient reference');
+  const patientId = requiredString(removePrefix('Patient/', original.for?.reference ?? ''), 'patient reference');
   const appointmentId = requiredString(
-    getReferenceId(original.focus?.reference, 'Appointment'),
+    removePrefix('Appointment/', original.focus?.reference ?? ''),
     'appointment reference'
   );
   const recipient = getOutboundDeliveryRecipientSnapshot(original);
@@ -66,14 +78,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (channel === 'fax') {
     const userPractitioner = await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
-      id: user.profile.split('/')[1],
+      id: requiredString(removePrefix('Practitioner/', user.profile), 'user practitioner reference'),
     });
     const faxInput: SendFaxAttemptInput = {
       appointmentId,
       faxNumber: recipientAddress,
       organizationId: getSecret(SecretsKeys.ORGANIZATION_ID, parameters.secrets),
       patientId,
-      media: await getPresignedURL(media, m2mToken),
+      media: await getPresignedURL(media, accessToken),
       documentReferenceId,
       userPractitioner,
       recipientName,
@@ -87,59 +99,45 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     const visit = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
-    const visitNoteUrl = await getPresignedURL(media, m2mToken);
+    const visitNoteUrl = await getPresignedURL(media, accessToken);
     const locationName = getNameForOwner(visit.location);
     const isInPerson = Boolean(visit.appointment.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP));
-    if (isInPerson) {
-      const address = requiredString(getAddressStringForScheduleResource(visit.location), 'location address');
-      const prettyStartTime = requiredString(
+    const emailTemplate = buildVisitNoteEmailTemplate({
+      isInPerson,
+      locationName,
+      visitNoteUrl,
+      address: getAddressStringForScheduleResource(visit.location),
+      prettyStartTime:
         visit.appointment.start && visit.timezone
           ? DateTime.fromISO(visit.appointment.start).setZone(visit.timezone).toFormat(DATETIME_FULL_NO_YEAR)
           : undefined,
-        'appointment time'
-      );
-      const templateData: InPersonCompletionTemplateData = {
-        location: locationName,
-        time: prettyStartTime,
-        address,
-        'address-url': makeAddressUrl(address),
-        'visit-note-url': visitNoteUrl,
-      };
-      retried = await sendVisitNoteEmailAttempt({
-        mode: 'in-person',
-        oystehr,
-        secrets: parameters.secrets,
-        patientId,
-        appointmentId,
-        recipientEmail: recipientAddress,
-        recipientName,
-        documentReferenceId,
-        parentAttemptId: original.id,
-        templateData,
-      });
-    } else {
-      const templateData: TelemedCompletionTemplateData = {
-        location: locationName,
-        'visit-note-url': visitNoteUrl,
-      };
-      retried = await sendVisitNoteEmailAttempt({
-        mode: 'virtual',
-        oystehr,
-        secrets: parameters.secrets,
-        patientId,
-        appointmentId,
-        recipientEmail: recipientAddress,
-        recipientName,
-        documentReferenceId,
-        parentAttemptId: original.id,
-        templateData,
-      });
-    }
+    });
+    retried = await sendVisitNoteEmailAttempt({
+      ...emailTemplate,
+      oystehr,
+      secrets: parameters.secrets,
+      patientId,
+      appointmentId,
+      recipientEmail: recipientAddress,
+      recipientName,
+      documentReferenceId,
+      parentAttemptId: original.id,
+    });
   }
   if (!retried.id) throw new Error('Retry attempt was created without an id');
-  const output: RetryActionLogOutput = { attemptId: retried.id };
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
+  return { attemptId: retried.id };
+}
+
+export async function hasRetryChild(attemptId: string, oystehr: Oystehr): Promise<boolean> {
+  const bundle = await oystehr.fhir.search<Task>({
+    resourceType: 'Task',
+    params: [
+      { name: 'part-of', value: `Task/${attemptId}` },
+      { name: '_count', value: '1' },
+    ],
+  });
+  return bundle.unbundle().some((resource) => resource.resourceType === 'Task');
+}
 
 export async function isRetryable(task: Task, channel: 'fax' | 'email', oystehr: Oystehr): Promise<boolean> {
   if (channel === 'email') return task.status === 'failed';

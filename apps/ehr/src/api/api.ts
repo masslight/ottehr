@@ -1789,8 +1789,7 @@ export const getActionLogs = async (oystehr: Oystehr, parameters: GetActionLogsI
     });
     return chooseJson(response);
   } catch (error: unknown) {
-    console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -1802,8 +1801,7 @@ export const retryActionLog = async (
     const response = await oystehr.zambda.execute({ id: 'retry-action-log', ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
-    console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
 

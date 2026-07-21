@@ -47,7 +47,8 @@ describe('get-action-logs', () => {
             ],
           } as Communication,
         ],
-      });
+      })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0, entry: [] });
     const result = await performEffect({ channel: 'fax', pageIndex: 2, secrets: null }, { fhir: { search } } as any);
     const taskParams = search.mock.calls[0][0].params;
     expect(taskParams).toContainEqual({ name: '_count', value: String(ACTION_LOGS_PAGE_SIZE) });
@@ -58,6 +59,7 @@ describe('get-action-logs', () => {
       status: 'sent',
       patientName: 'Lovelace, Ada',
       documentReferenceId: 'doc-1',
+      canRetry: false,
     });
   });
 
@@ -71,11 +73,63 @@ describe('get-action-logs', () => {
       }),
       id: 'attempt-2',
     };
-    const search = vi.fn().mockResolvedValue({ unbundle: () => [historicalTask, patient, appointment], total: 1 });
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [historicalTask, patient, appointment], total: 1 })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0, entry: [] });
 
     const result = await performEffect({ channel: 'email', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
 
     expect(result.logs[0]).toHaveProperty('documentReferenceId', undefined);
+  });
+
+  it('only allows failed attempts with a recipient and no existing retry child to be retried', async () => {
+    const failedTask: Task = { ...task, status: 'failed' };
+    const child: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'fax',
+        patientId: 'patient-1',
+        appointmentId: 'appointment-1',
+        recipientAddress: '+12125551234',
+        parentAttemptId: 'attempt-1',
+      }),
+      id: 'attempt-child',
+    };
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [failedTask, patient, appointment], total: 1 })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0 })
+      .mockResolvedValueOnce({
+        unbundle: () => [child],
+        total: 1,
+        entry: [{ resource: child, search: { mode: 'match' } }],
+      });
+
+    const result = await performEffect({ channel: 'fax', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(result.logs[0].canRetry).toBe(false);
+    expect(search.mock.calls[2][0].params).toContainEqual({ name: 'part-of', value: 'Task/attempt-1' });
+  });
+
+  it('does not allow retry when the stored recipient is empty', async () => {
+    const failedWithoutRecipient: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'email',
+        patientId: 'patient-1',
+        appointmentId: 'appointment-1',
+        recipientAddress: '',
+      }),
+      id: 'attempt-empty-recipient',
+      status: 'failed',
+    };
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [failedWithoutRecipient, patient, appointment], total: 1 })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0, entry: [] });
+
+    const result = await performEffect({ channel: 'email', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(result.logs[0].canRetry).toBe(false);
   });
 
   it('removes the 30-day window when an explicit historical search is supplied', async () => {

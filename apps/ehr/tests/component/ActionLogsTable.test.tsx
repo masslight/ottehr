@@ -44,11 +44,13 @@ const sentLog: ActionLogEntry = {
   recipientName: 'Dr. Green',
   appointmentId: 'e2e6b8f0-0000-0000-0000-000000000001',
   visitDate: '2024-07-29T14:30:00.000Z',
+  canRetry: false,
 };
 const failedLog: ActionLogEntry = {
   ...sentLog,
   attemptId: 'e2e6b8f0-0000-0000-0000-000000000011',
   status: 'failed',
+  canRetry: true,
 };
 
 describe('ActionLogsTable', () => {
@@ -66,6 +68,13 @@ describe('ActionLogsTable', () => {
     expect(screen.getByText('sent')).toBeVisible();
     expect(screen.getByText('failed')).toBeVisible();
     expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1);
+  });
+
+  it('does not offer retry when the backend marks a failed attempt ineligible', async () => {
+    mockGetActionLogs.mockResolvedValue({ logs: [{ ...failedLog, canRetry: false }], totalCount: 1 });
+    render(<ActionLogsTable channel="fax" />, { wrapper: createWrapper() });
+    expect(await screen.findByText('failed')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   });
 
   it('applies patient and visit searches independently', async () => {
@@ -135,7 +144,7 @@ describe('ActionLogsTable', () => {
     // the address belongs to its own column only — the recipient cell shows '-' when no name was captured
     expect(await screen.findAllByText('patient@example.com')).toHaveLength(1);
     expect(screen.getByText('Email Address')).toBeVisible();
-    expect(screen.getByText('-')).toBeVisible();
+    expect(screen.getAllByText('-')).toHaveLength(2);
   });
 
   it('renders empty and error states', async () => {

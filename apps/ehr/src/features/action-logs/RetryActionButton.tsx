@@ -5,6 +5,7 @@ import { retryActionLog } from '../../api/api';
 import { ConfirmationDialog } from '../../components/ConfirmationDialog';
 import { RoundedButton } from '../../components/RoundedButton';
 import { useApiClients } from '../../hooks/useAppClients';
+import { ACTION_LOG_CHANNEL_COPY } from './actionLogs.constants';
 
 interface RetryActionButtonProps {
   log: ActionLogEntry;
@@ -17,7 +18,7 @@ export const RetryActionButton: FC<RetryActionButtonProps> = ({ log, onResent })
   const isPendingRef = useRef(false);
 
   const address = log.channel === 'fax' ? formatPhoneNumberDisplay(log.recipientAddress) : log.recipientAddress;
-  const label = log.channel === 'fax' ? 'fax' : 'email';
+  const channelCopy = ACTION_LOG_CHANNEL_COPY[log.channel];
 
   const handleResend = async (): Promise<void> => {
     if (!oystehrZambda || isPendingRef.current) return;
@@ -25,11 +26,11 @@ export const RetryActionButton: FC<RetryActionButtonProps> = ({ log, onResent })
     setIsPending(true);
     try {
       await retryActionLog(oystehrZambda, { attemptId: log.attemptId });
-      enqueueSnackbar(`${log.channel === 'fax' ? 'Fax' : 'Email'} sent.`, { variant: 'success' });
+      enqueueSnackbar(`${channelCopy.title} sent.`, { variant: 'success' });
       onResent();
     } catch (error) {
       console.error(`Failed to retry ${log.channel} action log`, error);
-      enqueueSnackbar(`Could not retry this ${label}. Please try again.`, { variant: 'error' });
+      enqueueSnackbar(`Could not retry this ${channelCopy.label}. Please try again.`, { variant: 'error' });
     } finally {
       isPendingRef.current = false;
       setIsPending(false);
@@ -38,10 +39,10 @@ export const RetryActionButton: FC<RetryActionButtonProps> = ({ log, onResent })
 
   return (
     <ConfirmationDialog
-      title={`Resend ${log.channel === 'fax' ? 'Fax' : 'Email'}`}
-      description={`Resend ${label}${log.recipientName ? ` to ${log.recipientName}` : ''} to the original ${
-        log.channel === 'fax' ? 'fax number' : 'email address'
-      }: ${address}.`}
+      title={`Resend ${channelCopy.title}`}
+      description={`Resend ${channelCopy.label}${
+        log.recipientName ? ` to ${log.recipientName}` : ''
+      } to the original ${channelCopy.addressLabel.toLowerCase()}: ${address}.`}
       response={handleResend}
       actionButtons={{
         proceed: { text: 'Resend', disabled: isPending, loading: isPending },
