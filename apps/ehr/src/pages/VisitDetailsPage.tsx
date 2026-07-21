@@ -266,6 +266,8 @@ export default function VisitDetailsPage(): ReactElement {
     secondaryInsuranceCards,
     filesMutation,
     uploadingFileType,
+    deletingFileId,
+    handleDeleteClick,
     scannerModalOpen,
     setScannerModalOpen,
     handleOpenScanner,
@@ -738,8 +740,8 @@ export default function VisitDetailsPage(): ReactElement {
   // section (0-based ordinal: 0 = primary, 1 = secondary), threaded down through
   // PatientAccountComponent -> InsuranceSection -> InsuranceContainer. The clean thumbnail (front
   // image + enlarge affordance only) opens the non-modal FloatingCardPreview, which hosts the
-  // front/back toggle and the rotate control; a coverage with no card image gets a compact
-  // upload/scan affordance instead.
+  // front/back toggle, the rotate control, and a remove-and-reload control per face; a coverage with
+  // no card image gets a compact upload/scan affordance instead.
   const renderInsuranceCardThumbnail = (ordinal: number): ReactNode => {
     if (ordinal !== 0 && ordinal !== 1) {
       return null;
@@ -755,7 +757,10 @@ export default function VisitDetailsPage(): ReactElement {
         uploadingFileType={uploadingFileType}
         handleOpenScanner={handleOpenScanner}
         imagesLoading={imagesLoading}
-        uploadFileType={isPrimary ? 'insurance-card-front' : 'insurance-card-front-2'}
+        frontFileType={isPrimary ? 'insurance-card-front' : 'insurance-card-front-2'}
+        backFileType={isPrimary ? 'insurance-card-back' : 'insurance-card-back-2'}
+        handleDeleteClick={handleDeleteClick}
+        deletingFileId={deletingFileId}
         previewHeaderActions={(face) => (
           <InsuranceCardOrientationHint
             patientId={patientId}
@@ -773,7 +778,8 @@ export default function VisitDetailsPage(): ReactElement {
   // the title), threaded down through PatientAccountComponent -> AboutPatientContainer. Same treatment
   // as the insurance cards: front image + enlarge affordance only; clicking opens the non-modal
   // FloatingCardPreview (front/back toggle lives there — no OCR/rotate for the ID, so no
-  // previewHeaderActions). An ID with no image gets a compact upload/scan affordance instead.
+  // previewHeaderActions). Remove-and-reload is wired the same as the insurance cards. An ID with no
+  // image gets a compact upload/scan affordance instead.
   const photoIdCardSlot = (
     <CardThumbnail
       item={idCards}
@@ -783,7 +789,10 @@ export default function VisitDetailsPage(): ReactElement {
       uploadingFileType={uploadingFileType}
       handleOpenScanner={handleOpenScanner}
       imagesLoading={imagesLoading}
-      uploadFileType="photo-id-front"
+      frontFileType="photo-id-front"
+      backFileType="photo-id-back"
+      handleDeleteClick={handleDeleteClick}
+      deletingFileId={deletingFileId}
     />
   );
 

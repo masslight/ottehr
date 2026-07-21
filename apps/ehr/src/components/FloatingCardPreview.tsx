@@ -18,6 +18,13 @@ export interface FloatingCardPreviewProps {
    * control targeting that face's DocumentReference).
    */
   headerActions?: ReactNode | ((face: CardPreviewFace) => ReactNode);
+  /**
+   * Rendered in place of the body's "No image available" text when the currently shown face has no
+   * URL — e.g. an inline Upload/Scan control so a face that was just removed (or never had an image)
+   * can be reloaded without leaving the preview. Providing this ALSO keeps the Front/Back toggle
+   * visible even when only one face currently has an image, so the empty face stays reachable.
+   */
+  emptyStateSlot?: (face: CardPreviewFace) => ReactNode;
 }
 
 /** Max width of the enlarged card image inside the panel body. */
@@ -52,7 +59,10 @@ const defaultPosition = (): PanelPosition => ({
  * Deliberately NOT a MUI Dialog/Modal/Popover: those add a backdrop and/or a focus trap, which
  * would block interaction with the form behind it. Instead this renders via a React portal to
  * document.body as a `position: fixed` Paper panel with a high z-index and no backdrop, leaving
- * the rest of the page fully interactive. It never steals focus from the form.
+ * the rest of the page fully interactive. It never steals focus from the form (`aria-modal="false"`
+ * makes that explicit for assistive tech, rather than leaving it unset/ambiguous). Since it never
+ * takes focus, a visually-hidden `aria-live` announcement fires on open so screen-reader users still
+ * get a signal that the preview appeared.
  *
  * Draggable by its header bar (clamped to the viewport; drags starting on a button/toggle are
  * ignored). Dismissed via the close button or Escape.
@@ -65,6 +75,7 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
   title,
   defaultFace = 'front',
   headerActions,
+  emptyStateSlot,
 }) => {
   const [face, setFace] = useState<CardPreviewFace>(defaultFace);
   // null means "not yet dragged" — the default position is recomputed from the current viewport on each open.
@@ -122,8 +133,11 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
   }
 
   const hasBothFaces = Boolean(frontUrl) && Boolean(backUrl);
-  // If only one face exists, always show that one (no toggle).
-  const shownFace: CardPreviewFace = hasBothFaces ? face : frontUrl ? 'front' : 'back';
+  // Normally, if only one face exists, always show that one (no toggle) — there's nothing to see on
+  // the other side. But when emptyStateSlot is provided, the "empty" side isn't a dead end — it's
+  // reachable to reload it — so keep the toggle available even with only one face present.
+  const canToggleFace = hasBothFaces || Boolean(emptyStateSlot);
+  const shownFace: CardPreviewFace = canToggleFace ? face : frontUrl ? 'front' : 'back';
   const shownUrl = shownFace === 'front' ? frontUrl : backUrl;
   const { x, y } = position ?? defaultPosition();
 
@@ -143,6 +157,9 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
       ref={panelRef}
       role="dialog"
       aria-label={`${title} preview`}
+      // Explicit, not just absent: this panel never traps or steals focus (see the doc comment
+      // above), so assistive tech should treat it as non-modal rather than guessing from omission.
+      aria-modal="false"
       elevation={8}
       // Inline style (not sx) so dragging doesn't regenerate an emotion class per mousemove frame.
       style={{ left: x, top: y }}
@@ -155,6 +172,24 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
         overflow: 'hidden',
       }}
     >
+      {/* Focus never moves here, so announce the open via a live region instead — the only signal
+          a screen-reader user gets that the preview appeared. Visually hidden (clip), not display:none,
+          so it stays in the accessibility tree. */}
+      <Box
+        component="span"
+        role="status"
+        aria-live="polite"
+        sx={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          clip: 'rect(0 0 0 0)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {`${title} preview opened`}
+      </Box>
       <Box
         onMouseDown={handleDragStart}
         sx={{
@@ -173,7 +208,7 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
         <Typography variant="subtitle2" noWrap sx={{ flex: 1 }}>
           {title}
         </Typography>
-        {hasBothFaces && (
+        {canToggleFace && (
           <ToggleButtonGroup
             value={shownFace}
             exclusive
@@ -205,6 +240,8 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
             alt={`${title} ${shownFace}`}
             style={{ maxWidth: IMAGE_MAX_WIDTH, width: '100%', height: 'auto', objectFit: 'contain' }}
           />
+        ) : emptyStateSlot ? (
+          emptyStateSlot(shownFace)
         ) : (
           <Typography variant="body2" color="text.secondary">
             No image available

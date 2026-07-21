@@ -4,7 +4,6 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { createZ3Object, deleteVisitFiles, getPatientVisitFiles, updateVisitFiles } from 'src/api/api';
-import { ImageCarouselObject } from 'src/components/ImageCarousel';
 import { DocumentInfo, DocumentType, UpdateVisitFilesInput, VisitDocuments } from 'utils';
 import { useApiClients } from './useAppClients';
 
@@ -25,50 +24,39 @@ export interface UseVisitCardsResult {
   // get-visit-files query
   imagesLoading: boolean;
   refetchFileData: UseQueryResult<VisitDocuments, Error>['refetch'];
-  fullCardPdfs: DocumentInfo[];
   consentPdfUrls: string[];
 
   // derived card groupings
   idCards: SavedCardItem;
   primaryInsuranceCards: SavedCardItem;
   secondaryInsuranceCards: SavedCardItem;
-  imageCarouselObjs: ImageCarouselObject[];
 
   // upload mutation
   filesMutation: UseMutationResult<void, Error, UpdateVisitFilesInput, unknown>;
   uploadingFileType: UpdateVisitFilesInput['fileType'] | null;
 
-  // delete
+  // delete (remove + reload a card image)
   deletingFileId: string | null;
   handleDeleteClick: (id: string | null) => Promise<void>;
 
   // scanner modal
   scannerModalOpen: boolean;
   setScannerModalOpen: Dispatch<SetStateAction<boolean>>;
-  scannerFileType: UpdateVisitFilesInput['fileType'] | null;
   handleOpenScanner: (fileType: UpdateVisitFilesInput['fileType']) => void;
   handleScanComplete: (fileBlob: Blob | Blob[], fileName: string) => Promise<void>;
-
-  // zoom carousel
-  photoZoom: boolean;
-  setPhotoZoom: Dispatch<SetStateAction<boolean>>;
-  zoomedIdx: number;
-  setZoomedIdx: Dispatch<SetStateAction<number>>;
-  handleCardImageClick: (imageType: string) => void;
 }
 
 /**
  * Card-related state, queries, and handlers for a visit: the get-visit-files query, the derived
- * insurance/ID card groupings, the scanner-modal upload flow, card deletion, and the zoom carousel.
+ * insurance/ID card groupings, card deletion (so a face can be removed and reloaded), and the
+ * scanner-modal upload flow.
  *
- * Extracted from VisitDetailsPage so multiple mount points can drive the card displays, the shared
- * single <ScannerModal>, and the zoom <ImageCarousel> from one source of truth.
+ * Extracted from VisitDetailsPage so multiple mount points can drive the card displays and the
+ * shared single <ScannerModal> from one source of truth.
  */
 export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput): UseVisitCardsResult => {
   const { oystehrZambda } = useApiClients();
 
-  const [photoZoom, setPhotoZoom] = useState<boolean>(false);
-  const [zoomedIdx, setZoomedIdx] = useState<number>(0);
   const [scannerModalOpen, setScannerModalOpen] = useState<boolean>(false);
   const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
@@ -91,19 +79,17 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
     enabled: Boolean(oystehrZambda) && appointmentId !== undefined,
   });
 
-  const { fullCardPdfs, consentPdfUrls } = imageFileData || {
-    fullCardPdfs: [],
+  const { consentPdfUrls } = imageFileData || {
     consentPdfUrls: [],
   };
 
-  const { idCards, primaryInsuranceCards, secondaryInsuranceCards, imageCarouselObjs } = (() => {
+  const { idCards, primaryInsuranceCards, secondaryInsuranceCards } = (() => {
     const { photoIdCards, insuranceCards, insuranceCardsSecondary } = imageFileData || {
       photoIdCards: [],
       insuranceCards: [],
       insuranceCardsSecondary: [],
     };
     const idCards: SavedCardItem = { front: null, frontId: null, back: null, backId: null };
-    const imageCarouselObjs: ImageCarouselObject[] = [];
     const primaryInsuranceCards: SavedCardItem = {
       front: null,
       frontId: null,
@@ -117,7 +103,6 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
       backId: null,
     };
     insuranceCards.forEach((card) => {
-      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.InsuranceFront) {
         primaryInsuranceCards.front = card;
         primaryInsuranceCards.frontId = card.id;
@@ -127,7 +112,6 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
       }
     });
     insuranceCardsSecondary.forEach((card) => {
-      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.InsuranceFrontSecondary) {
         secondaryInsuranceCards.front = card;
         secondaryInsuranceCards.frontId = card.id;
@@ -137,7 +121,6 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
       }
     });
     photoIdCards.forEach((card) => {
-      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.PhotoIdFront) {
         idCards.front = card;
         idCards.frontId = card.id;
@@ -150,7 +133,6 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
       idCards,
       primaryInsuranceCards,
       secondaryInsuranceCards,
-      imageCarouselObjs,
     };
   })();
 
@@ -163,14 +145,6 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
       await refetchFileData();
     },
   });
-
-  const handleCardImageClick = (imageType: string): void => {
-    const index = imageCarouselObjs.findIndex((obj) => obj.alt === imageType);
-    if (index > -1) {
-      setZoomedIdx(index);
-      setPhotoZoom(true);
-    }
-  };
 
   const handleDeleteClick = async (id: string | null): Promise<void> => {
     if (!oystehrZambda || !id) return;
@@ -276,25 +250,17 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
   return {
     imagesLoading,
     refetchFileData,
-    fullCardPdfs,
     consentPdfUrls,
     idCards,
     primaryInsuranceCards,
     secondaryInsuranceCards,
-    imageCarouselObjs,
     filesMutation,
     uploadingFileType,
     deletingFileId,
     handleDeleteClick,
     scannerModalOpen,
     setScannerModalOpen,
-    scannerFileType,
     handleOpenScanner,
     handleScanComplete,
-    photoZoom,
-    setPhotoZoom,
-    zoomedIdx,
-    setZoomedIdx,
-    handleCardImageClick,
   };
 };
