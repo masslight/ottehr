@@ -111,6 +111,90 @@ export function sniffIcdCodeScoped(
   return undefined;
 }
 
+// ── Disposition-language scan ────────────────────────────────────────────────────────────────────
+// Deterministic trigger for the review's disposition check (check 7). Left to the model alone the
+// check fired very inconsistently (same corpus, no code change: disposition coverage swung
+// 53%→36%→35%), so the review zambda scans the narrative deterministically and, on a hit with no
+// disposition charted, force-includes a must-address instruction in the prompt. The scan aims for
+// HIGH PRECISION — a missed pattern just leaves check 7 on its normal (model-discretion) path,
+// while a false hit pushes the model toward inventing a disposition. Deliberately omitted as too
+// false-positive-prone: bare "follow-up" (visit REASONS read "here for follow-up of his asthma"),
+// "see your doctor" (transcripts quote past-tense dialogue), "if worse" alone (HPI: "if she lies
+// down it gets worse"), and hospital-admission phrasing (history-prone: "admitted last year").
+// Quoted/reported instructions ("urgent care told me to follow up here") DO fire — the model
+// still owns extraction and is told to decline when the match isn't a disposition for THIS visit.
+export const DISPOSITION_LANGUAGE_PATTERNS: ReadonlyArray<{ label: string; re: RegExp }> = [
+  // Forward-looking follow-up: requires with/interval/as-needed/if so "here for follow-up of his
+  // asthma" (the visit's reason) does not fire.
+  {
+    label: 'follow-up',
+    re: /\bfollow\s*-?\s*up\s+(?:with\b|in\s+(?:\d|a\b|an\b|one|two|three|four|five|six|a\s+few)|as\s+needed\b|if\b)/i,
+  },
+  { label: 'schedule-follow-up', re: /\b(?:schedule|arrange|set\s+up)\s+(?:a\s+)?follow\s*-?\s*up\b/i },
+  // "recheck" needs a time/visit anchor — mid-exam "let me recheck that ear" must not fire.
+  {
+    label: 'recheck',
+    re: /\bre-?check\s+(?:in\s+(?:\d|a\b|one|two|three)|tomorrow\b|next\s+week\b|appointment\b|visit\b)/i,
+  },
+  // "return"/"come back" needs a place/interval/condition — "if the hives come back" (symptom
+  // recurrence) has none of the listed continuations.
+  {
+    label: 'return-to-clinic',
+    re: /\b(?:return|come\s+back)\s+(?:to\s+(?:the\s+)?(?:clinic|office|urgent\s+care)|to\s+see\s+us\b|here\b|in\s+(?:\d|a\b|one|two|three)|tomorrow\b|if\b|should\b|as\s+needed\b)/i,
+  },
+  { label: 'return-precautions', re: /\breturn\s+precautions\b/i },
+  // "refer" only in its forward forms — "was referred to us by her PCP" (how they got HERE) stays out.
+  { label: 'referral', re: /\breferral\b|\brefer(?:ring)?\s+(?:you|her|him|them|the\s+patient)\b/i },
+  {
+    label: 'emergency-care',
+    re: /\b(?:go|going|head|proceed)\s+(?:straight\s+)?to\s+the\s+(?:er|ed|emergency)\b|\bcall\s+911\b|\bseek\s+(?:emergency|immediate|urgent)\s+(?:care|attention|medical\s+\w+)\b/i,
+  },
+  {
+    label: 'discharge-home',
+    re: /\bdischarged?\s+(?:to\s+)?home\b|\bdischarge\s+instructions\b|\bsent\s+home\s+(?:with|in)\b/i,
+  },
+  { label: 'call-office', re: /\bcall\s+(?:us|the\s+(?:office|clinic))\b/i },
+];
+
+// Negation words that suppress a hit when they appear just BEFORE the match in the same clause
+// ("no follow-up needed", "does not need a referral"). The lookahead keeps "no better"/"not
+// improving" from counting as negations — "if no better, come back" is a POSITIVE disposition.
+const DISPOSITION_NEGATION_RE =
+  /\b(?:no|not|without|don'?t|doesn'?t|won'?t|declined?)\b(?!\s+(?:better|improv|relief))/i;
+// Trailing suppression, scanned to the end of the SENTENCE but only for explicit dismissal
+// phrases ("a follow up with cardiology was not needed", "offered a referral but the patient
+// declined") — a bare trailing "not" must NOT kill "follow up if not improving".
+const DISPOSITION_TRAILING_NEGATION_RE = /\b(?:not\s+(?:needed|necessary|required)|unnecessary|declined?)\b/i;
+
+export interface DispositionLanguageMatch {
+  // Label of the DISPOSITION_LANGUAGE_PATTERNS entry that fired (safe for logs/metrics — never
+  // narrative text).
+  pattern: string;
+  // The matched narrative text, quoted back to the model in the forced instruction.
+  excerpt: string;
+}
+
+export function detectDispositionLanguage(narrative: string): DispositionLanguageMatch | undefined {
+  for (const { label, re } of DISPOSITION_LANGUAGE_PATTERNS) {
+    // Iterate ALL occurrences — an early negated hit ("no referral needed") must not mask a later
+    // positive one ("but follow up with your PCP in a week").
+    const global = new RegExp(re.source, 'gi');
+    let m: RegExpExecArray | null;
+    while ((m = global.exec(narrative)) !== null) {
+      // Leading window is clause-bounded (commas count, so "no better, come back in 3 days"
+      // fires); trailing scan runs to the end of the sentence. See the negation regexes above.
+      const before = narrative.slice(Math.max(0, m.index - 24), m.index);
+      const leading = before.split(/[.!?\n;,]/).pop() ?? before;
+      if (DISPOSITION_NEGATION_RE.test(leading)) continue;
+      const after = narrative.slice(m.index + m[0].length, m.index + m[0].length + 80);
+      const trailing = after.split(/[.!?\n;]/)[0];
+      if (DISPOSITION_TRAILING_NEGATION_RE.test(trailing)) continue;
+      return { pattern: label, excerpt: m[0] };
+    }
+  }
+  return undefined;
+}
+
 // Recover a missing step `sourceText` from the narrative: the model reliably quotes sources for
 // note/exam steps but often omits them on medications, which downgraded the provenance hover to
 // "inferred" even though the drug is right there in the dictation. Deterministic fallback: pick

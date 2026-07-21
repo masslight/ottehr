@@ -16,6 +16,7 @@ import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../sha
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
 import { validateIntentCode } from '../../shared/easy-chart/codes';
 import { derivePatientStatus, fetchPatientContext } from '../../shared/easy-chart/patient-context';
+import { detectDispositionLanguage, DispositionLanguageMatch } from '../../shared/easy-chart/sniffers';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -116,7 +117,8 @@ const buildPrompt = (
   chartState?: string,
   noteContext?: EasyChartNoteContext,
   patientContext?: string,
-  patientStatus?: 'new' | 'established'
+  patientStatus?: 'new' | 'established',
+  dispositionMatch?: DispositionLanguageMatch
 ): string => {
   const noteLines: string[] = [];
   if (noteContext) {
@@ -143,6 +145,12 @@ const buildPrompt = (
       : patientStatus === 'established'
       ? `\nPATIENT STATUS (authoritative — from the chart): ESTABLISHED patient. The correct E&M family is 99212-99215.\n`
       : '';
+  // Deterministic escalation of check 7 (see the scan in the handler). Rendered in the per-visit
+  // tail — not the static prefix — so prompt caching and the other nine checks are untouched.
+  // The model still owns extraction (type + text) and may decline; it just can't silently skip.
+  const dispositionBlock = dispositionMatch
+    ? `\nDISPOSITION TRIGGER (deterministic server-side scan): the narrative contains disposition/follow-up language (matched: "${dispositionMatch.excerpt}") and NO disposition is charted. You MUST address check 7: emit one "disposition" suggestion capturing the plan the narrative states, or emit none for it ONLY if the matched text is not actually a disposition for THIS visit (e.g. reported speech about a prior visit). Never invent details the narrative does not voice.\n`
+    : '';
 
   return `You are a clinical documentation reviewer. A provider just charted a visit note from the
 NARRATIVE below; the structured items now on the chart are in ALREADY ON THE CHART. Your job is to
@@ -308,7 +316,7 @@ RULES:
   ignored there.
 
 ═══ END OF FIXED INSTRUCTIONS — review the note + narrative below ═══
-${patientBlock}${patientStatusBlock}${chartBlock}${noteBlock}
+${patientBlock}${patientStatusBlock}${chartBlock}${noteBlock}${dispositionBlock}
 NARRATIVE:
 """${narrative}"""
 `;
@@ -420,6 +428,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const patientStatus = noteContext?.patientStatus ?? derivedPatientStatus;
 
+  // Deterministic disposition trigger. Left to model discretion the disposition check fired very
+  // inconsistently run-to-run — the single biggest volatility source in eval metrics. When no
+  // disposition is charted (same "Disposition already set" chartState line the prompt keys on)
+  // and the narrative deterministically contains discharge/follow-up language, the prompt tail
+  // force-includes a must-address instruction for check 7. Extraction stays with the model; if it
+  // declines we emit nothing — but the trigger outcome is reported so eval can tell "trigger
+  // fired, model declined" from "trigger never fired".
+  const dispositionCharted = !!chartState && /disposition already set/i.test(chartState);
+  const dispositionMatch = dispositionCharted ? undefined : detectDispositionLanguage(narrative);
+
   // Use the same backend selection as the planner (flash-lite by default, with Sonnet only as the
   // structural-failure backup). Historical note: the review briefly pinned Sonnet because
   // flash-lite over-suggested pertinent negatives the provider never voiced (e.g. "Denies nausea"
@@ -432,7 +450,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const reviewModelOverride = getOptionalSecret(SecretsKeys.EASY_CHART_REVIEW_MODEL, secrets) || undefined;
   let usage: EasyChartTokenUsage | undefined;
   const raw = await invokeChatbotStructured(
-    [{ text: buildPrompt(narrative, chartState, noteContext, patientContext, patientStatus) }],
+    [{ text: buildPrompt(narrative, chartState, noteContext, patientContext, patientStatus, dispositionMatch) }],
     secrets,
     RESPONSE_SCHEMA,
     reviewModelOverride,
@@ -514,6 +532,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   });
 
-  const output: EasyChartReviewOutput = { suggestions, usage };
+  // "modelProposed" reads the model's RAW output (pre-validation) — a proposed-then-dropped card
+  // is still "the model responded to the trigger", distinct from it declining outright.
+  const modelProposedDisposition = (parsed.suggestions as unknown[]).some(
+    (item) => !!item && typeof item === 'object' && (item as Record<string, unknown>).category === 'disposition'
+  );
+  const dispositionTrigger = {
+    fired: !!dispositionMatch,
+    ...(dispositionMatch ? { matchedPattern: dispositionMatch.pattern } : {}),
+    modelProposed: modelProposedDisposition,
+  };
+  // Pattern label only — never narrative text — so this is log-safe.
+  console.log(
+    `Review disposition trigger: fired=${dispositionTrigger.fired}` +
+      `${dispositionMatch ? ` pattern=${dispositionMatch.pattern}` : ''} modelProposed=${modelProposedDisposition}`
+  );
+
+  const output: EasyChartReviewOutput = { suggestions, usage, dispositionTrigger };
   return { statusCode: 200, body: JSON.stringify(output) };
 });

@@ -324,4 +324,14 @@ export interface EasyChartReviewInput {
 export interface EasyChartReviewOutput {
   suggestions: EasyChartSuggestion[];
   usage?: EasyChartTokenUsage;
+  // Disposition-check observability: the review runs a deterministic narrative scan and, when no
+  // disposition is charted but disposition language is present, forces the model to address the
+  // disposition check. `fired` + `matchedPattern` report that scan; `modelProposed` whether the
+  // model then proposed a disposition card — so eval can tell "trigger fired, model declined"
+  // from "trigger never fired". matchedPattern is a pattern label, never narrative text.
+  dispositionTrigger?: {
+    fired: boolean;
+    matchedPattern?: string;
+    modelProposed: boolean;
+  };
 }
