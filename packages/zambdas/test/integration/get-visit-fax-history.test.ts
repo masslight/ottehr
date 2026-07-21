@@ -51,7 +51,10 @@ describe('get-visit-fax-history integration — happy path', () => {
           recorded: '2025-01-01T12:00:00Z',
           occurredDateTime: '2025-01-01T12:00:00Z',
           activity: { coding: [{ system: PROVENANCE_FAX_SYSTEM, code: PROVENANCE_FAX_ACTIVITY_CODES.faxSent }] },
-          agent: [{ who: { display: 'Legacy Sender', identifier: { value: 'legacy-sender' } } }],
+          agent: [
+            { who: { display: 'Legacy Sender', identifier: { value: 'legacy-sender' } } },
+            { who: { reference: '#legacy-recipient' } },
+          ],
           contained: [
             {
               resourceType: 'Practitioner',
