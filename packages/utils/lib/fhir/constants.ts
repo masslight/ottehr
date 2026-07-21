@@ -1096,6 +1096,38 @@ export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
   system: PROVENANCE_FAX_SYSTEM,
 };
 
+/** Identifier system Oystehr stamps on the Communication resources it creates for outbound faxes. */
+export const OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM = 'https://identifiers.oystehr.com/fax';
+/** Extension on those Communications whose CodeableConcept code Oystehr updates as the fax progresses. */
+export const OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/outbound-fax-status';
+export const OYSTEHR_OUTBOUND_FAX_STATUS_CODES = {
+  delivered: 'DELIVERED',
+  stopped: 'STOPPED',
+} as const;
+
+export const OUTBOUND_DELIVERY_TASK_SYSTEM = ottehrCodeSystemUrl('outbound-delivery');
+export const OUTBOUND_DELIVERY_TASK_CODES = {
+  fax: 'fax',
+  email: 'email',
+} as const;
+export const OUTBOUND_DELIVERY_INPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-input');
+export const OUTBOUND_DELIVERY_INPUT_CODES = {
+  recipientAddress: 'recipient-address',
+  recipientName: 'recipient-name',
+  documentReference: 'document-reference',
+  senderId: 'sender-id',
+  senderDisplay: 'sender-display',
+  senderOrganization: 'sender-organization',
+} as const;
+export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
+export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
+  communication: 'communication',
+  error: 'error',
+} as const;
+export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
+export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');
+export const OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-claim');
+
 export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
 
 export const CHARGE_MASTER_DESIGNATION_EXTENSION_URL = ottehrExtensionUrl('charge-master-designation');

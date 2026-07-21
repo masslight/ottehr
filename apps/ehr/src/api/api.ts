@@ -106,6 +106,8 @@ import {
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
   EmCodeOutput,
+  GetActionLogsInput,
+  GetActionLogsOutput,
   GetAllergyQuickPicksResponse,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
@@ -195,6 +197,8 @@ import {
   RecentPatientsReportZambdaOutput,
   RenameCustomFolderInput,
   RenameCustomFolderOutput,
+  RetryActionLogInput,
+  RetryActionLogOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   SaveRadiologyReportZambdaInput,
@@ -1774,6 +1778,30 @@ export const getVisitFaxHistory = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const getActionLogs = async (oystehr: Oystehr, parameters: GetActionLogsInput): Promise<GetActionLogsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-action-logs',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const retryActionLog = async (
+  oystehr: Oystehr,
+  parameters: RetryActionLogInput
+): Promise<RetryActionLogOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'retry-action-log', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 
