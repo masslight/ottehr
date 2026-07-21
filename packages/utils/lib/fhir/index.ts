@@ -24,3 +24,4 @@ export * from './radiology';
 export * from './payments';
 export * from './getAllFhirSearchPages';
 export * from './serviceCategoryResolution';
+export * from './paperwork-flow';

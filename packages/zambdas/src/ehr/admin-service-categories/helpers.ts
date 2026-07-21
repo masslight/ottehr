@@ -6,6 +6,7 @@ import {
   getServiceCategoryDurationMinutes,
   getServiceCategoryModes,
   getServiceCategoryVisitTypes,
+  parsePaperworkFlowGroup,
   parseReasonsForVisit,
   parseServiceCategoryAbbreviation,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
@@ -52,6 +53,11 @@ export interface ServiceCategory {
    * visit lists — e.g. 'UC', 'WC'. Stored in the JSON-blob config extension.
    */
   abbreviation?: string;
+  /**
+   * Paperwork-flow group slug (OTR-2309) this service is assigned to, if any. Single-valued.
+   * Round-tripped here so an admin edit through this path never clobbers a flow assignment.
+   */
+  paperworkFlowGroup?: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
   /**
@@ -123,6 +129,7 @@ export function toRecord(resource: HealthcareService): ServiceCategory {
     name: resource.name,
     code,
     abbreviation: parseServiceCategoryAbbreviation(resource),
+    paperworkFlowGroup: parsePaperworkFlowGroup(resource),
     active: resource.active !== false,
     config: {
       durationMinutes: getServiceCategoryDurationMinutes(resource) ?? DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES,
@@ -162,9 +169,10 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
   const abbreviation = record.abbreviation?.trim();
   // Free-form fields share a single JSON-blob extension. Only include keys
   // that carry a value so the extension stays absent when nothing is set.
-  const configBlob: { reasonsForVisit?: typeof reasons; abbreviation?: string } = {};
+  const configBlob: { reasonsForVisit?: typeof reasons; abbreviation?: string; paperworkFlowGroup?: string } = {};
   if (reasons.length > 0) configBlob.reasonsForVisit = reasons;
   if (abbreviation) configBlob.abbreviation = abbreviation;
+  if (record.paperworkFlowGroup) configBlob.paperworkFlowGroup = record.paperworkFlowGroup;
   return {
     resourceType: 'HealthcareService',
     id: record.id,

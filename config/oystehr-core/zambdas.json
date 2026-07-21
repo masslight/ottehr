@@ -2185,6 +2185,27 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-managed-questionnaire/create/index",
       "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
+    },
+    "PAPERWORK_FLOW_LIST": {
+      "name": "paperwork-flow-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/paperwork-flow/list/index",
+      "zip": ".dist/zips/paperwork-flow-list.zip"
+    },
+    "PAPERWORK_FLOW_CREATE": {
+      "name": "paperwork-flow-create",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/paperwork-flow/create/index",
+      "zip": ".dist/zips/paperwork-flow-create.zip"
+    },
+    "PAPERWORK_FLOW_UPDATE": {
+      "name": "paperwork-flow-update",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/paperwork-flow/update/index",
+      "zip": ".dist/zips/paperwork-flow-update.zip"
     }
   },
   "fhirResources": {

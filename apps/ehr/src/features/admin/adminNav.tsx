@@ -1,4 +1,5 @@
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
@@ -43,6 +44,7 @@ import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreac
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 import { PaymentLocationsList } from './BillingConfiguration';
 import { FeeSchedulesIcon, InHouseLabsIcon, InsuranceIcon, ProgressNoteIcon, StethoscopeIcon } from './icons';
+import PaperworkFlowsAdminPage from './PaperworkFlowsAdminPage';
 
 /** Context derived from the URL that the deeper-nested admin pages still rely on. */
 export interface AdminNavContext {
@@ -258,6 +260,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/questionnaires',
         icon: <ListAltIcon />,
         render: () => <QuestionnaireAdminPage />,
+      },
+      {
+        label: 'Paperwork Flows',
+        path: '/admin/paperwork-flows',
+        icon: <AccountTreeOutlinedIcon />,
+        render: () => <PaperworkFlowsAdminPage />,
       },
     ],
   },

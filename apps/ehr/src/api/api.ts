@@ -172,6 +172,11 @@ import {
   OnDemandLabelXmlRequestInput,
   OnDemandLabelXmlRequestOutput,
   PaginatedResponse,
+  PaperworkFlowCreateInput,
+  PaperworkFlowCreateOutput,
+  PaperworkFlowListOutput,
+  PaperworkFlowUpdateInput,
+  PaperworkFlowUpdateOutput,
   PaperworkToPDFInput,
   PatientInstructionQuickPickData,
   PendingSupervisorApprovalInput,
@@ -357,6 +362,9 @@ const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get'
 const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const PAPERWORK_FLOW_LIST_ZAMBDA_ID = 'paperwork-flow-list';
+const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
+const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
 const SEND_PATIENT_FORM = 'send-patient-form';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -2952,6 +2960,42 @@ export const practiceManagedQuestionnaireCreate = async (
   }
 };
 
+export async function listPaperworkFlows(oystehr: Oystehr): Promise<PaperworkFlowListOutput> {
+  try {
+    const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_LIST_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
+
+export const createPaperworkFlow = async (
+  oystehr: Oystehr,
+  parameters: PaperworkFlowCreateInput
+): Promise<PaperworkFlowCreateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_CREATE_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updatePaperworkFlow = async (
+  oystehr: Oystehr,
+  parameters: PaperworkFlowUpdateInput
+): Promise<PaperworkFlowUpdateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_UPDATE_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const sendPatientForm = async (
   oystehr: Oystehr,
   parameters: SendPatientFormInput
@@ -2991,6 +3035,8 @@ export interface ServiceCategory {
   code: string;
   /** Short abbreviation (2-3 chars) shown on the Tracking Board and patient visit lists — e.g. 'UC', 'WC'. */
   abbreviation?: string;
+  /** Paperwork-flow group slug (OTR-2309) this service is assigned to, if any. Round-tripped so an edit here never clobbers a flow assignment. */
+  paperworkFlowGroup?: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
 }
