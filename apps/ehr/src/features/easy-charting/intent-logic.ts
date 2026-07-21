@@ -1801,13 +1801,68 @@ export function matchRadiologyStudy(display: string, searchTerms: string[]): Rad
   return best?.study;
 }
 
+// Indication/site/population qualifier words that OTC product LINES carry in their NAMES
+// ("CLOTRIMAZOLE ATHLETES FOOT CREAM", "MICONAZOLE 3 VAGINAL", "CHILDREN'S IBUPROFEN"). Right
+// molecule + wrong qualifier is a wrong product: a dictated clotrimazole cream for VAGINAL
+// candidiasis once auto-charted "Clotrimazole Athletes Foot Topical Cream". Each entry maps the
+// name token to the evidence stems that justify it (substring-matched against the query +
+// narrative context; the token itself is always its own first stem). This is a vocabulary of
+// qualifier WORDS, not a product blocklist — a qualified product stays fully rankable whenever
+// the narrative supports its qualifier. Deliberately EXCLUDES bare route words the catalog
+// attaches descriptively to most products ("Oral", "Topical"): those appear on the CORRECT
+// product too, so flagging them would demote it below a route-less capsule/tablet.
+export const MED_QUALIFIER_EVIDENCE: Record<string, string[]> = {
+  athlete: ['athlete', 'pedis'],
+  athletes: ['athlete', 'pedis'],
+  foot: ['foot', 'feet', 'pedis', 'toe', 'plantar'],
+  jock: ['jock', 'cruris', 'groin'],
+  itch: ['itch', 'prurit'],
+  ringworm: ['ringworm', 'corporis', 'tinea'],
+  vaginal: ['vagin', 'vulv', 'yeast'],
+  diaper: ['diaper'],
+  otic: ['otic', 'ear', 'otitis'],
+  ear: ['ear', 'otic', 'otitis'],
+  ophthalmic: ['ophthalm', 'eye', 'ocular', 'conjunctiv'],
+  eye: ['eye', 'ophthalm', 'ocular', 'conjunctiv', 'stye'],
+  nasal: ['nasal', 'nose', 'nares', 'rhin', 'sinus'],
+  rectal: ['rectal', 'hemorrhoid', 'anal', 'anus'],
+  hemorrhoidal: ['hemorrhoid', 'rectal', 'anal'],
+  scalp: ['scalp', 'dandruff', 'capitis'],
+  children: ['child', 'pediatric'],
+  infant: ['infant', 'baby', 'newborn'],
+  infants: ['infant', 'baby', 'newborn'],
+  baby: ['baby', 'infant', 'newborn'],
+};
+
+// The qualifier words in a candidate product name that the available evidence (searched drug term
+// + narrative context) does NOT support. Tokens outside MED_QUALIFIER_EVIDENCE never count —
+// brand/salt/form words are the fuzzy ranker's job, not this guard's.
+export function unsupportedMedQualifiers(name: string, evidence: string): string[] {
+  const hay = evidence.toLowerCase();
+  const out: string[] = [];
+  for (const tok of name.toLowerCase().split(/[^a-z0-9]+/)) {
+    const stems = MED_QUALIFIER_EVIDENCE[tok];
+    if (stems && !stems.some((s) => hay.includes(s))) out.push(tok);
+  }
+  return out;
+}
+
 // Rank eRx medication results when the planner extracted a strength and/or doseForm from the
 // narrative. eRx's name search returns results in its own order which interleaves combination
 // products and unrelated strengths; this stable sort pushes the requested strength/form to the
 // top without dropping anything. Returns a new array; original order is the tie-breaker.
+//
+// Qualifier tier (mirrors the ICD history/status gate: a qualifier the provider never dictated
+// must not carry a match): a candidate whose NAME has an indication/site/population qualifier
+// UNSUPPORTED by the query + narrative evidence never outranks a candidate whose qualifiers are
+// all supported (or that has none). Within a tier the existing strength/form scoring decides.
+// When EVERY candidate is unsupported the tier is uniform and ranking degrades to exactly the
+// old behavior — the guard reorders, it never makes a previously-successful match fail.
+// `sourceText` is the planner step's provenance phrase (present at plan dispatch; absent for
+// single-shot agent intents, which then guard on display/searchTerms alone).
 export function rankMedicationResults(
   results: SearchResult[],
-  intent: Extract<EasyChartAgentIntent, { kind: 'add-medication' }>
+  intent: Extract<EasyChartAgentIntent, { kind: 'add-medication' }> & { sourceText?: string }
 ): SearchResult[] {
   const wantStrength = intent.strength ? normForMatch(intent.strength) : '';
   const wantStrengthKey = intent.strength ? strengthKey(intent.strength) : '';
@@ -1820,7 +1875,20 @@ export function rankMedicationResults(
   // SHOULDN'T outrank the plain ingredient — penalize those when the request looks single-ing.
   const queryName = intent.searchTerms[0] ?? intent.display;
   const isSingleIngredientQuery = !/[-&/]/.test(queryName);
-  if (!wantStrength && !wantForm && !isSingleIngredientQuery) return results;
+  // All evidence available at match time: what was searched (so a qualifier the provider actually
+  // dictated — "athletes foot cream" — never penalizes) plus the narrative phrase behind the step.
+  const qualifierEvidence = [
+    intent.display,
+    ...(Array.isArray(intent.searchTerms) ? intent.searchTerms : []),
+    intent.strength ?? '',
+    intent.doseForm ?? '',
+    intent.unit ?? '',
+    intent.sourceText ?? '',
+  ].join(' ');
+  const flagged = results.map((r) => unsupportedMedQualifiers(r.name ?? '', qualifierEvidence).length > 0);
+  // The tier only changes an order when supported and unsupported candidates are MIXED.
+  const qualifierTierMatters = flagged.some(Boolean) && !flagged.every(Boolean);
+  if (!wantStrength && !wantForm && !isSingleIngredientQuery && !qualifierTierMatters) return results;
   const scored = results.map((r, idx) => {
     const nameNorm = normForMatch(r.name);
     const strengthNorm = r.strength ? normForMatch(r.strength) : '';
@@ -1838,9 +1906,11 @@ export function rankMedicationResults(
       if (r.strength && r.strength.toLowerCase().includes(wantForm)) score += 3;
     }
     if (isSingleIngredientQuery && /[-&]/.test(r.name)) score -= 5;
-    return { r, score, idx };
+    return { r, score, idx, unsupported: flagged[idx] ? 1 : 0 };
   });
-  scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  // Tier before score: an unsupported-qualifier product must never beat a supported/neutral one,
+  // no matter how well its strength/form matches.
+  scored.sort((a, b) => a.unsupported - b.unsupported || b.score - a.score || a.idx - b.idx);
   return scored.map((s) => s.r);
 }
 
