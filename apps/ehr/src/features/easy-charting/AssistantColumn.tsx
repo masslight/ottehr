@@ -260,12 +260,22 @@ export function AssistantColumn({
 
   // forceNarrative: a transcript is a whole-visit narrative BY CONSTRUCTION — a short chat
   // transcript could fall under the length/sentence heuristic and be misrouted to the
-  // single-intent agent. sendText never rejects (it surfaces failures in the thread itself), so
-  // its resolution marks the point where the transcript was handed to the pipeline — persist the
-  // durable consumed mark then.
+  // single-intent agent. sendText never rejects (it surfaces failures in the thread itself) and
+  // resolves true only when the transcript actually made it into the pipeline — persist the
+  // durable consumed mark then. On failure, roll back the session mark added below (the chip was
+  // disabled up-front to prevent a double-send while in flight) so the banner/chip come back and
+  // the provider can retry.
   const sendTranscript = async (t: { doc: DocumentReference; data: string }): Promise<void> => {
     setUsedTranscriptIds((prev) => new Set(prev).add(t.doc.id!));
-    await sendText(decodeTranscript(t.data), { forceNarrative: true });
+    const sent = await sendText(decodeTranscript(t.data), { forceNarrative: true });
+    if (!sent) {
+      setUsedTranscriptIds((prev) => {
+        const next = new Set(prev);
+        next.delete(t.doc.id!);
+        return next;
+      });
+      return;
+    }
     await markTranscriptPrimed(t.doc);
   };
 
@@ -284,7 +294,16 @@ export function AssistantColumn({
       for (const t of toSend) next.add(t.doc.id!);
       return next;
     });
-    await sendText(text, { forceNarrative: true });
+    const sent = await sendText(text, { forceNarrative: true });
+    if (!sent) {
+      // Failed send: nothing was consumed — restore the session marks so the banner reappears.
+      setUsedTranscriptIds((prev) => {
+        const next = new Set(prev);
+        for (const t of toSend) next.delete(t.doc.id!);
+        return next;
+      });
+      return;
+    }
     for (const t of toSend) await markTranscriptPrimed(t.doc);
   };
 

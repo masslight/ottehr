@@ -1550,8 +1550,11 @@ export function useChartAssistant({
   // transcript-priming UI feeds decoded visit transcripts through here so they behave EXACTLY like
   // a pasted dictation. `forceNarrative` skips the length/sentence heuristic for callers that KNOW
   // the text is a whole-visit narrative (a terse chat transcript can fall under both thresholds).
-  const sendText = async (message: string, opts?: { forceNarrative?: boolean }): Promise<void> => {
-    if (!message || !oystehrZambda || !encounterId) return;
+  // Never rejects — failures render as an error bubble in the thread. Resolves true when the
+  // message made it through the pipeline, false when nothing was sent (guard bail) or the send
+  // failed, so callers with durable side effects (transcript consumed-marks) can skip them.
+  const sendText = async (message: string, opts?: { forceNarrative?: boolean }): Promise<boolean> => {
+    if (!message || !oystehrZambda || !encounterId) return false;
     pushUserMessage(message);
     setConv({ kind: 'thinking', user: message });
     try {
@@ -1586,24 +1589,26 @@ export function useChartAssistant({
             user: message,
             reply: "I couldn't find any chart actions in that narrative.",
           });
-          return;
+          return true;
         }
         // Auto-chart: start executing immediately as a single evolving plan card — no separate
         // approve step. Each AI-charted item still gets the needs-review highlight + click-to-correct,
         // and Remove still works, so nothing here is unrecoverable.
         medDoseMismatchRef.current = []; // fresh dose-substitution tally for this plan
         setPlan({ narrative: message, steps, currentIdx: 0, results: [] });
-        return;
+        return true;
       }
       const agentRes = await easyChartAgent(oystehrZambda, { message, noteContext });
       recordUsage(agentRes.usage);
       const { intent } = agentRes;
       pendingProvenanceRef.current = null; // provider-typed command → no inferred mark
       await dispatchIntent(intent, message, true);
+      return true;
     } catch (e) {
       console.error('Send failed:', e);
       captureException(e);
       setConv({ kind: 'error', user: message, reply: 'Something went wrong. Please try again.' });
+      return false;
     }
   };
 
