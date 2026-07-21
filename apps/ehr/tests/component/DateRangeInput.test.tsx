@@ -66,6 +66,33 @@ describe('DateRangeInput', () => {
     expect(getValues()).toBe('2026-07-13|2026-07-17');
   });
 
+  it('keeps the month label and day sizing consistent in Date Range mode', async () => {
+    render(<Harness dateFrom="2026-07-10" dateTo="2026-07-10" />);
+
+    await openPicker();
+    await userEvent.click(screen.getByTestId(dataTestIds.dashboard.dateRangeModeCheckbox));
+
+    const monthLabel = screen.getByText('July 2026').closest('.MuiPickersCalendarHeader-labelContainer');
+    expect(monthLabel).not.toBeNull();
+    expect(monthLabel).toHaveStyle({ cursor: 'default' });
+
+    const rangeDay = screen.getByTestId(dataTestIds.dashboard.datePickerDay('2026-07-10'));
+    expect(rangeDay).toHaveClass('MuiDateRangePickerDay-day');
+
+    const rangeCalendarRules = Array.from(document.styleSheets)
+      .flatMap((sheet) => Array.from(sheet.cssRules))
+      .map((rule) => rule.cssText)
+      .filter((rule) => rule.includes('MuiDateRangeCalendar-root'));
+    expect(rangeCalendarRules.some((rule) => rule.includes('MuiPickersCalendarHeader-labelContainer::after'))).toBe(
+      true
+    );
+    expect(
+      rangeCalendarRules.some(
+        (rule) => rule.includes('MuiDateRangePickerDay-day') && rule.includes('transform: none !important')
+      )
+    ).toBe(true);
+  });
+
   it('collapses a multi-day range to its start date when the checkbox is unchecked', async () => {
     render(<Harness dateFrom="2026-07-10" dateTo="2026-07-14" />);
 
