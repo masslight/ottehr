@@ -38,7 +38,9 @@ class MockMediaRecorder {
   requestData(): void {}
 }
 
-const getUserMedia = vi.fn(async () => ({ getTracks: () => [{ stop: trackStop }] }));
+const getUserMedia = vi.fn(async () => ({
+  getTracks: () => [{ stop: trackStop, addEventListener: vi.fn(), removeEventListener: vi.fn() }],
+}));
 
 beforeEach(() => {
   vi.stubGlobal('MediaRecorder', MockMediaRecorder);
