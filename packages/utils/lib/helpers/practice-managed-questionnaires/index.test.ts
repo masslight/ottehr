@@ -108,14 +108,14 @@ describe('practiceManagedQuestionnaireToFhir', () => {
     expect(fhir.item?.[0].answerOption).toEqual([{ valueString: 'keep' }]);
   });
 
-  it('removes the answerOption array entirely when every option is empty', () => {
+  it('removes the item with empty answerOption', () => {
     const questionnaire = baseManagedQuestionnaire({
       item: [managedItem({ answerOption: [{ valueString: '' }] })],
     });
 
     const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
 
-    expect(fhir.item?.[0]).not.toHaveProperty('answerOption');
+    expect(fhir.item?.[0]).toBeUndefined();
   });
 
   it('recursively converts nested items', () => {
