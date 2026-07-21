@@ -15,12 +15,13 @@ describe('resolveAccessibleAdminNavGroups', () => {
     }
   );
 
-  it.each([RoleType.Staff, RoleType.Provider])('limits %s to Action Logs', (role) => {
+  it('limits Staff to Action Logs', () => {
+    const role = RoleType.Staff;
     const groups = resolveAccessibleAdminNavGroups(hasRoleFor([role]));
     expect(groups.flatMap((group) => group.items.map((item) => item.path))).toEqual(['/admin/action-logs']);
   });
 
-  it('returns nothing for roles without any admin access', () => {
-    expect(resolveAccessibleAdminNavGroups(hasRoleFor([RoleType.FrontDesk]))).toEqual([]);
+  it.each([RoleType.Provider, RoleType.FrontDesk])('returns nothing for %s', (role) => {
+    expect(resolveAccessibleAdminNavGroups(hasRoleFor([role]))).toEqual([]);
   });
 });

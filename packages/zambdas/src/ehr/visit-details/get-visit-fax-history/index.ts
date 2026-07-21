@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Provenance, Task } from 'fhir/r4b';
 import {
+  getAllFhirSearchPages,
   getOutboundDeliveryInput,
   getOutboundDeliveryRecipientSnapshot,
   GetVisitFaxHistoryInput,
@@ -56,27 +57,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): Promise<GetVisitFaxHistoryOutput> => {
   const { appointmentId } = input;
 
-  const [tasksBundle, provenanceBundle] = await Promise.all([
-    oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [
-        { name: 'code', value: `${OUTBOUND_DELIVERY_TASK_SYSTEM}|${OUTBOUND_DELIVERY_TASK_CODES.fax}` },
-        { name: 'focus', value: `Appointment/${appointmentId}` },
-        { name: '_count', value: '1000' },
-      ],
-    }),
-    oystehr.fhir.search<Provenance>({
-      resourceType: 'Provenance',
-      params: [
-        {
-          name: 'target',
-          value: `Appointment/${appointmentId}`,
-        },
-      ],
-    }),
+  const [tasks, allProvenances] = await Promise.all([
+    getAllFhirSearchPages<Task>(
+      {
+        resourceType: 'Task',
+        params: [
+          { name: 'code', value: `${OUTBOUND_DELIVERY_TASK_SYSTEM}|${OUTBOUND_DELIVERY_TASK_CODES.fax}` },
+          { name: 'focus', value: `Appointment/${appointmentId}` },
+        ],
+      },
+      oystehr
+    ),
+    getAllFhirSearchPages<Provenance>(
+      {
+        resourceType: 'Provenance',
+        params: [{ name: 'target', value: `Appointment/${appointmentId}` }],
+      },
+      oystehr
+    ),
   ]);
-  const tasks = tasksBundle.unbundle();
-  const allProvenances = provenanceBundle.unbundle();
   console.log(`found ${allProvenances.length} provenances for appointment ${appointmentId}`);
 
   const faxProvenances = allProvenances.filter(
@@ -88,17 +87,14 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
 
   console.log(`found ${faxProvenances.length} fax provenances for appointment ${appointmentId}`);
 
+  const taskSnapshots = tasks.map((task) => ({ task, recipient: getOutboundDeliveryRecipientSnapshot(task) }));
   const communicationIdsInTasks = new Set(
-    tasks
-      .map((task) => getOutboundDeliveryRecipientSnapshot(task).communicationId)
-      .filter((id): id is string => Boolean(id))
+    taskSnapshots.map(({ recipient }) => recipient.communicationId).filter((id): id is string => Boolean(id))
   );
-  const taskFaxes = tasks
-    .filter(
-      (task) => task.status === 'completed' || Boolean(getOutboundDeliveryRecipientSnapshot(task).communicationId)
-    )
-    .map((task) => ({
-      recipientNumber: getOutboundDeliveryRecipientSnapshot(task).address ?? '',
+  const taskFaxes = taskSnapshots
+    .filter(({ task, recipient }) => task.status === 'completed' || Boolean(recipient.communicationId))
+    .map(({ task, recipient }) => ({
+      recipientNumber: recipient.address ?? '',
       created: task.authoredOn ?? task.executionPeriod?.start ?? '',
       sender: {
         id: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString ?? '',

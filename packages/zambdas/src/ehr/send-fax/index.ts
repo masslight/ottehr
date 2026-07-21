@@ -131,7 +131,11 @@ export const findRecipientName = (patient: Patient, faxNumber: string): string |
   const match = patient.contained?.find(
     (resource): resource is Practitioner =>
       resource.resourceType === 'Practitioner' &&
-      Boolean(resource.telecom?.some((telecom) => standardizePhoneNumber(telecom.value) === standardizedFaxNumber))
+      Boolean(
+        resource.telecom?.some(
+          (telecom) => telecom.system === 'fax' && standardizePhoneNumber(telecom.value) === standardizedFaxNumber
+        )
+      )
   );
   return match?.name?.length ? getFullestAvailableName(match) : undefined;
 };

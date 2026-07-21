@@ -4,9 +4,10 @@ import {
   getOutboundDeliveryAttemptStatus,
   makeOutboundDeliveryAttempt,
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
+  RoleType,
 } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
-import { performEffect } from '../../src/ehr/get-action-logs';
+import { getActionLogViewerRoles, performEffect } from '../../src/ehr/get-action-logs';
 
 const patient: Patient = { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Ada'], family: 'Lovelace' }] };
 const appointment: Appointment = {
@@ -29,6 +30,12 @@ const task: Task = {
 };
 
 describe('get-action-logs', () => {
+  it('allows Providers only for patient-scoped logs', () => {
+    expect(getActionLogViewerRoles()).not.toContain(RoleType.Provider);
+    expect(getActionLogViewerRoles('patient-1')).toContain(RoleType.Provider);
+    expect(getActionLogViewerRoles()).toContain(RoleType.Staff);
+  });
+
   it('uses server-side pagination and fetches only page-linked fax Communications', async () => {
     const search = vi
       .fn()
@@ -83,7 +90,7 @@ describe('get-action-logs', () => {
     expect(result.logs[0]).toHaveProperty('documentReferenceId', undefined);
   });
 
-  it('only allows failed attempts with a recipient and no existing retry child to be retried', async () => {
+  it('disables retry after a failed attempt already has a child', async () => {
     const failedTask: Task = { ...task, status: 'failed' };
     const child: Task = {
       ...makeOutboundDeliveryAttempt({
@@ -109,6 +116,20 @@ describe('get-action-logs', () => {
 
     expect(result.logs[0].canRetry).toBe(false);
     expect(search.mock.calls[2][0].params).toContainEqual({ name: 'part-of', value: 'Task/attempt-1' });
+    expect(search.mock.calls[2][0].params).toContainEqual({ name: '_count', value: '1' });
+  });
+
+  it('allows a failed attempt with a recipient and no child to be retried', async () => {
+    const failedTask: Task = { ...task, status: 'failed' };
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({ unbundle: () => [failedTask, patient, appointment], total: 1 })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0 })
+      .mockResolvedValueOnce({ unbundle: () => [], total: 0 });
+
+    const result = await performEffect({ channel: 'fax', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(result.logs[0].canRetry).toBe(true);
   });
 
   it('does not allow retry when the stored recipient is empty', async () => {

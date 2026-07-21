@@ -5,7 +5,7 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { parseCommaSeparatedTags, PRIMARY_EHR_STAFF_ROLES, RoleType } from 'utils';
+import { GLOBAL_ACTION_LOG_VIEWER_ROLES, parseCommaSeparatedTags, RoleType } from 'utils';
 import { setupSentry } from 'utils/lib/frontend';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
@@ -96,6 +96,14 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
+
+const PRIMARY_EHR_STAFF_ROLES = [
+  RoleType.Administrator,
+  RoleType.Staff,
+  RoleType.Manager,
+  RoleType.Provider,
+  RoleType.CustomerSupport,
+];
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -240,7 +248,6 @@ function App(): ReactElement {
                   <Route path={`${BILLING_URL}/:billingTab/:insuranceTab`} element={<AdminPage />} />
                   <Route path={`${OUTREACH_URL}/:outreachSubTab`} element={<AdminPage />} />
                   <Route path={`${OUTREACH_URL}/:outreachSubTab/:outreachDetailTab`} element={<AdminPage />} />
-                  <Route path="/admin/fax-logs" element={<Navigate to="/admin/action-logs" replace />} />
                   <Route path="/admin/:adminTab" element={<AdminPage />} />
                   <Route path="/admin/:adminTab/:subTab" element={<AdminPage />} />
                   <Route path="/admin/quick-picks/procedure/:quickPickId" element={<ProcedureQuickPickDetailPage />} />
@@ -298,12 +305,12 @@ function App(): ReactElement {
                 )}
                 <Route path="/patients" element={<PatientsPage />} />
 
-                {/* Non-admin roles get the admin shell for items whose explicit role policy allows access. */}
-                <Route element={<AdminLayout />}>
-                  <Route path="/admin" element={<AdminPage />} />
-                  <Route path="/admin/fax-logs" element={<Navigate to="/admin/action-logs" replace />} />
-                  <Route path="/admin/:adminTab" element={<AdminPage />} />
-                </Route>
+                {currentUser.hasRole(GLOBAL_ACTION_LOG_VIEWER_ROLES) && (
+                  <Route element={<AdminLayout />}>
+                    <Route path="/admin" element={<AdminPage />} />
+                    <Route path="/admin/:adminTab" element={<AdminPage />} />
+                  </Route>
+                )}
 
                 <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />

@@ -3,20 +3,21 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  ACTION_LOG_VIEWER_ROLES,
   ACTION_LOGS_DISPLAY_WINDOW_DAYS,
   ACTION_LOGS_PAGE_SIZE,
   ActionLogEntry,
   GetActionLogsInputValidated,
   GetActionLogsOutput,
-  getAllFhirSearchPages,
   getFormattedPatientFullName,
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
   getOutboundDeliveryRecipientSnapshot,
+  GLOBAL_ACTION_LOG_VIEWER_ROLES,
   OUTBOUND_DELIVERY_TASK_CODES,
   OUTBOUND_DELIVERY_TASK_SYSTEM,
+  PATIENT_ACTION_LOG_VIEWER_ROLES,
   removePrefix,
+  RoleType,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -42,13 +43,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   await requireUserWithRole(
     input.headers.Authorization.replace('Bearer ', ''),
     parameters.secrets,
-    ACTION_LOG_VIEWER_ROLES
+    getActionLogViewerRoles(parameters.patientId)
   );
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
   const output = await performEffect(parameters, oystehr);
   return { statusCode: 200, body: JSON.stringify(output) };
 });
+
+export function getActionLogViewerRoles(patientId?: string): RoleType[] {
+  return patientId ? PATIENT_ACTION_LOG_VIEWER_ROLES : GLOBAL_ACTION_LOG_VIEWER_ROLES;
+}
 
 export async function performEffect(
   input: GetActionLogsInputValidated,
@@ -130,14 +135,17 @@ async function getRetriedAttemptIds(tasks: Task[], oystehr: Oystehr): Promise<Se
   const attemptReferences = tasks.flatMap((task) => (task.id ? [`Task/${task.id}`] : []));
   if (!attemptReferences.length) return new Set();
 
-  const children = await getAllFhirSearchPages<Task>(
-    {
+  // Atomic retry creation enforces at most one direct child per attempt, so one bounded page covers
+  // every row on the current Action Logs page without an accurate-total count or pagination loop.
+  const children = (
+    await oystehr.fhir.search<Task>({
       resourceType: 'Task',
-      params: [{ name: 'part-of', value: attemptReferences.join(',') }],
-    },
-    oystehr,
-    ACTION_LOGS_PAGE_SIZE
-  );
+      params: [
+        { name: 'part-of', value: attemptReferences.join(',') },
+        { name: '_count', value: String(attemptReferences.length) },
+      ],
+    })
+  ).unbundle();
   return new Set(
     children.flatMap((child) =>
       (child.partOf ?? []).flatMap((parent) => {
@@ -169,10 +177,8 @@ function composeEntry(
     attemptId: task.id!,
     channel,
     status,
-    attemptedAt: task.authoredOn,
     recipientAddress: recipient.address ?? '',
     recipientName: recipient.name,
-    patientId,
     patientName: patient ? getFormattedPatientFullName(patient, { skipNickname: true }) : undefined,
     appointmentId,
     visitDate: appointment?.start,

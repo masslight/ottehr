@@ -3,16 +3,19 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, DocumentReference, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  ACTION_LOG_VIEWER_ROLES,
   DATETIME_FULL_NO_YEAR,
   FEATURE_FLAGS_CONFIG,
   getAddressStringForScheduleResource,
+  getFullestAvailableName,
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
   getOutboundDeliveryRecipientSnapshot,
   getPresignedURL,
   getSecret,
+  makeOutboundDeliveryAttempt,
   OTTEHR_MODULE,
+  OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
+  PATIENT_ACTION_LOG_VIEWER_ROLES,
   removePrefix,
   RetryActionLogInputValidated,
   RetryActionLogOutput,
@@ -23,10 +26,13 @@ import {
   buildVisitNoteEmailTemplate,
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
+  createOutboundDeliveryAttemptIdempotently,
+  deliverFaxAttempt,
+  deliverVisitNoteEmailAttempt,
+  getEmailClient,
+  requireOutboundDeliveryValue,
   requireUserWithRole,
-  sendFaxAttempt,
   SendFaxAttemptInput,
-  sendVisitNoteEmailAttempt,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -40,7 +46,7 @@ let m2mToken = '';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const parameters = validateRequestParameters(input);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const user = await requireUserWithRole(userToken, parameters.secrets, ACTION_LOG_VIEWER_ROLES);
+  const user = await requireUserWithRole(userToken, parameters.secrets, PATIENT_ACTION_LOG_VIEWER_ROLES);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
 
@@ -62,41 +68,72 @@ export async function performEffect(
     throw new Error('This delivery attempt has already been retried');
   }
 
-  const patientId = requiredString(removePrefix('Patient/', original.for?.reference ?? ''), 'patient reference');
-  const appointmentId = requiredString(
+  const emailClient = channel === 'email' ? getEmailClient(parameters.secrets, oystehr) : undefined;
+  if (channel === 'email') {
+    if (FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled) {
+      throw new Error('Visit note email delivery is disabled while the patient portal feature flag is on');
+    }
+    if (!emailClient?.getFeatureFlag()) throw new Error('Visit note email delivery is disabled');
+  }
+
+  const originalId = requireOutboundDeliveryValue(original.id, 'attempt id');
+  const patientId = requireOutboundDeliveryValue(
+    removePrefix('Patient/', original.for?.reference ?? ''),
+    'patient reference'
+  );
+  const appointmentId = requireOutboundDeliveryValue(
     removePrefix('Appointment/', original.focus?.reference ?? ''),
     'appointment reference'
   );
   const recipient = getOutboundDeliveryRecipientSnapshot(original);
-  const recipientAddress = requiredString(recipient.address, 'recipient address');
+  const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');
   const recipientName = recipient.name;
   const documentReference = await resolveDocumentReference(original, appointmentId, oystehr);
-  const documentReferenceId = requiredString(documentReference.id, 'DocumentReference id');
-  const media = requiredString(documentReference.content[0]?.attachment.url, 'document URL');
+  const documentReferenceId = requireOutboundDeliveryValue(documentReference.id, 'DocumentReference id');
+  const media = requireOutboundDeliveryValue(documentReference.content[0]?.attachment.url, 'document URL');
+  const userPractitioner = await oystehr.fhir.get<Practitioner>({
+    resourceType: 'Practitioner',
+    id: requireOutboundDeliveryValue(removePrefix('Practitioner/', user.profile), 'user practitioner reference'),
+  });
+  const requesterReference = userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined;
+  const senderDisplay = getFullestAvailableName(userPractitioner);
 
   let retried: Task;
   if (channel === 'fax') {
-    const userPractitioner = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: requiredString(removePrefix('Practitioner/', user.profile), 'user practitioner reference'),
-    });
+    const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, parameters.secrets);
     const faxInput: SendFaxAttemptInput = {
       appointmentId,
       faxNumber: recipientAddress,
-      organizationId: getSecret(SecretsKeys.ORGANIZATION_ID, parameters.secrets),
+      organizationId,
       patientId,
       media: await getPresignedURL(media, accessToken),
       documentReferenceId,
       userPractitioner,
       recipientName,
-      parentAttemptId: original.id,
+      parentAttemptId: originalId,
       senderId: user.id,
     };
-    retried = await sendFaxAttempt(faxInput, oystehr);
+    const claim = await createOutboundDeliveryAttemptIdempotently(
+      oystehr,
+      makeOutboundDeliveryAttempt({
+        channel,
+        patientId,
+        appointmentId,
+        recipientAddress,
+        recipientName,
+        documentReferenceId,
+        requesterReference,
+        senderOrganizationReference: `Organization/${organizationId}`,
+        parentAttemptId: originalId,
+        senderId: user.id,
+        senderDisplay,
+      }),
+      { system: OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM, value: `Task/${originalId}` }
+    );
+    if (claim.status === 'existing') throw new Error('This delivery attempt has already been retried');
+    retried = await deliverFaxAttempt(faxInput, oystehr, claim.attempt);
   } else {
-    if (FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled) {
-      throw new Error('Visit note email delivery is disabled while the patient portal feature flag is off');
-    }
+    if (!emailClient) throw new Error('Visit note email client was not initialized');
     const visit = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
     const visitNoteUrl = await getPresignedURL(media, accessToken);
@@ -112,7 +149,7 @@ export async function performEffect(
           ? DateTime.fromISO(visit.appointment.start).setZone(visit.timezone).toFormat(DATETIME_FULL_NO_YEAR)
           : undefined,
     });
-    retried = await sendVisitNoteEmailAttempt({
+    const emailInput = {
       ...emailTemplate,
       oystehr,
       secrets: parameters.secrets,
@@ -121,8 +158,29 @@ export async function performEffect(
       recipientEmail: recipientAddress,
       recipientName,
       documentReferenceId,
-      parentAttemptId: original.id,
-    });
+      parentAttemptId: originalId,
+      requesterReference,
+      senderId: user.id,
+      senderDisplay,
+    };
+    const claim = await createOutboundDeliveryAttemptIdempotently(
+      oystehr,
+      makeOutboundDeliveryAttempt({
+        channel,
+        patientId,
+        appointmentId,
+        recipientAddress,
+        recipientName,
+        documentReferenceId,
+        requesterReference,
+        parentAttemptId: originalId,
+        senderId: user.id,
+        senderDisplay,
+      }),
+      { system: OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM, value: `Task/${originalId}` }
+    );
+    if (claim.status === 'existing') throw new Error('This delivery attempt has already been retried');
+    retried = await deliverVisitNoteEmailAttempt(emailInput, claim.attempt, emailClient);
   }
   if (!retried.id) throw new Error('Retry attempt was created without an id');
   return { attemptId: retried.id };
@@ -145,11 +203,6 @@ export async function isRetryable(task: Task, channel: 'fax' | 'email', oystehr:
   if (!communicationId) return task.status === 'failed';
   const communication = await oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: communicationId });
   return getOutboundDeliveryAttemptStatus(task, communication) === 'failed';
-}
-
-function requiredString(value: string | undefined, label: string): string {
-  if (!value) throw new Error(`${label} is missing from the attempt`);
-  return value;
 }
 
 export async function resolveDocumentReference(

@@ -42,7 +42,7 @@ import SchedulesPage from 'src/pages/Schedules';
 import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
-import { ACTION_LOG_VIEWER_ROLES, RoleType } from 'utils';
+import { GLOBAL_ACTION_LOG_VIEWER_ROLES, RoleType } from 'utils';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 import { PaymentLocationsList } from './BillingConfiguration';
 import { FeeSchedulesIcon, InHouseLabsIcon, InsuranceIcon, ProgressNoteIcon, StethoscopeIcon } from './icons';
@@ -243,7 +243,7 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: 'Action Logs',
         path: '/admin/action-logs',
         icon: <FaxOutlinedIcon />,
-        allowedRoles: ACTION_LOG_VIEWER_ROLES,
+        allowedRoles: GLOBAL_ACTION_LOG_VIEWER_ROLES,
         render: () => <ActionLogsTabs />,
       },
     ],

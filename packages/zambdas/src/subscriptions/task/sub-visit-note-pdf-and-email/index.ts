@@ -204,8 +204,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       let emailSent = false;
       if (!isPDFOnlyTask && !skipEmail) {
         try {
-          const emailClient = getEmailClient(secrets, oystehr);
-          if (emailClient.getFeatureFlag() && !skipVisitNoteInPatientPortal) {
+          const emailClient = skipVisitNoteInPatientPortal ? undefined : getEmailClient(secrets, oystehr);
+          if (emailClient?.getFeatureFlag()) {
             const patientEmail = getPatientContactEmail(patient);
             const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
             const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
@@ -222,16 +222,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                   : undefined,
             });
             try {
-              await sendVisitNoteEmailAttempt({
-                ...emailTemplate,
-                oystehr,
-                secrets,
-                patientId: patient.id,
-                appointmentId,
-                recipientEmail: patientEmail,
-                recipientName: patient.name?.length ? getFullestAvailableName(patient) : undefined,
-                documentReferenceId: visitNoteDocument.id,
-              });
+              await sendVisitNoteEmailAttempt(
+                {
+                  ...emailTemplate,
+                  oystehr,
+                  secrets,
+                  patientId: patient.id,
+                  appointmentId,
+                  recipientEmail: patientEmail,
+                  recipientName: patient.name?.length ? getFullestAvailableName(patient) : undefined,
+                  documentReferenceId: visitNoteDocument.id,
+                },
+                emailClient
+              );
               emailSent = true;
             } catch (emailError) {
               console.error(`Failed to send completion email for appointment ${appointment.id}:`, emailError);

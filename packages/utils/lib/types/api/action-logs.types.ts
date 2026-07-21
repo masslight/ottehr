@@ -5,13 +5,13 @@ import { RoleType } from './user.types';
 
 export const ACTION_LOGS_PAGE_SIZE = 10;
 export const ACTION_LOGS_DISPLAY_WINDOW_DAYS = 30;
-export const ACTION_LOG_VIEWER_ROLES = [
+export const GLOBAL_ACTION_LOG_VIEWER_ROLES = [
   RoleType.Administrator,
   RoleType.Manager,
   RoleType.CustomerSupport,
   RoleType.Staff,
-  RoleType.Provider,
 ];
+export const PATIENT_ACTION_LOG_VIEWER_ROLES = [...GLOBAL_ACTION_LOG_VIEWER_ROLES, RoleType.Provider];
 
 export const ActionLogChannelSchema = z.enum(['fax', 'email']);
 export type ActionLogChannel = z.infer<typeof ActionLogChannelSchema>;
@@ -42,10 +42,8 @@ export interface ActionLogEntry {
   attemptId: string;
   channel: ActionLogChannel;
   status: ActionLogStatus;
-  attemptedAt?: string;
   recipientAddress: string;
   recipientName?: string;
-  patientId?: string;
   patientName?: string;
   appointmentId?: string;
   visitDate?: string;

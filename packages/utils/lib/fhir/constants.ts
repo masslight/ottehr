@@ -1125,6 +1125,8 @@ export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
   error: 'error',
 } as const;
 export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
+export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');
+export const OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-claim');
 
 export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
 

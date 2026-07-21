@@ -27,7 +27,6 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     faxNumber,
     organizationId,
     patientId,
-    media,
     documentReferenceId,
     userPractitioner,
     recipientName,
@@ -48,6 +47,14 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     senderDisplay: getFullestAvailableName(userPractitioner),
   });
   if (!attempt.id) throw new Error('Outbound fax attempt was created without an id');
+
+  return deliverFaxAttempt(input, oystehr, attempt);
+}
+
+/** Sends and settles a fax using an attempt that has already been persisted. */
+export async function deliverFaxAttempt(input: SendFaxAttemptInput, oystehr: Oystehr, attempt: Task): Promise<Task> {
+  const { faxNumber, organizationId, patientId, media } = input;
+  if (!attempt.id) throw new Error('Outbound fax attempt is missing an id');
 
   let communicationId: string;
   try {

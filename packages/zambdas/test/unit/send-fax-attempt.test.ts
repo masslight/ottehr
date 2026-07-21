@@ -25,7 +25,7 @@ import { index } from '../../src/ehr/send-fax';
 
 const APPOINTMENT_ID = '650e8400-e29b-41d4-a716-446655440000';
 
-function makeSearchBundle(pcpFax: string): unknown {
+function makeSearchBundle(pcpFax: string, system: 'fax' | 'phone' = 'fax'): unknown {
   const appointment: Appointment = {
     resourceType: 'Appointment',
     id: APPOINTMENT_ID,
@@ -40,7 +40,7 @@ function makeSearchBundle(pcpFax: string): unknown {
         resourceType: 'Practitioner',
         id: 'pcp',
         name: [{ given: ['Olivia'], family: 'Green' }],
-        telecom: [{ system: 'fax', value: pcpFax }],
+        telecom: [{ system, value: pcpFax }],
       },
     ],
   };
@@ -102,6 +102,20 @@ describe('send-fax outbound attempt', () => {
     expect(mockFhirPatch).toHaveBeenCalledWith(
       expect.objectContaining({ operations: expect.arrayContaining([expect.objectContaining({ value: 'failed' })]) })
     );
+  });
+
+  it('does not identify a recipient from a matching non-fax phone number', async () => {
+    mockFhirSearch.mockResolvedValue(makeSearchBundle('(212) 555-1234', 'phone'));
+
+    await (index as any)(
+      createMockZambdaInput(
+        { appointmentId: APPOINTMENT_ID, faxNumber: '2125551234' },
+        { secrets: createMockSecrets() }
+      )
+    );
+
+    const task = mockFhirCreate.mock.calls[0][0] as Task;
+    expect(getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientName)).toBeUndefined();
   });
 
   it('keeps a visible pending attempt when completion persistence exhausts its retries', async () => {

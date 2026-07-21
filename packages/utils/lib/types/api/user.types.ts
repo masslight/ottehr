@@ -30,18 +30,6 @@ export enum RoleType {
   Staff = 'Staff',
 }
 
-// The EHR shell's general-purpose staff roles: anyone with one of these is a "known" user for
-// routing purposes (see App.tsx) and can view Reports. Keep this independent of feature-specific
-// role lists (e.g. ACTION_LOG_VIEWER_ROLES) even if their contents happen to match today —
-// narrowing a feature's viewer roles should not change who the app shell treats as a known user.
-export const PRIMARY_EHR_STAFF_ROLES = [
-  RoleType.Administrator,
-  RoleType.Staff,
-  RoleType.Manager,
-  RoleType.Provider,
-  RoleType.CustomerSupport,
-];
-
 export interface AccessPolicy {
   rule: {
     action: string | string[];

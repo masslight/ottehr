@@ -46,7 +46,6 @@ const staffNavbarItems: NavbarItems = {
 const providerNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
-  Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks'] },
   Reports: { urls: ['/reports'] },
 };
