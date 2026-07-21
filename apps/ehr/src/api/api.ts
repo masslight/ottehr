@@ -3035,8 +3035,9 @@ export interface ServiceCategory {
   code: string;
   /** Short abbreviation (2-3 chars) shown on the Tracking Board and patient visit lists — e.g. 'UC', 'WC'. */
   abbreviation?: string;
-  /** Paperwork-flow group slug (OTR-2309) this service is assigned to, if any. Round-tripped so an edit here never clobbers a flow assignment. */
-  paperworkFlowGroup?: string;
+  /** Paperwork-flow Questionnaire canonicals (OTR-2309) stamped per visit mode, if assigned. Round-tripped so an edit here never clobbers a flow assignment. */
+  inPersonFlowCanonical?: string;
+  virtualFlowCanonical?: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
 }

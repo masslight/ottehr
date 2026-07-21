@@ -1,15 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { BASE_INTAKE_FLOW_SLUG, INVALID_INPUT_ERROR, PaperworkFlowCreateOutput } from 'utils';
+import { buildCanonical, makePaperworkFlowUrl, PaperworkFlowCreateOutput, slugify } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
-  baseRepresentativeForMode,
   buildFormsIndex,
-  computeDesiredModes,
-  getBaseCard,
-  getServiceFlowVariants,
   listServiceFlows,
-  mintServiceFlowVariant,
-  reconcileFlowServiceAssignments,
+  makeUniqueFlowSlug,
+  mintFlow,
+  reconcileFlowServiceStamps,
 } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -23,35 +20,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  if (Object.values(BASE_INTAKE_FLOW_SLUG).includes(flow.slug)) {
-    throw INVALID_INPUT_ERROR('slug is reserved for a base intake flow');
-  }
-  const existing = await getServiceFlowVariants(oystehr, flow.slug);
-  if (existing.length > 0) {
-    throw INVALID_INPUT_ERROR(`A paperwork flow with slug "${flow.slug}" already exists`);
-  }
-
+  const slug = await makeUniqueFlowSlug(oystehr, slugify(flow.name, { maxLength: 60 }));
   const formsIndex = await buildFormsIndex(oystehr);
   const formCanonicals = flow.formIds.map(formsIndex.resolveFormCanonical).filter((c): c is string => !!c);
-  const desiredModes = await computeDesiredModes(oystehr, serviceIds);
 
-  for (const mode of desiredModes) {
-    const baseRepresentative =
-      flow.base === 'standard' ? baseRepresentativeForMode(mode, await getBaseCard(oystehr, mode)) : undefined;
-    await mintServiceFlowVariant(oystehr, {
-      groupSlug: flow.slug,
-      name: flow.name,
-      base: flow.base,
-      mode,
-      baseRepresentative,
-      formCanonicals,
-    });
-  }
-  await reconcileFlowServiceAssignments(oystehr, flow.slug, serviceIds);
+  const created = await mintFlow(oystehr, { slug, name: flow.name, modes: flow.modes, formCanonicals });
+  const flowUrl = created.url ?? makePaperworkFlowUrl(slug);
+  await reconcileFlowServiceStamps(oystehr, flowUrl, buildCanonical(flowUrl, created.version), flow.modes, serviceIds);
 
-  const created = (await listServiceFlows(oystehr, formsIndex)).find((f) => f.slug === flow.slug);
+  const record = (await listServiceFlows(oystehr, formsIndex)).find((f) => f.slug === slug);
   const response: PaperworkFlowCreateOutput = {
-    flow: created ?? { ...flow, modes: desiredModes, serviceIds },
+    flow: record ?? { slug, name: flow.name, formIds: flow.formIds, modes: flow.modes, serviceIds },
   };
   return { statusCode: 200, body: JSON.stringify(response) };
 });

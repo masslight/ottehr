@@ -481,44 +481,31 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
 };
 
 /**
- * meta.tag system marking a Questionnaire as a practice paperwork flow (OTR-2309). The code
- * discriminates a base intake flow (the fixed In-person / Virtual cards) from a service flow.
+ * meta.tag marking a Questionnaire as a practice paperwork flow (OTR-2309): an ordered bundle of
+ * practice-managed forms assignable to service categories by visit mode.
  */
 export const PAPERWORK_FLOW_TYPE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/flow-type`;
-export const BASE_INTAKE_FLOW_TAG_CODE = 'practice-paperwork-base-intake-flow';
 export const SERVICE_FLOW_TAG_CODE = 'service-paperwork-flow';
 
-/** meta.tag identifying a base intake paperwork flow Questionnaire (In-person / Virtual card). */
-export const BASE_INTAKE_FLOW_TAG = {
-  system: PAPERWORK_FLOW_TYPE_SYSTEM,
-  code: BASE_INTAKE_FLOW_TAG_CODE,
-};
-
-/** meta.tag identifying a service paperwork flow Questionnaire (assignable to service categories). */
+/** meta.tag identifying a paperwork flow Questionnaire. */
 export const SERVICE_FLOW_TAG = {
   system: PAPERWORK_FLOW_TYPE_SYSTEM,
   code: SERVICE_FLOW_TAG_CODE,
 };
 
 /**
- * Extension on a service flow Questionnaire recording the base intake kind (valueCode
- * 'standard' | 'consent-only'). The concrete base representative is pinned as derivedFrom[0].
- */
-export const PAPERWORK_FLOW_BASE_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/paperwork-flow-base`;
-
-/**
- * Extension on a service flow Questionnaire recording the visit mode it targets
- * (valueCode 'in-person' | 'virtual'). A logical service flow has one variant per applicable mode.
+ * Extension on a paperwork flow Questionnaire recording a visit mode it targets (valueCode
+ * 'in-person' | 'virtual'), repeated once per targeted mode.
  */
 export const PAPERWORK_FLOW_MODE_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/paperwork-flow-mode`;
 
 /**
- * Identifier system shared by all mode-variants of one logical service flow (value = the flow's
- * group slug). The admin authors one flow; it materializes as one Questionnaire per applicable mode,
- * regrouped into a single flow in the UI by this identifier. Service categories are stamped with the
- * group slug so a booking resolves group + visit mode -> the right variant.
+ * Extensions stamped on a service-category HealthcareService pointing at the paperwork flow
+ * Questionnaire to present for a given visit mode (valueCanonical `url|version`). At most one of each
+ * per HealthcareService; a booking resolves the extension matching its visit mode.
  */
-export const PAPERWORK_FLOW_GROUP_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/paperwork-flow-group`;
+export const HEALTHCARE_SERVICE_QUESTIONNAIRE_INPERSON_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/healthcareService-questionnaire-inperson`;
+export const HEALTHCARE_SERVICE_QUESTIONNAIRE_VIRTUAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/healthcareService-questionnaire-virtual`;
 
 /** meta.tag identifying how a one off QR was triggered */
 export const QR_DISTRIBUTION_TAG = {

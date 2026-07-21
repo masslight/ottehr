@@ -1,4 +1,11 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, PaperworkFlowCreateInput, Secrets, ServiceFlowInput } from 'utils';
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  PaperworkFlowCreateInput,
+  PaperworkFlowMode,
+  Secrets,
+  ServiceFlowInput,
+} from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export interface ValidatedCreate {
@@ -6,6 +13,9 @@ export interface ValidatedCreate {
   serviceIds: string[];
   secrets: Secrets | null;
 }
+
+const asModes = (value: unknown): PaperworkFlowMode[] =>
+  Array.isArray(value) ? value.filter((m): m is PaperworkFlowMode => m === 'in-person' || m === 'virtual') : [];
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedCreate {
   if (!input.body) throw MISSING_REQUEST_BODY;
@@ -20,16 +30,16 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedCreate {
   const flow = params.flow;
   if (!flow) throw INVALID_INPUT_ERROR('flow is required');
 
-  const slug = (flow.slug ?? '').trim();
   const name = (flow.name ?? '').trim();
-  if (!slug) throw INVALID_INPUT_ERROR('flow.slug is required');
   if (!name) throw INVALID_INPUT_ERROR('flow.name is required');
 
-  const base = flow.base === 'consent-only' ? 'consent-only' : 'standard';
+  const modes = asModes(flow.modes);
+  if (modes.length === 0) throw INVALID_INPUT_ERROR('at least one visit mode is required');
+
   const formIds = Array.isArray(flow.formIds) ? flow.formIds.filter((f): f is string => typeof f === 'string') : [];
   const serviceIds = Array.isArray(params.serviceIds)
     ? params.serviceIds.filter((s): s is string => typeof s === 'string')
     : [];
 
-  return { flow: { slug, name, base, formIds }, serviceIds, secrets: input.secrets };
+  return { flow: { name, formIds, modes }, serviceIds, secrets: input.secrets };
 }

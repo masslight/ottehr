@@ -134,27 +134,6 @@ export function parseServiceCategoryAbbreviation(hs: HealthcareService): string 
   return trimmed || undefined;
 }
 
-/**
- * Read the assigned paperwork-flow group slug (OTR-2309) from the service-category JSON-blob config
- * extension. Single-valued: a service category belongs to at most one flow. A booking resolves the
- * group slug plus its visit mode to the flow's mode-specific Questionnaire variant. Returns undefined
- * when absent or unparseable.
- */
-export function parsePaperworkFlowGroup(hs: HealthcareService): string | undefined {
-  const ext = hs.extension?.find((e) => e.url === SERVICE_CATEGORY_CONFIG_EXTENSION_URL);
-  const raw = ext?.valueString;
-  if (!raw) return undefined;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
-  if (parsed === null || typeof parsed !== 'object') return undefined;
-  const group = (parsed as { paperworkFlowGroup?: unknown }).paperworkFlowGroup;
-  return typeof group === 'string' && group.length > 0 ? group : undefined;
-}
-
 // ── Group readers ───────────────────────────────────────────────────────────
 
 export function getGroupAssignmentMode(hs: HealthcareService): GroupAssignmentMode | undefined {

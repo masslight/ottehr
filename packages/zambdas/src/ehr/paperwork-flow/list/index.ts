@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaperworkFlowListOutput } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { buildFormsIndex, listBaseFlows, listServiceFlows } from '../helpers';
+import { buildFormsIndex, listServiceFlows } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -15,11 +15,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const formsIndex = await buildFormsIndex(oystehr);
-  const [baseFlows, flows] = await Promise.all([
-    listBaseFlows(oystehr, formsIndex),
-    listServiceFlows(oystehr, formsIndex),
-  ]);
+  const flows = await listServiceFlows(oystehr, formsIndex);
 
-  const response: PaperworkFlowListOutput = { baseFlows, flows };
+  const response: PaperworkFlowListOutput = { flows };
   return { statusCode: 200, body: JSON.stringify(response) };
 });
