@@ -39,6 +39,30 @@ export const SECTION_TO_COMMENT_FIELD: Record<string, string> = (() => {
   return map;
 })();
 
+// Most-specific section label → its top-level exam CARD label ("Right eye" → "Eyes",
+// "Rectal" → "Rectal"). The leaf index stores the most-specific label, but the anatomy-section
+// guard in intent-logic compares at the card level, so it needs this rollup. Card labels are
+// seeded first so they always map to themselves; nested labels are first-wins.
+export const SECTION_LABEL_TO_CARD: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
+  for (const [, section] of Object.entries(examConfig.default.components)) map[section.label] = section.label;
+  for (const [, section] of Object.entries(examConfig.default.components)) {
+    const walk = (components: Record<string, unknown>): void => {
+      for (const [, comp] of Object.entries(components)) {
+        const c = comp as { type?: string; label?: string; components?: Record<string, unknown> };
+        if ((c?.type === 'column' || c?.type === 'dropdown') && c.components) {
+          if (c.label && !(c.label in map)) map[c.label] = section.label;
+          walk(c.components);
+        }
+      }
+    };
+    walk(section.components.normal as Record<string, unknown>);
+    walk(section.components.abnormal as Record<string, unknown>);
+    walk(section.components.comment as Record<string, unknown>);
+  }
+  return map;
+})();
+
 // Flat index of every CHECKBOX leaf in the exam template, keyed by the field code so the
 // refine-bar "add exam finding" handler can fuzzy-match the provider's phrasing against
 // labels and present the closest candidates.

@@ -39,7 +39,7 @@ import {
   TemplateMatch,
   UpdateProcedureIntent,
 } from './chart-types';
-import { ExamLeaf, FIELD_TO_SECTION_LABEL, RosLeaf } from './exam-ros-catalog';
+import { ExamLeaf, FIELD_TO_SECTION_LABEL, RosLeaf, SECTION_LABEL_TO_CARD } from './exam-ros-catalog';
 
 export async function fetchEasyChartData(
   apiClient: NonNullable<ReturnType<typeof useOystehrAPIClient>>,
@@ -586,6 +586,98 @@ export function inferExamSectionLabel(text: string): string | undefined {
     }
   }
   return undefined;
+}
+
+// Anatomy → exam-card vocabulary for the wrong-section guard: tokens that UNAMBIGUOUSLY name
+// the anatomy of exactly one exam card. High precision over coverage — an ambiguous term
+// ("vestibule" is nasal or vaginal, "discharge" is any orifice) maps to nothing. Values must be
+// card labels from examConfig (locked by a test against SECTION_TO_COMMENT_FIELD).
+export const EXAM_ANATOMY_SECTION_OF: Record<string, string> = {
+  vaginal: 'GU (Female)',
+  vagina: 'GU (Female)',
+  vulvar: 'GU (Female)',
+  vulva: 'GU (Female)',
+  labial: 'GU (Female)',
+  labia: 'GU (Female)',
+  introitus: 'GU (Female)',
+  adnexal: 'GU (Female)',
+  penile: 'GU (Male)',
+  penis: 'GU (Male)',
+  scrotal: 'GU (Male)',
+  scrotum: 'GU (Male)',
+  testicular: 'GU (Male)',
+  testicle: 'GU (Male)',
+  testicles: 'GU (Male)',
+  testis: 'GU (Male)',
+  testes: 'GU (Male)',
+  foreskin: 'GU (Male)',
+  cremasteric: 'GU (Male)',
+  rectal: 'Rectal',
+  rectum: 'Rectal',
+  anal: 'Rectal',
+  anus: 'Rectal',
+  perianal: 'Rectal',
+  perirectal: 'Rectal',
+  hemorrhoid: 'Rectal',
+  hemorrhoids: 'Rectal',
+  tympanic: 'Ears',
+  otoscopy: 'Ears',
+  otoscopic: 'Ears',
+  conjunctiva: 'Eyes',
+  conjunctival: 'Eyes',
+  sclera: 'Eyes',
+  scleral: 'Eyes',
+  pupil: 'Eyes',
+  pupils: 'Eyes',
+  cornea: 'Eyes',
+  corneal: 'Eyes',
+  pharynx: 'Oral Cavity',
+  pharyngeal: 'Oral Cavity',
+  oropharynx: 'Oral Cavity',
+  tonsil: 'Oral Cavity',
+  tonsils: 'Oral Cavity',
+  tonsillar: 'Oral Cavity',
+  uvula: 'Oral Cavity',
+  turbinate: 'Nose',
+  turbinates: 'Nose',
+  nares: 'Nose',
+  nostril: 'Nose',
+  nostrils: 'Nose',
+};
+
+// The exam card the finding text's anatomy belongs to, when that is unambiguous. Tokens outside
+// EXAM_ANATOMY_SECTION_OF never vote; hits across MORE than one card → no verdict (conservative).
+export function unambiguousAnatomySection(text: string): string | undefined {
+  const sections = new Set<string>();
+  for (const t of tokenize(text)) {
+    const section = EXAM_ANATOMY_SECTION_OF[t];
+    if (section) sections.add(section);
+  }
+  return sections.size === 1 ? sections.values().next().value : undefined;
+}
+
+// Wrong-section guard for add-exam-finding: when the finding TEXT names anatomy that belongs
+// unambiguously to one exam card ("vaginal" → GU (Female)), candidates from OTHER cards are
+// discarded — that's how "erythematous vaginal vestibule, white discharge present" once landed
+// under the wrong card on shared descriptor words. No vocabulary hit, multi-card hits, or an
+// all-in-card match list leave the ranking untouched. `redirectedFrom` carries the dropped top
+// candidate's card ONLY when the guard changed (or emptied) the top pick, so the dispatcher can
+// surface the correction.
+export function guardExamSectionMatches(
+  intent: AddExamFindingIntent,
+  scored: { leaf: ExamLeaf; score: number }[]
+): { scored: { leaf: ExamLeaf; score: number }[]; anatomySection?: string; redirectedFrom?: string } {
+  const anatomySection = unambiguousAnatomySection(intent.display);
+  if (!anatomySection) return { scored };
+  const cardOf = (leaf: ExamLeaf): string => SECTION_LABEL_TO_CARD[leaf.section] ?? leaf.section;
+  const kept = scored.filter((s) => cardOf(s.leaf) === anatomySection);
+  if (kept.length === scored.length) return { scored, anatomySection };
+  const topChanged = scored.length > 0 && kept[0]?.leaf !== scored[0].leaf;
+  return {
+    scored: kept,
+    anatomySection,
+    ...(topChanged ? { redirectedFrom: cardOf(scored[0].leaf) } : {}),
+  };
 }
 
 // The two extremity classes hold anatomically DISJOINT sub-parts (hip ≠ shin ≠ ankle), unlike

@@ -90,6 +90,7 @@ import {
   findRosLeafMatchesScored,
   findRosRemoveMatchesScored,
   findTemplateMatches,
+  guardExamSectionMatches,
   inferExamSectionLabel,
   isRemoveIntent,
   KIND_TO_FIELD,
@@ -1200,7 +1201,12 @@ export function useChartAssistant({
         return;
       }
       if (intent.kind === 'add-exam-finding') {
-        const scoredMatches = findExamLeafMatchesScored(intent, EXAM_LEAVES);
+        // Wrong-section guard: anatomy in the finding text that unambiguously names one exam card
+        // ("vaginal" → GU (Female)) drops candidates from every OTHER card, so a GU finding can't
+        // silently land under Rectal/Eyes on shared descriptor words. Conservative: no vocabulary
+        // hit or multi-card hits leave the ranking untouched (see guardExamSectionMatches).
+        const sectionGuard = guardExamSectionMatches(intent, findExamLeafMatchesScored(intent, EXAM_LEAVES));
+        const scoredMatches = sectionGuard.scored;
         // Clinical-safety guard: exam findings are POSITIVE/abnormal checkboxes (or explicit "Normal X"
         // leaves). A negated dictation finding ("no tragus tenderness") has no normal leaf to land on,
         // so charting it would CHECK the abnormal "Tragus tender" box and assert the OPPOSITE of what was
@@ -1217,7 +1223,8 @@ export function useChartAssistant({
           // section's free-text area (charting "no purulent drainage" as prose is right; checking
           // the abnormal box would assert the opposite).
           await writeExamComment(
-            inferExamSectionLabel(`${intent.display} ${(intent.searchTerms ?? []).join(' ')}`) ??
+            sectionGuard.anatomySection ??
+              inferExamSectionLabel(`${intent.display} ${(intent.searchTerms ?? []).join(' ')}`) ??
               scoredMatches[0].leaf.section,
             intent.display,
             message
@@ -1245,7 +1252,9 @@ export function useChartAssistant({
           // No checkbox leaf exists for this finding ("Positive Homan's sign") — write it into
           // the inferred section's free-text area instead of refusing.
           const section =
-            inferExamSectionLabel(`${intent.display} ${(intent.searchTerms ?? []).join(' ')}`) ?? 'General Appearance';
+            sectionGuard.anatomySection ??
+            inferExamSectionLabel(`${intent.display} ${(intent.searchTerms ?? []).join(' ')}`) ??
+            'General Appearance';
           await writeExamComment(section, intent.display, message);
         } else if (remaining.length === 0) {
           // Every match is already on the chart — most commonly because a template added it.
@@ -1266,6 +1275,15 @@ export function useChartAssistant({
           if (top.leaf.normalAbnormal === 'normal' && abnormalAlt) {
             const ids = await handleExamPick(abnormalAlt.leaf, message);
             flagAiObsIds(ids, 'examObservations', abnormalAlt.leaf.label);
+            if (sectionGuard.redirectedFrom && ids.length > 0) {
+              // Surface the section correction in the step's done line (the finding itself stays
+              // review-flagged like every AI-charted item).
+              setConv({
+                kind: 'done',
+                user: message,
+                chosenName: `${abnormalAlt.leaf.label} — filed under ${sectionGuard.anatomySection}, not ${sectionGuard.redirectedFrom}`,
+              });
+            }
           } else {
             setConv({
               kind: 'skipped',
@@ -1289,7 +1307,8 @@ export function useChartAssistant({
             // exam tab is checkboxes plus a comment field per section), flagged for review like
             // any other AI-charted item. Falls back to a plain skip when no section is known.
             await writeExamComment(
-              inferExamSectionLabel(`${intent.display} ${(intent.searchTerms ?? []).join(' ')}`) ??
+              sectionGuard.anatomySection ??
+                inferExamSectionLabel(`${intent.display} ${(intent.searchTerms ?? []).join(' ')}`) ??
                 remainingScored[0].leaf.section,
               intent.display,
               message
@@ -1304,6 +1323,15 @@ export function useChartAssistant({
             });
             const ids = await handleExamPick(pick, message);
             flagAiObsIds(ids, 'examObservations', pick.label);
+            if (sectionGuard.redirectedFrom && ids.length > 0) {
+              // Surface the section correction in the step's done line (the finding itself stays
+              // review-flagged like every AI-charted item).
+              setConv({
+                kind: 'done',
+                user: message,
+                chosenName: `${pick.label} — filed under ${sectionGuard.anatomySection}, not ${sectionGuard.redirectedFrom}`,
+              });
+            }
           }
         }
         return;
