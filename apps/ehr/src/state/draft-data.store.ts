@@ -10,7 +10,15 @@ import {
   LateralityValue,
   MedicationData,
   ProcedurePageState,
-  VitalsObservationDTO,
+  VitalsBloodPressureObservationDTO,
+  VitalsHeartbeatObservationDTO,
+  VitalsHeightObservationDTO,
+  VitalsLastMenstrualPeriodObservationDTO,
+  VitalsOxygenSatObservationDTO,
+  VitalsRespirationRateObservationDTO,
+  VitalsTemperatureObservationDTO,
+  VitalsVisionObservationDTO,
+  VitalsWeightObservationDTO,
 } from 'utils';
 import { create, Mutate, StoreApi, UseBoundStore } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -63,7 +71,19 @@ type CreateProcedureDraft = Partial<ProcedurePageState & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
 type CreateImmunizationOrderDraft = Partial<InputImmunizationOrderDetails & GenericStateDraft>;
 type CreateInHouseMedicationOrderDraft = Partial<MedicationData & GenericStateDraft>;
-type VitalsDraft = Partial<VitalsObservationDTO & GenericStateDraft>;
+type VitalsDraft = Partial<
+  {
+    temperature: VitalsTemperatureObservationDTO;
+    heartbeat: VitalsHeartbeatObservationDTO;
+    respirationRate: VitalsRespirationRateObservationDTO;
+    bloodPressure: VitalsBloodPressureObservationDTO;
+    oxygenSat: VitalsOxygenSatObservationDTO;
+    weight: VitalsWeightObservationDTO;
+    height: VitalsHeightObservationDTO;
+    vision: VitalsVisionObservationDTO;
+    lmp: VitalsLastMenstrualPeriodObservationDTO;
+  } & GenericStateDraft
+>;
 
 interface DraftState<TDraft extends object> {
   draftsByEncounterId: Record<string, TDraft>;
