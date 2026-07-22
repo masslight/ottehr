@@ -60,11 +60,13 @@ export enum APIErrorCode {
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
   LABEL_PRINTING_GENERAL = 4405,
   RADIOLOGY_GENERAL = 4406,
-  INSURANCE_CARD_IMAGE_GENERAL = 4407,
+  MANAGED_QUESTIONNAIRE_GENERAL = 4407,
+  INSURANCE_CARD_IMAGE_GENERAL = 4408,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
   STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
+  ERA_IMPORT_FAILED = 4502,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -355,6 +357,14 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
     message,
   };
 };
+
+export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): APIError => {
+  return {
+    code: APIErrorCode.ERA_IMPORT_FAILED,
+    message,
+    statusCode,
+  };
+};
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
@@ -507,6 +517,13 @@ export const PRECONDITION_FAILED = (message?: string): APIError => ({
 export const RADIOLOGY_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.RADIOLOGY_GENERAL,
+    message,
+  };
+};
+
+export const MANAGED_QUESTIONNAIRE_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MANAGED_QUESTIONNAIRE_GENERAL,
     message,
   };
 };

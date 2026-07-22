@@ -97,9 +97,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    // Fetch the card image via presigned Z3 URL. An unreadable / undownloadable image must not
-    // crash the subscription: report it and no-op (no marker is written, so a re-fire or
-    // re-upload can still succeed later).
+    // Fetch the card image via presigned Z3 URL. A download failure is often transient (network
+    // blip, presigned url race); returning 200 here would tell the subscription "handled" and
+    // leave the card permanently unprocessed, so re-throw and let the subscription's retry
+    // semantics (same pattern as the parseModelResponse failure below) get another attempt.
     const startedAt = Date.now();
     let bytes: Buffer;
     let mimeType: string;
@@ -112,20 +113,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         );
       }
       bytes = Buffer.from(await imageResponse.arrayBuffer());
-      mimeType = (
-        imageResponse.headers.get('Content-Type') ??
-        current.content?.[0]?.attachment?.contentType ??
-        'image/jpeg'
-      )
-        .split(';')[0]
-        .trim();
+      // Z3 returns the generic application/octet-stream when the object's content type wasn't
+      // recorded at upload time; that tells us nothing about the actual image, so fall back to
+      // the attachment's own contentType instead of treating a real card image as unsupported.
+      const fetchedContentType = imageResponse.headers.get('Content-Type')?.split(';')[0].trim();
+      mimeType =
+        fetchedContentType && fetchedContentType !== 'application/octet-stream'
+          ? fetchedContentType
+          : current.content?.[0]?.attachment?.contentType?.split(';')[0].trim() ?? 'image/jpeg';
     } catch (error) {
       console.error(`[${ZAMBDA_NAME}] failed to fetch card image for DocumentReference/${docRefId}:`, error);
       captureException(error);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ documentReferenceId: docRefId, skipped: true, extracted: false }),
-      };
+      throw error;
     }
 
     let imageHash = sha256Hex(bytes);

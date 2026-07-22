@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BMI_DISPLAY_PRECISION, calculateBMI, formatBMI } from './vitals-bmi.helper';
+import { areVitalsSameDay, BMI_DISPLAY_PRECISION, calculateBMI, formatBMI } from './vitals-bmi.helper';
 
 describe('vitals-bmi.helper', () => {
   describe('BMI_DISPLAY_PRECISION', () => {
@@ -98,6 +98,32 @@ describe('vitals-bmi.helper', () => {
     it('formats calculateBMI result for an underweight case', () => {
       // 50 kg, 170 cm → 17.3 → "17.3"
       expect(formatBMI(calculateBMI(50, 170))).toBe('17.3');
+    });
+  });
+
+  describe('areVitalsSameDay', () => {
+    it('returns true for two timestamps on the same UTC day', () => {
+      expect(areVitalsSameDay('2026-07-10T08:00:00Z', '2026-07-10T22:30:00Z')).toBe(true);
+    });
+
+    it('returns false when the readings are on different days (e.g. weight today, height months ago)', () => {
+      // The reported bug: weight from 7/10, height from 2/24 must not produce a BMI.
+      expect(areVitalsSameDay('2026-07-10T08:00:00Z', '2024-02-24T09:00:00Z')).toBe(false);
+    });
+
+    it('returns false for consecutive days (yesterday vs today)', () => {
+      expect(areVitalsSameDay('2026-07-10T23:59:00Z', '2026-07-09T23:59:00Z')).toBe(false);
+    });
+
+    it('compares in UTC', () => {
+      // Same instant expressed with an offset resolves to the same UTC day.
+      expect(areVitalsSameDay('2026-07-10T02:00:00+03:00', '2026-07-09T23:30:00Z')).toBe(true);
+    });
+
+    it('returns false when either timestamp is missing', () => {
+      expect(areVitalsSameDay(undefined, '2026-07-10T08:00:00Z')).toBe(false);
+      expect(areVitalsSameDay('2026-07-10T08:00:00Z', undefined)).toBe(false);
+      expect(areVitalsSameDay(undefined, undefined)).toBe(false);
     });
   });
 

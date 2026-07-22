@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitForElementToBeRemoved, within } from '@testing-library/react';
+import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VisitType } from 'config-types';
 import { ReactNode } from 'react';
@@ -536,27 +536,21 @@ describe('AddVisit', () => {
     });
   });
 
-  // OTR-2721: When staff pick a service that doesn't offer walk-in and then
-  // try to pick a walk-in visit type, the old form silently substituted the
-  // service to the first walk-in-compatible one (Acne Facial in the reporter's
-  // repro). The fix filters the Visit Type dropdown by the picked service so
-  // unsupported modalities aren't offered in the first place.
-  describe('Service Category ↔ Visit Type coupling (OTR-2721)', () => {
-    const walkInInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonWalkIn)?.label;
-    const prebookInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonPreBook)
-      ?.label;
-    const virtualScheduledLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualScheduled)
-      ?.label;
-    const virtualOnDemandLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualOnDemand)
-      ?.label;
-
-    // FHIR-sourced categories go through the strict path in
-    // serviceCategorySupportsContext: empty arrays = "supports nothing". So
-    // tagging visitTypes:['prebook'] here excludes walk-in and lets us test
-    // the filter behavior without adding new BOOKING_CONFIG entries. Kept
-    // in-person-only so the virtual visit types drop out on the mode axis
-    // (rather than accidentally passing the empty-arrays-supports-all
-    // BOOKING_CONFIG rule).
+  // The Visit Type dropdown is authoritative from BOOKING_CONFIG.ehrBookingOptions and
+  // must show the full staff-facing catalog regardless of which service category is picked.
+  // An earlier iteration (OTR-2721) filtered visit types through the patient-side capability
+  // helper (serviceModes/visitTypes), which collapsed the EHR options to the patient-bookable
+  // subset — a category not tagged for walk-in / on-demand / post-telemed silently hid those
+  // configured EHR options. Compatibility is instead enforced on the service-category side and
+  // at submit, so these tests assert the visit-type list is never trimmed by the picked category.
+  describe('Visit Type dropdown is not filtered by Service Category', () => {
+    // A deliberately restrictive FHIR category: in-person + prebook only. FHIR
+    // categories take the strict path in serviceCategorySupportsContext (empty
+    // arrays = "supports nothing"), so this is the tightest category a project
+    // can produce — the exact shape that previously trimmed the visit-type list.
+    // We use it to prove the opposite now holds: the Visit Type dropdown still
+    // offers every configured ehrBookingOptions entry (walk-in, post-telemed, and
+    // both virtual modes) despite the category supporting none of them.
     const prebookOnlyFhirCategory = {
       id: 'fhir-svc-prebook-only',
       name: 'Crystal Therapy (Test)',
@@ -597,23 +591,48 @@ describe('AddVisit', () => {
       await user.click(visitTypeButton!);
     };
 
+    const getServiceCategoryButton = (): Element | null => {
+      const dropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
+      return dropdown.querySelector('[role="combobox"]');
+    };
+
     const pickPrebookOnlyServiceCategory = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-      const serviceCategoryDropdown = screen.getByTestId(dataTestIds.addPatientPage.serviceCategoryDropdown);
-      const serviceCategoryButton = serviceCategoryDropdown.querySelector('[role="combobox"]');
-      await user.click(serviceCategoryButton!);
-      // findByText polls until the option renders, which covers both "menu is
-      // open" and "React Query has resolved and the FHIR-sourced entry is in
-      // the merged catalog."
+      // Wait until the merged catalog has settled: either the picker becomes
+      // enabled (≥2 entries — merged BOOKING_CONFIG + our FHIR mock), or it
+      // stays disabled AND auto-selects Crystal Therapy (the case where
+      // BOOKING_CONFIG contributes zero entries for this project). Guarding
+      // for both shapes keeps the test insensitive to BOOKING_CONFIG count.
+      //
+      // The combobox node is re-queried inside waitFor and again after —
+      // if MUI's Select re-renders (react-query resolution swaps its option
+      // set), the earlier DOM reference could be a detached node that never
+      // reflects the settled state.
+      await waitFor(() => {
+        const btn = getServiceCategoryButton();
+        // Assert presence first — without it a missing combobox would leave
+        // `disabled=false` and `displayed=''`, which trivially satisfies the
+        // OR below and lets waitFor pass on an empty DOM.
+        expect(btn).not.toBeNull();
+        const disabled = btn!.getAttribute('aria-disabled') === 'true';
+        const displayed = btn!.textContent ?? '';
+        expect(!disabled || displayed.includes(prebookOnlyFhirCategory.name)).toBe(true);
+      });
+      const settledButton = getServiceCategoryButton();
+      if (settledButton?.getAttribute('aria-disabled') === 'true') {
+        // Locked picker → the wait verified Crystal Therapy is the pick.
+        // No dropdown to open.
+        return;
+      }
+      await user.click(settledButton!);
       const option = await screen.findByText(prebookOnlyFhirCategory.name);
       await user.click(option);
     };
 
-    it('filters the Visit Type dropdown to only modalities the picked Service Category supports', async () => {
-      // With a prebook-only in-person FHIR service picked, walk-in and both
-      // virtual options must drop out of the Visit Type dropdown. This is the
-      // "option (b)" fix from OTR-2721: hide the incompatible modalities up
-      // front so staff never reach the state where the old code silently
-      // swapped the service.
+    it('shows the full ehrBookingOptions list even when the picked Service Category is restrictive', async () => {
+      // With a prebook-only, in-person-only FHIR service picked, the Visit Type
+      // dropdown must still offer every configured EHR booking option — walk-in,
+      // post-telemed, and both virtual modes included. ehrBookingOptions is the
+      // staff catalog and is not narrowed to what the category exposes to patients.
       const user = userEvent.setup();
       render(
         <TestProviders>
@@ -627,13 +646,13 @@ describe('AddVisit', () => {
       await openVisitTypeDropdown(user);
 
       const listbox = await screen.findByRole('listbox');
-      // Prebook + PostTelemed (in-person, visitCtx undefined → passes the
-      // visit-type dimension with any non-empty tag list) survive the filter.
-      expect(within(listbox).getByText(prebookInPersonLabel!)).toBeInTheDocument();
-      // Walk-in (in-person + walk-in) and the two virtual modes are excluded.
-      expect(within(listbox).queryByText(walkInInPersonLabel!)).not.toBeInTheDocument();
-      expect(within(listbox).queryByText(virtualScheduledLabel!)).not.toBeInTheDocument();
-      expect(within(listbox).queryByText(virtualOnDemandLabel!)).not.toBeInTheDocument();
+      // Assert against the profile's actual ehrBookingOptions so this stays
+      // correct across profiles that omit virtual entirely (anycare, umc) or
+      // offer only walk-in (pedi-q): every option the profile configures must
+      // be present regardless of the restrictive category pick.
+      for (const option of BOOKING_CONFIG.ehrBookingOptions) {
+        expect(within(listbox).getByText(option.label)).toBeInTheDocument();
+      }
     });
 
     it('shows all Visit Type options when the picked Service Category supports every modality', async () => {

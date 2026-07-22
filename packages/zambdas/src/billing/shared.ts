@@ -9,20 +9,28 @@ import {
   Coverage,
   FhirResource,
   Identifier,
+  List,
   Location,
   Organization,
   Patient,
+  PaymentNotice,
+  PaymentReconciliation,
   Person,
   Practitioner,
+  Provenance,
   RelatedPerson,
   Resource,
+  Task,
 } from 'fhir/r4b';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
+  AR_STAGE,
   BILLING_INSURANCE_TYPE_LABELS,
   BILLING_RESOURCE_TAG,
   BillingInsuranceType,
   BillingPolicyHolderInput,
+  BillingProviderOption,
+  BillingRule,
   BillingSubscriberRelationship,
   buildCoverageSubscriberRelatedPerson,
   ChargeItemDefinitionDefault,
@@ -40,29 +48,38 @@ import {
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
   FHIR_IDENTIFIER_CLIA,
-  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
-  FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
+  getClaimStatusFieldValue,
   getClaimStatusValues,
+  getNPI,
+  getPatchBinary,
+  getPatchOperationForNewMetaTag,
   getPayerId,
   getPayerUrl,
+  getResourcesFromBatchInlineRequests,
   getSecret,
   getSubscriberRelationshipCodeableConcept,
+  getTaxID,
   INVALID_INPUT_ERROR,
   isPayerUrl,
   isValidClaimStatusValue,
   isValidUUID,
   PATIENT_BILLING_ACCOUNT_TYPE,
+  RulesEngineType,
   Secrets,
   SecretsKeys,
   setCoveragePlanType,
   withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { sendErrors } from '../shared';
+import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
+import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
 // Type alias for resources relevant to billing
 export type BillingFhirResource =
@@ -191,16 +208,35 @@ export const PROVIDER_ROLE_TAG = 'https://fhir.ottehr.com/billing/provider-role'
 export const PROVIDER_ROLE_BILLING = 'billing';
 export const PROVIDER_ROLE_RENDERING = 'rendering';
 export const LICENSE_TAG = 'https://fhir.ottehr.com/billing/license-type';
+// Stripe connected account whose payments belong to this billing provider, one account per TIN
+export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/stripe-account-id';
 
 export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
-export const ERA_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
+// CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
+export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
+// Oystehr emits one Provenance per ERA (activity era-processing) whose targets are all resources
+// created from that ERA — the PaymentReconciliation and its ClaimResponses. This is how a single
+// ERA's resources are linked to each other.
+export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'http://hl7.org/fhir/ValueSet/provenance-activity-type';
+export const ERA_PROCESSING_ACTIVITY_CODE = 'era-processing';
+
+export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity'>): boolean {
+  return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
+}
+
+// Claim.MD stamps the check number as a searchable identifier; process-era only sets
+// paymentIdentifier.
+export function getEraCheckNumber(
+  pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>
+): string | undefined {
+  return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
+}
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
-export const CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/claim-tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
@@ -246,6 +282,17 @@ export function createBillingClient(
   });
 }
 
+// ERA resources are untagged by Oystehr
+export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+  return new Oystehr({
+    accessToken: token,
+    services: {
+      fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
+      projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+    },
+  });
+}
+
 export async function fetchById<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
@@ -255,6 +302,128 @@ export async function fetchById<T extends FhirResource>(
   const resource = result.unbundle()[0];
   if (!resource) throw FHIR_RESOURCE_NOT_FOUND(resourceType);
   return resource;
+}
+
+// An engine's singleton rules List (undefined when no rules have been configured for it yet).
+export async function findRulesEngineList(oystehr: Oystehr, engine: RulesEngineType): Promise<List | undefined> {
+  const result = await oystehr.fhir.search<List>({
+    resourceType: 'List',
+    params: [{ name: '_tag', value: `${RULES_ENGINE_TAG_SYSTEM}|${RULES_ENGINE_FHIR[engine].listCode}` }],
+  });
+  return result.unbundle()[0];
+}
+
+// listToRules with malformed-rule observability: each unparseable rule (returned as a disabled
+// placeholder) is also reported to Sentry, with the rule's identity as event tags.
+export async function listToRulesReportingMalformed(list: List, env: string): Promise<BillingRule[]> {
+  const failures: { error: unknown; tags: Record<string, string> }[] = [];
+  const rules = listToRules(list, (error, { ruleId, ruleName }) =>
+    failures.push({ error, tags: { ruleId, ruleName } })
+  );
+  await Promise.all(failures.map(({ error, tags }) => sendErrors(error, env, tags)));
+  return rules;
+}
+
+/**
+ * The rules engine responsible for a claim, decided by its AR Stage:
+ * - Insurance Payer AR -> Claim Submission Rules
+ * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
+ * - Patient AR, self-pay only (no real coverage on the claim) -> Patient AR Pre-Invoice Rules
+ * Undefined when no engine applies (no AR Stage, or Patient AR with insurance coverage).
+ *
+ * An engine runs automatically only when a claim is created in its stage. Changing an existing
+ * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
+ * biller runs the rules explicitly (Submit claim / Prepare for invoice).
+ */
+export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | undefined {
+  const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
+  if (arStage === AR_STAGE.insurancePayer) return 'claim-submission';
+  if (arStage === AR_STAGE.nonInsurancePayer) return 'non-insurance-payer-pre-invoice';
+  if (arStage === AR_STAGE.patient && !claimHasRealCoverage(claim.insurance)) return 'patient-ar-pre-invoice';
+  return undefined;
+}
+
+// Enqueue a rules engine for a claim; a Subscription runs it asynchronously. The claim is already
+// committed when this runs, so a kickoff failure must not fail the request (a retry would create a
+// duplicate claim) — that is why the catch lives here rather than in the callers: the failure is
+// logged and reported to Sentry, and the engine can be run on demand via run-billing-rules-engine.
+export async function kickOffRulesEngine(
+  oystehr: Oystehr,
+  engine: RulesEngineType,
+  claimId: string,
+  secrets: Secrets | null
+): Promise<void> {
+  // Resolved before the try so the best-effort catch cannot itself throw on a missing secret.
+  const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  try {
+    await oystehr.fhir.create<Task>(buildRulesEngineKickoffTask(engine, claimId));
+  } catch (error) {
+    console.error(`Failed to enqueue ${engine} rules-engine Task for Claim/${claimId}:`, error);
+    await sendErrors(error, env, { claimId, engine });
+  }
+}
+
+// The claim plus the working-copy resources it references, resolved from the claim's own references.
+// Shared by the claim detail endpoint and the rules engine so "what makes up a claim" is fetched one
+// way. Coverages are ordered focal-first (the focal entry is the authoritative primary).
+export interface ClaimGraph {
+  claim: Claim;
+  patient?: Patient;
+  billingProvider?: Practitioner | Organization;
+  serviceFacility?: Location;
+  coverages: Coverage[];
+  renderingProvider?: Practitioner | Organization;
+  // Working-copy subscriber RelatedPersons of the fetched coverages.
+  subscribers: RelatedPerson[];
+}
+
+export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promise<ClaimGraph> {
+  const bundle = await oystehr.fhir.search<Claim>({
+    resourceType: 'Claim',
+    params: [
+      { name: '_id', value: claimId },
+      { name: '_include', value: 'Claim:patient' },
+      { name: '_include', value: 'Claim:provider' },
+      { name: '_include', value: 'Claim:facility' },
+    ],
+  });
+  const resources = bundle.unbundle() as Resource[];
+  const claim = resources.find((r) => r.resourceType === 'Claim' && r.id === claimId) as Claim | undefined;
+  if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
+
+  const patient = findRef<Patient>(resources, claim.patient?.reference);
+  const billingProvider = findRef<Practitioner | Organization>(resources, claim.provider?.reference);
+  const serviceFacility = findRef<Location>(resources, claim.facility?.reference);
+
+  // Coverages (with their subscribers) and the rendering provider live behind references the
+  // initial _include can't follow, so they are fetched in one follow-up batch.
+  const coverageRefs = [...sortClaimInsurance(claim)]
+    .sort((a, b) => (b.focal ? 1 : 0) - (a.focal ? 1 : 0))
+    .map((entry) => entry.coverage?.reference)
+    .filter((ref): ref is string => !!ref && ref.startsWith('Coverage/'));
+  const renderingRef = claim.careTeam?.[0]?.provider?.reference;
+
+  const queries = coverageRefs.map(
+    (ref) => `/Coverage?_id=${ref.replace('Coverage/', '')}&_include=Coverage:subscriber`
+  );
+  if (renderingRef && (renderingRef.startsWith('Practitioner/') || renderingRef.startsWith('Organization/'))) {
+    const [type, id] = renderingRef.split('/');
+    queries.push(`/${type}?_id=${id}`);
+  }
+  const followUp = queries.length ? await getResourcesFromBatchInlineRequests(oystehr, queries) : [];
+
+  const coverages = coverageRefs
+    .map((ref) => followUp.find((r) => r.resourceType === 'Coverage' && r.id === ref.replace('Coverage/', '')))
+    .filter((c): c is Coverage => !!c);
+  const renderingId = renderingRef?.split('/')[1];
+  const renderingProvider = renderingId
+    ? (followUp.find(
+        (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
+      ) as Practitioner | Organization | undefined)
+    : undefined;
+  const subscribers = followUp.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson');
+
+  return { claim, patient, billingProvider, serviceFacility, coverages, renderingProvider, subscribers };
 }
 
 export function getTag(resource: Resource, system: string): string | undefined {
@@ -322,44 +491,6 @@ export function buildAddress(parts: {
   };
 }
 
-export function setNpi(resource: Practitioner | Organization | Location, npi: string | null): void {
-  const identifier = resource.identifier ?? [];
-
-  // The `system|value` identifier is used for search
-  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
-  if (npi) {
-    if (existing) existing.value = npi;
-    else identifier.push({ system: FHIR_IDENTIFIER_NPI, value: npi });
-    resource.identifier = identifier;
-  } else if (existing) {
-    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
-  }
-
-  // The `system|code|value` identifier is used by Oystehr RCM and not supported for search by Oystehr FHIR
-  const existingCoded = identifier.find(
-    (id) =>
-      id.type?.coding?.[0].system === FHIR_IDENTIFIER_SYSTEM && id.type?.coding?.[0].code === FHIR_IDENTIFIER_CODE_NPI
-  );
-  if (npi) {
-    if (existingCoded) existingCoded.value = npi;
-    else
-      identifier.push({
-        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI }] },
-        value: npi,
-      });
-    resource.identifier = identifier;
-  } else if (existingCoded) {
-    resource.identifier = identifier.filter(
-      (id) =>
-        !id.type ||
-        !id.type.coding ||
-        !id.type.coding.some(
-          (coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === FHIR_IDENTIFIER_CODE_NPI
-        )
-    );
-  }
-}
-
 export function setTaxId(resource: Practitioner | Organization, taxId: string): void {
   const isTax = (id: Identifier): boolean =>
     !!id.type?.coding?.some(
@@ -415,6 +546,18 @@ export function setClia(resource: Location, clia: string | null): void {
     resource.identifier = identifier;
   } else if (existing) {
     resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
+  }
+}
+
+export function setStripeAccountId(resource: Practitioner | Organization, stripeAccountId: string): void {
+  const identifier = resource.identifier ?? [];
+  const existing = identifier.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM);
+  if (stripeAccountId) {
+    if (existing) existing.value = stripeAccountId;
+    else identifier.push({ system: STRIPE_ACCOUNT_IDENTIFIER_SYSTEM, value: stripeAccountId });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== STRIPE_ACCOUNT_IDENTIFIER_SYSTEM);
   }
 }
 
@@ -478,6 +621,14 @@ export function prepareCopy<T extends CopyableBillingResource>(resource: CRT<T>,
   return copy;
 }
 
+export function isWorkingCopy<T extends CopyableBillingResource>(resource: CRT<T>): boolean {
+  return (
+    resource.meta?.tag?.some(
+      (tag) => tag.system === BILLING_WORKING_COPY_TAG.system && tag.code === BILLING_WORKING_COPY_TAG.code
+    ) ?? false
+  );
+}
+
 /**
  * Map of resource types and their valid properties
  */
@@ -506,7 +657,8 @@ const CopyableProperties: ResourceProperties<CopyableBillingResource> = {
     'class',
     'type',
   ],
-  Location: ['resourceType', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
+  // extension carries the CMS place-of-service and timezone, which claim building derives from.
+  Location: ['resourceType', 'extension', 'identifier', 'address', 'description', 'name', 'telecom', 'type'],
   Organization: ['resourceType', 'identifier', 'active', 'address', 'contact', 'name', 'telecom', 'type'],
   Patient: ['resourceType', 'name', 'active', 'gender', 'address', 'telecom', 'birthDate'],
   Practitioner: [
@@ -809,4 +961,97 @@ export function getDefaultSettingForChargeItemDefinition(
       ? (defaultCode as 'insurance' | 'self-pay')
       : undefined;
   return defaultValue;
+}
+
+export async function tagEraResources({
+  oystehr,
+  resources,
+}: {
+  oystehr: Oystehr;
+  resources: FhirResource[];
+}): Promise<number> {
+  const untagged = new Map<string, FhirResource>();
+  for (const resource of resources) {
+    if (!resource.id || hasTag(resource, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) continue;
+    untagged.set(`${resource.resourceType}/${resource.id}`, resource);
+  }
+  if (untagged.size === 0) return 0;
+  const requests = [...untagged.values()].map((resource) =>
+    getPatchBinary({
+      resourceType: resource.resourceType,
+      resourceId: resource.id!,
+      patchOperations: [getPatchOperationForNewMetaTag(resource, BILLING_RESOURCE_TAG)],
+    })
+  );
+  await oystehr.fhir.transaction({ requests });
+  return untagged.size;
+}
+
+// Links notices the stripe webhook stored before the claim existed. Oystehr matches
+// request:identifier by value only, the system|value form returns nothing.
+export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
+  const encounterId = claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value;
+  if (!claim.id || !encounterId) return;
+
+  const notices = (
+    await oystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [{ name: 'request:identifier', value: encounterId }],
+    })
+  ).unbundle();
+
+  const unlinked = notices.filter((n) => n.id && !n.request?.reference);
+  if (unlinked.length === 0) return;
+
+  const result = await oystehr.fhir.batch({
+    requests: unlinked.map((n) =>
+      getPatchBinary({
+        resourceType: 'PaymentNotice',
+        resourceId: n.id!,
+        patchOperations: [{ op: 'add', path: '/request/reference', value: `Claim/${claim.id}` }],
+      })
+    ),
+  });
+  const failed = (result.entry ?? []).filter((e) => e.response?.outcome?.id !== 'ok');
+  if (failed.length > 0) {
+    console.warn(`reconcilePaymentNoticesForClaim: ${failed.length} of ${unlinked.length} patches failed`);
+  }
+  console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
+}
+
+export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
+  const addr = resource.address?.[0];
+  const common = {
+    id: resource.id ?? '',
+    npi: getNPI(resource) ?? '',
+    taxonomyCode:
+      resource.identifier?.find(
+        (id) =>
+          id.type?.coding?.some(
+            (c) => c.system === CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE && c.code === FHIR_IDENTIFIER_CODE_TAXONOMY
+          )
+      )?.value ?? '',
+    licenseType: getTag(resource, LICENSE_TAG),
+    taxId: getTaxID(resource) ?? '',
+    address: formatAddress(addr),
+    addressParts: toAddressParts(addr),
+    renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
+    bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
+    isWorkingCopy: hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code),
+  };
+  if (resource.resourceType === 'Practitioner') {
+    return {
+      ...common,
+      kind: 'individual',
+      name: fhirName(resource),
+      firstName: resource.name?.[0]?.given?.join(' ') ?? '',
+      lastName: resource.name?.[0]?.family ?? '',
+    };
+  }
+  return {
+    ...common,
+    kind: 'organization',
+    name: resource.name ?? '',
+    stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
+  };
 }

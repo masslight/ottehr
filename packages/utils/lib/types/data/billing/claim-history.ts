@@ -50,6 +50,14 @@ export const CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER = {
 };
 export const CLAIM_RULES_ENGINE_DEVICE_NAME = 'Ottehr Rules Engine';
 
+// Singleton Device representing general automated system activity that is not specifically
+// attributable to the rules engine.
+export const CLAIM_SYSTEM_DEVICE_IDENTIFIER = {
+  system: ottehrIdentifierSystem('billing-system'),
+  value: 'ottehr-system',
+};
+export const CLAIM_SYSTEM_DEVICE_NAME = 'Ottehr System';
+
 // A single changed field, with the value before and after the change. Values are display strings
 // captured at write time (null = absent, i.e. a set or a clear). For reference-typed fields
 // (providers, facility, payer) the raw FHIR reference is kept alongside in previousRef/newRef;

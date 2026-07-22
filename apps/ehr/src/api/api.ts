@@ -100,12 +100,16 @@ import {
   DeleteLabOrderZambdaOutput,
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
+  DeleteRadiologyResultZambdaInput,
+  DeleteRadiologyResultZambdaOutput,
   DeleteUserZambdaInput,
   DeleteUserZambdaOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
   EmCodeOutput,
+  GetActionLogsInput,
+  GetActionLogsOutput,
   GetAllergyQuickPicksResponse,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
@@ -138,6 +142,8 @@ import {
   GetQuickTextQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
+  GetRadiologyOrderPdfZambdaInput,
+  GetRadiologyOrderPdfZambdaOutput,
   GetRadiologyQuickPicksResponse,
   GetScheduleParams,
   GetScheduleRequestParams,
@@ -159,6 +165,8 @@ import {
   InsuranceQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
+  ListRadiologyResultsZambdaInput,
+  ListRadiologyResultsZambdaOutput,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
@@ -177,6 +185,13 @@ import {
   PendingSupervisorApprovalInput,
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
+  PracticeManagedQuestionnaireCreateInput,
+  PracticeManagedQuestionnaireCreateOutput,
+  PracticeManagedQuestionnaireGetInput,
+  PracticeManagedQuestionnaireGetOutput,
+  PracticeManagedQuestionnaireListOutput,
+  PracticeManagedQuestionnaireUpdateInput,
+  PracticeManagedQuestionnaireUpdateOutput,
   PresignUploadUrlResponse,
   ProcedureQuickPickData,
   QuickPickRemoveResponse,
@@ -188,6 +203,8 @@ import {
   RecentPatientsReportZambdaOutput,
   RenameCustomFolderInput,
   RenameCustomFolderOutput,
+  RetryActionLogInput,
+  RetryActionLogOutput,
   RotateInsuranceCardImageInput,
   RotateInsuranceCardImageResponse,
   SaveFollowupEncounterZambdaInput,
@@ -199,6 +216,10 @@ import {
   SearchLegacyRecordsOutput,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
+  SendPatientFormInput,
+  SendPatientFormOutput,
+  SendRadiologyOrderFaxZambdaInput,
+  SendRadiologyOrderFaxZambdaOutput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -235,6 +256,8 @@ import {
   UploadPatientConditionPhotoInput,
   UploadPatientConditionPhotoOutput,
   UploadPatientProfilePhotoInput,
+  UploadRadiologyResultZambdaInput,
+  UploadRadiologyResultZambdaOutput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
   VisitDocuments,
@@ -347,6 +370,11 @@ const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
 const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
 const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
+const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get';
+const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
+const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
+const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const SEND_PATIENT_FORM = 'send-patient-form';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = createClinicalOystehrClient(token);
@@ -1241,6 +1269,86 @@ export const updateRadiologyOrder = async (
   }
 };
 
+export const getRadiologyOrderPdf = async (
+  oystehr: Oystehr,
+  parameters: GetRadiologyOrderPdfZambdaInput
+): Promise<GetRadiologyOrderPdfZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-get-order-pdf',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const sendRadiologyOrderFax = async (
+  oystehr: Oystehr,
+  parameters: SendRadiologyOrderFaxZambdaInput
+): Promise<SendRadiologyOrderFaxZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-send-fax',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listRadiologyResults = async (
+  oystehr: Oystehr,
+  parameters: ListRadiologyResultsZambdaInput
+): Promise<ListRadiologyResultsZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-list-results',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteRadiologyResult = async (
+  oystehr: Oystehr,
+  parameters: DeleteRadiologyResultZambdaInput
+): Promise<DeleteRadiologyResultZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-delete-result',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const uploadRadiologyResult = async (
+  oystehr: Oystehr,
+  parameters: UploadRadiologyResultZambdaInput
+): Promise<UploadRadiologyResultZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-upload-result',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const getRadiologyOrders = async (
   oystehr: Oystehr,
   parameters: GetRadiologyOrderListZambdaInput
@@ -1763,6 +1871,30 @@ export const getVisitFaxHistory = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const getActionLogs = async (oystehr: Oystehr, parameters: GetActionLogsInput): Promise<GetActionLogsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-action-logs',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const retryActionLog = async (
+  oystehr: Oystehr,
+  parameters: RetryActionLogInput
+): Promise<RetryActionLogOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'retry-action-log', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -2898,6 +3030,80 @@ export const migrateExamData = async (
   try {
     const response = await oystehr.zambda.execute({
       id: MIGRATE_EXAM_DATA_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+// ── Practice Managed Questionnaires ──
+export async function practiceManagedQuestionnaireGet(
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireGetInput
+): Promise<PracticeManagedQuestionnaireGetOutput> {
+  try {
+    const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
+
+export async function practiceManagedQuestionnaireList(
+  oystehr: Oystehr
+): Promise<PracticeManagedQuestionnaireListOutput> {
+  try {
+    const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
+
+export const practiceManagedQuestionnaireUpdate = async (
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireUpdateInput
+): Promise<PracticeManagedQuestionnaireUpdateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const practiceManagedQuestionnaireCreate = async (
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireCreateInput
+): Promise<PracticeManagedQuestionnaireCreateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const sendPatientForm = async (
+  oystehr: Oystehr,
+  parameters: SendPatientFormInput
+): Promise<SendPatientFormOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: SEND_PATIENT_FORM,
       ...parameters,
     });
     return chooseJson(response);

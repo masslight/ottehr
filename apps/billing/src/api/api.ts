@@ -3,6 +3,8 @@ import {
   apiErrorToThrow,
   BillingChargeItemDefinition,
   BillingCodeOption,
+  BillingProviderOption,
+  BillingRulesResponse,
   chooseJson,
   ClaimDetailResponse,
   CreateBillingClaimInputSchema,
@@ -21,6 +23,8 @@ import {
   EraDetailResponse,
   ExportClaimX12InputSchema,
   ExportClaimX12Response,
+  GetBillingProviderInputSchema,
+  GetBillingRulesInputSchema,
   GetChargeItemDefinitionInputSchema,
   GetClaimDetailInputSchema,
   GetClaimHistoryInputSchema,
@@ -29,8 +33,13 @@ import {
   GetPatientCoveragesInputSchema,
   GetPatientCoveragesResponse,
   GetPatientDetailInputSchema,
+  GetServiceFacilityInputSchema,
   ImportEraInputSchema,
+  MatchClaimResponseToClaimInputSchema,
   PatientDetailResponse,
+  RunBillingRulesEngineInputSchema,
+  RunBillingRulesEngineResponse,
+  SaveBillingRulesInputSchema,
   SaveBillingTagInputSchema,
   SavedResourceResponse,
   SaveServiceFacilityInputSchema,
@@ -54,8 +63,7 @@ import {
   SearchErasInputSchema,
   SearchServiceFacilitiesInputSchema,
   SearchServiceFacilitiesResponse,
-  SubmitBillingClaimsInputSchema,
-  SubmitBillingClaimsResponse,
+  ServiceFacilityItem,
   TagBillingClaimInputSchema,
   TaggedClaimResponse,
   UpdateBillingCoverageInputSchema,
@@ -77,6 +85,23 @@ async function executeBillingZambda<T>(oystehr: Oystehr, id: string, parameters?
     throw apiErrorToThrow(error);
   }
 }
+
+// --- Rules engines ---
+
+export const getBillingRules = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingRulesInputSchema>
+): Promise<BillingRulesResponse> => executeBillingZambda(oystehr, 'get-billing-rules', parameters);
+
+export const saveBillingRules = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SaveBillingRulesInputSchema>
+): Promise<BillingRulesResponse> => executeBillingZambda(oystehr, 'save-billing-rules', parameters);
+
+export const runBillingRulesEngine = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RunBillingRulesEngineInputSchema>
+): Promise<RunBillingRulesEngineResponse> => executeBillingZambda(oystehr, 'run-billing-rules-engine', parameters);
 
 // --- Patients ---
 
@@ -137,11 +162,6 @@ export const tagBillingClaim = (
   parameters: z.input<typeof TagBillingClaimInputSchema>
 ): Promise<TaggedClaimResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
 
-export const submitBillingClaims = (
-  oystehr: Oystehr,
-  parameters: z.input<typeof SubmitBillingClaimsInputSchema>
-): Promise<SubmitBillingClaimsResponse> => executeBillingZambda(oystehr, 'submit-billing-claim', parameters);
-
 // --- Providers ---
 
 export const createBillingProvider = (
@@ -153,6 +173,11 @@ export const searchBillingProviders = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingProvidersInputSchema>
 ): Promise<SearchBillingProvidersResponse> => executeBillingZambda(oystehr, 'search-billing-providers', parameters);
+
+export const getBillingProvider = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingProviderInputSchema>
+): Promise<BillingProviderOption> => executeBillingZambda(oystehr, 'get-billing-provider', parameters);
 
 export const updateBillingProvider = (
   oystehr: Oystehr,
@@ -208,6 +233,11 @@ export const searchBillingServiceFacilities = (
   parameters: z.input<typeof SearchServiceFacilitiesInputSchema>
 ): Promise<SearchServiceFacilitiesResponse> =>
   executeBillingZambda(oystehr, 'search-billing-service-facilities', parameters);
+
+export const getBillingServiceFacility = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetServiceFacilityInputSchema>
+): Promise<ServiceFacilityItem> => executeBillingZambda(oystehr, 'get-billing-service-facility', parameters);
 
 export const saveBillingServiceFacility = (
   oystehr: Oystehr,
@@ -274,6 +304,11 @@ export const getBillingEraDetail = (
 
 export const importEra = (oystehr: Oystehr, parameters: z.input<typeof ImportEraInputSchema>): Promise<any> =>
   executeBillingZambda(oystehr, 'import-era', parameters);
+
+export const matchClaimResponseToClaim = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof MatchClaimResponseToClaimInputSchema>
+): Promise<any> => executeBillingZambda(oystehr, 'match-claim-response', parameters);
 
 // --- ChargeItemDefinitions --
 

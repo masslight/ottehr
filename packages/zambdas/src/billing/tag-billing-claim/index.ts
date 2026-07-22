@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coding, ProvenanceAgent } from 'fhir/r4b';
+import { CLAIM_TAG_SYSTEM } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
-import { CLAIM_TAG_SYSTEM, createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 import { TagBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -13,7 +14,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor(oystehr, input.headers?.Authorization, params.secrets);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
   const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };

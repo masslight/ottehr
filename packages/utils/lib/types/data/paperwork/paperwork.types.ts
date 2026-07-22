@@ -155,6 +155,7 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
 export interface QAndQRResponse {
   allItems: IntakeQuestionnaireItem[];
   questionnaireResponse: QuestionnaireResponse;
+  questionnaireTitle?: string;
 }
 
 export interface UCGetPaperworkResponse extends QAndQRResponse {

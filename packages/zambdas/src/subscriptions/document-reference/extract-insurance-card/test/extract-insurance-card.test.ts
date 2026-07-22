@@ -424,18 +424,43 @@ describe('extract-insurance-card handler', () => {
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it('handles an undownloadable image gracefully: captureException + 200 no-op, no marker written', async () => {
+  it('propagates a retryable error (not a 200 no-op) when the card image fails to download', async () => {
+    // A download failure is often transient (network blip, presigned url race); returning 200
+    // would tell the subscription "handled" and permanently strand the card unprocessed, so this
+    // must surface as a non-200 the subscription's retry semantics can act on.
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
     fetchMock.mockResolvedValue({ ok: false, status: 403, headers: { get: () => null } });
 
     const result = await invokeHandler(makeInput(docRef));
 
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ skipped: true, extracted: false });
+    expect(result.statusCode).toBe(500);
     expect(captureException).toHaveBeenCalled();
     expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
     expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the attachment's own contentType when Z3 returns application/octet-stream", async () => {
+    // Z3 returns the generic application/octet-stream when the object's content type wasn't
+    // recorded at upload time; a real card image must not be marked unsupported because of that.
+    const docRef = makeDocRef({
+      content: [{ attachment: { url: Z3_URL, title: 'insurance-card-front', contentType: 'image/jpeg' } }],
+    });
+    setupHappyMocks(docRef);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/octet-stream' : null) },
+      arrayBuffer: async () =>
+        IMAGE_BYTES.buffer.slice(IMAGE_BYTES.byteOffset, IMAGE_BYTES.byteOffset + IMAGE_BYTES.byteLength),
+    });
+
+    const result = await invokeHandler(makeInput(docRef));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({ extracted: true });
+    const [parts] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
   });
 
   it('writes a permanent notACard marker for unsupported (non-image, non-pdf) content', async () => {

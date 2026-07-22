@@ -23,6 +23,7 @@ import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
 import SelectServiceCategoryPage from './pages/SelectServiceCategory';
+import StandaloneFormPage from './pages/StandaloneFormPage';
 import StartVirtualVisit from './pages/StartVirtualVisit';
 import ThankYou from './pages/ThankYou';
 import VisitDetails from './pages/VisitDetails';
@@ -115,6 +116,10 @@ export const intakeFlowPageRoute = {
   PaperworkInformation: {
     path: `${paperworkBasePath}/:slug`,
     getPage: () => <PaperworkPage />,
+  },
+  StandaloneForm: {
+    path: '/forms/:questionnaireResponseId',
+    getPage: () => <StandaloneFormPage />,
   },
   ReviewPaperwork: {
     path: `${paperworkBasePath}/review`,
@@ -391,16 +396,23 @@ function App(): JSX.Element {
                     element={intakeFlowPageRoute.Appointments.getPage()}
                   />
                   <Route
+                    path={intakeFlowPageRoute.StandaloneForm.path}
+                    element={intakeFlowPageRoute.StandaloneForm.getPage()}
+                  />
+                  <Route
                     path={intakeFlowPageRoute.PaperworkHomeRoute.path}
                     element={intakeFlowPageRoute.PaperworkHomeRoute.getPage()}
                   >
-                    <Route
-                      path={intakeFlowPageRoute.PaperworkInformation.path}
-                      element={intakeFlowPageRoute.PaperworkInformation.getPage()}
-                    />
+                    {/* IMPORTANT: Specific path routes must come before the :slug catch-all.
+                        The PaperworkInformation route uses :slug which matches any path segment,
+                        so more specific routes (review) must be listed first. */}
                     <Route
                       path={intakeFlowPageRoute.ReviewPaperwork.path}
                       element={intakeFlowPageRoute.ReviewPaperwork.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.PaperworkInformation.path}
+                      element={intakeFlowPageRoute.PaperworkInformation.getPage()}
                     />
                   </Route>
                   <Route path={intakeFlowPageRoute.ThankYou.path} element={intakeFlowPageRoute.ThankYou.getPage()}>

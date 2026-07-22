@@ -3,12 +3,12 @@ import CloseSharpIcon from '@mui/icons-material/CloseSharp';
 import { Box, Button, IconButton, Typography } from '@mui/material';
 import { ChangeEvent, FC, useContext, useState } from 'react';
 import { convertHeicToJpegIfNeeded } from 'ui-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
 import { FileURLs, PATIENT_PHOTOS_MAX_COUNT_TELEMED } from 'utils';
 import { IntakeThemeContext } from '../../contexts';
 import { findMissingNumber } from '../../helpers/form';
 import { filterObject } from '../../helpers/objects.helper';
 import { MultipleFileUploadOptions } from '../../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { VisuallyHiddenInput } from './VisuallyHiddenInput';
 
 interface PatientPhotoUploadProps {
