@@ -113,7 +113,13 @@ function createGenericStore<TDraft extends object>(
             delete updatedState[encounterId];
             return { draftsByEncounterId: updatedState };
           }),
-        hasDraft: (encounterId) => !!get().draftsByEncounterId[encounterId],
+        hasDraft: (encounterId) => {
+          const draft = get().draftsByEncounterId[encounterId];
+          if (!draft) return false;
+          return Object.entries(draft as Record<string, unknown>).some(
+            ([key, value]) => key !== 'hasNavigatedAway' && value !== undefined
+          );
+        },
         getDraft: (encounterId) => get().draftsByEncounterId[encounterId] ?? {},
       }),
       { name: DRAFT_STORE_NAME_BY_KEY[storeKey], storage: createJSONStorage(() => sessionStorage) }
