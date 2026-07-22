@@ -1,7 +1,8 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Stack, Typography } from '@mui/material';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import VitalsNotesCard from 'src/features/visits/shared/components/patient-info/VitalsNotesCard';
@@ -16,6 +17,7 @@ import VitalsRespirationRateCard from 'src/features/visits/shared/components/vit
 import VitalsTemperaturesCard from 'src/features/visits/shared/components/vitals/temperature/VitalsTemperaturesCard';
 import VitalsVisionCard from 'src/features/visits/shared/components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from 'src/features/visits/shared/components/vitals/weights/VitalsWeightsCard';
+import { useMarkDraftNavigatedAway, useVitalsDraftStore } from 'src/state/draft-data.store';
 import { Loader } from '../../shared/components/Loader';
 import { AbnormalVitalsModal } from '../../shared/components/vitals/AbnormalVitalsModal';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
@@ -37,10 +39,49 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const isLoading = isAppointmentLoading || isChartDataLoading;
   const error = chartDataError || appointmentError;
 
-  const vitals = useVitalsManagement({ encounterId: encounter?.id ?? '' });
+  const encounterId = encounter?.id ?? '';
+  const vitals = useVitalsManagement({ encounterId });
 
   const { interactionMode } = useInPersonNavigationContext();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
+  const { setDraft, getDraft } = useVitalsDraftStore();
+  const vitalsDraft = getDraft(encounterId);
+
+  // Once any vital writes a draft, the store has an entry for that encounterId. When we later call
+  // setDraft(...) to clear a single vital, the entry is still there — it just has undefined at that key.
+  // So to determine if there is anything in the draft, need to check all values
+  const hasVitalsData = !!(
+    vitalsDraft.temperature ||
+    vitalsDraft.heartbeat ||
+    vitalsDraft.respirationRate ||
+    vitalsDraft.bloodPressure ||
+    vitalsDraft.oxygenSat ||
+    vitalsDraft.weight ||
+    vitalsDraft.height ||
+    vitalsDraft.vision ||
+    vitalsDraft.lmp
+  );
+
+  const hasVitalsDraft = useCallback(
+    (encId: string): boolean => {
+      const d = getDraft(encId);
+      return !!(
+        d.temperature ||
+        d.heartbeat ||
+        d.respirationRate ||
+        d.bloodPressure ||
+        d.oxygenSat ||
+        d.weight ||
+        d.height ||
+        d.vision ||
+        d.lmp
+      );
+    },
+    [getDraft]
+  );
+
+  useMarkDraftNavigatedAway({ encounterId, setDraft, hasDraft: hasVitalsDraft });
 
   if (isLoading || vitals.data.isLoading) return <Loader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
@@ -53,6 +94,16 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
         showIntakeNotesButton={interactionMode === 'main'}
         dataTestId={dataTestIds.vitalsPage.title}
       />
+      {hasVitalsData && (
+        <UnsavedDraftWarning
+          message={
+            vitalsDraft.hasNavigatedAway
+              ? 'Your previously entered data has been restored. Click the clear button on any vital card to discard it.'
+              : 'You have vitals in progress. Your draft will be saved.'
+          }
+          onClearAll={vitals.clearAllDrafts}
+        />
+      )}
       <Box ref={vitals.refs.temperature}>
         <VitalsTemperaturesCard field={vitals.fields.temperature} />
       </Box>

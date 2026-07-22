@@ -1,13 +1,18 @@
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { uploadDotVisionDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useVitalsDraftStore } from 'src/state/draft-data.store';
 import {
   areVitalsSameDay,
   calculateBMI,
+  fahrenheitToCelsius,
   getAbnormalVitals,
   GetVitalsResponseData,
+  HeightMeasurement,
+  LBS_IN_KG,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
@@ -19,6 +24,7 @@ import {
   VitalsRespirationRateObservationDTO,
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
+  VitalsVisionOption,
   VitalsWeightObservationDTO,
 } from 'utils';
 import { useBloodPressureLocalState } from '../blood-pressure/useBloodPressureLocalState';
@@ -59,6 +65,7 @@ export interface VitalField<TypeObsDTO extends VitalsObservationDTO = VitalsObse
   dotState?: DotVisionScreeningLocalState;
   saveDot?: () => Promise<void>;
   isSavingDot?: boolean;
+  onClearForm?: () => void;
 }
 
 export interface UseVitalsManagementProps {
@@ -101,6 +108,7 @@ export interface UseVitalsManagementReturn {
   saveAll: () => Promise<void>;
   isSavingAll: boolean;
   canSaveAll: boolean;
+  clearAllDrafts: () => void;
   refs: VitalCardRefs;
   abnormalVitalsValues: GetVitalsResponseData;
 }
@@ -144,6 +152,546 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
   const visionState = useVisionLocalState();
   const dotVisionState = useDotVisionScreeningLocalState();
   const lmpState = useLMPLocalState();
+
+  const { setDraft, getDraft, clearDraft } = useVitalsDraftStore();
+
+  // One-shot draft hydration on mount — reads sessionStorage and restores form values.
+  // useEffect is appropriate here: we're reading from external storage to seed React state.
+  useEffect(() => {
+    if (!encounterId) return;
+    const d = getDraft(encounterId);
+    const e = (v: string): ChangeEvent<HTMLInputElement> => ({ target: { value: v } }) as ChangeEvent<HTMLInputElement>;
+    if (d.temperature) {
+      const tv = d.temperature.value;
+      if (tv !== undefined && isFinite(tv)) temperatureState.handleCelsiusChange(e(String(tv)));
+      if (d.temperature.observationMethod) temperatureState.handleQualifierChange(d.temperature.observationMethod);
+    }
+    if (d.heartbeat) {
+      const hv = d.heartbeat.value;
+      if (hv !== undefined && isFinite(hv)) heartbeatState.handleValueChange(e(String(hv)));
+      if (d.heartbeat.observationMethod) heartbeatState.handleQualifierChange(d.heartbeat.observationMethod);
+    }
+    if (d.respirationRate) {
+      if (isFinite(d.respirationRate.value)) respirationRateState.handleValueChange(e(String(d.respirationRate.value)));
+    }
+    if (d.bloodPressure) {
+      const sys = d.bloodPressure.systolicPressure;
+      const dia = d.bloodPressure.diastolicPressure;
+      if (sys !== undefined && isFinite(sys)) bloodPressureState.handleSystolicChange(e(String(sys)));
+      if (dia !== undefined && isFinite(dia)) bloodPressureState.handleDiastolicChange(e(String(dia)));
+      if (d.bloodPressure.observationMethod)
+        bloodPressureState.handleQualifierChange(d.bloodPressure.observationMethod);
+    }
+    if (d.oxygenSat) {
+      const ov = d.oxygenSat.value;
+      if (ov !== undefined && isFinite(ov)) oxygenSatState.handleValueChange(e(String(ov)));
+      if (d.oxygenSat.observationMethod) oxygenSatState.handleQualifierChange(d.oxygenSat.observationMethod);
+    }
+    const draftWeight = d.weight as { value?: number } | undefined;
+    if (draftWeight?.value !== undefined && isFinite(draftWeight.value)) {
+      weightState.handleKgInput(e(String(draftWeight.value)));
+    }
+    if (d.height && isFinite(d.height.value)) {
+      heightState.handleCmChange(e(String(d.height.value)));
+    }
+    if (d.vision) {
+      if (d.vision.leftEyeVisionText)
+        visionState.handleLeftEyeChange({ target: { value: d.vision.leftEyeVisionText } });
+      if (d.vision.rightEyeVisionText)
+        visionState.handleRightEyeChange({ target: { value: d.vision.rightEyeVisionText } });
+      if (d.vision.bothEyesVisionText)
+        visionState.handleBothEyesChange({ target: { value: d.vision.bothEyesVisionText } });
+      d.vision.extraVisionOptions?.forEach((opt) => visionState.handleVisionOptionChange(true, opt));
+    }
+    if (d.lmp) {
+      if (d.lmp.value) lmpState.handleDateChange(DateTime.fromISO(d.lmp.value));
+      if (d.lmp.isUnsure) lmpState.handleUnsureChange(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --- Draft-writing handler wrappers ---
+  // Each wrapper calls the original handler then synchronously writes the updated draft value,
+  // using the new value from the event parameter and reading unchanged siblings from the closure.
+
+  const handleTemperatureCelsiusChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      temperatureState.handleCelsiusChange(e);
+      const celsius = parseFloat(e.target.value);
+      setDraft(encounterId, {
+        temperature:
+          isFinite(celsius) || temperatureState.observationQualifier
+            ? ({
+                field: VitalFieldNames.VitalTemperature,
+                ...(isFinite(celsius) && { value: celsius }),
+                ...(temperatureState.observationQualifier && {
+                  observationMethod: temperatureState.observationQualifier,
+                }),
+              } as Partial<VitalsTemperatureObservationDTO>)
+            : undefined,
+      });
+    },
+    [temperatureState, encounterId, setDraft]
+  );
+
+  const handleTemperatureFahrenheitChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      temperatureState.handleFahrenheitChange(e);
+      const fahrenheit = parseFloat(e.target.value);
+      const celsius = isFinite(fahrenheit) ? fahrenheitToCelsius(fahrenheit) : NaN;
+      setDraft(encounterId, {
+        temperature:
+          isFinite(celsius) || temperatureState.observationQualifier
+            ? ({
+                field: VitalFieldNames.VitalTemperature,
+                ...(isFinite(celsius) && { value: celsius }),
+                ...(temperatureState.observationQualifier && {
+                  observationMethod: temperatureState.observationQualifier,
+                }),
+              } as Partial<VitalsTemperatureObservationDTO>)
+            : undefined,
+      });
+    },
+    [temperatureState, encounterId, setDraft]
+  );
+
+  const handleTemperatureQualifierChange = useCallback(
+    (qualifier: string): void => {
+      temperatureState.handleQualifierChange(qualifier);
+      const celsius = parseFloat(temperatureState.valueCelsius);
+      setDraft(encounterId, {
+        temperature:
+          isFinite(celsius) || qualifier
+            ? ({
+                field: VitalFieldNames.VitalTemperature,
+                ...(isFinite(celsius) && { value: celsius }),
+                ...(qualifier && { observationMethod: qualifier }),
+              } as Partial<VitalsTemperatureObservationDTO>)
+            : undefined,
+      });
+    },
+    [temperatureState, encounterId, setDraft]
+  );
+
+  const handleHeartbeatValueChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      heartbeatState.handleValueChange(e);
+      const value = parseFloat(e.target.value);
+      setDraft(encounterId, {
+        heartbeat:
+          isFinite(value) || heartbeatState.observationQualifier
+            ? ({
+                field: VitalFieldNames.VitalHeartbeat,
+                ...(isFinite(value) && { value }),
+                ...(heartbeatState.observationQualifier && { observationMethod: heartbeatState.observationQualifier }),
+              } as Partial<VitalsHeartbeatObservationDTO>)
+            : undefined,
+      });
+    },
+    [heartbeatState, encounterId, setDraft]
+  );
+
+  const handleHeartbeatQualifierChange = useCallback(
+    (qualifier: string): void => {
+      heartbeatState.handleQualifierChange(qualifier);
+      const value = parseFloat(heartbeatState.value);
+      setDraft(encounterId, {
+        heartbeat:
+          isFinite(value) || qualifier
+            ? ({
+                field: VitalFieldNames.VitalHeartbeat,
+                ...(isFinite(value) && { value }),
+                ...(qualifier && { observationMethod: qualifier }),
+              } as Partial<VitalsHeartbeatObservationDTO>)
+            : undefined,
+      });
+    },
+    [heartbeatState, encounterId, setDraft]
+  );
+
+  const handleRespirationRateValueChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      respirationRateState.handleValueChange(e);
+      const value = parseFloat(e.target.value);
+      setDraft(encounterId, {
+        respirationRate: isFinite(value)
+          ? ({ field: VitalFieldNames.VitalRespirationRate, value } as VitalsRespirationRateObservationDTO)
+          : undefined,
+      });
+    },
+    [respirationRateState, encounterId, setDraft]
+  );
+
+  const handleBloodPressureSystolicChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      bloodPressureState.handleSystolicChange(e);
+      const systolic = parseFloat(e.target.value);
+      const diastolic = parseFloat(bloodPressureState.diastolicValue);
+      const hasAnyData =
+        e.target.value.length > 0 ||
+        bloodPressureState.diastolicValue.length > 0 ||
+        bloodPressureState.observationQualifier.length > 0;
+      setDraft(encounterId, {
+        bloodPressure: hasAnyData
+          ? ({
+              field: VitalFieldNames.VitalBloodPressure,
+              ...(isFinite(systolic) && { systolicPressure: systolic }),
+              ...(isFinite(diastolic) && { diastolicPressure: diastolic }),
+              ...(bloodPressureState.observationQualifier && {
+                observationMethod: bloodPressureState.observationQualifier,
+              }),
+            } as Partial<VitalsBloodPressureObservationDTO>)
+          : undefined,
+      });
+    },
+    [bloodPressureState, encounterId, setDraft]
+  );
+
+  const handleBloodPressureDiastolicChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      bloodPressureState.handleDiastolicChange(e);
+      const systolic = parseFloat(bloodPressureState.systolicValue);
+      const diastolic = parseFloat(e.target.value);
+      const hasAnyData =
+        bloodPressureState.systolicValue.length > 0 ||
+        e.target.value.length > 0 ||
+        bloodPressureState.observationQualifier.length > 0;
+      setDraft(encounterId, {
+        bloodPressure: hasAnyData
+          ? ({
+              field: VitalFieldNames.VitalBloodPressure,
+              ...(isFinite(systolic) && { systolicPressure: systolic }),
+              ...(isFinite(diastolic) && { diastolicPressure: diastolic }),
+              ...(bloodPressureState.observationQualifier && {
+                observationMethod: bloodPressureState.observationQualifier,
+              }),
+            } as Partial<VitalsBloodPressureObservationDTO>)
+          : undefined,
+      });
+    },
+    [bloodPressureState, encounterId, setDraft]
+  );
+
+  const handleBloodPressureQualifierChange = useCallback(
+    (qualifier: string): void => {
+      bloodPressureState.handleQualifierChange(qualifier);
+      const systolic = parseFloat(bloodPressureState.systolicValue);
+      const diastolic = parseFloat(bloodPressureState.diastolicValue);
+      const hasAnyData =
+        bloodPressureState.systolicValue.length > 0 ||
+        bloodPressureState.diastolicValue.length > 0 ||
+        qualifier.length > 0;
+      setDraft(encounterId, {
+        bloodPressure: hasAnyData
+          ? ({
+              field: VitalFieldNames.VitalBloodPressure,
+              ...(isFinite(systolic) && { systolicPressure: systolic }),
+              ...(isFinite(diastolic) && { diastolicPressure: diastolic }),
+              ...(qualifier && { observationMethod: qualifier }),
+            } as Partial<VitalsBloodPressureObservationDTO>)
+          : undefined,
+      });
+    },
+    [bloodPressureState, encounterId, setDraft]
+  );
+
+  const handleOxygenSatValueChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      oxygenSatState.handleValueChange(e);
+      const value = parseFloat(e.target.value);
+      setDraft(encounterId, {
+        oxygenSat:
+          isFinite(value) || oxygenSatState.observationQualifier
+            ? ({
+                field: VitalFieldNames.VitalOxygenSaturation,
+                ...(isFinite(value) && { value }),
+                ...(oxygenSatState.observationQualifier && { observationMethod: oxygenSatState.observationQualifier }),
+              } as Partial<VitalsOxygenSatObservationDTO>)
+            : undefined,
+      });
+    },
+    [oxygenSatState, encounterId, setDraft]
+  );
+
+  const handleOxygenSatQualifierChange = useCallback(
+    (qualifier: string): void => {
+      oxygenSatState.handleQualifierChange(qualifier);
+      const value = parseFloat(oxygenSatState.value);
+      setDraft(encounterId, {
+        oxygenSat:
+          isFinite(value) || qualifier
+            ? ({
+                field: VitalFieldNames.VitalOxygenSaturation,
+                ...(isFinite(value) && { value }),
+                ...(qualifier && { observationMethod: qualifier }),
+              } as Partial<VitalsOxygenSatObservationDTO>)
+            : undefined,
+      });
+    },
+    [oxygenSatState, encounterId, setDraft]
+  );
+
+  const handleWeightKgInput = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      weightState.handleKgInput(e);
+      const kg = parseFloat(e.target.value);
+      setDraft(encounterId, {
+        weight: isFinite(kg)
+          ? ({ field: VitalFieldNames.VitalWeight, value: kg } as VitalsWeightObservationDTO)
+          : undefined,
+      });
+    },
+    [weightState, encounterId, setDraft]
+  );
+
+  const handleWeightLbsInput = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      weightState.handleLbsInput(e);
+      const lbs = parseFloat(e.target.value);
+      const kg = isFinite(lbs) ? lbs / LBS_IN_KG : NaN;
+      setDraft(encounterId, {
+        weight: isFinite(kg)
+          ? ({ field: VitalFieldNames.VitalWeight, value: kg } as VitalsWeightObservationDTO)
+          : undefined,
+      });
+    },
+    [weightState, encounterId, setDraft]
+  );
+
+  const handleHeightCmChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      heightState.handleCmChange(e);
+      const measurement = HeightMeasurement.fromCmText(e.target.value);
+      setDraft(encounterId, {
+        height: measurement
+          ? ({ field: VitalFieldNames.VitalHeight, value: measurement.getCm() } as VitalsHeightObservationDTO)
+          : undefined,
+      });
+    },
+    [heightState, encounterId, setDraft]
+  );
+
+  const handleHeightInchesChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      heightState.handleInchesChange(e);
+      const measurement = HeightMeasurement.fromInchesText(e.target.value);
+      setDraft(encounterId, {
+        height: measurement
+          ? ({ field: VitalFieldNames.VitalHeight, value: measurement.getCm() } as VitalsHeightObservationDTO)
+          : undefined,
+      });
+    },
+    [heightState, encounterId, setDraft]
+  );
+
+  const handleHeightFeetChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      heightState.handleFeetChange(e);
+      const measurement = HeightMeasurement.fromFeetInchesText(e.target.value, heightState.valueInchRemainder);
+      setDraft(encounterId, {
+        height: measurement
+          ? ({ field: VitalFieldNames.VitalHeight, value: measurement.getCm() } as VitalsHeightObservationDTO)
+          : undefined,
+      });
+    },
+    [heightState, encounterId, setDraft]
+  );
+
+  const handleHeightInchRemainderChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      heightState.handleInchRemainderChange(e);
+      const measurement = HeightMeasurement.fromFeetInchesText(heightState.valueFeet, e.target.value);
+      setDraft(encounterId, {
+        height: measurement
+          ? ({ field: VitalFieldNames.VitalHeight, value: measurement.getCm() } as VitalsHeightObservationDTO)
+          : undefined,
+      });
+    },
+    [heightState, encounterId, setDraft]
+  );
+
+  const handleVisionLeftEyeChange = useCallback(
+    (event: { target: { value: string } }): void => {
+      visionState.handleLeftEyeChange(event);
+      const hasAnyData =
+        event.target.value.length > 0 ||
+        visionState.rightEyeSelection.length > 0 ||
+        visionState.bothEyesSelection.length > 0 ||
+        visionState.isChildTooYoungSelected ||
+        visionState.isWithGlassesSelected ||
+        visionState.isWithoutGlassesSelected;
+      setDraft(encounterId, {
+        vision: hasAnyData
+          ? ({
+              field: VitalFieldNames.VitalVision,
+              leftEyeVisionText: event.target.value,
+              rightEyeVisionText: visionState.rightEyeSelection,
+              ...(visionState.bothEyesSelection && { bothEyesVisionText: visionState.bothEyesSelection }),
+              ...(visionState.isChildTooYoungSelected ||
+              visionState.isWithGlassesSelected ||
+              visionState.isWithoutGlassesSelected
+                ? {
+                    extraVisionOptions: [
+                      ...(visionState.isChildTooYoungSelected ? (['child_too_young'] as VitalsVisionOption[]) : []),
+                      ...(visionState.isWithGlassesSelected ? (['with_glasses'] as VitalsVisionOption[]) : []),
+                      ...(visionState.isWithoutGlassesSelected ? (['without_glasses'] as VitalsVisionOption[]) : []),
+                    ],
+                  }
+                : {}),
+            } as VitalsVisionObservationDTO)
+          : undefined,
+      });
+    },
+    [visionState, encounterId, setDraft]
+  );
+
+  const handleVisionRightEyeChange = useCallback(
+    (event: { target: { value: string } }): void => {
+      visionState.handleRightEyeChange(event);
+      const hasAnyData =
+        visionState.leftEyeSelection.length > 0 ||
+        event.target.value.length > 0 ||
+        visionState.bothEyesSelection.length > 0 ||
+        visionState.isChildTooYoungSelected ||
+        visionState.isWithGlassesSelected ||
+        visionState.isWithoutGlassesSelected;
+      setDraft(encounterId, {
+        vision: hasAnyData
+          ? ({
+              field: VitalFieldNames.VitalVision,
+              leftEyeVisionText: visionState.leftEyeSelection,
+              rightEyeVisionText: event.target.value,
+              ...(visionState.bothEyesSelection && { bothEyesVisionText: visionState.bothEyesSelection }),
+              ...(visionState.isChildTooYoungSelected ||
+              visionState.isWithGlassesSelected ||
+              visionState.isWithoutGlassesSelected
+                ? {
+                    extraVisionOptions: [
+                      ...(visionState.isChildTooYoungSelected ? (['child_too_young'] as VitalsVisionOption[]) : []),
+                      ...(visionState.isWithGlassesSelected ? (['with_glasses'] as VitalsVisionOption[]) : []),
+                      ...(visionState.isWithoutGlassesSelected ? (['without_glasses'] as VitalsVisionOption[]) : []),
+                    ],
+                  }
+                : {}),
+            } as VitalsVisionObservationDTO)
+          : undefined,
+      });
+    },
+    [visionState, encounterId, setDraft]
+  );
+
+  const handleVisionBothEyesChange = useCallback(
+    (event: { target: { value: string } }): void => {
+      visionState.handleBothEyesChange(event);
+      const hasAnyData =
+        visionState.leftEyeSelection.length > 0 ||
+        visionState.rightEyeSelection.length > 0 ||
+        event.target.value.length > 0 ||
+        visionState.isChildTooYoungSelected ||
+        visionState.isWithGlassesSelected ||
+        visionState.isWithoutGlassesSelected;
+      setDraft(encounterId, {
+        vision: hasAnyData
+          ? ({
+              field: VitalFieldNames.VitalVision,
+              leftEyeVisionText: visionState.leftEyeSelection,
+              rightEyeVisionText: visionState.rightEyeSelection,
+              ...(event.target.value && { bothEyesVisionText: event.target.value }),
+              ...(visionState.isChildTooYoungSelected ||
+              visionState.isWithGlassesSelected ||
+              visionState.isWithoutGlassesSelected
+                ? {
+                    extraVisionOptions: [
+                      ...(visionState.isChildTooYoungSelected ? (['child_too_young'] as VitalsVisionOption[]) : []),
+                      ...(visionState.isWithGlassesSelected ? (['with_glasses'] as VitalsVisionOption[]) : []),
+                      ...(visionState.isWithoutGlassesSelected ? (['without_glasses'] as VitalsVisionOption[]) : []),
+                    ],
+                  }
+                : {}),
+            } as VitalsVisionObservationDTO)
+          : undefined,
+      });
+    },
+    [visionState, encounterId, setDraft]
+  );
+
+  const handleVisionOptionChange = useCallback(
+    (isChecked: boolean, option: VitalsVisionOption): void => {
+      visionState.handleVisionOptionChange(isChecked, option);
+      // Replicate the mutual-exclusion logic from the local state hook
+      const newIsChildTooYoung = option === 'child_too_young' ? isChecked : visionState.isChildTooYoungSelected;
+      const newIsWithGlasses =
+        option === 'with_glasses'
+          ? isChecked
+          : option === 'without_glasses'
+          ? false
+          : visionState.isWithGlassesSelected;
+      const newIsWithoutGlasses =
+        option === 'without_glasses'
+          ? isChecked
+          : option === 'with_glasses'
+          ? false
+          : visionState.isWithoutGlassesSelected;
+      const extraVisionOptions: VitalsVisionOption[] = [
+        ...(newIsChildTooYoung ? (['child_too_young'] as VitalsVisionOption[]) : []),
+        ...(newIsWithGlasses ? (['with_glasses'] as VitalsVisionOption[]) : []),
+        ...(newIsWithoutGlasses ? (['without_glasses'] as VitalsVisionOption[]) : []),
+      ];
+      const hasAnyData =
+        visionState.leftEyeSelection.length > 0 ||
+        visionState.rightEyeSelection.length > 0 ||
+        visionState.bothEyesSelection.length > 0 ||
+        newIsChildTooYoung ||
+        newIsWithGlasses ||
+        newIsWithoutGlasses;
+      setDraft(encounterId, {
+        vision: hasAnyData
+          ? ({
+              field: VitalFieldNames.VitalVision,
+              leftEyeVisionText: visionState.leftEyeSelection,
+              rightEyeVisionText: visionState.rightEyeSelection,
+              ...(visionState.bothEyesSelection && { bothEyesVisionText: visionState.bothEyesSelection }),
+              ...(extraVisionOptions.length > 0 && { extraVisionOptions }),
+            } as VitalsVisionObservationDTO)
+          : undefined,
+      });
+    },
+    [visionState, encounterId, setDraft]
+  );
+
+  const handleLMPDateChange = useCallback(
+    (date: DateTime | null): void => {
+      lmpState.handleDateChange(date);
+      setDraft(encounterId, {
+        lmp:
+          date !== null || lmpState.isUnsureSelected
+            ? ({
+                field: VitalFieldNames.VitalLastMenstrualPeriod,
+                value: date?.isValid ? date.toISODate() ?? '' : '',
+                ...(lmpState.isUnsureSelected && { isUnsure: true }),
+              } as VitalsLastMenstrualPeriodObservationDTO)
+            : undefined,
+      });
+    },
+    [lmpState, encounterId, setDraft]
+  );
+
+  const handleLMPUnsureChange = useCallback(
+    (isChecked: boolean): void => {
+      lmpState.handleUnsureChange(isChecked);
+      setDraft(encounterId, {
+        lmp:
+          lmpState.selectedDate !== null || isChecked
+            ? ({
+                field: VitalFieldNames.VitalLastMenstrualPeriod,
+                value: lmpState.selectedDate?.isValid ? lmpState.selectedDate.toISODate() ?? '' : '',
+                ...(isChecked && { isUnsure: true }),
+              } as VitalsLastMenstrualPeriodObservationDTO)
+            : undefined,
+      });
+    },
+    [lmpState, encounterId, setDraft]
+  );
 
   const { id: appointmentId } = useParams();
   const { oystehrZambda } = useApiClients();
@@ -318,7 +866,6 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         if (dotDtoToSave) {
           dotVisionState.clearForm();
         }
-
         const vitalText = vitalsToSave.length === 1 ? 'vital' : 'vitals';
         enqueueSnackbar(`Successfully saved ${vitalsToSave.length} ${vitalText}`, {
           variant: 'success',
@@ -326,6 +873,18 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
 
         // Auto-save BMI if height or weight was saved; isolated so a BMI failure doesn't flag the saved vitals.
         const savedFields = validVitals.map((v) => v.field);
+        // Clear draft entries for saved vitals
+        if (savedFields.includes(VitalFieldNames.VitalTemperature)) setDraft(encounterId, { temperature: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalHeartbeat)) setDraft(encounterId, { heartbeat: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalRespirationRate))
+          setDraft(encounterId, { respirationRate: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalBloodPressure))
+          setDraft(encounterId, { bloodPressure: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalOxygenSaturation))
+          setDraft(encounterId, { oxygenSat: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalWeight)) setDraft(encounterId, { weight: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalHeight)) setDraft(encounterId, { height: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalVision)) setDraft(encounterId, { vision: undefined });
         if (savedFields.includes(VitalFieldNames.VitalHeight) || savedFields.includes(VitalFieldNames.VitalWeight)) {
           try {
             const { heightCm, weightKg } = deriveBMIInputs(refetchResult.data);
@@ -385,11 +944,13 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     batchSaveVitals,
     refetchEncounterVitals,
     saveBMI,
+    setDraft,
+    encounterId,
   ]);
 
   // Helper to create field save handler with validation
   const createFieldSaveHandler = useCallback(
-    (field: VitalFieldNames, state: VitalLocalState, triggerBMI = false) =>
+    (field: VitalFieldNames, state: VitalLocalState, triggerBMI = false, clearDraftEntry?: () => void) =>
       async () => {
         if (fieldSavingStates[field]) {
           return;
@@ -422,6 +983,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
               }
             }
             state.clearForm();
+            clearDraftEntry?.();
           } catch {
             const fieldNameMap: Record<VitalFieldNames, string> = {
               [VitalFieldNames.VitalTemperature]: 'Temperature',
@@ -446,26 +1008,50 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
 
   const saveHandlers = useMemo(() => {
     return {
-      [VitalFieldNames.VitalTemperature]: createFieldSaveHandler(VitalFieldNames.VitalTemperature, temperatureState),
-      [VitalFieldNames.VitalHeartbeat]: createFieldSaveHandler(VitalFieldNames.VitalHeartbeat, heartbeatState),
+      [VitalFieldNames.VitalTemperature]: createFieldSaveHandler(
+        VitalFieldNames.VitalTemperature,
+        temperatureState,
+        false,
+        () => setDraft(encounterId, { temperature: undefined })
+      ),
+      [VitalFieldNames.VitalHeartbeat]: createFieldSaveHandler(
+        VitalFieldNames.VitalHeartbeat,
+        heartbeatState,
+        false,
+        () => setDraft(encounterId, { heartbeat: undefined })
+      ),
       [VitalFieldNames.VitalRespirationRate]: createFieldSaveHandler(
         VitalFieldNames.VitalRespirationRate,
-        respirationRateState
+        respirationRateState,
+        false,
+        () => setDraft(encounterId, { respirationRate: undefined })
       ),
       [VitalFieldNames.VitalBloodPressure]: createFieldSaveHandler(
         VitalFieldNames.VitalBloodPressure,
-        bloodPressureState
+        bloodPressureState,
+        false,
+        () => setDraft(encounterId, { bloodPressure: undefined })
       ),
       [VitalFieldNames.VitalOxygenSaturation]: createFieldSaveHandler(
         VitalFieldNames.VitalOxygenSaturation,
-        oxygenSatState
+        oxygenSatState,
+        false,
+        () => setDraft(encounterId, { oxygenSat: undefined })
       ),
-      [VitalFieldNames.VitalWeight]: createFieldSaveHandler(VitalFieldNames.VitalWeight, weightState, true),
-      [VitalFieldNames.VitalHeight]: createFieldSaveHandler(VitalFieldNames.VitalHeight, heightState, true),
-      [VitalFieldNames.VitalVision]: createFieldSaveHandler(VitalFieldNames.VitalVision, visionState),
+      [VitalFieldNames.VitalWeight]: createFieldSaveHandler(VitalFieldNames.VitalWeight, weightState, true, () =>
+        setDraft(encounterId, { weight: undefined })
+      ),
+      [VitalFieldNames.VitalHeight]: createFieldSaveHandler(VitalFieldNames.VitalHeight, heightState, true, () =>
+        setDraft(encounterId, { height: undefined })
+      ),
+      [VitalFieldNames.VitalVision]: createFieldSaveHandler(VitalFieldNames.VitalVision, visionState, false, () =>
+        setDraft(encounterId, { vision: undefined })
+      ),
       [VitalFieldNames.VitalLastMenstrualPeriod]: createFieldSaveHandler(
         VitalFieldNames.VitalLastMenstrualPeriod,
-        lmpState
+        lmpState,
+        false,
+        () => setDraft(encounterId, { lmp: undefined })
       ),
     };
   }, [
@@ -479,6 +1065,8 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     heightState,
     visionState,
     lmpState,
+    setDraft,
+    encounterId,
   ]);
 
   const fields = {
@@ -491,7 +1079,16 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       hasData: temperatureState.hasData,
       current: (encounterVitals?.[VitalFieldNames.VitalTemperature] as VitalsTemperatureObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalTemperature] as VitalsTemperatureObservationDTO[]) ?? [],
-      localState: temperatureState,
+      localState: {
+        ...temperatureState,
+        handleCelsiusChange: handleTemperatureCelsiusChange,
+        handleFahrenheitChange: handleTemperatureFahrenheitChange,
+        handleQualifierChange: handleTemperatureQualifierChange,
+      },
+      onClearForm: () => {
+        temperatureState.clearForm();
+        setDraft(encounterId, { temperature: undefined });
+      },
     },
     heartbeat: {
       save: saveHandlers[VitalFieldNames.VitalHeartbeat],
@@ -502,7 +1099,15 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       hasData: heartbeatState.hasData,
       current: (encounterVitals?.[VitalFieldNames.VitalHeartbeat] as VitalsHeartbeatObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalHeartbeat] as VitalsHeartbeatObservationDTO[]) ?? [],
-      localState: heartbeatState,
+      localState: {
+        ...heartbeatState,
+        handleValueChange: handleHeartbeatValueChange,
+        handleQualifierChange: handleHeartbeatQualifierChange,
+      },
+      onClearForm: () => {
+        heartbeatState.clearForm();
+        setDraft(encounterId, { heartbeat: undefined });
+      },
     },
     respirationRate: {
       save: saveHandlers[VitalFieldNames.VitalRespirationRate],
@@ -514,7 +1119,14 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       current: (encounterVitals?.[VitalFieldNames.VitalRespirationRate] as VitalsRespirationRateObservationDTO[]) ?? [],
       historical:
         (historicalVitals?.[VitalFieldNames.VitalRespirationRate] as VitalsRespirationRateObservationDTO[]) ?? [],
-      localState: respirationRateState,
+      localState: {
+        ...respirationRateState,
+        handleValueChange: handleRespirationRateValueChange,
+      },
+      onClearForm: () => {
+        respirationRateState.clearForm();
+        setDraft(encounterId, { respirationRate: undefined });
+      },
     },
     bloodPressure: {
       save: saveHandlers[VitalFieldNames.VitalBloodPressure],
@@ -525,7 +1137,16 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       hasData: bloodPressureState.hasData,
       current: (encounterVitals?.[VitalFieldNames.VitalBloodPressure] as VitalsBloodPressureObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalBloodPressure] as VitalsBloodPressureObservationDTO[]) ?? [],
-      localState: bloodPressureState,
+      localState: {
+        ...bloodPressureState,
+        handleSystolicChange: handleBloodPressureSystolicChange,
+        handleDiastolicChange: handleBloodPressureDiastolicChange,
+        handleQualifierChange: handleBloodPressureQualifierChange,
+      },
+      onClearForm: () => {
+        bloodPressureState.clearForm();
+        setDraft(encounterId, { bloodPressure: undefined });
+      },
     },
     oxygenSat: {
       save: saveHandlers[VitalFieldNames.VitalOxygenSaturation],
@@ -536,7 +1157,15 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       hasData: oxygenSatState.hasData,
       current: (encounterVitals?.[VitalFieldNames.VitalOxygenSaturation] as VitalsOxygenSatObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalOxygenSaturation] as VitalsOxygenSatObservationDTO[]) ?? [],
-      localState: oxygenSatState,
+      localState: {
+        ...oxygenSatState,
+        handleValueChange: handleOxygenSatValueChange,
+        handleQualifierChange: handleOxygenSatQualifierChange,
+      },
+      onClearForm: () => {
+        oxygenSatState.clearForm();
+        setDraft(encounterId, { oxygenSat: undefined });
+      },
     },
     weight: {
       save: saveHandlers[VitalFieldNames.VitalWeight],
@@ -547,7 +1176,15 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       hasData: weightState.hasData,
       current: (encounterVitals?.[VitalFieldNames.VitalWeight] as VitalsWeightObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalWeight] as VitalsWeightObservationDTO[]) ?? [],
-      localState: weightState,
+      localState: {
+        ...weightState,
+        handleKgInput: handleWeightKgInput,
+        handleLbsInput: handleWeightLbsInput,
+      },
+      onClearForm: () => {
+        weightState.clearForm();
+        setDraft(encounterId, { weight: undefined });
+      },
     },
     height: {
       save: saveHandlers[VitalFieldNames.VitalHeight],
@@ -558,7 +1195,17 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       hasData: heightState.hasData,
       current: (encounterVitals?.[VitalFieldNames.VitalHeight] as VitalsHeightObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalHeight] as VitalsHeightObservationDTO[]) ?? [],
-      localState: heightState,
+      localState: {
+        ...heightState,
+        handleCmChange: handleHeightCmChange,
+        handleInchesChange: handleHeightInchesChange,
+        handleFeetChange: handleHeightFeetChange,
+        handleInchRemainderChange: handleHeightInchRemainderChange,
+      },
+      onClearForm: () => {
+        heightState.clearForm();
+        setDraft(encounterId, { height: undefined });
+      },
     },
     bmi: {
       current: (encounterVitals?.[VitalFieldNames.VitalBMI] as VitalsBMIObservationDTO[]) ?? [],
@@ -574,10 +1221,20 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       hasData: visionState.hasData,
       current: (encounterVitals?.[VitalFieldNames.VitalVision] as VitalsVisionObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalVision] as VitalsVisionObservationDTO[]) ?? [],
-      localState: visionState,
+      localState: {
+        ...visionState,
+        handleLeftEyeChange: handleVisionLeftEyeChange,
+        handleRightEyeChange: handleVisionRightEyeChange,
+        handleBothEyesChange: handleVisionBothEyesChange,
+        handleVisionOptionChange: handleVisionOptionChange,
+      },
       dotState: dotVisionState,
       saveDot: handleSaveDot,
       isSavingDot,
+      onClearForm: () => {
+        visionState.clearForm();
+        setDraft(encounterId, { vision: undefined });
+      },
     },
     lmp: {
       save: saveHandlers[VitalFieldNames.VitalLastMenstrualPeriod],
@@ -592,7 +1249,15 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       historical:
         (historicalVitals?.[VitalFieldNames.VitalLastMenstrualPeriod] as VitalsLastMenstrualPeriodObservationDTO[]) ??
         [],
-      localState: lmpState,
+      localState: {
+        ...lmpState,
+        handleDateChange: handleLMPDateChange,
+        handleUnsureChange: handleLMPUnsureChange,
+      },
+      onClearForm: () => {
+        lmpState.clearForm();
+        setDraft(encounterId, { lmp: undefined });
+      },
     },
   };
 
@@ -608,6 +1273,31 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     dotVisionState.hasData ||
     lmpState.hasData;
 
+  const clearAllDrafts = useCallback(() => {
+    temperatureState.clearForm();
+    heartbeatState.clearForm();
+    respirationRateState.clearForm();
+    bloodPressureState.clearForm();
+    oxygenSatState.clearForm();
+    weightState.clearForm();
+    heightState.clearForm();
+    visionState.clearForm();
+    lmpState.clearForm();
+    clearDraft(encounterId);
+  }, [
+    temperatureState,
+    heartbeatState,
+    respirationRateState,
+    bloodPressureState,
+    oxygenSatState,
+    weightState,
+    heightState,
+    visionState,
+    lmpState,
+    clearDraft,
+    encounterId,
+  ]);
+
   const abnormalVitalsValues = useMemo(() => getAbnormalVitals(encounterVitals), [encounterVitals]);
 
   return {
@@ -620,6 +1310,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     saveAll: handleAddAllVitals,
     isSavingAll: isBatchSaving,
     canSaveAll,
+    clearAllDrafts,
     refs: vitalCardRefs,
     abnormalVitalsValues,
   };

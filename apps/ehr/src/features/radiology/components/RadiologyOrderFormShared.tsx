@@ -10,6 +10,7 @@ import {
   MenuItem,
   OutlinedInput,
   Select,
+  Stack,
   TextField,
   Typography,
   useTheme,
@@ -72,6 +73,8 @@ export interface UseRadiologyOrderFormResult {
   addAdditionalDxToEncounter: () => Promise<void>;
   chartCptCodes: CPTCodeDTO[];
   setPartialChartData: ReturnType<typeof useChartData>['setPartialChartData'];
+  /** the default dx list used to reset the form (primary diagnosis, or empty) */
+  defaultDx: DiagnosisDTO[];
 }
 
 export const useRadiologyOrderForm = (initial?: RadiologyOrderFormInitialValues): UseRadiologyOrderFormResult => {
@@ -79,6 +82,7 @@ export const useRadiologyOrderForm = (initial?: RadiologyOrderFormInitialValues)
   const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
+  const defaultDx = primaryDiagnosis ? [primaryDiagnosis] : [];
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(
     initial?.orderDx ?? (primaryDiagnosis ? [primaryDiagnosis] : [])
@@ -152,6 +156,7 @@ export const useRadiologyOrderForm = (initial?: RadiologyOrderFormInitialValues)
     laterality,
     setLaterality,
     lateralityModifier,
+    defaultDx,
     dxSearch: {
       options: icdSearchOptions,
       loading: isSearchingDx,
@@ -315,19 +320,27 @@ export const RadiologyOrderFormActions: React.FC<{
   submitting: boolean;
   submitLabel: string;
   errors: string[] | undefined;
-}> = ({ appointmentId, submitting, submitLabel, errors }) => {
+  onCancel?: () => void;
+  clearFormButton?: React.ReactNode;
+}> = ({ appointmentId, submitting, submitLabel, errors, onCancel, clearFormButton }) => {
   const navigate = useNavigate();
   const theme = useTheme();
   return (
     <>
       <Grid item xs={6}>
-        <Button
-          variant="outlined"
-          sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-          onClick={() => navigate(`/in-person/${appointmentId}/radiology`)}
-        >
-          Cancel
-        </Button>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+            onClick={() => {
+              onCancel?.();
+              navigate(`/in-person/${appointmentId}/radiology`);
+            }}
+          >
+            Cancel
+          </Button>
+          {clearFormButton}
+        </Stack>
       </Grid>
       <Grid item xs={6} display="flex" justifyContent="flex-end">
         <LoadingButton
