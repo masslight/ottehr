@@ -38,6 +38,7 @@ export enum APIErrorCode {
   INVALID_RESOURCE_ID = 4202,
   MISSING_AUTH_TOKEN = 4203,
   MISSING_REQUEST_SECRETS = 4204,
+  PAYLOAD_TOO_LARGE = 4205,
   // 43xx
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
@@ -118,6 +119,12 @@ export const NOT_AUTHORIZED: APIError = {
   message: 'You are not authorized to access this data',
   statusCode: 401,
 };
+
+export const MEDICAL_RECORD_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
+  code: APIErrorCode.PAYLOAD_TOO_LARGE,
+  message: `This medical record is too large to export as a single download (over ${maxMb} MB).`,
+  statusCode: 413,
+});
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_MODIFIED,
