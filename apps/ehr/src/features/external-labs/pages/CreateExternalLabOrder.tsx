@@ -90,7 +90,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
   );
 
-  const draft = encounter.id ? getDraft(encounter.id) : {};
+  const draft = useMemo(() => (encounter.id ? getDraft(encounter.id) : {}), [encounter.id, getDraft]);
 
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
