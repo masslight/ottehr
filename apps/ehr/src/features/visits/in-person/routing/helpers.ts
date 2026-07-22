@@ -48,6 +48,14 @@ export const getRadiologyOrderCreateUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/radiology/create`;
 };
 
+export const getRadiologyExternalOrderDetailsUrl = (appointmentId: string, serviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/radiology/${serviceRequestId}/external-order-details`;
+};
+
+export const getRadiologyExternalOrderEditUrl = (appointmentId: string, serviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/radiology/${serviceRequestId}/edit-external`;
+};
+
 export const getInHouseLabsUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/in-house-lab-orders`;
 };
