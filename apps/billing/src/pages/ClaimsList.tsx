@@ -11,9 +11,11 @@ import {
   MenuItem,
   Select,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -26,9 +28,11 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
   getApiError,
+  MAX_RUN_RULES_ENGINE_CLAIMS,
   SearchBillingClaimsInput,
 } from 'utils';
 import {
+  runBillingRulesEngine,
   searchBillingClaims,
   searchBillingPatients,
   searchBillingPayers,
@@ -36,6 +40,7 @@ import {
   searchBillingTags,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatCurrency } from '../utils/format';
@@ -120,8 +125,12 @@ export default function ClaimsList(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
-
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
+
+  const [selected, setSelected] = useState<GridRowSelectionModel>([]);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -155,6 +164,7 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
+      setSelected([]);
       try {
         const params: SearchBillingClaimsInput = {
           pageSize: pagination.pageSize,
@@ -307,15 +317,67 @@ export default function ClaimsList(): ReactElement {
     typeFilter ||
     selectedService;
 
+  // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
+  // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
+  // applies the configured rules, then performs its engine's success effect — submit to the payer
+  // or make ready to invoice — or holds its claim, in the background.
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      await runBillingRulesEngine(oystehrZambda, { claimIds: selected.map(String) });
+      enqueueSnackbar(
+        `Rules started for ${selected.length} claim(s) — each claim will be submitted, made ready to invoice, ` +
+          'or held shortly. Refresh to see the results.',
+        { variant: 'info' }
+      );
+      setSelected([]);
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to submit claims',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setSubmitting(false);
+      setConfirmingSubmit(false);
+      void fetchClaims(currentFilters(), paginationModel);
+    }
+  }, [oystehrZambda, selected, fetchClaims, currentFilters, paginationModel]);
+
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims
         </Typography>
-        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
-          Create
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {selected.length > 0 && (
+            <Tooltip
+              title={
+                selected.length > MAX_RUN_RULES_ENGINE_CLAIMS
+                  ? `Select up to ${MAX_RUN_RULES_ENGINE_CLAIMS} claims to run rules on at once`
+                  : ''
+              }
+            >
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
+                  onClick={() => setConfirmingSubmit(true)}
+                >
+                  Run rules ({selected.length})
+                </Button>
+              </span>
+            </Tooltip>
+          )}
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
+            Add Claim
+          </Button>
+        </Box>
       </Box>
 
       <TextField
@@ -503,9 +565,26 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
+        isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
+        rowSelectionModel={selected}
+        onRowSelectionModelChange={setSelected}
         slots={dataGridSlots}
+        pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
+
+      <ConfirmDialog
+        open={confirmingSubmit}
+        title="Run claim rules"
+        confirmLabel="Run rules"
+        loading={submitting}
+        onConfirm={() => void handleSubmit()}
+        onCancel={() => setConfirmingSubmit(false)}
+      >
+        Run rules for {selected.length} claim(s)? Each claim runs its AR stage's rules engine — when every rule passes,
+        Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a Hold
+        keeps a claim for review.
+      </ConfirmDialog>
     </Box>
   );
 }

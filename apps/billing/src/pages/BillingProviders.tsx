@@ -13,13 +13,14 @@ import {
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { BillingProviderOption, getApiError } from 'utils';
+import { getApiError } from 'utils';
 import { deleteBillingProvider, searchBillingProviders } from '../api/api';
 import { AddProviderDialog } from '../components/AddProviderDialog';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ProviderDetailSection } from '../components/ProviderDetailSection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
+import { useProvider } from '../hooks/useProvider';
 
 interface ProviderRow {
   id: string;
@@ -73,7 +74,7 @@ export function BillingProvidersList(): ReactElement {
           providerType: 'billing',
           pageSize: pagination.pageSize,
           offset: pagination.page * pagination.pageSize,
-          ...(name ? { name, includeWorkingCopies: true } : {}),
+          ...(name ? { name } : {}),
         });
         setProviders(data.providers ?? []);
         setTotalRows(data.total ?? 0);
@@ -108,7 +109,7 @@ export function BillingProvidersList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Billing Providers
         </Typography>
@@ -152,6 +153,7 @@ export function BillingProvidersList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         slots={dataGridSlots}
+        pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
 
@@ -170,27 +172,9 @@ export function BillingProviderDetail(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [provider, setProvider] = useState<BillingProviderOption | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchDetail = useCallback(async () => {
-    if (!oystehrZambda || !id) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await searchBillingProviders(oystehrZambda, {
-        providerType: 'billing',
-        providerId: id,
-        includeWorkingCopies: true,
-      });
-      setProvider((data.providers ?? [])[0] ?? null);
-    } catch (err) {
-      setError(getApiError({ error: err, defaultError: 'Failed to load provider' }));
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda, id]);
+  const [provider, refetch] = useProvider({ type: 'billing', id: id!, onLoading: setLoading, onError: setError });
 
   const handleDelete = async (): Promise<void> => {
     if (!oystehrZambda || !provider) return;
@@ -202,10 +186,6 @@ export function BillingProviderDetail(): ReactElement {
       setError(getApiError({ error: err, defaultError: 'Failed to delete provider' }));
     }
   };
-
-  useEffect(() => {
-    void fetchDetail();
-  }, [fetchDetail]);
 
   if (loading && !provider) {
     return (
@@ -245,7 +225,7 @@ export function BillingProviderDetail(): ReactElement {
           </Button>
         )}
       </Box>
-      <ProviderDetailSection provider={provider} onSaved={fetchDetail} />
+      <ProviderDetailSection provider={provider} role="billing" onSaved={refetch} />
     </Box>
   );
 }

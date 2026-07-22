@@ -7,6 +7,7 @@ import {
   VitalHeartbeatObservationMethod,
   VitalsBaseObservationDTO,
   VitalsBloodPressureObservationDTO,
+  VitalsBMIObservationDTO,
   VitalsDotVisionScreening,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
@@ -93,6 +94,8 @@ export const VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE = '8675309';
 
 export const VITAL_LAST_MENSTRUAL_PERIOD_LOINC_CODE = '8665-2';
 export const VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE = '261665006';
+
+export const VITAL_BMI_LOINC_CODE = '39156-5';
 
 export const getTempObservationMethodCodable = (
   tempDTO: VitalsTemperatureObservationDTO
@@ -834,6 +837,7 @@ export function isVitalObservation(data: ObservationDTO): data is VitalsObservat
   return (
     isWeightVitalObservation(data) ||
     isHeightVitalObservation(data) ||
+    isBMIVitalObservation(data) ||
     isTemperatureVitalObservation(data) ||
     isHeartbeatVitalObservation(data) ||
     isBloodPressureVitalObservation(data) ||
@@ -842,6 +846,10 @@ export function isVitalObservation(data: ObservationDTO): data is VitalsObservat
     isVisionVitalObservation(data) ||
     isLastMenstrualPeriodVitalObservation(data)
   );
+}
+
+export function isBMIVitalObservation(data: ObservationDTO): data is VitalsBMIObservationDTO {
+  return data.field === VitalFieldNames.VitalBMI;
 }
 
 export function isWeightVitalObservation(data: ObservationDTO): data is VitalsWeightObservationDTO {
@@ -997,6 +1005,17 @@ export function fillVitalObservationAttributes(
     };
   }
 
+  if (isBMIVitalObservation(vitalDTO)) {
+    const bmiDTO = vitalDTO as VitalsBMIObservationDTO;
+    return {
+      ...baseResource,
+      code: {
+        coding: [{ system: LOINC_SYSTEM, code: VITAL_BMI_LOINC_CODE, display: 'Body mass index (BMI) [Ratio]' }],
+      },
+      valueQuantity: { value: bmiDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg/m2' },
+    };
+  }
+
   if (isVisionVitalObservation(vitalDTO)) {
     const visionDTO = vitalDTO as VitalsVisionObservationDTO;
     const derivedFrom = getDotVisionDocumentDerivedFrom(visionDTO.dotVisionScreening);
@@ -1146,6 +1165,16 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
     const result: VitalsHeightObservationDTO = {
       ...baseProps,
       field: VitalFieldNames.VitalHeight,
+      value: obsNumericalValue,
+    };
+    return result;
+  }
+
+  if (fieldName === VitalFieldNames.VitalBMI) {
+    const obsNumericalValue = observation.valueQuantity?.value ?? 0;
+    const result: VitalsBMIObservationDTO = {
+      ...baseProps,
+      field: VitalFieldNames.VitalBMI,
       value: obsNumericalValue,
     };
     return result;

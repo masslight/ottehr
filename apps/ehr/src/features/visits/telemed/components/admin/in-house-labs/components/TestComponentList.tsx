@@ -20,7 +20,7 @@ import {
 import { ReactElement, useState } from 'react';
 import { Control, Controller, useFieldArray, useFormContext, useWatch } from 'react-hook-form';
 import { AccordionCard } from 'src/components/AccordionCard';
-import InputMask from 'src/components/InputMask';
+import { InputMask } from 'ui-components';
 import { AdminInHouseLabItemDefinition, TestItemComponent } from 'utils';
 import { FieldArrayListItemProps } from './shared.types';
 

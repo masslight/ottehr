@@ -1,7 +1,21 @@
-import { Address, Coding, Coverage, CoverageEligibilityResponse, Location, Organization, Practitioner } from 'fhir/r4b';
+import {
+  Address,
+  Coding,
+  Coverage,
+  CoverageEligibilityResponse,
+  Extension,
+  Location,
+  Organization,
+  Practitioner,
+} from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT_MODIFIER,
   ELIGIBILITY_BENEFIT_CODES,
+  EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE,
+  EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR,
+  EXTENSION_CLAIM_INSURANCE_TYPE,
+  EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR,
+  EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE,
   EXTENSION_URL_CPT_MODIFIER,
   INSURANCE_PLAN_ID_CODING,
 } from '../main';
@@ -18,6 +32,7 @@ import {
   PatientPaymentBenefit,
 } from '../types';
 import { getNPI, getTaxID } from './helpers';
+import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
 
 export interface GetBillingProviderInput {
   appointmentId: string;
@@ -468,3 +483,48 @@ export const mapInsuranceTypeCodeToCandidCode = (insuranceTypeCode: string | und
   if (!insuranceTypeCode) return undefined;
   return INSURANCE_TYPE_CODE_TO_CANDID_CODE[insuranceTypeCode];
 };
+
+export const getDefaultClaimSubmissionExtensions = (): Extension[] => [
+  { url: EXTENSION_CLAIM_PROVIDER_SIGNATURE_INDICATOR, valueBoolean: true },
+  { url: EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE, valueString: 'A' },
+  { url: EXTENSION_CLAIM_BENEFITS_ASSIGNMENT_CERTIFICATION_INDICATOR, valueString: 'Y' },
+  { url: EXTENSION_CLAIM_RELEASE_OF_INFORMATION_CODE, valueString: 'Y' },
+];
+
+export const getCoveragePlanType = (coverage?: Coverage): string | undefined => {
+  const candidates = [
+    coverage?.extension?.find((ext) => ext.url === EXTENSION_CLAIM_INSURANCE_TYPE)?.valueString,
+    coverage?.type?.coding?.find((coding) => coding.system === CANDID_PLAN_TYPE_SYSTEM)?.code,
+  ];
+  return candidates.find((code) => !!code && INSURANCE_CANDID_PLAN_TYPE_CODES.includes(code));
+};
+
+export const setCoveragePlanType = (coverage: Coverage, candidCode: string): Coverage => {
+  const otherExtensions = (coverage.extension ?? []).filter((ext) => ext.url !== EXTENSION_CLAIM_INSURANCE_TYPE);
+  const otherTypeCodings = (coverage.type?.coding ?? []).filter((coding) => coding.system !== CANDID_PLAN_TYPE_SYSTEM);
+  return {
+    ...coverage,
+    type: {
+      ...coverage.type,
+      coding: [
+        ...otherTypeCodings,
+        {
+          system: CANDID_PLAN_TYPE_SYSTEM,
+          code: candidCode,
+        },
+      ],
+    },
+    extension: [
+      ...otherExtensions,
+      {
+        url: EXTENSION_CLAIM_INSURANCE_TYPE,
+        valueString: candidCode,
+      },
+    ],
+  };
+};
+
+export function commaFormattedName(resource?: { firstName: string; lastName: string } | null): string {
+  if (!resource) return '';
+  return `${resource.lastName}, ${resource.firstName}`.trim();
+}

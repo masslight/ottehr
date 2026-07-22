@@ -17,6 +17,65 @@ const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
   lastName: practitioner.name?.[0]?.family ?? '',
 });
 
+export const APPOINTMENT_SEARCH_PAGE_SIZE = 100;
+// WARNING: this list must cover every field read from resources returned by the appointment search bundle.
+// If you access a new field on any of these resource types downstream (including via utils helpers),
+// you MUST add it here — otherwise the server strips it via _elements and it arrives as undefined.
+export const APPOINTMENT_SEARCH_ELEMENTS = [
+  'Appointment.id',
+  'Appointment.start',
+  'Appointment.status',
+  'Appointment.participant',
+  'Appointment.appointmentType',
+  'Appointment.description',
+  'Appointment.comment',
+  'Appointment.cancelationReason',
+  'Appointment.meta',
+  'Appointment.extension',
+  'Appointment.serviceCategory',
+  'Patient.id',
+  'Patient.name',
+  'Patient.gender',
+  'Patient.birthDate',
+  'Patient.telecom',
+  'Patient.contact',
+  'Patient.address',
+  'Encounter.id',
+  'Encounter.appointment',
+  'Encounter.participant',
+  'Encounter.status',
+  'Encounter.statusHistory',
+  'Encounter.extension',
+  'Encounter.location',
+  'Encounter.partOf',
+  'Encounter.type',
+  'QuestionnaireResponse.id',
+  'QuestionnaireResponse.questionnaire',
+  'QuestionnaireResponse.encounter',
+  'QuestionnaireResponse.subject',
+  'QuestionnaireResponse.authored',
+  'QuestionnaireResponse.item',
+  'RelatedPerson.id',
+  'RelatedPerson.patient',
+  'RelatedPerson.relationship',
+  'RelatedPerson.telecom',
+  'Person.id',
+  'Person.link',
+  'Person.telecom',
+  'Practitioner.id',
+  'Practitioner.name',
+  'Practitioner.extension',
+  'Location.id',
+  'Location.name',
+  'Location.extension',
+  'Location.telecom',
+].join(',');
+
+export const isResponseSizeExceededError = (error: unknown): boolean => {
+  const message = (error as { message?: unknown })?.message;
+  return typeof message === 'string' && message.includes('exceeds the maximum allowed size');
+};
+
 export const parseEncounterParticipants = (
   encounter: Encounter,
   participantIdToResourceMap: Record<string, Practitioner>
@@ -190,7 +249,8 @@ export const getAppointmentQueryInput = async (input: {
         name: '_sort',
         value: 'date',
       },
-      { name: '_count', value: '1000' },
+      { name: '_count', value: `${APPOINTMENT_SEARCH_PAGE_SIZE}` },
+      { name: '_elements', value: APPOINTMENT_SEARCH_ELEMENTS },
       {
         name: '_include',
         value: 'Appointment:patient',
@@ -215,7 +275,6 @@ export const getAppointmentQueryInput = async (input: {
         name: '_revinclude:iterate',
         value: 'Encounter:appointment',
       },
-      { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
       { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
       { name: '_include', value: 'Appointment:actor' },
       ...actorParams,

@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import {
   BillingClaimItem,
   CLAIM_STATUS_TAG_SYSTEMS,
+  CLAIM_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   getClaimStatusValues,
@@ -11,10 +12,11 @@ import {
   getPayerUrl,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
 import {
-  CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  determineRulesEngineForClaim,
   fhirName,
   findRef,
   getClaimService,
@@ -61,7 +63,7 @@ async function performEffect(
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
-    { name: '_total', value: 'exact' },
+    { name: '_total', value: 'accurate' },
   ];
 
   if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
@@ -102,12 +104,22 @@ async function performEffect(
     coverages = covResult.unbundle();
   }
 
-  const payersByRef = await resolvePayersByRef(
-    oystehr,
-    claims.map((c) => c.insurer?.reference)
-  );
+  const [payersByRef, claimResponsesByClaimId] = await Promise.all([
+    resolvePayersByRef(
+      oystehr,
+      claims.map((c) => c.insurer?.reference)
+    ),
+    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+  ]);
 
-  const lookups = { patients, payersByRef, locations, practitioners, coverages };
+  const lookups = {
+    patients,
+    payersByRef,
+    locations,
+    practitioners,
+    coverages,
+    claimResponsesByClaimId,
+  };
   const items = claims.map((claim) => mapClaimToItem(claim, lookups));
 
   return { claims: items, total, offset, pageSize };
@@ -119,6 +131,7 @@ interface ClaimLookups {
   locations: Location[];
   practitioners: Practitioner[];
   coverages: Coverage[];
+  claimResponsesByClaimId: Map<string, ClaimResponse[]>;
 }
 
 function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
@@ -135,12 +148,14 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patientName = fhirName(patient);
 
   const serviceDate = claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '';
+  const payments = summarizeClaimPayments(lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [], billed);
 
   return {
     id: claim.id ?? '',
     type: getClaimType(claim),
     status: getClaimStatus(claim),
     statuses: getClaimStatusValues(claim),
+    rulesEngine: determineRulesEngineForClaim(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
@@ -151,12 +166,11 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     facility: facility?.name ?? '',
     renderingProvider: practName,
     billed,
-    // TODO: wire payment data from ClaimResponse/PaymentReconciliation
-    allowed: 0,
-    insurancePaid: 0,
-    patientResp: 0,
-    patientPaid: 0,
-    claimBalance: billed,
+    allowed: payments.allowed,
+    insurancePaid: payments.insurancePaid,
+    patientResp: payments.patientResp,
+    patientPaid: payments.patientPaid,
+    claimBalance: payments.balance,
     responsibleParty: 'Primary',
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

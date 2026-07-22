@@ -63,6 +63,7 @@
             "Z3:#{var/PROJECT_ID}-statements/*",
             "Z3:#{var/PROJECT_ID}-patient-education/*",
             "Z3:#{var/PROJECT_ID}-patient-education-admin/*",
+            "Z3:#{var/PROJECT_ID}-radiology-reports/*",
             "Z3:#{var/PROJECT_ID}-legacy-data/*",
             "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
             "Z3:#{var/PROJECT_ID}-patient-docs-custom-folders/*",
@@ -77,6 +78,11 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Z3:#{var/PROJECT_ID}-TelemedRecordings/*"],
+          "action": ["Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
           "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
           "resource": ["*"]
@@ -87,7 +93,7 @@
           "resource": ["RCM:InsuranceEligibility"]
         },
         {
-          "action": ["eRx:SearchPharmacy"],
+          "action": ["eRx:SearchPharmacy", "eRx:GetPharmacy"],
           "effect": "Allow",
           "resource": ["eRx:Pharmacy"]
         },
@@ -112,7 +118,17 @@
           "resource": ["RCM:Payer"]
         },
         {
-          "action": ["RCM:ReadClaim"],
+          "action": ["RCM:ReadClaim", "RCM:SubmitClaim"],
+          "effect": "Allow",
+          "resource": ["RCM:Claim"]
+        },
+        {
+          "action": ["RCM:ProcessEra"],
+          "effect": "Allow",
+          "resource": ["RCM:Era"]
+        },
+        {
+          "action": ["RCM:SubmitClaim"],
           "effect": "Allow",
           "resource": ["RCM:Claim"]
         }

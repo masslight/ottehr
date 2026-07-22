@@ -1,14 +1,16 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
   Claim,
   Coverage,
+  FhirResource,
   Location,
   Organization,
   Patient,
   Person,
   Practitioner,
+  ProvenanceAgent,
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
@@ -17,24 +19,33 @@ import {
   claimStatusValuesToTags,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
-  CODE_SYSTEM_HCPCS,
+  CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   FHIR_RESOURCE_NOT_FOUND,
+  getCandidPlanTypeCodeFromCoverage,
+  getDefaultClaimSubmissionExtensions,
   getResourcesFromBatchInlineRequests,
   InternalError,
+  setCoveragePlanType,
   withArStageInitialization,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   buildDiagnosisSequence,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  determineRulesEngineForClaim,
   ensureClaimInsurance,
   findRef,
+  kickOffRulesEngine,
+  payerDisplay,
   prepareWorkingCopy,
+  resolvePayersByRef,
+  resourceDisplayName,
 } from '../shared';
 import { CreateClaimParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -51,8 +62,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -65,7 +77,11 @@ interface OriginalResources {
   billingProvider?: ClaimProvider;
 }
 
-async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promise<{ claimId: string }> {
+async function performEffect(
+  oystehr: Oystehr,
+  params: CreateClaimParams,
+  agent: ProvenanceAgent
+): Promise<{ claimId: string }> {
   const originals = await readOriginals(oystehr, params);
   const copies = await createWorkingCopies(oystehr, originals);
 
@@ -73,10 +89,35 @@ async function performEffect(oystehr: Oystehr, params: CreateClaimParams): Promi
     await linkPatientCopyViaPerson(oystehr, params.patientId, copies.patient.id);
   }
 
-  const claim = buildClaim(copies, params);
-  const created = await oystehr.fhir.create<Claim>(claim);
+  // Resolve the payer's display up front so the claim's references (and therefore its history
+  // records) carry friendly names.
+  const payerRef = copies.coverage?.payor?.[0]?.reference;
+  const payerName = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
+  const claim = buildClaim(copies, params, payerName);
 
-  return { claimId: created.id! };
+  // Create the claim and its creation Provenance atomically; the Provenance targets the claim's
+  // urn:uuid, which the transaction resolves to the real Claim reference.
+  const claimUrn = `urn:uuid:${randomUUID()}`;
+  const provenance = claimProvenanceRequest({
+    targetReference: claimUrn,
+    claimReference: claimUrn,
+    after: claim,
+    agent,
+    activity: 'create',
+    recorded: recordedNow(),
+  });
+  const requests: BatchInputRequest<FhirResource>[] = [
+    { method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn },
+    ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
+  ];
+  const tx = await oystehr.fhir.transaction<FhirResource>({ requests });
+  const created = (tx.entry ?? []).map((e) => e.resource).find((r): r is Claim => r?.resourceType === 'Claim');
+  if (!created?.id) throw InternalError;
+
+  const engine = determineRulesEngineForClaim(created);
+  if (engine) await kickOffRulesEngine(oystehr, engine, created.id, params.secrets);
+
+  return { claimId: created.id };
 }
 
 async function readOriginals(oystehr: Oystehr, params: CreateClaimParams): Promise<OriginalResources> {
@@ -115,7 +156,9 @@ async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResource
   order.push('patient');
 
   if (originals.coverage) {
-    const copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
+    let copy = prepareWorkingCopy<Coverage>(originals.coverage, originals.coverage.id!);
+    const planTypeCode = getCandidPlanTypeCodeFromCoverage(originals.coverage);
+    if (planTypeCode) copy = setCoveragePlanType(copy, planTypeCode);
     copy.beneficiary = { reference: patientUrn };
     // Mirror the encounter path: copy the subscriber RelatedPerson so the policy holder is preserved on
     // the working copy. Self coverages have no separate subscriber and stay pointed at the patient.
@@ -174,7 +217,7 @@ async function createWorkingCopies(oystehr: Oystehr, originals: OriginalResource
   return { patient: originals.patient, ...copies } as OriginalResources;
 }
 
-function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim {
+function buildClaim(copies: OriginalResources, params: CreateClaimParams, payerName?: string): Claim {
   const serviceDate = params.serviceLines?.[0]?.serviceDate ?? new Date().toISOString().slice(0, 10);
 
   // Status indicators chosen at creation, with the AR stage's progress status auto-initialized.
@@ -191,9 +234,14 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
     created: serviceDate,
     patient: { reference: `Patient/${copies.patient.id}` },
     provider: copies.billingProvider?.id
-      ? { reference: `${copies.billingProvider.resourceType}/${copies.billingProvider.id}` }
+      ? {
+          reference: `${copies.billingProvider.resourceType}/${copies.billingProvider.id}`,
+          display: resourceDisplayName(copies.billingProvider),
+        }
       : { display: 'Unknown' },
     priority: { coding: [{ system: CODE_SYSTEM_PROCESS_PRIORITY, code: 'normal' }] },
+    // Constant RCM attributes the Oystehr "Submit Claim" endpoint requires; other extensions layer on top.
+    extension: getDefaultClaimSubmissionExtensions(),
     insurance: [],
     diagnosis: [],
     item: [],
@@ -202,20 +250,25 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
   // A purely self-pay claim has no coverage; ensureClaimInsurance inserts the no-coverage stub so the
   // Claim stays valid (insurance is 1..*). Only set insurer when there's a real coverage to bill.
   const realInsurance = copies.coverage?.id
-    ? [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}` } }]
+    ? [{ sequence: 1, focal: true, coverage: { reference: `Coverage/${copies.coverage.id}`, display: payerName } }]
     : [];
   claim.insurance = ensureClaimInsurance(realInsurance);
   const payerRef = copies.coverage?.payor?.[0]?.reference;
-  if (payerRef && copies.coverage?.id) claim.insurer = { reference: payerRef };
-  if (copies.facility?.id) claim.facility = { reference: `Location/${copies.facility.id}` };
+  if (payerRef && copies.coverage?.id) claim.insurer = { reference: payerRef, display: payerName };
+  if (copies.facility?.id) {
+    claim.facility = { reference: `Location/${copies.facility.id}`, display: resourceDisplayName(copies.facility) };
+  }
 
   if (copies.renderingProvider?.id) {
     claim.careTeam = [
       {
         sequence: 1,
-        provider: { reference: `${copies.renderingProvider.resourceType}/${copies.renderingProvider.id}` },
+        provider: {
+          reference: `${copies.renderingProvider.resourceType}/${copies.renderingProvider.id}`,
+          display: resourceDisplayName(copies.renderingProvider),
+        },
         role: {
-          coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: '82' }],
+          coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }],
         },
       },
     ];
@@ -244,11 +297,11 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams): Claim
       careTeamSequence: copies.renderingProvider ? [1] : undefined,
       diagnosisSequence: buildDiagnosisSequence(line.diagnosisPointers, diagnosisCount),
       productOrService: {
-        coding: [{ system: CODE_SYSTEM_HCPCS, code: line.cptCode }],
+        coding: [{ system: CODE_SYSTEM_HL7_HCPCS, code: line.cptCode }],
       },
       modifier: line.modifiers?.length
         ? line.modifiers.map((m) => ({
-            coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER, code: m }],
+            coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER, code: m }],
           }))
         : undefined,
       servicedPeriod: { start: line.serviceDate },

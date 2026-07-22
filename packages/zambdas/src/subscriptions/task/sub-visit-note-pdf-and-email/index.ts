@@ -6,15 +6,15 @@ import {
   DATETIME_FULL_NO_YEAR,
   FEATURE_FLAGS_CONFIG,
   getAddressStringForScheduleResource,
+  getFullestAvailableName,
   getPatientContactEmail,
-  InPersonCompletionTemplateData,
   isFollowupEncounter,
   OTTEHR_MODULE,
   progressNoteChartDataRequestedFields,
+  removePrefix,
   Secrets,
   TASK_INPUT_TYPE_CODES,
   TASK_INPUT_TYPE_SYSTEM,
-  TelemedCompletionTemplateData,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 import { getChartData } from '../../../ehr/get-chart-data';
@@ -23,13 +23,18 @@ import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
+  buildVisitNoteEmailTemplate,
   createClinicalOystehrClient,
+  createOutboundDeliveryAttempt,
+  failOutboundDeliveryAttempt,
   getAuth0Token,
   getEmailClient,
-  makeAddressUrl,
+  sendVisitNoteEmailAttempt,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { fetchErxPharmacies } from '../../../shared/erx';
+import { getEncounterSignatures } from '../../../shared/pdf/get-encounter-signatures';
 import { getUpcomingFollowUps } from '../../../shared/pdf/get-upcoming-follow-ups';
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -72,8 +77,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
     console.log('getting appointment Id from the task');
-    const appointmentId =
-      task.focus?.type === 'Appointment' ? task.focus?.reference?.replace('Appointment/', '') : undefined;
+    const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '');
     console.log('appointment ID parsed: ', appointmentId);
 
     if (!appointmentId) {
@@ -85,7 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehr,
       appointmentId,
       true,
-      task.encounter?.reference?.split('/')[1]
+      removePrefix('Encounter/', task.encounter?.reference ?? '')
     );
     if (!visitResources) {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
@@ -121,7 +125,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     // Follow-ups hang off the top-level encounter, so resolve to the parent if this one is a follow-up.
-    const followUpParentEncounterId = encounter.partOf?.reference?.split('/')[1] ?? encounter.id!;
+    const followUpParentEncounterId = removePrefix('Encounter/', encounter.partOf?.reference ?? '') ?? encounter.id!;
     const upcomingFollowUpsPromise = getUpcomingFollowUps(
       oystehr,
       followUpParentEncounterId,
@@ -129,12 +133,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounter.id
     );
 
-    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps] = await Promise.all([
-      chartDataPromise,
-      additionalChartDataPromise,
-      medicationOrdersPromise,
-      upcomingFollowUpsPromise,
-    ]);
+    // Signature/approval lines for the bottom of the visit note. Supplementary, so a failure here
+    // must not block PDF generation or the completion email.
+    const signaturesPromise = getEncounterSignatures(oystehr, visitResources.encounter.id!).catch((error) => {
+      console.error(`Failed to resolve encounter signatures for encounter ${visitResources.encounter.id}:`, error);
+      return { signedBy: undefined, approvedBy: undefined };
+    });
+
+    const [chartDataResult, additionalChartDataResult, medicationOrdersData, upcomingFollowUps, signatures] =
+      await Promise.all([
+        chartDataPromise,
+        additionalChartDataPromise,
+        medicationOrdersPromise,
+        upcomingFollowUpsPromise,
+        signaturesPromise,
+      ]);
     const immunizationOrders = (
       await getImmunizationOrders(oystehr, {
         encounterIds: [visitResources.encounter.id!],
@@ -150,6 +163,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Check if we should skip making visit note visible in patient portal
       const skipVisitNoteInPatientPortal = FEATURE_FLAGS_CONFIG.skipSendingVisitNoteToPatientPortalEnabled;
 
+      const erxPharmacies = await fetchErxPharmacies(oystehr, additionalChartData?.prescribedMedications);
+
       // Always create the PDF
       const { pdfInfo } = await createProgressNotePdf(
         {
@@ -164,13 +179,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           appointmentPackage: visitResources,
           questionnaireResponse: visitResources.questionnaireResponse,
           upcomingFollowUps,
+          erxPharmacies,
+          signatures,
         },
         secrets,
         oystehrToken
       );
       if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+      if (isPDFOnlyTask) {
+        pdfInfo.title = 'Patient Follow-up Note';
+      }
       console.log(`Creating visit note pdf docRef`);
-      await makeVisitNotePdfDocumentReference(
+      const visitNoteDocument = await makeVisitNotePdfDocumentReference(
         oystehr,
         pdfInfo,
         patient.id,
@@ -179,86 +199,73 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         listResources
       );
 
-      // Send completion email only when: email is enabled, this is not a follow-up (isPDFOnlyTask),
-      // the task does not carry a SKIP_EMAIL input (addendum re-generation), and the feature flag
-      // for skipping patient-portal delivery is not set.
-      const emailClient = getEmailClient(secrets, oystehr);
-      const emailEnabled = emailClient.getFeatureFlag();
+      // Email delivery is secondary to PDF creation. Every failure in email setup, URL generation, validation, or
+      // provider delivery is contained here so the PDF task keeps its existing success semantics.
       let emailSent = false;
-
-      if (emailEnabled && !isPDFOnlyTask && !skipEmail) {
-        if (skipVisitNoteInPatientPortal) {
-          console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
-        } else {
-          const patientEmail = getPatientContactEmail(patient);
-          let prettyStartTime = '';
-          let locationName = '';
-          let address = '';
-          if (appointment.start && visitResources.timezone) {
-            prettyStartTime = DateTime.fromISO(appointment.start)
-              .setZone(visitResources.timezone)
-              .toFormat(DATETIME_FULL_NO_YEAR);
-          }
-          if (location) {
-            locationName = getNameForOwner(location);
-            address = getAddressStringForScheduleResource(location) ?? '';
-          }
-          const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
-          const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
-
-          if (isInPersonAppointment) {
-            const missingData: string[] = [];
-            if (!patientEmail) missingData.push('patient email');
-            if (!appointment.id) missingData.push('appointment ID');
-            if (!locationName) missingData.push('location name');
-            if (!address) missingData.push('address');
-            if (!prettyStartTime) missingData.push('appointment time');
-            if (!visitNoteUrl) missingData.push('visit note URL');
-            if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-              // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
-              const templateData: InPersonCompletionTemplateData = {
-                location: getNameForOwner(location),
-                time: prettyStartTime,
-                address,
-                'address-url': makeAddressUrl(address),
-                'visit-note-url': visitNoteUrl,
-              };
-              try {
-                await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
-                emailSent = true;
-              } catch (emailError) {
-                console.error(
-                  `Failed to send in-person completion email for appointment ${appointment.id}:`,
-                  emailError
-                );
-              }
-            } else {
-              console.error(
-                `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
+      if (!isPDFOnlyTask && !skipEmail) {
+        try {
+          const emailClient = skipVisitNoteInPatientPortal ? undefined : getEmailClient(secrets, oystehr);
+          if (emailClient?.getFeatureFlag()) {
+            const patientEmail = getPatientContactEmail(patient);
+            const { presignedUrls } = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
+            const visitNoteUrl = presignedUrls['visit-note']?.presignedUrl;
+            if (!patientEmail) throw new Error('Patient email is required');
+            if (!visitNoteDocument.id) throw new Error('Visit note DocumentReference ID is required');
+            const emailTemplate = buildVisitNoteEmailTemplate({
+              isInPerson: isInPersonAppointment,
+              locationName: location ? getNameForOwner(location) : undefined,
+              visitNoteUrl,
+              address: location ? getAddressStringForScheduleResource(location) : undefined,
+              prettyStartTime:
+                appointment.start && visitResources.timezone
+                  ? DateTime.fromISO(appointment.start).setZone(visitResources.timezone).toFormat(DATETIME_FULL_NO_YEAR)
+                  : undefined,
+            });
+            try {
+              await sendVisitNoteEmailAttempt(
+                {
+                  ...emailTemplate,
+                  oystehr,
+                  secrets,
+                  patientId: patient.id,
+                  appointmentId,
+                  recipientEmail: patientEmail,
+                  recipientName: patient.name?.length ? getFullestAvailableName(patient) : undefined,
+                  documentReferenceId: visitNoteDocument.id,
+                },
+                emailClient
               );
+              emailSent = true;
+            } catch (emailError) {
+              console.error(`Failed to send completion email for appointment ${appointment.id}:`, emailError);
             }
-          } else {
-            const missingData: string[] = [];
-            if (!patientEmail) missingData.push('patient email');
-            if (!appointment.id) missingData.push('appointment ID');
-            if (!locationName) missingData.push('location name');
-            if (!visitNoteUrl) missingData.push('visit note URL');
-            if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-              const templateData: TelemedCompletionTemplateData = {
-                location: getNameForOwner(location),
-                'visit-note-url': visitNoteUrl,
-              };
-              try {
-                await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
-                emailSent = true;
-              } catch (emailError) {
-                console.error(`Failed to send virtual completion email for appointment ${appointment.id}:`, emailError);
-              }
-            } else {
-              console.error(
-                `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`
-              );
+          } else if (skipVisitNoteInPatientPortal) {
+            console.log('Skipping completion email to patient - visit note patient portal feature flag is enabled');
+          }
+        } catch (emailPreparationError) {
+          console.error(
+            `Could not prepare visit note completion email for appointment ${appointment.id}:`,
+            emailPreparationError
+          );
+          // Preparation failed before sendVisitNoteEmailAttempt could create its own attempt record
+          // (e.g. email client init or presigned URL generation failed), so without this the failure
+          // would be invisible in Action Logs and unretryable. Record it directly.
+          try {
+            const failedAttempt = await createOutboundDeliveryAttempt(oystehr, {
+              channel: 'email',
+              patientId: patient.id,
+              appointmentId,
+              recipientAddress: getPatientContactEmail(patient) ?? '',
+              documentReferenceId: visitNoteDocument.id,
+            });
+            if (failedAttempt.id) {
+              await failOutboundDeliveryAttempt(oystehr, failedAttempt.id, emailPreparationError);
             }
+          } catch (recordError) {
+            console.error(
+              `Could not record the failed visit note email attempt for appointment ${appointment.id}:`,
+              recordError
+            );
           }
         }
       }

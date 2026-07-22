@@ -18,9 +18,10 @@ import {
   ApplyTemplateZambdaOutput,
   chartDataTagSystem,
   chunkThings,
+  CODE_SYSTEM_ICD_10,
   DiagnosisDTO,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
-  ICD_10_CODE_SYSTEM,
+  ResolvedSectionActions,
   resourceHasTagSystem,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
@@ -35,6 +36,7 @@ import {
   getTemplateEncounterBundle,
   hasTemplateRelevantTag,
   isDiagnosisCondition,
+  isPatientEducationCommunication,
   TemplateEncounterResource,
 } from '../shared/template-helpers';
 import { applyExternalLabPlans, isExternalLabPlanServiceRequest } from './apply-external-labs';
@@ -53,13 +55,14 @@ import {
 import { collectDxClaimedByLabPlans } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
+// Local const so that DEPRECATED system doesn't get imported from utils
+const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
+
 interface ComplexValidationOutput {
   templateList: List;
   encounter: Encounter;
   encounterBundle: TemplateEncounterResource[];
 }
-
-type ResolvedSectionActions = Record<TemplateSectionKey, TemplateSectionAction>;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -95,6 +98,7 @@ const complexValidation = async (
         resourceType: 'List',
         params: [
           { name: 'title', value: templateName },
+          { name: '_has:List:item:_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` },
           { name: '_revinclude', value: 'List:item' },
         ],
       })
@@ -290,12 +294,13 @@ const performEffect = async (
     templateList,
     encounter,
     oystehr,
-    action: actions.inHouseMedications,
+    actions,
     userToken: validatedInput.userToken,
     secrets: validatedInput.secrets,
     conditionRequests: createRequests.filter(
       (r): r is BatchInputPostRequest<Condition> => r.method === 'POST' && r.url === 'Condition'
     ),
+    encounterResources: encounterBundle,
   });
 
   // The live procedure ServiceRequests we build from the template's procedure
@@ -535,7 +540,12 @@ export const makeCreateRequests = (
       section === 'diagnoses' &&
       containedResource.resourceType === 'Condition' &&
       isDiagnosisCondition(containedResource as Condition)
-        ? (containedResource as Condition).code?.coding?.find((c) => c.system === ICD_10_CODE_SYSTEM)?.code
+        ? (containedResource as Condition).code?.coding?.find(
+            (c) =>
+              c.system === CODE_SYSTEM_ICD_10 ||
+              // legacy system
+              c.system === ICD_10_CODE_SYSTEM
+          )?.code
         : undefined;
     const isClaimedByLab = labClaimedIcd10Code !== undefined && icd10CodesClaimedByLabs.has(labClaimedIcd10Code);
     if (isClaimedByLab && labClaimedIcd10Code) labDxCodesHandledByLoop.add(labClaimedIcd10Code);
@@ -597,6 +607,10 @@ export const makeCreateRequests = (
       });
       continue;
     }
+
+    // Older templates erroneously contained Patient Education Communications. These should not be included
+    // template todo: this will change when we decide to include patient education in templates
+    if (isPatientEducationCommunication(containedResource)) continue;
 
     const resourceToCreate = { ...containedResource };
 
@@ -706,7 +720,14 @@ export const makeCreateRequests = (
       }
       synthesizedCodes.add(dx.code);
       const alreadyOnEncounter = encounterDiagnosesConditions.some(
-        (c) => c.code?.coding?.some((coding) => coding.system === ICD_10_CODE_SYSTEM && coding.code === dx.code)
+        (c) =>
+          c.code?.coding?.some(
+            (coding) =>
+              (coding.system === CODE_SYSTEM_ICD_10 ||
+                // legacy system
+                coding.system === ICD_10_CODE_SYSTEM) &&
+              coding.code === dx.code
+          )
       );
       if (alreadyOnEncounter) continue;
 
@@ -717,7 +738,7 @@ export const makeCreateRequests = (
         subject: encounter.subject,
         encounter: { reference: `Encounter/${encounter.id}` },
         code: {
-          coding: [{ system: ICD_10_CODE_SYSTEM, code: dx.code, display: dx.display || undefined }],
+          coding: [{ system: CODE_SYSTEM_ICD_10, code: dx.code, display: dx.display || undefined }],
           text: dx.display || undefined,
         },
       };
@@ -816,7 +837,12 @@ export const makeCreateRequests = (
 const isDuplicateDiagnosis = (templateDiagnosisCondition: Condition, encounterConditions: Condition[]): boolean => {
   const getDxCode = (condition: Condition): string | undefined => {
     if (!isDiagnosisCondition(condition)) return undefined;
-    return condition.code?.coding?.find((coding) => coding.system === ICD_10_CODE_SYSTEM)?.code;
+    return condition.code?.coding?.find(
+      (coding) =>
+        coding.system === CODE_SYSTEM_ICD_10 ||
+        // legacy system
+        coding.system === ICD_10_CODE_SYSTEM
+    )?.code;
   };
 
   console.log(
