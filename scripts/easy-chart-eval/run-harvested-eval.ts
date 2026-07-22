@@ -26,6 +26,14 @@
  *                                re-scoring via score-harvested.ts standalone mode).
  *   --self-test                  offline fixtures for the review dx-swap primary carry/promotion
  *                                sim (runs the real client helpers; no zambdas, no case data).
+ *   --redispatch=<resultsDir>    offline: re-run the DETERMINISTIC sim over each stored
+ *                                caseNNN.result.json's planSteps + recorded reviewSuggestions
+ *                                (replayed verbatim — no planner/review/model calls) and rewrite
+ *                                finalState + chartStateSentToReview in place. Every other field
+ *                                (usage, planSteps, reviewSuggestions, patientStatusSent,
+ *                                primaryFix, dispositionTrigger) is preserved. Use after a sim
+ *                                fix (e.g. template dx application) to refresh old runs; re-score
+ *                                afterwards via score-harvested.ts standalone mode.
  *   --review-only=<srcDir>       A/B the REVIEW model without re-running the (nondeterministic)
  *                                planner: per case, load the recorded planSteps (+ the recorded
  *                                patientStatusSent, reused verbatim for parity) from
@@ -86,9 +94,11 @@ import {
   normCode,
   normName,
   scoreCase,
+  SimDiagnosis,
   SimFinalState,
   SimSource,
 } from './score-harvested';
+import { resolveTemplateByDisplay } from './template-catalog';
 
 // ---------------------------------------------------------------------------
 // Auth + zambda plumbing (same pattern as run-eval-batch.ts / run-planner-batch.ts)
@@ -290,14 +300,61 @@ function removeByMatch<T extends { display: string; code?: string; removed?: boo
   return true;
 }
 
+// Extension fields recorded on the sim state (extra keys are ignored by score-harvested, which
+// only reads the fields it knows). Surfaced inside finalState in the result JSON and aggregated
+// into the end-of-run console summary so silent template-resolution gaps are visible.
+export type SimStateWithTemplateStats = SimFinalState & {
+  templateDxApplied?: number;
+  templateTitleUnmatched?: string[];
+};
+// Mirrors the client's AiChartedMeta.templateName marker on template-applied items
+// (useChartAssistant's handleApplyTemplate flagNew) so downstream analysis can tell a
+// template-default dx from a planner-emitted one.
+type SimTemplateDiagnosis = SimDiagnosis & { templateName: string };
+
 // Exported so the sim can be replayed/smoke-tested from persisted planSteps without zambda calls.
 export function applyStep(state: SimFinalState, step: Step, source: SimSource): void {
   switch (step.kind) {
-    case 'apply-template':
-      // Template CONTENTS (its default dx/exam/MDM) are not simulated headlessly — recorded so
-      // the review's chartState and the score report both carry the caveat.
-      state.templatesApplied.push(String(step.display ?? ''));
+    case 'apply-template': {
+      const title = String(step.display ?? '');
+      state.templatesApplied.push(title);
+      const stats = state as SimStateWithTemplateStats;
+      stats.templateDxApplied ??= 0;
+      stats.templateTitleUnmatched ??= [];
+      // Resolve against the seed catalog the way the client resolves against the live template
+      // list (findTemplateMatches, best match auto-applied). Only the template's DIAGNOSES are
+      // simulated — its exam/MDM/instruction contents still are not (see buildChartStateText).
+      const template = resolveTemplateByDisplay(title);
+      if (!template) {
+        stats.templateTitleUnmatched.push(title);
+        return;
+      }
+      for (const dx of template.diagnoses) {
+        // Mirrors the apply-template zambda's append semantics (makeCreateRequests): a dx whose
+        // ICD-10 code is already on the chart is skipped; otherwise it charts with the template's
+        // rank — primary (rank 1) unless the chart already has a primary, which is never usurped.
+        const active = state.diagnoses.filter((d) => !d.removed);
+        if (active.some((d) => normCode(d.code) === normCode(dx.code))) {
+          state.skipped.push({
+            kind: step.kind,
+            display: `${dx.code} — ${dx.display}`,
+            reason: 'template dx already charted',
+          });
+          continue;
+        }
+        const hasPrimary = active.some((d) => d.isPrimary);
+        const templateDx: SimTemplateDiagnosis = {
+          display: dx.display,
+          code: dx.code,
+          ...(dx.rank === 1 && !hasPrimary ? { isPrimary: true } : {}),
+          source,
+          templateName: template.title,
+        };
+        state.diagnoses.push(templateDx);
+        stats.templateDxApplied++;
+      }
       return;
+    }
     case 'add-diagnosis': {
       const code = normCode(step.code);
       const active = state.diagnoses.filter((d) => !d.removed);
@@ -564,7 +621,15 @@ export function applyReviewSuggestion(
 export function buildChartStateText(state: SimFinalState): string {
   const lines: string[] = [];
   if (state.templatesApplied.length) {
-    lines.push(`Template applied: ${state.templatesApplied.join('; ')} (may add its own default diagnosis/exam/MDM)`);
+    // The sim now applies the template's default DIAGNOSES (they appear in the Diagnoses line
+    // below); its exam/MDM/instruction contents still are not simulated. When a title didn't
+    // resolve against the catalog, keep the old "may add" caveat — nothing was applied for it.
+    const unmatched = (state as SimStateWithTemplateStats).templateTitleUnmatched ?? [];
+    const caveat =
+      unmatched.length > 0
+        ? '(not in the sim template catalog — may add its own default diagnosis/exam/MDM)'
+        : '(its default diagnosis is included in the diagnoses below; template exam/MDM content is not simulated)';
+    lines.push(`Template applied: ${state.templatesApplied.join('; ')} ${caveat}`);
   }
   const dx = state.diagnoses.filter((d) => !d.removed);
   if (dx.length) {
@@ -813,6 +878,95 @@ function rebuildSummary(outDir: string): void {
   writeFileSync(join(outDir, 'summary.json'), JSON.stringify(summary, null, 2));
   console.log(`summary.json rebuilt from ${scores.length} score files in ${outDir}`);
   console.log(formatSummary(summary));
+  printTemplateStats(outDir);
+}
+
+// Template-application counters live inside each result file's finalState (recorded by
+// applyStep). summary.json's schema is owned by score-harvested (untouched), so these are
+// surfaced on the console — a nonzero unmatched count means templates silently applied nothing.
+function printTemplateStats(dir: string): void {
+  const resultFiles = readdirSync(dir).filter((f) => /^case\d+\.result\.json$/.test(f));
+  let templateDxApplied = 0;
+  const unmatched: string[] = [];
+  for (const f of resultFiles) {
+    const rec = JSON.parse(readFileSync(join(dir, f), 'utf8')) as { finalState?: SimStateWithTemplateStats };
+    templateDxApplied += rec.finalState?.templateDxApplied ?? 0;
+    unmatched.push(...(rec.finalState?.templateTitleUnmatched ?? []));
+  }
+  console.log(
+    `template dx applied: ${templateDxApplied}; unmatched template titles: ${unmatched.length}` +
+      (unmatched.length ? ` (${[...new Set(unmatched)].join('; ')})` : '')
+  );
+}
+
+// ---------------------------------------------------------------------------
+// --redispatch: offline re-dispatch of stored result files through the CURRENT sim. Rebuilds
+// finalState (and chartStateSentToReview) from the recorded planSteps + reviewSuggestions via
+// the SAME functions the live path uses (applyPlanSteps / applyReviewSuggestion) — the recorded
+// suggestion content is replayed exactly, never regenerated. Idempotent and fully offline.
+// ---------------------------------------------------------------------------
+interface StoredResult extends Record<string, unknown> {
+  error?: string;
+  planSteps?: EasyChartPlannerStep[];
+  reviewSuggestions?: EasyChartSuggestion[];
+  chartStateSentToReview?: string;
+  finalState?: SimFinalState;
+}
+
+function redispatchResults(dir: string): void {
+  const files = readdirSync(dir)
+    .filter((f) => /^case\d+\.result\.json$/.test(f))
+    .sort();
+  if (files.length === 0) throw new Error(`--redispatch: no caseNNN.result.json files in ${dir}`);
+  let redone = 0;
+  let skipped = 0;
+  let changed = 0;
+  let dxDelta = 0;
+  let templateDxTotal = 0;
+  const unmatchedTitles = new Set<string>();
+  const activeDxCount = (st: SimFinalState | undefined): number =>
+    (st?.diagnoses ?? []).filter((d) => !d.removed).length;
+  for (const f of files) {
+    const path = join(dir, f);
+    const caseId = f.replace('.result.json', '');
+    const rec = JSON.parse(readFileSync(path, 'utf8')) as StoredResult;
+    if (rec.error || !Array.isArray(rec.planSteps)) {
+      console.log(`${caseId}: SKIPPED (${rec.error ? `recorded error: ${rec.error.slice(0, 60)}` : 'no planSteps'})`);
+      skipped++;
+      continue;
+    }
+    const state = emptySimState();
+    applyPlanSteps(state, rec.planSteps as Record<string, any>[] as Step[]);
+    const chartState = buildChartStateText(state);
+    for (const s of rec.reviewSuggestions ?? []) {
+      applyReviewSuggestion(state, (s.actions ?? []) as Record<string, any>[] as Step[]);
+    }
+    const dxBefore = activeDxCount(rec.finalState);
+    const dxAfter = activeDxCount(state);
+    // Only finalState + chartStateSentToReview are rebuilt; every other recorded field passes
+    // through the JSON round-trip byte-identically (the files were written by this same
+    // stringify, so re-serialization is the identity on untouched keys).
+    rec.finalState = state;
+    if (typeof rec.chartStateSentToReview === 'string') rec.chartStateSentToReview = chartState;
+    writeFileSync(path, JSON.stringify(rec, null, 2));
+    const stats = state as SimStateWithTemplateStats;
+    templateDxTotal += stats.templateDxApplied ?? 0;
+    (stats.templateTitleUnmatched ?? []).forEach((t) => unmatchedTitles.add(t));
+    if (dxAfter !== dxBefore) {
+      changed++;
+      dxDelta += dxAfter - dxBefore;
+    }
+    redone++;
+    const templateNote = stats.templateDxApplied ? ` (+${stats.templateDxApplied} template dx)` : '';
+    const templates = state.templatesApplied.length ? `; templates: ${state.templatesApplied.join('; ')}` : '';
+    console.log(`${caseId}: dx ${dxBefore} → ${dxAfter}${templateNote}${templates}`);
+  }
+  console.log(
+    `\nre-dispatched ${redone} result files in ${dir} (${skipped} skipped); ` +
+      `dx count changed in ${changed} cases (net ${dxDelta >= 0 ? '+' : ''}${dxDelta}); ` +
+      `template dx applied: ${templateDxTotal}; unmatched template titles: ${unmatchedTitles.size}` +
+      (unmatchedTitles.size ? ` (${[...unmatchedTitles].join('; ')})` : '')
+  );
 }
 
 async function main(): Promise<void> {
@@ -821,6 +975,14 @@ async function main(): Promise<void> {
   const positional = args.filter((a) => !a.startsWith('--'));
   const casesDir = positional[0] ?? 'scripts/easy-chart-eval/harvested-cases';
   const outDir = positional[1] ?? 'scripts/easy-chart-eval/harvested-results';
+
+  const redispatchFlag = flags.find((f) => f.startsWith('--redispatch='));
+  if (redispatchFlag) {
+    const dir = redispatchFlag.slice('--redispatch='.length);
+    if (!existsSync(dir)) throw new Error(`--redispatch dir not found: ${dir}`);
+    redispatchResults(dir);
+    return;
+  }
   mkdirSync(outDir, { recursive: true });
 
   if (flags.includes('--rescore-summary')) {
@@ -1103,6 +1265,61 @@ function runSimSelfTest(): void {
       instructions: [],
     };
     check('S8 removeTargetMissing counter', scoreCase('simS8', gold, state).counters.removeTargetMissing, 1);
+  }
+
+  // S9 — apply-template applies the template's contained dx from the seed catalog, mirroring
+  // the apply-template zambda's append semantics: rank-1 dx charts primary on an empty chart,
+  // an existing primary is never usurped, a duplicate ICD code is skipped, and an unresolvable
+  // title applies nothing but is counted.
+  {
+    const state = emptySimState();
+    applyPlanSteps(state, [{ kind: 'apply-template', display: 'Dysuria' }] as Step[]);
+    const active = activeDx(state);
+    check(
+      'S9 template dx applied as primary',
+      active.map((d) => [d.code, !!d.isPrimary]),
+      [['R30.0', true]]
+    );
+    check(
+      'S9 template provenance marker',
+      (active[0] as SimDiagnosis & { templateName?: string }).templateName,
+      'Dysuria'
+    );
+    check('S9 templateDxApplied counter', (state as SimStateWithTemplateStats).templateDxApplied, 1);
+    check(
+      'S9 chartState caveat reflects applied dx',
+      buildChartStateText(state).includes('its default diagnosis is included in the diagnoses below'),
+      true
+    );
+
+    const state2 = emptySimState();
+    applyPlanSteps(state2, [
+      { kind: 'add-diagnosis', display: 'Dysuria', code: 'R30.0', isPrimary: true },
+      { kind: 'apply-template', display: 'Dysuria' },
+    ] as Step[]);
+    check('S9 duplicate template dx skipped', activeDx(state2).length, 1);
+    check('S9 duplicate recorded as skip', state2.skipped.filter((s) => s.kind === 'apply-template').length, 1);
+
+    const state3 = emptySimState();
+    applyPlanSteps(state3, [
+      { kind: 'add-diagnosis', display: 'Acute URI', code: 'J06.9', isPrimary: true },
+      { kind: 'apply-template', display: 'Dysuria' },
+    ] as Step[]);
+    const active3 = activeDx(state3);
+    check('S9 existing primary never usurped', active3.find((d) => d.code === 'J06.9')?.isPrimary, true);
+    check('S9 template dx charts secondary', !!active3.find((d) => d.code === 'R30.0')?.isPrimary, false);
+
+    const state4 = emptySimState();
+    applyPlanSteps(state4, [{ kind: 'apply-template', display: 'Zzznonexistent Xyzzy' }] as Step[]);
+    check('S9 unmatched title applies nothing', activeDx(state4).length, 0);
+    check('S9 unmatched title counted', (state4 as SimStateWithTemplateStats).templateTitleUnmatched, [
+      'Zzznonexistent Xyzzy',
+    ]);
+    check(
+      'S9 unmatched caveat retained',
+      buildChartStateText(state4).includes('may add its own default diagnosis/exam/MDM'),
+      true
+    );
   }
 
   console.log(failures === 0 ? '\nSIM SELF-TEST PASS' : `\nSIM SELF-TEST FAIL (${failures} failing checks)`);
