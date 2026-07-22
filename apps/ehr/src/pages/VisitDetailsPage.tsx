@@ -42,9 +42,12 @@ import {
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
+import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import ImageUploader from 'src/components/ImageUploader';
+import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
+import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
@@ -282,6 +285,8 @@ export default function VisitDetailsPage(): ReactElement {
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
 
+  const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+
   const { fullCardPdfs, consentPdfUrls } = imageFileData || {
     fullCardPdfs: [],
     consentPdfUrls: [],
@@ -478,6 +483,7 @@ export default function VisitDetailsPage(): ReactElement {
   const patient = visitDetailsData?.patient;
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
+  const standAloneForms = visitDetailsData?.standAloneForms;
 
   const { data: faxData, isLoading: faxLoading } = useQuery({
     queryKey: ['get-visit-fax-history', appointmentID],
@@ -1011,6 +1017,14 @@ export default function VisitDetailsPage(): ReactElement {
                     Legacy Data
                   </Button>
                 )}
+                <Button
+                  variant="outlined"
+                  sx={{ borderRadius: '20px', textTransform: 'none' }}
+                  disabled={!appointment?.id}
+                  onClick={() => setSendFormDialogOpen(true)}
+                >
+                  Send Form
+                </Button>
               </Grid>
             </Grid>
             {/* page title row */}
@@ -1199,6 +1213,24 @@ export default function VisitDetailsPage(): ReactElement {
                         handleDeleteClick={handleDeleteClick}
                         isDeletingFront={deletingFileId === primaryInsuranceCards.frontId}
                         isDeletingBack={deletingFileId === primaryInsuranceCards.backId}
+                        frontCardHint={
+                          <InsuranceCardOrientationHint
+                            patientId={patientId}
+                            ordinal="primary"
+                            face="front"
+                            documentReferenceId={primaryInsuranceCards.frontId}
+                            onRotated={refetchFileData}
+                          />
+                        }
+                        backCardHint={
+                          <InsuranceCardOrientationHint
+                            patientId={patientId}
+                            ordinal="primary"
+                            face="back"
+                            documentReferenceId={primaryInsuranceCards.backId}
+                            onRotated={refetchFileData}
+                          />
+                        }
                       />
                       <CardCategoryGridItem
                         category="secondary-ins"
@@ -1213,6 +1245,24 @@ export default function VisitDetailsPage(): ReactElement {
                         handleDeleteClick={handleDeleteClick}
                         isDeletingFront={deletingFileId === secondaryInsuranceCards.frontId}
                         isDeletingBack={deletingFileId === secondaryInsuranceCards.backId}
+                        frontCardHint={
+                          <InsuranceCardOrientationHint
+                            patientId={patientId}
+                            ordinal="secondary"
+                            face="front"
+                            documentReferenceId={secondaryInsuranceCards.frontId}
+                            onRotated={refetchFileData}
+                          />
+                        }
+                        backCardHint={
+                          <InsuranceCardOrientationHint
+                            patientId={patientId}
+                            ordinal="secondary"
+                            face="back"
+                            documentReferenceId={secondaryInsuranceCards.backId}
+                            onRotated={refetchFileData}
+                          />
+                        }
                       />
                       <CardCategoryGridItem
                         category="id"
@@ -1391,6 +1441,26 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
+                    {standAloneForms && standAloneForms.length > 0 ? (
+                      standAloneForms.map((form, idx) => (
+                        <Grid item key={`${form.questionnaireId}-${idx}`}>
+                          <Paper sx={{ mt: 2, p: 3 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
+                              {form.questionnaireTitle}
+                            </Typography>
+                            <QuestionnaireResponseViewer form={form} />
+                          </Paper>
+                        </Grid>
+                      ))
+                    ) : (
+                      <Grid item>
+                        <PatientInformation
+                          title="Custom Paperwork"
+                          loading={loading}
+                          patientDetails={{ Status: 'No custom questionnaires attached' }}
+                        />
+                      </Grid>
+                    )}
                   </Grid>
                   <Grid container item xs={12} sm={6} direction="column">
                     {!patientBalancesLoading &&
@@ -1602,7 +1672,7 @@ export default function VisitDetailsPage(): ReactElement {
                         {(() => {
                           // Merge BOOKING_CONFIG (compiled-in, source of truth on collision)
                           // with the FHIR-backed catalog so admins can switch a visit to a
-                          // runtime-registered category. Dedup by code. Filter inactive
+                          // runtime-registered category. Dedupe by code. Filter inactive
                           // FHIR-backed entries — the update-visit-details validator only
                           // resolves against `active=true` HSes, so offering an inactive
                           // category here would let the admin pick something that fails
@@ -1715,6 +1785,13 @@ export default function VisitDetailsPage(): ReactElement {
           outputFormat="png"
           onScanComplete={handleScanComplete}
         />
+        {appointmentID && (
+          <SendFormDialog
+            open={sendFormDialogOpen}
+            onClose={() => setSendFormDialogOpen(false)}
+            appointmentId={appointmentID}
+          />
+        )}
       </>
     </PageContainer>
   );
@@ -1733,6 +1810,10 @@ interface CardCategoryGridItemInput {
   handleDeleteClick: (id: string | null) => Promise<void>;
   isDeletingFront: boolean;
   isDeletingBack: boolean;
+  /** Rendered under the FRONT card image (e.g. the rotate control + "card may be rotated" hint for insurance cards). */
+  frontCardHint?: React.ReactNode;
+  /** Rendered under the BACK card image (e.g. the rotate control for insurance cards; OCR gives no orientation verdict for backs). */
+  backCardHint?: React.ReactNode;
 }
 
 function parseFiletype(fileUrl: string): string {
@@ -1757,6 +1838,8 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   handleDeleteClick,
   isDeletingFront,
   isDeletingBack,
+  frontCardHint,
+  backCardHint,
 }) => {
   const title = (() => {
     if (category === 'primary-ins') {
@@ -1923,6 +2006,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                     setDeleteDialogOpen(null);
                   }}
                 />
+                {key === 'front' ? frontCardHint : backCardHint}
               </Grid>
             ) : (
               <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>

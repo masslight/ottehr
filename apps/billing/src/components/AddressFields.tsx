@@ -7,17 +7,7 @@ import { AllStates, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE, stateCodeTo
 export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }): ReactElement {
   const { control } = useFormContext();
   return (
-    <Box
-      sx={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2.5,
-        borderLeft: 1,
-        borderColor: 'divider',
-        pl: 5,
-      }}
-    >
+    <>
       <Controller
         name="line1"
         control={control}
@@ -86,7 +76,9 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
                 error={!!fieldError}
               >
                 {AllStates.map((state) => (
-                  <MenuItem value={state.value}>{stateCodeToFullName[state.value]}</MenuItem>
+                  <MenuItem value={state.value} key={state.value}>
+                    {stateCodeToFullName[state.value]}
+                  </MenuItem>
                 ))}
               </Select>
               {fieldError ? (
@@ -127,6 +119,6 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
           )}
         />
       </Box>
-    </Box>
+    </>
   );
 }

@@ -124,6 +124,8 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
+export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
+
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
@@ -156,7 +158,7 @@ export async function invokeChatbotVertexAI(
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${VERTEX_AI_MODEL}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           headers: {
@@ -222,9 +224,10 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
   const rawMimeType = file.headers.get('Content-Type') || 'unknown';
 
   // Vertex requires a concrete audio/* MIME type on the inlineData and rejects anything else with a bare
-  // INVALID_ARGUMENT. The in-person upload is tagged audio/webm by the SDK, but the Oystehr-managed telemed
-  // recording's Z3 object can come back with a generic application/octet-stream (or no) Content-Type. Telemed
-  // recordings are always MP4, so fall back to audio/mp4 when Z3 doesn't give us a real audio/* type.
+  // INVALID_ARGUMENT. The in-person upload tags the object with the browser's actual recorded type
+  // (audio/webm on desktop, audio/mp4 on iOS Safari), but the Oystehr-managed telemed recording's Z3 object
+  // can come back with a generic application/octet-stream (or no) Content-Type. Telemed recordings are
+  // always MP4, so fall back to audio/mp4 when Z3 doesn't give us a real audio/* type.
   const mimeType = rawMimeType.startsWith('audio/') ? rawMimeType : 'audio/mp4';
   console.log(
     `[transcribeAndCreateResourcesFromZ3Audio] z3URL=${args.z3URL} rawContentType=${rawMimeType} sentMimeType=${mimeType} bytes=${bytes.byteLength} base64Length=${fileBase64.length}`

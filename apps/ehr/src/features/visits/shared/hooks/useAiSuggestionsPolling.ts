@@ -8,27 +8,33 @@ const MAX_POLL_ATTEMPTS = 20; // ~10 minutes
 
 const AI_OBSERVATION_FIELDS = Object.values(AiObservationField) as string[];
 
-// After the provider permanently ends a telemed call (oystehr.telemed.endMeeting), the recording
-// pipeline transcribes the audio and creates AI suggestion Observations within a few minutes.
-// Poll chart data until they appear so suggestions show up without a manual page reload.
+// After the provider ends a telemed call (oystehr.telemed.endMeeting), the recording pipeline transcribes
+// the audio and creates AI suggestion Observations within a few minutes. Poll chart data until they appear
+// so suggestions show up without a manual page reload. A visit can have multiple calls, so we re-poll on
+// every call end (endedCallCount) and stop once this call's suggestions land (count grows past the baseline)
+// rather than keying on "any suggestions exist" — otherwise a later call would never be polled for.
 export const useAiSuggestionsPolling = (): void => {
-  const { wasMeetingEnded } = getSelectors(useVideoCallStore, ['wasMeetingEnded']);
+  const { endedCallCount } = getSelectors(useVideoCallStore, ['endedCallCount']);
   const { chartData, refetch } = useChartData();
-  const attemptsRef = useRef(0);
 
-  const hasAiSuggestions = (chartData?.observations ?? []).some((observation) =>
+  const aiSuggestionCount = (chartData?.observations ?? []).filter((observation) =>
     AI_OBSERVATION_FIELDS.includes(observation.field)
-  );
+  ).length;
+  // Keep the latest count in a ref so the interval reads fresh values without re-running the effect
+  // (which would reset the poll window on every chart refetch).
+  const aiSuggestionCountRef = useRef(aiSuggestionCount);
+  aiSuggestionCountRef.current = aiSuggestionCount;
 
   useEffect(() => {
-    if (!wasMeetingEnded || hasAiSuggestions) {
+    if (endedCallCount === 0) {
       return;
     }
 
-    attemptsRef.current = 0;
+    const baseline = aiSuggestionCountRef.current;
+    let attempts = 0;
     const intervalId = setInterval(() => {
-      attemptsRef.current += 1;
-      if (attemptsRef.current > MAX_POLL_ATTEMPTS) {
+      attempts += 1;
+      if (aiSuggestionCountRef.current > baseline || attempts > MAX_POLL_ATTEMPTS) {
         clearInterval(intervalId);
         return;
       }
@@ -36,5 +42,5 @@ export const useAiSuggestionsPolling = (): void => {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
-  }, [wasMeetingEnded, hasAiSuggestions, refetch]);
+  }, [endedCallCount, refetch]);
 };

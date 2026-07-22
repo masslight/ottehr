@@ -11,6 +11,7 @@ import { useAiSuggestionsPolling } from '../../shared/hooks/useAiSuggestionsPoll
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { useStopAmbientScribeOnLeave } from '../../shared/stores/audioRecording.store';
 import { VideoChatContainer } from '../../telemed/components/appointment/VideoChatContainer';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
 import { Header } from '../components/Header';
@@ -50,6 +51,8 @@ export const InPersonLayout: React.FC = () => {
 
   useResetAppointmentStore();
   useAiSuggestionsPolling();
+  // Keep the Ambient Scribe recording alive across rotation; stop & save it on leaving the visit.
+  useStopAmbientScribeOnLeave({ hostKey: encounter.id ?? '' });
   const { chartData } = useChartData({ shouldUpdateExams: true });
   const assignedProviderId = getAttendingPractitionerId(encounter);
   const virtual = isTelemedAppointment(appointment);
