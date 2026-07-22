@@ -309,6 +309,7 @@ interface BasicInput {
   userToken: string;
   patientId: string;
   questionnaireResponse: QuestionnaireResponse;
+  onlyValidateProvidedFields: boolean;
   secrets: Secrets | null;
 }
 
@@ -324,9 +325,12 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   }
 
   const { secrets } = input;
-  const { questionnaireResponse } = safeJsonParse(input.body);
+  const { questionnaireResponse, onlyValidateProvidedFields } = safeJsonParse(input.body);
   if (questionnaireResponse === undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['questionnaireResponse']);
+  }
+  if (onlyValidateProvidedFields !== undefined && typeof onlyValidateProvidedFields !== 'boolean') {
+    throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('onlyValidateProvidedFields must be a boolean when provided');
   }
   if (questionnaireResponse.resourceType !== 'QuestionnaireResponse') {
     throw QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR('questionnaireResponse must be of type QuestionnaireResponse');
@@ -359,6 +363,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 
   return {
     questionnaireResponse,
+    onlyValidateProvidedFields: onlyValidateProvidedFields ?? false,
     secrets,
     userToken,
     patientId,
@@ -373,7 +378,7 @@ interface FinishedInput extends BasicInput {
 }
 
 const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
-  const { secrets, userToken, questionnaireResponse } = input;
+  const { secrets, userToken, questionnaireResponse, onlyValidateProvidedFields } = input;
   console.log('questionnaireResponse', JSON.stringify(questionnaireResponse));
   const user = await userMe(userToken, secrets);
   if (!user) {
@@ -391,7 +396,15 @@ const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   console.log('preserveOmittedCoverages', preserveOmittedCoverages);
 
   const questionnaireItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
-  const validationSchema = makeValidationSchema(questionnaireItems, undefined);
+  // By default we validate each submitted section in full — some sections (e.g.
+  // insurance/coverage) can't be safely processed field-by-field and must be
+  // validated as an atomic unit. Callers making a single-field edit (e.g. the EHR
+  // Medicaid toggle) opt into `onlyValidateProvidedFields` so an unrelated required
+  // sibling in the same section — like ethnicity/race in
+  // `patient-additional-details-section` — doesn't reject the update.
+  const validationSchema = makeValidationSchema(questionnaireItems, undefined, undefined, {
+    onlyValidateProvidedFields,
+  });
   // when a coverage is added via the add coverage modal, a single item with the data for the added coverage is sent to
   // this endpoint. passing this allows us to refrain from removing any existing coverages from the account when a new one is added.
   try {

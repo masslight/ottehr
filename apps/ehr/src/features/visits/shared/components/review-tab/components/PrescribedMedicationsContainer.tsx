@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { useQueries } from '@tanstack/react-query';
 import { FC } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils';
 import { useChartFields } from '../../../hooks/useChartFields';
 import { PrescribedMedicationReviewItem } from './PrescribedMedicationReviewItem';
 
@@ -55,8 +56,8 @@ export const PrescribedMedicationsContainer: FC = () => {
                   pharmacy.address2,
                   pharmacy.city,
                   pharmacy.state,
-                  pharmacy.zipCode,
-                  pharmacy.phone,
+                  pharmacy.zipCode ? formatZipcodeForDisplay(pharmacy.zipCode) : undefined,
+                  formatPhoneNumberDisplay(pharmacy.phone),
                 ]
                   .filter(Boolean)
                   .join(', ')}

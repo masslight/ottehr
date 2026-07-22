@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
+import { setNpi } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   buildAddress,
@@ -10,7 +11,7 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
-  setNpi,
+  setStripeAccountId,
   setTaxId,
   setTaxonomy,
 } from '../shared';
@@ -69,12 +70,14 @@ function applyIdentifiersAndAddress(
     npi?: string;
     taxonomyCode?: string;
     taxId?: string;
+    stripeAccountId?: string;
     address?: { line1?: string; line2?: string; city?: string; state?: string; postalCode?: string };
   }
 ): void {
   setNpi(resource, params.npi ?? '');
   setTaxId(resource, params.taxId ?? '');
   setTaxonomy(resource, params.taxonomyCode ?? '');
+  setStripeAccountId(resource, params.stripeAccountId ?? '');
 
   if (params.address) resource.address = [buildAddress(params.address)];
   else delete resource.address;

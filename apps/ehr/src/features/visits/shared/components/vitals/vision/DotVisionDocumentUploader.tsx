@@ -100,7 +100,7 @@ export const DotVisionDocumentUploader: FC<DotVisionDocumentUploaderProps> = ({
           {document.title}
         </Link>
         {!disabled && (
-          <IconButton size="small" aria-label="remove document" onClick={onRemove}>
+          <IconButton size="small" color="error" aria-label="remove document" onClick={onRemove}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         )}

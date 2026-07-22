@@ -25,6 +25,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
   setCoveragePlanType,
+  setNpi,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
@@ -48,7 +49,6 @@ import {
   resourceDisplayName,
   setClia,
   setCoverageRelationship,
-  setNpi,
   setTaxId,
   setTaxonomy,
 } from '../shared';
@@ -61,7 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor(oystehr, input.headers?.Authorization, params.secrets);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
   const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };

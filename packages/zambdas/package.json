@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.38.6",
+  "version": "1.39.3",
   "private": true,
   "sideEffects": false,
   "scripts": {
@@ -58,6 +58,7 @@
     "mock-unsolicited-result": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/unsolicited-result-helper.ts",
     "make-in-house-test-items": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/load-in-house-labs-tests.ts",
     "migrate-practitioner-credentials": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/migrate-practitioner-credentials.ts",
+    "backfill-outbound-fax-attempts": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/backfill-outbound-fax-attempts.ts",
     "mock-attachment-result": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/attachment-result-helper.ts",
     "mock-abn-doc": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/create-abn-doc.ts",
     "get-lab-sr-dr-docref": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/get-external-lab-sr-dr-docref.ts",

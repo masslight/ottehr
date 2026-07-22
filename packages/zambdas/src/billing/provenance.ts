@@ -22,6 +22,9 @@ import {
   CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   CLAIM_STATUS_FIELDS,
+  CLAIM_SYSTEM_DEVICE_IDENTIFIER,
+  CLAIM_SYSTEM_DEVICE_NAME,
+  CLAIM_TAG_SYSTEM,
   ClaimFieldChange,
   ClaimProvenanceActivityKey,
   ClaimStatusFieldKey,
@@ -32,14 +35,13 @@ import {
   getNPI,
   getPatchBinary,
   getTaxID,
+  HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
-  removePrefix,
   Secrets,
   userMe,
 } from 'utils';
 import {
   buildUpdatedClaimStatusTags,
-  CLAIM_TAG_SYSTEM,
   fhirName,
   formatAddress,
   getClaimType,
@@ -260,6 +262,7 @@ export function diffResources(before: Resource | undefined, after: Resource | un
 
 // Cached across warm invocations (per module scope), like the M2M token.
 let rulesEngineDeviceId: string | undefined;
+let systemDeviceId: string | undefined;
 
 /**
  * Resolve (and lazily provision) the singleton Device representing the automated billing rules engine.
@@ -300,6 +303,45 @@ export async function ensureRulesEngineDevice(oystehr: Oystehr): Promise<string>
 }
 
 /**
+ * Resolve (and lazily provision) the singleton Device representing general system automation
+ * that is not specifically attributable to the rules engine.
+ */
+export async function ensureSystemDevice(oystehr: Oystehr): Promise<string> {
+  if (systemDeviceId) return systemDeviceId;
+
+  const identifierToken = `${CLAIM_SYSTEM_DEVICE_IDENTIFIER.system}|${CLAIM_SYSTEM_DEVICE_IDENTIFIER.value}`;
+  const tx = await oystehr.fhir.transaction<Device>({
+    requests: [
+      {
+        method: 'POST',
+        url: '/Device',
+        resource: {
+          resourceType: 'Device',
+          identifier: [CLAIM_SYSTEM_DEVICE_IDENTIFIER],
+          deviceName: [{ name: CLAIM_SYSTEM_DEVICE_NAME, type: 'user-friendly-name' }],
+          status: 'active',
+        },
+        ifNoneExist: [{ name: 'identifier', value: identifierToken }],
+      },
+    ],
+  });
+  let device = tx.entry?.[0]?.resource;
+  if (!device?.id) {
+    device = (
+      await oystehr.fhir.search<Device>({
+        resourceType: 'Device',
+        params: [{ name: 'identifier', value: identifierToken }],
+      })
+    ).unbundle()[0];
+  }
+  if (!device?.id) throw new Error('Failed to resolve the system Device');
+  systemDeviceId = device.id;
+  return systemDeviceId;
+}
+
+type ClaimProvenanceActorWho = 'caller' | 'system' | 'rules';
+
+/**
  * Resolve the acting agent for a billing mutation. FHIR operations run on the M2M client — the
  * Authorization header is identity-only. A caller with a Practitioner profile is the human actor;
  * an authenticated caller without one (M2M automation) is the rules-engine Device. A failure to
@@ -307,26 +349,38 @@ export async function ensureRulesEngineDevice(oystehr: Oystehr): Promise<string>
  * retryable error.
  */
 export async function resolveClaimActor(
+  who: ClaimProvenanceActorWho,
   oystehr: Oystehr,
   authorizationHeader: string | undefined,
   secrets: Secrets | null
 ): Promise<ProvenanceAgent> {
-  const token = authorizationHeader?.replace('Bearer ', '');
-  if (token) {
-    const user = await userMe(token, secrets);
-    const practitionerId = user.profile ? removePrefix('Practitioner/', user.profile) : undefined;
-    if (practitionerId) {
+  switch (who) {
+    case 'caller': {
+      if (!authorizationHeader) throw new Error('Missing Authorization header for caller actor');
+      const token = authorizationHeader?.replace('Bearer ', '');
+      if (!token) throw new Error('Missing token for caller actor');
+      const user = await userMe(token, secrets);
+      if (!user.profile?.includes('Practitioner/')) throw new Error('Caller is not a Practitioner for caller actor');
       return {
         type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.human] },
-        who: { reference: `Practitioner/${practitionerId}` },
+        who: { reference: user.profile },
+      };
+    }
+    case 'system': {
+      const deviceId = await ensureSystemDevice(oystehr);
+      return {
+        type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] },
+        who: { reference: `Device/${deviceId}` },
+      };
+    }
+    case 'rules': {
+      const deviceId = await ensureRulesEngineDevice(oystehr);
+      return {
+        type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] },
+        who: { reference: `Device/${deviceId}` },
       };
     }
   }
-  const deviceId = await ensureRulesEngineDevice(oystehr);
-  return {
-    type: { coding: [CLAIM_PROVENANCE_AGENT_TYPE.system] },
-    who: { reference: `Device/${deviceId}` },
-  };
 }
 
 // --- Provenance request building --------------------------------------------
@@ -405,6 +459,9 @@ export interface ClaimResourceChange {
   activity?: ClaimProvenanceActivityKey;
   // Change entries the projection diff can't see (e.g. policy-holder edits folded into the Coverage).
   extraChanges?: ClaimFieldChange[];
+  // Optimistic-locking header for the PUT; a concurrent edit then fails the transaction instead of
+  // being clobbered.
+  ifMatch?: string;
 }
 
 /**
@@ -412,7 +469,7 @@ export interface ClaimResourceChange {
  * when composing a larger transaction; use commitClaimResourceChange to commit directly.
  */
 export function claimResourceChangeRequests(change: ClaimResourceChange): BatchInputRequest<FhirResource>[] {
-  const { resource, before, agent, claimReference, activity, extraChanges } = change;
+  const { resource, before, agent, claimReference, activity, extraChanges, ifMatch } = change;
   const provenance = claimProvenanceRequest({
     targetReference: `${resource.resourceType}/${resource.id}`,
     claimReference,
@@ -425,7 +482,7 @@ export function claimResourceChangeRequests(change: ClaimResourceChange): BatchI
     extraChanges,
   });
   return [
-    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource },
+    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource, ...(ifMatch ? { ifMatch } : {}) },
     ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
   ];
 }
@@ -486,7 +543,7 @@ export async function commitClaimMetaTagsWithProvenance(
 /**
  * Set (or clear) one claim-status field and record the change, atomically. The provenance-aware
  * counterpart of shared.ts#buildUpdatedClaimStatusTags, used by every endpoint that moves a claim's
- * status (set-billing-claim-status, submit-billing-claim, ...).
+ * status (set-billing-claim-status, the rules engine's claim submission, ...).
  */
 export async function applyClaimStatusField(
   oystehr: Oystehr,
@@ -496,5 +553,23 @@ export async function applyClaimStatusField(
   agent: ProvenanceAgent
 ): Promise<void> {
   const updatedTags = buildUpdatedClaimStatusTags(claim, field, value);
+  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
+}
+
+/**
+ * applyClaimStatusField variant for a passing rules-engine run: moves the status field and lifts the
+ * Hold tag in the same commit (one write, one history record). The rules just passed, so a hold left
+ * by an earlier run or an AR stage change no longer applies.
+ */
+export async function applyClaimStatusFieldClearingHold(
+  oystehr: Oystehr,
+  claim: Claim,
+  field: ClaimStatusFieldKey,
+  value: string,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const updatedTags = buildUpdatedClaimStatusTags(claim, field, value).filter(
+    (t) => !(t.system === CLAIM_TAG_SYSTEM && t.code === HOLD_TAG_NAME)
+  );
   await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
 }
