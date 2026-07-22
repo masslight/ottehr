@@ -16,8 +16,6 @@ import { ParsedInvoiceConfig } from 'utils/lib/helpers/rcm/invoice-config';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { shouldUseCandid, shouldUseOttehrBilling } from './candid';
 
-const readyTaskStatus = mapDisplayToInvoiceTaskStatus('ready');
-
 interface InvoicingFlags {
   candidInvoicingEnabled?: boolean;
   ottehrBillingInvoicingEnabled?: boolean;
@@ -57,7 +55,7 @@ export function buildInvoiceTask(params: BuildInvoiceTaskParams): Task {
 
   return {
     resourceType: 'Task',
-    status: readyTaskStatus,
+    status: mapDisplayToInvoiceTaskStatus('ready'),
     description: `Send invoice for $${(amountCents / 100).toFixed(2)}`,
     intent: 'order',
     code: RcmTaskCodings.sendInvoiceToPatient,
