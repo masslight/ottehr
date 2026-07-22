@@ -78,6 +78,7 @@ import {
   aggregateScores,
   CaseScore,
   CaseUsage,
+  DispositionTriggerInfo,
   emptySimState,
   formatCaseLine,
   formatSummary,
@@ -660,6 +661,7 @@ interface PlannerOutput {
 interface ReviewOutput {
   suggestions?: EasyChartSuggestion[];
   usage?: EasyChartTokenUsage;
+  dispositionTrigger?: DispositionTriggerInfo;
 }
 
 // Shape of a source-run result file consumed by --review-only.
@@ -763,6 +765,9 @@ async function runCase(
               }
             : {}),
           primaryFix: { carried: primaryCarried, promoted: primaryPromoted },
+          // null = this run's review response carried no dispositionTrigger (older zambda);
+          // distinguishes that from result files written before the field existed at all.
+          dispositionTrigger: review.dispositionTrigger ?? null,
           planSteps,
           reviewSuggestions: suggestions,
           chartStateSentToReview: chartState,
@@ -774,7 +779,7 @@ async function runCase(
       )
     );
     stage = 'score';
-    const score = scoreCase(caseId, gold, state, usage);
+    const score = scoreCase(caseId, gold, state, usage, review.dispositionTrigger ?? null);
     writeFileSync(join(outDir, `${caseId}.score.json`), JSON.stringify(score, null, 2));
     return {
       score,

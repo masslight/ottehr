@@ -166,6 +166,16 @@ export interface CaseUsage {
   review?: EasyChartTokenUsage;
 }
 
+// Disposition-check observability passed through verbatim from the review response (mirrors
+// EasyChartReviewOutput.dispositionTrigger in packages/utils). On a CaseScore: `null` = the
+// review response carried no trigger info (older zambda); field absent = the run predates the
+// field entirely — the aggregate's no-data bucket covers both.
+export interface DispositionTriggerInfo {
+  fired: boolean;
+  matchedPattern?: string;
+  modelProposed: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Score shapes
 // ---------------------------------------------------------------------------
@@ -240,6 +250,7 @@ export interface CaseScore {
     removeTargetMissing: number;
   };
   usage?: CaseUsage;
+  dispositionTrigger?: DispositionTriggerInfo | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -637,7 +648,13 @@ export const FREETEXT_PAIRING = {
   medicalDecisionMaking: { goldField: 'medicalDecisionMaking', noteField: 'medicalDecision' },
 } as const;
 
-export function scoreCase(caseId: string, gold: GoldData, state: SimFinalState, usage?: CaseUsage): CaseScore {
+export function scoreCase(
+  caseId: string,
+  gold: GoldData,
+  state: SimFinalState,
+  usage?: CaseUsage,
+  dispositionTrigger?: DispositionTriggerInfo | null
+): CaseScore {
   const ft = (goldText: string | undefined, pred: SimNoteText | undefined): FreeTextScore => ({
     goldPresent: !!goldText?.trim(),
     goldLength: goldText?.trim().length ?? 0,
@@ -698,6 +715,8 @@ export function scoreCase(caseId: string, gold: GoldData, state: SimFinalState, 
       removeTargetMissing: state.skipped.filter((sk) => sk.kind.startsWith('remove-')).length,
     },
     ...(usage ? { usage } : {}),
+    // undefined = omit entirely (pre-field runs keep byte-identical score files).
+    ...(dispositionTrigger !== undefined ? { dispositionTrigger } : {}),
   };
 }
 
@@ -755,6 +774,15 @@ export interface AggregateSummary {
     goldDisposition: number;
     predictedDisposition: number;
     removeTargetMissing: number;
+  };
+  // Review disposition-trigger buckets: noData = score has no trigger info (pre-field run OR a
+  // review response without the field); firedByPattern counts fired cases per matchedPattern.
+  dispositionTrigger: {
+    firedProposed: number;
+    firedDeclined: number;
+    notFired: number;
+    noData: number;
+    firedByPattern: Record<string, number>;
   };
   usage: { planner: UsageAgg; review: UsageAgg };
 }
@@ -870,6 +898,13 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     planner: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
     review: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
   };
+  const dispositionTrigger: AggregateSummary['dispositionTrigger'] = {
+    firedProposed: 0,
+    firedDeclined: 0,
+    notFired: 0,
+    noData: 0,
+    firedByPattern: {},
+  };
   for (const s of scores) {
     for (const k of Object.keys(contextCharted) as (keyof typeof contextCharted)[])
       contextCharted[k] += s.contextCharted[k];
@@ -883,6 +918,15 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     counters.removeTargetMissing += s.counters.removeTargetMissing ?? 0;
     if (s.counters.goldDisposition) counters.goldDisposition++;
     if (s.counters.predictedDisposition) counters.predictedDisposition++;
+    const t = s.dispositionTrigger; // == null: absent (pre-field run) or null (response lacked it)
+    if (t == null) dispositionTrigger.noData++;
+    else if (!t.fired) dispositionTrigger.notFired++;
+    else {
+      if (t.modelProposed) dispositionTrigger.firedProposed++;
+      else dispositionTrigger.firedDeclined++;
+      const p = t.matchedPattern ?? '(unspecified)';
+      dispositionTrigger.firedByPattern[p] = (dispositionTrigger.firedByPattern[p] ?? 0) + 1;
+    }
     for (const phase of ['planner', 'review'] as const) {
       const u = s.usage?.[phase];
       if (!u) continue;
@@ -900,6 +944,7 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     freeText,
     contextCharted,
     counters,
+    dispositionTrigger,
     usage,
   };
 }
@@ -963,6 +1008,14 @@ export function formatSummary(agg: AggregateSummary): string {
   lines.push(
     `counters: templates ${agg.counters.templatesApplied}, examComments ${agg.counters.examComments}, pendingNoteEdits ${agg.counters.pendingNoteEdits}, providerNotes ${agg.counters.providerNotes}, instructions gold/pred ${agg.counters.goldInstructions}/${agg.counters.predictedInstructions}, disposition gold/pred ${agg.counters.goldDisposition}/${agg.counters.predictedDisposition}, removeTargetMissing ${agg.counters.removeTargetMissing}`
   );
+  const dt = agg.dispositionTrigger;
+  lines.push(
+    `disposition trigger: fired&proposed ${dt.firedProposed}, fired&declined ${dt.firedDeclined}, not fired ${dt.notFired}, no data ${dt.noData}`
+  );
+  const dtPatterns = Object.entries(dt.firedByPattern).sort((a, b) => b[1] - a[1]);
+  if (dtPatterns.length > 0) {
+    lines.push(`  fired by pattern: ${dtPatterns.map(([p, n]) => `${p} ${n}`).join(', ')}`);
+  }
   lines.push('free-text presence (gold / predicted / both):');
   for (const [k, v] of Object.entries(agg.freeText)) {
     lines.push(`  ${k.padEnd(24)} ${v.goldPresent} / ${v.predictedPresent} / ${v.bothPresent}`);
@@ -1004,7 +1057,9 @@ export function formatCaseLine(
     // Commitment coverage over intent-voiced meds (?? guards score shapes predating the field).
     ((f.medsPrescribed.intentVoiced ?? 0) > 0
       ? ` | commitCov ${f.medsPrescribed.intentCovered}/${f.medsPrescribed.intentVoiced}`
-      : '')
+      : '') +
+    // Review disposition-trigger suffix: only when it fired (✓ proposed / ✗ declined).
+    (score.dispositionTrigger?.fired ? ` | dispo:fired${score.dispositionTrigger.modelProposed ? '✓' : '✗'}` : '')
   );
 }
 
@@ -1359,6 +1414,53 @@ function runSelfTest(): void {
     );
   }
 
+  // Fixture F — disposition-trigger observability: pass-through, buckets, and case-line suffix
+  // (no metric impact anywhere).
+  {
+    const gold = emptyGold();
+    const st = emptySimState();
+    const proposed = scoreCase('fixtureF1', gold, st, undefined, {
+      fired: true,
+      matchedPattern: 'discharge-home',
+      modelProposed: true,
+    });
+    const declined = scoreCase('fixtureF2', gold, st, undefined, { fired: true, modelProposed: false });
+    const notFired = scoreCase('fixtureF3', gold, st, undefined, { fired: false, modelProposed: false });
+    const nullTrigger = scoreCase('fixtureF4', gold, st, undefined, null); // response lacked the field
+    const legacy = scoreCase('fixtureF5', gold, st); // pre-field run: no key at all
+    check('F stashed on score', proposed.dispositionTrigger, {
+      fired: true,
+      matchedPattern: 'discharge-home',
+      modelProposed: true,
+    });
+    check('F null persisted as null', nullTrigger.dispositionTrigger, null);
+    check('F legacy score omits the key', 'dispositionTrigger' in legacy, false);
+    check('F case line proposed suffix', formatCaseLine(proposed, 0, 0).endsWith(' | dispo:fired✓'), true);
+    check('F case line declined suffix', formatCaseLine(declined, 0, 0).endsWith(' | dispo:fired✗'), true);
+    check('F case line silent when not fired', formatCaseLine(notFired, 0, 0).includes('dispo:'), false);
+    check('F case line silent on legacy score', formatCaseLine(legacy, 0, 0).includes('dispo:'), false);
+    const agg = aggregateScores([proposed, declined, notFired, nullTrigger, legacy]);
+    check('F agg buckets', agg.dispositionTrigger, {
+      firedProposed: 1,
+      firedDeclined: 1,
+      notFired: 1,
+      noData: 2,
+      firedByPattern: { 'discharge-home': 1, '(unspecified)': 1 },
+    });
+    const summaryText = formatSummary(agg);
+    check(
+      'F summary trigger line',
+      summaryText.includes('disposition trigger: fired&proposed 1, fired&declined 1, not fired 1, no data 2'),
+      true
+    );
+    check('F summary pattern line', summaryText.includes('fired by pattern: discharge-home 1, (unspecified) 1'), true);
+    check(
+      'F summary omits pattern line when nothing fired',
+      formatSummary(aggregateScores([notFired, legacy])).includes('fired by pattern'),
+      false
+    );
+  }
+
   console.log(failures === 0 ? '\nSELF-TEST PASS' : `\nSELF-TEST FAIL (${failures} failing checks)`);
   if (failures > 0) process.exit(1);
 }
@@ -1374,6 +1476,7 @@ interface ResultFile {
   primaryFix?: { carried: number; promoted: number };
   finalState?: SimFinalState;
   usage?: CaseUsage;
+  dispositionTrigger?: DispositionTriggerInfo | null;
 }
 
 function rescore(resultsDir: string, casesDir: string): void {
@@ -1397,7 +1500,7 @@ function rescore(resultsDir: string, casesDir: string): void {
       continue;
     }
     const gold = (JSON.parse(readFileSync(casePath, 'utf8')) as { gold: GoldData }).gold;
-    const score = scoreCase(result.caseId, gold, result.finalState, result.usage);
+    const score = scoreCase(result.caseId, gold, result.finalState, result.usage, result.dispositionTrigger);
     writeFileSync(join(resultsDir, `${result.caseId}.score.json`), JSON.stringify(score, null, 2));
     scores.push(score);
     console.log(
