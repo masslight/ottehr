@@ -27,3 +27,51 @@ export interface VisitDocuments {
   fullCardPdfs: DocumentInfo[];
   consentPdfUrls: string[];
 }
+
+/**
+ * Extension URL under which the extract-insurance-card zambda stores the OCR extraction
+ * result (as a JSON string in valueString) on the insurance-card DocumentReference.
+ */
+export const INSURANCE_CARD_EXTRACTION_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/insurance-card-extraction';
+
+/**
+ * The per-field OCR extraction result for a single insurance card image.
+ * Every field is null when the value is not clearly printed on the card.
+ */
+export interface InsuranceCardExtractionFields {
+  payer: string | null;
+  memberName: string | null;
+  memberId: string | null;
+  groupNumber: string | null;
+  payerId: string | null;
+  rxBin: string | null;
+  rxPcn: string | null;
+  rxGroup: string | null;
+  insuranceType: string | null;
+  effectiveDate: string | null; // YYYY-MM-DD
+}
+
+/**
+ * The JSON payload stored (stringified) in the INSURANCE_CARD_EXTRACTION_EXTENSION_URL
+ * extension on an insurance-card DocumentReference by the extract-insurance-card zambda.
+ * The EHR insurance form reads this — OCR is never invoked at read time.
+ */
+export interface InsuranceCardExtraction {
+  version: 1;
+  /** The model's verdict on whether the image is actually an insurance card. */
+  isInsuranceCard: boolean;
+  /** null when notACard / skipped */
+  fields: InsuranceCardExtractionFields | null;
+  /** Permanent no-op marker: the image is not an insurance card (or unprocessable); render nothing. */
+  notACard?: boolean;
+  /** DocumentReference.id the extraction was performed against. */
+  sourceDocRefId: string;
+  /** z3 url of the extracted attachment — the cheap idempotency key for subscription re-fires. */
+  sourceAttachmentUrl: string;
+  /** sha256 hex of the image bytes — durable audit key. */
+  imageHash: string;
+  /** Model used for the extraction, e.g. 'gemini-3.1-flash-lite'. */
+  model: string;
+  /** ISO instant the extraction was stored. */
+  extractedAt: string;
+}
