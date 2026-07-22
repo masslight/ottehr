@@ -12,11 +12,21 @@
  *   nameVoiced: boolean        — prescribed meds only: the drug's NAME (generic/brand) was
  *                                actually spoken; class/commitment words alone ("an antibiotic",
  *                                "a nasal spray") are voiced but NOT nameVoiced
+ * The gold DISPOSITION (gold.disposition, when it has a type or note) is judged in the same
+ * per-case call and stamped with its own field names (so it can never be confused with the
+ * per-item recall-scoping flags):
+ *   dispositionVoiced: boolean          — a listener could learn the disposition PLAN from the
+ *                                         transcript alone (spoken discharge plan, follow-up
+ *                                         instruction, ER/specialist referral — paraphrase
+ *                                         counts; EHR-boilerplate clicks do not)
+ *   dispositionVoicedEvidence?: string  — <=10-word quote/paraphrase, only when voiced
  * These are ADDITIVE fields — schemaVersion is untouched and all other fields are preserved
  * (untagged files keep scoring exactly as before; meds missing nameVoiced score as legacy).
- * Idempotent: a case whose collectible items all carry a boolean `voiced` (and, for prescribed
- * meds, a boolean `nameVoiced`) is skipped unless --force — so rerunning naturally upgrades
- * corpora tagged before nameVoiced existed.
+ * Idempotent: a case whose collectible items all carry a boolean `voiced` (for prescribed
+ * meds, also a boolean `nameVoiced`; for the disposition, a boolean `dispositionVoiced`) is
+ * skipped unless --force — so rerunning naturally upgrades corpora tagged before a field
+ * existed (this presence check IS the criteria versioning: each additive field gates the skip,
+ * exactly how the nameVoiced addition rolled out).
  *
  * Usage (needs ANTHROPIC_API_KEY except in --dry-run):
  *   npx env-cmd -f packages/zambdas/.env/local.json \
@@ -37,8 +47,8 @@ import { rosBaseAndPolarity } from './score-harvested';
 // ---------------------------------------------------------------------------
 // Item collection
 // ---------------------------------------------------------------------------
-type Section = 'diagnoses' | 'ros' | 'exam' | 'cpt' | 'medsPrescribed';
-const SECTIONS: Section[] = ['diagnoses', 'ros', 'exam', 'cpt', 'medsPrescribed'];
+type Section = 'diagnoses' | 'ros' | 'exam' | 'cpt' | 'medsPrescribed' | 'disposition';
+const SECTIONS: Section[] = ['diagnoses', 'ros', 'exam', 'cpt', 'medsPrescribed', 'disposition'];
 
 interface TagItem {
   section: Section;
@@ -92,12 +102,27 @@ function collectItems(gold: GoldData): TagItem[] {
       ref: m as unknown as Record<string, unknown>,
     });
   }
+  // Gold disposition — one item per case, same presence rule as the scorer's goldDisposition
+  // counter (type || note). The note is often a long patient-education blob, so truncate it.
+  const d = gold.disposition;
+  if (d && (d.type || d.note)) {
+    const parts: string[] = [];
+    if (d.type) parts.push(`type: ${d.type}`);
+    if (d.followUpIn != null) parts.push(`follow up in ${d.followUpIn} day(s)`);
+    for (const f of d.followUp ?? []) {
+      if (f.type || f.note) parts.push(`follow-up: ${[f.type, f.note].filter(Boolean).join(' — ')}`);
+    }
+    if (d.note) parts.push(`note: ${d.note.length > 240 ? `${d.note.slice(0, 240)}…` : d.note}`);
+    items.push({ section: 'disposition', text: parts.join('; '), ref: d as unknown as Record<string, unknown> });
+  }
   return items;
 }
 
 const isTagged = (item: TagItem): boolean =>
-  typeof item.ref.voiced === 'boolean' &&
-  (item.section !== 'medsPrescribed' || typeof item.ref.nameVoiced === 'boolean');
+  item.section === 'disposition'
+    ? typeof item.ref.dispositionVoiced === 'boolean'
+    : typeof item.ref.voiced === 'boolean' &&
+      (item.section !== 'medsPrescribed' || typeof item.ref.nameVoiced === 'boolean');
 
 // ---------------------------------------------------------------------------
 // LLM judge — direct Anthropic API, forced tool_use with a JSON schema (same call shape as
@@ -210,6 +235,13 @@ function buildPrompt(transcript: string, items: TagItem[]): string {
     `NAME is actually spoken — generic, brand, or an unambiguous brand-family pointing at it ` +
     `(e.g. "Zyrtec" names cetirizine). Class or commitment language alone ("an antibiotic", "a ` +
     `nasal spray", "a medication for the cough") makes the item voiced but NOT nameVoiced.\n\n` +
+    `For the [disposition] item (the visit's disposition / follow-up plan), apply a strict bar: ` +
+    `voiced only when a listener could learn the disposition PLAN from the transcript alone — a ` +
+    `spoken discharge or home-care plan, a follow-up instruction ("come back in three days", ` +
+    `"follow up with your pediatrician"), or an ER/specialist referral, including paraphrase. A ` +
+    `disposition the provider merely selected in the EHR (printed handout text, template ` +
+    `boilerplate) with nothing about the plan said aloud is NOT voiced. General treatment talk ` +
+    `that never says what happens after the visit does not count.\n\n` +
     `Return a judgment for EVERY item, using the item's number as its index.\n\n` +
     `TRANSCRIPT:\n"""\n${transcript}\n"""\n\nITEMS:\n${list}`
   );
@@ -287,6 +319,13 @@ async function tagCase(casePath: string, apiKey: string, force: boolean): Promis
   const judged = await judgeCase(caseJson.transcript, items, apiKey);
   for (let i = 0; i < items.length; i++) {
     const j = judged.get(i + 1)!;
+    if (items[i].section === 'disposition') {
+      // Distinct field names on gold.disposition — scorers read dispositionVoiced, never voiced.
+      items[i].ref.dispositionVoiced = j.voiced;
+      if (j.voiced && j.evidence) items[i].ref.dispositionVoicedEvidence = j.evidence;
+      else delete items[i].ref.dispositionVoicedEvidence; // keep re-tagging idempotent
+      continue;
+    }
     items[i].ref.voiced = j.voiced;
     if (j.voiced && j.evidence) items[i].ref.voicedEvidence = j.evidence;
     else delete items[i].ref.voicedEvidence; // keep re-tagging idempotent

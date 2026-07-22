@@ -25,6 +25,14 @@
  * commitment-coverage metric: covered when the final state charts a matching med OR any
  * provider-note/instruction shares a substantive token with the med's name/voicedEvidence.
  *
+ * Disposition voicing: gold.disposition additionally carries `dispositionVoiced` (tag-voiced.ts)
+ * — a listener could learn the disposition plan from the transcript alone. Providers set a
+ * disposition on ~every visit but voice it in only a small minority of transcripts, so the raw
+ * charted-disposition counter mostly measures guessing. The voiced-scoped metric (denominator =
+ * cases whose gold disposition is voiced) is reported ALONGSIDE the raw counter; gold
+ * dispositions without the tag land in a no-data bucket and scoring stays byte-identical for
+ * untagged corpora.
+ *
  * Usable three ways:
  *   - imported by run-harvested-eval.ts (scoreCase / aggregateScores / formatSummary)
  *   - standalone re-score of an existing results dir:
@@ -246,6 +254,9 @@ export interface CaseScore {
     predictedInstructions: number;
     goldDisposition: boolean;
     predictedDisposition: boolean;
+    // tag-voiced.ts `dispositionVoiced` on gold.disposition, additive like `voiced`: ABSENT when
+    // the corpus is untagged (keeps untagged score files byte-identical).
+    goldDispositionVoiced?: boolean;
     // remove-* steps whose target wasn't on the simulated chart (planner hallucinated a removal).
     removeTargetMissing: number;
   };
@@ -712,6 +723,10 @@ export function scoreCase(
       predictedInstructions: state.instructions.length,
       goldDisposition: !!(gold.disposition?.type || gold.disposition?.note),
       predictedDisposition: !!state.disposition,
+      // `dispositionVoiced` is an additive tag-voiced.ts field, cast like isUnvoiced does.
+      ...(typeof (gold.disposition as { dispositionVoiced?: boolean } | undefined)?.dispositionVoiced === 'boolean'
+        ? { goldDispositionVoiced: (gold.disposition as { dispositionVoiced?: boolean }).dispositionVoiced }
+        : {}),
       removeTargetMissing: state.skipped.filter((sk) => sk.kind.startsWith('remove-')).length,
     },
     ...(usage ? { usage } : {}),
@@ -774,6 +789,15 @@ export interface AggregateSummary {
     goldDisposition: number;
     predictedDisposition: number;
     removeTargetMissing: number;
+  };
+  // Voiced-scoped disposition metric over cases WITH a gold disposition: voicedGold = gold
+  // disposition tagged dispositionVoiced:true (the denominator), voicedPredicted = those that
+  // also charted one (the numerator), unvoicedGold = tagged false, noData = untagged corpus.
+  dispositionVoiced: {
+    voicedGold: number;
+    voicedPredicted: number;
+    unvoicedGold: number;
+    noData: number;
   };
   // Review disposition-trigger buckets: noData = score has no trigger info (pre-field run OR a
   // review response without the field); firedByPattern counts fired cases per matchedPattern.
@@ -898,6 +922,12 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     planner: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
     review: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
   };
+  const dispositionVoiced: AggregateSummary['dispositionVoiced'] = {
+    voicedGold: 0,
+    voicedPredicted: 0,
+    unvoicedGold: 0,
+    noData: 0,
+  };
   const dispositionTrigger: AggregateSummary['dispositionTrigger'] = {
     firedProposed: 0,
     firedDeclined: 0,
@@ -918,6 +948,15 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     counters.removeTargetMissing += s.counters.removeTargetMissing ?? 0;
     if (s.counters.goldDisposition) counters.goldDisposition++;
     if (s.counters.predictedDisposition) counters.predictedDisposition++;
+    if (s.counters.goldDisposition) {
+      // undefined = untagged corpus (score predates the tag) → no-data bucket, never a denominator.
+      const voiced = s.counters.goldDispositionVoiced;
+      if (voiced === true) {
+        dispositionVoiced.voicedGold++;
+        if (s.counters.predictedDisposition) dispositionVoiced.voicedPredicted++;
+      } else if (voiced === false) dispositionVoiced.unvoicedGold++;
+      else dispositionVoiced.noData++;
+    }
     const t = s.dispositionTrigger; // == null: absent (pre-field run) or null (response lacked it)
     if (t == null) dispositionTrigger.noData++;
     else if (!t.fired) dispositionTrigger.notFired++;
@@ -944,6 +983,7 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     freeText,
     contextCharted,
     counters,
+    dispositionVoiced,
     dispositionTrigger,
     usage,
   };
@@ -1007,6 +1047,14 @@ export function formatSummary(agg: AggregateSummary): string {
   );
   lines.push(
     `counters: templates ${agg.counters.templatesApplied}, examComments ${agg.counters.examComments}, pendingNoteEdits ${agg.counters.pendingNoteEdits}, providerNotes ${agg.counters.providerNotes}, instructions gold/pred ${agg.counters.goldInstructions}/${agg.counters.predictedInstructions}, disposition gold/pred ${agg.counters.goldDisposition}/${agg.counters.predictedDisposition}, removeTargetMissing ${agg.counters.removeTargetMissing}`
+  );
+  const dv = agg.dispositionVoiced;
+  lines.push(
+    `disposition: charted ${agg.counters.predictedDisposition}/${agg.counters.goldDisposition} raw | ` +
+      (dv.voicedGold + dv.unvoicedGold > 0
+        ? `voiced-scoped ${dv.voicedPredicted}/${dv.voicedGold} (unvoiced gold ${dv.unvoicedGold}` +
+          `${dv.noData > 0 ? `, untagged ${dv.noData}` : ''})`
+        : `voiced-scoped — (no voicing tags on ${dv.noData} gold dispositions)`)
   );
   const dt = agg.dispositionTrigger;
   lines.push(
@@ -1458,6 +1506,51 @@ function runSelfTest(): void {
       'F summary omits pattern line when nothing fired',
       formatSummary(aggregateScores([notFired, legacy])).includes('fired by pattern'),
       false
+    );
+  }
+
+  // Fixture G — voiced-scoped disposition metric (dispositionVoiced tag on gold.disposition):
+  // raw counter untouched, tagged/untagged bucketing, and the summary line in both modes.
+  {
+    const goldWithDispo = (dispositionVoiced?: boolean): GoldData => {
+      const g = emptyGold();
+      g.disposition = {
+        type: 'pcp-no-type',
+        note: 'Follow up with your PCP',
+        ...(dispositionVoiced === undefined ? {} : ({ dispositionVoiced } as object)),
+      };
+      return g;
+    };
+    const charted = emptySimState();
+    charted.disposition = { type: 'pcp', text: 'Follow up in 3 days' };
+    const voicedHit = scoreCase('fixtureG1', goldWithDispo(true), charted); // voiced + predicted
+    const voicedMiss = scoreCase('fixtureG2', goldWithDispo(true), emptySimState()); // voiced, not predicted
+    const unvoiced = scoreCase('fixtureG3', goldWithDispo(false), charted); // unvoiced + predicted
+    const untagged = scoreCase('fixtureG4', goldWithDispo(undefined), charted); // gold dispo, no tag
+    const noGoldDispo = scoreCase('fixtureG5', emptyGold(), charted); // no gold dispo at all
+    check('G tag stashed on counters', voicedHit.counters.goldDispositionVoiced, true);
+    check('G untagged score omits the key (byte-identical)', 'goldDispositionVoiced' in untagged.counters, false);
+    const agg = aggregateScores([voicedHit, voicedMiss, unvoiced, untagged, noGoldDispo]);
+    check('G raw counters unchanged', [agg.counters.goldDisposition, agg.counters.predictedDisposition], [4, 4]);
+    check('G agg buckets', agg.dispositionVoiced, { voicedGold: 2, voicedPredicted: 1, unvoicedGold: 1, noData: 1 });
+    check(
+      'G summary line (tagged corpus)',
+      formatSummary(agg).includes('disposition: charted 4/4 raw | voiced-scoped 1/2 (unvoiced gold 1, untagged 1)'),
+      true
+    );
+    const aggUntagged = aggregateScores([untagged]);
+    check('G untagged corpus goes to noData', aggUntagged.dispositionVoiced, {
+      voicedGold: 0,
+      voicedPredicted: 0,
+      unvoicedGold: 0,
+      noData: 1,
+    });
+    check(
+      'G summary line (untagged corpus)',
+      formatSummary(aggUntagged).includes(
+        'disposition: charted 1/1 raw | voiced-scoped — (no voicing tags on 1 gold dispositions)'
+      ),
+      true
     );
   }
 
