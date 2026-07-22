@@ -103,7 +103,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const handleUpdateSelectedTests = useCallback(
     (tests: DataEntryTestItem[]): void => {
       setSelectedTests(tests);
-      setDraft(encounter.id!, { testItems: tests });
+      if (encounter.id) setDraft(encounter.id, { testItems: tests });
     },
     [setSelectedTests, setDraft, encounter.id]
   );
@@ -111,19 +111,19 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const handleUpdateAssessmentDx = useCallback(
     (dx: DiagnosisDTO[]): void => {
       setSelectedAssessmentDiagnoses(dx);
-      setDraft(encounter.id!, { selectedAssessmentDx: dx });
+      if (encounter.id) setDraft(encounter.id, { selectedAssessmentDx: dx });
     },
     [setSelectedAssessmentDiagnoses, setDraft, encounter.id]
   );
 
   const handleUpdateNewDx = (dx: DiagnosisDTO[]): void => {
     setSelectedNewDiagnoses(dx);
-    setDraft(encounter.id!, { selectedNewDx: dx });
+    if (encounter.id) setDraft(encounter.id, { selectedNewDx: dx });
   };
 
   const handleUpdateNote = (notes: string): void => {
     setNotes(notes);
-    setDraft(encounter.id!, { notes });
+    if (encounter.id) setDraft(encounter.id, { notes });
   };
 
   const determinePrimaryDiagnosis = useCallback((): DiagnosisDTO[] | undefined => {
@@ -135,7 +135,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   }, [diagnosis]);
 
   const handleClearForm = (): void => {
-    clearDraft(encounter.id!);
+    if (encounter.id) clearDraft(encounter.id);
     // we recompute here so we don't get an unexpected result due to the ref used in determinePrimaryDiagnosis
     const primaryDiagnosis = [diagnosis.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
     setSelectedTests(formStateDefaults.tests);
@@ -209,6 +209,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   }, [prefillData, availableTests, handleUpdateAssessmentDx, handleUpdateSelectedTests]);
 
   const handleBack = (): void => {
+    if (encounter.id) clearDraft(encounter.id);
     navigate(-1);
   };
 
@@ -218,10 +219,10 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     const GENERIC_ERROR_MSG = 'There was an error creating in-house lab order';
-    if (oystehrZambda && canBeSubmitted) {
+    if (oystehrZambda && canBeSubmitted && encounter.id) {
       try {
         const res = await createInHouseLabOrder(oystehrZambda, {
-          encounterId: encounter.id!,
+          encounterId: encounter.id,
           testItems: selectedTests,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
@@ -244,7 +245,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         }
 
         if (shouldPrintLabel) {
-          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id! });
+          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id });
 
           if (labelPdfs.length !== 1) {
             setError(['Expected 1 label pdf, received unexpected number']);
@@ -252,11 +253,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
           const labelPdf = labelPdfs[0];
 
-          await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id! });
+          await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id });
         }
 
         // clear out the draft data on successful submit
-        clearDraft(encounter.id!);
+        clearDraft(encounter.id);
 
         if (res.serviceRequestIds.length === 1) {
           // we will only nav forward if one test was created, else we will direct the user back to the table
@@ -340,7 +341,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         >
           Order In-House Lab
         </Typography>
-        {hasDraft(encounter.id!) && (
+        {encounter.id && hasDraft(encounter.id) && (
           <UnsavedDraftWarning
             message={
               draft.hasNavigatedAway
@@ -562,20 +563,22 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       >
                         Cancel
                       </Button>
-                      <Button
-                        variant="outlined"
-                        sx={{
-                          borderRadius: '50px',
-                          px: 4,
-                          py: 1,
-                          ml: 2,
-                        }}
-                        onClick={() => {
-                          handleClearForm();
-                        }}
-                      >
-                        Clear Form
-                      </Button>
+                      {encounter.id && hasDraft(encounter.id) && (
+                        <Button
+                          variant="outlined"
+                          sx={{
+                            borderRadius: '50px',
+                            px: 4,
+                            py: 1,
+                            ml: 2,
+                          }}
+                          onClick={() => {
+                            handleClearForm();
+                          }}
+                        >
+                          Clear Form
+                        </Button>
+                      )}
                     </Box>
 
                     <Box>

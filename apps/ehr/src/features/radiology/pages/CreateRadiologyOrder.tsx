@@ -89,7 +89,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   const { setDraft, getDraft, clearDraft, hasDraft } = useCreateRadiologyOrderStore();
   useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
-  const draft = getDraft(encounter.id!);
+  const draft = encounter.id ? getDraft(encounter.id) : {};
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(draft.dx ?? primaryDiagnosis);
   const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>(draft.cptCode);
@@ -101,26 +101,26 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   const handleCptUpdate = (cpt: CPTCodeDTO | undefined): void => {
     setOrderCpt(cpt);
-    setDraft(encounter.id!, { cptCode: cpt });
+    if (encounter.id) setDraft(encounter.id, { cptCode: cpt });
   };
 
   const handleStudyNameUpdate = (studyName: string | undefined): void => {
     setStudyName(studyName);
-    setDraft(encounter.id!, { studyName });
+    if (encounter.id) setDraft(encounter.id, { studyName });
   };
 
   const handleClinicalHistoryUpdate = (history: string | undefined): void => {
     setClinicalHistory(history);
-    setDraft(encounter.id!, { clinicalHistory: history });
+    if (encounter.id) setDraft(encounter.id, { clinicalHistory: history });
   };
 
   const handleLateralityUpdate = (laterality: LateralityValue | ''): void => {
     setLaterality(laterality);
-    setDraft(encounter.id!, { laterality });
+    if (encounter.id) setDraft(encounter.id, { laterality });
   };
 
   const handleClearForm = (): void => {
-    clearDraft(encounter.id!);
+    if (encounter.id) clearDraft(encounter.id);
     setOrderDx(primaryDiagnosis);
     setOrderCpt(undefined);
     setStat(false);
@@ -303,7 +303,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           });
         }
 
-        clearDraft(encounter.id!);
+        clearDraft(encounter.id);
         navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
       } catch (e) {
         const error = e as any;
@@ -367,7 +367,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
               Order Radiology
             </Typography>
           </Box>
-          {hasDraft(encounter.id!) && (
+          {encounter.id && hasDraft(encounter.id) && (
             <UnsavedDraftWarning
               message={
                 draft.hasNavigatedAway
@@ -413,7 +413,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     isOptionEqualToValue={(option, value) => value.code === option.code}
                     onChange={(_event: any, selectedDx: any) => {
                       setOrderDx(selectedDx);
-                      setDraft(encounter.id!, { dx: selectedDx });
+                      if (encounter.id) setDraft(encounter.id, { dx: selectedDx });
                     }}
                     loading={isSearchingDx}
                     options={icdSearchOptions}
@@ -543,7 +543,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                       checked={consentObtained}
                       onChange={() => {
                         setConsentObtained(!consentObtained);
-                        setDraft(encounter.id!, { consentObtained: !consentObtained });
+                        if (encounter.id) setDraft(encounter.id, { consentObtained: !consentObtained });
                       }}
                     />
                     <Typography>
@@ -571,7 +571,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                         checked={stat}
                         onChange={() => {
                           setStat(!stat);
-                          setDraft(encounter.id!, { stat: !stat });
+                          if (encounter.id) setDraft(encounter.id, { stat: !stat });
                         }}
                       />
                     }
@@ -589,13 +589,15 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     >
                       Cancel
                     </Button>
-                    <Button
-                      variant="outlined"
-                      sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                      onClick={handleClearForm}
-                    >
-                      Clear Form
-                    </Button>
+                    {hasDraft(encounter.id!) && (
+                      <Button
+                        variant="outlined"
+                        sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                        onClick={handleClearForm}
+                      >
+                        Clear Form
+                      </Button>
+                    )}
                   </Stack>
                 </Grid>
                 <Grid item xs={6} display="flex" justifyContent="flex-end">

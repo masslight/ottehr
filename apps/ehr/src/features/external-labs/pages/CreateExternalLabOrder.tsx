@@ -135,39 +135,37 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const handleOrderingLocationUpdate = useCallback(
     (officeId: string): void => {
       setSelectedOfficeId(officeId);
-      setDraft(encounter.id!, { orderingLocationId: officeId });
-      console.log('This is the store after location is changed', encounter.id, getDraft(encounter.id!));
+      if (encounter.id) setDraft(encounter.id, { orderingLocationId: officeId });
     },
-    [setSelectedOfficeId, setDraft, getDraft, encounter.id]
+    [setSelectedOfficeId, setDraft, encounter.id]
   );
 
   const handleDxUpdate = (newDx: DiagnosisDTO[]): void => {
     setOrderDx(newDx);
-    setDraft(encounter.id!, { dx: newDx });
-    console.log('this is draft store after adding additional dx', getDraft(encounter.id!));
+    if (encounter.id) setDraft(encounter.id, { dx: newDx });
   };
 
   const handlePaymentMethodUpdate = useCallback(
     (paymentMethod: CreateLabPaymentMethod | ''): void => {
       setSelectedPaymentMethod(paymentMethod);
-      setDraft(encounter.id!, { selectedPaymentMethod: paymentMethod ? paymentMethod : undefined });
+      if (encounter.id) setDraft(encounter.id, { selectedPaymentMethod: paymentMethod ? paymentMethod : undefined });
     },
     [setSelectedPaymentMethod, setDraft, encounter.id]
   );
 
   const handleTestSelectionUpdate = (selectedLabs: OrderableItemSearchResult[]): void => {
     setSelectedLabs(selectedLabs);
-    setDraft(encounter.id!, { orderableItems: selectedLabs });
+    if (encounter.id) setDraft(encounter.id, { orderableItems: selectedLabs });
   };
 
   const handlePscUpdate = (psc: boolean): void => {
     setPsc(psc);
-    setDraft(encounter.id!, { psc });
+    if (encounter.id) setDraft(encounter.id, { psc });
   };
 
   const handleClinicalInfoUpdate = (note: string | undefined): void => {
     setClinicalInfoNotes(note);
-    setDraft(encounter.id!, { clinicalInfoNoteByUser: note });
+    if (encounter.id) setDraft(encounter.id, { clinicalInfoNoteByUser: note });
   };
 
   // used to fetch dx icd10 codes
@@ -234,14 +232,13 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   }, [isWorkersComp, coverageInfo]);
 
   const handleClearForm = (): void => {
-    clearDraft(encounter.id!);
+    if (encounter.id) clearDraft(encounter.id);
     setSelectedOfficeId(formStateDefaults.orderingLocationId);
     setOrderDx(formStateDefaults.dx);
     setSelectedPaymentMethod(determineInitialPaymentMethod() ?? formStateDefaults.selectedPaymentMethod);
     setSelectedLabs(formStateDefaults.orderableItems);
     setPsc(formStateDefaults.psc);
     setClinicalInfoNotes(formStateDefaults.clinicalInfoNote);
-    console.log('this is draft after clearing', getDraft(encounter.id!), hasDraft(encounter.id!));
   };
 
   useEffect(() => {
@@ -435,7 +432,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
             {PAGE_HEADER_TEXT}
           </Typography>
         </Box>
-        {hasDraft(encounter.id!) && (
+        {encounter.id && hasDraft(encounter.id) && (
           <UnsavedDraftWarning
             message={
               draft.hasNavigatedAway
@@ -742,20 +739,23 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     variant="outlined"
                     sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                     onClick={() => {
+                      if (encounter.id) clearDraft(encounter.id);
                       navigate(`/in-person/${appointmentIdFromUrl}/external-lab-orders`);
                     }}
                   >
                     Cancel
                   </Button>
-                  <Button
-                    variant="outlined"
-                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600, ml: 1 }}
-                    onClick={() => {
-                      handleClearForm();
-                    }}
-                  >
-                    Clear Form
-                  </Button>
+                  {encounter.id && hasDraft(encounter.id) && (
+                    <Button
+                      variant="outlined"
+                      sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600, ml: 1 }}
+                      onClick={() => {
+                        handleClearForm();
+                      }}
+                    >
+                      Clear Form
+                    </Button>
+                  )}
                 </Grid>
                 <Grid item xs={6} display="flex" justifyContent="flex-end">
                   <LoadingButton
