@@ -30181,3 +30181,13 @@ removed {
     destroy = false
   }
 }
+
+# Resources from em-codes.json
+
+removed {
+  from = oystehr_fhir_resource.value-set-em-codes
+
+  lifecycle {
+    destroy = false
+  }
+}
