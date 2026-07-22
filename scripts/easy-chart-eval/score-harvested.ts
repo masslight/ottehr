@@ -202,7 +202,7 @@ export interface SectionScore {
 }
 export interface ScopeScores {
   diagnoses: SectionScore & { predictedNoCode: number };
-  primaryDx: { goldCode?: string; predictedCode?: string; match: boolean | null };
+  primaryDx: { goldCode?: string; goldVoiced?: boolean; predictedCode?: string; match: boolean | null };
   // levelMatch compares the E&M *level* (last digit — 9920x/9921x share levels) so a new-vs-
   // established family error doesn't hide correct complexity selection.
   em: { gold?: string; predicted?: string; match: boolean | null; levelMatch: boolean | null };
@@ -447,14 +447,19 @@ function scoreScope(gold: GoldData, state: SimFinalState, scope: Scope): ScopeSc
     predictedNoCode,
   };
 
-  // --- primary dx (reported separately from set membership; voiced flag not applied — the
-  // charted primary is the comparison target regardless of derivability) ---
+  // --- primary dx (reported separately from set membership; the raw comparison stays
+  // voicing-blind — the charted primary is the comparison target regardless of derivability —
+  // and the gold primary's voiced tag is recorded for voiced-scoped aggregation) ---
   const goldPrimary = goldDxScorable.find((d) => d.primary);
+  // `voiced` is an additive tag-voiced.ts field, cast like isUnvoiced does; ABSENT when the
+  // corpus is untagged (keeps untagged score files byte-identical).
+  const goldPrimaryVoiced = (goldPrimary as { voiced?: boolean } | undefined)?.voiced;
   // A review-promoted primary (promotedPrimaryBy) can sit on a planner-sourced dx — exclude it
   // from the plannerOnly scope so the review safety net never inflates planner-only metrics.
   const predPrimary = predDx.find((d) => d.isPrimary && !(scope === 'plannerOnly' && d.promotedPrimaryBy === 'review'));
   const primaryDx = {
     ...(goldPrimary ? { goldCode: goldPrimary.codeNormalized } : {}),
+    ...(goldPrimary && typeof goldPrimaryVoiced === 'boolean' ? { goldVoiced: goldPrimaryVoiced } : {}),
     ...(predPrimary?.code ? { predictedCode: normCode(predPrimary.code) } : {}),
     match: goldPrimary && predPrimary?.code ? normCode(predPrimary.code) === goldPrimary.codeNormalized : null,
   };
@@ -752,7 +757,18 @@ interface AggSection {
 interface AggScope {
   sections: Record<string, AggSection>;
   em: { goldCases: number; predictedCases: number; matched: number; levelMatched: number };
-  primaryDx: { goldCases: number; bothPresent: number; matched: number };
+  // Voiced-scoped primary dx over cases with a gold primary (per-scope primaryDx.goldVoiced):
+  // voicedBoth = both charted AND gold primary voiced:true (the denominator), voicedMatched =
+  // those that matched, unvoicedGold = tagged false regardless of predicted, noData = untagged.
+  primaryDx: {
+    goldCases: number;
+    bothPresent: number;
+    matched: number;
+    voicedBoth: number;
+    voicedMatched: number;
+    unvoicedGold: number;
+    noData: number;
+  };
   rosPolarity: { matched: number; agree: number };
   examAbnormal: { matched: number; agree: number };
   medsCombined: {
@@ -850,7 +866,15 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
     };
   }
   const em = { goldCases: 0, predictedCases: 0, matched: 0, levelMatched: 0 };
-  const primaryDx = { goldCases: 0, bothPresent: 0, matched: 0 };
+  const primaryDx = {
+    goldCases: 0,
+    bothPresent: 0,
+    matched: 0,
+    voicedBoth: 0,
+    voicedMatched: 0,
+    unvoicedGold: 0,
+    noData: 0,
+  };
   const rosPolarity = { matched: 0, agree: 0 };
   const examAbnormal = { matched: 0, agree: 0 };
   const medsCombined = {
@@ -871,6 +895,17 @@ function aggregateScope(scores: CaseScore[], scope: Scope): AggScope {
     if (sc.primaryDx.goldCode) primaryDx.goldCases++;
     if (sc.primaryDx.match !== null) primaryDx.bothPresent++;
     if (sc.primaryDx.match === true) primaryDx.matched++;
+    if (sc.primaryDx.goldCode) {
+      // undefined = untagged corpus (score predates the tag) → no-data bucket, never a denominator.
+      const voiced = sc.primaryDx.goldVoiced;
+      if (voiced === true) {
+        if (sc.primaryDx.match !== null) {
+          primaryDx.voicedBoth++;
+          if (sc.primaryDx.match === true) primaryDx.voicedMatched++;
+        }
+      } else if (voiced === false) primaryDx.unvoicedGold++;
+      else primaryDx.noData++;
+    }
     rosPolarity.matched += sc.ros.matched;
     rosPolarity.agree += sc.ros.polarityAgree;
     examAbnormal.matched += sc.exam.matched;
@@ -1023,8 +1058,12 @@ export function formatSummary(agg: AggregateSummary): string {
         `, level match ${sc.em.levelMatched}` +
         (sc.em.goldCases > 0 ? ` (${((sc.em.levelMatched / sc.em.goldCases) * 100).toFixed(0)}%)` : '')
     );
+    const pdx = sc.primaryDx;
     lines.push(
-      `[${label}] primary dx: gold ${sc.primaryDx.goldCases} cases, both charted ${sc.primaryDx.bothPresent}, match ${sc.primaryDx.matched}`
+      `[${label}] primary dx: gold ${pdx.goldCases} cases, both charted ${pdx.bothPresent}, match ${pdx.matched} | ` +
+        (pdx.voicedBoth + pdx.unvoicedGold > 0
+          ? `voiced-scoped ${pdx.voicedMatched}/${pdx.voicedBoth}`
+          : 'voiced-scoped — (no voicing tags)')
     );
     lines.push(
       `[${label}] ROS polarity agree ${sc.rosPolarity.agree}/${sc.rosPolarity.matched}; exam abnormal agree ${sc.examAbnormal.agree}/${sc.examAbnormal.matched}`
@@ -1132,8 +1171,17 @@ function emptyGold(): GoldData {
     instructions: [],
   };
 }
-function goldDx(code: string, display: string, primary = false, fromLabOrder = false): DiagnosisItem {
-  return { system: 'ICD-10-CM', code, codeNormalized: normCode(code), display, primary, fromLabOrder };
+function goldDx(code: string, display: string, primary = false, fromLabOrder = false, voiced?: boolean): DiagnosisItem {
+  return {
+    system: 'ICD-10-CM',
+    code,
+    codeNormalized: normCode(code),
+    display,
+    primary,
+    fromLabOrder,
+    // additive tag-voiced.ts field — DiagnosisItem doesn't declare it (see isUnvoiced).
+    ...(voiced === undefined ? {} : ({ voiced } as object)),
+  };
 }
 
 function runSelfTest(): void {
@@ -1549,6 +1597,49 @@ function runSelfTest(): void {
       'G summary line (untagged corpus)',
       formatSummary(aggUntagged).includes(
         'disposition: charted 1/1 raw | voiced-scoped — (no voicing tags on 1 gold dispositions)'
+      ),
+      true
+    );
+  }
+
+  // Fixture H — voiced-scoped primary-dx metric (voiced tag on the gold primary): raw comparison
+  // untouched, tagged/untagged bucketing, and the summary line in both modes.
+  {
+    const goldWithPrimary = (voiced?: boolean): GoldData => {
+      const g = emptyGold();
+      g.assessment.diagnoses = [goldDx('J06.9', 'Acute URI', true, false, voiced)];
+      return g;
+    };
+    const chartedMatch = emptySimState();
+    chartedMatch.diagnoses = [{ display: 'Acute URI', code: 'J06.9', isPrimary: true, source: 'planner' }];
+    const chartedMiss = emptySimState();
+    chartedMiss.diagnoses = [{ display: 'GERD', code: 'K21.9', isPrimary: true, source: 'planner' }];
+    const voicedHit = scoreCase('fixtureH1', goldWithPrimary(true), chartedMatch); // voiced + matched
+    const voicedMiss = scoreCase('fixtureH2', goldWithPrimary(true), chartedMiss); // voiced + mismatched
+    const unvoicedMiss = scoreCase('fixtureH3', goldWithPrimary(false), chartedMiss); // unvoiced + mismatched
+    const untagged = scoreCase('fixtureH4', goldWithPrimary(undefined), chartedMatch); // no tag
+    check('H tag stashed on score', voicedHit.scopes.final.primaryDx.goldVoiced, true);
+    check('H unvoiced raw match stays voicing-blind', unvoicedMiss.scopes.final.primaryDx.match, false);
+    check('H untagged score omits the key (byte-identical)', 'goldVoiced' in untagged.scopes.final.primaryDx, false);
+    const agg = aggregateScores([voicedHit, voicedMiss, unvoicedMiss, untagged]);
+    check('H agg buckets (unvoiced NOT in voicedBoth)', agg.scopes.final.primaryDx, {
+      goldCases: 4,
+      bothPresent: 4,
+      matched: 2,
+      voicedBoth: 2,
+      voicedMatched: 1,
+      unvoicedGold: 1,
+      noData: 1,
+    });
+    check(
+      'H summary line (tagged corpus)',
+      formatSummary(agg).includes('primary dx: gold 4 cases, both charted 4, match 2 | voiced-scoped 1/2'),
+      true
+    );
+    check(
+      'H summary line (untagged corpus)',
+      formatSummary(aggregateScores([untagged])).includes(
+        'primary dx: gold 1 cases, both charted 1, match 1 | voiced-scoped — (no voicing tags)'
       ),
       true
     );
