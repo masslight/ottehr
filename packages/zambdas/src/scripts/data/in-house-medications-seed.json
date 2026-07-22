@@ -1,164 +1,36 @@
 {
   "medications": [
-    {
-      "name": "Acetaminophen (Liquid)",
-      "medispanID": "23562",
-      "ndc": "50580-170-01"
-    },
-    {
-      "name": "Acetaminophen (Tabs)",
-      "medispanID": "23170",
-      "ndc": "71399-8024-1"
-    },
-    {
-      "name": "Acetaminophen (80mg Suppository)",
-      "medispanID": "23565",
-      "ndc": "51672-2114-2"
-    },
-    {
-      "name": "Acetaminophen (120mg Suppository)",
-      "medispanID": "21887",
-      "ndc": "45802-732-30"
-    },
-    {
-      "name": "Acetaminophen (325mg Suppository)",
-      "medispanID": "23564",
-      "ndc": "51672-2116-2"
-    },
-    {
-      "name": "Activated Charcoal",
-      "medispanID": "32034",
-      "ndc": "66689-203-04"
-    },
-    {
-      "name": "Albuterol Sulfate",
-      "medispanID": "29518",
-      "ndc": "0487-9501-25"
-    },
-    {
-      "name": "Amoxicillin",
-      "medispanID": "34220",
-      "ndc": "0143-9887-01"
-    },
-    {
-      "name": "Amoxicillin Clavulanate (Augmentin)",
-      "medispanID": "22329",
-      "ndc": "65862-535-75"
-    },
-    {
-      "name": "Azithromycin (Liquid)",
-      "medispanID": "5675",
-      "ndc": "59762-3140-1"
-    },
-    {
-      "name": "Azithromycin (Tabs)",
-      "medispanID": "16811",
-      "ndc": "65862-641-69"
-    },
-    {
-      "name": "Cefdinir",
-      "medispanID": "10052",
-      "ndc": "00093-4137-64"
-    },
-    {
-      "name": "Ceftriaxone (Rocephin)",
-      "medispanID": "30900",
-      "ndc": "60505-6148-0"
-    },
-    {
-      "name": "Cephalexin",
-      "medispanID": "24460",
-      "ndc": "67877-545-88"
-    },
-    {
-      "name": "Cetirizine (Liquid)",
-      "medispanID": "15065",
-      "ndc": "50580-730-05"
-    },
-    {
-      "name": "Cetirizine (Tabs)",
-      "medispanID": "15066",
-      "ndc": "43598-811-12"
-    },
-    {
-      "name": "Dexamethasone",
-      "medispanID": "25582",
-      "ndc": "00641-0367-21"
-    },
-    {
-      "name": "Diphenhydramine (Liquid)",
-      "medispanID": "27640",
-      "ndc": "57237-317-05"
-    },
-    {
-      "name": "Diphenhydramine (Tabs/Caps)",
-      "medispanID": "27641",
-      "ndc": "00185-0648-01"
-    },
-    {
-      "name": "Diphenhydramine (IM)",
-      "medispanID": "28533",
-      "ndc": "00641-0376-21"
-    },
-    {
-      "name": "Epinephrine (1mg/mL)",
-      "medispanID": "29233",
-      "ndc": "42023-159-01"
-    },
-    {
-      "name": "Fluorescein (Sterile Dropper)",
-      "medispanID": "2017",
-      "ndc": "59390-218-05"
-    },
-    {
-      "name": "Fluorescein (Strips)",
-      "medispanID": "2016",
-      "ndc": "17238-900-11"
-    },
-    {
-      "name": "Ibuprofen (Liquid)",
-      "medispanID": "3695",
-      "ndc": "51672-2130-8"
-    },
-    {
-      "name": "Ibuprofen (Tabs)",
-      "medispanID": "3784",
-      "ndc": "0113-0604-90"
-    },
-    {
-      "name": "Ipratropium-Albuterol (Duoneb)",
-      "medispanID": "31529",
-      "ndc": "76204-600-30"
-    },
-    {
-      "name": "Ketorolac (Toradol)",
-      "medispanID": "7271",
-      "ndc": "00338-0072-25"
-    },
-    {
-      "name": "Lidocaine (LET)",
-      "medispanID": "3757",
-      "ndc": "51552-1345-1"
-    },
-    {
-      "name": "Ondansetron (ODT)",
-      "medispanID": "38750",
-      "ndc": "68462-157-13"
-    },
-    {
-      "name": "Prednisone",
-      "medispanID": "8051",
-      "ndc": "0591-5443-01"
-    },
-    {
-      "name": "Racemic Epinephrine",
-      "medispanID": "21383",
-      "ndc": "0487-5901-99"
-    },
-    {
-      "name": "Ventolin HFA",
-      "medispanID": "38526",
-      "ndc": "0173-0682-24"
-    }
+    { "name": "Acetaminophen (Liquid)", "medispanID": "23562" },
+    { "name": "Acetaminophen (Tabs)", "medispanID": "23170" },
+    { "name": "Acetaminophen (80mg Suppository)", "medispanID": "23565" },
+    { "name": "Acetaminophen (120mg Suppository)", "medispanID": "21887" },
+    { "name": "Acetaminophen (325mg Suppository)", "medispanID": "23564" },
+    { "name": "Activated Charcoal", "medispanID": "32034" },
+    { "name": "Albuterol Sulfate", "medispanID": "29518" },
+    { "name": "Amoxicillin", "medispanID": "34220" },
+    { "name": "Amoxicillin Clavulanate (Augmentin)", "medispanID": "22329" },
+    { "name": "Azithromycin (Liquid)", "medispanID": "5675" },
+    { "name": "Azithromycin (Tabs)", "medispanID": "16811" },
+    { "name": "Cefdinir", "medispanID": "10052" },
+    { "name": "Ceftriaxone (Rocephin)", "medispanID": "30900" },
+    { "name": "Cephalexin", "medispanID": "24460" },
+    { "name": "Cetirizine (Liquid)", "medispanID": "15065" },
+    { "name": "Cetirizine (Tabs)", "medispanID": "15066" },
+    { "name": "Dexamethasone", "medispanID": "25582" },
+    { "name": "Diphenhydramine (Liquid)", "medispanID": "27640" },
+    { "name": "Diphenhydramine (Tabs/Caps)", "medispanID": "27641" },
+    { "name": "Diphenhydramine (IM)", "medispanID": "28533" },
+    { "name": "Epinephrine (1mg/mL)", "medispanID": "29233" },
+    { "name": "Fluorescein (Sterile Dropper)", "medispanID": "2017" },
+    { "name": "Fluorescein (Strips)", "medispanID": "2016" },
+    { "name": "Ibuprofen (Liquid)", "medispanID": "3695" },
+    { "name": "Ibuprofen (Tabs)", "medispanID": "3784" },
+    { "name": "Ipratropium-Albuterol (Duoneb)", "medispanID": "31529" },
+    { "name": "Ketorolac (Toradol)", "medispanID": "7271" },
+    { "name": "Lidocaine (LET)", "medispanID": "3757" },
+    { "name": "Ondansetron (ODT)", "medispanID": "38750" },
+    { "name": "Prednisone", "medispanID": "8051" },
+    { "name": "Racemic Epinephrine", "medispanID": "21383" },
+    { "name": "Ventolin HFA", "medispanID": "38526" }
   ]
 }
