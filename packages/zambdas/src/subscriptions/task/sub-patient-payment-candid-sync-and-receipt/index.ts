@@ -167,9 +167,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           );
           const paymentMethod =
             paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString ?? '';
+          const createdDateTime = DateTime.fromISO(paymentNotice.created);
+          if (!createdDateTime.isValid) {
+            throw new Error(
+              `PaymentNotice ${paymentNoticeId} has an invalid created timestamp "${paymentNotice.created}"`
+            );
+          }
           const paymentDate =
-            reconciliation?.paymentDate ??
-            DateTime.fromISO(paymentNotice.created).setZone(TIMEZONES[0]).toFormat('yyyy-MM-dd');
+            reconciliation?.paymentDate ?? createdDateTime.setZone(TIMEZONES[0]).toFormat('yyyy-MM-dd');
           const billingOystehr = createBillingClient(oystehrToken, secrets);
           console.time('Ottehr billing payment record');
           await recordBillingPatientPayment(billingOystehr, {
@@ -185,10 +190,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           });
           console.timeEnd('Ottehr billing payment record');
         } catch (error) {
-          console.error(`Error recording payment in Ottehr billing: ${error}`);
+          // APIError values are plain objects, so template interpolation would print [object Object]
+          const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+          console.error(`Error recording payment in Ottehr billing: ${errorMessage}`);
           captureException(error);
           billingRecordFailed = true;
-          errors.push(`Ottehr billing payment record failed: ${error}`);
+          errors.push(`Ottehr billing payment record failed: ${errorMessage}`);
         }
       }
 
@@ -208,10 +215,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             });
             console.timeEnd('Candid pre-encounter sync');
           } catch (error) {
-            console.error(`Error during Candid pre-encounter sync: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+            console.error(`Error during Candid pre-encounter sync: ${errorMessage}`);
             captureException(error);
             candidSyncFailed = true;
-            errors.push(`Candid sync failed: ${error}`);
+            errors.push(`Candid sync failed: ${errorMessage}`);
           }
         }
       }
@@ -232,10 +240,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         console.timeEnd('receipt pdf creation');
         console.log('Receipt PDF created:', receiptPdfInfo);
       } catch (error) {
-        console.error(`Error creating receipt PDF: ${error}`);
+        const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        console.error(`Error creating receipt PDF: ${errorMessage}`);
         captureException(error);
         receiptPdfFailed = true;
-        errors.push(`Receipt PDF creation failed: ${error}`);
+        errors.push(`Receipt PDF creation failed: ${errorMessage}`);
       }
 
       // Update task status based on whether any step failed

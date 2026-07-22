@@ -68,13 +68,14 @@ const makePaymentNotice = (opts: {
   method?: string;
   status?: PaymentNotice['status'];
   currency?: string;
+  created?: string;
   withReconciliation?: boolean;
 }): PaymentNotice => ({
   resourceType: 'PaymentNotice',
   id: opts.id,
   status: opts.status ?? 'active',
   payment: { reference: '#contained-reconciliation' },
-  created: '2026-04-22T15:30:00Z',
+  created: opts.created ?? '2026-04-22T15:30:00Z',
   recipient: { reference: 'Organization/org-1' },
   amount: { value: opts.amountDollars, currency: opts.currency ?? 'USD' },
   request: { reference: `Encounter/${opts.encounterId}` },
@@ -244,6 +245,7 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
   const invalidNotices = [
     { name: 'a cancelled notice', override: { status: 'cancelled' as const }, reason: 'expected active' },
     { name: 'a non-USD notice', override: { currency: 'EUR' }, reason: 'unexpected currency' },
+    { name: 'an invalid created timestamp', override: { created: 'not-a-date' }, reason: 'invalid created timestamp' },
   ];
 
   it.each(invalidNotices)('fails the billing step for $name', async ({ override, reason }) => {

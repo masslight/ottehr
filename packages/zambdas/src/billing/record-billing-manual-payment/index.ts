@@ -65,6 +65,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     submitterRef,
   });
 
-  const response: RecordBillingManualPaymentResponse = { paymentNoticeId: notice.id ?? '', claimId };
+  if (!notice.id) {
+    throw new Error('recordBillingPatientPayment returned a PaymentNotice without an id');
+  }
+  const response: RecordBillingManualPaymentResponse = { paymentNoticeId: notice.id, claimId };
   return { statusCode: 200, body: JSON.stringify(response) };
 });
