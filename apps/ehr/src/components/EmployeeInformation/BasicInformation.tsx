@@ -4,9 +4,9 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
 import { Controller } from 'react-hook-form';
+import { InputMask } from 'ui-components';
 import { phoneRegex, zipRegex } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
-import InputMask from '../InputMask';
 import { BasicInformationProps } from './types';
 
 export function BasicInformation({ control, existingUser, isActive }: BasicInformationProps): JSX.Element {

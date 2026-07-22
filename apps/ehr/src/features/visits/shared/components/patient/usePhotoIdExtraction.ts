@@ -9,24 +9,15 @@ import {
   PhotoIdExtraction,
   PhotoIdExtractionFields,
 } from 'utils';
-import { CardFieldSuggestion, normalizeForComparison } from './useInsuranceCardExtraction';
+import { CardFieldSuggestion, normalizeForComparison, readStoredExtension } from './useInsuranceCardExtraction';
 
 export interface UsePhotoIdExtractionResult {
   fields: PhotoIdExtractionFields | null;
   isLoading: boolean;
 }
 
-const readStoredExtraction = (docRef: DocumentReference): PhotoIdExtraction | null => {
-  const valueString = docRef.extension?.find((ext) => ext.url === PHOTO_ID_EXTRACTION_EXTENSION_URL)?.valueString;
-  if (!valueString) return null;
-  try {
-    return JSON.parse(valueString) as PhotoIdExtraction;
-  } catch (error) {
-    // Malformed extension: ignore this DocRef rather than crash the form.
-    console.error(`Malformed photo-id-extraction extension on DocumentReference/${docRef.id}; ignoring`, error);
-    return null;
-  }
-};
+const readStoredExtraction = (docRef: DocumentReference): PhotoIdExtraction | null =>
+  readStoredExtension<PhotoIdExtraction>(docRef, PHOTO_ID_EXTRACTION_EXTENSION_URL, 'photo-id-extraction');
 
 /**
  * Picks the NEWEST photo-ID front DocRef (input is expected newest-first — the extraction

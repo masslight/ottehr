@@ -1,20 +1,18 @@
-import { Autocomplete, Box, TextField } from '@mui/material';
-import { ReactElement, useCallback, useEffect, useState } from 'react';
-import {
-  AllStates,
-  CMS_PLACE_OF_SERVICE_CODES,
-  getApiError,
-  SaveServiceFacilityInput,
-  ServiceFacilityItem,
-} from 'utils';
+import { Autocomplete, Box, TextField, Typography } from '@mui/material';
+import { ReactElement } from 'react';
+import { getApiError, SaveServiceFacilityInput, ServiceFacilityItem } from 'utils';
 import { saveBillingServiceFacility } from '../api/api';
+import {
+  defaultServiceFacilityFormValues,
+  ServiceFacilityForm,
+  serviceFacilityToSaveInput,
+} from '../constants/serviceFacility';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatFacilityAddress, placeOfServiceLabel } from '../utils/format';
-import { validateServiceFacilityFields } from '../utils/validation';
+import { AddressFields } from './AddressFields';
 import { EditableSection } from './claim/EditableSection';
-import { DetailRow } from './DetailRow';
-import { Field } from './Field';
-import { ZipInput } from './input/ZipInput';
+import { Row } from './Row';
+import { ServiceFacilityFields } from './ServiceFacilityFields';
 
 export function ServiceFacilityDetailSection({
   facility,
@@ -25,56 +23,8 @@ export function ServiceFacilityDetailSection({
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
 
-  const [name, setName] = useState(facility.name);
-  const [line1, setLine1] = useState(facility.addressLine1);
-  const [line2, setLine2] = useState(facility.addressLine2);
-  const [city, setCity] = useState(facility.city);
-  const [state, setState] = useState(facility.state);
-  const [zip, setZip] = useState(facility.zip);
-  const [npi, setNpi] = useState(facility.npi);
-  const [clia, setClia] = useState(facility.clia);
-  const [posCode, setPosCode] = useState(facility.posCode);
-
-  const resetFields = useCallback((): void => {
-    setName(facility.name);
-    setLine1(facility.addressLine1);
-    setLine2(facility.addressLine2);
-    setCity(facility.city);
-    setState(facility.state);
-    setZip(facility.zip);
-    setNpi(facility.npi);
-    setClia(facility.clia);
-    setPosCode(facility.posCode);
-  }, [facility]);
-
-  useEffect(() => {
-    resetFields();
-  }, [resetFields]);
-
-  const handleSave = async (): Promise<string | null> => {
+  const handleSave = async (payload: SaveServiceFacilityInput): Promise<string | null> => {
     if (!oystehrZambda) return 'Client not ready';
-    if (!name.trim() || !line1.trim() || !city.trim() || !state || !zip.trim()) {
-      return 'Name, address line 1, city, state, and ZIP are required';
-    }
-    const validationError = validateServiceFacilityFields({ npi, clia, zip });
-    if (validationError) return validationError;
-
-    // exists = set, clear:
-    //   npi/clia/posCode: null
-    //   line2: exclude
-    //   others: empty string
-    const payload: SaveServiceFacilityInput = {
-      facilityId: facility.id,
-      name: name.trim(),
-      addressLine1: line1.trim(),
-      ...(line2.trim() ? { addressLine2: line2.trim() } : {}),
-      city: city.trim(),
-      state,
-      zip: zip.trim(),
-      npi: npi.trim() || null,
-      clia: clia.trim() || null,
-      posCode: posCode || null,
-    };
 
     try {
       await saveBillingServiceFacility(oystehrZambda, payload);
@@ -88,66 +38,82 @@ export function ServiceFacilityDetailSection({
     return null;
   };
 
+  return <ServiceFacilityDetailForm facility={facility} onSave={handleSave} />;
+}
+
+export function ServiceFacilityDetailForm({
+  facility,
+  onSave,
+  onCancel,
+  selector,
+}: {
+  facility: ServiceFacilityItem | null;
+  onSave: (payload: SaveServiceFacilityInput) => Promise<string | null>;
+  onCancel?: () => void;
+  selector?: {
+    options: ServiceFacilityItem[];
+    selectedOption: ServiceFacilityItem | null;
+    onSelectOption: (value: ServiceFacilityItem | null) => void;
+    fetchOptions: (value?: string) => void;
+  };
+}): ReactElement {
+  const defaultValues = defaultServiceFacilityFormValues(facility);
+  const handleSave = async (data: ServiceFacilityForm): Promise<string | null> => {
+    return onSave(serviceFacilityToSaveInput(data, facility?.id));
+  };
   return (
     <EditableSection
       title="Service Facility Details"
+      defaultValues={defaultValues}
       onSave={handleSave}
-      onCancel={resetFields}
+      onCancel={onCancel}
       editForm={
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-          <Field label="Name">
-            <TextField size="small" fullWidth value={name} onChange={(e) => setName(e.target.value)} />
-          </Field>
-          <Field label="NPI">
-            <TextField size="small" fullWidth value={npi} onChange={(e) => setNpi(e.target.value)} />
-          </Field>
-          <Field label="CLIA Number">
-            <TextField size="small" fullWidth value={clia} onChange={(e) => setClia(e.target.value)} />
-          </Field>
-          <Field label="Place of Service">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+          {selector ? (
             <Autocomplete
               size="small"
-              options={CMS_PLACE_OF_SERVICE_CODES}
-              getOptionLabel={(o) => `${o.code} - ${o.display}`}
-              value={CMS_PLACE_OF_SERVICE_CODES.find((o) => o.code === posCode) ?? null}
-              onChange={(_, v) => setPosCode(v?.code ?? '')}
-              isOptionEqualToValue={(o, v) => o.code === v.code}
-              renderInput={(params) => <TextField {...params} placeholder="Select..." />}
+              options={selector.options}
+              value={selector.selectedOption}
+              onChange={(_, v) => selector.onSelectOption(v)}
+              onInputChange={(_, val, reason) => {
+                if (reason === 'input') selector.fetchOptions(val || undefined);
+              }}
+              onOpen={() => selector.fetchOptions()}
+              filterOptions={(x) => x}
+              getOptionLabel={(o) => o.name}
+              renderOption={(props, o) => (
+                <Box component="li" {...props} key={o.id}>
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      {o.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      NPI: {o.npi} | {formatFacilityAddress(o)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+              renderInput={(p) => (
+                <TextField {...p} size="small" label={facility ? 'Replace facility' : 'Choose facility'} />
+              )}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+              sx={{ maxWidth: 480 }}
             />
-          </Field>
-          <Field label="Address line 1">
-            <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
-          </Field>
-          <Field label="Address line 2">
-            <TextField size="small" fullWidth value={line2} onChange={(e) => setLine2(e.target.value)} />
-          </Field>
-          <Field label="City">
-            <TextField size="small" fullWidth value={city} onChange={(e) => setCity(e.target.value)} />
-          </Field>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-            <Field label="State">
-              <Autocomplete
-                size="small"
-                options={AllStates}
-                getOptionLabel={(o) => o.value}
-                value={AllStates.find((o) => o.value === state) ?? null}
-                onChange={(_, v) => setState(v?.value ?? '')}
-                isOptionEqualToValue={(o, v) => o.value === v.value}
-                renderInput={(params) => <TextField {...params} placeholder="Select..." />}
-              />
-            </Field>
-            <Field label="Zip">
-              <ZipInput value={zip} onChange={setZip} />
-            </Field>
+          ) : (
+            <></>
+          )}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+            <ServiceFacilityFields />
+            <AddressFields requireFullZip />
           </Box>
         </Box>
       }
     >
-      <DetailRow label="Name" value={facility.name} />
-      <DetailRow label="NPI" value={facility.npi} />
-      <DetailRow label="CLIA Number" value={facility.clia} />
-      <DetailRow label="Place of Service" value={placeOfServiceLabel(facility.posCode)} />
-      <DetailRow label="Address" value={formatFacilityAddress(facility)} />
+      <Row label="Name" value={facility?.name ?? ''} />
+      <Row label="NPI" value={facility?.npi ?? ''} />
+      <Row label="CLIA Number" value={facility?.clia ?? ''} />
+      <Row label="Place of Service" value={placeOfServiceLabel(facility?.posCode)} />
+      <Row label="Address" value={formatFacilityAddress(facility)} hideBorder />
     </EditableSection>
   );
 }

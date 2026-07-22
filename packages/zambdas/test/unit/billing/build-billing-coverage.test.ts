@@ -17,7 +17,7 @@ const spousePolicyHolder = {
   middleName: 'Q',
   lastName: 'Doe',
   dob: '1980-05-01',
-  birthSex: 'Female' as const,
+  gender: 'female' as const,
   address: { line1: '10 Main St', city: 'Boston', state: 'MA', postalCode: '02118' },
 };
 
