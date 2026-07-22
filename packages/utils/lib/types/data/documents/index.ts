@@ -60,6 +60,14 @@ export interface InsuranceCardExtraction {
   version: 1;
   /** The model's verdict on whether the image is actually an insurance card. */
   isInsuranceCard: boolean;
+  /**
+   * True if the model judged the card right-side-up / human-readable (printed text in a normal,
+   * upright orientation — not rotated sideways or upside-down) in the STORED image, i.e. after
+   * EXIF normalization; false means the card still looks mis-oriented and may warrant a staff hint.
+   * Null when not applicable (e.g. notACard / nothing extracted). Absent (undefined) on
+   * extractions stored before this field existed — treat absent the same as null.
+   */
+  readable: boolean | null;
   /** null when notACard / skipped */
   fields: InsuranceCardExtractionFields | null;
   /** Permanent no-op marker: the image is not an insurance card (or unprocessable); render nothing. */
@@ -74,4 +82,20 @@ export interface InsuranceCardExtraction {
   model: string;
   /** ISO instant the extraction was stored. */
   extractedAt: string;
+}
+
+/** The clockwise rotation angles the rotate-insurance-card-image zambda accepts. */
+export const INSURANCE_CARD_ROTATION_DEGREES = [90, 180, 270] as const;
+export type InsuranceCardRotationDegrees = (typeof INSURANCE_CARD_ROTATION_DEGREES)[number];
+
+/** Input for the staff-triggered rotate-insurance-card-image zambda. */
+export interface RotateInsuranceCardImageInput {
+  documentReferenceId: string;
+  /** CLOCKWISE rotation to bake into the stored card image. */
+  rotationDegrees: InsuranceCardRotationDegrees;
+}
+
+export interface RotateInsuranceCardImageResponse {
+  documentReferenceId: string;
+  rotated: boolean;
 }
