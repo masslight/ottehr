@@ -8,6 +8,11 @@ import {
   upgradeCodeSpecificity,
   validateIntentCode,
 } from '../src/shared/easy-chart/codes';
+import { fakeIcdSearch, PLATFORM_DISPLAY_FIXTURES } from './helpers/fake-icd-search';
+
+// All resolution paths run against the deterministic terminology stand-in (fixture corpus +
+// probe-mirroring display responses) — see fake-icd-search.ts. The guards themselves are pure.
+const search = fakeIcdSearch(PLATFORM_DISPLAY_FIXTURES);
 
 // resolveIcd is the "no hallucinated code reaches the note" invariant. These cases lock in the
 // laterality sanity check: a hinted code that is REAL but contradicts the intent's own left/right
@@ -16,26 +21,26 @@ describe('resolveIcd', () => {
   it('rejects a wrong-laterality hint and resolves from the display instead', async () => {
     // The model once hinted H00.012 (hordeolum externum RIGHT LOWER eyelid) for a dictated
     // LEFT UPPER stye — a real code, wrong anatomy.
-    const resolved = await resolveIcd('H00.012', 'Hordeolum, left upper eyelid', ['hordeolum']);
+    const resolved = await resolveIcd(search, 'H00.012', 'Hordeolum, left upper eyelid', ['hordeolum']);
     expect(resolved).toBeDefined();
     expect(resolved!.display.toLowerCase()).toContain('left upper');
     expect(resolved!.code).toBe('H00.014');
   });
 
   it('keeps a consistent hint as-is', async () => {
-    const resolved = await resolveIcd('H00.014', 'Hordeolum, left upper eyelid', []);
+    const resolved = await resolveIcd(search, 'H00.014', 'Hordeolum, left upper eyelid', []);
     expect(resolved!.code).toBe('H00.014');
   });
 
   it('keeps a hint when the intent text carries no qualifiers to contradict', async () => {
-    const resolved = await resolveIcd('J45.901', 'Acute asthma exacerbation', []);
+    const resolved = await resolveIcd(search, 'J45.901', 'Acute asthma exacerbation', []);
     expect(resolved!.code).toBe('J45.901');
   });
 
   it('rejects a real-but-wrong hint whose display shares no words with the intent', async () => {
     // S09.90XA is "Unspecified injury of head" — a real code the model once hinted for a
     // dictated concussion; the display-based search must take over.
-    const resolved = await resolveIcd('S09.90XA', 'Concussion without loss of consciousness', ['concussion']);
+    const resolved = await resolveIcd(search, 'S09.90XA', 'Concussion without loss of consciousness', ['concussion']);
     expect(resolved).toBeDefined();
     expect(resolved!.display.toLowerCase()).toContain('concussion');
   });
@@ -44,14 +49,17 @@ describe('resolveIcd', () => {
     // The model once hinted the EAR contusion code (S00.4x, head block) for a dictated tailbone
     // contusion. The hint must be rejected AND the fallback search must not re-attach it (it
     // ranked first among "contusion" ties); the lower-back/pelvis block code is the answer.
-    const resolved = await resolveIcd('S00.439A', 'Contusion of coccyx', ['contusion coccyx', 'tailbone bruise']);
+    const resolved = await resolveIcd(search, 'S00.439A', 'Contusion of coccyx', [
+      'contusion coccyx',
+      'tailbone bruise',
+    ]);
     expect(resolved).toBeDefined();
     expect(resolved!.code).toBe('S30.0XXA');
     expect(resolved!.code.startsWith('S00.4')).toBe(false);
   });
 
   it('resolves a trunk-site display with no hint to the trunk-block code', async () => {
-    const resolved = await resolveIcd(undefined, 'Tailbone contusion', ['tailbone bruise']);
+    const resolved = await resolveIcd(search, undefined, 'Tailbone contusion', ['tailbone bruise']);
     expect(resolved!.code).toBe('S30.0XXA');
   });
 
@@ -59,12 +67,12 @@ describe('resolveIcd', () => {
     // S20.219A "Contusion of back wall of thorax" shares "contusion"+"back" with the intent, so
     // the word-overlap check alone passes — only the S-block region guard catches that thorax
     // (S2x) is the wrong block for a lower back/pelvis (S3x) site.
-    const resolved = await resolveIcd('S20.219A', 'Contusion of lower back and pelvis', []);
+    const resolved = await resolveIcd(search, 'S20.219A', 'Contusion of lower back and pelvis', []);
     expect(resolved!.code).toBe('S30.0XXA');
   });
 
   it('keeps a correct-region injury hint as-is', async () => {
-    const resolved = await resolveIcd('S70.11XA', 'Contusion of right thigh', []);
+    const resolved = await resolveIcd(search, 'S70.11XA', 'Contusion of right thigh', []);
     expect(resolved!.code).toBe('S70.11XA');
   });
 });
@@ -127,19 +135,21 @@ describe('contradictsHistoryContext', () => {
 // explicitly-phrased personal-history intent keeps the code.
 describe('resolveIcd history/status gate', () => {
   it('regression: a narrative "history of recurrent X" intent never charts a Z8x history code', async () => {
-    const resolved = await resolveIcd(undefined, 'History of recurrent ingrown hairs', [
+    const resolved = await resolveIcd(search, undefined, 'History of recurrent ingrown hairs', [
       'recurrent ingrown hair nasal vestibule',
     ]);
     expect(resolved?.code.startsWith('Z8')).not.toBe(true);
   });
 
   it('rejects the Z87.01 hint itself for the same intent', async () => {
-    const resolved = await resolveIcd('Z87.01', 'History of recurrent ingrown hairs', ['recurrent ingrown hair']);
+    const resolved = await resolveIcd(search, 'Z87.01', 'History of recurrent ingrown hairs', [
+      'recurrent ingrown hair',
+    ]);
     expect(resolved?.code).not.toBe('Z87.01');
   });
 
   it('keeps Z87.01 for an explicit personal-history intent', async () => {
-    const resolved = await resolveIcd('Z87.01', 'Personal history of pneumonia', []);
+    const resolved = await resolveIcd(search, 'Z87.01', 'Personal history of pneumonia', []);
     expect(resolved!.code).toBe('Z87.01');
   });
 });
@@ -149,24 +159,31 @@ describe('resolveIcd history/status gate', () => {
 // Ambiguity or a missing exact sibling always keeps the validated code.
 describe('specificity upgrade (laterality / recurrence)', () => {
   it('upgrades an unspecified-side hint when a search term names the side', async () => {
-    const resolved = await resolveIcd('H66.90', 'Otitis media', ['left ear infection']);
+    const resolved = await resolveIcd(search, 'H66.90', 'Otitis media', ['left ear infection']);
     expect(resolved!.code).toBe('H66.92');
     expect(resolved!.display.toLowerCase()).toContain('left ear');
   });
 
   it('upgrades a search-resolved code from laterality named only in sourceText', async () => {
-    const resolved = await resolveIcd(undefined, 'Otitis media', ['ear infection'], 'his left ear has been hurting');
+    const resolved = await resolveIcd(
+      search,
+      undefined,
+      'Otitis media',
+      ['ear infection'],
+      'his left ear has been hurting'
+    );
     expect(resolved!.code).toBe('H66.92');
   });
 
   it('upgrades to the recurrent sibling when the narrative says "frequent"', async () => {
-    const resolved = await resolveIcd('J03.90', 'Acute tonsillitis', ['frequent sore throats']);
+    const resolved = await resolveIcd(search, 'J03.90', 'Acute tonsillitis', ['frequent sore throats']);
     expect(resolved!.code).toBe('J03.91');
     expect(resolved!.display.toLowerCase()).toContain('recurrent');
   });
 
   it('chains laterality then recurrence when the narrative names both', async () => {
     const upgraded = await upgradeCodeSpecificity(
+      search,
       {
         code: 'H66.009',
         display: 'Acute suppurative otitis media without spontaneous rupture of ear drum, unspecified ear',
@@ -177,7 +194,7 @@ describe('specificity upgrade (laterality / recurrence)', () => {
   });
 
   it('keeps the code when the intent names conflicting sides', async () => {
-    const resolved = await resolveIcd('H66.90', 'Otitis media', ['left ear', 'right ear pain']);
+    const resolved = await resolveIcd(search, 'H66.90', 'Otitis media', ['left ear', 'right ear pain']);
     expect(resolved!.code).toBe('H66.90');
   });
 
@@ -185,6 +202,7 @@ describe('specificity upgrade (laterality / recurrence)', () => {
     // H61.1x has two "left ear" pinna-disorder siblings that differ from this display only by
     // neutralized words — ambiguous, so no upgrade.
     const upgraded = await upgradeCodeSpecificity(
+      search,
       { code: 'H61.199', display: 'Noninfective disorders of pinna, unspecified ear' },
       ['left ear']
     );
@@ -192,17 +210,17 @@ describe('specificity upgrade (laterality / recurrence)', () => {
   });
 
   it('never leaves the 3-character category: no sibling means no change', async () => {
-    const resolved = await resolveIcd('J02.9', 'Acute pharyngitis', ['left side sore throat']);
+    const resolved = await resolveIcd(search, 'J02.9', 'Acute pharyngitis', ['left side sore throat']);
     expect(resolved!.code).toBe('J02.9');
   });
 
   it('never downgrades or sidegrades an already-specific code', async () => {
-    const resolved = await resolveIcd('H66.92', 'Otitis media, left ear', ['left ear infection']);
+    const resolved = await resolveIcd(search, 'H66.92', 'Otitis media, left ear', ['left ear infection']);
     expect(resolved!.code).toBe('H66.92');
   });
 
   it('upgrades injury-code laterality while preserving the encounter phase', async () => {
-    const resolved = await resolveIcd('S93.409A', 'Ankle sprain', ['left ankle sprain']);
+    const resolved = await resolveIcd(search, 'S93.409A', 'Ankle sprain', ['left ankle sprain']);
     expect(resolved!.code).toBe('S93.402A');
     expect(resolved!.display.toLowerCase()).toContain('initial encounter');
   });
@@ -210,6 +228,7 @@ describe('specificity upgrade (laterality / recurrence)', () => {
   it('treats digits as distinguishing, so numeric siblings resolve uniquely', async () => {
     // Six H35.1x "left eye" stage variants exist; only the same-stage one may match.
     const upgraded = await upgradeCodeSpecificity(
+      search,
       { code: 'H35.119', display: 'Retinopathy of prematurity, stage 0, unspecified eye' },
       ['left eye']
     );
@@ -266,6 +285,7 @@ describe('unsupportedEtiologyQualifiers', () => {
 describe('repairUnsupportedEtiology', () => {
   it('repairs the gonococcal live case to candidal vulvovaginitis (B37.3)', async () => {
     const repaired = await repairUnsupportedEtiology(
+      search,
       { code: 'A54.02', display: 'Gonococcal vulvovaginitis, unspecified' },
       YEAST_EVIDENCE
     );
@@ -274,6 +294,7 @@ describe('repairUnsupportedEtiology', () => {
 
   it('repairs the serous live case into the suppurative H66.0x family, keeping recurrence and laterality', async () => {
     const repaired = await repairUnsupportedEtiology(
+      search,
       { code: 'H65.06', display: 'Acute serous otitis media, recurrent, bilateral' },
       PURULENT_AOM_EVIDENCE
     );
@@ -283,6 +304,7 @@ describe('repairUnsupportedEtiology', () => {
   it('returns undefined when no clean same-condition replacement exists', async () => {
     // Every code matching gingivostomatitis+pharyngotonsillitis is the herpesviral one itself.
     const repaired = await repairUnsupportedEtiology(
+      search,
       { code: 'B00.2', display: 'Herpesviral gingivostomatitis and pharyngotonsillitis' },
       'Twisted ankle at soccer practice with pain on weight bearing.'
     );
@@ -299,7 +321,7 @@ describe('validateIntentCode etiology guard (add-diagnosis + evidence)', () => {
       code: 'A54.02',
       isPrimary: true,
     };
-    expect(await validateIntentCode(r, undefined, YEAST_EVIDENCE)).toBe('etiology-repaired');
+    expect(await validateIntentCode(r, undefined, YEAST_EVIDENCE, search)).toBe('etiology-repaired');
     expect(r.code).toBe('B37.31');
     expect(r.display).toBe('Acute candidiasis of vulva and vagina');
     expect(r.isPrimary).toBe(true);
@@ -307,13 +329,13 @@ describe('validateIntentCode etiology guard (add-diagnosis + evidence)', () => {
 
   it('runs no repair on a supported-qualifier code (normal resolution still applies)', async () => {
     const r: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Candidal vulvovaginitis', code: 'B37.3' };
-    expect(await validateIntentCode(r, undefined, YEAST_EVIDENCE)).toBe('ok');
+    expect(await validateIntentCode(r, undefined, YEAST_EVIDENCE, search)).toBe('ok');
     expect(r.code).toBe('B37.31');
   });
 
   it('leaves a no-qualifier display untouched', async () => {
     const r: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Acute pharyngitis', code: 'J02.9' };
-    expect(await validateIntentCode(r, undefined, 'sore throat for two days')).toBe('ok');
+    expect(await validateIntentCode(r, undefined, 'sore throat for two days', search)).toBe('ok');
     expect(r.code).toBe('J02.9');
   });
 
@@ -323,13 +345,23 @@ describe('validateIntentCode etiology guard (add-diagnosis + evidence)', () => {
       display: 'Herpesviral gingivostomatitis',
       code: 'B00.2',
     };
-    expect(await validateIntentCode(r, undefined, 'Twisted ankle at soccer practice.')).toBe('etiology-unsupported');
+    expect(await validateIntentCode(r, undefined, 'Twisted ankle at soccer practice.', search)).toBe(
+      'etiology-unsupported'
+    );
   });
 
   it('stays inert without evidence (planner path unchanged)', async () => {
     const r: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Gonococcal vulvovaginitis', code: 'A54.02' };
-    expect(await validateIntentCode(r, undefined)).toBe('ok');
+    expect(await validateIntentCode(r, undefined, undefined, search)).toBe('ok');
     expect(r.code).toBe('A54.02');
+  });
+
+  it('degrades to keep-as-is when no client and no search are available', async () => {
+    // Mirrors the billing-code degrade: with neither an Oystehr client nor an injected search
+    // there is no canonical source to validate against, so the hint is kept, never deleted.
+    const r: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Acute pharyngitis', code: 'J02.9' };
+    expect(await validateIntentCode(r, undefined)).toBe('ok');
+    expect(r.code).toBe('J02.9');
   });
 });
 
@@ -338,7 +370,7 @@ describe('validateIntentCode etiology guard (add-diagnosis + evidence)', () => {
 // vulvovaginitis code. The synonym fix must make the resolver land on B37.3 directly.
 describe('resolveIcd candidal register', () => {
   it('resolves a candidal vulvovaginitis display to B37.3', async () => {
-    const resolved = await resolveIcd(undefined, 'Candidal vulvovaginitis', ['yeast infection']);
+    const resolved = await resolveIcd(search, undefined, 'Candidal vulvovaginitis', ['yeast infection']);
     expect(resolved?.code).toBe('B37.31');
   });
 });

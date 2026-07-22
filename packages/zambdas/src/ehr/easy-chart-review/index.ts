@@ -15,6 +15,7 @@ import {
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
 import { validateIntentCode } from '../../shared/easy-chart/codes';
+import { IcdSearchFn } from '../../shared/easy-chart/icd-search';
 import { derivePatientStatus, fetchPatientContext } from '../../shared/easy-chart/patient-context';
 import { detectDispositionLanguage, DispositionLanguageMatch } from '../../shared/easy-chart/sniffers';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -338,9 +339,10 @@ NARRATIVE:
 export async function validateActionCodes(
   actions: Record<string, unknown>[],
   oystehr: Oystehr | undefined,
-  etiologyEvidence?: string
+  etiologyEvidence?: string,
+  icdSearch?: IcdSearchFn // test seam: unit tests inject a fixture search instead of the terminology service
 ): Promise<{ keep: boolean; etiologyRepaired: number; etiologyDropped: boolean }> {
-  const results = await Promise.all(actions.map((a) => validateIntentCode(a, oystehr, etiologyEvidence)));
+  const results = await Promise.all(actions.map((a) => validateIntentCode(a, oystehr, etiologyEvidence, icdSearch)));
   const etiologyDropped = results.includes('etiology-unsupported');
   return {
     keep: !etiologyDropped && !results.includes('invalid-billing'),

@@ -1,0 +1,2566 @@
+[
+  {
+    "code": "A54.02",
+    "display": "Gonococcal vulvovaginitis, unspecified"
+  },
+  {
+    "code": "B00.2",
+    "display": "Herpesviral gingivostomatitis and pharyngotonsillitis"
+  },
+  {
+    "code": "B37.31",
+    "display": "Acute candidiasis of vulva and vagina"
+  },
+  {
+    "code": "B37.32",
+    "display": "Chronic candidiasis of vulva and vagina"
+  },
+  {
+    "code": "H00.012",
+    "display": "Hordeolum externum right lower eyelid"
+  },
+  {
+    "code": "H00.014",
+    "display": "Hordeolum externum left upper eyelid"
+  },
+  {
+    "code": "H35.00",
+    "display": "Unspecified background retinopathy"
+  },
+  {
+    "code": "H35.011",
+    "display": "Changes in retinal vascular appearance, right eye"
+  },
+  {
+    "code": "H35.012",
+    "display": "Changes in retinal vascular appearance, left eye"
+  },
+  {
+    "code": "H35.013",
+    "display": "Changes in retinal vascular appearance, bilateral"
+  },
+  {
+    "code": "H35.019",
+    "display": "Changes in retinal vascular appearance, unspecified eye"
+  },
+  {
+    "code": "H35.021",
+    "display": "Exudative retinopathy, right eye"
+  },
+  {
+    "code": "H35.022",
+    "display": "Exudative retinopathy, left eye"
+  },
+  {
+    "code": "H35.023",
+    "display": "Exudative retinopathy, bilateral"
+  },
+  {
+    "code": "H35.029",
+    "display": "Exudative retinopathy, unspecified eye"
+  },
+  {
+    "code": "H35.031",
+    "display": "Hypertensive retinopathy, right eye"
+  },
+  {
+    "code": "H35.032",
+    "display": "Hypertensive retinopathy, left eye"
+  },
+  {
+    "code": "H35.033",
+    "display": "Hypertensive retinopathy, bilateral"
+  },
+  {
+    "code": "H35.039",
+    "display": "Hypertensive retinopathy, unspecified eye"
+  },
+  {
+    "code": "H35.041",
+    "display": "Retinal micro-aneurysms, unspecified, right eye"
+  },
+  {
+    "code": "H35.042",
+    "display": "Retinal micro-aneurysms, unspecified, left eye"
+  },
+  {
+    "code": "H35.043",
+    "display": "Retinal micro-aneurysms, unspecified, bilateral"
+  },
+  {
+    "code": "H35.049",
+    "display": "Retinal micro-aneurysms, unspecified, unspecified eye"
+  },
+  {
+    "code": "H35.051",
+    "display": "Retinal neovascularization, unspecified, right eye"
+  },
+  {
+    "code": "H35.052",
+    "display": "Retinal neovascularization, unspecified, left eye"
+  },
+  {
+    "code": "H35.053",
+    "display": "Retinal neovascularization, unspecified, bilateral"
+  },
+  {
+    "code": "H35.059",
+    "display": "Retinal neovascularization, unspecified, unspecified eye"
+  },
+  {
+    "code": "H35.061",
+    "display": "Retinal vasculitis, right eye"
+  },
+  {
+    "code": "H35.062",
+    "display": "Retinal vasculitis, left eye"
+  },
+  {
+    "code": "H35.063",
+    "display": "Retinal vasculitis, bilateral"
+  },
+  {
+    "code": "H35.069",
+    "display": "Retinal vasculitis, unspecified eye"
+  },
+  {
+    "code": "H35.071",
+    "display": "Retinal telangiectasis, right eye"
+  },
+  {
+    "code": "H35.072",
+    "display": "Retinal telangiectasis, left eye"
+  },
+  {
+    "code": "H35.073",
+    "display": "Retinal telangiectasis, bilateral"
+  },
+  {
+    "code": "H35.079",
+    "display": "Retinal telangiectasis, unspecified eye"
+  },
+  {
+    "code": "H35.09",
+    "display": "Other intraretinal microvascular abnormalities"
+  },
+  {
+    "code": "H35.101",
+    "display": "Retinopathy of prematurity, unspecified, right eye"
+  },
+  {
+    "code": "H35.102",
+    "display": "Retinopathy of prematurity, unspecified, left eye"
+  },
+  {
+    "code": "H35.103",
+    "display": "Retinopathy of prematurity, unspecified, bilateral"
+  },
+  {
+    "code": "H35.109",
+    "display": "Retinopathy of prematurity, unspecified, unspecified eye"
+  },
+  {
+    "code": "H35.111",
+    "display": "Retinopathy of prematurity, stage 0, right eye"
+  },
+  {
+    "code": "H35.112",
+    "display": "Retinopathy of prematurity, stage 0, left eye"
+  },
+  {
+    "code": "H35.113",
+    "display": "Retinopathy of prematurity, stage 0, bilateral"
+  },
+  {
+    "code": "H35.119",
+    "display": "Retinopathy of prematurity, stage 0, unspecified eye"
+  },
+  {
+    "code": "H35.121",
+    "display": "Retinopathy of prematurity, stage 1, right eye"
+  },
+  {
+    "code": "H35.122",
+    "display": "Retinopathy of prematurity, stage 1, left eye"
+  },
+  {
+    "code": "H35.123",
+    "display": "Retinopathy of prematurity, stage 1, bilateral"
+  },
+  {
+    "code": "H35.129",
+    "display": "Retinopathy of prematurity, stage 1, unspecified eye"
+  },
+  {
+    "code": "H35.131",
+    "display": "Retinopathy of prematurity, stage 2, right eye"
+  },
+  {
+    "code": "H35.132",
+    "display": "Retinopathy of prematurity, stage 2, left eye"
+  },
+  {
+    "code": "H35.133",
+    "display": "Retinopathy of prematurity, stage 2, bilateral"
+  },
+  {
+    "code": "H35.139",
+    "display": "Retinopathy of prematurity, stage 2, unspecified eye"
+  },
+  {
+    "code": "H35.141",
+    "display": "Retinopathy of prematurity, stage 3, right eye"
+  },
+  {
+    "code": "H35.142",
+    "display": "Retinopathy of prematurity, stage 3, left eye"
+  },
+  {
+    "code": "H35.143",
+    "display": "Retinopathy of prematurity, stage 3, bilateral"
+  },
+  {
+    "code": "H35.149",
+    "display": "Retinopathy of prematurity, stage 3, unspecified eye"
+  },
+  {
+    "code": "H35.151",
+    "display": "Retinopathy of prematurity, stage 4, right eye"
+  },
+  {
+    "code": "H35.152",
+    "display": "Retinopathy of prematurity, stage 4, left eye"
+  },
+  {
+    "code": "H35.153",
+    "display": "Retinopathy of prematurity, stage 4, bilateral"
+  },
+  {
+    "code": "H35.159",
+    "display": "Retinopathy of prematurity, stage 4, unspecified eye"
+  },
+  {
+    "code": "H35.161",
+    "display": "Retinopathy of prematurity, stage 5, right eye"
+  },
+  {
+    "code": "H35.162",
+    "display": "Retinopathy of prematurity, stage 5, left eye"
+  },
+  {
+    "code": "H35.163",
+    "display": "Retinopathy of prematurity, stage 5, bilateral"
+  },
+  {
+    "code": "H35.169",
+    "display": "Retinopathy of prematurity, stage 5, unspecified eye"
+  },
+  {
+    "code": "H35.171",
+    "display": "Retrolental fibroplasia, right eye"
+  },
+  {
+    "code": "H35.172",
+    "display": "Retrolental fibroplasia, left eye"
+  },
+  {
+    "code": "H35.173",
+    "display": "Retrolental fibroplasia, bilateral"
+  },
+  {
+    "code": "H35.179",
+    "display": "Retrolental fibroplasia, unspecified eye"
+  },
+  {
+    "code": "H35.20",
+    "display": "Other non-diabetic proliferative retinopathy, unspecified eye"
+  },
+  {
+    "code": "H35.21",
+    "display": "Other non-diabetic proliferative retinopathy, right eye"
+  },
+  {
+    "code": "H35.22",
+    "display": "Other non-diabetic proliferative retinopathy, left eye"
+  },
+  {
+    "code": "H35.23",
+    "display": "Other non-diabetic proliferative retinopathy, bilateral"
+  },
+  {
+    "code": "H35.30",
+    "display": "Unspecified macular degeneration"
+  },
+  {
+    "code": "H35.3110",
+    "display": "Nonexudative age-related macular degeneration, right eye, stage unspecified"
+  },
+  {
+    "code": "H35.3111",
+    "display": "Nonexudative age-related macular degeneration, right eye, early dry stage"
+  },
+  {
+    "code": "H35.3112",
+    "display": "Nonexudative age-related macular degeneration, right eye, intermediate dry stage"
+  },
+  {
+    "code": "H35.3113",
+    "display": "Nonexudative age-related macular degeneration, right eye, advanced atrophic without subfoveal involvement"
+  },
+  {
+    "code": "H35.3114",
+    "display": "Nonexudative age-related macular degeneration, right eye, advanced atrophic with subfoveal involvement"
+  },
+  {
+    "code": "H35.3120",
+    "display": "Nonexudative age-related macular degeneration, left eye, stage unspecified"
+  },
+  {
+    "code": "H35.3121",
+    "display": "Nonexudative age-related macular degeneration, left eye, early dry stage"
+  },
+  {
+    "code": "H35.3122",
+    "display": "Nonexudative age-related macular degeneration, left eye, intermediate dry stage"
+  },
+  {
+    "code": "H35.3123",
+    "display": "Nonexudative age-related macular degeneration, left eye, advanced atrophic without subfoveal involvement"
+  },
+  {
+    "code": "H35.3124",
+    "display": "Nonexudative age-related macular degeneration, left eye, advanced atrophic with subfoveal involvement"
+  },
+  {
+    "code": "H35.3130",
+    "display": "Nonexudative age-related macular degeneration, bilateral, stage unspecified"
+  },
+  {
+    "code": "H35.3131",
+    "display": "Nonexudative age-related macular degeneration, bilateral, early dry stage"
+  },
+  {
+    "code": "H35.3132",
+    "display": "Nonexudative age-related macular degeneration, bilateral, intermediate dry stage"
+  },
+  {
+    "code": "H35.3133",
+    "display": "Nonexudative age-related macular degeneration, bilateral, advanced atrophic without subfoveal involvement"
+  },
+  {
+    "code": "H35.3134",
+    "display": "Nonexudative age-related macular degeneration, bilateral, advanced atrophic with subfoveal involvement"
+  },
+  {
+    "code": "H35.3190",
+    "display": "Nonexudative age-related macular degeneration, unspecified eye, stage unspecified"
+  },
+  {
+    "code": "H35.3191",
+    "display": "Nonexudative age-related macular degeneration, unspecified eye, early dry stage"
+  },
+  {
+    "code": "H35.3192",
+    "display": "Nonexudative age-related macular degeneration, unspecified eye, intermediate dry stage"
+  },
+  {
+    "code": "H35.3193",
+    "display": "Nonexudative age-related macular degeneration, unspecified eye, advanced atrophic without subfoveal involvement"
+  },
+  {
+    "code": "H35.3194",
+    "display": "Nonexudative age-related macular degeneration, unspecified eye, advanced atrophic with subfoveal involvement"
+  },
+  {
+    "code": "H35.3210",
+    "display": "Exudative age-related macular degeneration, right eye, stage unspecified"
+  },
+  {
+    "code": "H35.3211",
+    "display": "Exudative age-related macular degeneration, right eye, with active choroidal neovascularization"
+  },
+  {
+    "code": "H35.3212",
+    "display": "Exudative age-related macular degeneration, right eye, with inactive choroidal neovascularization"
+  },
+  {
+    "code": "H35.3213",
+    "display": "Exudative age-related macular degeneration, right eye, with inactive scar"
+  },
+  {
+    "code": "H35.3220",
+    "display": "Exudative age-related macular degeneration, left eye, stage unspecified"
+  },
+  {
+    "code": "H35.3221",
+    "display": "Exudative age-related macular degeneration, left eye, with active choroidal neovascularization"
+  },
+  {
+    "code": "H35.3222",
+    "display": "Exudative age-related macular degeneration, left eye, with inactive choroidal neovascularization"
+  },
+  {
+    "code": "H35.3223",
+    "display": "Exudative age-related macular degeneration, left eye, with inactive scar"
+  },
+  {
+    "code": "H35.3230",
+    "display": "Exudative age-related macular degeneration, bilateral, stage unspecified"
+  },
+  {
+    "code": "H35.3231",
+    "display": "Exudative age-related macular degeneration, bilateral, with active choroidal neovascularization"
+  },
+  {
+    "code": "H35.3232",
+    "display": "Exudative age-related macular degeneration, bilateral, with inactive choroidal neovascularization"
+  },
+  {
+    "code": "H35.3233",
+    "display": "Exudative age-related macular degeneration, bilateral, with inactive scar"
+  },
+  {
+    "code": "H35.3290",
+    "display": "Exudative age-related macular degeneration, unspecified eye, stage unspecified"
+  },
+  {
+    "code": "H35.3291",
+    "display": "Exudative age-related macular degeneration, unspecified eye, with active choroidal neovascularization"
+  },
+  {
+    "code": "H35.3292",
+    "display": "Exudative age-related macular degeneration, unspecified eye, with inactive choroidal neovascularization"
+  },
+  {
+    "code": "H35.3293",
+    "display": "Exudative age-related macular degeneration, unspecified eye, with inactive scar"
+  },
+  {
+    "code": "H35.33",
+    "display": "Angioid streaks of macula"
+  },
+  {
+    "code": "H35.341",
+    "display": "Macular cyst, hole, or pseudohole, right eye"
+  },
+  {
+    "code": "H35.342",
+    "display": "Macular cyst, hole, or pseudohole, left eye"
+  },
+  {
+    "code": "H35.343",
+    "display": "Macular cyst, hole, or pseudohole, bilateral"
+  },
+  {
+    "code": "H35.349",
+    "display": "Macular cyst, hole, or pseudohole, unspecified eye"
+  },
+  {
+    "code": "H35.351",
+    "display": "Cystoid macular degeneration, right eye"
+  },
+  {
+    "code": "H35.352",
+    "display": "Cystoid macular degeneration, left eye"
+  },
+  {
+    "code": "H35.353",
+    "display": "Cystoid macular degeneration, bilateral"
+  },
+  {
+    "code": "H35.359",
+    "display": "Cystoid macular degeneration, unspecified eye"
+  },
+  {
+    "code": "H35.361",
+    "display": "Drusen (degenerative) of macula, right eye"
+  },
+  {
+    "code": "H35.362",
+    "display": "Drusen (degenerative) of macula, left eye"
+  },
+  {
+    "code": "H35.363",
+    "display": "Drusen (degenerative) of macula, bilateral"
+  },
+  {
+    "code": "H35.369",
+    "display": "Drusen (degenerative) of macula, unspecified eye"
+  },
+  {
+    "code": "H35.371",
+    "display": "Puckering of macula, right eye"
+  },
+  {
+    "code": "H35.372",
+    "display": "Puckering of macula, left eye"
+  },
+  {
+    "code": "H35.373",
+    "display": "Puckering of macula, bilateral"
+  },
+  {
+    "code": "H35.379",
+    "display": "Puckering of macula, unspecified eye"
+  },
+  {
+    "code": "H35.381",
+    "display": "Toxic maculopathy, right eye"
+  },
+  {
+    "code": "H35.382",
+    "display": "Toxic maculopathy, left eye"
+  },
+  {
+    "code": "H35.383",
+    "display": "Toxic maculopathy, bilateral"
+  },
+  {
+    "code": "H35.389",
+    "display": "Toxic maculopathy, unspecified eye"
+  },
+  {
+    "code": "H35.40",
+    "display": "Unspecified peripheral retinal degeneration"
+  },
+  {
+    "code": "H35.411",
+    "display": "Lattice degeneration of retina, right eye"
+  },
+  {
+    "code": "H35.412",
+    "display": "Lattice degeneration of retina, left eye"
+  },
+  {
+    "code": "H35.413",
+    "display": "Lattice degeneration of retina, bilateral"
+  },
+  {
+    "code": "H35.419",
+    "display": "Lattice degeneration of retina, unspecified eye"
+  },
+  {
+    "code": "H35.421",
+    "display": "Microcystoid degeneration of retina, right eye"
+  },
+  {
+    "code": "H35.422",
+    "display": "Microcystoid degeneration of retina, left eye"
+  },
+  {
+    "code": "H35.423",
+    "display": "Microcystoid degeneration of retina, bilateral"
+  },
+  {
+    "code": "H35.429",
+    "display": "Microcystoid degeneration of retina, unspecified eye"
+  },
+  {
+    "code": "H35.431",
+    "display": "Paving stone degeneration of retina, right eye"
+  },
+  {
+    "code": "H35.432",
+    "display": "Paving stone degeneration of retina, left eye"
+  },
+  {
+    "code": "H35.433",
+    "display": "Paving stone degeneration of retina, bilateral"
+  },
+  {
+    "code": "H35.439",
+    "display": "Paving stone degeneration of retina, unspecified eye"
+  },
+  {
+    "code": "H35.441",
+    "display": "Age-related reticular degeneration of retina, right eye"
+  },
+  {
+    "code": "H35.442",
+    "display": "Age-related reticular degeneration of retina, left eye"
+  },
+  {
+    "code": "H35.443",
+    "display": "Age-related reticular degeneration of retina, bilateral"
+  },
+  {
+    "code": "H35.449",
+    "display": "Age-related reticular degeneration of retina, unspecified eye"
+  },
+  {
+    "code": "H35.451",
+    "display": "Secondary pigmentary degeneration, right eye"
+  },
+  {
+    "code": "H35.452",
+    "display": "Secondary pigmentary degeneration, left eye"
+  },
+  {
+    "code": "H35.453",
+    "display": "Secondary pigmentary degeneration, bilateral"
+  },
+  {
+    "code": "H35.459",
+    "display": "Secondary pigmentary degeneration, unspecified eye"
+  },
+  {
+    "code": "H35.461",
+    "display": "Secondary vitreoretinal degeneration, right eye"
+  },
+  {
+    "code": "H35.462",
+    "display": "Secondary vitreoretinal degeneration, left eye"
+  },
+  {
+    "code": "H35.463",
+    "display": "Secondary vitreoretinal degeneration, bilateral"
+  },
+  {
+    "code": "H35.469",
+    "display": "Secondary vitreoretinal degeneration, unspecified eye"
+  },
+  {
+    "code": "H35.50",
+    "display": "Unspecified hereditary retinal dystrophy"
+  },
+  {
+    "code": "H35.51",
+    "display": "Vitreoretinal dystrophy"
+  },
+  {
+    "code": "H35.52",
+    "display": "Pigmentary retinal dystrophy"
+  },
+  {
+    "code": "H35.53",
+    "display": "Other dystrophies primarily involving the sensory retina"
+  },
+  {
+    "code": "H35.54",
+    "display": "Dystrophies primarily involving the retinal pigment epithelium"
+  },
+  {
+    "code": "H35.60",
+    "display": "Retinal hemorrhage, unspecified eye"
+  },
+  {
+    "code": "H35.61",
+    "display": "Retinal hemorrhage, right eye"
+  },
+  {
+    "code": "H35.62",
+    "display": "Retinal hemorrhage, left eye"
+  },
+  {
+    "code": "H35.63",
+    "display": "Retinal hemorrhage, bilateral"
+  },
+  {
+    "code": "H35.70",
+    "display": "Unspecified separation of retinal layers"
+  },
+  {
+    "code": "H35.711",
+    "display": "Central serous chorioretinopathy, right eye"
+  },
+  {
+    "code": "H35.712",
+    "display": "Central serous chorioretinopathy, left eye"
+  },
+  {
+    "code": "H35.713",
+    "display": "Central serous chorioretinopathy, bilateral"
+  },
+  {
+    "code": "H35.719",
+    "display": "Central serous chorioretinopathy, unspecified eye"
+  },
+  {
+    "code": "H35.721",
+    "display": "Serous detachment of retinal pigment epithelium, right eye"
+  },
+  {
+    "code": "H35.722",
+    "display": "Serous detachment of retinal pigment epithelium, left eye"
+  },
+  {
+    "code": "H35.723",
+    "display": "Serous detachment of retinal pigment epithelium, bilateral"
+  },
+  {
+    "code": "H35.729",
+    "display": "Serous detachment of retinal pigment epithelium, unspecified eye"
+  },
+  {
+    "code": "H35.731",
+    "display": "Hemorrhagic detachment of retinal pigment epithelium, right eye"
+  },
+  {
+    "code": "H35.732",
+    "display": "Hemorrhagic detachment of retinal pigment epithelium, left eye"
+  },
+  {
+    "code": "H35.733",
+    "display": "Hemorrhagic detachment of retinal pigment epithelium, bilateral"
+  },
+  {
+    "code": "H35.739",
+    "display": "Hemorrhagic detachment of retinal pigment epithelium, unspecified eye"
+  },
+  {
+    "code": "H35.81",
+    "display": "Retinal edema"
+  },
+  {
+    "code": "H35.82",
+    "display": "Retinal ischemia"
+  },
+  {
+    "code": "H35.89",
+    "display": "Other specified retinal disorders"
+  },
+  {
+    "code": "H35.9",
+    "display": "Unspecified retinal disorder"
+  },
+  {
+    "code": "H61.001",
+    "display": "Unspecified perichondritis of right external ear"
+  },
+  {
+    "code": "H61.002",
+    "display": "Unspecified perichondritis of left external ear"
+  },
+  {
+    "code": "H61.003",
+    "display": "Unspecified perichondritis of external ear, bilateral"
+  },
+  {
+    "code": "H61.009",
+    "display": "Unspecified perichondritis of external ear, unspecified ear"
+  },
+  {
+    "code": "H61.011",
+    "display": "Acute perichondritis of right external ear"
+  },
+  {
+    "code": "H61.012",
+    "display": "Acute perichondritis of left external ear"
+  },
+  {
+    "code": "H61.013",
+    "display": "Acute perichondritis of external ear, bilateral"
+  },
+  {
+    "code": "H61.019",
+    "display": "Acute perichondritis of external ear, unspecified ear"
+  },
+  {
+    "code": "H61.021",
+    "display": "Chronic perichondritis of right external ear"
+  },
+  {
+    "code": "H61.022",
+    "display": "Chronic perichondritis of left external ear"
+  },
+  {
+    "code": "H61.023",
+    "display": "Chronic perichondritis of external ear, bilateral"
+  },
+  {
+    "code": "H61.029",
+    "display": "Chronic perichondritis of external ear, unspecified ear"
+  },
+  {
+    "code": "H61.031",
+    "display": "Chondritis of right external ear"
+  },
+  {
+    "code": "H61.032",
+    "display": "Chondritis of left external ear"
+  },
+  {
+    "code": "H61.033",
+    "display": "Chondritis of external ear, bilateral"
+  },
+  {
+    "code": "H61.039",
+    "display": "Chondritis of external ear, unspecified ear"
+  },
+  {
+    "code": "H61.101",
+    "display": "Unspecified noninfective disorders of pinna, right ear"
+  },
+  {
+    "code": "H61.102",
+    "display": "Unspecified noninfective disorders of pinna, left ear"
+  },
+  {
+    "code": "H61.103",
+    "display": "Unspecified noninfective disorders of pinna, bilateral"
+  },
+  {
+    "code": "H61.109",
+    "display": "Unspecified noninfective disorders of pinna, unspecified ear"
+  },
+  {
+    "code": "H61.111",
+    "display": "Acquired deformity of pinna, right ear"
+  },
+  {
+    "code": "H61.112",
+    "display": "Acquired deformity of pinna, left ear"
+  },
+  {
+    "code": "H61.113",
+    "display": "Acquired deformity of pinna, bilateral"
+  },
+  {
+    "code": "H61.119",
+    "display": "Acquired deformity of pinna, unspecified ear"
+  },
+  {
+    "code": "H61.121",
+    "display": "Hematoma of pinna, right ear"
+  },
+  {
+    "code": "H61.122",
+    "display": "Hematoma of pinna, left ear"
+  },
+  {
+    "code": "H61.123",
+    "display": "Hematoma of pinna, bilateral"
+  },
+  {
+    "code": "H61.129",
+    "display": "Hematoma of pinna, unspecified ear"
+  },
+  {
+    "code": "H61.191",
+    "display": "Noninfective disorders of pinna, right ear"
+  },
+  {
+    "code": "H61.192",
+    "display": "Noninfective disorders of pinna, left ear"
+  },
+  {
+    "code": "H61.193",
+    "display": "Noninfective disorders of pinna, bilateral"
+  },
+  {
+    "code": "H61.199",
+    "display": "Noninfective disorders of pinna, unspecified ear"
+  },
+  {
+    "code": "H61.20",
+    "display": "Impacted cerumen, unspecified ear"
+  },
+  {
+    "code": "H61.21",
+    "display": "Impacted cerumen, right ear"
+  },
+  {
+    "code": "H61.22",
+    "display": "Impacted cerumen, left ear"
+  },
+  {
+    "code": "H61.23",
+    "display": "Impacted cerumen, bilateral"
+  },
+  {
+    "code": "H61.301",
+    "display": "Acquired stenosis of right external ear canal, unspecified"
+  },
+  {
+    "code": "H61.302",
+    "display": "Acquired stenosis of left external ear canal, unspecified"
+  },
+  {
+    "code": "H61.303",
+    "display": "Acquired stenosis of external ear canal, unspecified, bilateral"
+  },
+  {
+    "code": "H61.309",
+    "display": "Acquired stenosis of external ear canal, unspecified, unspecified ear"
+  },
+  {
+    "code": "H61.311",
+    "display": "Acquired stenosis of right external ear canal secondary to trauma"
+  },
+  {
+    "code": "H61.312",
+    "display": "Acquired stenosis of left external ear canal secondary to trauma"
+  },
+  {
+    "code": "H61.313",
+    "display": "Acquired stenosis of external ear canal secondary to trauma, bilateral"
+  },
+  {
+    "code": "H61.319",
+    "display": "Acquired stenosis of external ear canal secondary to trauma, unspecified ear"
+  },
+  {
+    "code": "H61.321",
+    "display": "Acquired stenosis of right external ear canal secondary to inflammation and infection"
+  },
+  {
+    "code": "H61.322",
+    "display": "Acquired stenosis of left external ear canal secondary to inflammation and infection"
+  },
+  {
+    "code": "H61.323",
+    "display": "Acquired stenosis of external ear canal secondary to inflammation and infection, bilateral"
+  },
+  {
+    "code": "H61.329",
+    "display": "Acquired stenosis of external ear canal secondary to inflammation and infection, unspecified ear"
+  },
+  {
+    "code": "H61.391",
+    "display": "Other acquired stenosis of right external ear canal"
+  },
+  {
+    "code": "H61.392",
+    "display": "Other acquired stenosis of left external ear canal"
+  },
+  {
+    "code": "H61.393",
+    "display": "Other acquired stenosis of external ear canal, bilateral"
+  },
+  {
+    "code": "H61.399",
+    "display": "Other acquired stenosis of external ear canal, unspecified ear"
+  },
+  {
+    "code": "H61.811",
+    "display": "Exostosis of right external canal"
+  },
+  {
+    "code": "H61.812",
+    "display": "Exostosis of left external canal"
+  },
+  {
+    "code": "H61.813",
+    "display": "Exostosis of external canal, bilateral"
+  },
+  {
+    "code": "H61.819",
+    "display": "Exostosis of external canal, unspecified ear"
+  },
+  {
+    "code": "H61.891",
+    "display": "Other specified disorders of right external ear"
+  },
+  {
+    "code": "H61.892",
+    "display": "Other specified disorders of left external ear"
+  },
+  {
+    "code": "H61.893",
+    "display": "Other specified disorders of external ear, bilateral"
+  },
+  {
+    "code": "H61.899",
+    "display": "Other specified disorders of external ear, unspecified ear"
+  },
+  {
+    "code": "H61.90",
+    "display": "Disorder of external ear, unspecified, unspecified ear"
+  },
+  {
+    "code": "H61.91",
+    "display": "Disorder of right external ear, unspecified"
+  },
+  {
+    "code": "H61.92",
+    "display": "Disorder of left external ear, unspecified"
+  },
+  {
+    "code": "H61.93",
+    "display": "Disorder of external ear, unspecified, bilateral"
+  },
+  {
+    "code": "H65.06",
+    "display": "Acute serous otitis media, recurrent, bilateral"
+  },
+  {
+    "code": "H66.001",
+    "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, right ear"
+  },
+  {
+    "code": "H66.002",
+    "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, left ear"
+  },
+  {
+    "code": "H66.003",
+    "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, bilateral"
+  },
+  {
+    "code": "H66.004",
+    "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, recurrent, right ear"
+  },
+  {
+    "code": "H66.005",
+    "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, recurrent, left ear"
+  },
+  {
+    "code": "H66.006",
+    "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, recurrent, bilateral"
+  },
+  {
+    "code": "H66.007",
+    "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, recurrent, unspecified ear"
+  },
+  {
+    "code": "H66.009",
+    "display": "Acute suppurative otitis media without spontaneous rupture of ear drum, unspecified ear"
+  },
+  {
+    "code": "H66.011",
+    "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, right ear"
+  },
+  {
+    "code": "H66.012",
+    "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, left ear"
+  },
+  {
+    "code": "H66.013",
+    "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, bilateral"
+  },
+  {
+    "code": "H66.014",
+    "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, recurrent, right ear"
+  },
+  {
+    "code": "H66.015",
+    "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, recurrent, left ear"
+  },
+  {
+    "code": "H66.016",
+    "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, recurrent, bilateral"
+  },
+  {
+    "code": "H66.017",
+    "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, recurrent, unspecified ear"
+  },
+  {
+    "code": "H66.019",
+    "display": "Acute suppurative otitis media with spontaneous rupture of ear drum, unspecified ear"
+  },
+  {
+    "code": "H66.10",
+    "display": "Chronic tubotympanic suppurative otitis media, unspecified"
+  },
+  {
+    "code": "H66.11",
+    "display": "Chronic tubotympanic suppurative otitis media, right ear"
+  },
+  {
+    "code": "H66.12",
+    "display": "Chronic tubotympanic suppurative otitis media, left ear"
+  },
+  {
+    "code": "H66.13",
+    "display": "Chronic tubotympanic suppurative otitis media, bilateral"
+  },
+  {
+    "code": "H66.20",
+    "display": "Chronic atticoantral suppurative otitis media, unspecified ear"
+  },
+  {
+    "code": "H66.21",
+    "display": "Chronic atticoantral suppurative otitis media, right ear"
+  },
+  {
+    "code": "H66.22",
+    "display": "Chronic atticoantral suppurative otitis media, left ear"
+  },
+  {
+    "code": "H66.23",
+    "display": "Chronic atticoantral suppurative otitis media, bilateral"
+  },
+  {
+    "code": "H66.3X1",
+    "display": "Other chronic suppurative otitis media, right ear"
+  },
+  {
+    "code": "H66.3X2",
+    "display": "Other chronic suppurative otitis media, left ear"
+  },
+  {
+    "code": "H66.3X3",
+    "display": "Other chronic suppurative otitis media, bilateral"
+  },
+  {
+    "code": "H66.3X9",
+    "display": "Other chronic suppurative otitis media, unspecified ear"
+  },
+  {
+    "code": "H66.40",
+    "display": "Suppurative otitis media, unspecified, unspecified ear"
+  },
+  {
+    "code": "H66.41",
+    "display": "Suppurative otitis media, unspecified, right ear"
+  },
+  {
+    "code": "H66.42",
+    "display": "Suppurative otitis media, unspecified, left ear"
+  },
+  {
+    "code": "H66.43",
+    "display": "Suppurative otitis media, unspecified, bilateral"
+  },
+  {
+    "code": "H66.90",
+    "display": "Otitis media, unspecified, unspecified ear"
+  },
+  {
+    "code": "H66.91",
+    "display": "Otitis media, unspecified, right ear"
+  },
+  {
+    "code": "H66.92",
+    "display": "Otitis media, unspecified, left ear"
+  },
+  {
+    "code": "H66.93",
+    "display": "Otitis media, unspecified, bilateral"
+  },
+  {
+    "code": "J02.0",
+    "display": "Streptococcal pharyngitis"
+  },
+  {
+    "code": "J02.8",
+    "display": "Acute pharyngitis due to other specified organisms"
+  },
+  {
+    "code": "J02.9",
+    "display": "Acute pharyngitis, unspecified"
+  },
+  {
+    "code": "J03.00",
+    "display": "Acute streptococcal tonsillitis, unspecified"
+  },
+  {
+    "code": "J03.01",
+    "display": "Acute recurrent streptococcal tonsillitis"
+  },
+  {
+    "code": "J03.80",
+    "display": "Acute tonsillitis due to other specified organisms"
+  },
+  {
+    "code": "J03.81",
+    "display": "Acute recurrent tonsillitis due to other specified organisms"
+  },
+  {
+    "code": "J03.90",
+    "display": "Acute tonsillitis, unspecified"
+  },
+  {
+    "code": "J03.91",
+    "display": "Acute recurrent tonsillitis, unspecified"
+  },
+  {
+    "code": "J45.901",
+    "display": "Unspecified asthma with (acute) exacerbation"
+  },
+  {
+    "code": "L02.415",
+    "display": "Cutaneous abscess of right lower limb"
+  },
+  {
+    "code": "L73.0",
+    "display": "Acne keloid"
+  },
+  {
+    "code": "L73.1",
+    "display": "Pseudofolliculitis barbae"
+  },
+  {
+    "code": "L73.2",
+    "display": "Hidradenitis suppurativa"
+  },
+  {
+    "code": "L73.8",
+    "display": "Other specified follicular disorders"
+  },
+  {
+    "code": "L73.9",
+    "display": "Follicular disorder, unspecified"
+  },
+  {
+    "code": "S00.439A",
+    "display": "Contusion of unspecified ear, initial encounter"
+  },
+  {
+    "code": "S06.0X0A",
+    "display": "Concussion without loss of consciousness, initial encounter"
+  },
+  {
+    "code": "S09.90XA",
+    "display": "Unspecified injury of head, initial encounter"
+  },
+  {
+    "code": "S20.219A",
+    "display": "Contusion of unspecified front wall of thorax, initial encounter"
+  },
+  {
+    "code": "S30.0XXA",
+    "display": "Contusion of lower back and pelvis, initial encounter"
+  },
+  {
+    "code": "S70.11XA",
+    "display": "Contusion of right thigh, initial encounter"
+  },
+  {
+    "code": "S93.01XA",
+    "display": "Subluxation of right ankle joint, initial encounter"
+  },
+  {
+    "code": "S93.01XD",
+    "display": "Subluxation of right ankle joint, subsequent encounter"
+  },
+  {
+    "code": "S93.01XS",
+    "display": "Subluxation of right ankle joint, sequela"
+  },
+  {
+    "code": "S93.02XA",
+    "display": "Subluxation of left ankle joint, initial encounter"
+  },
+  {
+    "code": "S93.02XD",
+    "display": "Subluxation of left ankle joint, subsequent encounter"
+  },
+  {
+    "code": "S93.02XS",
+    "display": "Subluxation of left ankle joint, sequela"
+  },
+  {
+    "code": "S93.03XA",
+    "display": "Subluxation of unspecified ankle joint, initial encounter"
+  },
+  {
+    "code": "S93.03XD",
+    "display": "Subluxation of unspecified ankle joint, subsequent encounter"
+  },
+  {
+    "code": "S93.03XS",
+    "display": "Subluxation of unspecified ankle joint, sequela"
+  },
+  {
+    "code": "S93.04XA",
+    "display": "Dislocation of right ankle joint, initial encounter"
+  },
+  {
+    "code": "S93.04XD",
+    "display": "Dislocation of right ankle joint, subsequent encounter"
+  },
+  {
+    "code": "S93.04XS",
+    "display": "Dislocation of right ankle joint, sequela"
+  },
+  {
+    "code": "S93.05XA",
+    "display": "Dislocation of left ankle joint, initial encounter"
+  },
+  {
+    "code": "S93.05XD",
+    "display": "Dislocation of left ankle joint, subsequent encounter"
+  },
+  {
+    "code": "S93.05XS",
+    "display": "Dislocation of left ankle joint, sequela"
+  },
+  {
+    "code": "S93.06XA",
+    "display": "Dislocation of unspecified ankle joint, initial encounter"
+  },
+  {
+    "code": "S93.06XD",
+    "display": "Dislocation of unspecified ankle joint, subsequent encounter"
+  },
+  {
+    "code": "S93.06XS",
+    "display": "Dislocation of unspecified ankle joint, sequela"
+  },
+  {
+    "code": "S93.101A",
+    "display": "Unspecified subluxation of right toe(s), initial encounter"
+  },
+  {
+    "code": "S93.101D",
+    "display": "Unspecified subluxation of right toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.101S",
+    "display": "Unspecified subluxation of right toe(s), sequela"
+  },
+  {
+    "code": "S93.102A",
+    "display": "Unspecified subluxation of left toe(s), initial encounter"
+  },
+  {
+    "code": "S93.102D",
+    "display": "Unspecified subluxation of left toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.102S",
+    "display": "Unspecified subluxation of left toe(s), sequela"
+  },
+  {
+    "code": "S93.103A",
+    "display": "Unspecified subluxation of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.103D",
+    "display": "Unspecified subluxation of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.103S",
+    "display": "Unspecified subluxation of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.104A",
+    "display": "Unspecified dislocation of right toe(s), initial encounter"
+  },
+  {
+    "code": "S93.104D",
+    "display": "Unspecified dislocation of right toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.104S",
+    "display": "Unspecified dislocation of right toe(s), sequela"
+  },
+  {
+    "code": "S93.105A",
+    "display": "Unspecified dislocation of left toe(s), initial encounter"
+  },
+  {
+    "code": "S93.105D",
+    "display": "Unspecified dislocation of left toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.105S",
+    "display": "Unspecified dislocation of left toe(s), sequela"
+  },
+  {
+    "code": "S93.106A",
+    "display": "Unspecified dislocation of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.106D",
+    "display": "Unspecified dislocation of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.106S",
+    "display": "Unspecified dislocation of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.111A",
+    "display": "Dislocation of interphalangeal joint of right great toe, initial encounter"
+  },
+  {
+    "code": "S93.111D",
+    "display": "Dislocation of interphalangeal joint of right great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.111S",
+    "display": "Dislocation of interphalangeal joint of right great toe, sequela"
+  },
+  {
+    "code": "S93.112A",
+    "display": "Dislocation of interphalangeal joint of left great toe, initial encounter"
+  },
+  {
+    "code": "S93.112D",
+    "display": "Dislocation of interphalangeal joint of left great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.112S",
+    "display": "Dislocation of interphalangeal joint of left great toe, sequela"
+  },
+  {
+    "code": "S93.113A",
+    "display": "Dislocation of interphalangeal joint of unspecified great toe, initial encounter"
+  },
+  {
+    "code": "S93.113D",
+    "display": "Dislocation of interphalangeal joint of unspecified great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.113S",
+    "display": "Dislocation of interphalangeal joint of unspecified great toe, sequela"
+  },
+  {
+    "code": "S93.114A",
+    "display": "Dislocation of interphalangeal joint of right lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.114D",
+    "display": "Dislocation of interphalangeal joint of right lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.114S",
+    "display": "Dislocation of interphalangeal joint of right lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.115A",
+    "display": "Dislocation of interphalangeal joint of left lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.115D",
+    "display": "Dislocation of interphalangeal joint of left lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.115S",
+    "display": "Dislocation of interphalangeal joint of left lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.116A",
+    "display": "Dislocation of interphalangeal joint of unspecified lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.116D",
+    "display": "Dislocation of interphalangeal joint of unspecified lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.116S",
+    "display": "Dislocation of interphalangeal joint of unspecified lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.119A",
+    "display": "Dislocation of interphalangeal joint of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.119D",
+    "display": "Dislocation of interphalangeal joint of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.119S",
+    "display": "Dislocation of interphalangeal joint of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.121A",
+    "display": "Dislocation of metatarsophalangeal joint of right great toe, initial encounter"
+  },
+  {
+    "code": "S93.121D",
+    "display": "Dislocation of metatarsophalangeal joint of right great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.121S",
+    "display": "Dislocation of metatarsophalangeal joint of right great toe, sequela"
+  },
+  {
+    "code": "S93.122A",
+    "display": "Dislocation of metatarsophalangeal joint of left great toe, initial encounter"
+  },
+  {
+    "code": "S93.122D",
+    "display": "Dislocation of metatarsophalangeal joint of left great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.122S",
+    "display": "Dislocation of metatarsophalangeal joint of left great toe, sequela"
+  },
+  {
+    "code": "S93.123A",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified great toe, initial encounter"
+  },
+  {
+    "code": "S93.123D",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.123S",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified great toe, sequela"
+  },
+  {
+    "code": "S93.124A",
+    "display": "Dislocation of metatarsophalangeal joint of right lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.124D",
+    "display": "Dislocation of metatarsophalangeal joint of right lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.124S",
+    "display": "Dislocation of metatarsophalangeal joint of right lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.125A",
+    "display": "Dislocation of metatarsophalangeal joint of left lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.125D",
+    "display": "Dislocation of metatarsophalangeal joint of left lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.125S",
+    "display": "Dislocation of metatarsophalangeal joint of left lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.126A",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.126D",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.126S",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.129A",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.129D",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.129S",
+    "display": "Dislocation of metatarsophalangeal joint of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.131A",
+    "display": "Subluxation of interphalangeal joint of right great toe, initial encounter"
+  },
+  {
+    "code": "S93.131D",
+    "display": "Subluxation of interphalangeal joint of right great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.131S",
+    "display": "Subluxation of interphalangeal joint of right great toe, sequela"
+  },
+  {
+    "code": "S93.132A",
+    "display": "Subluxation of interphalangeal joint of left great toe, initial encounter"
+  },
+  {
+    "code": "S93.132D",
+    "display": "Subluxation of interphalangeal joint of left great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.132S",
+    "display": "Subluxation of interphalangeal joint of left great toe, sequela"
+  },
+  {
+    "code": "S93.133A",
+    "display": "Subluxation of interphalangeal joint of unspecified great toe, initial encounter"
+  },
+  {
+    "code": "S93.133D",
+    "display": "Subluxation of interphalangeal joint of unspecified great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.133S",
+    "display": "Subluxation of interphalangeal joint of unspecified great toe, sequela"
+  },
+  {
+    "code": "S93.134A",
+    "display": "Subluxation of interphalangeal joint of right lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.134D",
+    "display": "Subluxation of interphalangeal joint of right lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.134S",
+    "display": "Subluxation of interphalangeal joint of right lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.135A",
+    "display": "Subluxation of interphalangeal joint of left lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.135D",
+    "display": "Subluxation of interphalangeal joint of left lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.135S",
+    "display": "Subluxation of interphalangeal joint of left lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.136A",
+    "display": "Subluxation of interphalangeal joint of unspecified lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.136D",
+    "display": "Subluxation of interphalangeal joint of unspecified lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.136S",
+    "display": "Subluxation of interphalangeal joint of unspecified lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.139A",
+    "display": "Subluxation of interphalangeal joint of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.139D",
+    "display": "Subluxation of interphalangeal joint of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.139S",
+    "display": "Subluxation of interphalangeal joint of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.141A",
+    "display": "Subluxation of metatarsophalangeal joint of right great toe, initial encounter"
+  },
+  {
+    "code": "S93.141D",
+    "display": "Subluxation of metatarsophalangeal joint of right great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.141S",
+    "display": "Subluxation of metatarsophalangeal joint of right great toe, sequela"
+  },
+  {
+    "code": "S93.142A",
+    "display": "Subluxation of metatarsophalangeal joint of left great toe, initial encounter"
+  },
+  {
+    "code": "S93.142D",
+    "display": "Subluxation of metatarsophalangeal joint of left great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.142S",
+    "display": "Subluxation of metatarsophalangeal joint of left great toe, sequela"
+  },
+  {
+    "code": "S93.143A",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified great toe, initial encounter"
+  },
+  {
+    "code": "S93.143D",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.143S",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified great toe, sequela"
+  },
+  {
+    "code": "S93.144A",
+    "display": "Subluxation of metatarsophalangeal joint of right lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.144D",
+    "display": "Subluxation of metatarsophalangeal joint of right lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.144S",
+    "display": "Subluxation of metatarsophalangeal joint of right lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.145A",
+    "display": "Subluxation of metatarsophalangeal joint of left lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.145D",
+    "display": "Subluxation of metatarsophalangeal joint of left lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.145S",
+    "display": "Subluxation of metatarsophalangeal joint of left lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.146A",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.146D",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.146S",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.149A",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.149D",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.149S",
+    "display": "Subluxation of metatarsophalangeal joint of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.301A",
+    "display": "Unspecified subluxation of right foot, initial encounter"
+  },
+  {
+    "code": "S93.301D",
+    "display": "Unspecified subluxation of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.301S",
+    "display": "Unspecified subluxation of right foot, sequela"
+  },
+  {
+    "code": "S93.302A",
+    "display": "Unspecified subluxation of left foot, initial encounter"
+  },
+  {
+    "code": "S93.302D",
+    "display": "Unspecified subluxation of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.302S",
+    "display": "Unspecified subluxation of left foot, sequela"
+  },
+  {
+    "code": "S93.303A",
+    "display": "Unspecified subluxation of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.303D",
+    "display": "Unspecified subluxation of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.303S",
+    "display": "Unspecified subluxation of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.304A",
+    "display": "Unspecified dislocation of right foot, initial encounter"
+  },
+  {
+    "code": "S93.304D",
+    "display": "Unspecified dislocation of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.304S",
+    "display": "Unspecified dislocation of right foot, sequela"
+  },
+  {
+    "code": "S93.305A",
+    "display": "Unspecified dislocation of left foot, initial encounter"
+  },
+  {
+    "code": "S93.305D",
+    "display": "Unspecified dislocation of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.305S",
+    "display": "Unspecified dislocation of left foot, sequela"
+  },
+  {
+    "code": "S93.306A",
+    "display": "Unspecified dislocation of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.306D",
+    "display": "Unspecified dislocation of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.306S",
+    "display": "Unspecified dislocation of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.311A",
+    "display": "Subluxation of tarsal joint of right foot, initial encounter"
+  },
+  {
+    "code": "S93.311D",
+    "display": "Subluxation of tarsal joint of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.311S",
+    "display": "Subluxation of tarsal joint of right foot, sequela"
+  },
+  {
+    "code": "S93.312A",
+    "display": "Subluxation of tarsal joint of left foot, initial encounter"
+  },
+  {
+    "code": "S93.312D",
+    "display": "Subluxation of tarsal joint of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.312S",
+    "display": "Subluxation of tarsal joint of left foot, sequela"
+  },
+  {
+    "code": "S93.313A",
+    "display": "Subluxation of tarsal joint of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.313D",
+    "display": "Subluxation of tarsal joint of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.313S",
+    "display": "Subluxation of tarsal joint of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.314A",
+    "display": "Dislocation of tarsal joint of right foot, initial encounter"
+  },
+  {
+    "code": "S93.314D",
+    "display": "Dislocation of tarsal joint of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.314S",
+    "display": "Dislocation of tarsal joint of right foot, sequela"
+  },
+  {
+    "code": "S93.315A",
+    "display": "Dislocation of tarsal joint of left foot, initial encounter"
+  },
+  {
+    "code": "S93.315D",
+    "display": "Dislocation of tarsal joint of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.315S",
+    "display": "Dislocation of tarsal joint of left foot, sequela"
+  },
+  {
+    "code": "S93.316A",
+    "display": "Dislocation of tarsal joint of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.316D",
+    "display": "Dislocation of tarsal joint of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.316S",
+    "display": "Dislocation of tarsal joint of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.321A",
+    "display": "Subluxation of tarsometatarsal joint of right foot, initial encounter"
+  },
+  {
+    "code": "S93.321D",
+    "display": "Subluxation of tarsometatarsal joint of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.321S",
+    "display": "Subluxation of tarsometatarsal joint of right foot, sequela"
+  },
+  {
+    "code": "S93.322A",
+    "display": "Subluxation of tarsometatarsal joint of left foot, initial encounter"
+  },
+  {
+    "code": "S93.322D",
+    "display": "Subluxation of tarsometatarsal joint of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.322S",
+    "display": "Subluxation of tarsometatarsal joint of left foot, sequela"
+  },
+  {
+    "code": "S93.323A",
+    "display": "Subluxation of tarsometatarsal joint of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.323D",
+    "display": "Subluxation of tarsometatarsal joint of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.323S",
+    "display": "Subluxation of tarsometatarsal joint of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.324A",
+    "display": "Dislocation of tarsometatarsal joint of right foot, initial encounter"
+  },
+  {
+    "code": "S93.324D",
+    "display": "Dislocation of tarsometatarsal joint of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.324S",
+    "display": "Dislocation of tarsometatarsal joint of right foot, sequela"
+  },
+  {
+    "code": "S93.325A",
+    "display": "Dislocation of tarsometatarsal joint of left foot, initial encounter"
+  },
+  {
+    "code": "S93.325D",
+    "display": "Dislocation of tarsometatarsal joint of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.325S",
+    "display": "Dislocation of tarsometatarsal joint of left foot, sequela"
+  },
+  {
+    "code": "S93.326A",
+    "display": "Dislocation of tarsometatarsal joint of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.326D",
+    "display": "Dislocation of tarsometatarsal joint of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.326S",
+    "display": "Dislocation of tarsometatarsal joint of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.331A",
+    "display": "Other subluxation of right foot, initial encounter"
+  },
+  {
+    "code": "S93.331D",
+    "display": "Other subluxation of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.331S",
+    "display": "Other subluxation of right foot, sequela"
+  },
+  {
+    "code": "S93.332A",
+    "display": "Other subluxation of left foot, initial encounter"
+  },
+  {
+    "code": "S93.332D",
+    "display": "Other subluxation of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.332S",
+    "display": "Other subluxation of left foot, sequela"
+  },
+  {
+    "code": "S93.333A",
+    "display": "Other subluxation of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.333D",
+    "display": "Other subluxation of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.333S",
+    "display": "Other subluxation of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.334A",
+    "display": "Other dislocation of right foot, initial encounter"
+  },
+  {
+    "code": "S93.334D",
+    "display": "Other dislocation of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.334S",
+    "display": "Other dislocation of right foot, sequela"
+  },
+  {
+    "code": "S93.335A",
+    "display": "Other dislocation of left foot, initial encounter"
+  },
+  {
+    "code": "S93.335D",
+    "display": "Other dislocation of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.335S",
+    "display": "Other dislocation of left foot, sequela"
+  },
+  {
+    "code": "S93.336A",
+    "display": "Other dislocation of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.336D",
+    "display": "Other dislocation of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.336S",
+    "display": "Other dislocation of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.401A",
+    "display": "Sprain of unspecified ligament of right ankle, initial encounter"
+  },
+  {
+    "code": "S93.401D",
+    "display": "Sprain of unspecified ligament of right ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.401S",
+    "display": "Sprain of unspecified ligament of right ankle, sequela"
+  },
+  {
+    "code": "S93.402A",
+    "display": "Sprain of unspecified ligament of left ankle, initial encounter"
+  },
+  {
+    "code": "S93.402D",
+    "display": "Sprain of unspecified ligament of left ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.402S",
+    "display": "Sprain of unspecified ligament of left ankle, sequela"
+  },
+  {
+    "code": "S93.409A",
+    "display": "Sprain of unspecified ligament of unspecified ankle, initial encounter"
+  },
+  {
+    "code": "S93.409D",
+    "display": "Sprain of unspecified ligament of unspecified ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.409S",
+    "display": "Sprain of unspecified ligament of unspecified ankle, sequela"
+  },
+  {
+    "code": "S93.411A",
+    "display": "Sprain of calcaneofibular ligament of right ankle, initial encounter"
+  },
+  {
+    "code": "S93.411D",
+    "display": "Sprain of calcaneofibular ligament of right ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.411S",
+    "display": "Sprain of calcaneofibular ligament of right ankle, sequela"
+  },
+  {
+    "code": "S93.412A",
+    "display": "Sprain of calcaneofibular ligament of left ankle, initial encounter"
+  },
+  {
+    "code": "S93.412D",
+    "display": "Sprain of calcaneofibular ligament of left ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.412S",
+    "display": "Sprain of calcaneofibular ligament of left ankle, sequela"
+  },
+  {
+    "code": "S93.419A",
+    "display": "Sprain of calcaneofibular ligament of unspecified ankle, initial encounter"
+  },
+  {
+    "code": "S93.419D",
+    "display": "Sprain of calcaneofibular ligament of unspecified ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.419S",
+    "display": "Sprain of calcaneofibular ligament of unspecified ankle, sequela"
+  },
+  {
+    "code": "S93.421A",
+    "display": "Sprain of deltoid ligament of right ankle, initial encounter"
+  },
+  {
+    "code": "S93.421D",
+    "display": "Sprain of deltoid ligament of right ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.421S",
+    "display": "Sprain of deltoid ligament of right ankle, sequela"
+  },
+  {
+    "code": "S93.422A",
+    "display": "Sprain of deltoid ligament of left ankle, initial encounter"
+  },
+  {
+    "code": "S93.422D",
+    "display": "Sprain of deltoid ligament of left ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.422S",
+    "display": "Sprain of deltoid ligament of left ankle, sequela"
+  },
+  {
+    "code": "S93.429A",
+    "display": "Sprain of deltoid ligament of unspecified ankle, initial encounter"
+  },
+  {
+    "code": "S93.429D",
+    "display": "Sprain of deltoid ligament of unspecified ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.429S",
+    "display": "Sprain of deltoid ligament of unspecified ankle, sequela"
+  },
+  {
+    "code": "S93.431A",
+    "display": "Sprain of tibiofibular ligament of right ankle, initial encounter"
+  },
+  {
+    "code": "S93.431D",
+    "display": "Sprain of tibiofibular ligament of right ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.431S",
+    "display": "Sprain of tibiofibular ligament of right ankle, sequela"
+  },
+  {
+    "code": "S93.432A",
+    "display": "Sprain of tibiofibular ligament of left ankle, initial encounter"
+  },
+  {
+    "code": "S93.432D",
+    "display": "Sprain of tibiofibular ligament of left ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.432S",
+    "display": "Sprain of tibiofibular ligament of left ankle, sequela"
+  },
+  {
+    "code": "S93.439A",
+    "display": "Sprain of tibiofibular ligament of unspecified ankle, initial encounter"
+  },
+  {
+    "code": "S93.439D",
+    "display": "Sprain of tibiofibular ligament of unspecified ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.439S",
+    "display": "Sprain of tibiofibular ligament of unspecified ankle, sequela"
+  },
+  {
+    "code": "S93.491A",
+    "display": "Sprain of other ligament of right ankle, initial encounter"
+  },
+  {
+    "code": "S93.491D",
+    "display": "Sprain of other ligament of right ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.491S",
+    "display": "Sprain of other ligament of right ankle, sequela"
+  },
+  {
+    "code": "S93.492A",
+    "display": "Sprain of other ligament of left ankle, initial encounter"
+  },
+  {
+    "code": "S93.492D",
+    "display": "Sprain of other ligament of left ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.492S",
+    "display": "Sprain of other ligament of left ankle, sequela"
+  },
+  {
+    "code": "S93.499A",
+    "display": "Sprain of other ligament of unspecified ankle, initial encounter"
+  },
+  {
+    "code": "S93.499D",
+    "display": "Sprain of other ligament of unspecified ankle, subsequent encounter"
+  },
+  {
+    "code": "S93.499S",
+    "display": "Sprain of other ligament of unspecified ankle, sequela"
+  },
+  {
+    "code": "S93.501A",
+    "display": "Unspecified sprain of right great toe, initial encounter"
+  },
+  {
+    "code": "S93.501D",
+    "display": "Unspecified sprain of right great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.501S",
+    "display": "Unspecified sprain of right great toe, sequela"
+  },
+  {
+    "code": "S93.502A",
+    "display": "Unspecified sprain of left great toe, initial encounter"
+  },
+  {
+    "code": "S93.502D",
+    "display": "Unspecified sprain of left great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.502S",
+    "display": "Unspecified sprain of left great toe, sequela"
+  },
+  {
+    "code": "S93.503A",
+    "display": "Unspecified sprain of unspecified great toe, initial encounter"
+  },
+  {
+    "code": "S93.503D",
+    "display": "Unspecified sprain of unspecified great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.503S",
+    "display": "Unspecified sprain of unspecified great toe, sequela"
+  },
+  {
+    "code": "S93.504A",
+    "display": "Unspecified sprain of right lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.504D",
+    "display": "Unspecified sprain of right lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.504S",
+    "display": "Unspecified sprain of right lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.505A",
+    "display": "Unspecified sprain of left lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.505D",
+    "display": "Unspecified sprain of left lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.505S",
+    "display": "Unspecified sprain of left lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.506A",
+    "display": "Unspecified sprain of unspecified lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.506D",
+    "display": "Unspecified sprain of unspecified lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.506S",
+    "display": "Unspecified sprain of unspecified lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.509A",
+    "display": "Unspecified sprain of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.509D",
+    "display": "Unspecified sprain of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.509S",
+    "display": "Unspecified sprain of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.511A",
+    "display": "Sprain of interphalangeal joint of right great toe, initial encounter"
+  },
+  {
+    "code": "S93.511D",
+    "display": "Sprain of interphalangeal joint of right great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.511S",
+    "display": "Sprain of interphalangeal joint of right great toe, sequela"
+  },
+  {
+    "code": "S93.512A",
+    "display": "Sprain of interphalangeal joint of left great toe, initial encounter"
+  },
+  {
+    "code": "S93.512D",
+    "display": "Sprain of interphalangeal joint of left great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.512S",
+    "display": "Sprain of interphalangeal joint of left great toe, sequela"
+  },
+  {
+    "code": "S93.513A",
+    "display": "Sprain of interphalangeal joint of unspecified great toe, initial encounter"
+  },
+  {
+    "code": "S93.513D",
+    "display": "Sprain of interphalangeal joint of unspecified great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.513S",
+    "display": "Sprain of interphalangeal joint of unspecified great toe, sequela"
+  },
+  {
+    "code": "S93.514A",
+    "display": "Sprain of interphalangeal joint of right lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.514D",
+    "display": "Sprain of interphalangeal joint of right lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.514S",
+    "display": "Sprain of interphalangeal joint of right lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.515A",
+    "display": "Sprain of interphalangeal joint of left lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.515D",
+    "display": "Sprain of interphalangeal joint of left lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.515S",
+    "display": "Sprain of interphalangeal joint of left lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.516A",
+    "display": "Sprain of interphalangeal joint of unspecified lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.516D",
+    "display": "Sprain of interphalangeal joint of unspecified lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.516S",
+    "display": "Sprain of interphalangeal joint of unspecified lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.519A",
+    "display": "Sprain of interphalangeal joint of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.519D",
+    "display": "Sprain of interphalangeal joint of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.519S",
+    "display": "Sprain of interphalangeal joint of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.521A",
+    "display": "Sprain of metatarsophalangeal joint of right great toe, initial encounter"
+  },
+  {
+    "code": "S93.521D",
+    "display": "Sprain of metatarsophalangeal joint of right great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.521S",
+    "display": "Sprain of metatarsophalangeal joint of right great toe, sequela"
+  },
+  {
+    "code": "S93.522A",
+    "display": "Sprain of metatarsophalangeal joint of left great toe, initial encounter"
+  },
+  {
+    "code": "S93.522D",
+    "display": "Sprain of metatarsophalangeal joint of left great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.522S",
+    "display": "Sprain of metatarsophalangeal joint of left great toe, sequela"
+  },
+  {
+    "code": "S93.523A",
+    "display": "Sprain of metatarsophalangeal joint of unspecified great toe, initial encounter"
+  },
+  {
+    "code": "S93.523D",
+    "display": "Sprain of metatarsophalangeal joint of unspecified great toe, subsequent encounter"
+  },
+  {
+    "code": "S93.523S",
+    "display": "Sprain of metatarsophalangeal joint of unspecified great toe, sequela"
+  },
+  {
+    "code": "S93.524A",
+    "display": "Sprain of metatarsophalangeal joint of right lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.524D",
+    "display": "Sprain of metatarsophalangeal joint of right lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.524S",
+    "display": "Sprain of metatarsophalangeal joint of right lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.525A",
+    "display": "Sprain of metatarsophalangeal joint of left lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.525D",
+    "display": "Sprain of metatarsophalangeal joint of left lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.525S",
+    "display": "Sprain of metatarsophalangeal joint of left lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.526A",
+    "display": "Sprain of metatarsophalangeal joint of unspecified lesser toe(s), initial encounter"
+  },
+  {
+    "code": "S93.526D",
+    "display": "Sprain of metatarsophalangeal joint of unspecified lesser toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.526S",
+    "display": "Sprain of metatarsophalangeal joint of unspecified lesser toe(s), sequela"
+  },
+  {
+    "code": "S93.529A",
+    "display": "Sprain of metatarsophalangeal joint of unspecified toe(s), initial encounter"
+  },
+  {
+    "code": "S93.529D",
+    "display": "Sprain of metatarsophalangeal joint of unspecified toe(s), subsequent encounter"
+  },
+  {
+    "code": "S93.529S",
+    "display": "Sprain of metatarsophalangeal joint of unspecified toe(s), sequela"
+  },
+  {
+    "code": "S93.601A",
+    "display": "Unspecified sprain of right foot, initial encounter"
+  },
+  {
+    "code": "S93.601D",
+    "display": "Unspecified sprain of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.601S",
+    "display": "Unspecified sprain of right foot, sequela"
+  },
+  {
+    "code": "S93.602A",
+    "display": "Unspecified sprain of left foot, initial encounter"
+  },
+  {
+    "code": "S93.602D",
+    "display": "Unspecified sprain of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.602S",
+    "display": "Unspecified sprain of left foot, sequela"
+  },
+  {
+    "code": "S93.609A",
+    "display": "Unspecified sprain of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.609D",
+    "display": "Unspecified sprain of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.609S",
+    "display": "Unspecified sprain of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.611A",
+    "display": "Sprain of tarsal ligament of right foot, initial encounter"
+  },
+  {
+    "code": "S93.611D",
+    "display": "Sprain of tarsal ligament of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.611S",
+    "display": "Sprain of tarsal ligament of right foot, sequela"
+  },
+  {
+    "code": "S93.612A",
+    "display": "Sprain of tarsal ligament of left foot, initial encounter"
+  },
+  {
+    "code": "S93.612D",
+    "display": "Sprain of tarsal ligament of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.612S",
+    "display": "Sprain of tarsal ligament of left foot, sequela"
+  },
+  {
+    "code": "S93.619A",
+    "display": "Sprain of tarsal ligament of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.619D",
+    "display": "Sprain of tarsal ligament of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.619S",
+    "display": "Sprain of tarsal ligament of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.621A",
+    "display": "Sprain of tarsometatarsal ligament of right foot, initial encounter"
+  },
+  {
+    "code": "S93.621D",
+    "display": "Sprain of tarsometatarsal ligament of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.621S",
+    "display": "Sprain of tarsometatarsal ligament of right foot, sequela"
+  },
+  {
+    "code": "S93.622A",
+    "display": "Sprain of tarsometatarsal ligament of left foot, initial encounter"
+  },
+  {
+    "code": "S93.622D",
+    "display": "Sprain of tarsometatarsal ligament of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.622S",
+    "display": "Sprain of tarsometatarsal ligament of left foot, sequela"
+  },
+  {
+    "code": "S93.629A",
+    "display": "Sprain of tarsometatarsal ligament of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.629D",
+    "display": "Sprain of tarsometatarsal ligament of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.629S",
+    "display": "Sprain of tarsometatarsal ligament of unspecified foot, sequela"
+  },
+  {
+    "code": "S93.691A",
+    "display": "Other sprain of right foot, initial encounter"
+  },
+  {
+    "code": "S93.691D",
+    "display": "Other sprain of right foot, subsequent encounter"
+  },
+  {
+    "code": "S93.691S",
+    "display": "Other sprain of right foot, sequela"
+  },
+  {
+    "code": "S93.692A",
+    "display": "Other sprain of left foot, initial encounter"
+  },
+  {
+    "code": "S93.692D",
+    "display": "Other sprain of left foot, subsequent encounter"
+  },
+  {
+    "code": "S93.692S",
+    "display": "Other sprain of left foot, sequela"
+  },
+  {
+    "code": "S93.699A",
+    "display": "Other sprain of unspecified foot, initial encounter"
+  },
+  {
+    "code": "S93.699D",
+    "display": "Other sprain of unspecified foot, subsequent encounter"
+  },
+  {
+    "code": "S93.699S",
+    "display": "Other sprain of unspecified foot, sequela"
+  },
+  {
+    "code": "Z87.01",
+    "display": "Personal history of pneumonia (recurrent)"
+  }
+]

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { validateActionCodes } from '../src/ehr/easy-chart-review/index';
+import { fakeIcdSearch, PLATFORM_DISPLAY_FIXTURES } from './helpers/fake-icd-search';
+
+// ICD resolution runs against the deterministic terminology stand-in (fixture corpus +
+// probe-mirroring display responses) injected through validateActionCodes' test seam.
+const search = fakeIcdSearch(PLATFORM_DISPLAY_FIXTURES);
 
 // Review-side etiology-support guard: a suggested add-diagnosis whose ICD display carries an
 // organism/etiology/type qualifier the evidence never supports is deterministically repaired
@@ -21,7 +26,7 @@ describe('easy-chart-review etiology guard', () => {
     ];
     const evidence =
       'Vaginal itching and thick white discharge; wet mount shows budding yeast, consistent with candidal vulvovaginitis. Chart: Acute vaginitis (N76.0) (primary)';
-    const result = await validateActionCodes(actions, undefined, evidence);
+    const result = await validateActionCodes(actions, undefined, evidence, search);
     expect(result).toEqual({ keep: true, etiologyRepaired: 1, etiologyDropped: false });
     expect(actions[1].code).toBe('B37.31');
     expect(actions[1].display).toBe('Acute candidiasis of vulva and vagina');
@@ -43,7 +48,7 @@ describe('easy-chart-review etiology guard', () => {
     ];
     const evidence =
       'Bulging erythematous tympanic membranes bilaterally with purulent material behind both; frequent ear infections per mom.';
-    const result = await validateActionCodes(actions, undefined, evidence);
+    const result = await validateActionCodes(actions, undefined, evidence, search);
     expect(result.keep).toBe(true);
     expect(result.etiologyRepaired).toBe(1);
     expect(actions[1].code).toBe('H66.006');
@@ -62,7 +67,8 @@ describe('easy-chart-review etiology guard', () => {
     const result = await validateActionCodes(
       actions,
       undefined,
-      'Twisted ankle at soccer practice, pain and swelling.'
+      'Twisted ankle at soccer practice, pain and swelling.',
+      search
     );
     expect(result).toEqual({ keep: false, etiologyRepaired: 0, etiologyDropped: true });
   });
@@ -74,7 +80,8 @@ describe('easy-chart-review etiology guard', () => {
     const result = await validateActionCodes(
       actions,
       undefined,
-      'Wet mount shows budding yeast; treated for a yeast infection.'
+      'Wet mount shows budding yeast; treated for a yeast infection.',
+      search
     );
     expect(result).toEqual({ keep: true, etiologyRepaired: 0, etiologyDropped: false });
     expect(actions[0].code).toBe('B37.31');
@@ -84,7 +91,7 @@ describe('easy-chart-review etiology guard', () => {
     const actions: Record<string, unknown>[] = [
       { kind: 'add-diagnosis', display: 'Acute pharyngitis', code: 'J02.9', isPrimary: false },
     ];
-    const result = await validateActionCodes(actions, undefined, 'Sore throat for two days, no fever.');
+    const result = await validateActionCodes(actions, undefined, 'Sore throat for two days, no fever.', search);
     expect(result).toEqual({ keep: true, etiologyRepaired: 0, etiologyDropped: false });
     expect(actions[0].code).toBe('J02.9');
   });
@@ -102,7 +109,7 @@ describe('easy-chart-review etiology guard', () => {
     ];
     const narrative = 'Both ears hurt again, pus behind both drums.';
     const rationale = 'Narrative indicates recurrent bilateral infections.';
-    const result = await validateActionCodes(actions, undefined, `${narrative} ${rationale}`);
+    const result = await validateActionCodes(actions, undefined, `${narrative} ${rationale}`, search);
     expect(result).toEqual({ keep: true, etiologyRepaired: 0, etiologyDropped: false });
     expect(actions[0].code).toBe('H66.006');
   });

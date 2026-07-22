@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { EXPLICIT_HISTORY_INTENT, loadAndParseIcd10Data, searchIcd10Codes, wordMatchesDisplay } from '../icd-10-search';
+import { createTerminologyIcdSearch, EXPLICIT_HISTORY_INTENT, IcdSearchFn, wordMatchesDisplay } from './icd-search';
 
 // ── Easy-chart code validation (the invariant) ──────────────────────────────────────────────────
 // No code may reach the note unless the canonical source actually returned it. A model's `code`
@@ -17,7 +17,9 @@ export const ICD10_SCAN = /\b([A-TV-Z][0-9][A-Z0-9](?:\.[A-Z0-9]{1,4})?[A-Z]?)\b
 export const STRICT_CPT = /^\d{4,5}$/; // CPT, incl. E&M 99xxx
 export const STRICT_HCPCS = /^[A-V]\d{4}$/; // HCPCS Level II (J-codes, etc.)
 
-// ICD-10 via the canonical local search (same engine the icd-10-search zambda exposes).
+// ICD-10 via the Oystehr terminology service (the same platform search the EHR picker uses),
+// threaded into the resolution functions as an injected IcdSearchFn (see icd-search.ts) so the
+// guards stay pure and tests run against deterministic fixtures.
 // Opposing anatomic qualifier pairs. A hinted CODE whose display contradicts the intent's own
 // text on one of these (intent says "left upper eyelid", code display says "right lower eyelid")
 // is a mis-hint even though the code itself is real — prefer the display-based search instead.
@@ -239,17 +241,28 @@ function differOnlyBySideNouns(a: Set<string>, b: Set<string>): boolean {
   return true;
 }
 
+// How many candidates the guards ask the search for. Text/code searches take the first
+// non-contradicting candidate, so a few dozen ranked rows suffice; the category-sibling
+// enumeration for the specificity upgrade must instead see the WHOLE 3-character category
+// (S93 alone has 336 billable codes), so it pages much deeper — a category larger than the
+// cap degrades safely to "no upgrade" only when the missing sibling was the unique match.
+const SEARCH_LIMIT = 50;
+const CATEGORY_SIBLING_LIMIT = 1000;
+
 // One attribute dimension: find same-category siblings whose display carries `want` (and none of
 // `forbid`) and equals the current display once the dimension's words (`neutral`) are set aside.
-// Exactly one such sibling → upgrade; zero or several → keep the current code.
+// Exactly one such sibling → upgrade; zero or several → keep the current code. The category
+// prefix query enumerates the siblings; the startsWith re-check drops any display-text matches
+// the search mixed in.
 async function upgradeOneDimension(
+  searchIcd: IcdSearchFn,
   current: { code: string; display: string },
   want: string,
   forbid: string[],
   neutral: string[]
 ): Promise<{ code: string; display: string }> {
-  const all = await loadAndParseIcd10Data();
   const category = current.code.slice(0, 3);
+  const all = await searchIcd(category, CATEGORY_SIBLING_LIMIT);
   const base = baseTokens(current.display, neutral);
   const candidates = all.filter((c) => {
     if (!c.code.startsWith(category) || c.code === current.code) return false;
@@ -263,6 +276,7 @@ async function upgradeOneDimension(
 // Exported for direct unit tests. Dimensions apply in sequence (laterality, then recurrence), so a
 // narrative naming both can chain two single-attribute steps (H66.009 → H66.002 → H66.005).
 export async function upgradeCodeSpecificity(
+  searchIcd: IcdSearchFn,
   current: { code: string; display: string },
   intentTexts: Array<string | undefined>
 ): Promise<{ code: string; display: string }> {
@@ -278,6 +292,7 @@ export async function upgradeCodeSpecificity(
   const sides = LATERALITY_VALUES.filter((v) => intentWords.has(v));
   if (sides.length === 1 && !LATERALITY_VALUES.some((v) => displayWords(out.display).has(v))) {
     out = await upgradeOneDimension(
+      searchIcd,
       out,
       sides[0],
       LATERALITY_VALUES.filter((v) => v !== sides[0]),
@@ -289,7 +304,7 @@ export async function upgradeCodeSpecificity(
   // comparison neutralizes only "recurrent", so a candidate may not smuggle in a laterality the
   // current code lacks.
   if (RECURRENCE_INTENT.test(intent) && !displayWords(out.display).has('recurrent')) {
-    out = await upgradeOneDimension(out, 'recurrent', [], ['recurrent']);
+    out = await upgradeOneDimension(searchIcd, out, 'recurrent', [], ['recurrent']);
   }
   return out;
 }
@@ -361,6 +376,7 @@ export function unsupportedEtiologyQualifiers(display: string, evidence: string)
 // "in diseases classified elsewhere" codes). No such candidate → undefined; the caller drops.
 // Exported for direct unit tests.
 export async function repairUnsupportedEtiology(
+  searchIcd: IcdSearchFn,
   flagged: { code?: string; display: string },
   evidence: string
 ): Promise<{ code: string; display: string } | undefined> {
@@ -384,7 +400,7 @@ export async function repairUnsupportedEtiology(
     (t) => !words.includes(t) && etiologySupported(t, hay, hayTokens)
   );
   for (const q of [...supportedQualifiers.map((t) => `${t} ${strippedQuery}`), strippedQuery]) {
-    const results = await searchIcd10Codes(q);
+    const results = await searchIcd(q, SEARCH_LIMIT);
     const ok = results.find((r) => {
       if (flagged.code && r.code === flagged.code) return false;
       const normalizedDisplay = r.display.toLowerCase();
@@ -400,6 +416,7 @@ export async function repairUnsupportedEtiology(
 }
 
 export async function resolveIcd(
+  searchIcd: IcdSearchFn,
   suggestedCode: string | undefined,
   display: string,
   searchTerms: string[],
@@ -409,7 +426,7 @@ export async function resolveIcd(
   const code = suggestedCode?.trim().toUpperCase();
   // 1. Exact-lookup the model's proposed code — the happy path needs no ranking.
   if (code && STRICT_ICD10.test(code)) {
-    const byCode = await searchIcd10Codes(code);
+    const byCode = await searchIcd(code, SEARCH_LIMIT);
     const exact = byCode.find((c) => c.code.toUpperCase() === code);
     // Laterality/position sanity: a real code can still be the WRONG code — the model once hinted
     // H00.012 (right lower eyelid) for a dictated LEFT UPPER stye. When the hint's display
@@ -423,7 +440,7 @@ export async function resolveIcd(
       !contradictsHistoryContext(display, exact.code, exact.display) &&
       displaysOverlap(display, exact.display)
     ) {
-      return upgradeCodeSpecificity({ code: exact.code, display: exact.display }, intentTexts);
+      return upgradeCodeSpecificity(searchIcd, { code: exact.code, display: exact.display }, intentTexts);
     }
   }
   // 2. Miss → text search by display, then each search term; take the top non-contradicting result
@@ -434,7 +451,7 @@ export async function resolveIcd(
   //    says is anatomically wrong is worse than making the client picker resolve by display.
   for (const q of [display, ...searchTerms]) {
     if (!q || !q.trim()) continue;
-    const res = await searchIcd10Codes(q.trim());
+    const res = await searchIcd(q.trim(), SEARCH_LIMIT);
     const ok = res.find(
       (r) =>
         !contradictsQualifiers(display, r.display) &&
@@ -442,7 +459,7 @@ export async function resolveIcd(
         !contradictsInjuryRegion(display, r.code) &&
         !contradictsHistoryContext(display, r.code, r.display)
     );
-    if (ok) return upgradeCodeSpecificity({ code: ok.code, display: ok.display }, intentTexts);
+    if (ok) return upgradeCodeSpecificity(searchIcd, { code: ok.code, display: ok.display }, intentTexts);
   }
   // 3. Nothing valid found — caller drops the code and lets the client picker resolve by display.
   return undefined;
@@ -463,14 +480,18 @@ export async function resolveIcd(
 export async function validateIntentCode(
   r: Record<string, unknown>,
   oystehr: Oystehr | undefined,
-  etiologyEvidence?: string
+  etiologyEvidence?: string,
+  icdSearch?: IcdSearchFn
 ): Promise<'ok' | 'invalid-billing' | 'etiology-repaired' | 'etiology-unsupported'> {
   if (r.kind === 'add-diagnosis' || r.kind === 'add-condition') {
+    const searchIcd = icdSearch ?? (oystehr ? createTerminologyIcdSearch(oystehr) : undefined);
+    if (!searchIcd) return 'ok'; // degraded: no client → can't validate, keep as-is
     const display = typeof r.display === 'string' ? r.display : '';
     const searchTerms = Array.isArray(r.searchTerms)
       ? (r.searchTerms.filter((t) => typeof t === 'string' && !!t.trim()) as string[])
       : [];
     const resolved = await resolveIcd(
+      searchIcd,
       typeof r.code === 'string' ? r.code : undefined,
       display,
       searchTerms,
@@ -482,7 +503,7 @@ export async function validateIntentCode(
       const target = resolved ?? (display ? { code: undefined, display } : undefined);
       const unsupported = target ? unsupportedEtiologyQualifiers(target.display, etiologyEvidence) : [];
       if (target && unsupported.length > 0) {
-        const repaired = await repairUnsupportedEtiology(target, etiologyEvidence);
+        const repaired = await repairUnsupportedEtiology(searchIcd, target, etiologyEvidence);
         // Code + qualifier labels only — never evidence/narrative text.
         if (!repaired) {
           console.log(
