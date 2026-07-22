@@ -6,7 +6,6 @@ import { PDFDocument } from 'pdf-lib';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
-  MIME_TYPES,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   progressNoteChartDataRequestedFields,
   Secrets,
@@ -179,7 +178,7 @@ export const performEffect = async (
       // Re-upload the merged PDF to the same Z3 URL
       const mergedBytes = await mergedPdf.save();
       const uploadUrl = await createPresignedUrl(m2mToken, pdfInfo.uploadURL, 'upload');
-      await uploadObjectToZ3(mergedBytes, uploadUrl, MIME_TYPES.PDF);
+      await uploadObjectToZ3(mergedBytes, uploadUrl);
       console.log('Re-uploaded merged discharge summary with education PDFs');
     }
   } catch (err) {
