@@ -334,4 +334,10 @@ export interface EasyChartReviewOutput {
     matchedPattern?: string;
     modelProposed: boolean;
   };
+  // Etiology-support guard observability: review-proposed add-diagnosis codes whose ICD display
+  // carried an organism/etiology/type qualifier (gonococcal, serous, …) the narrative/note/chart
+  // evidence did not support. `repaired` counts actions whose code+display were deterministically
+  // substituted with a supported replacement; `dropped` counts whole suggestions dropped because
+  // no clean replacement existed. Counts only — never narrative text.
+  etiologyGuard?: { repaired: number; dropped: number };
 }

@@ -172,6 +172,15 @@ const WORD_SYNONYMS: Record<string, string[]> = {
   buttocks: ['lower back'],
   bruise: ['contusion'],
   bruised: ['contusion'],
+  // Organism/etiology register: providers say "candidal"/"yeast" while the ICD displays say
+  // "Candidiasis" — without these, "candidal vulvovaginitis" matched only the OTHER-organism
+  // vulvovaginitis codes (gonococcal/trichomonal/chlamydial) and B37.3 never surfaced (a live
+  // review failure charted A54.02 "Gonococcal vulvovaginitis" for a yeast narrative this way).
+  candidal: ['candid'],
+  candidiasis: ['candid'],
+  yeast: ['candid'],
+  // Compound-site words the displays split apart ("Candidiasis of vulva and vagina").
+  vulvovaginitis: ['vulva', 'vagina'],
 };
 
 // Query phrasings that EXPLICITLY ask for an asymptomatic history/status code. Clinical
@@ -206,7 +215,9 @@ const GENERIC_QUALIFIER_TOKENS = new Set([
   'diseases',
 ]);
 
-function wordMatchesDisplay(searchWord: string, displayWords: string[], normalizedDisplay: string): boolean {
+// Exported for the easy-chart etiology guard (codes.ts), whose repair step must judge candidate
+// displays with the SAME word/synonym semantics the search itself uses.
+export function wordMatchesDisplay(searchWord: string, displayWords: string[], normalizedDisplay: string): boolean {
   if (displayWords.some((w) => w.includes(searchWord))) return true;
   for (const syn of WORD_SYNONYMS[searchWord] ?? []) {
     if (syn.includes(' ') ? normalizedDisplay.includes(syn) : displayWords.some((w) => w.includes(syn))) return true;

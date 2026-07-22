@@ -330,12 +330,23 @@ NARRATIVE:
 };
 
 // Validate the code(s) inside a suggestion's actions exactly as the planner validates its steps
-// (same shared validateIntentCode), so no hallucinated code can reach the chart. Returns false
-// when the suggestion should be dropped entirely (e.g. an E&M suggestion whose only point is a
-// code the terminology service rejects).
-async function validateActionCodes(actions: Record<string, unknown>[], oystehr: Oystehr | undefined): Promise<boolean> {
-  const results = await Promise.all(actions.map((a) => validateIntentCode(a, oystehr)));
-  return !results.includes('invalid-billing');
+// (same shared validateIntentCode), so no hallucinated code can reach the chart — plus the
+// review-only etiology-support guard on add-diagnosis (etiologyEvidence). keep=false drops the
+// suggestion entirely: a bogus billing code has no point, and an etiology-refused add inside a
+// swap must take its remove-diagnosis down with it (a bare removal would recreate the
+// zero-diagnoses bug). exported for unit tests
+export async function validateActionCodes(
+  actions: Record<string, unknown>[],
+  oystehr: Oystehr | undefined,
+  etiologyEvidence?: string
+): Promise<{ keep: boolean; etiologyRepaired: number; etiologyDropped: boolean }> {
+  const results = await Promise.all(actions.map((a) => validateIntentCode(a, oystehr, etiologyEvidence)));
+  const etiologyDropped = results.includes('etiology-unsupported');
+  return {
+    keep: !etiologyDropped && !results.includes('invalid-billing'),
+    etiologyRepaired: results.filter((s) => s === 'etiology-repaired').length,
+    etiologyDropped,
+  };
 }
 
 // Diagnosis-swap primary carry-over, server half. A "diagnosis" card pairs remove-diagnosis +
@@ -503,10 +514,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (actions.length === 0) return [];
     return [{ s, actions, question: s.question }];
   });
-  const keepFlags = await Promise.all(candidates.map((c) => validateActionCodes(c.actions, oystehr)));
+  // Etiology-guard evidence haystack: everything trustworthy at review time — the narrative, the
+  // note's own free text, and what is already charted (a qualifier the provider charted must
+  // never be "unsupported") — plus, per suggestion, the model's rationale (a check-2 recurrence
+  // card justifies "recurrent" there). Deliberately EXCLUDES the action's own display/searchTerms:
+  // the failure mode is the model inventing the qualifier in the proposal itself.
+  const etiologyEvidenceBase = [
+    narrative,
+    chartState ?? '',
+    ...NOTE_TEXT_FIELDS.map((f) => (noteContext as Record<string, string | undefined> | undefined)?.[f] ?? ''),
+  ].join(' ');
+  const validations = await Promise.all(
+    candidates.map((c) =>
+      validateActionCodes(
+        c.actions,
+        oystehr,
+        `${etiologyEvidenceBase} ${typeof c.s.rationale === 'string' ? c.s.rationale : ''}`
+      )
+    )
+  );
+  const etiologyGuard = { repaired: 0, dropped: 0 };
   const suggestions: EasyChartSuggestion[] = [];
   candidates.forEach(({ s, actions, question }, i) => {
-    if (!keepFlags[i]) return;
+    etiologyGuard.repaired += validations[i].etiologyRepaired;
+    if (validations[i].etiologyDropped) etiologyGuard.dropped++;
+    if (!validations[i].keep) return;
     // Best-effort server half of the diagnosis-swap primary carry-over (see the helper above);
     // the client re-runs the same logic against its structured chart state.
     carrySwapPrimaryFromChartState(actions, chartState);
@@ -559,6 +591,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       `${dispositionMatch ? ` pattern=${dispositionMatch.pattern}` : ''} modelProposed=${modelProposedDisposition}`
   );
 
-  const output: EasyChartReviewOutput = { suggestions, usage, dispositionTrigger };
+  const output: EasyChartReviewOutput = { suggestions, usage, dispositionTrigger, etiologyGuard };
   return { statusCode: 200, body: JSON.stringify(output) };
 });

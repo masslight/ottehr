@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   contradictsHistoryContext,
   contradictsInjuryRegion,
+  repairUnsupportedEtiology,
   resolveIcd,
+  unsupportedEtiologyQualifiers,
   upgradeCodeSpecificity,
+  validateIntentCode,
 } from '../src/shared/easy-chart/codes';
 
 // resolveIcd is the "no hallucinated code reaches the note" invariant. These cases lock in the
@@ -211,5 +214,131 @@ describe('specificity upgrade (laterality / recurrence)', () => {
       ['left eye']
     );
     expect(upgraded.code).toBe('H35.112');
+  });
+});
+
+// ── Etiology-support guard ──────────────────────────────────────────────────────────────────────
+// Live failures (both from review dx suggestions, synthetic narratives here): A54.02 "Gonococcal
+// vulvovaginitis" proposed for a budding-yeast narrative (correct: B37.3), and H65.06 "Acute
+// SEROUS otitis media" for a bulging purulent AOM (correct family: H66.0x). The guard flags
+// display qualifiers the evidence never supports and either repairs deterministically or refuses.
+const YEAST_EVIDENCE =
+  'Vaginal itching with thick white discharge; wet mount shows budding yeast, consistent with candidal vulvovaginitis.';
+const PURULENT_AOM_EVIDENCE =
+  'Bulging erythematous tympanic membranes bilaterally with purulent material behind both; frequent ear infections per mom.';
+
+describe('unsupportedEtiologyQualifiers', () => {
+  it('flags gonococcal when the evidence documents yeast', () => {
+    expect(unsupportedEtiologyQualifiers('Gonococcal vulvovaginitis, unspecified', YEAST_EVIDENCE)).toEqual([
+      'gonococcal',
+    ]);
+  });
+
+  it('passes a candidiasis display for the same yeast evidence', () => {
+    expect(unsupportedEtiologyQualifiers('Candidiasis of vulva and vagina', YEAST_EVIDENCE)).toEqual([]);
+  });
+
+  it('flags serous (but not suppurative or recurrent) for a purulent recurrent-AOM narrative', () => {
+    expect(
+      unsupportedEtiologyQualifiers('Acute serous otitis media, recurrent, bilateral', PURULENT_AOM_EVIDENCE)
+    ).toEqual(['serous']);
+    expect(
+      unsupportedEtiologyQualifiers(
+        'Acute suppurative otitis media without spontaneous rupture of ear drum, recurrent, bilateral',
+        PURULENT_AOM_EVIDENCE
+      )
+    ).toEqual([]);
+  });
+
+  it('imposes no constraint on displays without vocabulary qualifiers', () => {
+    expect(unsupportedEtiologyQualifiers('Acute pharyngitis, unspecified', 'sore throat for two days')).toEqual([]);
+  });
+
+  it('credits short stems only as standalone evidence tokens', () => {
+    // 'gc' must match the token "gc", never a substring inside another word ("gcs").
+    expect(unsupportedEtiologyQualifiers('Gonococcal vulvovaginitis, unspecified', 'gc probe positive')).toEqual([]);
+    expect(unsupportedEtiologyQualifiers('Gonococcal vulvovaginitis, unspecified', 'gcs 15 on arrival')).toEqual([
+      'gonococcal',
+    ]);
+  });
+});
+
+describe('repairUnsupportedEtiology', () => {
+  it('repairs the gonococcal live case to candidal vulvovaginitis (B37.3)', async () => {
+    const repaired = await repairUnsupportedEtiology(
+      { code: 'A54.02', display: 'Gonococcal vulvovaginitis, unspecified' },
+      YEAST_EVIDENCE
+    );
+    expect(repaired?.code).toBe('B37.31');
+  });
+
+  it('repairs the serous live case into the suppurative H66.0x family, keeping recurrence and laterality', async () => {
+    const repaired = await repairUnsupportedEtiology(
+      { code: 'H65.06', display: 'Acute serous otitis media, recurrent, bilateral' },
+      PURULENT_AOM_EVIDENCE
+    );
+    expect(repaired?.code).toBe('H66.006');
+  });
+
+  it('returns undefined when no clean same-condition replacement exists', async () => {
+    // Every code matching gingivostomatitis+pharyngotonsillitis is the herpesviral one itself.
+    const repaired = await repairUnsupportedEtiology(
+      { code: 'B00.2', display: 'Herpesviral gingivostomatitis and pharyngotonsillitis' },
+      'Twisted ankle at soccer practice with pain on weight bearing.'
+    );
+    expect(repaired).toBeUndefined();
+  });
+});
+
+describe('validateIntentCode etiology guard (add-diagnosis + evidence)', () => {
+  it('substitutes code AND display in place on repair, keeping every other field', async () => {
+    const r: Record<string, unknown> = {
+      kind: 'add-diagnosis',
+      display: 'Gonococcal vulvovaginitis',
+      searchTerms: ['vulvovaginitis'],
+      code: 'A54.02',
+      isPrimary: true,
+    };
+    expect(await validateIntentCode(r, undefined, YEAST_EVIDENCE)).toBe('etiology-repaired');
+    expect(r.code).toBe('B37.31');
+    expect(r.display).toBe('Acute candidiasis of vulva and vagina');
+    expect(r.isPrimary).toBe(true);
+  });
+
+  it('runs no repair on a supported-qualifier code (normal resolution still applies)', async () => {
+    const r: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Candidal vulvovaginitis', code: 'B37.3' };
+    expect(await validateIntentCode(r, undefined, YEAST_EVIDENCE)).toBe('ok');
+    expect(r.code).toBe('B37.31');
+  });
+
+  it('leaves a no-qualifier display untouched', async () => {
+    const r: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Acute pharyngitis', code: 'J02.9' };
+    expect(await validateIntentCode(r, undefined, 'sore throat for two days')).toBe('ok');
+    expect(r.code).toBe('J02.9');
+  });
+
+  it('refuses when no clean replacement exists', async () => {
+    const r: Record<string, unknown> = {
+      kind: 'add-diagnosis',
+      display: 'Herpesviral gingivostomatitis',
+      code: 'B00.2',
+    };
+    expect(await validateIntentCode(r, undefined, 'Twisted ankle at soccer practice.')).toBe('etiology-unsupported');
+  });
+
+  it('stays inert without evidence (planner path unchanged)', async () => {
+    const r: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Gonococcal vulvovaginitis', code: 'A54.02' };
+    expect(await validateIntentCode(r, undefined)).toBe('ok');
+    expect(r.code).toBe('A54.02');
+  });
+});
+
+// Root cause of the gonococcal live case: the search itself had no candidal↔candidiasis register
+// bridge, so a "Candidal vulvovaginitis" display re-resolved to the best OTHER-organism
+// vulvovaginitis code. The synonym fix must make the resolver land on B37.3 directly.
+describe('resolveIcd candidal register', () => {
+  it('resolves a candidal vulvovaginitis display to B37.3', async () => {
+    const resolved = await resolveIcd(undefined, 'Candidal vulvovaginitis', ['yeast infection']);
+    expect(resolved?.code).toBe('B37.31');
   });
 });

@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { EXPLICIT_HISTORY_INTENT, loadAndParseIcd10Data, searchIcd10Codes } from '../icd-10-search';
+import { EXPLICIT_HISTORY_INTENT, loadAndParseIcd10Data, searchIcd10Codes, wordMatchesDisplay } from '../icd-10-search';
 
 // ── Easy-chart code validation (the invariant) ──────────────────────────────────────────────────
 // No code may reach the note unless the canonical source actually returned it. A model's `code`
@@ -294,6 +294,111 @@ export async function upgradeCodeSpecificity(
   return out;
 }
 
+// ── Etiology-support guard ──────────────────────────────────────────────────────────────────────
+// ICD displays carry organism/etiology/type qualifiers ("GONOCOCCAL vulvovaginitis", "Acute SEROUS
+// otitis media") that make a real code the WRONG code when the evidence never mentions that
+// etiology — the review once proposed A54.02 (gonococcal) for a narrative documenting budding
+// yeast (B37.3), and H65.06 (serous) for a bulging purulent AOM (H66.0x). Same defect shape and
+// design as the med qualifier guard (MED_QUALIFIER_EVIDENCE in the EHR's intent-logic): each
+// display token below maps to the evidence stems that justify it (substring-matched; stems ≤2
+// chars must appear as a standalone evidence token). Tokens outside the vocabulary never count —
+// this is a vocabulary of unambiguous qualifier WORDS, not a code blocklist, and a qualified code
+// stays fully chartable whenever the evidence supports its qualifier. Stems are deliberately
+// GENEROUS (any plausible synonym/marker of the etiology): a false "supported" only silences the
+// guard, while a false "unsupported" would drop a correct suggestion.
+export const ICD_ETIOLOGY_EVIDENCE: Record<string, string[]> = {
+  gonococcal: ['gonococc', 'gonorrh', 'gc'],
+  candidal: ['candid', 'yeast', 'thrush', 'monilial'],
+  candidiasis: ['candid', 'yeast', 'thrush', 'monilial'],
+  trichomonal: ['trichomon'],
+  chlamydial: ['chlamyd'],
+  syphilitic: ['syphil'],
+  meningococcal: ['meningococc'],
+  pneumococcal: ['pneumococc'],
+  streptococcal: ['strep'],
+  staphylococcal: ['staph'],
+  tuberculous: ['tubercul', 'tb'],
+  herpesviral: ['herp', 'hsv', 'cold sore'],
+  herpetic: ['herp', 'hsv', 'cold sore'],
+  viral: ['viral', 'virus', 'cold', 'flu', 'rsv', 'covid', 'enterovir', 'adenovir'],
+  bacterial: ['bacteri', 'strep', 'staph'],
+  fungal: ['fung', 'tinea', 'yeast', 'candid', 'dermatophyt', 'ringworm'],
+  parasitic: ['parasit'],
+  allergic: ['allerg', 'hay fever', 'atop', 'pollen', 'seasonal'],
+  atopic: ['atop', 'eczema', 'allerg'],
+  serous: ['serous', 'effusion', 'fluid'],
+  nonsuppurative: ['nonsuppurat', 'serous', 'effusion', 'fluid'],
+  suppurative: ['suppurat', 'purulent', 'pus'],
+  purulent: ['purulent', 'suppurat', 'pus'],
+  chronic: ['chronic', 'longstanding', 'long-standing', 'persistent', 'ongoing', 'month', 'year'],
+  recurrent: ['recurrent', 'recurring', 'frequent', 'repeated', 'episode', 'keeps coming back', 'comes back', 'again'],
+};
+
+function etiologySupported(token: string, hay: string, hayTokens: Set<string>): boolean {
+  return ICD_ETIOLOGY_EVIDENCE[token].some((s) => (s.length <= 2 ? hayTokens.has(s) : hay.includes(s)));
+}
+
+// The vocabulary qualifiers in an ICD display that the evidence haystack does NOT support.
+// Exported for direct unit tests.
+export function unsupportedEtiologyQualifiers(display: string, evidence: string): string[] {
+  const hay = evidence.toLowerCase();
+  // Short stems ('gc', 'tb') would substring-match inside unrelated words — credit them only as
+  // standalone evidence tokens (same rule as unsupportedMedQualifiers).
+  const hayTokens = new Set(hay.split(/[^a-z0-9]+/));
+  const out: string[] = [];
+  for (const tok of new Set(display.toLowerCase().split(/[^a-z0-9]+/))) {
+    if (tok in ICD_ETIOLOGY_EVIDENCE && !etiologySupported(tok, hay, hayTokens)) out.push(tok);
+  }
+  return out;
+}
+
+// ONE deterministic repair attempt for a code whose display carries unsupported etiology
+// qualifiers: search the index with the display stripped of the unsupported tokens — trying each
+// evidence-SUPPORTED vocabulary qualifier as a prefix first ("suppurative acute otitis media …"),
+// the bare stripped display last — and accept the first candidate whose display (a) has no
+// unsupported qualifiers itself, (b) keeps every base condition token of the original display,
+// (c) keeps the original display's laterality, and (d) can stand alone (no manifestation-only
+// "in diseases classified elsewhere" codes). No such candidate → undefined; the caller drops.
+// Exported for direct unit tests.
+export async function repairUnsupportedEtiology(
+  flagged: { code?: string; display: string },
+  evidence: string
+): Promise<{ code: string; display: string } | undefined> {
+  const hay = evidence.toLowerCase();
+  const hayTokens = new Set(hay.split(/[^a-z0-9]+/));
+  const unsupported = new Set(unsupportedEtiologyQualifiers(flagged.display, evidence));
+  const words = flagged.display
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  const stripped = words.filter((w) => !unsupported.has(w));
+  const strippedQuery = stripped.join(' ');
+  // Base condition tokens every replacement must keep — without them a same-organism code for a
+  // DIFFERENT condition ("Candidal stomatitis") could impersonate the repair.
+  const base = stripped.filter(
+    (w) => w.length >= 4 && !CODE_DISPLAY_BOILERPLATE.has(w) && !(w in ICD_ETIOLOGY_EVIDENCE)
+  );
+  if (base.length === 0 || !strippedQuery) return undefined;
+  const side = LATERALITY_VALUES.find((v) => words.includes(v));
+  const supportedQualifiers = Object.keys(ICD_ETIOLOGY_EVIDENCE).filter(
+    (t) => !words.includes(t) && etiologySupported(t, hay, hayTokens)
+  );
+  for (const q of [...supportedQualifiers.map((t) => `${t} ${strippedQuery}`), strippedQuery]) {
+    const results = await searchIcd10Codes(q);
+    const ok = results.find((r) => {
+      if (flagged.code && r.code === flagged.code) return false;
+      const normalizedDisplay = r.display.toLowerCase();
+      if (normalizedDisplay.includes('in diseases classified elsewhere')) return false;
+      if (unsupportedEtiologyQualifiers(r.display, evidence).length > 0) return false;
+      if (side && !displayWords(r.display).has(side)) return false;
+      const candidateWords = normalizedDisplay.split(/\s+/);
+      return base.every((b) => wordMatchesDisplay(b, candidateWords, normalizedDisplay));
+    });
+    if (ok) return { code: ok.code, display: ok.display };
+  }
+  return undefined;
+}
+
 export async function resolveIcd(
   suggestedCode: string | undefined,
   display: string,
@@ -349,10 +454,17 @@ export async function resolveIcd(
 // decides the blast radius (the planner drops just that step; the review drops the whole
 // suggestion, since a billing card with a bogus code has no point). Shared so both validate
 // identically.
+//
+// `etiologyEvidence` (review-only today) additionally runs the etiology-support guard on
+// add-diagnosis: a resolved display carrying a vocabulary qualifier the evidence does not support
+// is deterministically repaired ('etiology-repaired', code+display substituted in place) or, when
+// no clean replacement exists, refused ('etiology-unsupported' — the review drops the WHOLE
+// suggestion: a swap reduced to its bare removal would recreate the zero-diagnoses bug).
 export async function validateIntentCode(
   r: Record<string, unknown>,
-  oystehr: Oystehr | undefined
-): Promise<'ok' | 'invalid-billing'> {
+  oystehr: Oystehr | undefined,
+  etiologyEvidence?: string
+): Promise<'ok' | 'invalid-billing' | 'etiology-repaired' | 'etiology-unsupported'> {
   if (r.kind === 'add-diagnosis' || r.kind === 'add-condition') {
     const display = typeof r.display === 'string' ? r.display : '';
     const searchTerms = Array.isArray(r.searchTerms)
@@ -364,6 +476,30 @@ export async function validateIntentCode(
       searchTerms,
       typeof r.sourceText === 'string' ? r.sourceText : undefined
     );
+    if (etiologyEvidence && r.kind === 'add-diagnosis') {
+      // Guard the display that will actually be charted: the resolved canonical display, or the
+      // model's own display when nothing resolved (the client picker would chart from it).
+      const target = resolved ?? (display ? { code: undefined, display } : undefined);
+      const unsupported = target ? unsupportedEtiologyQualifiers(target.display, etiologyEvidence) : [];
+      if (target && unsupported.length > 0) {
+        const repaired = await repairUnsupportedEtiology(target, etiologyEvidence);
+        // Code + qualifier labels only — never evidence/narrative text.
+        if (!repaired) {
+          console.log(
+            `easy-chart: etiology guard refused dx code ${target.code ?? '<unresolved>'} ` +
+              `(unsupported: ${unsupported.join(', ')}), no clean replacement — dropping suggestion`
+          );
+          return 'etiology-unsupported';
+        }
+        console.log(
+          `easy-chart: etiology guard repaired dx code ${target.code ?? '<unresolved>'} ` +
+            `(unsupported: ${unsupported.join(', ')}) -> ${repaired.code}`
+        );
+        r.code = repaired.code;
+        r.display = repaired.display;
+        return 'etiology-repaired';
+      }
+    }
     if (resolved) r.code = resolved.code;
     else delete r.code; // nothing valid → the client picker resolves by display
   } else if ((r.kind === 'set-em-code' || r.kind === 'add-cpt') && typeof r.code === 'string' && r.code.trim()) {
