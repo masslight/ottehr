@@ -20,6 +20,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
@@ -27,6 +28,7 @@ import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { useCreateRadiologyOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
 import { LATERALITY_SELECTORS, LateralityValue, RadiologyQuickPickData, RoleType } from 'utils';
 import {
   createRadiologyOrder,
@@ -42,6 +44,7 @@ import {
   RadiologyOrderCoreFields,
   RadiologyOrderFormActions,
   useRadiologyOrderForm,
+  UseRadiologyOrderFormResult,
 } from '../components/RadiologyOrderFormShared';
 import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
@@ -59,25 +62,76 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const form = useRadiologyOrderForm();
+  const { setDraft, getDraft, clearDraft, hasDraft } = useCreateRadiologyOrderStore();
+  useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
+  const draft = useMemo<ReturnType<typeof getDraft>>(
+    () => (encounter.id ? getDraft(encounter.id) : {}),
+    [encounter.id, getDraft]
+  );
+
+  const form = useRadiologyOrderForm({
+    orderDx: draft.dx,
+    orderCpt: draft.cptCode,
+    studyName: draft.studyName,
+    clinicalHistory: draft.clinicalHistory,
+    laterality: draft.laterality,
+  });
+
   const {
     orderDx,
     orderCpt,
-    setOrderCpt,
     studyName,
-    setStudyName,
     clinicalHistory,
-    setClinicalHistory,
     laterality,
-    setLaterality,
     lateralityModifier,
     addAdditionalDxToEncounter,
     chartCptCodes,
     setPartialChartData,
   } = form;
 
-  const [stat, setStat] = useState<boolean>(false);
-  const [consentObtained, setConsentObtained] = useState<boolean>(false);
+  const [stat, setStat] = useState<boolean>(draft.stat ?? false);
+  const [consentObtained, setConsentObtained] = useState<boolean>(draft.consentObtained ?? false);
+
+  // Wrap form setters to also persist to the draft store on every change.
+  const draftForm: UseRadiologyOrderFormResult = {
+    ...form,
+    setOrderDx: (dx) => {
+      form.setOrderDx(dx);
+      const next = typeof dx === 'function' ? dx(form.orderDx) : dx;
+      if (encounter.id) setDraft(encounter.id, { dx: next });
+    },
+    setOrderCpt: (cpt) => {
+      form.setOrderCpt(cpt);
+      const next = typeof cpt === 'function' ? cpt(form.orderCpt) : cpt;
+      if (encounter.id) setDraft(encounter.id, { cptCode: next });
+    },
+    setStudyName: (name) => {
+      form.setStudyName(name);
+      const next = typeof name === 'function' ? name(form.studyName) : name;
+      if (encounter.id) setDraft(encounter.id, { studyName: next });
+    },
+    setClinicalHistory: (history) => {
+      form.setClinicalHistory(history);
+      const next = typeof history === 'function' ? history(form.clinicalHistory) : history;
+      if (encounter.id) setDraft(encounter.id, { clinicalHistory: next });
+    },
+    setLaterality: (lat) => {
+      form.setLaterality(lat);
+      const next = typeof lat === 'function' ? lat(form.laterality) : lat;
+      if (encounter.id) setDraft(encounter.id, { laterality: next });
+    },
+  };
+
+  const handleClearForm = (): void => {
+    if (encounter.id) clearDraft(encounter.id);
+    form.setOrderDx(form.defaultDx);
+    form.setOrderCpt(undefined);
+    setStat(false);
+    form.setStudyName(undefined);
+    form.setClinicalHistory('');
+    form.setLaterality('');
+    setConsentObtained(false);
+  };
 
   // Quick picks state
   const {
@@ -96,14 +150,12 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   // Quick pick handlers
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
-    if (quickPick.cptCode && quickPick.cptDisplay) {
-      setOrderCpt({ code: quickPick.cptCode, display: quickPick.cptDisplay });
-    } else {
-      setOrderCpt(undefined);
-    }
-    setStudyName(quickPick.studyName ?? '');
-    setLaterality((quickPick.laterality as LateralityValue) ?? '');
-    setClinicalHistory(quickPick.clinicalHistory ?? '');
+    draftForm.setOrderCpt(
+      quickPick.cptCode && quickPick.cptDisplay ? { code: quickPick.cptCode, display: quickPick.cptDisplay } : undefined
+    );
+    draftForm.setStudyName(quickPick.studyName ?? '');
+    draftForm.setLaterality((quickPick.laterality as LateralityValue) ?? '');
+    draftForm.setClinicalHistory(quickPick.clinicalHistory ?? '');
     // stat and consentObtained not applied — encounter-specific
   };
 
@@ -219,6 +271,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           });
         }
 
+        clearDraft(encounter.id);
         navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
       } catch (e) {
         const error = e as any;
@@ -250,6 +303,15 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
               Order Radiology
             </Typography>
           </Box>
+          {encounter.id && hasDraft(encounter.id) && (
+            <UnsavedDraftWarning
+              message={
+                draft.hasNavigatedAway
+                  ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                  : 'You have a radiology order in progress. Your draft will be saved.'
+              }
+            />
+          )}
 
           <form onSubmit={handleSubmit}>
             <Paper sx={{ p: 3 }}>
@@ -271,10 +333,16 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     searchable
                   />
                 </Grid>
-                <RadiologyOrderCoreFields form={form} />
+                <RadiologyOrderCoreFields form={draftForm} />
                 <Grid item xs={12}>
                   <Box style={{ display: 'flex', alignItems: 'center' }}>
-                    <Checkbox checked={consentObtained} onChange={() => setConsentObtained(!consentObtained)} />
+                    <Checkbox
+                      checked={consentObtained}
+                      onChange={() => {
+                        setConsentObtained(!consentObtained);
+                        if (encounter.id) setDraft(encounter.id, { consentObtained: !consentObtained });
+                      }}
+                    />
                     <Typography>
                       I have obtained the{' '}
                       {consentExists ? (
@@ -295,7 +363,15 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <Grid item xs={12}>
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
-                    control={<Switch checked={stat} onChange={() => setStat(!stat)} />}
+                    control={
+                      <Switch
+                        checked={stat}
+                        onChange={() => {
+                          setStat(!stat);
+                          if (encounter.id) setDraft(encounter.id, { stat: !stat });
+                        }}
+                      />
+                    }
                     label={<Typography variant="body2">STAT</Typography>}
                   />
                 </Grid>
@@ -304,6 +380,20 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   submitting={submitting}
                   submitLabel="Order"
                   errors={error}
+                  onCancel={() => {
+                    if (encounter.id) clearDraft(encounter.id);
+                  }}
+                  clearFormButton={
+                    hasDraft(encounter.id ?? '') ? (
+                      <Button
+                        variant="outlined"
+                        sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                        onClick={handleClearForm}
+                      >
+                        Clear Form
+                      </Button>
+                    ) : undefined
+                  }
                 />
               </Grid>
             </Paper>
