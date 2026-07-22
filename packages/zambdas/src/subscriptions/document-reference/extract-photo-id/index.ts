@@ -3,30 +3,21 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createOystehrClient, getSecret, InsuranceCardExtraction, MimeType, SecretsKeys } from 'utils';
-import {
-  createPresignedUrl,
-  getAuth0Token,
-  topLevelCatch,
-  uploadObjectToZ3,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, getSecret, PhotoIdExtraction, SecretsKeys } from 'utils';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../../shared/ai';
 import { downloadOcrSourceImage } from '../shared/extraction-helpers';
 import {
-  buildAttachmentMetadataOperations,
   buildExtractionPatchOperation,
   EXTRACTION_PROMPT,
   getExistingExtraction,
-  insuranceCardResponseSchema,
   parseModelResponse,
+  photoIdResponseSchema,
   sha256Hex,
 } from './helpers';
-import { NORMALIZABLE_CONTENT_TYPES, normalizeInsuranceCardImage } from './normalize-image';
 import { validateRequestParameters } from './validateRequestParameters';
 
-const ZAMBDA_NAME = 'extract-insurance-card';
+const ZAMBDA_NAME = 'extract-photo-id';
 
 // warm-invocation cache, same as other subscription zambdas
 let oystehrToken: string;
@@ -46,7 +37,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    const { cardSlot } = validated;
     const docRefId = documentReference.id!;
 
     if (!oystehrToken) {
@@ -63,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
 
     // Idempotency, phase 1 (cheap): re-read the DocumentReference (subscription payloads can be
-    // stale). A search by _id returns nothing for deleted resources, so a card deleted between
+    // stale). A search by _id returns nothing for deleted resources, so an ID deleted between
     // trigger and execution is a clean no-op rather than a retry loop.
     const current = (
       await oystehr.fhir.search<DocumentReference>({
@@ -98,9 +88,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    // Fetch the card image via presigned Z3 URL. A download failure is often transient (network
+    // Fetch the ID image via presigned Z3 URL. A download failure is often transient (network
     // blip, presigned url race); returning 200 here would tell the subscription "handled" and
-    // leave the card permanently unprocessed, so re-throw and let the subscription's retry
+    // leave the ID permanently unprocessed, so re-throw and let the subscription's retry
     // semantics (same pattern as the parseModelResponse failure below) get another attempt.
     const startedAt = Date.now();
     let bytes: Buffer;
@@ -112,25 +102,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         fallbackContentType: current.content?.[0]?.attachment?.contentType,
       }));
     } catch (error) {
-      console.error(`[${ZAMBDA_NAME}] failed to fetch card image for DocumentReference/${docRefId}:`, error);
+      console.error(`[${ZAMBDA_NAME}] failed to fetch photo ID image for DocumentReference/${docRefId}:`, error);
       captureException(error);
       throw error;
     }
 
-    let imageHash = sha256Hex(bytes);
+    const imageHash = sha256Hex(bytes);
     console.log(
-      `[${ZAMBDA_NAME}] DocumentReference/${docRefId} slot=${cardSlot} mimeType=${mimeType} bytes=${bytes.length} sha256=${imageHash}`
+      `[${ZAMBDA_NAME}] DocumentReference/${docRefId} mimeType=${mimeType} bytes=${bytes.length} sha256=${imageHash}`
     );
 
     if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') {
       // unprocessable content is a permanent condition — write the marker so retries stop
-      console.log(`[${ZAMBDA_NAME}] unsupported content type '${mimeType}'; writing notACard marker`);
+      console.log(`[${ZAMBDA_NAME}] unsupported content type '${mimeType}'; writing notAPhotoId marker`);
       await writeExtraction(oystehr, current, extensionIndex, {
         version: 1,
-        isInsuranceCard: false,
+        isPhotoId: false,
         fields: null,
-        readable: null,
-        notACard: true,
+        notAPhotoId: true,
         sourceDocRefId: docRefId,
         sourceAttachmentUrl: attachmentUrl,
         imageHash,
@@ -139,84 +128,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
       return {
         statusCode: 200,
-        body: JSON.stringify({ documentReferenceId: docRefId, skipped: true, notACard: true }),
+        body: JSON.stringify({ documentReferenceId: docRefId, skipped: true, notAPhotoId: true }),
       };
-    }
-
-    // Normalize the stored image (bake the EXIF orientation into the pixels, downscale oversized
-    // photos) so display, OCR, and the PDF composer all get an upright, right-sized image. The
-    // normalized bytes are re-stored to the SAME Z3 object, so the attachment URL — the extraction
-    // idempotency key above — never changes; and because this subscription fires on CREATE only
-    // (SubscriptionTriggerEvent=create in config/oystehr-core/zambdas.json), patching the
-    // DocumentReference here cannot re-trigger this zambda. A normalization or re-store failure is
-    // reported and the pipeline falls back to the ORIGINAL bytes: an upside-down card must never
-    // block extraction.
-    if ((NORMALIZABLE_CONTENT_TYPES as readonly string[]).includes(mimeType)) {
-      let normalized;
-      try {
-        normalized = await normalizeInsuranceCardImage(bytes, mimeType);
-      } catch (error) {
-        console.error(
-          `[${ZAMBDA_NAME}] image normalization failed for DocumentReference/${docRefId}; continuing with the original image:`,
-          error
-        );
-        captureException(error);
-      }
-
-      if (normalized?.changed) {
-        try {
-          const uploadUrl = await createPresignedUrl(oystehrToken, attachmentUrl, 'upload');
-          await uploadObjectToZ3(
-            new Uint8Array(normalized.bytes.buffer, normalized.bytes.byteOffset, normalized.bytes.byteLength),
-            uploadUrl,
-            normalized.contentType as MimeType
-          );
-
-          // The stored object is now the normalized image: OCR and the stored imageHash must
-          // describe it, not the original upload.
-          bytes = normalized.bytes;
-          mimeType = normalized.contentType;
-          imageHash = sha256Hex(bytes);
-          console.log(
-            `[${ZAMBDA_NAME}] normalized card image for DocumentReference/${docRefId}: ${normalized.width}x${normalized.height} mimeType=${mimeType} bytes=${bytes.length} sha256=${imageHash}`
-          );
-
-          // Keep the attachment metadata honest. Non-fatal: the object itself is already
-          // normalized, so a failed metadata patch must not abandon the normalized bytes.
-          const metadataOperations = buildAttachmentMetadataOperations(current, mimeType, bytes.length);
-          if (metadataOperations.length > 0) {
-            try {
-              await oystehr.fhir.patch({
-                resourceType: 'DocumentReference',
-                id: docRefId,
-                operations: metadataOperations,
-              });
-            } catch (error) {
-              console.error(
-                `[${ZAMBDA_NAME}] failed to patch attachment metadata for DocumentReference/${docRefId}:`,
-                error
-              );
-              captureException(error);
-            }
-          }
-        } catch (error) {
-          // Re-store failed, so the stored object is still the original upload: fall back to the
-          // original bytes for both OCR and imageHash so the hash matches what is actually stored.
-          console.error(
-            `[${ZAMBDA_NAME}] failed to re-store normalized card image for DocumentReference/${docRefId}; continuing with the original image:`,
-            error
-          );
-          captureException(error);
-        }
-      } else if (normalized) {
-        console.log(`[${ZAMBDA_NAME}] card image for DocumentReference/${docRefId} is already normalized`);
-      }
     }
 
     const rawModelResponse = await invokeChatbotVertexAI(
       [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
       secrets,
-      insuranceCardResponseSchema
+      photoIdResponseSchema
     );
 
     let parsed;
@@ -230,15 +149,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw error;
     }
 
-    const notACard = !parsed.isInsuranceCard || parsed.fields === null;
-    const extraction: InsuranceCardExtraction = {
+    const notAPhotoId = !parsed.isPhotoId || parsed.fields === null;
+    const extraction: PhotoIdExtraction = {
       version: 1,
-      isInsuranceCard: parsed.isInsuranceCard,
-      fields: notACard ? null : parsed.fields,
-      // orientation signal from the same model call; parseModelResponse already nulls it on the
-      // notACard / all-null paths so nothing is fabricated
-      readable: notACard ? null : parsed.readable,
-      ...(notACard ? { notACard: true } : {}),
+      isPhotoId: parsed.isPhotoId,
+      fields: notAPhotoId ? null : parsed.fields,
+      ...(notAPhotoId ? { notAPhotoId: true } : {}),
       sourceDocRefId: docRefId,
       sourceAttachmentUrl: attachmentUrl,
       imageHash,
@@ -249,14 +165,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     await writeExtraction(oystehr, current, extensionIndex, extraction);
 
     console.log(
-      `[${ZAMBDA_NAME}] stored extraction for DocumentReference/${docRefId}: extracted=${!notACard} notACard=${notACard} readable=${
-        extraction.readable
-      } elapsedMs=${Date.now() - startedAt}`
+      `[${ZAMBDA_NAME}] stored extraction for DocumentReference/${docRefId}: extracted=${!notAPhotoId} notAPhotoId=${notAPhotoId} elapsedMs=${
+        Date.now() - startedAt
+      }`
     );
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ documentReferenceId: docRefId, extracted: !notACard, ...(notACard && { notACard }) }),
+      body: JSON.stringify({
+        documentReferenceId: docRefId,
+        extracted: !notAPhotoId,
+        ...(notAPhotoId && { notAPhotoId }),
+      }),
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -268,7 +188,7 @@ async function writeExtraction(
   oystehr: Oystehr,
   documentReference: DocumentReference,
   extensionIndex: number,
-  extraction: InsuranceCardExtraction
+  extraction: PhotoIdExtraction
 ): Promise<void> {
   await oystehr.fhir.patch({
     resourceType: 'DocumentReference',
