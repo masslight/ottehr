@@ -38,7 +38,7 @@ import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/ty
 import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
-import { RelatedCausesCode } from 'candidhealth/api/resources/relatedCauses/resources/v1';
+import { RelatedCausesCode, RelatedCausesInformation } from 'candidhealth/api/resources/relatedCauses/resources/v1';
 import {
   DrugIdentification,
   MeasurementUnitCode,
@@ -52,6 +52,7 @@ import {
   Condition,
   Coverage,
   Encounter,
+  EncounterDiagnosis,
   Extension,
   Identifier,
   Location,
@@ -330,9 +331,14 @@ function getExtensionString(extensions: Extension[] | undefined, url: string): s
   return extensions?.find((extension: Extension) => extension.url === url)?.valueString;
 }
 
-function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
+export function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
+  const isPrimary = (encounterDiagnosis: EncounterDiagnosis): boolean => (encounterDiagnosis.rank ?? -1) === 1;
+  // Process the primary diagnosis first so that if the same code is also entered as a secondary
+  // diagnosis, the primary wins the code-based dedup below and is not dropped (which would otherwise
+  // cause the send-claim flow to fail with "Primary diagnosis is absent").
+  const orderedDiagnoses = [...(encounter.diagnosis ?? [])].sort((a, b) => Number(isPrimary(b)) - Number(isPrimary(a)));
   const seenCodes = new Set<string>();
-  return (encounter.diagnosis ?? []).flatMap<DiagnosisCreate>((encounterDiagnosis) => {
+  return orderedDiagnoses.flatMap<DiagnosisCreate>((encounterDiagnosis) => {
     const diagnosisResourceId = encounterDiagnosis.condition.reference?.split('/')[1];
     const diagnosisResource = diagnoses.find((resource) => resource.id === diagnosisResourceId);
     const diagnosisCode = diagnosisResource?.code?.coding?.[0].code;
@@ -342,7 +348,7 @@ function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): Di
     seenCodes.add(diagnosisCode);
     return [
       {
-        codeType: (encounterDiagnosis.rank ?? -1) === 1 ? DiagnosisTypeCode.Abk : DiagnosisTypeCode.Abf,
+        codeType: isPrimary(encounterDiagnosis) ? DiagnosisTypeCode.Abk : DiagnosisTypeCode.Abf,
         code: diagnosisCode,
       },
     ];
@@ -1446,11 +1452,6 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_PRE_OP));
   }
 
-  const accidentTypes =
-    accident?.code?.coding
-      ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
-      ?.map((coding) => coding.code as string) ?? [];
-
   // Note: dateOfService field must not be provided as service line date of service is already sent
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
@@ -1495,17 +1496,36 @@ async function candidCreateEncounterFromAppointmentRequest(
     ),
     diagnoses: candidDiagnoses,
     accidentDate: accident?.onsetDateTime,
-    relatedCausesInformation:
-      accident != null
-        ? {
-            relatedCausesCode1: accidentTypes[0] as RelatedCausesCode,
-            relatedCausesCode2: accidentTypes[1] as RelatedCausesCode,
-            stateOrProvinceCode: accident?.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)
-              ?.valueString,
-          }
-        : undefined,
+    relatedCausesInformation: buildRelatedCausesInformation(accident),
     serviceLines,
     tagIds: tags,
+  };
+}
+
+/**
+ * Builds the Candid related-causes information from an accident-tagged Condition, or returns
+ * undefined when there is nothing to send.
+ *
+ * A Condition may carry the "accident" meta tag but have no coding — for example when the accident
+ * checkbox was toggled on and then off without the Condition being removed. In that case there are no
+ * accident type codes, so we must return undefined rather than build an object with an undefined
+ * relatedCausesCode1, which Candid rejects because that field is required.
+ */
+export function buildRelatedCausesInformation(accident: Condition | undefined): RelatedCausesInformation | undefined {
+  const accidentTypes =
+    accident?.code?.coding
+      ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
+      ?.map((coding) => coding.code as string) ?? [];
+
+  if (accidentTypes.length === 0) {
+    return undefined;
+  }
+
+  return {
+    relatedCausesCode1: accidentTypes[0] as RelatedCausesCode,
+    relatedCausesCode2: accidentTypes[1] as RelatedCausesCode,
+    stateOrProvinceCode: accident?.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)
+      ?.valueString,
   };
 }
 

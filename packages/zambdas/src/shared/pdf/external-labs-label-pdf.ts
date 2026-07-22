@@ -11,7 +11,6 @@ import {
   ExternalLabsLabelConfig,
   getPresignedURL,
   LabelConfig,
-  MIME_TYPES,
   Secrets,
 } from 'utils';
 import { makeZ3Url } from './../presigned-file-urls';
@@ -205,7 +204,7 @@ async function createExternalLabsLabelPDFHelper(
 
   try {
     const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
-    await uploadObjectToZ3(pdfBytes, presignedUrl, MIME_TYPES.PDF);
+    await uploadObjectToZ3(pdfBytes, presignedUrl);
   } catch (error: any) {
     throw new Error(`failed uploading pdf ${fileName} to z3:  ${JSON.stringify(error.message)}`);
   }

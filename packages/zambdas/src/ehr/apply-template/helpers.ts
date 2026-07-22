@@ -1,5 +1,8 @@
 import { FhirResource, List, MedicationAdministration, ServiceRequest } from 'fhir/r4b';
-import { DiagnosisDTO, FHIR_IDC10_VALUESET_SYSTEM, ICD_10_CODE_SYSTEM, TemplateSectionAction } from 'utils';
+import { CODE_SYSTEM_ICD_10, DiagnosisDTO, FHIR_IDC10_VALUESET_SYSTEM, TemplateSectionAction } from 'utils';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 
 // Reverse the conversion the create flow does when it writes reasonCode from
 // DiagnosisDTOs. We lose `isPrimary` here, which is fine - the saved order
@@ -8,8 +11,14 @@ export const diagnosesFromReasonCode = (plan: ServiceRequest | MedicationAdminis
   return (plan.reasonCode ?? [])
     .map((rc) => {
       const icd =
-        rc.coding?.find((c) => c.system === FHIR_IDC10_VALUESET_SYSTEM || c.system === ICD_10_CODE_SYSTEM) ??
-        rc.coding?.[0];
+        rc.coding?.find(
+          (c) =>
+            c.system === CODE_SYSTEM_ICD_10 ||
+            // legacy system
+            c.system === FHIR_IDC10_VALUESET_SYSTEM ||
+            // legacy system
+            c.system === ICD_10_CODE_SYSTEM
+        ) ?? rc.coding?.[0];
       return {
         code: icd?.code ?? '',
         display: icd?.display ?? rc.text ?? '',

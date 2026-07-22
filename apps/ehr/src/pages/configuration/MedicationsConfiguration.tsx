@@ -10,7 +10,6 @@ import {
   Chip,
   Grid,
   IconButton,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -28,6 +27,7 @@ import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import Loading from 'src/components/Loading';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from 'src/hooks/useEvolveUser';
 import { MEDICATION_IDENTIFIER_NAME_SYSTEM, RoleType } from 'utils';
@@ -166,125 +166,123 @@ function MedicationsTable({
   };
 
   return (
-    <>
-      <Paper sx={{ padding: 2 }}>
-        <TableContainer>
-          <Grid container direction="row" justifyContent="start" alignItems="center" marginTop={1}>
-            <Grid item xs={6}>
-              <TextField
-                id="outlined-basic"
-                label="Search by name"
-                variant="outlined"
-                onChange={handleChangeSearchText}
-                value={searchText}
-                InputProps={{ endAdornment: <SearchIcon /> }}
-                sx={{ width: '100%', paddingRight: 2 }}
-              />
-            </Grid>
-            <Grid item xs={3}>
-              {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
-                <Link to={`/admin/medications/add`}>
-                  <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
-                    Add medication
-                  </Button>
-                </Link>
-              ) : (
-                <Tooltip title="You must be an administrator to add new medications" placement="top">
-                  <span>
-                    <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />} disabled>
-                      Add medication
-                    </Button>
-                  </span>
-                </Tooltip>
-              )}
-            </Grid>
-            <Grid item xs={3}>
-              {medications === undefined && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                  <Loading />
-                </Box>
-              )}
-            </Grid>
+    <Box>
+      <AdminHeaderActionSlot>
+        {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
+          <Link to={`/admin/medications/add`}>
+            <Button variant="contained" startIcon={<Add />}>
+              Add medication
+            </Button>
+          </Link>
+        ) : (
+          <Tooltip title="You must be an administrator to add new medications" placement="top">
+            <span>
+              <Button variant="contained" startIcon={<Add />} disabled>
+                Add medication
+              </Button>
+            </span>
+          </Tooltip>
+        )}
+      </AdminHeaderActionSlot>
+      <TableContainer>
+        <Grid container direction="row" justifyContent="start" alignItems="center" marginTop={1}>
+          <Grid item xs={6}>
+            <TextField
+              id="outlined-basic"
+              label="Search by name"
+              variant="outlined"
+              onChange={handleChangeSearchText}
+              value={searchText}
+              InputProps={{ endAdornment: <SearchIcon /> }}
+              sx={{ width: '100%', paddingRight: 2 }}
+            />
           </Grid>
+          <Grid item xs={3}>
+            {medications === undefined && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <Loading />
+              </Box>
+            )}
+          </Grid>
+        </Grid>
 
-          <Table sx={{ minWidth: 650 }} aria-label="medicationsTable">
-            <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
-                <TableCell sx={{ width: '40%' }}>Name</TableCell>
-                <TableCell sx={{ width: '30%' }}>Status</TableCell>
-                {isAdmin && <TableCell sx={{ width: '30%' }}>Actions</TableCell>}
-              </TableRow>
-            </TableHead>
+        <Table sx={{ minWidth: 650 }} aria-label="medicationsTable">
+          <TableHead>
+            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
+              <TableCell sx={{ width: '40%' }}>Name</TableCell>
+              <TableCell sx={{ width: '30%' }}>Status</TableCell>
+              {isAdmin && <TableCell sx={{ width: '30%' }}>Actions</TableCell>}
+            </TableRow>
+          </TableHead>
 
-            <TableBody>
-              {pageMedications.map((medication) => {
-                const name = medication.identifier?.find(
-                  (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-                )?.value;
-                const status = medication.status ?? 'active';
-                const isActive = status === 'active';
+          <TableBody>
+            {pageMedications.map((medication) => {
+              const name = medication.identifier?.find(
+                (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+              )?.value;
+              const status = medication.status ?? 'active';
+              const isActive = status === 'active';
 
-                return (
-                  <TableRow key={medication.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
+              return (
+                <TableRow key={medication.id} sx={{ '& .MuiTableCell-body': { textAlign: 'left' } }}>
+                  <TableCell>
+                    <Link
+                      to={`/admin/medication/${medication.id}`}
+                      style={{
+                        display: 'contents',
+                        color: theme.palette.primary.main,
+                      }}
+                    >
+                      {name}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={capitalize(status)}
+                      sx={{
+                        backgroundColor: isActive
+                          ? otherColors.employeeActiveChip
+                          : otherColors.employeeDeactivatedChip,
+                        color: isActive ? otherColors.employeeActiveText : otherColors.employeeDeactivatedText,
+                        borderRadius: '4px',
+                        height: '18px',
+                        '& .MuiChip-label': {
+                          padding: '0 8px',
+                          lineHeight: '18px',
+                        },
+                        ...theme.typography.subtitle2,
+                      }}
+                    />
+                  </TableCell>
+                  {isAdmin && (
                     <TableCell>
-                      <Link
-                        to={`/admin/medication/${medication.id}`}
-                        style={{
-                          display: 'contents',
-                          color: theme.palette.primary.main,
-                        }}
-                      >
-                        {name}
-                      </Link>
+                      <Tooltip title={isActive ? 'Deactivate' : 'Activate'}>
+                        <IconButton
+                          size="small"
+                          onClick={() => void handleToggleStatus(medication)}
+                          sx={{ color: isActive ? theme.palette.error.main : theme.palette.success.main }}
+                        >
+                          {isActive ? <BlockIcon fontSize="small" /> : <CheckCircleOutlineIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={capitalize(status)}
-                        sx={{
-                          backgroundColor: isActive
-                            ? otherColors.employeeActiveChip
-                            : otherColors.employeeDeactivatedChip,
-                          color: isActive ? otherColors.employeeActiveText : otherColors.employeeDeactivatedText,
-                          borderRadius: '4px',
-                          height: '18px',
-                          '& .MuiChip-label': {
-                            padding: '0 8px',
-                            lineHeight: '18px',
-                          },
-                          ...theme.typography.subtitle2,
-                        }}
-                      />
-                    </TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <Tooltip title={isActive ? 'Deactivate' : 'Activate'}>
-                          <IconButton
-                            size="small"
-                            onClick={() => void handleToggleStatus(medication)}
-                            sx={{ color: isActive ? theme.palette.error.main : theme.palette.success.main }}
-                          >
-                            {isActive ? <BlockIcon fontSize="small" /> : <CheckCircleOutlineIcon fontSize="small" />}
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
 
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            component="div"
-            count={filteredMedications.length}
-            rowsPerPage={rowsPerPage}
-            page={pageNumber}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </TableContainer>
-      </Paper>
-    </>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          component="div"
+          count={filteredMedications.length}
+          rowsPerPage={rowsPerPage}
+          page={pageNumber}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
+      </TableContainer>
+    </Box>
   );
 }

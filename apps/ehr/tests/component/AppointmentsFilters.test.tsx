@@ -14,8 +14,8 @@ vi.mock('../../src/components/input/EmployeeSelectInput', () => ({
 vi.mock('../../src/components/input/SelectInput', () => ({
   SelectInput: () => <div data-testid="select-input" />,
 }));
-vi.mock('../../src/components/input/DateInput', () => ({
-  DateInput: () => <div data-testid="date-input" />,
+vi.mock('../../src/components/input/DateRangeInput', () => ({
+  DateRangeInput: () => <div data-testid="date-input" />,
 }));
 vi.mock('../../src/hooks/useMergedServiceCategories', () => ({
   useMergedServiceCategories: () => [],

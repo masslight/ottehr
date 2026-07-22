@@ -10,7 +10,7 @@ import {
 } from 'fhir/r4b';
 import {
   chartDataTagSystem,
-  ICD_10_CODE_SYSTEM,
+  CODE_SYSTEM_ICD_10,
   INTERACTIONS_UNAVAILABLE,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
@@ -493,7 +493,7 @@ const makeCondition = (id: string, icdCode: string): Condition => ({
   // isDiagnosisCondition requires this tag to treat the Condition as a diagnosis
   meta: { tag: [{ system: chartDataTagSystem('diagnosis'), code: 'diagnosis' }] },
   code: {
-    coding: [{ system: ICD_10_CODE_SYSTEM, code: icdCode, display: `Condition ${icdCode}` }],
+    coding: [{ system: CODE_SYSTEM_ICD_10, code: icdCode, display: `Condition ${icdCode}` }],
   },
 });
 
@@ -506,7 +506,7 @@ const makeMaWithReasonCode = (icdCode: string): MedicationAdministration => ({
   effectiveDateTime: '2024-01-01T00:00:00.000Z',
   reasonCode: [
     {
-      coding: [{ system: ICD_10_CODE_SYSTEM, code: icdCode, display: `Condition ${icdCode}` }],
+      coding: [{ system: CODE_SYSTEM_ICD_10, code: icdCode, display: `Condition ${icdCode}` }],
     },
   ],
 });
@@ -626,7 +626,7 @@ describe('getAssociatedDxFromMaAndRequests', () => {
       id: 'cond-non-dx',
       subject: { reference: 'Patient/p1' },
       code: {
-        coding: [{ system: ICD_10_CODE_SYSTEM, code: icdCode }],
+        coding: [{ system: CODE_SYSTEM_ICD_10, code: icdCode }],
       },
     };
     // Without the diagnosis tag, isDiagnosisCondition returns false and the condition is skipped

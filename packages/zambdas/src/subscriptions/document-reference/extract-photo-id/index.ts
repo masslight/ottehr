@@ -22,9 +22,6 @@ const ZAMBDA_NAME = 'extract-photo-id';
 // warm-invocation cache, same as other subscription zambdas
 let oystehrToken: string;
 
-// PHI note: this handler logs only DocRef id, mime type, byte length, image hash, elapsed ms,
-// and boolean outcomes. It must never log the image payload, the raw model response, or any
-// extracted field value (names / DOB / license numbers are PHI).
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`[${ZAMBDA_NAME}] handler start, body length: ${input.body?.length ?? 0}`);
 
@@ -138,8 +135,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const rawModelResponse = await invokeChatbotVertexAI(
       [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
       secrets,
-      photoIdResponseSchema,
-      { suppressResponseLogging: true } // response carries ID PHI — never log it
+      photoIdResponseSchema
     );
 
     let parsed;

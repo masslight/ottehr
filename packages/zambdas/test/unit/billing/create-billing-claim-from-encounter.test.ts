@@ -23,12 +23,12 @@ import {
   CANDID_PLAN_TYPE_SYSTEM,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   CLAIM_STATUS_TAG_SYSTEMS,
+  CLAIM_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
-  CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_PROCESS_PRIORITY,
@@ -41,7 +41,6 @@ import {
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
   getDefaultClaimSubmissionExtensions,
-  ICD_10_CODE_SYSTEM,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
@@ -65,12 +64,14 @@ import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   buildNoCoverageStub,
-  CLAIM_TAG_SYSTEM,
   CURRENT_STATUS_TAG_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
 } from '../../../src/billing/shared';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
 const clinicalResources: {
   encounter: Encounter;
@@ -254,6 +255,14 @@ const clinicalResources: {
               },
             },
           ],
+        },
+      ],
+    },
+    meta: {
+      tag: [
+        {
+          system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code',
+          code: 'cpt-code',
         },
       ],
     },
@@ -659,28 +668,6 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: FHIR_RESOURCE_NOT_FOUND('Procedure'),
       },
       {
-        name: 'throws error when coverage does not exist',
-        clinicalOystehrSearch: vi
-          .fn()
-          .mockResolvedValueOnce({
-            unbundle: () => [
-              clinicalResources.encounter,
-              clinicalResources.patient,
-              clinicalResources.appointment,
-              clinicalResources.location,
-              clinicalResources.practitioner,
-              clinicalResources.account,
-              ...clinicalResources.conditions,
-              clinicalResources.procedure,
-            ],
-          })
-          .mockResolvedValueOnce({ unbundle: () => [] }),
-        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [],
-        }),
-        expectedError: FHIR_RESOURCE_NOT_FOUND('Coverage'),
-      },
-      {
         name: 'throws error when coverage does not have payor',
         clinicalOystehrSearch: vi
           .fn()
@@ -824,6 +811,188 @@ describe('create-billing-claim-from-encounter', () => {
             location: clinicalResources.location,
             patient: clinicalResources.patient,
             payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [],
+            billingProvider: undefined,
+            coverages: [],
+            mainPatient: undefined,
+            person: undefined,
+            practitioners: [],
+            renderingProvider: undefined,
+            serviceFacility: undefined,
+            subscribers: [],
+            autoAccidentTag: undefined,
+            billingService: undefined,
+            chargeMaster: undefined,
+          },
+        },
+      },
+      {
+        name: 'filters out non-cpt-, non-em-code-tagged procedures',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              clinicalResources.coverage,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+              {
+                resourceType: 'Procedure',
+                id: 'procedure-123',
+                status: 'completed',
+                subject: {
+                  reference: 'Patient/patient-123',
+                },
+                meta: {
+                  tag: [
+                    {
+                      system: 'some-system',
+                      code: 'some-code',
+                    },
+                  ],
+                },
+              },
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.coverage],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.billingProvider],
+          }),
+        billingOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: null,
+        expectedResult: {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [],
+            billingProvider: undefined,
+            coverages: [],
+            mainPatient: undefined,
+            person: undefined,
+            practitioners: [],
+            renderingProvider: undefined,
+            serviceFacility: undefined,
+            subscribers: [],
+            autoAccidentTag: undefined,
+            billingService: undefined,
+            chargeMaster: undefined,
+          },
+        },
+      },
+      {
+        name: 'filters out fake 00000 payer coverages',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              {
+                ...clinicalResources.coverage,
+                payor: [{ reference: new Oystehr({}).rcm.constructPayerUrl({ id: '00000' }) }],
+              },
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.billingProvider],
+          }),
+        billingOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: null,
+        expectedResult: {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [],
+            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [],
             practitioners: [clinicalResources.practitioner],
             procedures: [clinicalResources.procedure],
           },
@@ -1014,7 +1183,11 @@ describe('create-billing-claim-from-encounter', () => {
         complexValidation(
           {
             fhir: { search: tc.clinicalOystehrSearch },
-            rcm: { getPayerByUrl: vi.fn().mockResolvedValue(oystehrResources.payor) },
+            rcm: {
+              config: {},
+              getPayerByUrl: vi.fn().mockResolvedValue(oystehrResources.payor),
+              constructPayerUrl: new Oystehr({}).rcm.constructPayerUrl,
+            },
           } as unknown as Oystehr,
           { fhir: { search: tc.billingOystehrSearch } } as unknown as Oystehr,
           { encounterId, secrets: tc.secrets ?? {} }
@@ -1355,6 +1528,8 @@ describe('create-billing-claim-from-encounter', () => {
     });
   });
 
+  const TEST_PROVENANCE_AGENT = { who: { reference: 'Practitioner/test-user' } };
+
   describe('performEffect', () => {
     it('creates all billing resources and claim when none exist yet', async () => {
       const txFn = vi.fn().mockResolvedValueOnce({
@@ -1369,6 +1544,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1401,13 +1577,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -1502,6 +1679,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1537,7 +1715,7 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       // Expect coverage pointed at by both accounts to be copied twice
       expect(txFn).toHaveBeenCalledWith({
@@ -1620,6 +1798,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1652,13 +1831,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -1753,6 +1933,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Organization', id: 'claim-billing-provider' } },
           { resource: { resourceType: 'Location', id: 'claim-service-facility' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1786,13 +1967,14 @@ describe('create-billing-claim-from-encounter', () => {
           billingService: billingResources.billingService,
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -1816,9 +1998,11 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              // The claim references its own per-claim working copies, never the shared billing
+              // provider/facility/practitioner originals.
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -1830,7 +2014,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {
@@ -1905,6 +2089,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -1940,13 +2125,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      let result = await performEffect(billingOystehr, cvo);
+      let result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -2035,20 +2221,25 @@ describe('create-billing-claim-from-encounter', () => {
           valueString: PaymentVariant.employer,
         },
       ];
-      result = await performEffect(billingOystehr, {
-        clinicalResources: {
-          ...cvo.clinicalResources,
-          appointment: updatedAppointment,
-          accounts: [updatedAccount],
-          encounter: updatedEncounter,
+      result = await performEffect(
+        billingOystehr,
+        {
+          clinicalResources: {
+            ...cvo.clinicalResources,
+            appointment: updatedAppointment,
+            accounts: [updatedAccount],
+            encounter: updatedEncounter,
+          },
+          billingResources: cvo.billingResources,
         },
-        billingResources: cvo.billingResources,
-      });
+        TEST_PROVENANCE_AGENT
+      );
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -2136,20 +2327,25 @@ describe('create-billing-claim-from-encounter', () => {
           valueString: PaymentVariant.employer,
         },
       ];
-      result = await performEffect(billingOystehr, {
-        clinicalResources: {
-          ...cvo.clinicalResources,
-          appointment: updatedAppointment,
-          accounts: [updatedAccount],
-          encounter: updatedEncounter,
+      result = await performEffect(
+        billingOystehr,
+        {
+          clinicalResources: {
+            ...cvo.clinicalResources,
+            appointment: updatedAppointment,
+            accounts: [updatedAccount],
+            encounter: updatedEncounter,
+          },
+          billingResources: cvo.billingResources,
         },
-        billingResources: cvo.billingResources,
-      });
+        TEST_PROVENANCE_AGENT
+      );
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -2233,6 +2429,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -2268,13 +2465,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -2359,6 +2557,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Basic', id: 'auto-accident-tag' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -2394,13 +2593,14 @@ describe('create-billing-claim-from-encounter', () => {
           subscribers: [],
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -2492,6 +2692,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Organization', id: 'claim-billing-provider' } },
           { resource: { resourceType: 'Location', id: 'claim-service-facility' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -2526,13 +2727,14 @@ describe('create-billing-claim-from-encounter', () => {
           chargeMaster: billingResources.chargeMasterInsurance,
         },
       };
-      let result = await performEffect(billingOystehr, cvo);
+      let result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -2556,9 +2758,9 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -2570,7 +2772,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {
@@ -2634,13 +2836,14 @@ describe('create-billing-claim-from-encounter', () => {
 
       // The self-pay charge master does not have an entry with the procedure's code+modifier
       cvo.billingResources.chargeMaster = billingResources.chargeMasterSelfPay;
-      result = await performEffect(billingOystehr, cvo);
+      result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -2664,9 +2867,9 @@ describe('create-billing-claim-from-encounter', () => {
               patient: {
                 reference: 'urn:uuid:claim-patient',
               },
-              provider: { reference: 'Organization/billing-organization-123' },
+              provider: { reference: 'urn:uuid:claim-billing-provider' },
               facility: {
-                reference: 'Location/billing-location-123',
+                reference: 'urn:uuid:claim-service-facility',
               },
               insurer: { reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123' },
               insurance: [
@@ -2678,7 +2881,7 @@ describe('create-billing-claim-from-encounter', () => {
               ],
               careTeam: [
                 {
-                  provider: { reference: 'Practitioner/billing-practitioner-123' },
+                  provider: { reference: 'urn:uuid:claim-rendering-provider' },
                   role: {
                     coding: [
                       {
@@ -2753,6 +2956,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -2798,13 +3002,14 @@ describe('create-billing-claim-from-encounter', () => {
           billingService: undefined,
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [
@@ -2893,6 +3098,7 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Person', id: 'billing-person' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
       const billingOystehr = {
@@ -2913,7 +3119,7 @@ describe('create-billing-claim-from-encounter', () => {
                 coding: [
                   {
                     // Incorrect system
-                    system: ICD_10_CODE_SYSTEM,
+                    system: CODE_SYSTEM_ICD_10,
                     code: 'S06.1XAS',
                     display: 'Traumatic cerebral edema with loss of consciousness status unknown, sequela',
                   },
@@ -2941,13 +3147,14 @@ describe('create-billing-claim-from-encounter', () => {
           billingService: undefined,
         },
       };
-      const result = await performEffect(billingOystehr, cvo);
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
             method: 'POST',
             url: '/Claim',
+            fullUrl: 'urn:uuid:claim',
             resource: {
               resourceType: 'Claim',
               identifier: [

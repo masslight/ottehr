@@ -18,6 +18,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  APPOINTMENT_SEARCH_TOO_BROAD_ERROR,
   appointmentAttendanceTypeAppointment,
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
@@ -62,6 +63,7 @@ import { getPersonPhone } from '../patient-account/get-login-phone-numbers';
 import {
   getAppointmentQueryInput,
   getTimezoneResourceIdFromAppointment,
+  isResponseSizeExceededError,
   makeEncounterSearchParams,
   makeResourceCacheKey,
   mergeResources,
@@ -210,8 +212,15 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
         const { group } = appointmentRequestInput;
 
-        const appointmentBundle =
-          await oystehr.fhir.searchAndGetAllPages<AppointmentRelatedResources>(appointmentRequest);
+        let appointmentBundle;
+        try {
+          appointmentBundle = await oystehr.fhir.searchAndGetAllPages<AppointmentRelatedResources>(appointmentRequest);
+        } catch (error) {
+          if (isResponseSizeExceededError(error)) {
+            throw APPOINTMENT_SEARCH_TOO_BROAD_ERROR;
+          }
+          throw error;
+        }
 
         const appointments = (appointmentBundle.entry?.map((entry) => entry.resource).filter(isTruthy) ?? []).filter(
           (resource) => !isNonPaperworkQuestionnaireResponse(resource)
@@ -293,7 +302,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       if (patientId) patientIds.push(`Patient/${patientId}`);
     } else if (resource.resourceType === 'Patient' && resource.id) {
       patientIdMap[resource.id] = resource as Patient;
-    } else if (resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource as Encounter)) {
+    } else if (resource.resourceType === 'Encounter' && !isAnnotationFollowupEncounter(resource)) {
       const asEnc = resource as Encounter;
       const apptRef = asEnc.appointment?.[0].reference;
       if (apptRef) {
