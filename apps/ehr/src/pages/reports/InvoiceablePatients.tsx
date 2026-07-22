@@ -170,7 +170,8 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
     (searchParams.get(SP.sortField) as InvoiceSortField | null) ?? InvoiceSortFieldValues.finalizationDate;
   const sortDirectionSP =
     (searchParams.get(SP.sortDirection) as InvoiceSortDirection | null) ?? InvoiceSortDirectionValues.desc;
-  const hideZeroBalanceSP = searchParams.get(SP.hideZeroBalance) !== 'false';
+  const zeroBalanceFilterEnabled = source !== 'ottehr-billing';
+  const hideZeroBalanceSP = zeroBalanceFilterEnabled ? searchParams.get(SP.hideZeroBalance) !== 'false' : false;
   const {
     data: invoiceablePatients,
     isLoading: isInvoiceablePatientsLoading,
@@ -499,10 +500,10 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
       }
       if (!queryParams.has(SP.sortField)) queryParams.set(SP.sortField, InvoiceSortFieldValues.finalizationDate);
       if (!queryParams.has(SP.sortDirection)) queryParams.set(SP.sortDirection, InvoiceSortDirectionValues.desc);
-      if (!queryParams.has(SP.hideZeroBalance)) queryParams.set(SP.hideZeroBalance, 'true');
+      if (zeroBalanceFilterEnabled && !queryParams.has(SP.hideZeroBalance)) queryParams.set(SP.hideZeroBalance, 'true');
       setSearchParams(queryParams);
     }
-  }, [searchParams, setSearchParams, localStorageFiltersKey]);
+  }, [searchParams, setSearchParams, localStorageFiltersKey, zeroBalanceFilterEnabled]);
 
   return (
     <Box>
@@ -518,20 +519,22 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
               sx={{ width: '30%', flex: 1 }}
               size="small"
             />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={hideZeroBalanceSP}
-                  onChange={(e) => {
-                    searchParams.set(SP.hideZeroBalance, e.target.checked ? 'true' : 'false');
-                    searchParams.set(SP.page, '0');
-                    setSearchParams(searchParams);
-                  }}
-                />
-              }
-              label="Hide $0 balances"
-              sx={{ whiteSpace: 'nowrap' }}
-            />
+            {zeroBalanceFilterEnabled && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hideZeroBalanceSP}
+                    onChange={(e) => {
+                      searchParams.set(SP.hideZeroBalance, e.target.checked ? 'true' : 'false');
+                      searchParams.set(SP.page, '0');
+                      setSearchParams(searchParams);
+                    }}
+                  />
+                }
+                label="Hide $0 balances"
+                sx={{ whiteSpace: 'nowrap' }}
+              />
+            )}
             {BOTH_INVOICING_SCREENS_ENABLED && (
               <Chip label={INVOICE_TASK_SOURCE_LABELS[source]} variant="outlined" color="primary" size="small" />
             )}

@@ -120,6 +120,26 @@ describe('InvoiceablePatients source', () => {
     expect(candidChip).toBeDefined();
   });
 
+  it('omits the hide-$0 filter and does not hide $0 balances on the ottehr-billing screen', async () => {
+    renderWithSource('ottehr-billing');
+
+    await waitFor(() => expect(lastGetInvoicesCall()).toBeDefined());
+    expect(lastGetInvoicesCall()?.hideZeroBalance).toBe(false);
+
+    const checkbox = screen.queryByRole('checkbox', { name: /hide \$0 balances/i });
+    expect(checkbox).toBeNull();
+  });
+
+  it('keeps the hide-$0 filter defaulting on for the candid screen', async () => {
+    renderWithSource('candid');
+
+    await waitFor(() => expect(lastGetInvoicesCall()).toBeDefined());
+    expect(lastGetInvoicesCall()?.hideZeroBalance).toBe(true);
+
+    const checkbox = screen.getByRole('checkbox', { name: /hide \$0 balances/i });
+    expect(checkbox).toBeDefined();
+  });
+
   it('restores persisted filters from the per-source storage key only', async () => {
     localStorage.setItem('invoices-tasks.filters.candid', JSON.stringify({ patient: 'pat-persisted' }));
 
