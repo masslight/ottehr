@@ -64,7 +64,10 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   const { setDraft, getDraft, clearDraft, hasDraft } = useCreateRadiologyOrderStore();
   useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
-  const draft = useMemo(() => (encounter.id ? getDraft(encounter.id) : {}), [encounter.id, getDraft]);
+  const draft = useMemo<ReturnType<typeof getDraft>>(
+    () => (encounter.id ? getDraft(encounter.id) : {}),
+    [encounter.id, getDraft]
+  );
 
   const form = useRadiologyOrderForm({
     orderDx: draft.dx,

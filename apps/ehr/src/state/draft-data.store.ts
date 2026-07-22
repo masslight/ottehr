@@ -61,8 +61,8 @@ type CreateInHouseLabOrderDraft = Partial<
   } & GenericStateDraft
 >;
 type CreateRadiologyOrderDraft = Partial<
-  Omit<CreateRadiologyZambdaOrderInput, 'diagnosisCode' | 'cptCode' | 'lateralityModifier'> & {
-    dx: DiagnosisDTO;
+  Omit<CreateRadiologyZambdaOrderInput, 'diagnosisCodes' | 'cptCode' | 'lateralityModifier'> & {
+    dx: DiagnosisDTO[];
     cptCode: CPTCodeDTO;
     laterality: LateralityValue | '';
   } & GenericStateDraft
