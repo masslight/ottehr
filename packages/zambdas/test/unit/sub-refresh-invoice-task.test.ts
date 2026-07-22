@@ -196,7 +196,7 @@ describe('sub-refresh-invoice-task', () => {
 
     const result = await runHandler(billingTask());
 
-    expect(JSON.parse(result.body).message).toContain('no billing record');
+    expect(JSON.parse(result.body).message).toContain('no patient AR claim');
     expect(patchedOperations()).toEqual([
       {
         op: 'replace',
@@ -226,6 +226,6 @@ describe('sub-refresh-invoice-task', () => {
 
     expect(mockGetOrCreateCandidApiClient).toHaveBeenCalled();
     expect(mockSearchPatientArClaims).not.toHaveBeenCalled();
-    expect(JSON.parse(result.body).message).toContain('no billing record');
+    expect(JSON.parse(result.body).message).toContain('no Candid inventory record');
   });
 });

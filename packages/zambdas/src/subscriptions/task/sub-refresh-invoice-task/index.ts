@@ -134,7 +134,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
-  console.warn('Task was not updated because no billing record was found for the task.'); // todo how i can better manage this situation
+  const missingRecordLabel = source === 'ottehr-billing' ? 'patient AR claim' : 'Candid inventory record';
+  const notUpdatedMessage = `Task was not updated because no ${missingRecordLabel} was found for the task.`;
+  console.warn(notUpdatedMessage);
   await oystehr.fhir.patch({
     resourceType: 'Task',
     id: taskId,
@@ -143,7 +145,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ message: 'Task was not updated because no billing record was found for the task.' }),
+    body: JSON.stringify({ message: notUpdatedMessage }),
   };
 });
 

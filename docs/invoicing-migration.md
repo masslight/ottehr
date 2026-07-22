@@ -30,6 +30,12 @@ They compose: a producer cron runs only when its integration is active in the en
 on in the build (`isCandidInvoicingEnabled` / `isOttehrBillingInvoicingEnabled` in
 `packages/zambdas/src/shared/invoice-tasks.ts`).
 
+The checked-in core config (`packages/utils/lib/ottehr-config/feature-flags/index.ts`) deliberately
+sets **both** flags to `true`, so a core build runs in the state-2 transition (both screens) to
+exercise the full migration. The "candid ON / billing OFF" default is the _flag-omission_ semantic
+(`?? true` / `?? false`); per-customer configs omit the fields to land there, and set
+`ottehrBillingInvoicingEnabled: false` explicitly for a candid-only build.
+
 ## 3. What each surface keys on
 
 | Surface                                                            | Keys on                                                                                                            |
