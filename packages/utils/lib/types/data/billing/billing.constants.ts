@@ -33,3 +33,12 @@ const ERA_CLAIM_STATUS_CODES = new Set<string>(Object.values(ERA_CLAIM_STATUS_CO
 export function asEraClaimStatusCode(value: string | undefined): EraClaimStatusCode | '' {
   return value && ERA_CLAIM_STATUS_CODES.has(value) ? (value as EraClaimStatusCode) : '';
 }
+
+// what record-billing-manual-payment callers may send
+export const BILLING_MANUAL_PAYMENT_METHODS = ['cash', 'check', 'other'] as const;
+
+export const BILLING_RECORDABLE_PAYMENT_METHODS = [
+  ...BILLING_MANUAL_PAYMENT_METHODS,
+  'card-reader',
+  'external-card-reader',
+] as const;

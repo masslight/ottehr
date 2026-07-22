@@ -67,6 +67,7 @@ export enum APIErrorCode {
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
   STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
   ERA_IMPORT_FAILED = 4502,
+  MANUAL_PAYMENT_CONFLICT = 4503,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -365,6 +366,12 @@ export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): A
     statusCode,
   };
 };
+// Raised when a record-billing-manual-payment idempotency key is replayed with different payment details.
+export const MANUAL_PAYMENT_CONFLICT_ERROR = (idempotencyKey: string): APIError => ({
+  code: APIErrorCode.MANUAL_PAYMENT_CONFLICT,
+  statusCode: 409,
+  message: `A different payment was already recorded with idempotency key "${idempotencyKey}". Use a new key to record a new payment.`,
+});
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',

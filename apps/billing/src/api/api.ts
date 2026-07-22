@@ -37,6 +37,8 @@ import {
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
   PatientDetailResponse,
+  RecordBillingManualPaymentInputSchema,
+  RecordBillingManualPaymentResponse,
   RunBillingRulesEngineInputSchema,
   RunBillingRulesEngineResponse,
   SaveBillingRulesInputSchema,
@@ -337,3 +339,11 @@ export const deleteChargeItemDefinition = (
   oystehr: Oystehr,
   parameters: z.input<typeof DeleteChargeItemDefinitionInputSchema>
 ): Promise<void> => executeBillingZambda(oystehr, 'delete-charge-item-definition', parameters);
+
+// --- Payments ---
+
+export const recordBillingManualPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RecordBillingManualPaymentInputSchema>
+): Promise<RecordBillingManualPaymentResponse> =>
+  executeBillingZambda(oystehr, 'record-billing-manual-payment', parameters);
