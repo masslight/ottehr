@@ -215,7 +215,7 @@ describe('recoverCandidEncounterAfter422', () => {
     );
   });
 
-  it('returns undefined without calling getAll when errorName is not EncounterExternalIdUniquenessError', async () => {
+  it('throws without calling getAll when errorName is not EncounterExternalIdUniquenessError', async () => {
     const client = makeMockClient({ ok: true, body: { items: [] } });
     const otherErrorResponse: any = {
       ok: false as const,
@@ -223,9 +223,9 @@ describe('recoverCandidEncounterAfter422', () => {
       rawResponse: { status: 422 },
     };
 
-    const result = await recoverCandidEncounterAfter422('fhir-enc-1', client, otherErrorResponse);
-
-    expect(result).toBeUndefined();
+    await expect(recoverCandidEncounterAfter422('fhir-enc-1', client, otherErrorResponse)).rejects.toThrow(
+      'Error creating a Candid encounter'
+    );
     expect(client.encounters.v4.getAll).not.toHaveBeenCalled();
   });
 });
