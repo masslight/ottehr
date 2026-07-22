@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HOLD_TAG_NAME } from './rules-engine.constants';
-import { PreSubmissionRule, RuleActionSchema, SaveBillingRulesInputSchema } from './rules-engine.schemas';
+import { BillingRule, RuleActionSchema, SaveBillingRulesInputSchema } from './rules-engine.schemas';
 
 // Schema-layer tests only: the engine's evaluator/serialization are backend code and are tested in
 // packages/zambdas/test/unit/billing/rules-engine.test.ts.
@@ -17,7 +17,7 @@ describe('applyTag canonicalization', () => {
 });
 
 describe('SaveBillingRulesInputSchema', () => {
-  const rule = (id: string): PreSubmissionRule => ({
+  const rule = (id: string): BillingRule => ({
     id,
     name: id,
     description: '',
@@ -26,17 +26,32 @@ describe('SaveBillingRulesInputSchema', () => {
   });
 
   it('accepts a valid ordered list', () => {
-    expect(SaveBillingRulesInputSchema.safeParse({ rules: [rule('a'), rule('b')] }).success).toBe(true);
+    expect(
+      SaveBillingRulesInputSchema.safeParse({ engine: 'claim-submission', rules: [rule('a'), rule('b')] }).success
+    ).toBe(true);
+  });
+
+  it('requires a known engine', () => {
+    expect(SaveBillingRulesInputSchema.safeParse({ rules: [rule('a')] }).success).toBe(false);
+    expect(
+      SaveBillingRulesInputSchema.safeParse({ engine: 'patient-ar-pre-invoice', rules: [rule('a')] }).success
+    ).toBe(true);
+    expect(SaveBillingRulesInputSchema.safeParse({ engine: 'nope', rules: [rule('a')] }).success).toBe(false);
   });
 
   it('rejects duplicate rule ids', () => {
-    expect(SaveBillingRulesInputSchema.safeParse({ rules: [rule('a'), rule('a')] }).success).toBe(false);
+    expect(
+      SaveBillingRulesInputSchema.safeParse({ engine: 'claim-submission', rules: [rule('a'), rule('a')] }).success
+    ).toBe(false);
   });
 
   it('accepts new rules without ids — the backend assigns them on save', () => {
     const { id: _a, ...newRuleA } = rule('a');
     const { id: _b, ...newRuleB } = rule('b');
-    const parsed = SaveBillingRulesInputSchema.safeParse({ rules: [newRuleA, newRuleB, rule('c')] });
+    const parsed = SaveBillingRulesInputSchema.safeParse({
+      engine: 'claim-submission',
+      rules: [newRuleA, newRuleB, rule('c')],
+    });
     expect(parsed.success).toBe(true);
   });
 });

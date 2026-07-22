@@ -5,7 +5,7 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { parseCommaSeparatedTags, RoleType } from 'utils';
+import { GLOBAL_ACTION_LOG_VIEWER_ROLES, parseCommaSeparatedTags, RoleType } from 'utils';
 import { setupSentry } from 'utils/lib/frontend';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
@@ -46,6 +46,8 @@ import InHouseMedicationQuickPickDetailPage from './features/visits/telemed/comp
 import AdminAddLabSet from './features/visits/telemed/components/admin/lab-sets/AdminAddLabSet';
 import AdminLabSetDetails from './features/visits/telemed/components/admin/lab-sets/AdminLabSetDetails';
 import ProcedureQuickPickDetailPage from './features/visits/telemed/components/admin/ProcedureQuickPickDetailPage';
+import { QuestionnaireDetail } from './features/visits/telemed/components/admin/questionnaires/QuestionnaireDetail';
+import { QuestionnaireNew } from './features/visits/telemed/components/admin/questionnaires/QuestionnaireNew';
 import RadiologyQuickPickDetailPage from './features/visits/telemed/components/admin/RadiologyQuickPickDetailPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
@@ -61,6 +63,7 @@ import EmployeeProfilePage from './pages/EmployeeProfilePage';
 import GroupPage from './pages/GroupPage';
 import LegacyDataPage from './pages/LegacyDataPage';
 import Logout from './pages/Logout';
+import PatientActionLogsPage from './pages/PatientActionLogsPage';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
@@ -93,6 +96,14 @@ setupSentry({
 });
 
 const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
+
+const PRIMARY_EHR_STAFF_ROLES = [
+  RoleType.Administrator,
+  RoleType.Staff,
+  RoleType.Manager,
+  RoleType.Provider,
+  RoleType.CustomerSupport,
+];
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -135,15 +146,7 @@ function App(): ReactElement {
     debounce: 500,
   });
 
-  const roleUnknown =
-    !currentUser ||
-    !currentUser.hasRole([
-      RoleType.Administrator,
-      RoleType.Staff,
-      RoleType.Manager,
-      RoleType.Provider,
-      RoleType.CustomerSupport,
-    ]);
+  const roleUnknown = !currentUser || !currentUser.hasRole(PRIMARY_EHR_STAFF_ROLES);
 
   return (
     <CustomThemeProvider>
@@ -199,13 +202,7 @@ function App(): ReactElement {
                 <Route path="*" element={<LoadingScreen />} />
               </>
             )}
-            {currentUser?.hasRole([
-              RoleType.Administrator,
-              RoleType.Manager,
-              RoleType.Staff,
-              RoleType.Provider,
-              RoleType.CustomerSupport,
-            ]) && (
+            {currentUser?.hasRole(PRIMARY_EHR_STAFF_ROLES) && (
               <>
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
@@ -239,6 +236,7 @@ function App(): ReactElement {
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                 <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
+                <Route path="/patient/:id/action-logs" element={<PatientActionLogsPage />} />
                 <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                 {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
@@ -281,6 +279,8 @@ function App(): ReactElement {
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />
                   <Route path="/admin/lab-sets/add" element={<AdminAddLabSet />} />
                   <Route path="/admin/lab-sets/:listId" element={<AdminLabSetDetails />} />
+                  <Route path="/admin/questionnaires/new" element={<QuestionnaireNew />} />
+                  <Route path="/admin/questionnaires/:questionnaireId" element={<QuestionnaireDetail />} />
                 </Route>
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />
@@ -298,11 +298,19 @@ function App(): ReactElement {
                 <Route path="/patient/:id" element={<PatientPage />} />
                 <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                 <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
+                <Route path="/patient/:id/action-logs" element={<PatientActionLogsPage />} />
                 <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                 {FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED && (
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                 )}
                 <Route path="/patients" element={<PatientsPage />} />
+
+                {currentUser.hasRole(GLOBAL_ACTION_LOG_VIEWER_ROLES) && (
+                  <Route element={<AdminLayout />}>
+                    <Route path="/admin" element={<AdminPage />} />
+                    <Route path="/admin/:adminTab" element={<AdminPage />} />
+                  </Route>
+                )}
 
                 <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />

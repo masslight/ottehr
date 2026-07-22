@@ -84,9 +84,10 @@ describe('requireUserWithRole', () => {
     ['Manager', managerRole],
     ['Customer Support', customerSupportRole],
   ])('resolves when the caller has the %s role', async (_label, role) => {
-    vi.mocked(userMe).mockResolvedValue(buildUser([role]));
+    const user = buildUser([role]);
+    vi.mocked(userMe).mockResolvedValue(user);
 
-    await expect(requireUserWithRole('user-token', secrets, allowedRoles)).resolves.toBeUndefined();
+    await expect(requireUserWithRole('user-token', secrets, allowedRoles)).resolves.toEqual(user);
   });
 
   it('throws NOT_AUTHORIZED when the caller has none of the allowed roles', async () => {

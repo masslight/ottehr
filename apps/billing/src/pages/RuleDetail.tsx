@@ -2,8 +2,17 @@ import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { Alert, Box, Button, CircularProgress, FormControlLabel, Switch, TextField, Typography } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
-import { getApiError, PreSubmissionRule, PreSubmissionRuleInput, RuleConditional } from 'utils';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import {
+  BillingRule,
+  BillingRuleInput,
+  DEFAULT_RULES_ENGINE,
+  getApiError,
+  isRulesEngineType,
+  RuleConditional,
+  RULES_ENGINES,
+  RulesEngineType,
+} from 'utils';
 import { getBillingRules, saveBillingRules } from '../api/api';
 import { TextInput } from '../components/input/TextInput';
 import { ConditionalEditor, newRuleConditional } from '../components/rules/RuleBuilder';
@@ -25,12 +34,22 @@ const blankForm = (): RuleFormValues => ({
 });
 
 export default function RuleDetail(): ReactElement {
+  const { engine: engineParam } = useParams<{ engine: string }>();
+
+  if (!isRulesEngineType(engineParam)) {
+    return <Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />;
+  }
+  return <RuleDetailForEngine engine={engineParam} />;
+}
+
+function RuleDetailForEngine({ engine }: { engine: RulesEngineType }): ReactElement {
   const { id } = useParams<{ id: string }>();
   const isNew = id === 'new';
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
+  const rulesPath = `/rules/${engine}`;
 
-  const [allRules, setAllRules] = useState<PreSubmissionRule[]>([]);
+  const [allRules, setAllRules] = useState<BillingRule[]>([]);
   const [versionId, setVersionId] = useState<string | undefined>();
   const [found, setFound] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,7 +64,7 @@ export default function RuleDetail(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const data = await getBillingRules(oystehrZambda);
+      const data = await getBillingRules(oystehrZambda, { engine });
       setAllRules(data.rules);
       setVersionId(data.versionId);
       if (isNew) {
@@ -67,7 +86,7 @@ export default function RuleDetail(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [oystehrZambda, id, isNew, reset]);
+  }, [oystehrZambda, engine, id, isNew, reset]);
 
   useEffect(() => {
     void load();
@@ -78,7 +97,7 @@ export default function RuleDetail(): ReactElement {
     setSaving(true);
     setError(null);
     try {
-      const rule: PreSubmissionRuleInput = {
+      const rule: BillingRuleInput = {
         ...(isNew ? {} : { id }),
         name: values.name.trim(),
         description: values.description.trim(),
@@ -86,11 +105,11 @@ export default function RuleDetail(): ReactElement {
         conditional: values.conditional,
       };
       const exists = !isNew && allRules.some((r) => r.id === id);
-      const nextRules: PreSubmissionRuleInput[] = exists
+      const nextRules: BillingRuleInput[] = exists
         ? allRules.map((r) => (r.id === id ? rule : r))
         : [...allRules, rule];
-      await saveBillingRules(oystehrZambda, { rules: nextRules, expectedVersionId: versionId });
-      navigate('/rules');
+      await saveBillingRules(oystehrZambda, { engine, rules: nextRules, expectedVersionId: versionId });
+      navigate(rulesPath);
     } catch (err) {
       setError(getApiError({ error: err, defaultError: 'Failed to save rule' }));
     } finally {
@@ -100,8 +119,8 @@ export default function RuleDetail(): ReactElement {
 
   return (
     <Box>
-      <Button startIcon={<ArrowBackIcon />} size="small" onClick={() => navigate('/rules')} sx={{ mb: 2 }}>
-        Back to rules
+      <Button startIcon={<ArrowBackIcon />} size="small" onClick={() => navigate(rulesPath)} sx={{ mb: 2 }}>
+        Back to {RULES_ENGINES[engine].label}
       </Button>
 
       {loading ? (
@@ -114,7 +133,8 @@ export default function RuleDetail(): ReactElement {
             {isNew ? 'New rule' : 'Edit rule'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Rules run top to bottom. A rule that applies the Hold tag stops the engine and holds the claim.
+            {RULES_ENGINES[engine].label} run top to bottom. A rule that applies the Hold tag stops the engine and holds
+            the claim.
           </Typography>
 
           {error && (
@@ -162,7 +182,7 @@ export default function RuleDetail(): ReactElement {
                   <Button variant="contained" onClick={() => void onSave()} disabled={saving}>
                     {saving ? 'Saving…' : 'Save rule'}
                   </Button>
-                  <Button onClick={() => navigate('/rules')} disabled={saving}>
+                  <Button onClick={() => navigate(rulesPath)} disabled={saving}>
                     Cancel
                   </Button>
                 </Box>

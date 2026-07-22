@@ -48,6 +48,7 @@ export const APPOINTMENT_SEARCH_ELEMENTS = [
   'Encounter.extension',
   'Encounter.location',
   'Encounter.partOf',
+  'Encounter.type',
   'QuestionnaireResponse.id',
   'QuestionnaireResponse.questionnaire',
   'QuestionnaireResponse.encounter',

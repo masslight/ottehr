@@ -4,7 +4,7 @@ import { Location } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { applyServiceFacilityInput } from '../service-facility.helpers';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fetchById } from '../shared';
+import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fetchById, isWorkingCopy } from '../shared';
 import { SaveServiceFacilityParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -41,7 +41,8 @@ async function complexValidation(oystehr: Oystehr, params: SaveServiceFacilityPa
 
   const existing = facilityId ? await fetchById<Location>(oystehr, 'Location', facilityId) : undefined;
 
-  if (npi) {
+  // Don't validate claim-level copies for NPI conflicts
+  if (npi && (!existing || !isWorkingCopy(existing))) {
     const bundle = await oystehr.fhir.search<Location>({
       resourceType: 'Location',
       params: [

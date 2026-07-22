@@ -16,6 +16,7 @@ import {
   SLOT_UNAVAILABLE_ERROR,
   VisitType,
 } from 'utils';
+import { i18n } from 'utils/lib/frontend';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import { ottehrApi } from '../api';
@@ -27,7 +28,6 @@ import { useIntakeCommonStore } from '../features/common';
 import { NO_PATIENT_ERROR, NO_SLOT_ERROR, PAST_APPT_ERROR } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import i18n from '../lib/i18n';
 import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 interface ReviewItem {

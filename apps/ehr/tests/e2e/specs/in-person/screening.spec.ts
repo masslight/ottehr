@@ -23,17 +23,19 @@ test.describe('Screening Page mutating tests', () => {
   });
 
   test('Screening Happy path', async ({ page }) => {
+    let presentFieldIds!: Set<string>;
+
     let screeningPage = await test.step('Fill screening info', async () => {
       const progressNotePage = await expectInPersonProgressNotePage(page);
       const screeningPage = await progressNotePage.sideMenu().clickScreening();
 
-      await enterScreeningInfo(SCREENING_A, screeningPage);
+      presentFieldIds = await enterScreeningInfo(SCREENING_A, screeningPage);
       return await expectScreeningPage(page);
     });
 
     const progressNotePage = await test.step('Verify screening info on progress note', async () => {
       const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
-      const progressNoteLines = createProgressNoteLines(SCREENING_A);
+      const progressNoteLines = createProgressNoteLines(SCREENING_A, presentFieldIds);
       progressNoteLines.push('ASQ - ' + SCREENING_A.asqAnswer);
       progressNoteLines.push(SCREENING_A.screeningNote);
       await progressNotePage.verifyScreening(progressNoteLines);
@@ -48,7 +50,7 @@ test.describe('Screening Page mutating tests', () => {
 
     await test.step('Verify edited screening info on progress note', async () => {
       const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
-      const editedProgressNoteLines = createProgressNoteLines(SCREENING_B);
+      const editedProgressNoteLines = createProgressNoteLines(SCREENING_B, presentFieldIds);
       editedProgressNoteLines.push('ASQ - ' + SCREENING_B.asqAnswer);
       // Screening notes are additive - both original and new note should be visible
       editedProgressNoteLines.push(SCREENING_A.screeningNote);
@@ -143,10 +145,11 @@ async function setupPractitioners(page: Page): Promise<void> {
   await progressNotePage.expectLoaded();
 }
 
-async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: ScreeningPage): Promise<void> {
+async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: ScreeningPage): Promise<Set<string>> {
   // Only fill questions that are NOT in the questionnaire (shown in "ASK THE PATIENT" section)
   // Questions with existsInQuestionnaire: true are shown in "CONFIRMED BY STAFF" section
   const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
+  const presentFieldIds = new Set<string>();
 
   for (const field of askPatientFields) {
     // Check if the question exists on the page before filling
@@ -155,6 +158,7 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
     const questionExists = await questionLocator.isVisible({ timeout: 2000 }).catch(() => false);
 
     if (questionExists) {
+      presentFieldIds.add(field.id);
       const fieldValue = screeningInfo.fieldValues[field.id];
 
       if (field.type === 'radio' || field.type === 'select') {
@@ -207,12 +211,15 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
 
   await screeningPage.enterScreeningNote(screeningInfo.screeningNote);
   await screeningPage.clickAddScreeningNoteButton();
+
+  return presentFieldIds;
 }
 
-function createProgressNoteLines(screeningInfo: ScreeningInfo): string[] {
-  // Only include questions from "ASK THE PATIENT" section (without existsInQuestionnaire)
+function createProgressNoteLines(screeningInfo: ScreeningInfo, presentFieldIds?: Set<string>): string[] {
+  // Only include questions from "ASK THE PATIENT" section (without existsInQuestionnaire).
+  // When `presentFieldIds` is provided, restrict to questions actually rendered by the running config
   return patientScreeningQuestionsConfig.fields
-    .filter((field) => !field.existsInQuestionnaire)
+    .filter((field) => !field.existsInQuestionnaire && (!presentFieldIds || presentFieldIds.has(field.id)))
     .map((field) => {
       const fieldValue = screeningInfo.fieldValues[field.id];
 

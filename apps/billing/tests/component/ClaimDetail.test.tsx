@@ -71,7 +71,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   subscriberId: '',
   coverageStatus: '',
   planType: '',
-  relationship: '',
+  relationship: 'Self',
   policyHolder: null,
   responsibleParty: '',
   secondaryCoverageFhirId: '',
@@ -93,6 +93,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   billingTaxonomy: '',
   facilityFhirId: '',
   serviceFacility: '',
+  serviceFacilityId: '',
   serviceFacilityAddress: '',
   serviceFacilityAddressParts: emptyAddressParts,
   serviceFacilityNpi: '',
@@ -241,34 +242,85 @@ describe('ClaimDetail — insurance payments', () => {
   });
 });
 
-describe('ClaimDetail — submit claim', () => {
+describe('ClaimDetail — run rules engine button', () => {
   beforeEach(() => {
     getBillingClaimDetailMock.mockReset();
     runBillingRulesEngineMock.mockReset();
     enqueueSnackbarMock.mockReset();
   });
 
-  it('keeps Submit claim enabled outside Insurance Payer AR — the rules engine guards submission', async () => {
-    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
+  it('shows Submit claim for a claim in Insurance Payer AR', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
     renderDetail();
 
     expect(await screen.findByRole('button', { name: 'Submit claim' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
   });
 
-  it('runs the rules engine through the confirm dialog', async () => {
+  it('shows Prepare for invoice for a claim in Non-insurance Payer AR', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
+    renderDetail();
+
+    expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+  });
+
+  it('shows Prepare for invoice for a self-pay claim in Patient AR', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient)); // coverageFhirId '' -> self-pay
+    renderDetail();
+
+    expect(await screen.findByRole('button', { name: 'Prepare for invoice' })).toBeEnabled();
+  });
+
+  it('hides the run button for a Patient AR claim with insurance coverage', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({ ...makeClaim(AR_STAGE.patient), coverageFhirId: 'coverage-1' });
+    renderDetail();
+    await screen.findAllByText('Jane Doe');
+    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+  });
+
+  it('hides the run button when the claim has no AR stage', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(''));
+    renderDetail();
+    await screen.findByText('No AR Stage');
+    expect(screen.queryByRole('button', { name: 'Prepare for invoice' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit claim' })).not.toBeInTheDocument();
+  });
+
+  it('runs the claim submission rules through the confirm dialog', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
-    runBillingRulesEngineMock.mockResolvedValue({ taskId: 'task-1' });
+    runBillingRulesEngineMock.mockResolvedValue({
+      results: [{ claimId: 'claim-1', taskId: 'task-1', engine: 'claim-submission' }],
+    });
     renderDetail();
 
     const submitButton = await screen.findByRole('button', { name: 'Submit claim' });
     fireEvent.click(submitButton);
 
-    const confirmButton = await screen.findByRole('button', { name: 'Submit' });
+    const confirmButton = await screen.findByRole('button', { name: 'Run rules' });
     fireEvent.click(confirmButton);
 
-    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimId: 'claim-1' }));
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
     expect(enqueueSnackbarMock).toHaveBeenCalledWith(
-      'Rules engine started — it will submit or hold the claim shortly. Refresh to see the result.',
+      'Claim Submission Rules started — when every rule passes, the claim is submitted to the payer; a Hold keeps the claim for review. Refresh to see the result.',
+      { variant: 'info' }
+    );
+  });
+
+  it('runs the pre-invoice rules through the Prepare for invoice dialog', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
+    runBillingRulesEngineMock.mockResolvedValue({
+      results: [{ claimId: 'claim-1', taskId: 'task-1', engine: 'non-insurance-payer-pre-invoice' }],
+    });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Prepare for invoice' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run rules' }));
+
+    await waitFor(() => expect(runBillingRulesEngineMock).toHaveBeenCalledWith({}, { claimIds: ['claim-1'] }));
+    expect(enqueueSnackbarMock).toHaveBeenCalledWith(
+      'Non-Insurance Payer Pre-Invoice Rules started — when every rule passes, the Non-insurance AR Status moves to Ready to invoice; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }
     );
   });

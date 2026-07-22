@@ -207,7 +207,7 @@ export async function fetchClaimResponsesByClaimIds(
 
 // Fetch the era-processing Provenances (one per ERA, targeting its PR + ClaimResponses) that point
 // at any of the given resource references, deduped by id.
-async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: string[]): Promise<Provenance[]> {
+export async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: string[]): Promise<Provenance[]> {
   const byId = new Map<string, Provenance>();
   const uniqueRefs = [...new Set(targetRefs)];
   for (let i = 0; i < uniqueRefs.length; i += BATCH) {
@@ -239,7 +239,7 @@ async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs: strin
   return [...byId.values()];
 }
 
-function eraProvenanceTargetIds(provenance: Provenance, resourceType: string): string[] {
+export function eraProvenanceTargetIds(provenance: Provenance, resourceType: string): string[] {
   const prefix = `${resourceType}/`;
   return (provenance.target ?? [])
     .map((target) => target.reference ?? '')
@@ -286,7 +286,13 @@ export async function fetchClaimResponsesByPaymentReconciliations(
     oystehr,
     prIds.map((id) => `PaymentReconciliation/${id}`)
   );
+  return fetchClaimResponsesFromEraProvenances(oystehr, provenances);
+}
 
+export async function fetchClaimResponsesFromEraProvenances(
+  oystehr: Oystehr,
+  provenances: Provenance[]
+): Promise<Map<string, ClaimResponse[]>> {
   const claimResponseIdsByPrId = new Map<string, string[]>();
   for (const provenance of provenances) {
     const claimResponseIds = eraProvenanceTargetIds(provenance, 'ClaimResponse');

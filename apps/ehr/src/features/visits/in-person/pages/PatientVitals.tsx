@@ -129,6 +129,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
         current={vitals.fields.bmi.current}
         historical={vitals.fields.bmi.historical}
         onDelete={vitals.fields.bmi.delete}
+        isWeightRefused={vitals.fields.weight.current[0]?.extraWeightOptions?.includes('patient_refused') ?? false}
       />
       <Box ref={vitals.refs.vision}>
         <VitalsVisionCard field={vitals.fields.vision} />

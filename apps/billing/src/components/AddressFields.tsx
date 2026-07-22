@@ -76,7 +76,9 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
                 error={!!fieldError}
               >
                 {AllStates.map((state) => (
-                  <MenuItem value={state.value}>{stateCodeToFullName[state.value]}</MenuItem>
+                  <MenuItem value={state.value} key={state.value}>
+                    {stateCodeToFullName[state.value]}
+                  </MenuItem>
                 ))}
               </Select>
               {fieldError ? (

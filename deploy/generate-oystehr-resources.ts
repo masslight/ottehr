@@ -194,7 +194,7 @@ async function getBillingSpecs(billingCoreConfigDir: string): Promise<SpecFile[]
   try {
     const coreSpecFiles = await fs.readdir(billingCoreConfigDir, { withFileTypes: true });
     const coreJsonSpecFiles = coreSpecFiles
-      .filter((file) => file.isFile() && file.name.endsWith('.json'))
+      .filter((file) => (file.isFile() || file.isSymbolicLink()) && file.name.endsWith('.json'))
       .map((file) => path.join(billingCoreConfigDir, file.name));
     jsonSpecFiles.push(...coreJsonSpecFiles);
   } catch (err: any) {

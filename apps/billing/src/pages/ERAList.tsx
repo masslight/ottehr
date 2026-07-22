@@ -253,12 +253,12 @@ export default function ERAList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
           ERAs
         </Typography>
-        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => setShowImportDialog(true)}>
-          Import
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowImportDialog(true)}>
+          Import ERA
         </Button>
       </Box>
 
