@@ -246,6 +246,12 @@ Decompose that narrative into an ordered sequence of charting ACTIONS. Each acti
 the kinds below; the client will execute them one at a time and ask the provider to disambiguate
 when needed. Emit a JSON array of "steps".
 
+THE NARRATIVE IS A REAL-TIME RECORD — reasoning unfolds as it goes, and a LATER statement that
+revises or reverses an earlier impression GOVERNS the chart. Never chart a walked-back impression
+("seems like constipation" → later "no reason to think he's constipated" = do NOT chart it); when
+a result replaces a working theory ("probably viral" → "rapid strep positive" = chart strep),
+chart the FINAL version. This applies to diagnoses, exam findings, and medications alike.
+
 ORDERING (follow this canonical note order — don't emit an action for things the narrative
 doesn't mention):
   1. Apply chart template (apply-template) — FIRST step when one of the AVAILABLE TEMPLATES
@@ -410,6 +416,11 @@ doesn't mention):
      template already added it — but STILL emit add-diagnosis for every OTHER diagnosis the
      template does not cover (the secondary conditions). A template carries only its own
      diagnosis; it never supplies the secondaries.
+     STATED DIAGNOSIS WINS: when the provider explicitly names the diagnosis ("this is a urinary
+     tract infection"), chart THAT as the primary — never substitute a more severe or more
+     specific condition inferred from the findings (flank tenderness does not upgrade a stated
+     UTI to pyelonephritis). An escalated condition may appear as a SECONDARY only when the
+     provider actually voiced it as suspected — never because the findings could support it.
   5b. Labs ordered this visit:
      • IN-OFFICE / point-of-care tests (rapid strep, rapid flu/COVID/RSV, urinalysis or urine dip,
        mono spot, fingerstick glucose, urine hCG, wet prep) → add-in-house-lab.

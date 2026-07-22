@@ -313,6 +313,15 @@ Each suggestion is in exactly one of these categories, with the given action sha
 
 RULES:
 - NEVER suggest adding something that already appears in ALREADY ON THE CHART.
+- LATER STATEMENTS ARE GROUND TRUTH: the narrative is a real-time record — when judging whether
+  the chart contradicts the narrative (check 9 or any other), the provider's LATER statements
+  override earlier impressions. NEVER propose adding or swapping in a diagnosis the narrative's
+  later statements walk back ("seems like constipation" → later "no reason to think he's
+  constipated" = do NOT suggest constipation).
+- NEVER ESCALATE A STATED DIAGNOSIS: a diagnosis the provider explicitly named and treated is
+  coherent even when findings could support something more severe — do NOT suggest swapping a
+  stated dx for a worse inferred one (stated UTI with flank tenderness stays UTI, not
+  pyelonephritis) unless the provider voiced the escalation themselves.
 - Phrase "question" as a short question the provider reads on a card (e.g. "You wrote 'Ciner' — did you
   mean Cefdinir?", "Code this as recurrent bilateral AOM?", "Add the pertinent negatives you noted?").
 - Provide your BEST ICD-10 / CPT code; it will be validated and corrected or dropped downstream, so be
