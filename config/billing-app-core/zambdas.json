@@ -43,12 +43,26 @@
       "src": "src/billing/search-billing-providers/index",
       "zip": ".dist/zips/search-billing-providers.zip"
     },
+    "GET-BILLING-PROVIDER": {
+      "name": "get-billing-provider",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-provider/index",
+      "zip": ".dist/zips/get-billing-provider.zip"
+    },
     "SEARCH-BILLING-SERVICE-FACILITIES": {
       "name": "search-billing-service-facilities",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/billing/search-billing-service-facilities/index",
       "zip": ".dist/zips/search-billing-service-facilities.zip"
+    },
+    "GET-BILLING-SERVICE-FACILITY": {
+      "name": "get-billing-service-facility",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-service-facility/index",
+      "zip": ".dist/zips/get-billing-service-facility.zip"
     },
     "SAVE-BILLING-SERVICE-FACILITY": {
       "name": "save-billing-service-facility",
@@ -127,6 +141,13 @@
       "src": "src/billing/get-billing-claim-detail/index",
       "zip": ".dist/zips/get-billing-claim-detail.zip"
     },
+    "GET-BILLING-CLAIM-HISTORY": {
+      "name": "get-billing-claim-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-claim-history/index",
+      "zip": ".dist/zips/get-billing-claim-history.zip"
+    },
     "EXPORT-BILLING-CLAIM-X12": {
       "name": "export-billing-claim-x12",
       "type": "http_auth",
@@ -162,6 +183,13 @@
       "src": "src/billing/import-era/index",
       "zip": ".dist/zips/import-era.zip"
     },
+    "MATCH-CLAIM-RESPONSE": {
+      "name": "match-claim-response",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/match-claim-response/index",
+      "zip": ".dist/zips/match-claim-response.zip"
+    },
     "SEARCH-BILLING-TAGS": {
       "name": "search-billing-tags",
       "type": "http_auth",
@@ -183,6 +211,27 @@
       "src": "src/billing/delete-billing-tag/index",
       "zip": ".dist/zips/delete-billing-tag.zip"
     },
+    "GET-BILLING-RULES": {
+      "name": "get-billing-rules",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-rules/index",
+      "zip": ".dist/zips/get-billing-rules.zip"
+    },
+    "SAVE-BILLING-RULES": {
+      "name": "save-billing-rules",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-rules/index",
+      "zip": ".dist/zips/save-billing-rules.zip"
+    },
+    "RUN-BILLING-RULES-ENGINE": {
+      "name": "run-billing-rules-engine",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/run-billing-rules-engine/index",
+      "zip": ".dist/zips/run-billing-rules-engine.zip"
+    },
     "TAG-BILLING-CLAIM": {
       "name": "tag-billing-claim",
       "type": "http_auth",
@@ -196,13 +245,6 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/set-billing-claim-status/index",
       "zip": ".dist/zips/set-billing-claim-status.zip"
-    },
-    "SUBMIT-BILLING-CLAIM": {
-      "name": "submit-billing-claim",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/billing/submit-billing-claim/index",
-      "zip": ".dist/zips/submit-billing-claim.zip"
     },
     "UPDATE-BILLING-CLAIM": {
       "name": "update-billing-claim",
@@ -273,6 +315,102 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/delete-charge-item-definition/index",
       "zip": ".dist/zips/delete-charge-item-definition.zip"
+    },
+    "BILLING-STRIPE-WEBHOOK": {
+      "name": "billing-stripe-webhook",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/billing-stripe-webhook/index",
+      "zip": ".dist/zips/billing-stripe-webhook.zip"
+    },
+    "SUB-RULES-ENGINE": {
+      "name": "sub-rules-engine",
+      "type": "subscription",
+      "timeout": "870",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-rules-engine/index",
+      "zip": ".dist/zips/sub-rules-engine.zip"
+    },
+    "SUB-TAG-ERA-RESOURCES": {
+      "name": "sub-tag-era-resources",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/payment-reconciliation/sub-tag-era-resources/index",
+      "zip": ".dist/zips/sub-tag-era-resources.zip"
+    }
+  },
+  "fhirResources": {
+    "SUB_PRESUBMISSION_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing claim submission rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-presubmission-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_NON_INSURANCE_PAYER_PRE_INVOICE_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing non-insurance payer pre-invoice rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-non-insurance-payer-pre-invoice-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_PATIENT_AR_PRE_INVOICE_RULES_ENGINE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "run billing patient AR pre-invoice rules engine",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/billing-rules-engine|run-patient-ar-pre-invoice-rules&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RULES-ENGINE/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_TAG_ERA_RESOURCES_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Tag ERA resources with the billing app tag on creation",
+        "criteria": "PaymentReconciliation?_tag:not=https://fhir.ottehr.com/billing/resource-type|billing-resource",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-TAG-ERA-RESOURCES/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
     }
   }
 }

@@ -75,6 +75,13 @@
       "src": "src/ehr/ai-assisted-encounters-report/index",
       "zip": ".dist/zips/ai-assisted-encounters-report.zip"
     },
+    "SEND-PATIENT-FORM": {
+      "name": "send-patient-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-patient-form/index",
+      "zip": ".dist/zips/send-patient-form.zip"
+    },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
@@ -390,6 +397,13 @@
       "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
       "zip": ".dist/zips/handle-lab-result.zip"
     },
+    "PROCESS-TELEMED-RECORDING": {
+      "name": "process-telemed-recording",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/document-reference/process-telemed-recording/index",
+      "zip": ".dist/zips/process-telemed-recording.zip"
+    },
     "PAPERWORK-TO-PDF": {
       "name": "paperwork-to-pdf",
       "type": "http_auth",
@@ -501,6 +515,13 @@
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-paperwork/index",
       "zip": ".dist/zips/get-paperwork.zip"
+    },
+    "GET-STANDALONE-PAPERWORK": {
+      "name": "get-standalone-paperwork",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/get-standalone-paperwork/index",
+      "zip": ".dist/zips/get-standalone-paperwork.zip"
     },
     "CREATE-IN-HOUSE-MEDICATION": {
       "name": "create-in-house-medication",
@@ -928,6 +949,48 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/send-for-final-read/index",
       "zip": ".dist/zips/radiology-send-for-final-read.zip"
+    },
+    "RADIOLOGY-UPDATE-ORDER": {
+      "name": "radiology-update-order",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/update-order/index",
+      "zip": ".dist/zips/radiology-update-order.zip"
+    },
+    "RADIOLOGY-GET-ORDER-PDF": {
+      "name": "radiology-get-order-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/get-order-pdf/index",
+      "zip": ".dist/zips/radiology-get-order-pdf.zip"
+    },
+    "RADIOLOGY-SEND-FAX": {
+      "name": "radiology-send-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/send-fax/index",
+      "zip": ".dist/zips/radiology-send-fax.zip"
+    },
+    "RADIOLOGY-LIST-RESULTS": {
+      "name": "radiology-list-results",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/list-results/index",
+      "zip": ".dist/zips/radiology-list-results.zip"
+    },
+    "RADIOLOGY-UPLOAD-RESULT": {
+      "name": "radiology-upload-result",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/upload-result/index",
+      "zip": ".dist/zips/radiology-upload-result.zip"
+    },
+    "RADIOLOGY-DELETE-RESULT": {
+      "name": "radiology-delete-result",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/delete-result/index",
+      "zip": ".dist/zips/radiology-delete-result.zip"
     },
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
@@ -1562,6 +1625,20 @@
       "src": "src/ehr/visit-details/get-visit-fax-history/index",
       "zip": ".dist/zips/get-visit-fax-history.zip"
     },
+    "GET_ACTION_LOGS": {
+      "name": "get-action-logs",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-action-logs/index",
+      "zip": ".dist/zips/get-action-logs.zip"
+    },
+    "RETRY_ACTION_LOG": {
+      "name": "retry-action-log",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/retry-action-log/index",
+      "zip": ".dist/zips/retry-action-log.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",
@@ -2143,6 +2220,34 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/delete-custom-folder/index",
       "zip": ".dist/zips/delete-custom-folder.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_GET": {
+      "name": "practice-managed-questionnaire-get",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/get/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-get.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_LIST": {
+      "name": "practice-managed-questionnaire-list",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/list/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-list.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_UPDATE": {
+      "name": "practice-managed-questionnaire-update",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/update/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-update.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_CREATE": {
+      "name": "practice-managed-questionnaire-create",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/create/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
     }
   },
   "fhirResources": {
@@ -2156,6 +2261,24 @@
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-LAB-RESULT/id}"
         }
+      }
+    },
+    "PROCESS_TELEMED_RECORDING_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Telemed audio recording ready - generate Ambient Scribe AI chart recommendations",
+        "criteria": "DocumentReference?type=http://loinc.org|56444-3&contenttype=audio/mp4",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/PROCESS-TELEMED-RECORDING/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
       }
     },
     "COMMUNICATION_SUBSCRIPTION": {

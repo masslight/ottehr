@@ -9,6 +9,7 @@ import {
   Checkbox,
   Grid,
   MenuItem,
+  Paper,
   Select,
   Skeleton,
   Stack,
@@ -33,8 +34,10 @@ import {
   updatePatientVisitDetails,
 } from 'src/api/api';
 import CardThumbnail from 'src/components/CardThumbnail';
+import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
+import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
@@ -232,6 +235,8 @@ export default function VisitDetailsPage(): ReactElement {
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const user = useEvolveUser();
 
+  const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+
   const {
     data: visitDetailsData,
     isLoading: loading,
@@ -256,6 +261,7 @@ export default function VisitDetailsPage(): ReactElement {
   const patient = visitDetailsData?.patient;
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
+  const standAloneForms = visitDetailsData?.standAloneForms;
 
   const {
     imagesLoading,
@@ -851,6 +857,14 @@ export default function VisitDetailsPage(): ReactElement {
                 <RoundedButton to={`/patient/${patientId}/docs`} startIcon={<FolderOutlinedIcon></FolderOutlinedIcon>}>
                   See All Patient Docs
                 </RoundedButton>
+                <Button
+                  variant="outlined"
+                  sx={{ borderRadius: '20px', textTransform: 'none' }}
+                  disabled={!appointment?.id}
+                  onClick={() => setSendFormDialogOpen(true)}
+                >
+                  Send Form
+                </Button>
               </Grid>
             </Grid>
             {/* page title row */}
@@ -1166,6 +1180,26 @@ export default function VisitDetailsPage(): ReactElement {
                         }
                       />
                     </Grid>
+                    {standAloneForms && standAloneForms.length > 0 ? (
+                      standAloneForms.map((form, idx) => (
+                        <Grid item key={`${form.questionnaireId}-${idx}`}>
+                          <Paper sx={{ mt: 2, p: 3 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0F347C', mb: 1 }}>
+                              {form.questionnaireTitle}
+                            </Typography>
+                            <QuestionnaireResponseViewer form={form} />
+                          </Paper>
+                        </Grid>
+                      ))
+                    ) : (
+                      <Grid item>
+                        <PatientInformation
+                          title="Custom Paperwork"
+                          loading={loading}
+                          patientDetails={{ Status: 'No custom questionnaires attached' }}
+                        />
+                      </Grid>
+                    )}
                   </Grid>
                   <Grid container item xs={12} sm={6} direction="column">
                     {!patientBalancesLoading &&
@@ -1379,7 +1413,7 @@ export default function VisitDetailsPage(): ReactElement {
                         {(() => {
                           // Merge BOOKING_CONFIG (compiled-in, source of truth on collision)
                           // with the FHIR-backed catalog so admins can switch a visit to a
-                          // runtime-registered category. Dedup by code. Filter inactive
+                          // runtime-registered category. Dedupe by code. Filter inactive
                           // FHIR-backed entries — the update-visit-details validator only
                           // resolves against `active=true` HSes, so offering an inactive
                           // category here would let the admin pick something that fails
@@ -1492,6 +1526,13 @@ export default function VisitDetailsPage(): ReactElement {
           outputFormat="png"
           onScanComplete={handleScanComplete}
         />
+        {appointmentID && (
+          <SendFormDialog
+            open={sendFormDialogOpen}
+            onClose={() => setSendFormDialogOpen(false)}
+            appointmentId={appointmentID}
+          />
+        )}
       </>
     </PageContainer>
   );

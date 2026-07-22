@@ -7,6 +7,7 @@ import {
   BUCKET_NAMES,
   getSecret,
   MIME_TYPES,
+  normalizePatientEducationLanguage,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   SavePatientEducationPdfInput,
   SavePatientEducationPdfOutput,
@@ -52,6 +53,9 @@ const performEffect = async (
   token: string
 ): Promise<SavePatientEducationPdfOutput> => {
   const { encounterId, patientId, title, secrets } = validatedInput;
+  // Tag the attachment's language so EN/ES versions can be told apart; default to English (matches
+  // the approved-PDF endpoint and how legacy untagged docs are read back).
+  const language = normalizePatientEducationLanguage(validatedInput.language);
   console.log('Saving patient education PDF', {
     encounterId,
     patientId,
@@ -61,7 +65,7 @@ const performEffect = async (
   });
 
   const pdfBytes = validatedInput.sections
-    ? await createPatientEducationPdf(validatedInput.sections)
+    ? await createPatientEducationPdf(validatedInput.sections, language)
     : Uint8Array.from(Buffer.from(validatedInput.pdfBase64, 'base64'));
 
   const z3Url = makeZ3Url({
@@ -104,6 +108,7 @@ const performEffect = async (
             url: z3Url,
             contentType: 'application/pdf',
             title,
+            language,
           },
         },
       ],

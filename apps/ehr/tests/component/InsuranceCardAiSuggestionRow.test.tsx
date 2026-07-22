@@ -294,11 +294,52 @@ describe('InsuranceContainer insurance-card suggestions', () => {
     'insurance-additional-information': '',
   });
 
-  const renderContainer = (): { current?: UseFormReturn } =>
-    renderWithForm(
-      <InsuranceContainer ordinal={1} patientId="patient-1" isNew renderWithoutSection />,
-      makeContainerDefaults()
+  const renderContainer = (defaults: Record<string, unknown> = makeContainerDefaults()): { current?: UseFormReturn } =>
+    renderWithForm(<InsuranceContainer ordinal={1} patientId="patient-1" isNew renderWithoutSection />, defaults);
+
+  it('additional-info "+" appends to existing text instead of overwriting it', async () => {
+    mockedExtraction = {
+      primary: makeExtractionFields({ groupNumber: '12345', rxBin: '610014' }),
+      secondary: null,
+      isLoading: false,
+    };
+    const user = userEvent.setup();
+    const methodsRef = renderContainer({
+      ...makeContainerDefaults(),
+      'insurance-additional-information': 'Pre-existing staff note',
+    });
+
+    const additionalRow = screen.getByTestId('insurance-card-ai-suggestion-insurance-additional-information');
+    // The pill shows just the card-derived text, not the existing note.
+    expect(within(additionalRow).getByText('Group #: 12345; RxBIN: 610014')).toBeInTheDocument();
+
+    await user.click(within(additionalRow).getByRole('button', { name: ACCEPT_BUTTON_NAME }));
+
+    // Accept appends to (rather than replaces) the pre-existing note.
+    expect(methodsRef.current?.getValues('insurance-additional-information')).toBe(
+      'Pre-existing staff note; Group #: 12345; RxBIN: 610014'
     );
+    expect(
+      screen.getByTestId(`insurance-card-ai-suggestion-insurance-additional-information-accepted`)
+    ).toBeInTheDocument();
+  });
+
+  it('does not re-offer the additional-info suggestion once its text is already present in the field', () => {
+    mockedExtraction = {
+      primary: makeExtractionFields({ groupNumber: '12345' }),
+      secondary: null,
+      isLoading: false,
+    };
+    renderContainer({
+      ...makeContainerDefaults(),
+      'insurance-additional-information': 'Some note; Group #: 12345; more notes',
+    });
+
+    // Already incorporated (not merely a fresh accept in this session) → renders nothing.
+    expect(
+      screen.queryByTestId('insurance-card-ai-suggestion-insurance-additional-information')
+    ).not.toBeInTheDocument();
+  });
 
   it('renders per-field suggestions from the primary extraction and accepts the member ID via "+"', async () => {
     mockedExtraction = {

@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
@@ -9,52 +8,26 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   FormControlLabel,
   Grid,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  OutlinedInput,
   Paper,
-  Select,
   Stack,
   Switch,
   TextField,
   Typography,
   useTheme,
 } from '@mui/material';
-import { ClearIcon } from '@mui/x-date-pickers';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
-import {
-  useGetCPTHCPCSSearch,
-  useICD10SearchNew,
-} from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import {
-  useAppointmentData,
-  useChartData,
-  useSaveChartData,
-} from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { useDebounce } from 'src/shared/hooks/useDebounce';
-import {
-  CPTCodeDTO,
-  DiagnosisDTO,
-  LATERALITY_SELECTORS,
-  LateralityValue,
-  RadiologyQuickPickData,
-  radiologyStudiesConfig,
-  RoleType,
-} from 'utils';
+import { LATERALITY_SELECTORS, LateralityValue, RadiologyQuickPickData, RoleType } from 'utils';
 import {
   createRadiologyOrder,
   createRadiologyQuickPick,
@@ -65,6 +38,11 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { sortQuickPicks, useMergedRadiologyQuickPicks } from '../../../hooks/useMergedQuickPicks';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import {
+  RadiologyOrderCoreFields,
+  RadiologyOrderFormActions,
+  useRadiologyOrderForm,
+} from '../components/RadiologyOrderFormShared';
 import { useRadiologyConsentExists } from '../components/useRadiologyConsentExists';
 
 interface CreateRadiologyOrdersProps {
@@ -78,18 +56,27 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const { id: appointmentIdFromUrl } = useParams();
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const { mutate: saveChartData } = useSaveChartData();
   const { encounter } = useAppointmentData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const { chartData, setPartialChartData } = useChartData();
-  const { diagnosis } = chartData || {};
-  const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
-  const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(primaryDiagnosis ? primaryDiagnosis : undefined);
-  const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>();
+
+  const form = useRadiologyOrderForm();
+  const {
+    orderDx,
+    orderCpt,
+    setOrderCpt,
+    studyName,
+    setStudyName,
+    clinicalHistory,
+    setClinicalHistory,
+    laterality,
+    setLaterality,
+    lateralityModifier,
+    addAdditionalDxToEncounter,
+    chartCptCodes,
+    setPartialChartData,
+  } = form;
+
   const [stat, setStat] = useState<boolean>(false);
-  const [studyName, setStudyName] = useState<string | undefined>();
-  const [clinicalHistory, setClinicalHistory] = useState<string | undefined>();
-  const [laterality, setLaterality] = useState<LateralityValue | ''>('');
   const [consentObtained, setConsentObtained] = useState<boolean>(false);
 
   // Quick picks state
@@ -106,36 +93,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
-
-  const cptCodes = chartData?.cptCodes || [];
-
-  // used to fetch dx icd10 codes
-  const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingDx, data: dxData } = useICD10SearchNew({
-    search: dxDebouncedSearchTerm,
-  });
-  const icdSearchOptions = dxDebouncedSearchTerm === '' && diagnosis ? diagnosis : dxData?.codes || [];
-  const { debounce: debounceDx } = useDebounce(800);
-  const debouncedDxHandleInputChange = (data: string): void => {
-    debounceDx(() => {
-      setDxDebouncedSearchTerm(data);
-    });
-  };
-
-  // used to fetch cpt codes
-  const [cptDebouncedSearchTerm, setCptDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingCpt, data: cptData } = useGetCPTHCPCSSearch({
-    search: cptDebouncedSearchTerm,
-    type: 'cpt',
-    radiologyOnly: true, // Only fetch CPT codes related to radiology
-  });
-  const cptSearchOptions = cptData?.codes || radiologyStudiesConfig;
-  const { debounce } = useDebounce(800);
-  const debouncedCptHandleInputChange = (data: string): void => {
-    debounce(() => {
-      setCptDebouncedSearchTerm(data);
-    });
-  };
 
   // Quick pick handlers
   const onQuickPickSelect = (quickPick: RadiologyQuickPickData): void => {
@@ -203,7 +160,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     cptDisplay: orderCpt?.display,
     studyName,
     laterality: laterality || undefined,
-    clinicalHistory,
+    clinicalHistory: clinicalHistory || undefined,
     // stat and consentObtained excluded — encounter-specific
   });
 
@@ -237,18 +194,15 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const lateralityModifier =
-      laterality !== ''
-        ? { display: LATERALITY_SELECTORS[laterality].modifierDescription, code: laterality }
-        : undefined;
 
-    const paramsSatisfied = orderDx && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
+    const paramsSatisfied =
+      orderDx.length > 0 && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
 
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
         await addAdditionalDxToEncounter();
         const res = await createRadiologyOrder(oystehrZambda, {
-          diagnosisCode: orderDx.code,
+          diagnosisCodes: orderDx.map((dx) => dx.code),
           cptCode: orderCpt.code,
           lateralityModifier,
           encounterId: encounter.id,
@@ -261,7 +215,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
         if (res.cptCodesSaved && res.cptCodesSaved?.length > 0) {
           // setting the new cpt codes so they are they when you nav to the assessment page without a refresh
           setPartialChartData({
-            cptCodes: [...cptCodes, ...res.cptCodesSaved],
+            cptCodes: [...chartCptCodes, ...res.cptCodesSaved],
           });
         }
 
@@ -274,7 +228,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
-      if (!orderDx) errorMessage.push('Please enter a diagnosis to continue');
+      if (orderDx.length === 0) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (!clinicalHistory) errorMessage.push('Please enter clinical history to continue');
       if (clinicalHistory && clinicalHistory.length > 255)
@@ -283,38 +237,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       setError(errorMessage);
     }
     setSubmitting(false);
-  };
-
-  const addAdditionalDxToEncounter = async (): Promise<void> => {
-    if (orderDx === undefined) return;
-
-    const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === orderDx.code);
-    if (alreadyExistsOnEncounter) {
-      return;
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      saveChartData(
-        {
-          diagnosis: [orderDx],
-        },
-        {
-          onSuccess: (data) => {
-            const returnedDiagnosis = data.chartData.diagnosis || [];
-            const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
-            if (allDx) {
-              setPartialChartData({
-                diagnosis: [...allDx],
-              });
-            }
-            resolve();
-          },
-          onError: (error) => {
-            reject(error);
-          },
-        }
-      );
-    });
   };
 
   const consentExists = useRadiologyConsentExists();
@@ -349,145 +271,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     searchable
                   />
                 </Grid>
-                <Grid item xs={12}>
-                  <Autocomplete
-                    blurOnSelect
-                    id="select-dx"
-                    size="small"
-                    fullWidth
-                    filterOptions={(x) => x}
-                    noOptionsText={
-                      dxDebouncedSearchTerm && icdSearchOptions.length === 0
-                        ? 'Nothing found for this search criteria'
-                        : 'Start typing to load results'
-                    }
-                    value={orderDx || null}
-                    isOptionEqualToValue={(option, value) => value.code === option.code}
-                    onChange={(_event: any, selectedDx: any) => {
-                      setOrderDx(selectedDx);
-                    }}
-                    loading={isSearchingDx}
-                    options={icdSearchOptions}
-                    getOptionLabel={(option) =>
-                      typeof option === 'string' ? option : `${option.code} ${option.display}`
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        onChange={(e) => debouncedDxHandleInputChange(e.target.value)}
-                        label="Diagnosis"
-                        placeholder="Select diagnosis from list or search"
-                        multiline
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    id="study-name"
-                    label="Study Name"
-                    placeholder="Enter study name"
-                    fullWidth
-                    multiline
-                    size="small"
-                    value={studyName || ''}
-                    onChange={(e) => setStudyName(e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <Autocomplete
-                    blurOnSelect
-                    id="select-cpt"
-                    size="small"
-                    fullWidth
-                    filterOptions={(x) => x}
-                    noOptionsText={
-                      cptDebouncedSearchTerm && cptSearchOptions.length === 0
-                        ? 'Nothing found for this search criteria'
-                        : 'Start typing to load results'
-                    }
-                    value={orderCpt || null}
-                    isOptionEqualToValue={(option, value) => value.code === option.code}
-                    onChange={(_event: any, selectedCpt: any) => {
-                      setOrderCpt(selectedCpt);
-                    }}
-                    loading={isSearchingCpt}
-                    options={cptSearchOptions}
-                    getOptionLabel={(option) =>
-                      typeof option === 'string' ? option : `${option.code} ${option.display}`
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        onChange={(e) => debouncedCptHandleInputChange(e.target.value)}
-                        label="Study Type"
-                        placeholder="Search for CPT Code"
-                        multiline
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel size="small" id="laterality-selector-label">
-                      Laterality Selector
-                    </InputLabel>
-                    <Select
-                      size="small"
-                      labelId="laterality-selector-label"
-                      label="Laterality Selector"
-                      id="laterality-selector"
-                      onChange={(e) => setLaterality(e.target.value as LateralityValue)}
-                      value={laterality}
-                      input={
-                        <OutlinedInput
-                          label="Laterality Selector"
-                          endAdornment={
-                            laterality ? (
-                              <InputAdornment sx={{ marginRight: '10px' }} position="end">
-                                <IconButton aria-label="clear laterality" onClick={() => setLaterality('')}>
-                                  <ClearIcon fontSize="small" />
-                                </IconButton>
-                              </InputAdornment>
-                            ) : null
-                          }
-                        />
-                      }
-                    >
-                      {Object.entries(LATERALITY_SELECTORS).map(([selectorKey, selectorDisplay]) => (
-                        <MenuItem key={selectorKey} value={selectorKey}>
-                          {`${selectorKey} (${selectorDisplay.uiDisplay})`}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    id="clinical-history"
-                    label="Clinical History"
-                    placeholder="Enter clinical history for the radiology order"
-                    fullWidth
-                    multiline
-                    size="small"
-                    InputLabelProps={{ shrink: !!clinicalHistory }}
-                    value={clinicalHistory}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value.length <= 255) {
-                        setClinicalHistory(value);
-                      }
-                    }}
-                    error={clinicalHistory !== undefined && clinicalHistory.length > 255}
-                    helperText={
-                      clinicalHistory !== undefined && clinicalHistory.length > 255
-                        ? 'Clinical history must be 255 characters or less'
-                        : `${clinicalHistory?.length || 0}/255 characters`
-                    }
-                  />
-                </Grid>
+                <RadiologyOrderCoreFields form={form} />
                 <Grid item xs={12}>
                   <Box style={{ display: 'flex', alignItems: 'center' }}>
                     <Checkbox checked={consentObtained} onChange={() => setConsentObtained(!consentObtained)} />
@@ -515,37 +299,12 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                     label={<Typography variant="body2">STAT</Typography>}
                   />
                 </Grid>
-                <Grid item xs={6}>
-                  <Button
-                    variant="outlined"
-                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                    onClick={() => {
-                      navigate(`/in-person/${appointmentIdFromUrl}/radiology`);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </Grid>
-                <Grid item xs={6} display="flex" justifyContent="flex-end">
-                  <LoadingButton
-                    data-testid={dataTestIds.radiologyPage.submitOrderButton}
-                    loading={submitting}
-                    type="submit"
-                    variant="contained"
-                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                  >
-                    Order
-                  </LoadingButton>
-                </Grid>
-                {error &&
-                  error.length > 0 &&
-                  error.map((msg, idx) => (
-                    <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                      <Typography sx={{ color: theme.palette.error.main }}>
-                        {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
-                      </Typography>
-                    </Grid>
-                  ))}
+                <RadiologyOrderFormActions
+                  appointmentId={appointmentIdFromUrl || ''}
+                  submitting={submitting}
+                  submitLabel="Order"
+                  errors={error}
+                />
               </Grid>
             </Paper>
           </form>

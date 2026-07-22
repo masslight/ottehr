@@ -7,6 +7,7 @@ import {
   PaymentLocationDetailPage,
   PaymentLocationsPage,
 } from '../../page/PaymentLocationsPage';
+import { adminSidebarItem } from '../../utils/adminNav';
 
 function findFirstLocationName(): string {
   const entries = Object.values((locationsSpec as { fhirResources: Record<string, any> }).fhirResources);
@@ -102,21 +103,21 @@ test.describe('Payment Locations Admin', () => {
     paymentLocationsPage = await expectPaymentLocationsPage(page);
   });
 
-  test('tab navigation between billing sub-tabs works', async () => {
+  test('sidebar navigation between billing sub-pages works', async () => {
     await page.goto('/admin/billing/fee-schedules');
     await page.waitForLoadState('networkidle');
 
-    // Click Payment Locations tab
-    await page.getByRole('tab', { name: /payment locations/i }).click();
+    // Click Payment Locations sidebar item
+    await adminSidebarItem(page, '/admin/billing/payment-locations').click();
     await page.waitForURL('**/billing/payment-locations');
     paymentLocationsPage = await expectPaymentLocationsPage(page);
 
-    // Click Fee Schedules tab
-    await page.getByRole('tab', { name: /fee schedules/i }).click();
+    // Click Fee Schedules sidebar item
+    await adminSidebarItem(page, '/admin/billing/fee-schedules').click();
     await page.waitForURL('**/billing/fee-schedules');
 
     // Click back to Payment Locations
-    await page.getByRole('tab', { name: /payment locations/i }).click();
+    await adminSidebarItem(page, '/admin/billing/payment-locations').click();
     await page.waitForURL('**/billing/payment-locations');
   });
 });

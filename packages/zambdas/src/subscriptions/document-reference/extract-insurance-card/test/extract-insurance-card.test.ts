@@ -251,9 +251,9 @@ describe('extract-insurance-card handler', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toMatchObject({ documentReferenceId: 'docref-1', extracted: true });
 
-    // model call: prompt + inline image, schema, and PHI response logging suppressed
+    // model call: prompt + inline image + schema
     expect(invokeChatbotVertexAI).toHaveBeenCalledTimes(1);
-    const [parts, , schema, options] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    const [parts, , schema] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
     expect(parts[0]).toEqual({ text: EXTRACTION_PROMPT });
     expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
     expect((parts[1] as any).inlineData.data).toBe(IMAGE_BYTES.toString('base64'));
@@ -261,7 +261,6 @@ describe('extract-insurance-card handler', () => {
     // schema regression guard: the orientation signal must be requested on every call
     expect((schema as any).properties.readable).toEqual({ type: 'boolean', nullable: true });
     expect((schema as any).required).toContain('readable');
-    expect(options).toEqual({ suppressResponseLogging: true });
 
     const stored = getPatchedExtraction();
     expect(stored).toMatchObject({
@@ -425,18 +424,43 @@ describe('extract-insurance-card handler', () => {
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it('handles an undownloadable image gracefully: captureException + 200 no-op, no marker written', async () => {
+  it('propagates a retryable error (not a 200 no-op) when the card image fails to download', async () => {
+    // A download failure is often transient (network blip, presigned url race); returning 200
+    // would tell the subscription "handled" and permanently strand the card unprocessed, so this
+    // must surface as a non-200 the subscription's retry semantics can act on.
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
     fetchMock.mockResolvedValue({ ok: false, status: 403, headers: { get: () => null } });
 
     const result = await invokeHandler(makeInput(docRef));
 
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ skipped: true, extracted: false });
+    expect(result.statusCode).toBe(500);
     expect(captureException).toHaveBeenCalled();
     expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
     expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the attachment's own contentType when Z3 returns application/octet-stream", async () => {
+    // Z3 returns the generic application/octet-stream when the object's content type wasn't
+    // recorded at upload time; a real card image must not be marked unsupported because of that.
+    const docRef = makeDocRef({
+      content: [{ attachment: { url: Z3_URL, title: 'insurance-card-front', contentType: 'image/jpeg' } }],
+    });
+    setupHappyMocks(docRef);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/octet-stream' : null) },
+      arrayBuffer: async () =>
+        IMAGE_BYTES.buffer.slice(IMAGE_BYTES.byteOffset, IMAGE_BYTES.byteOffset + IMAGE_BYTES.byteLength),
+    });
+
+    const result = await invokeHandler(makeInput(docRef));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({ extracted: true });
+    const [parts] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
   });
 
   it('writes a permanent notACard marker for unsupported (non-image, non-pdf) content', async () => {

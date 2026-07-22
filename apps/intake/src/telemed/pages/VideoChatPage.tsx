@@ -4,10 +4,12 @@ import {
   GlobalStyles,
   lightTheme,
   MeetingProvider,
+  MeetingStatus,
   useAudioInputs,
   useAudioVideo,
   useLocalVideo,
   useMeetingManager,
+  useMeetingStatus,
   useVideoInputs,
 } from 'amazon-chime-sdk-component-library-react';
 import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
@@ -33,6 +35,7 @@ const VideoChatPage: FC = () => {
   ]);
   const meetingManager = useMeetingManager();
   const audioVideo = useAudioVideo();
+  const meetingStatus = useMeetingStatus();
   const { isVideoEnabled } = useLocalVideo();
   const { devices: videoInputs, selectedDevice: selectedVideoDevice } = useVideoInputs();
   const { devices: audioInputs, selectedDevice: selectedAudioDevice } = useAudioInputs();
@@ -110,6 +113,24 @@ const VideoChatPage: FC = () => {
     };
   }, [audioVideo]);
 
+  // The provider permanently ends the meeting for all participants (oystehr.telemed.endMeeting),
+  // which stops the Chime session remotely. Voluntary leave produces MeetingStatus.Left and is
+  // handled by ConfirmEndCallDialog, so only the remote-ended case is handled here.
+  useEffect(() => {
+    if (meetingStatus !== MeetingStatus.Ended) {
+      return;
+    }
+
+    const leave = async (): Promise<void> => {
+      await meetingManager.meetingSession?.deviceController.destroy().catch((error) => console.error(error));
+      await meetingManager.leave().catch((error) => console.error(error));
+      useVideoCallStore.setState({ meetingData: null });
+      navigate(isRegularParticipant ? intakeFlowPageRoute.CallEnded.path : intakeFlowPageRoute.InvitedCallEnded.path);
+    };
+
+    void leave();
+  }, [meetingStatus, meetingManager, navigate, isRegularParticipant]);
+
   useJoinCall(
     apiClient,
     // Invite URLs carry appointment_id in the query string; regular patient navigation uses the persisted store.
@@ -142,10 +163,17 @@ const VideoChatPage: FC = () => {
     }
   );
 
-  if (!meetingData) {
+  // Keep the loader up for the whole connection and only render the room once Chime is actually connected
+  // (Succeeded). Before this, meetingData could already be set (freshly fetched, or stale from a prior call)
+  // while the session is still coming up, so gating on "has meetingData" alone dropped straight to a blank
+  // dark VideoRoom — which is what looked like "no loader" after "Return to call". Failed/terminal states
+  // fall through (handled elsewhere) so we don't spin forever on a hard failure.
+  const isMeetingConnected = meetingStatus === MeetingStatus.Succeeded;
+  const isMeetingFailed = meetingStatus === MeetingStatus.Failed || meetingStatus === MeetingStatus.TerminalFailure;
+  if (!meetingData || (!isMeetingConnected && !isMeetingFailed)) {
     return (
       <CustomContainer useEmptyBody title="">
-        <LoadingSpinner transparent />
+        <LoadingSpinner transparent white />
       </CustomContainer>
     );
   }

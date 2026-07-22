@@ -2,10 +2,10 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { FC, useMemo } from 'react';
+import { CustomDialog } from 'ui-components';
 import { ALLOWED_SUPPORT_DIALOG_TAGS } from 'utils';
 import api from '../api/ottehrApi';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import { CustomDialog } from './CustomDialog';
 import PageForm from './PageForm';
 
 type ContactSupportDialogProps = { onClose: () => void };
