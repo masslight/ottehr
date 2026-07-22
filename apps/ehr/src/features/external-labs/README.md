@@ -104,7 +104,8 @@ The External Labs flow for solicited results at a high level is as follows:
 
 - If the test was ordered as PSC, no specimen collection information will render. Otherwise, compendium-driven specimen collection information will render, and a specimen collection datetime must be populated.
 - If collecting a specimen in house, a specimen collection label will generated.
-- AOEs are dynamically pulled from the lab's compendium for the given test. The answers are patient specific. Ottehr does not currently support pre-filling these tests, and we advise caution doing so.
+- AOE questions are dynamically pulled from the lab's compendium for the given test. The answers are patient specific. Ottehr does not currently support pre-filling these tests, and we advise caution doing so.
+  - AOEs are returned by the Oystehr Lab Service [Orderable Item Search](https://docs.oystehr.com/oystehr/services/lab/explore-the-compendium/#orderable-item-search) and can be found in the lab's compendium
 - Required AOEs must be populated before the test can be marked as ready
 - Labs require even PSC orders to populate AOE questions
 
