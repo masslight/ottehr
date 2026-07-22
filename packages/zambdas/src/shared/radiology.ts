@@ -1,6 +1,7 @@
 import { DiagnosticReport, Extension, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   FHIR_EXTENSION,
+  LATERALITY_SELECTORS,
   LateralityValue,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
   RadiologyDTO,
@@ -66,8 +67,10 @@ export const makeRadiologyDTO = (
 ): RadiologyDTO => {
   const cptCode = serviceRequest.code?.coding?.[0]?.code ?? '';
 
-  // The SR code embeds laterality as a `<cpt>-<modifier>` suffix; split it back out for display/edit.
-  const lateralityMatch = /-(LT|RT|50)$/.exec(cptCode);
+  // The SR code embeds laterality as a `<cpt>-<modifier>` suffix; split it back out, deriving the
+  // modifier alternation from the canonical selectors so it stays in sync if modifiers change.
+  const lateralitySuffix = new RegExp(`-(${Object.keys(LATERALITY_SELECTORS).join('|')})$`);
+  const lateralityMatch = lateralitySuffix.exec(cptCode);
   const laterality = lateralityMatch ? (lateralityMatch[1] as LateralityValue) : undefined;
   const baseCptCode = laterality ? cptCode.slice(0, -(laterality.length + 1)) : cptCode;
 
