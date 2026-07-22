@@ -20,6 +20,7 @@
             "Zambda:Function:get-schedule",
             "Zambda:Function:intake-get-appointments",
             "Zambda:Function:get-paperwork",
+            "Zambda:Function:get-standalone-paperwork",
             "Zambda:Function:update-paperwork-in-progress",
             "Zambda:Function:get-presigned-file-url",
             "Zambda:Function:get-appointment-details",
