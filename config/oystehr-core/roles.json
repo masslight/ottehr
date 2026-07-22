@@ -314,7 +314,7 @@
             "Zambda:Function:get-billing-patient-detail",
             "Zambda:Function:delete-billing-tag",
             "Zambda:Function:import-era",
-            "Zambda:Function:record-billing-payment"
+            "Zambda:Function:record-billing-manual-payment"
           ]
         }
       ]

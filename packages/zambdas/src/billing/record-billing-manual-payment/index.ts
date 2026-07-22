@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { RecordBillingPaymentResponse, TIMEZONES } from 'utils';
+import { RecordBillingManualPaymentResponse, TIMEZONES } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
@@ -13,7 +13,7 @@ import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } fr
 import { createBillingClient, fetchById } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
-const ZAMBDA_NAME = 'record-billing-payment';
+const ZAMBDA_NAME = 'record-billing-manual-payment';
 
 let m2mToken: string;
 
@@ -65,6 +65,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     submitterRef,
   });
 
-  const response: RecordBillingPaymentResponse = { paymentNoticeId: notice.id ?? '', claimId };
+  const response: RecordBillingManualPaymentResponse = { paymentNoticeId: notice.id ?? '', claimId };
   return { statusCode: 200, body: JSON.stringify(response) };
 });

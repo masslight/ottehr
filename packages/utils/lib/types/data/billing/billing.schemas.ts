@@ -601,7 +601,7 @@ export const MatchClaimResponseToClaimInputSchema = z.object({
   claimId: nonEmptyString,
 });
 
-export const RecordBillingPaymentInputSchema = z.object({
+export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
   paymentMethod: z.enum(BILLING_MANUAL_PAYMENT_METHODS),
@@ -662,4 +662,4 @@ export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityIn
 export type ImportEraInput = z.output<typeof ImportEraInputSchema>;
 export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
-export type RecordBillingPaymentInput = z.output<typeof RecordBillingPaymentInputSchema>;
+export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;

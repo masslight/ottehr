@@ -365,7 +365,7 @@ export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): A
     statusCode,
   };
 };
-// Raised when a record-billing-payment idempotency key is replayed with different payment details.
+// Raised when a record-billing-manual-payment idempotency key is replayed with different payment details.
 export const MANUAL_PAYMENT_CONFLICT_ERROR = (idempotencyKey: string): APIError => ({
   code: APIErrorCode.MANUAL_PAYMENT_CONFLICT,
   statusCode: 409,

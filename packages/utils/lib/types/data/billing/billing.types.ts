@@ -495,7 +495,7 @@ export interface BillingService {
   name: string;
 }
 
-export interface RecordBillingPaymentResponse {
+export interface RecordBillingManualPaymentResponse {
   paymentNoticeId: string;
   // present when the notice is linked to an existing billing Claim
   claimId?: string;

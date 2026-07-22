@@ -13,7 +13,7 @@ import {
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { reconcilePaymentNoticesForClaim } from './shared';
 
-// dedup identifier for record-billing-payment calls: value is the caller's idempotency key
+// dedup identifier for record-billing-manual-payment calls: value is the caller's idempotency key
 export const MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('manual-payment-idempotency-key');
 // dedup identifier for the clinical→billing bridge: value is the clinical PaymentNotice id, which
 // makes task re-fires idempotent and links the billing notice back to its source
