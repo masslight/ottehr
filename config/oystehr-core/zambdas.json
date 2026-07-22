@@ -1410,6 +1410,7 @@
       "name": "get-patient-medical-record",
       "type": "http_auth",
       "runtime": "nodejs22.x",
+      "memorySize": "3008",
       "src": "src/ehr/get-patient-medical-record/index",
       "zip": ".dist/zips/get-patient-medical-record.zip"
     },
