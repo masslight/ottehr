@@ -563,6 +563,12 @@ const PrebookVisit: FC = () => {
               forceClosedToday={false}
               forceClosedTomorrow={false}
               handleSlotSelected={noop}
+              // Enable on-demand "Other dates": picking a far-future date fetches
+              // that day's slots (up to BOOKING_CONFIG.prebookMaxMonthsAhead).
+              bookableSlug={slugToFetch}
+              bookableScheduleType={scheduleType ?? undefined}
+              serviceCategoryCode={serviceCategoryCode}
+              atLocationSlug={atLocationSlug ?? undefined}
             />
           ))}
       </SelectionContainer>

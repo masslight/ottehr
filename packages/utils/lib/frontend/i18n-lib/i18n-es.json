@@ -778,6 +778,7 @@
       "description": "Seleccione otro horario",
       "title": "Lo sentimos, el horario seleccionado ya no está disponible."
     },
+    "noSlotsForDate": "No hay horarios disponibles en esta fecha. Seleccione otra fecha.",
     "officeClosed": {
       "today": "¡Lo sentimos! Debido a circunstancias imprevistas, este consultorio permanecerá cerrado hoy. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en {{PROJECT_NAME}} desde la comodidad de su hogar O haga clic en el botón \"mañana\" (tomorrow) para ver las franjas horarias disponibles para mañana.",
       "todayOrTomorrow": "¡Lo sentimos! Este consultorio no tiene ningún horario de reserva previo disponible para hoy ni mañana, pero tenemos todo lo que necesita. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en {{PROJECT_NAME}} desde la comodidad del hogar."
