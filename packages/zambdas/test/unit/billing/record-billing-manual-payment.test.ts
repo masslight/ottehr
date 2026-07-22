@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import { Claim, Encounter, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import { APIErrorCode, BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL, Secrets } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -26,8 +27,8 @@ import { createClinicalOystehrClient, getUser, ZambdaInput } from '../../../src/
 const index = _index as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
-const ENCOUNTER_ID = '5b6a2f0e-4c3d-4e2f-8a1b-9c0d1e2f3a4b';
-const OTHER_ENCOUNTER_ID = '0f9e8d7c-6b5a-4321-9876-543210fedcba';
+const ENCOUNTER_ID = randomUUID();
+const OTHER_ENCOUNTER_ID = randomUUID();
 
 const secrets: Secrets = {
   DEFAULT_BILLING_RESOURCE: 'Organization/default-bp',

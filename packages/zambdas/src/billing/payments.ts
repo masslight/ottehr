@@ -4,13 +4,14 @@ import {
   BILLING_RECORDABLE_PAYMENT_METHODS,
   BILLING_RESOURCE_TAG,
   getSecret,
-  INVALID_INPUT_ERROR,
   MANUAL_PAYMENT_CONFLICT_ERROR,
   PAYMENT_METHOD_EXTENSION_URL,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { z } from 'zod';
+import { safeValidate } from '../shared';
 import { reconcilePaymentNoticesForClaim } from './shared';
 
 // dedup identifier for record-billing-manual-payment calls: value is the caller's idempotency key
@@ -21,6 +22,12 @@ export const CLINICAL_PAYMENT_NOTICE_ID_SYSTEM = ottehrIdentifierSystem('clinica
 export const CHECK_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('check-number');
 
 const PAYMENT_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/payment-type';
+
+// the bridge bypasses the endpoint's input schema, so the writer re-checks the money fields itself
+const RecordablePaymentSchema = z.object({
+  amountInCents: z.number().int().positive(),
+  paymentMethod: z.enum(BILLING_RECORDABLE_PAYMENT_METHODS),
+});
 
 export const findBillingClaimForEncounter = async (
   oystehr: Oystehr,
@@ -96,12 +103,7 @@ export const recordBillingPatientPayment = async (
     submitterRef,
   } = input;
 
-  if (!Number.isInteger(amountInCents) || amountInCents <= 0) {
-    throw INVALID_INPUT_ERROR(`amountInCents must be a positive integer, got ${amountInCents}`);
-  }
-  if (!(BILLING_RECORDABLE_PAYMENT_METHODS as readonly string[]).includes(paymentMethod)) {
-    throw INVALID_INPUT_ERROR(`Unrecognized payment method "${paymentMethod}"`);
-  }
+  safeValidate(RecordablePaymentSchema, { amountInCents, paymentMethod });
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
 

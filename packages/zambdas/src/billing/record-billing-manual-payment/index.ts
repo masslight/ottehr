@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -46,12 +47,10 @@ const complexValidation = async (
   return { ...params, submitterRef };
 };
 
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const params = validateRequestParameters(input);
-
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  const effectInput = await complexValidation(input, params, m2mToken);
-
+const performEffect = async (
+  oystehr: Oystehr,
+  effectInput: ComplexValidationOutput
+): Promise<RecordBillingManualPaymentResponse> => {
   // Keep the creation time separate from the payment date.
   // A backdated payment should only change the payment date fields.
   const now = DateTime.now();
@@ -63,7 +62,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     .setZone(TIMEZONES[0])
     .toFormat('yyyy-MM-dd');
 
-  const oystehr = createBillingClient(m2mToken, effectInput.secrets);
   const { notice, claimId } = await recordBillingPatientPayment(oystehr, {
     encounterId: effectInput.encounterId,
     amountInCents: effectInput.amountInCents,
@@ -80,6 +78,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!notice.id) {
     throw new Error('recordBillingPatientPayment returned a PaymentNotice without an id');
   }
-  const response: RecordBillingManualPaymentResponse = { paymentNoticeId: notice.id, claimId };
+  return { paymentNoticeId: notice.id, claimId };
+};
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const params = validateRequestParameters(input);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
+  const effectInput = await complexValidation(input, params, m2mToken);
+
+  const oystehr = createBillingClient(m2mToken, effectInput.secrets);
+  const response = await performEffect(oystehr, effectInput);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
