@@ -50,7 +50,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   // Once any vital writes a draft, the store has an entry for that encounterId. When we later call
   // setDraft(...) to clear a single vital, the entry is still there — it just has undefined at that key.
-  // So to determine if there is anything in the drfat, need to check all values
+  // So to determine if there is anything in the draft, need to check all values
   const hasVitalsData = !!(
     vitalsDraft.temperature ||
     vitalsDraft.heartbeat ||

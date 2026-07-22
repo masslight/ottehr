@@ -73,11 +73,13 @@ type CreateImmunizationOrderDraft = Partial<InputImmunizationOrderDetails & Gene
 type CreateInHouseMedicationOrderDraft = Partial<MedicationData & GenericStateDraft>;
 type VitalsDraft = Partial<
   {
-    temperature: VitalsTemperatureObservationDTO;
-    heartbeat: VitalsHeartbeatObservationDTO;
+    // Partial<> on these four allows omitting numeric fields when the value is NaN
+    // (qualifier-only edits), avoiding NaN→null corruption in JSON sessionStorage.
+    temperature: Partial<VitalsTemperatureObservationDTO>;
+    heartbeat: Partial<VitalsHeartbeatObservationDTO>;
+    bloodPressure: Partial<VitalsBloodPressureObservationDTO>;
+    oxygenSat: Partial<VitalsOxygenSatObservationDTO>;
     respirationRate: VitalsRespirationRateObservationDTO;
-    bloodPressure: VitalsBloodPressureObservationDTO;
-    oxygenSat: VitalsOxygenSatObservationDTO;
     weight: VitalsWeightObservationDTO;
     height: VitalsHeightObservationDTO;
     vision: VitalsVisionObservationDTO;
@@ -137,7 +139,7 @@ export const useInHouseMedicationOrderStore = createGenericStore<CreateInHouseMe
 export const useVitalsDraftStore = createGenericStore<VitalsDraft>('vitals');
 
 /**
- * Adds listeners to track is a user navigates away from the page and marks the draft as navigated away.
+ * Adds listeners to track if a user navigates away from the page and marks the draft as navigated away.
  * Useful for conditional warning rendering
  * @param input
  */

@@ -27,7 +27,7 @@ type LabsAutocompleteProps = {
         selectedOrderingLocationId: string;
       };
   labOrgIdsString: string;
-  setSelectedLabs: (labs: OrderableItemSearchResult[]) => void;
+  setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
   labSets: LabSetDTO[] | undefined;
 };
 
@@ -68,13 +68,13 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       const labs = res?.labs;
 
       if (labs) {
-        const existingCodes = new Set(
-          selectedLabs.map((lab) => `${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
-        );
-        const newLabs = labs.filter(
-          (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
-        );
-        setSelectedLabs([...selectedLabs, ...newLabs]);
+        setSelectedLabs((prev) => {
+          const existingCodes = new Set(prev.map((lab) => `${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`));
+          const newLabs = labs.filter(
+            (lab) => !existingCodes.has(`${lab.item.itemCode}${lab.lab.labGuid}${lab.lab.labName}`)
+          );
+          return [...prev, ...newLabs];
+        });
       }
     }
   };

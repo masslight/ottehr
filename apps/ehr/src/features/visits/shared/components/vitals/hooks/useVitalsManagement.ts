@@ -162,26 +162,29 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     const d = getDraft(encounterId);
     const e = (v: string): ChangeEvent<HTMLInputElement> => ({ target: { value: v } }) as ChangeEvent<HTMLInputElement>;
     if (d.temperature) {
-      if (isFinite(d.temperature.value)) temperatureState.handleCelsiusChange(e(String(d.temperature.value)));
+      const tv = d.temperature.value;
+      if (tv !== undefined && isFinite(tv)) temperatureState.handleCelsiusChange(e(String(tv)));
       if (d.temperature.observationMethod) temperatureState.handleQualifierChange(d.temperature.observationMethod);
     }
     if (d.heartbeat) {
-      if (isFinite(d.heartbeat.value)) heartbeatState.handleValueChange(e(String(d.heartbeat.value)));
+      const hv = d.heartbeat.value;
+      if (hv !== undefined && isFinite(hv)) heartbeatState.handleValueChange(e(String(hv)));
       if (d.heartbeat.observationMethod) heartbeatState.handleQualifierChange(d.heartbeat.observationMethod);
     }
     if (d.respirationRate) {
       if (isFinite(d.respirationRate.value)) respirationRateState.handleValueChange(e(String(d.respirationRate.value)));
     }
     if (d.bloodPressure) {
-      if (isFinite(d.bloodPressure.systolicPressure))
-        bloodPressureState.handleSystolicChange(e(String(d.bloodPressure.systolicPressure)));
-      if (isFinite(d.bloodPressure.diastolicPressure))
-        bloodPressureState.handleDiastolicChange(e(String(d.bloodPressure.diastolicPressure)));
+      const sys = d.bloodPressure.systolicPressure;
+      const dia = d.bloodPressure.diastolicPressure;
+      if (sys !== undefined && isFinite(sys)) bloodPressureState.handleSystolicChange(e(String(sys)));
+      if (dia !== undefined && isFinite(dia)) bloodPressureState.handleDiastolicChange(e(String(dia)));
       if (d.bloodPressure.observationMethod)
         bloodPressureState.handleQualifierChange(d.bloodPressure.observationMethod);
     }
     if (d.oxygenSat) {
-      if (isFinite(d.oxygenSat.value)) oxygenSatState.handleValueChange(e(String(d.oxygenSat.value)));
+      const ov = d.oxygenSat.value;
+      if (ov !== undefined && isFinite(ov)) oxygenSatState.handleValueChange(e(String(ov)));
       if (d.oxygenSat.observationMethod) oxygenSatState.handleQualifierChange(d.oxygenSat.observationMethod);
     }
     const draftWeight = d.weight as { value?: number } | undefined;
@@ -220,11 +223,11 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           isFinite(celsius) || temperatureState.observationQualifier
             ? ({
                 field: VitalFieldNames.VitalTemperature,
-                value: celsius,
+                ...(isFinite(celsius) && { value: celsius }),
                 ...(temperatureState.observationQualifier && {
                   observationMethod: temperatureState.observationQualifier,
                 }),
-              } as VitalsTemperatureObservationDTO)
+              } as Partial<VitalsTemperatureObservationDTO>)
             : undefined,
       });
     },
@@ -241,11 +244,11 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           isFinite(celsius) || temperatureState.observationQualifier
             ? ({
                 field: VitalFieldNames.VitalTemperature,
-                value: celsius,
+                ...(isFinite(celsius) && { value: celsius }),
                 ...(temperatureState.observationQualifier && {
                   observationMethod: temperatureState.observationQualifier,
                 }),
-              } as VitalsTemperatureObservationDTO)
+              } as Partial<VitalsTemperatureObservationDTO>)
             : undefined,
       });
     },
@@ -261,9 +264,9 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           isFinite(celsius) || qualifier
             ? ({
                 field: VitalFieldNames.VitalTemperature,
-                value: celsius,
+                ...(isFinite(celsius) && { value: celsius }),
                 ...(qualifier && { observationMethod: qualifier }),
-              } as VitalsTemperatureObservationDTO)
+              } as Partial<VitalsTemperatureObservationDTO>)
             : undefined,
       });
     },
@@ -279,9 +282,9 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           isFinite(value) || heartbeatState.observationQualifier
             ? ({
                 field: VitalFieldNames.VitalHeartbeat,
-                value,
+                ...(isFinite(value) && { value }),
                 ...(heartbeatState.observationQualifier && { observationMethod: heartbeatState.observationQualifier }),
-              } as VitalsHeartbeatObservationDTO)
+              } as Partial<VitalsHeartbeatObservationDTO>)
             : undefined,
       });
     },
@@ -297,9 +300,9 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           isFinite(value) || qualifier
             ? ({
                 field: VitalFieldNames.VitalHeartbeat,
-                value,
+                ...(isFinite(value) && { value }),
                 ...(qualifier && { observationMethod: qualifier }),
-              } as VitalsHeartbeatObservationDTO)
+              } as Partial<VitalsHeartbeatObservationDTO>)
             : undefined,
       });
     },
@@ -332,12 +335,12 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         bloodPressure: hasAnyData
           ? ({
               field: VitalFieldNames.VitalBloodPressure,
-              systolicPressure: systolic,
-              diastolicPressure: diastolic,
+              ...(isFinite(systolic) && { systolicPressure: systolic }),
+              ...(isFinite(diastolic) && { diastolicPressure: diastolic }),
               ...(bloodPressureState.observationQualifier && {
                 observationMethod: bloodPressureState.observationQualifier,
               }),
-            } as VitalsBloodPressureObservationDTO)
+            } as Partial<VitalsBloodPressureObservationDTO>)
           : undefined,
       });
     },
@@ -357,12 +360,12 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         bloodPressure: hasAnyData
           ? ({
               field: VitalFieldNames.VitalBloodPressure,
-              systolicPressure: systolic,
-              diastolicPressure: diastolic,
+              ...(isFinite(systolic) && { systolicPressure: systolic }),
+              ...(isFinite(diastolic) && { diastolicPressure: diastolic }),
               ...(bloodPressureState.observationQualifier && {
                 observationMethod: bloodPressureState.observationQualifier,
               }),
-            } as VitalsBloodPressureObservationDTO)
+            } as Partial<VitalsBloodPressureObservationDTO>)
           : undefined,
       });
     },
@@ -382,10 +385,10 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         bloodPressure: hasAnyData
           ? ({
               field: VitalFieldNames.VitalBloodPressure,
-              systolicPressure: systolic,
-              diastolicPressure: diastolic,
+              ...(isFinite(systolic) && { systolicPressure: systolic }),
+              ...(isFinite(diastolic) && { diastolicPressure: diastolic }),
               ...(qualifier && { observationMethod: qualifier }),
-            } as VitalsBloodPressureObservationDTO)
+            } as Partial<VitalsBloodPressureObservationDTO>)
           : undefined,
       });
     },
@@ -401,9 +404,9 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           isFinite(value) || oxygenSatState.observationQualifier
             ? ({
                 field: VitalFieldNames.VitalOxygenSaturation,
-                value,
+                ...(isFinite(value) && { value }),
                 ...(oxygenSatState.observationQualifier && { observationMethod: oxygenSatState.observationQualifier }),
-              } as VitalsOxygenSatObservationDTO)
+              } as Partial<VitalsOxygenSatObservationDTO>)
             : undefined,
       });
     },
@@ -419,9 +422,9 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           isFinite(value) || qualifier
             ? ({
                 field: VitalFieldNames.VitalOxygenSaturation,
-                value,
+                ...(isFinite(value) && { value }),
                 ...(qualifier && { observationMethod: qualifier }),
-              } as VitalsOxygenSatObservationDTO)
+              } as Partial<VitalsOxygenSatObservationDTO>)
             : undefined,
       });
     },
