@@ -112,7 +112,8 @@ const RESPONSE_SCHEMA = {
   required: ['suggestions'],
 };
 
-const buildPrompt = (
+// exported for unit tests (prompt pins: check-9 swap mandate + static-prefix caching structure)
+export const buildPrompt = (
   narrative: string,
   chartState?: string,
   noteContext?: EasyChartNoteContext,
@@ -268,11 +269,17 @@ Each suggestion is in exactly one of these categories, with the given action sha
    system, or clinical scenario the note clearly does not describe — e.g. the sole charted diagnosis
    is "Personal history of pneumonia" while the MDM and HPI describe folliculitis of the nasal
    vestibule.
-   ACTION for a wrong DIAGNOSIS: the same TWO-intent swap as check 2 — { "kind":"remove-diagnosis",
-   "display": <the charted diagnosis text> } then { "kind":"add-diagnosis", "display": <the
-   diagnosis the note actually supports>, "searchTerms":[...], "isPrimary": <same as the one
-   removed>, "code": <best ICD-10> }. Emit only the remove-diagnosis when the note supports no
-   replacement.
+   ACTION for a wrong DIAGNOSIS: when the note/narrative supports a specific alternative diagnosis,
+   you MUST emit the same TWO-intent swap as check 2 — { "kind":"remove-diagnosis", "display": <the
+   charted diagnosis text> } then { "kind":"add-diagnosis", "display": <the diagnosis the note
+   actually supports>, "searchTerms":[...], "isPrimary": <same as the one removed>, "code": <best
+   ICD-10> } — NEVER a bare removal. The swap belongs to THIS check whenever the contradicted item
+   is a diagnosis (check 2 owns only specificity upgrades of an already-correct condition): e.g.
+   the chart codes acute vaginitis (N76.0) but the note describes a candidal yeast infection →
+   swap to candidal vulvovaginitis (B37.3), do NOT just remove N76.0. Emit only the
+   remove-diagnosis when the note supports NO replacement diagnosis at all — and never when that
+   would leave the chart with ZERO diagnoses while the note clearly documents a diagnosable
+   condition (swap to that condition instead).
    ACTION for an unsupported medication: one { "kind":"remove-medication", "display": <the charted
    medication text> }. For an unsupported CPT: one { "kind":"remove-cpt", "code": <the charted
    code> }.
@@ -339,7 +346,11 @@ async function validateActionCodes(actions: Record<string, unknown>[], oystehr: 
 // "(primary)" / "[PRIMARY]" marker from ITS OWN list segment (up to the next ";" or newline —
 // the client's summary puts all diagnoses on one "Diagnoses:" line). When the text can't be
 // located, leave the action untouched — the client's structured-chart carry-over is authoritative.
-function carrySwapPrimaryFromChartState(actions: Record<string, unknown>[], chartState: string | undefined): void {
+// exported for unit tests
+export function carrySwapPrimaryFromChartState(
+  actions: Record<string, unknown>[],
+  chartState: string | undefined
+): void {
   if (!chartState) return;
   const add = actions.find((a) => a.kind === 'add-diagnosis' && typeof a.isPrimary !== 'boolean');
   const remove = actions.find((a) => a.kind === 'remove-diagnosis' && typeof a.display === 'string');
