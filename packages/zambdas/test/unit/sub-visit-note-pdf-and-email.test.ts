@@ -1,7 +1,10 @@
 import { Task } from 'fhir/r4b';
 import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { resolveSkipEmail } from '../../src/subscriptions/task/sub-visit-note-pdf-and-email/index';
+import {
+  resolveSkipEmail,
+  shouldGenerateVisitDetailsPdf,
+} from '../../src/subscriptions/task/sub-visit-note-pdf-and-email/index';
 
 const skipEmailInput: Task['input'] = [
   {
@@ -84,5 +87,27 @@ describe('resolveSkipEmail', () => {
       ],
     });
     expect(resolveSkipEmail(task)).toBe(true);
+  });
+});
+
+describe('shouldGenerateVisitDetailsPdf', () => {
+  it('generates on a fresh sign (no SKIP_EMAIL input)', () => {
+    expect(shouldGenerateVisitDetailsPdf(buildTask())).toBe(true);
+  });
+
+  it('skips on an addendum re-generation (SKIP_EMAIL input present)', () => {
+    expect(shouldGenerateVisitDetailsPdf(buildTask({ input: skipEmailInput }))).toBe(false);
+  });
+
+  it('generates when a SKIP_EMAIL-shaped input is not actually set to "true"', () => {
+    const task = buildTask({
+      input: [
+        {
+          type: { coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.SKIP_EMAIL }] },
+          valueString: 'false',
+        },
+      ],
+    });
+    expect(shouldGenerateVisitDetailsPdf(task)).toBe(true);
   });
 });
