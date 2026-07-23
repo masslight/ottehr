@@ -45,17 +45,29 @@ export interface UseInsuranceCardExtractionResult extends MergedCardExtractions 
   isLoading: boolean;
 }
 
-const readStoredExtraction = (docRef: DocumentReference): InsuranceCardExtraction | null => {
-  const valueString = docRef.extension?.find((ext) => ext.url === INSURANCE_CARD_EXTRACTION_EXTENSION_URL)?.valueString;
+/**
+ * Reads a JSON-stringified OCR extraction off a DocumentReference's extension array. Generic over
+ * the extraction's stored shape and its extension URL — shared by useInsuranceCardExtraction and
+ * usePhotoIdExtraction (and any future OCR-extraction reader) so this doesn't drift between them.
+ * A malformed valueString is ignored (logged) rather than crashing the form.
+ */
+export const readStoredExtension = <T>(docRef: DocumentReference, extensionUrl: string, label: string): T | null => {
+  const valueString = docRef.extension?.find((ext) => ext.url === extensionUrl)?.valueString;
   if (!valueString) return null;
   try {
-    return JSON.parse(valueString) as InsuranceCardExtraction;
+    return JSON.parse(valueString) as T;
   } catch (error) {
-    // Malformed extension: ignore this DocRef rather than crash the form.
-    console.error(`Malformed insurance-card-extraction extension on DocumentReference/${docRef.id}; ignoring`, error);
+    console.error(`Malformed ${label} extension on DocumentReference/${docRef.id}; ignoring`, error);
     return null;
   }
 };
+
+const readStoredExtraction = (docRef: DocumentReference): InsuranceCardExtraction | null =>
+  readStoredExtension<InsuranceCardExtraction>(
+    docRef,
+    INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
+    'insurance-card-extraction'
+  );
 
 const mergeFrontBack = (
   front: InsuranceCardExtractionFields | undefined,

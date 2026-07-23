@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createOystehrClient, getPresignedURL, getSecret, InsuranceCardExtraction, MimeType, SecretsKeys } from 'utils';
+import { createOystehrClient, getSecret, InsuranceCardExtraction, MimeType, SecretsKeys } from 'utils';
 import {
   createPresignedUrl,
   getAuth0Token,
@@ -13,6 +13,7 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../../shared/ai';
+import { downloadOcrSourceImage } from '../shared/extraction-helpers';
 import {
   buildAttachmentMetadataOperations,
   buildExtractionPatchOperation,
@@ -105,22 +106,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let bytes: Buffer;
     let mimeType: string;
     try {
-      const presignedUrl = await getPresignedURL(attachmentUrl, oystehrToken);
-      const imageResponse = await fetch(presignedUrl);
-      if (!imageResponse.ok) {
-        throw new Error(
-          `Failed to download card image for DocumentReference/${docRefId}: HTTP ${imageResponse.status}`
-        );
-      }
-      bytes = Buffer.from(await imageResponse.arrayBuffer());
-      // Z3 returns the generic application/octet-stream when the object's content type wasn't
-      // recorded at upload time; that tells us nothing about the actual image, so fall back to
-      // the attachment's own contentType instead of treating a real card image as unsupported.
-      const fetchedContentType = imageResponse.headers.get('Content-Type')?.split(';')[0].trim();
-      mimeType =
-        fetchedContentType && fetchedContentType !== 'application/octet-stream'
-          ? fetchedContentType
-          : current.content?.[0]?.attachment?.contentType?.split(';')[0].trim() ?? 'image/jpeg';
+      ({ bytes, mimeType } = await downloadOcrSourceImage({
+        attachmentUrl,
+        token: oystehrToken,
+        fallbackContentType: current.content?.[0]?.attachment?.contentType,
+      }));
     } catch (error) {
       console.error(`[${ZAMBDA_NAME}] failed to fetch card image for DocumentReference/${docRefId}:`, error);
       captureException(error);

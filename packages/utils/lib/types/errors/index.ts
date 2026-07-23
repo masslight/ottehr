@@ -38,6 +38,7 @@ export enum APIErrorCode {
   INVALID_RESOURCE_ID = 4202,
   MISSING_AUTH_TOKEN = 4203,
   MISSING_REQUEST_SECRETS = 4204,
+  PAYLOAD_TOO_LARGE = 4205,
   // 43xx
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
@@ -67,6 +68,7 @@ export enum APIErrorCode {
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
   STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
   ERA_IMPORT_FAILED = 4502,
+  MANUAL_PAYMENT_CONFLICT = 4503,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -122,6 +124,12 @@ export const NOT_AUTHORIZED: APIError = {
   message: 'You are not authorized to access this data',
   statusCode: 401,
 };
+
+export const MEDICAL_RECORD_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
+  code: APIErrorCode.PAYLOAD_TOO_LARGE,
+  message: `This medical record is too large to export as a single download (over ${maxMb} MB).`,
+  statusCode: 413,
+});
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_MODIFIED,
@@ -365,6 +373,12 @@ export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): A
     statusCode,
   };
 };
+// Raised when a record-billing-manual-payment idempotency key is replayed with different payment details.
+export const MANUAL_PAYMENT_CONFLICT_ERROR = (idempotencyKey: string): APIError => ({
+  code: APIErrorCode.MANUAL_PAYMENT_CONFLICT,
+  statusCode: 409,
+  message: `A different payment was already recorded with idempotency key "${idempotencyKey}". Use a new key to record a new payment.`,
+});
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
