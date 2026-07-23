@@ -1,5 +1,6 @@
 import {
   ArrowBack as ArrowBackIcon,
+  ContentCopy as ContentCopyIcon,
   DeleteOutline as DeleteOutlineIcon,
   Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
@@ -18,6 +19,7 @@ import {
   IconButton,
   MenuItem,
   Select,
+  Stack,
   Tab,
   Table,
   TableBody,
@@ -309,8 +311,9 @@ export default function ClaimDetail(): ReactElement {
           {!editingHeader ? (
             <Box sx={{ display: 'flex', gap: 3, mt: 0.5, flexWrap: 'wrap' }}>
               <Meta label="Date of Service" value={dos} />
-              <Meta label="Claim ID" value={claim.id} />
+              <Meta label="Claim ID" value={claim.id} copyable={true} />
               <Meta label="Claim Type" value={formatAntCaseString(claim.type)} />
+              <Meta label="PCN" value={claim.pcn} copyable={true} />
               <Meta label="Service" value={formatAntCaseString(claim.service)} />
               <Meta label="Patient DOB" value={claim.patientDob} />
             </Box>
@@ -347,6 +350,7 @@ export default function ClaimDetail(): ReactElement {
                     ))}
                   </Select>
                 </Box>
+                <Meta label="PCN" value={claim.pcn} />
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                     Service
@@ -1421,15 +1425,27 @@ function ReadOnlySection({ title, children }: { title: string; children: React.R
   );
 }
 
-export function Meta({ label, value }: { label: string; value: string }): ReactElement {
+export function Meta({ label, value, copyable }: { label: string; value: string; copyable?: boolean }): ReactElement {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="body2" fontWeight={500}>
-        {value || '-'}
-      </Typography>
+      <Stack
+        direction="row"
+        onClick={async () => {
+          if (copyable) {
+            await navigator.clipboard.writeText(value);
+          }
+        }}
+        style={{ cursor: copyable ? 'pointer' : 'default' }}
+        alignItems="center"
+      >
+        <Typography variant="body2" fontWeight={500}>
+          {value || '-'}
+        </Typography>
+        {copyable ? <ContentCopyIcon sx={{ fontSize: 14, marginLeft: '4px' }} /> : null}
+      </Stack>
     </Box>
   );
 }
