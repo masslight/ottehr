@@ -73,11 +73,11 @@ function WorkingStatus({ elapsed, text, sx }: { elapsed: number; text: string; s
   return (
     <Stack direction="row" spacing={1} alignItems="center" sx={sx}>
       <CircularProgress size={14} sx={{ flexShrink: 0 }} />
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body1" color="text.secondary">
         {text}
       </Typography>
       {elapsed >= SLOW_AFTER_S && (
-        <Typography variant="caption" color="text.disabled" sx={{ whiteSpace: 'nowrap' }}>
+        <Typography variant="body2" color="text.disabled" sx={{ whiteSpace: 'nowrap' }}>
           {formatElapsed(elapsed)}
         </Typography>
       )}
@@ -397,6 +397,7 @@ export function AssistantColumn({
             key={t.doc.id}
             size="small"
             variant="outlined"
+            sx={{ '& .MuiChip-label': { fontSize: '0.875rem' } }}
             label={`${used ? '✓' : ''} ${transcriptLabel(t.doc)}`.trim()}
             // Used (✓) chips stay clickable: the preview is read-only, and its Generate action is
             // the deliberate re-prime path (the durable primed mark would otherwise permanently
@@ -409,7 +410,15 @@ export function AssistantColumn({
           />
         );
       })}
-      {transcriptPending && <Chip size="small" variant="outlined" disabled label="🎤 Transcribing…" />}
+      {transcriptPending && (
+        <Chip
+          size="small"
+          variant="outlined"
+          disabled
+          sx={{ '& .MuiChip-label': { fontSize: '0.875rem' } }}
+          label="🎤 Transcribing…"
+        />
+      )}
     </Stack>
   );
 
@@ -422,11 +431,11 @@ export function AssistantColumn({
       transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
     >
       <Box sx={{ p: 1.5, width: 480, maxWidth: '90vw' }}>
-        <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+        <Typography variant="subtitle2" sx={{ mb: 0.75, fontSize: '0.875rem' }}>
           {transcriptLabel(previewTranscript.doc)}
         </Typography>
         <Box sx={{ maxHeight: '40vh', overflowY: 'auto', p: 1, bgcolor: 'action.hover', borderRadius: 1, mb: 1 }}>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
             {decodeTranscript(previewTranscript.data)}
           </Typography>
         </Box>
@@ -469,7 +478,7 @@ export function AssistantColumn({
   const primeBanner = showPrimeBanner && (
     <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body1" color="text.secondary">
           A visit transcript is available — generate the chart from it?
         </Typography>
         <Button
@@ -506,7 +515,7 @@ export function AssistantColumn({
           }}
         />
         {queuedText !== null && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="body2" color="text.secondary">
             Queued — will send when the current step finishes (a new Send replaces it): &ldquo;
             {queuedText.length > 80 ? `${queuedText.slice(0, 77)}…` : queuedText}&rdquo;
           </Typography>
@@ -530,7 +539,7 @@ export function AssistantColumn({
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontFamily: 'monospace', fontSize: 11, lineHeight: 1.4 }}
+              sx={{ fontFamily: 'monospace', fontSize: 12, lineHeight: 1.4 }}
             >
               🔢 Claude {tokenTally.claudeIn.toLocaleString()} in ({tokenTally.claudeCacheRead.toLocaleString()} cached,{' '}
               {tokenTally.claudeCacheWrite.toLocaleString()} wrote) / {tokenTally.claudeOut.toLocaleString()} out ·
@@ -540,7 +549,7 @@ export function AssistantColumn({
             <Button
               size="small"
               variant="text"
-              sx={{ minWidth: 0, fontSize: 10, textTransform: 'none' }}
+              sx={{ minWidth: 0, fontSize: 11, textTransform: 'none' }}
               onClick={() =>
                 setTokenTally({
                   calls: 0,
@@ -582,7 +591,7 @@ export function AssistantColumn({
         <Stack direction="row" alignItems="center" spacing={0.75}>
           {/* Spinner while a step is actively running; hidden when paused awaiting a picker choice. */}
           {(!conv || !conv.kind.startsWith('choose')) && <CircularProgress size={12} />}
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
             {!conv || !conv.kind.startsWith('choose') ? 'Charting…' : 'Plan'} — step {plan.currentIdx + 1} of{' '}
             {plan.steps.length}
           </Typography>
@@ -609,7 +618,7 @@ export function AssistantColumn({
           return (
             <Typography
               key={i}
-              variant="caption"
+              variant="body2"
               sx={{
                 display: 'block',
                 color,
@@ -657,7 +666,7 @@ export function AssistantColumn({
                   handleRefinePicker(intent, pickerRefineText);
                 }
               }}
-              inputProps={{ style: { fontSize: 13 } }}
+              inputProps={{ style: { fontSize: 14 } }}
             />
             <Button
               size="small"
@@ -701,14 +710,14 @@ export function AssistantColumn({
           variant="outlined"
           sx={{ p: 1.75, width: '100%', borderRadius: '14px 14px 14px 4px', borderColor: 'rgba(237,108,2,0.5)' }}
         >
-          <Typography variant="caption" sx={{ fontWeight: 700, color: 'warning.dark' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'warning.dark' }}>
             Proposed edit — {NOTE_FIELD_LABELS[edit.field] ?? edit.field}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
             {edit.note}
           </Typography>
           <Typography
-            variant="body2"
+            variant="body1"
             sx={{ mt: 0.75, p: 1, bgcolor: 'rgba(0,0,0,0.04)', borderRadius: 1, whiteSpace: 'pre-wrap' }}
           >
             {edit.newText.length > 400 ? `${edit.newText.slice(0, 397)}…` : edit.newText}
@@ -741,7 +750,7 @@ export function AssistantColumn({
           />
         ) : (
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="body2" color="error">
+            <Typography variant="body1" color="error">
               Couldn&apos;t review the note.
             </Typography>
             <Button size="small" onClick={() => void runReview()}>
@@ -778,18 +787,18 @@ export function AssistantColumn({
           />
         )}
         {conv.kind === 'unknown' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             {conv.reply}
           </Typography>
         )}
         {conv.kind === 'no-match' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             No matches found for &ldquo;{conv.intent.display}&rdquo;. Try a different phrasing.
           </Typography>
         )}
         {conv.kind === 'choose' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               {conv.intent.kind === 'add-medication'
                 ? 'Pick the medication — type to search the full catalog:'
                 : `I found ${conv.results.length} matches for “${conv.intent.display}”. Which one?`}
@@ -807,10 +816,7 @@ export function AssistantColumn({
               });
               if (present) return null;
               return (
-                <Typography
-                  variant="caption"
-                  sx={{ display: 'block', mt: 0.5, color: 'warning.dark', fontWeight: 600 }}
-                >
+                <Typography variant="body2" sx={{ display: 'block', mt: 0.5, color: 'warning.dark', fontWeight: 600 }}>
                   ⚠ Requested strength <strong>{conv.intent.strength}</strong> is not in the formulary — these are the
                   closest available options.
                 </Typography>
@@ -833,8 +839,8 @@ export function AssistantColumn({
                     <ListItemText
                       primary={r.name + (r.strength ? ` — ${r.strength}` : '')}
                       secondary={r.code}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
+                      primaryTypographyProps={{ variant: 'body1' }}
+                      secondaryTypographyProps={{ variant: 'body2' }}
                     />
                   </ListItemButton>
                 ))}
@@ -845,31 +851,31 @@ export function AssistantColumn({
         {conv.kind === 'saving' && (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
             <CircularProgress size={14} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="text.secondary">
               Adding {conv.chosenName}…
             </Typography>
           </Stack>
         )}
         {conv.kind === 'done' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             Added <strong>{conv.chosenName}</strong> to the chart.
           </Typography>
         )}
         {conv.kind === 'no-match-remove' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             I couldn&rsquo;t find &ldquo;{conv.intent.display}&rdquo; in the chart.
           </Typography>
         )}
         {conv.kind === 'choose-remove' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               I found {conv.matches.length} matches for &ldquo;{conv.intent.display}&rdquo;. Which one to remove?
             </Typography>
             {renderPickerActions(conv.intent)}
             <List dense sx={{ mt: 0.5 }}>
               {conv.matches.map((m) => (
                 <ListItemButton key={m.resourceId} onClick={() => void handleRemovePick(m, conv.user)}>
-                  <ListItemText primary={m.displayName} primaryTypographyProps={{ variant: 'body2' }} />
+                  <ListItemText primary={m.displayName} primaryTypographyProps={{ variant: 'body1' }} />
                 </ListItemButton>
               ))}
             </List>
@@ -878,31 +884,31 @@ export function AssistantColumn({
         {conv.kind === 'removing' && (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
             <CircularProgress size={14} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="text.secondary">
               Removing {conv.chosenName}…
             </Typography>
           </Stack>
         )}
         {conv.kind === 'removed' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             Removed <strong>{conv.chosenName}</strong> from the chart.
           </Typography>
         )}
         {conv.kind === 'no-match-template' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             I couldn&rsquo;t find a template matching &ldquo;{conv.intent.display}&rdquo;.
           </Typography>
         )}
         {conv.kind === 'choose-template' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               I found {conv.matches.length} templates matching &ldquo;{conv.intent.display}&rdquo;. Which one to apply?
             </Typography>
             {renderPickerActions(conv.intent)}
             <List dense sx={{ mt: 0.5 }}>
               {conv.matches.map((m) => (
                 <ListItemButton key={m.id} onClick={() => void handleApplyTemplate(m, conv.user)}>
-                  <ListItemText primary={m.title} primaryTypographyProps={{ variant: 'body2' }} />
+                  <ListItemText primary={m.title} primaryTypographyProps={{ variant: 'body1' }} />
                 </ListItemButton>
               ))}
             </List>
@@ -911,32 +917,32 @@ export function AssistantColumn({
         {conv.kind === 'applying-template' && (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
             <CircularProgress size={14} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="text.secondary">
               Applying {conv.chosenName}…
             </Typography>
           </Stack>
         )}
         {conv.kind === 'applied-template' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             Applied template <strong>{conv.chosenName}</strong>.
           </Typography>
         )}
         {conv.kind === 'no-match-procedure' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             I couldn&rsquo;t find a procedure matching &ldquo;{conv.intent.display}&rdquo; in this practice&rsquo;s
             quick picks.
           </Typography>
         )}
         {conv.kind === 'choose-procedure' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               I found {conv.matches.length} procedures matching &ldquo;{conv.intent.display}&rdquo;. Which one to add?
             </Typography>
             {renderPickerActions(conv.intent)}
             <List dense sx={{ mt: 0.5 }}>
               {conv.matches.map((m) => (
                 <ListItemButton key={m.id ?? m.name} onClick={() => void handleProcedurePick(m, conv.user)}>
-                  <ListItemText primary={m.name} primaryTypographyProps={{ variant: 'body2' }} />
+                  <ListItemText primary={m.name} primaryTypographyProps={{ variant: 'body1' }} />
                 </ListItemButton>
               ))}
             </List>
@@ -944,27 +950,27 @@ export function AssistantColumn({
         )}
         {conv.kind === 'choose-lab' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               There are {conv.candidates.length} {conv.labKind === 'in-house' ? 'in-house' : 'send-out'} tests matching
               &ldquo;{conv.display}&rdquo;. Which one to order?
             </Typography>
             <List dense sx={{ mt: 0.5 }}>
               {conv.candidates.map((c, i) => (
                 <ListItemButton key={`${c.label}-${i}`} onClick={() => handleLabPick(conv, c)}>
-                  <ListItemText primary={c.label} primaryTypographyProps={{ variant: 'body2' }} />
+                  <ListItemText primary={c.label} primaryTypographyProps={{ variant: 'body1' }} />
                 </ListItemButton>
               ))}
             </List>
           </>
         )}
         {conv.kind === 'no-procedure-to-update' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             There&rsquo;s no procedure on this chart yet to update. Try &ldquo;add lac repair procedure&rdquo; first.
           </Typography>
         )}
         {conv.kind === 'choose-procedure-to-update' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               There are {conv.candidates.length} procedures on this chart. Which one to update?
             </Typography>
             {renderPickerActions(conv.intent)}
@@ -976,7 +982,7 @@ export function AssistantColumn({
                     key={p.resourceId ?? i}
                     onClick={() => void handleProcedureUpdate(p, conv.intent, conv.user)}
                   >
-                    <ListItemText primary={label} primaryTypographyProps={{ variant: 'body2' }} />
+                    <ListItemText primary={label} primaryTypographyProps={{ variant: 'body1' }} />
                   </ListItemButton>
                 );
               })}
@@ -986,37 +992,37 @@ export function AssistantColumn({
         {conv.kind === 'updating-procedure' && (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
             <CircularProgress size={14} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="text.secondary">
               Updating {conv.chosenName}…
             </Typography>
           </Stack>
         )}
         {conv.kind === 'updated-procedure' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             Updated <strong>{conv.chosenName}</strong>: {conv.summary}
           </Typography>
         )}
         {conv.kind === 'editing-note-text' && (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
             <CircularProgress size={14} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body1" color="text.secondary">
               Updating {conv.fieldLabel}…
             </Typography>
           </Stack>
         )}
         {conv.kind === 'edited-note-text' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             Updated <strong>{conv.fieldLabel}</strong>.
           </Typography>
         )}
         {conv.kind === 'no-match-exam' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             I couldn&rsquo;t find an exam finding matching &ldquo;{conv.intent.display}&rdquo;.
           </Typography>
         )}
         {conv.kind === 'choose-exam' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Select the ones
               that apply (you can choose more than one):
             </Typography>
@@ -1044,8 +1050,8 @@ export function AssistantColumn({
                     <ListItemText
                       primary={m.label}
                       secondary={`${m.section} · ${m.normalAbnormal}`}
-                      primaryTypographyProps={{ variant: 'body2' }}
-                      secondaryTypographyProps={{ variant: 'caption' }}
+                      primaryTypographyProps={{ variant: 'body1' }}
+                      secondaryTypographyProps={{ variant: 'body2' }}
                     />
                   </ListItemButton>
                 );
@@ -1066,13 +1072,13 @@ export function AssistantColumn({
           </>
         )}
         {conv.kind === 'no-match-exam-remove' && (
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" sx={{ mt: 0.5 }}>
             I couldn&rsquo;t find anything in the exam matching &ldquo;{conv.intent.display}&rdquo;.
           </Typography>
         )}
         {conv.kind === 'choose-exam-remove' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               I found {conv.matches.length} exam findings matching &ldquo;{conv.intent.display}&rdquo;. Which one to
               remove?
             </Typography>
@@ -1086,8 +1092,8 @@ export function AssistantColumn({
                   <ListItemText
                     primary={m.displayName}
                     secondary={m.section}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
+                    primaryTypographyProps={{ variant: 'body1' }}
+                    secondaryTypographyProps={{ variant: 'body2' }}
                   />
                 </ListItemButton>
               ))}
@@ -1096,27 +1102,27 @@ export function AssistantColumn({
         )}
         {conv.kind === 'choose-ros-remove' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               I found {conv.matches.length} Review of Systems findings matching &ldquo;{conv.display}&rdquo;. Which one
               to remove?
             </Typography>
             <List dense sx={{ mt: 0.5 }}>
               {conv.matches.map((m, i) => (
                 <ListItemButton key={`${m.obs.resourceId}-${i}`} onClick={() => void handleRosRemove(m.obs, conv.user)}>
-                  <ListItemText primary={m.label} primaryTypographyProps={{ variant: 'body2' }} />
+                  <ListItemText primary={m.label} primaryTypographyProps={{ variant: 'body1' }} />
                 </ListItemButton>
               ))}
             </List>
           </>
         )}
         {conv.kind === 'skipped' && (
-          <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
+          <Typography variant="body1" sx={{ mt: 0.5, color: 'text.secondary' }}>
             {conv.reason ? `Skipped — ${conv.reason}` : 'Skipped.'}
           </Typography>
         )}
         {conv.kind === 'choose-ros' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
+            <Typography variant="body1" sx={{ mt: 0.5 }}>
               A few Review of Systems options match &ldquo;{conv.intent.display}&rdquo;. Which did you mean?
             </Typography>
             {renderPickerActions(conv.intent)}
@@ -1131,8 +1137,8 @@ export function AssistantColumn({
                   <ListItemText
                     primary={`${conv.finding === 'denies' ? 'Denies' : 'Reports'} ${m.label}`}
                     secondary={m.system}
-                    primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
+                    primaryTypographyProps={{ variant: 'body1' }}
+                    secondaryTypographyProps={{ variant: 'body2' }}
                   />
                 </ListItemButton>
               ))}
@@ -1140,20 +1146,20 @@ export function AssistantColumn({
           </>
         )}
         {conv.kind === 'error' && (
-          <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+          <Typography variant="body1" color="error" sx={{ mt: 0.5 }}>
             {conv.reply}
           </Typography>
         )}
         {conv.kind === 'plan-preview' && (
           <>
-            <Typography variant="body2" sx={{ mt: 0.5, mb: 1 }}>
+            <Typography variant="body1" sx={{ mt: 0.5, mb: 1 }}>
               Here&rsquo;s what I&rsquo;ll do ({conv.steps.length} step{conv.steps.length === 1 ? '' : 's'}):
             </Typography>
             <Box sx={{ maxHeight: 280, overflowY: 'auto', mb: 1 }}>
               {conv.steps.map((step, i) => (
                 <Typography
                   key={i}
-                  variant="caption"
+                  variant="body2"
                   sx={{
                     display: 'block',
                     color: 'text.secondary',
@@ -1204,7 +1210,7 @@ export function AssistantColumn({
           {thread.length === 0 && !conv && !plan && (
             <Box sx={{ display: 'flex' }}>
               <Paper variant="outlined" sx={{ p: 1.75, width: '100%', borderRadius: '14px 14px 14px 4px' }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body1" color="text.secondary">
                   Paste a dictation to chart the visit, or ask me to add or change anything — e.g.{' '}
                   <em>“add diagnosis sinusitis”</em>. I’ll chart as we go.
                 </Typography>
@@ -1226,7 +1232,7 @@ export function AssistantColumn({
                     borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
                   }}
                 >
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
                     {m.text}
                   </Typography>
                 </Paper>
