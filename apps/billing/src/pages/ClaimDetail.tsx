@@ -56,8 +56,10 @@ import {
   UpdateBillingPatientInput,
   UpdateBillingProviderInput,
   UpdateBillingResourceInput,
+  UpdateBillingResourceInputSchema,
   VALUE_SETS,
 } from 'utils';
+import z from 'zod';
 import {
   createBillingCoverage,
   createBillingProvider,
@@ -100,7 +102,11 @@ import { otherColors } from '../themes/ottehr/colors';
 import { formatCurrency, formatDate } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
-type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
+type UpdateFn = (
+  resourceType: string,
+  resourceId: string,
+  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+) => Promise<string | null>;
 
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
   const arStage = claim.statuses.arStage;
@@ -151,7 +157,11 @@ export default function ClaimDetail(): ReactElement {
   }, [fetchDetail]);
 
   const updateResource = useCallback(
-    async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
+    async (
+      resourceType: string,
+      resourceId: string,
+      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+    ): Promise<string | null> => {
       if (!oystehrZambda || !id) return 'Client not ready';
       try {
         await updateBillingResource(oystehrZambda, {
@@ -272,8 +282,8 @@ export default function ClaimDetail(): ReactElement {
   };
 
   const saveHeader = async (): Promise<void> => {
-    const fields: { type?: string; service?: string; serviceDate?: string } = {};
-    if (claimType && claimType !== claim.type) fields.type = claimType;
+    const fields: { type?: 'professional' | 'institutional'; service?: string; serviceDate?: string } = {};
+    if (claimType && claimType !== claim.type) fields.type = claimType as 'professional' | 'institutional';
     if (service && service !== claim.service) fields.service = service;
     if (serviceDate && serviceDate !== dos) fields.serviceDate = serviceDate;
     if (Object.keys(fields).length === 0) {
@@ -913,9 +923,7 @@ function FacilitySection({
         if (selected?.id) {
           // Selected from some base, add it to claim and update below
           await updateResource('Claim', claim.id, {
-            serviceFacility: {
-              id: selected.id,
-            },
+            facilityId: selected.id,
           });
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           facilityId = updatedClaim.serviceFacilityId;
@@ -923,9 +931,7 @@ function FacilitySection({
           // No base selected, make a new one and attach it, returning early
           const result = await saveBillingServiceFacility(oystehrZambda, payload);
           return updateResource('Claim', claim.id, {
-            serviceFacility: {
-              id: result.id,
-            },
+            facilityId: result.id,
           });
         }
       }
