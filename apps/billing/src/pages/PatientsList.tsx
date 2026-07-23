@@ -177,7 +177,6 @@ export default function PatientsList(): ReactElement {
           placeholder="Patient UUID..."
           value={searchUuid}
           onChange={(e) => handleUuidChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 300 }}
         />
 
@@ -187,7 +186,6 @@ export default function PatientsList(): ReactElement {
           placeholder="Friendly ID..."
           value={searchId}
           onChange={(e) => handleIdChange(e.target.value)}
-          InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 180 }}
         />
 
