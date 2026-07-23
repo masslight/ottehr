@@ -5,6 +5,7 @@ import { enqueueSnackbar } from 'notistack';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { createZ3Object, deleteVisitFiles, getPatientVisitFiles, updateVisitFiles } from 'src/api/api';
 import { DocumentInfo, DocumentType, UpdateVisitFilesInput, VisitDocuments } from 'utils';
+import { downscaleImageForUpload } from 'utils/lib/frontend';
 import { useApiClients } from './useAppClients';
 
 /** The saved front/back images (and their DocumentReference ids) for one card (photo ID or an insurance card). */
@@ -178,15 +179,19 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
       if (Array.isArray(fileBlob)) {
         // Upload each PNG file
         for (let i = 0; i < fileBlob.length; i++) {
-          const blob = fileBlob[i];
-          const pngFileName = fileBlob.length > 1 ? `${fileName}-${i + 1}.png` : `${fileName}.png`;
+          // Shrink oversized scans in the browser before upload; a downscaled blob comes back as JPEG.
+          const blob = await downscaleImageForUpload(fileBlob[i]);
+          const isJpeg = blob.type === 'image/jpeg';
+          const fileExtension = isJpeg ? 'jpg' : 'png';
+          const imageFileName =
+            fileBlob.length > 1 ? `${fileName}-${i + 1}.${fileExtension}` : `${fileName}.${fileExtension}`;
 
           const z3URL = await createZ3Object(
             {
               appointmentID: appointmentId,
               fileType: scannerFileType,
-              fileFormat: 'png',
-              file: new File([blob], pngFileName, { type: 'image/png' }),
+              fileFormat: isJpeg ? 'jpeg' : 'png',
+              file: new File([blob], imageFileName, { type: isJpeg ? 'image/jpeg' : 'image/png' }),
             },
             oystehrZambda
           );

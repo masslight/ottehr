@@ -12,6 +12,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { convertHeicToJpegIfNeeded } from 'ui-components';
 import { GetPresignedFileURLInput, MIME_TYPES } from 'utils';
+import { downscaleImageForUpload } from 'utils/lib/frontend';
 
 interface UploadComponentProps {
   fileName: string;
@@ -66,7 +67,8 @@ const UploadComponent: FC<UploadComponentProps> = ({
       if (files && files.length > 0) {
         // Even though files is an array we know there is always only one file because we don't set the `multiple` attribute on the file input
         const rawFile = files[0];
-        const file = await convertHeicToJpegIfNeeded(rawFile);
+        // Shrink oversized photos in the browser before upload (mirrors the server-side cap).
+        const file = await downscaleImageForUpload(await convertHeicToJpegIfNeeded(rawFile));
         let finalFile = file;
         const fileSizeInMb = file.size / (1024 * 1024);
         // browser-image-compression only handles raster images; never run it on PDFs/other types.
