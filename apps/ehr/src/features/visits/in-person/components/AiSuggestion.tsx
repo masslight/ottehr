@@ -1,4 +1,4 @@
-import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
+import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
 import {
   Box,
   Checkbox,
@@ -32,7 +32,6 @@ import {
   MedicalConditionDTO,
   MedicationDTO,
   ObservationTextFieldDTO,
-  ProcedureSuggestion,
 } from 'utils';
 
 interface SearchResult {
@@ -290,7 +289,6 @@ export interface AiSuggestionProps {
   title: string;
   chartData?: GetChartDataResponse | undefined;
   content?: ObservationTextFieldDTO[];
-  procedureSuggestions?: ProcedureSuggestion[];
   loading?: boolean;
   hideHeader?: boolean;
   onAppendToNote?: (text: string, resourceId?: string) => void;
@@ -301,7 +299,6 @@ export default function AiSuggestion({
   title,
   chartData,
   content,
-  procedureSuggestions,
   loading,
   hideHeader,
   onAppendToNote,
@@ -505,24 +502,6 @@ export default function AiSuggestion({
   }
 
   function SuggestionsItem(): React.ReactElement {
-    if (procedureSuggestions) {
-      return (
-        <>
-          {procedureSuggestions.map((code) => (
-            <>
-              <Typography variant="body1">
-                <strong>{code.code}</strong> &ndash; {code.description}
-                <Tooltip title={code.useWhen}>
-                  <IconButton size="small" sx={{ marginLeft: '5px' }}>
-                    <InfoOutlined sx={{ fontSize: '17px' }} />
-                  </IconButton>
-                </Tooltip>
-              </Typography>
-            </>
-          ))}
-        </>
-      );
-    }
     return (
       <>
         {content

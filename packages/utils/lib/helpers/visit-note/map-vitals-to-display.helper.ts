@@ -89,7 +89,7 @@ export const mapVitalsToDisplay = (
         break;
       case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;
-        const dotLines = getDotVisionScreeningLines(parsed.dotVisionScreening);
+        const dotLines = getDotVisionScreeningLines(parsed.dotVisionScreening, { includeDocument: true });
         if (dotLines.length > 0) {
           // DOT screening entries are stored as their own observation; render the MCSA-5875 layout.
           text = dotLines.join('\n');

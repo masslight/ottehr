@@ -38,6 +38,7 @@ import {
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
+  PATIENT_HAS_MEDICAID_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_NO_EMAIL_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
@@ -104,6 +105,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   // state in paperwork immediately, without waiting for harvest to update the extension.
   const patientNoEmail =
     contactInfo?.noEmail ?? patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
+  // `undefined` (extension absent) is meaningfully different from `false`
+  // (explicitly unchecked) — the checkbox reads unchecked in both cases,
+  // but leaving it undefined lets a later save avoid stamping a redundant
+  // `false` extension on Patients that never had the field touched.
+  const patientHasMedicaid = patient.extension?.find((e) => e.url === PATIENT_HAS_MEDICAID_URL)?.valueBoolean;
   const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
     ?.valueBoolean;
   const patientCommonWellConsent = patient.extension?.find(
@@ -223,6 +229,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'patient-no-email') {
             answer = makeAnswer(patientNoEmail, 'Boolean');
+          }
+          if (linkId === 'patient-has-medicaid' && patientHasMedicaid !== undefined) {
+            answer = makeAnswer(patientHasMedicaid, 'Boolean');
           }
           if (linkId === 'patient-preferred-communication-method' && patientPreferredCommunicationMethod) {
             answer = makeAnswer(patientPreferredCommunicationMethod);
@@ -536,6 +545,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
   const patientPhone = patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value;
   const patientNoEmail = patient.extension?.find((e) => e.url === PATIENT_NO_EMAIL_URL)?.valueBoolean ?? false;
+  // See earlier comment: preserve `undefined` distinct from `false` so we
+  // don't stamp a false extension onto Patients that never touched the flag.
+  const patientHasMedicaid = patient.extension?.find((e) => e.url === PATIENT_HAS_MEDICAID_URL)?.valueBoolean;
 
   const patientEthnicity = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
@@ -636,6 +648,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     }
     if (linkId === 'patient-no-email') {
       answer = makeAnswer(patientNoEmail, 'Boolean');
+    }
+    if (linkId === 'patient-has-medicaid' && patientHasMedicaid !== undefined) {
+      answer = makeAnswer(patientHasMedicaid, 'Boolean');
     }
     if (linkId === 'patient-number' && patientPhone) {
       const formatted = formatPhoneNumberDisplay(patientPhone);

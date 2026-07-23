@@ -1,6 +1,7 @@
 import { TestItem } from '../labs/load-in-house-labs-tests';
 
-// seed data for base ottehr and UK
+// Base in-house lab catalog: the manual / point-of-care strip tests seeded on fresh
+// deployments (recreate-in-house-labs.ts) and loaded by make-in-house-test-items.
 export const testItems: TestItem[] = [
   {
     name: 'Rapid Strep A',
@@ -29,6 +30,7 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
     name: 'Rapid Influenza A',
     methods: {
@@ -57,6 +59,7 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
     name: 'Rapid Influenza B',
     methods: {
@@ -85,6 +88,7 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
     name: 'Rapid RSV',
     methods: {
@@ -113,6 +117,7 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
     name: 'Rapid COVID-19 Antigen',
     methods: {
@@ -141,35 +146,9 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
-    name: 'Flu-Vid',
-    methods: {
-      analyzer: { device: 'Sofia' },
-    },
-    method: 'Analyzer',
-    device: 'Sofia',
-    cptCode: [{ code: '87428' }],
-    loincCode: ['80382-5', '94558-4'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Flu-Vid',
-        loincCode: ['80382-5', '94558-4'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Stool Guaiac',
+    name: 'Stool Guaiac (FOBT)',
     methods: {
       manual: { device: 'None' },
     },
@@ -195,6 +174,7 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
     name: 'Monospot test',
     methods: {
@@ -222,6 +202,7 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
     name: 'Glucose Finger/Heel Stick',
     methods: {
@@ -249,8 +230,9 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
-    name: 'Urinalysis (UA)',
+    name: 'Urinalysis (UA) Dipstick',
     methods: {
       analyzer: { device: 'Clinitek / Multitsix' },
     },
@@ -485,6 +467,7 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
     name: 'Urine Pregnancy Test (HCG)',
     methods: {
@@ -512,181 +495,9 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+
   {
-    name: 'ID Now Strep',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: [{ code: '87651' }],
-    loincCode: ['104724-0'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'ID Now Strep',
-        loincCode: ['104724-0'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Flu A',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: [{ code: '87501' }],
-    loincCode: ['104730-7'],
-    repeatTest: false,
-    note: 'Same CPT as Flu B, same test sample/test as B, but separate result',
-    components: [
-      {
-        componentName: 'Flu A',
-        loincCode: ['104730-7'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Flu B',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: [{ code: '87501' }],
-    loincCode: ['106618-2'],
-    repeatTest: false,
-    note: 'Same CPT as Flu A, same test sample/test as A, but separate result',
-    components: [
-      {
-        componentName: 'Flu B',
-        loincCode: ['106618-2'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'RSV',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: [{ code: '87634' }],
-    loincCode: ['33045-6', '31949-1'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'RSV',
-        loincCode: ['33045-6', '31949-1'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'COVID-19 Antigen',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: [{ code: '87635' }],
-    loincCode: ['96119-3'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'COVID-19 Antigen',
-        loincCode: ['96119-3'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Snellen Test',
-    methods: {
-      manual: { device: 'Snellen Chart' },
-      analyzer: { device: 'Unknown' },
-    },
-    method: 'Manual',
-    device: 'Snellen Chart',
-    cptCode: [{ code: '99173' }],
-    loincCode: ['98497-1'], // Visual Acuity Panel
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Left Eye',
-        loincCode: ['79883-5'], // Visual acuity uncorrected Left eye by Snellen eye chart
-        dataType: 'string' as const,
-        display: {
-          type: 'Free Text',
-          validations: {
-            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' }, // the regex allows values like "20/20", "20/12.5", "20/60-20/70"
-          },
-        },
-      },
-      {
-        componentName: 'Right Eye',
-        loincCode: ['79882-7'], // Visual acuity uncorrected Right eye by Snellen eye chart
-        dataType: 'string' as const,
-        display: {
-          type: 'Free Text',
-          validations: {
-            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' }, // the regex allows values like "20/20", "20/12.5", "20/60-20/70"
-          },
-        },
-      },
-    ],
-  },
-  {
-    name: 'Alcohol Test',
+    name: 'Alcohol Breath/Saliva Test',
     methods: {
       analyzer: { device: 'breathalyzer' },
     },
@@ -708,51 +519,6 @@ export const testItems: TestItem[] = [
         display: {
           type: 'Numeric',
           nullOption: false,
-        },
-        reflexLogic: {
-          testToRun: {
-            testName: 'Alcohol Confirmation Test',
-            // this will need to be updated to match the current version of the AD
-            testCanonicalUrl: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest|1.0.0',
-          },
-          triggerAlert: 'Alcohol ≥ 0.02% requires a confirmation test',
-          condition: {
-            description: 'BAC >= 0.02',
-            language: 'text/fhirpath',
-            expression:
-              "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value >= 0.02",
-          },
-        },
-      },
-    ],
-  },
-  {
-    name: 'Alcohol Confirmation Test',
-    methods: {
-      analyzer: { device: 'breathalyzer' },
-    },
-    method: 'breathalyzer',
-    device: 'breathalyzer',
-    cptCode: [{ code: '82075', modifier: [{ code: '91', display: 'Repeat Clinical Diagnostic Laboratory Test' }] }],
-    loincCode: ['5641-6'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'BAC',
-        loincCode: ['5641-6'],
-        dataType: 'Quantity' as const,
-        normalRange: {
-          low: 0,
-          high: 0.02,
-          unit: '%',
-        },
-        display: {
-          type: 'Numeric',
-          nullOption: false,
-        },
-        reflexLogic: {
-          // this will need to be updated to match the current version of the AD
-          parentTestUrl: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholTest|1.0.0',
         },
       },
     ],

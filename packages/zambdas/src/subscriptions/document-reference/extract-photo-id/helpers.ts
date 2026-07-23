@@ -1,7 +1,13 @@
-import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import { Extension } from 'fhir/r4b';
 import { PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction, PhotoIdExtractionFields } from 'utils';
+import {
+  assertBooleanClassifier,
+  buildExtractionExtension as buildGenericExtractionExtension,
+  buildExtractionPatchOperation as buildGenericExtractionPatchOperation,
+  extractFieldsWithAllNullFold,
+  getExistingExtraction as getGenericExistingExtraction,
+} from '../shared/extraction-helpers';
 
 // same hashing helper the insurance-card pipeline uses — the two extractions share the audit-key format
 export { sha256Hex } from '../extract-insurance-card/helpers';
@@ -97,30 +103,19 @@ export interface ParsedModelResponse {
  * an all-null result is folded into fields=null so the caller writes the notAPhotoId marker.
  */
 export function parseModelResponse(raw: string): ParsedModelResponse {
-  const parsed = JSON.parse(raw);
-  if (parsed == null || typeof parsed !== 'object' || typeof parsed.isPhotoId !== 'boolean') {
-    throw new Error('Model response is not an object with a boolean isPhotoId field');
-  }
+  const parsed = assertBooleanClassifier(JSON.parse(raw), 'isPhotoId');
 
   if (parsed.isPhotoId !== true) {
     return { isPhotoId: false, fields: null };
   }
 
-  const fields = {} as PhotoIdExtractionFields;
-  let anyValue = false;
-  for (const key of EXTRACTION_FIELD_KEYS) {
-    const value = parsed[key];
-    if (typeof value === 'string' && value.trim() !== '') {
-      const trimmed = value.trim();
-      fields[key] = key === 'sex' ? normalizeSex(trimmed) : trimmed;
-      anyValue = true;
-    } else {
-      fields[key] = null;
-    }
+  const fields = extractFieldsWithAllNullFold<PhotoIdExtractionFields>(parsed, EXTRACTION_FIELD_KEYS);
+  if (fields?.sex) {
+    fields.sex = normalizeSex(fields.sex);
   }
 
   // all-null extraction is a permanent no-op condition, same as notAPhotoId
-  return { isPhotoId: true, fields: anyValue ? fields : null };
+  return { isPhotoId: true, fields };
 }
 
 export interface ExistingExtraction {
@@ -135,28 +130,15 @@ export interface ExistingExtraction {
  * re-extraction can overwrite it rather than crashing the subscription.
  */
 export function getExistingExtraction(extensions: Extension[] | undefined): ExistingExtraction {
-  const extensionIndex = (extensions ?? []).findIndex((ext) => ext.url === PHOTO_ID_EXTRACTION_EXTENSION_URL);
-  if (extensionIndex < 0) {
-    return { extraction: null, extensionIndex: -1 };
-  }
-  const valueString = extensions?.[extensionIndex]?.valueString;
-  if (!valueString) {
-    return { extraction: null, extensionIndex };
-  }
-  try {
-    return { extraction: JSON.parse(valueString) as PhotoIdExtraction, extensionIndex };
-  } catch (error) {
-    console.error('Malformed photo-id-extraction extension found; it will be overwritten:', error);
-    captureException(error);
-    return { extraction: null, extensionIndex };
-  }
+  return getGenericExistingExtraction<PhotoIdExtraction>(
+    extensions,
+    PHOTO_ID_EXTRACTION_EXTENSION_URL,
+    'photo-id-extraction'
+  );
 }
 
 export function buildExtractionExtension(extraction: PhotoIdExtraction): Extension {
-  return {
-    url: PHOTO_ID_EXTRACTION_EXTENSION_URL,
-    valueString: JSON.stringify(extraction),
-  };
+  return buildGenericExtractionExtension(PHOTO_ID_EXTRACTION_EXTENSION_URL, extraction);
 }
 
 /**
@@ -170,12 +152,10 @@ export function buildExtractionPatchOperation(
   extensionIndex: number,
   extraction: PhotoIdExtraction
 ): Operation {
-  const extension = buildExtractionExtension(extraction);
-  if (extensions === undefined || extensions.length === 0) {
-    return { op: 'add', path: '/extension', value: [extension] };
-  }
-  if (extensionIndex >= 0) {
-    return { op: 'replace', path: `/extension/${extensionIndex}`, value: extension };
-  }
-  return { op: 'add', path: '/extension/-', value: extension };
+  return buildGenericExtractionPatchOperation(
+    PHOTO_ID_EXTRACTION_EXTENSION_URL,
+    extensions,
+    extensionIndex,
+    extraction
+  );
 }

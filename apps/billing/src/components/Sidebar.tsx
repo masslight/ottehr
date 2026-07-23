@@ -10,10 +10,12 @@ import {
   MedicalServices as MedicalServicesIcon,
   People as PeopleIcon,
   Receipt as ReceiptIcon,
+  Rule as RuleIcon,
 } from '@mui/icons-material';
-import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
-import { FC } from 'react';
+import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
+import { FC, ReactElement } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { otherColors } from '../themes/ottehr/colors';
 
@@ -35,10 +37,51 @@ const navItems = [
   { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
 ];
 
+// The rules engines get their own menu section, separated from the rest by a divider.
+const rulesNavItems = RULES_ENGINE_TYPES.map((engine) => ({
+  label: RULES_ENGINES[engine].label,
+  path: `/rules/${engine}`,
+  icon: <RuleIcon sx={{ fontSize: 18 }} />,
+}));
+
 export const Sidebar: FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth0();
+
+  const renderNavItem = ({ label, path, icon }: (typeof navItems)[number]): ReactElement => {
+    const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
+    return (
+      <ListItemButton
+        key={path}
+        selected={isActive}
+        onClick={() => navigate(path)}
+        sx={{
+          borderRadius: 1,
+          mb: '1px',
+          py: 0.75,
+          px: 1.25,
+          '&:hover': { bgcolor: otherColors.apptHover },
+          '&.Mui-selected': {
+            bgcolor: otherColors.apptHover,
+            color: 'primary.dark',
+            '& .MuiListItemIcon-root': { color: 'primary.dark' },
+          },
+          '&.Mui-selected:hover': { bgcolor: otherColors.formCardBg },
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 28, color: isActive ? 'primary.dark' : 'action.disabled' }}>{icon}</ListItemIcon>
+        <ListItemText
+          primary={label}
+          primaryTypographyProps={{
+            fontSize: 13.5,
+            fontWeight: isActive ? 500 : 450,
+            color: isActive ? 'primary.dark' : 'text.primary',
+          }}
+        />
+      </ListItemButton>
+    );
+  };
 
   return (
     <Drawer
@@ -80,41 +123,9 @@ export const Sidebar: FC = () => {
       </Box>
 
       <List sx={{ px: 1.25, flex: 1, overflow: 'auto', minHeight: 0 }}>
-        {navItems.map(({ label, path, icon }) => {
-          const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
-          return (
-            <ListItemButton
-              key={path}
-              selected={isActive}
-              onClick={() => navigate(path)}
-              sx={{
-                borderRadius: 1,
-                mb: '1px',
-                py: 0.75,
-                px: 1.25,
-                '&:hover': { bgcolor: otherColors.apptHover },
-                '&.Mui-selected': {
-                  bgcolor: otherColors.apptHover,
-                  color: 'primary.dark',
-                  '& .MuiListItemIcon-root': { color: 'primary.dark' },
-                },
-                '&.Mui-selected:hover': { bgcolor: otherColors.formCardBg },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 28, color: isActive ? 'primary.dark' : 'action.disabled' }}>
-                {icon}
-              </ListItemIcon>
-              <ListItemText
-                primary={label}
-                primaryTypographyProps={{
-                  fontSize: 13.5,
-                  fontWeight: isActive ? 500 : 450,
-                  color: isActive ? 'primary.dark' : 'text.primary',
-                }}
-              />
-            </ListItemButton>
-          );
-        })}
+        {navItems.map(renderNavItem)}
+        <Divider sx={{ my: 1 }} />
+        {rulesNavItems.map(renderNavItem)}
       </List>
 
       <List sx={{ px: 1.25 }}>

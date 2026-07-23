@@ -188,6 +188,14 @@ describe('executePageHarvest', () => {
     const result = await executePageHarvest(buildContext('consent-forms-page'));
     expect(result).toBe('consent resources created');
   });
+
+  // Regression: card-payment-page carries the `patient-has-medicaid` boolean, which lives
+  // on the Patient as an extension and is read by the EHR visit details page. If this page
+  // drops out of pageHarvestStrategy the answer silently never reaches the EHR.
+  it('dispatches master-record strategy for card-payment-page', async () => {
+    const result = await executePageHarvest(buildContext('card-payment-page'));
+    expect(result).toBe('master record updated for card-payment-page');
+  });
 });
 
 // ── paymentVariantStrategy ────────────────────────────────────────────────

@@ -255,7 +255,7 @@ const consentStrategy: HarvestStrategyHandler = async (ctx) => {
     questionnaireResponse: pageQr,
     patientResource: patient,
     locationResource: location,
-    appointmentId: appointment.id!,
+    appointment,
     oystehrAccessToken,
     oystehr,
     secrets,

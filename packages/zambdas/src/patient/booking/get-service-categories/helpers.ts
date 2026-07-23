@@ -3,6 +3,25 @@ import { SERVICE_CATEGORIES_AVAILABLE, SERVICE_CATEGORY_SYSTEM, ServiceMode, Ser
 import { ServiceCategory, toRecord } from '../../../ehr/admin-service-categories/helpers';
 
 /**
+ * Convert category-tagged HealthcareServices into ServiceCategory records
+ * (source: 'fhir'), sorted by name. toRecord throws on tagged-but-malformed
+ * records — log per-record and skip so one bad row doesn't blank the picker.
+ */
+export function buildFhirCatalog(fhirResources: HealthcareService[]): ServiceCategory[] {
+  const records: ServiceCategory[] = [];
+  for (const r of fhirResources) {
+    try {
+      const record = toRecord(r);
+      if (record.code) records.push(record);
+    } catch (e) {
+      console.error(`Skipping malformed service-category HealthcareService ${r.id}:`, e);
+    }
+  }
+  records.sort((a, b) => a.name.localeCompare(b.name));
+  return records;
+}
+
+/**
  * Merge the compiled-in BOOKING_CONFIG catalog with the FHIR-registry records.
  *
  * BOOKING_CONFIG is the source of truth for compiled-in codes that
@@ -28,22 +47,10 @@ export function buildCatalog(fhirResources: HealthcareService[]): ServiceCategor
     source: 'booking-config',
   }));
   const bookingCodes = new Set(bookingConfigRecords.map((r) => r.code).filter(Boolean));
-  // toRecord (admin-service-categories/helpers) throws on tagged-but-malformed
-  // HealthcareServices (missing code/name). Log per-record and skip — a single
-  // bad record shouldn't blank the patient-facing catalog. Sort FHIR-only
-  // entries alphabetically by name so picker order is stable regardless of
-  // how the FHIR server returns them. BOOKING_CONFIG entries keep their
-  // compiled-in order (the first entries the patient sees).
-  const fhirOnlyRecords: ServiceCategory[] = [];
-  for (const r of fhirResources) {
-    try {
-      const record = toRecord(r);
-      if (record.code && !bookingCodes.has(record.code)) fhirOnlyRecords.push(record);
-    } catch (e) {
-      console.error(`Skipping malformed service-category HealthcareService ${r.id}:`, e);
-    }
-  }
-  fhirOnlyRecords.sort((a, b) => a.name.localeCompare(b.name));
+  // Sort FHIR-only entries alphabetically by name so picker order is stable
+  // regardless of how the FHIR server returns them. BOOKING_CONFIG entries
+  // keep their compiled-in order (the first entries the patient sees).
+  const fhirOnlyRecords = buildFhirCatalog(fhirResources).filter((r) => !bookingCodes.has(r.code));
   return [...bookingConfigRecords, ...fhirOnlyRecords];
 }
 

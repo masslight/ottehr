@@ -6,15 +6,46 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/visits/in-person/routing/helpers';
+import {
+  getAssessmentUrl,
+  getChiefComplaintUrl,
+  getExternalLabOrderCreateUrl,
+  getHPIUrl,
+  getImmunizationNewOrderUrl,
+  getInHouseLabOrderCreateUrl,
+  getNewMedicationOrderUrl,
+  getNewProceduresUrl,
+  getNursingOrderCreateUrl,
+  getRadiologyOrderCreateUrl,
+  getVitalsUrl,
+} from 'src/features/visits/in-person/routing/helpers';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
+import {
+  useCreateExternalLabStore,
+  useCreateInHouseLabStore,
+  useCreateRadiologyOrderStore,
+  useImmunizationOrderStore,
+  useInHouseMedicationOrderStore,
+  useNursingOrderStore,
+  useProcedureStore,
+  useVitalsDraftStore,
+} from 'src/state/draft-data.store';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAiSuggestionNotes } from '../../stores/appointment/appointment.queries';
-import { useChartData } from '../../stores/appointment/appointment.store';
+import { useAppointmentData, useChartData } from '../../stores/appointment/appointment.store';
 
 export const MissingCard: FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
+  const { encounter } = useAppointmentData();
   const { chartData } = useChartData();
+  const { hasDraft: hasExternalLabDraft } = useCreateExternalLabStore();
+  const { hasDraft: hasInHouseLabDraft } = useCreateInHouseLabStore();
+  const { hasDraft: hasRadiologyDraft } = useCreateRadiologyOrderStore();
+  const { hasDraft: hasProcedureDraft } = useProcedureStore();
+  const { hasDraft: hasNursingOrderDraft } = useNursingOrderStore();
+  const { hasDraft: hasImmunizationDraft } = useImmunizationOrderStore();
+  const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
+  const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
 
   const { data: chartFields, isFetching } = useChartFields({
     requestedFields: {
@@ -79,12 +110,33 @@ export const MissingCard: FC = () => {
     return null;
   }
 
-  const navigateTo = (target: 'patient-info' | 'chief-complaint' | 'hpi' | 'assessment'): void => {
-    const inPersonRoutes: Record<'patient-info' | 'chief-complaint' | 'hpi' | 'assessment', string> = {
+  type NavigationKey =
+    | 'patient-info'
+    | 'chief-complaint'
+    | 'hpi'
+    | 'assessment'
+    | 'external-lab'
+    | 'in-house-lab'
+    | 'radiology'
+    | 'procedure'
+    | 'nursing-order'
+    | 'immunization'
+    | 'in-house-med'
+    | 'vitals';
+  const navigateTo = (target: NavigationKey): void => {
+    const inPersonRoutes: Record<NavigationKey, string> = {
       'patient-info': getChiefComplaintUrl(appointmentIdFromUrl || ''),
       'chief-complaint': getChiefComplaintUrl(appointmentIdFromUrl || ''),
       hpi: getHPIUrl(appointmentIdFromUrl || ''),
       assessment: getAssessmentUrl(appointmentIdFromUrl || ''),
+      'external-lab': getExternalLabOrderCreateUrl(appointmentIdFromUrl || ''),
+      'in-house-lab': getInHouseLabOrderCreateUrl(appointmentIdFromUrl ?? ''),
+      radiology: getRadiologyOrderCreateUrl(appointmentIdFromUrl || ''),
+      procedure: getNewProceduresUrl(appointmentIdFromUrl ?? ''),
+      'nursing-order': getNursingOrderCreateUrl(appointmentIdFromUrl ?? ''),
+      immunization: getImmunizationNewOrderUrl(appointmentIdFromUrl ?? ''),
+      'in-house-med': getNewMedicationOrderUrl(appointmentIdFromUrl ?? ''),
+      vitals: getVitalsUrl(appointmentIdFromUrl ?? ''),
     };
 
     requestAnimationFrame(() => {
@@ -207,6 +259,85 @@ export const MissingCard: FC = () => {
                 {suggestionNote}
               </Link>
             </div>
+          )}
+          {encounter?.id && (
+            <>
+              {hasExternalLabDraft(encounter.id) && (
+                <Link
+                  component="button"
+                  sx={{ cursor: 'pointer' }}
+                  color="error"
+                  onClick={() => navigateTo('external-lab')}
+                >
+                  Draft External Lab Order
+                </Link>
+              )}
+              {hasInHouseLabDraft(encounter.id) && (
+                <Link
+                  component="button"
+                  sx={{ cursor: 'pointer' }}
+                  color="error"
+                  onClick={() => navigateTo('in-house-lab')}
+                >
+                  Draft In-House Lab Order
+                </Link>
+              )}
+              {hasRadiologyDraft(encounter.id) && (
+                <Link
+                  component="button"
+                  sx={{ cursor: 'pointer' }}
+                  color="error"
+                  onClick={() => navigateTo('radiology')}
+                >
+                  Draft Radiology Order
+                </Link>
+              )}
+              {hasProcedureDraft(encounter.id) && (
+                <Link
+                  component="button"
+                  sx={{ cursor: 'pointer' }}
+                  color="error"
+                  onClick={() => navigateTo('procedure')}
+                >
+                  Draft Procedure
+                </Link>
+              )}
+              {hasNursingOrderDraft(encounter.id) && (
+                <Link
+                  component="button"
+                  sx={{ cursor: 'pointer' }}
+                  color="error"
+                  onClick={() => navigateTo('nursing-order')}
+                >
+                  Draft Nursing Order
+                </Link>
+              )}
+              {hasImmunizationDraft(encounter.id) && (
+                <Link
+                  component="button"
+                  sx={{ cursor: 'pointer' }}
+                  color="error"
+                  onClick={() => navigateTo('immunization')}
+                >
+                  Draft Immunization
+                </Link>
+              )}
+              {hasMedDraft(encounter.id) && (
+                <Link
+                  component="button"
+                  sx={{ cursor: 'pointer' }}
+                  color="error"
+                  onClick={() => navigateTo('in-house-med')}
+                >
+                  Draft In-House Medication
+                </Link>
+              )}
+              {hasVitalsDraft(encounter.id) && (
+                <Link component="button" sx={{ cursor: 'pointer' }} color="error" onClick={() => navigateTo('vitals')}>
+                  Draft Vitals
+                </Link>
+              )}
+            </>
           )}
         </Box>
       </Box>

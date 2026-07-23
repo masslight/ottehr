@@ -1,17 +1,18 @@
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import { Communication, Encounter, Extension, FhirResource } from 'fhir/r4b';
+import { Communication, Encounter, Extension, FhirResource, Location } from 'fhir/r4b';
 import {
   AppointmentProviderNotificationTypes,
+  getAllFhirSearchPages,
+  getAllNotificationRows,
   getPatchBinary,
-  getProviderNotificationSettingsForPractitioner,
+  getProviderNotificationPreferencesV2,
   isPhoneNumberValid,
-  PROVIDER_NOTIFICATION_METHOD_URL,
+  PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-  PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
-  PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
+  ProviderNotificationPreferencesV2,
 } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -28,8 +29,11 @@ export const useGetProviderNotifications = (
 ): UseQueryResult<ProviderNotification[], Error> => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
+  // "Phone only" (SMS, no bell) when every enabled row uses the Phone method — the bell has nothing to show.
+  const prefs = getProviderNotificationPreferencesV2(user?.profileResource);
+  const enabledRows = prefs ? getAllNotificationRows(prefs).filter((row) => row.enabled) : [];
   const isPhoneOnly =
-    getProviderNotificationSettingsForPractitioner(user?.profileResource)?.method === ProviderNotificationMethod.phone;
+    enabledRows.length > 0 && enabledRows.every((row) => row.method === ProviderNotificationMethod.phone);
   const queryResult = useQuery({
     queryKey: ['provider-notifications'],
 
@@ -48,11 +52,10 @@ export const useGetProviderNotifications = (
             },
             {
               name: 'category',
-              value: `${PROVIDER_NOTIFICATION_TYPE_SYSTEM}|${[
-                AppointmentProviderNotificationTypes.patient_waiting,
-                AppointmentProviderNotificationTypes.unsigned_charts,
-                AppointmentProviderNotificationTypes.task_assigned,
-              ].join(',')}`,
+              // Derived from the enum so a newly added type can't be silently invisible in the bell.
+              value: `${PROVIDER_NOTIFICATION_TYPE_SYSTEM}|${Object.values(AppointmentProviderNotificationTypes).join(
+                ','
+              )}`,
             },
             {
               name: '_count',
@@ -96,61 +99,78 @@ export const useGetProviderNotifications = (
   return queryResult;
 };
 
-interface UpdateProviderNotificationsParams {
-  method: ProviderNotificationMethod;
-  taskNotificationsEnabled: boolean;
-  telemedNotificationsEnabled: boolean;
+export const useGetAllLocations = (): UseQueryResult<{ id: string; name: string }[], Error> => {
+  const { oystehr } = useApiClients();
+  return useQuery({
+    // Same key + fetch as SchedulePage's active-locations query (shared cache entry); only the `select`
+    // projection differs. Paginated so a capped page can't silently truncate the picker.
+    queryKey: ['ehr-active-locations'],
+    queryFn: async (): Promise<Location[]> => {
+      if (!oystehr) return [];
+      return getAllFhirSearchPages<Location>(
+        { resourceType: 'Location', params: [{ name: 'status', value: 'active' }] },
+        oystehr
+      );
+    },
+    select: (locations): { id: string; name: string }[] =>
+      locations
+        .filter((location): location is Location & { id: string } => !!location.id)
+        .map((location) => ({ id: location.id, name: location.name ?? location.id })),
+    enabled: !!oystehr,
+  });
+};
+
+export interface UpdateProviderNotificationPreferencesParams {
+  preferences: ProviderNotificationPreferencesV2;
   phoneNumber?: string;
 }
 
-export const useUpdateProviderNotificationSettingsMutation = (
-  onSuccess: (params: UpdateProviderNotificationsParams) => void
-): UseMutationResult<UpdateProviderNotificationsParams, Error, UpdateProviderNotificationsParams> => {
+/**
+ * Persists the per-notification-type preferences. Writes the V2 JSON blob as a child of the
+ * settings extension AND the derived legacy method/task/telemed values so any code still reading the old
+ * flat settings keeps working during rollout. Also syncs the SMS phone number telecom.
+ */
+export const useUpdateProviderNotificationPreferencesV2Mutation = (
+  onSuccess: (params: UpdateProviderNotificationPreferencesParams) => void
+): UseMutationResult<
+  UpdateProviderNotificationPreferencesParams,
+  Error,
+  UpdateProviderNotificationPreferencesParams
+> => {
   const user = useEvolveUser();
   const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ['provider-notifications'],
 
-    mutationFn: async ({
-      method,
-      taskNotificationsEnabled,
-      telemedNotificationsEnabled,
-      phoneNumber,
-    }: UpdateProviderNotificationsParams) => {
+    mutationFn: async ({ preferences, phoneNumber }: UpdateProviderNotificationPreferencesParams) => {
       if (!user?.profileResource) throw new Error('User practitioner profile not defined');
 
-      const notificationsExtIndex = (user.profileResource.extension || [])?.findIndex(
+      // V2 blob is the sole source of truth. Legacy flat values (method/task/telemed flags) are no longer
+      // written; the un-migrated read path derives them on the fly (getProviderNotificationPreferencesV2).
+      const newNotificationSettingsExtension: Extension = {
+        url: PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
+        extension: [{ url: PROVIDER_NOTIFICATION_PREFERENCES_V2_URL, valueString: JSON.stringify(preferences) }],
+      };
+
+      const notificationsExtIndex = (user.profileResource.extension || []).findIndex(
         (ext) => ext.url === PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL
       );
 
-      const newNotificationSettingsExtension: Extension[] = [
-        {
-          url: PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-          extension: [
-            { url: PROVIDER_NOTIFICATION_METHOD_URL, valueString: method },
-            { url: PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL, valueBoolean: taskNotificationsEnabled },
-            { url: PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL, valueBoolean: telemedNotificationsEnabled },
-          ],
-        },
-      ];
-
       const operations: Operation[] = [];
-
       if (!user.profileResource.extension) {
-        operations.push({ op: 'add', path: '/extension', value: newNotificationSettingsExtension });
+        operations.push({ op: 'add', path: '/extension', value: [newNotificationSettingsExtension] });
       } else {
         operations.push({
           op: notificationsExtIndex >= 0 ? 'replace' : 'add',
           path: `/extension/${notificationsExtIndex >= 0 ? notificationsExtIndex : '-'}`,
-          value: newNotificationSettingsExtension[0],
+          value: newNotificationSettingsExtension,
         });
       }
 
-      const isValidPhoneNumber = isPhoneNumberValid(phoneNumber);
-      if (
-        [ProviderNotificationMethod['phone'], ProviderNotificationMethod['phone and computer']].includes(method) &&
-        isValidPhoneNumber
-      ) {
+      // Persist any valid number regardless of method — a 'computer' user must not lose what they typed
+      // on reload. SMS is still only *sent* for phone methods (see the cron).
+      if (isPhoneNumberValid(phoneNumber)) {
         const telecoms = user.profileResource.telecom;
         const smsIndex = telecoms?.findIndex((t) => t.system === 'sms');
         if (smsIndex !== undefined && smsIndex >= 0) {
@@ -167,10 +187,15 @@ export const useUpdateProviderNotificationSettingsMutation = (
         resourceType: 'Practitioner',
         operations,
       });
-      return { method, taskNotificationsEnabled, telemedNotificationsEnabled, phoneNumber };
+      return { preferences, phoneNumber };
     },
 
-    onSuccess,
+    onSuccess: (params) => {
+      // Refetch the cached profile — a second save would otherwise compute patch indices from a stale
+      // profileResource and append a duplicate settings extension and/or `sms` telecom.
+      void queryClient.refetchQueries({ queryKey: ['get-practitioner-profile'] });
+      onSuccess(params);
+    },
   });
 };
 

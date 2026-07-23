@@ -263,7 +263,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
             pb: 1,
           }}
         >
-          <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 600 }}>
+          <Typography variant="h4" component="span" color="primary.dark" sx={{ fontWeight: 600 }}>
             {editingItem ? `Edit ${itemLabel}` : `Add ${itemLabel}`}
           </Typography>
           <IconButton onClick={() => setDialogOpen(false)} size="small" disabled={saving}>

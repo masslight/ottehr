@@ -6,7 +6,7 @@ import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
   getSecret,
-  MIME_TYPES,
+  normalizePatientEducationLanguage,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
   SavePatientEducationPdfInput,
   SavePatientEducationPdfOutput,
@@ -52,6 +52,9 @@ const performEffect = async (
   token: string
 ): Promise<SavePatientEducationPdfOutput> => {
   const { encounterId, patientId, title, secrets } = validatedInput;
+  // Tag the attachment's language so EN/ES versions can be told apart; default to English (matches
+  // the approved-PDF endpoint and how legacy untagged docs are read back).
+  const language = normalizePatientEducationLanguage(validatedInput.language);
   console.log('Saving patient education PDF', {
     encounterId,
     patientId,
@@ -61,7 +64,7 @@ const performEffect = async (
   });
 
   const pdfBytes = validatedInput.sections
-    ? await createPatientEducationPdf(validatedInput.sections)
+    ? await createPatientEducationPdf(validatedInput.sections, language)
     : Uint8Array.from(Buffer.from(validatedInput.pdfBase64, 'base64'));
 
   const z3Url = makeZ3Url({
@@ -71,7 +74,7 @@ const performEffect = async (
     fileName: 'PatientEducation.pdf',
   });
   const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUploadUrl, MIME_TYPES.PDF);
+  await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
 
   // Return a download URL alongside the DocumentReference so the UI can open the newly
   // approved PDF without a second round-trip (DocumentReference fetch + presign).
@@ -104,6 +107,7 @@ const performEffect = async (
             url: z3Url,
             contentType: 'application/pdf',
             title,
+            language,
           },
         },
       ],

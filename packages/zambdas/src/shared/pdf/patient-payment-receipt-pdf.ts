@@ -27,7 +27,6 @@ import {
   getPhoneNumberForIndividual,
   getSecret,
   getStripeCustomerIdFromAccount,
-  MIME_TYPES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   RECEIPT_CODE,
@@ -583,7 +582,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUrl, MIME_TYPES.PDF);
+  await uploadObjectToZ3(pdfBytes, presignedUrl);
 }
 
 async function createReplaceReceiptOnZ3(

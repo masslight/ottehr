@@ -2,7 +2,12 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { deletePatientDocument } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ApprovedPatientEducationItem, CommunicationDTO, fitWrappedTextToBanner } from 'utils';
+import {
+  ApprovedPatientEducationItem,
+  CommunicationDTO,
+  fitWrappedTextToBanner,
+  PatientEducationLanguage,
+} from 'utils';
 import { useAppointmentData, useChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 
@@ -45,10 +50,23 @@ export interface EducationSection {
 
 export type GenerateOutcome = 'review' | 'completed';
 
+// Key for the per-(code, language) maps below: a code can have both an English and a Spanish
+// variant (approved PDF or prefetched content), so the language is part of the key.
+const educationKey = (code: string, language: PatientEducationLanguage): string => `${code}:${language}`;
+
+export const stripPatientEducationTitlePrefix = (title: string): string =>
+  title.replace(/^(Patient Education|Educación del paciente):\s*/i, '');
+
+export const formatPatientEducationDocumentTitle = (title: string, language: PatientEducationLanguage): string =>
+  `${language === 'es' ? 'Educación del paciente' : 'Patient Education'}: ${title}`;
+
 export interface UsePatientEducationResult {
-  prefetchAllDiagnoses: () => void;
-  generateDiagnoses: (diagnoses: DiagnosisOption[]) => Promise<GenerateOutcome | null>;
-  saveFromSections: (sections: EducationSection[]) => Promise<boolean>;
+  prefetchAllDiagnoses: (language: PatientEducationLanguage) => void;
+  generateDiagnoses: (
+    diagnoses: DiagnosisOption[],
+    language: PatientEducationLanguage
+  ) => Promise<GenerateOutcome | null>;
+  saveFromSections: (sections: EducationSection[], language: PatientEducationLanguage) => Promise<boolean>;
   generatedSections: EducationSection[] | null;
   clearGeneratedSections: () => void;
   isLoading: boolean;
@@ -56,7 +74,11 @@ export interface UsePatientEducationResult {
   error: string | null;
   progress: string | null;
   allDiagnoses: DiagnosisOption[];
-  approvedByCode: Map<string, ApprovedPatientEducationItem>;
+  // The approved PDF for a code in a given language, if one exists (codes can have EN and ES variants).
+  approvedFor: (code: string, language: PatientEducationLanguage) => ApprovedPatientEducationItem | undefined;
+  // Language to default the generate dialog to — the patient's preferred language when it's one we
+  // support (Spanish), else English. The clinician can still change it (never auto-generates).
+  defaultLanguage: PatientEducationLanguage;
 }
 
 export function usePatientEducation(): UsePatientEducationResult {
@@ -77,6 +99,12 @@ export function usePatientEducation(): UsePatientEducationResult {
     isPrimary: d.isPrimary,
   }));
 
+  // Default the language selector to the patient's preferred language when it's one we support.
+  const preferredLanguageCode = patient?.communication
+    ?.find((c) => c.preferred)
+    ?.language?.coding?.[0]?.code?.toLowerCase();
+  const defaultLanguage: PatientEducationLanguage = preferredLanguageCode?.startsWith('es') ? 'es' : 'en';
+
   const [approvedByCode, setApprovedByCode] = useState<Map<string, ApprovedPatientEducationItem>>(new Map());
   // The full selection from the most recent generateDiagnoses call, preserved
   // so saveFromSections can merge approved PDFs with newly-rendered content.
@@ -92,7 +120,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         const map = new Map<string, ApprovedPatientEducationItem>();
         for (const item of res.items) {
           for (const icd of item.icdCodes) {
-            map.set(icd.code, item);
+            map.set(educationKey(icd.code, item.language), item);
           }
         }
         setApprovedByCode(map);
@@ -110,47 +138,67 @@ export function usePatientEducation(): UsePatientEducationResult {
     setError(null);
   }, []);
 
-  // Prefetch cache: fires off requests for all non-approved diagnoses as soon as the modal opens
+  // The approved PDF for a code in a specific language, if one exists. A code can have an English
+  // and a Spanish variant; only the matching-language one is used (else we generate fresh).
+  const approvedFor = useCallback(
+    (code: string, lang: PatientEducationLanguage): ApprovedPatientEducationItem | undefined =>
+      approvedByCode.get(educationKey(code, lang)),
+    [approvedByCode]
+  );
+
+  // Prefetch cache: fires off requests for all non-approved diagnoses as soon as the modal opens.
   const prefetchCacheRef = useRef<Map<string, Promise<EducationSection | null>>>(new Map());
 
-  const prefetchAllDiagnoses = useCallback(() => {
-    if (!apiClient) return;
-    for (const diagnosis of allDiagnoses) {
-      if (approvedByCode.has(diagnosis.code)) continue;
-      if (prefetchCacheRef.current.has(diagnosis.code)) continue;
-      const promise = apiClient
-        .generatePatientEducation({
-          icdCode: diagnosis.code,
-          icdDescription: diagnosis.display,
-        })
-        .then((result): EducationSection | null =>
-          result.content
-            ? {
-                content: result.content,
-                patientTitle: result.patientTitle || diagnosis.display,
-                icdCode: diagnosis.code,
-                icdDescription: diagnosis.display,
-              }
-            : null
-        )
-        .catch((err) => {
-          console.error(`Prefetch failed for ${diagnosis.code}:`, err);
-          prefetchCacheRef.current.delete(diagnosis.code);
-          return null;
-        });
-      prefetchCacheRef.current.set(diagnosis.code, promise);
-    }
-  }, [apiClient, allDiagnoses, approvedByCode]);
+  const prefetchAllDiagnoses = useCallback(
+    (language: PatientEducationLanguage) => {
+      if (!apiClient) return;
+      for (const diagnosis of allDiagnoses) {
+        // Skip generating a code that already has an approved PDF in the chosen language.
+        if (approvedFor(diagnosis.code, language)) continue;
+        const key = educationKey(diagnosis.code, language);
+        if (prefetchCacheRef.current.has(key)) continue;
+        const promise = apiClient
+          .generatePatientEducation({
+            icdCode: diagnosis.code,
+            icdDescription: diagnosis.display,
+            language,
+          })
+          .then((result): EducationSection | null =>
+            result.content
+              ? {
+                  content: result.content,
+                  patientTitle: result.patientTitle || diagnosis.display,
+                  icdCode: diagnosis.code,
+                  icdDescription: diagnosis.display,
+                }
+              : null
+          )
+          .catch((err) => {
+            console.error(`Prefetch failed for ${diagnosis.code}:`, err);
+            prefetchCacheRef.current.delete(key);
+            return null;
+          });
+        prefetchCacheRef.current.set(key, promise);
+      }
+    },
+    [apiClient, allDiagnoses, approvedFor]
+  );
 
   const buildAndSaveMergedPdf = useCallback(
-    async (selection: DiagnosisOption[], sections: EducationSection[]): Promise<void> => {
+    async (
+      selection: DiagnosisOption[],
+      sections: EducationSection[],
+      language: PatientEducationLanguage
+    ): Promise<void> => {
       if (!apiClient) {
         setError('API client not available.');
         return;
       }
 
       const sectionsByCode = new Map(sections.map((section) => [section.icdCode, section]));
-      const hasApprovedContent = selection.some((dx) => approvedByCode.has(dx.code));
+      // Use only approved PDFs whose language matches the document being produced — never splice an
+      // English approved PDF into a Spanish document (and vice versa).
+      const hasApprovedContent = selection.some((dx) => approvedFor(dx.code, language));
 
       let mergedPdfBytes: Uint8Array | undefined;
 
@@ -167,7 +215,7 @@ export function usePatientEducation(): UsePatientEducationResult {
         };
 
         for (const dx of selection) {
-          const approved = approvedByCode.get(dx.code);
+          const approved = approvedFor(dx.code, language);
           if (approved) {
             // One approved item can cover multiple ICD codes; append each item only once.
             if (appendedApprovedIds.has(approved.documentReferenceId)) continue;
@@ -191,7 +239,7 @@ export function usePatientEducation(): UsePatientEducationResult {
             throw new Error(`Generated content for ${dx.code} is missing.`);
           }
 
-          const generatedBytes = await generateCombinedPdf([generatedSection]);
+          const generatedBytes = await generateCombinedPdf([generatedSection], language);
           await appendPdfPages(generatedBytes);
         }
 
@@ -201,17 +249,17 @@ export function usePatientEducation(): UsePatientEducationResult {
       const titleParts: string[] = [];
       const titledApprovedIds = new Set<string>();
       for (const dx of selection) {
-        const approved = approvedByCode.get(dx.code);
+        const approved = approvedFor(dx.code, language);
         if (approved) {
           if (titledApprovedIds.has(approved.documentReferenceId)) continue;
           titledApprovedIds.add(approved.documentReferenceId);
-          titleParts.push(approved.title.replace(/^Patient Education:\s*/, '') || dx.display);
+          titleParts.push(stripPatientEducationTitlePrefix(approved.title) || dx.display);
         } else {
           const section = sections.find((s) => s.icdCode === dx.code);
           titleParts.push(section?.patientTitle || dx.display);
         }
       }
-      const title = 'Patient Education: ' + titleParts.join(', ');
+      const title = formatPatientEducationDocumentTitle(titleParts.join(', '), language);
 
       const { documentReferenceId, presignedDownloadUrl } = await apiClient.savePatientEducationPdf(
         mergedPdfBytes
@@ -220,12 +268,14 @@ export function usePatientEducation(): UsePatientEducationResult {
               patientId: patient!.id!,
               pdfBase64: uint8ArrayToBase64(mergedPdfBytes),
               title,
+              language,
             }
           : {
               encounterId: encounter.id!,
               patientId: patient!.id!,
               sections,
               title,
+              language,
             }
       );
 
@@ -275,7 +325,7 @@ export function usePatientEducation(): UsePatientEducationResult {
     },
     [
       apiClient,
-      approvedByCode,
+      approvedFor,
       chartData?.instructions,
       encounter,
       patient,
@@ -286,7 +336,10 @@ export function usePatientEducation(): UsePatientEducationResult {
   );
 
   const generateDiagnoses = useCallback(
-    async (selectedDiagnoses: DiagnosisOption[]): Promise<GenerateOutcome | null> => {
+    async (
+      selectedDiagnoses: DiagnosisOption[],
+      language: PatientEducationLanguage
+    ): Promise<GenerateOutcome | null> => {
       if (selectedDiagnoses.length === 0) {
         setError('No diagnoses selected.');
         return null;
@@ -302,7 +355,8 @@ export function usePatientEducation(): UsePatientEducationResult {
       setGeneratedSections(null);
       lastSelectionRef.current = selectedDiagnoses;
 
-      const toGenerate = selectedDiagnoses.filter((d) => !approvedByCode.has(d.code));
+      // Generate every selected code that lacks an approved PDF in the chosen language.
+      const toGenerate = selectedDiagnoses.filter((d) => !approvedFor(d.code, language));
 
       try {
         // Fast path: every selected diagnosis has a pre-approved PDF — skip review and merge directly.
@@ -310,7 +364,7 @@ export function usePatientEducation(): UsePatientEducationResult {
           setIsLoading(false);
           setIsSaving(true);
           try {
-            await buildAndSaveMergedPdf(selectedDiagnoses, []);
+            await buildAndSaveMergedPdf(selectedDiagnoses, [], language);
             return 'completed';
           } finally {
             setIsSaving(false);
@@ -322,12 +376,13 @@ export function usePatientEducation(): UsePatientEducationResult {
           const diagnosis = toGenerate[i];
           setProgress(`Loading ${i + 1} of ${toGenerate.length}: ${diagnosis.display}...`);
 
-          let sectionPromise = prefetchCacheRef.current.get(diagnosis.code);
+          let sectionPromise = prefetchCacheRef.current.get(educationKey(diagnosis.code, language));
           if (!sectionPromise) {
             sectionPromise = apiClient
               .generatePatientEducation({
                 icdCode: diagnosis.code,
                 icdDescription: diagnosis.display,
+                language,
               })
               .then((result): EducationSection | null =>
                 result.content
@@ -361,11 +416,11 @@ export function usePatientEducation(): UsePatientEducationResult {
         setProgress(null);
       }
     },
-    [apiClient, approvedByCode, buildAndSaveMergedPdf]
+    [apiClient, approvedFor, buildAndSaveMergedPdf]
   );
 
   const saveFromSections = useCallback(
-    async (sections: EducationSection[]): Promise<boolean> => {
+    async (sections: EducationSection[], language: PatientEducationLanguage): Promise<boolean> => {
       if (!apiClient) {
         setError('API client not available.');
         return false;
@@ -373,7 +428,7 @@ export function usePatientEducation(): UsePatientEducationResult {
       setIsSaving(true);
       setError(null);
       try {
-        await buildAndSaveMergedPdf(lastSelectionRef.current, sections);
+        await buildAndSaveMergedPdf(lastSelectionRef.current, sections, language);
         setGeneratedSections(null);
         return true;
       } catch (err) {
@@ -399,7 +454,8 @@ export function usePatientEducation(): UsePatientEducationResult {
     error,
     progress,
     allDiagnoses,
-    approvedByCode,
+    approvedFor,
+    defaultLanguage,
   };
 }
 
@@ -516,7 +572,8 @@ const FOOTER = {
 } as const;
 
 export async function generateCombinedPdf(
-  sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[]
+  sections: { content: string; patientTitle: string; icdCode: string; icdDescription: string }[],
+  language: PatientEducationLanguage = 'en'
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -548,16 +605,26 @@ export async function generateCombinedPdf(
       font: helveticaOblique,
       color: TEXT_LIGHT,
     });
-    const formattedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    page.drawText(`Generated: ${formattedDate}  |  Source: MedlinePlus`, {
+    const formattedDate = new Date().toLocaleDateString(language === 'es' ? 'es-US' : 'en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const sourceText =
+      language === 'es'
+        ? `Generado: ${formattedDate}  |  Fuente: MedlinePlus`
+        : `Generated: ${formattedDate}  |  Source: MedlinePlus`;
+    page.drawText(sourceText, {
       x: PAGE.MARGIN,
       y: PAGE.MARGIN - FOOTER.SECONDARY_Y_OFFSET,
       size: TYPOGRAPHY.FOOTER_FONT_SIZE,
       font: helvetica,
       color: TEXT_LIGHT,
     });
-    page.drawText(`Page ${pageNum} of ${totalPages}`, {
-      x: PAGE.WIDTH - PAGE.MARGIN - FOOTER.PAGE_NUM_X_OFFSET,
+    const pageNumberText =
+      language === 'es' ? `Página ${pageNum} de ${totalPages}` : `Page ${pageNum} of ${totalPages}`;
+    page.drawText(pageNumberText, {
+      x: PAGE.WIDTH - PAGE.MARGIN - helvetica.widthOfTextAtSize(pageNumberText, TYPOGRAPHY.FOOTER_FONT_SIZE),
       y: PAGE.MARGIN - FOOTER.PRIMARY_Y_OFFSET,
       size: TYPOGRAPHY.FOOTER_FONT_SIZE,
       font: helvetica,

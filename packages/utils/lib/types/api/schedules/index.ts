@@ -11,6 +11,7 @@ export interface UpdateScheduleParams {
   active?: Schedule['active'];
   closures?: Closure[];
   isVirtual?: boolean;
+  isInPerson?: boolean;
   stripeAccountId?: string | null;
   advapacsLocationId?: string | null;
   rooms?: string[];

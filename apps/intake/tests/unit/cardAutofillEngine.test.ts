@@ -1,6 +1,4 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-import { InsuranceCardExtractionFields, PhotoIdExtractionFields } from 'utils';
-import { describe, expect, it } from 'vitest';
 import {
   buildInsuranceFills,
   buildPhotoIdFills,
@@ -10,7 +8,9 @@ import {
   mergeInsuranceFields,
   normalizeZipForFill,
   payerIdFromOptionReference,
-} from '../../src/features/paperwork/hooks/cardAutofillEngine';
+} from 'ui-components/lib/components/paperwork/hooks/cardAutofillEngine';
+import { InsuranceCardExtractionFields, PhotoIdExtractionFields } from 'utils';
+import { describe, expect, it } from 'vitest';
 
 // Options as get-patient-insurance-payers returns them: valueReference.reference is
 // constructPayerUrl(payerId) — the payer ID is the URL's last path segment — and display is
@@ -206,7 +206,10 @@ describe('buildInsuranceFills — slot → field mapping', () => {
 
   it('maps to the "-2" linkIds for the secondary ordinal', () => {
     const { fills } = buildInsuranceFills(fields, PAYER_OPTIONS, 'secondary');
-    expect(fills.map((fill) => fill.linkId)).toEqual(['insurance-member-id-2', 'insurance-carrier-2']);
+    expect(fills.map((fill: { linkId: string }) => fill.linkId)).toEqual([
+      'insurance-member-id-2',
+      'insurance-carrier-2',
+    ]);
   });
 
   it('surfaces an unmatched carrier as a hint instead of filling', () => {

@@ -27,20 +27,22 @@ const performEffect = async (
   validatedInput: GeneratePatientEducationInput & Pick<ZambdaInput, 'secrets'>
 ): Promise<GeneratePatientEducationOutput> => {
   const { icdCode, icdDescription, secrets } = validatedInput;
+  const language = validatedInput.language ?? 'en';
 
-  // Step 1: Get MedlinePlus links for the diagnosis
-  const links = await fetchMedlineLinks(icdCode);
+  // Step 1: Get MedlinePlus links for the diagnosis, in the requested language
+  const links = await fetchMedlineLinks(icdCode, language);
   if (links.length === 0) {
     return {
       content: null,
       error: `No MedlinePlus resources found for ICD code ${icdCode} (${icdDescription}).`,
       icdCode,
       icdDescription,
+      language,
     };
   }
 
-  // Step 2: Ask Gemini to write the education materials grounded in those links
-  const prompt = buildEducationPrompt(icdDescription, links);
+  // Step 2: Ask Gemini to write the education materials grounded in those links, in the language
+  const prompt = buildEducationPrompt(icdDescription, links, language);
   const responseText = await invokeChatbotVertexAI([{ text: prompt }], secrets);
 
   let content: string;
@@ -60,6 +62,7 @@ const performEffect = async (
     patientTitle,
     icdCode,
     icdDescription,
+    language,
     links,
   };
 };

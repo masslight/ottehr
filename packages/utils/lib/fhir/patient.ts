@@ -20,15 +20,20 @@ import {
 } from 'fhir/r4b';
 import { formatZipcodeForDisplay, isValidErxPhoneNumber, removePrefix } from '../helpers';
 import {
+  buildDefaultTaskCategoryPrefs,
+  defaultNotificationRowPref,
+  normalizeNotificationPreferencesV2,
   ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PatientInfo,
   PROVIDER_NOTIFICATION_METHOD_URL,
+  PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATIONS_ENABLED_URL,
   PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
   PROVIDER_TELEMED_NOTIFICATIONS_ENABLED_URL,
   ProviderNotificationMethod,
+  ProviderNotificationPreferencesV2,
   ProviderNotificationSettings,
   RelatedPersonMaps,
 } from '../types';
@@ -791,6 +796,58 @@ export const getProviderNotificationSettingsForPractitioner = (
     telemedNotificationsEnabled,
     phoneNumber,
   };
+};
+
+/**
+ * Reads the per-notification-type preferences from the Practitioner. Prefers the V2 JSON blob
+ * stored in a child of `PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL`; if absent (un-migrated staff),
+ * derives a sensible default from the legacy flat settings so existing behavior is preserved.
+ */
+export const getProviderNotificationPreferencesV2 = (
+  practitioner?: Practitioner
+): ProviderNotificationPreferencesV2 | undefined => {
+  if (!practitioner) return undefined;
+  const settingsExtension = practitioner.extension?.find(
+    (extension) => extension.url === PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL
+  );
+  const v2Raw = settingsExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_NOTIFICATION_PREFERENCES_V2_URL
+  )?.valueString;
+
+  const legacy = getProviderNotificationSettingsForPractitioner(practitioner);
+  const fallbackMethod = legacy?.method ?? ProviderNotificationMethod['phone and computer'];
+
+  if (v2Raw) {
+    try {
+      return normalizeNotificationPreferencesV2(
+        JSON.parse(v2Raw) as Partial<ProviderNotificationPreferencesV2>,
+        fallbackMethod
+      );
+    } catch (error) {
+      console.error('Failed to parse provider notification preferences v2', error);
+    }
+  }
+
+  if (!legacy) return undefined;
+  return {
+    version: 2,
+    virtualVisitScheduled: defaultNotificationRowPref(legacy.telemedNotificationsEnabled, fallbackMethod),
+    waitingRoom: defaultNotificationRowPref(legacy.telemedNotificationsEnabled, fallbackMethod),
+    taskCategories: buildDefaultTaskCategoryPrefs(legacy.taskNotificationsEnabled, fallbackMethod),
+  };
+};
+
+/**
+ * Whether the practitioner has an EXPLICIT V2 preferences blob (i.e. they've saved the new settings page),
+ * as opposed to the derived-from-legacy fallback. The category engine acts only on explicit-V2 staff;
+ * un-migrated staff stay on the legacy assignment path to avoid mass-notifying everyone about every task.
+ */
+export const hasExplicitProviderNotificationPreferencesV2 = (practitioner?: Practitioner): boolean => {
+  return (
+    practitioner?.extension
+      ?.find((extension) => extension.url === PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL)
+      ?.extension?.some((extension) => extension.url === PROVIDER_NOTIFICATION_PREFERENCES_V2_URL) === true
+  );
 };
 
 export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner: Practitioner): boolean => {
