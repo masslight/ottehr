@@ -153,6 +153,11 @@ export interface ScheduleDTOOwner {
   slug: string;
   active: boolean;
   detailText?: string; // to take place of Location.address.line[0]
+  // NOTE: not the source of truth for displayed hours. Operating hours live in the
+  // Schedule extension (edited on the Schedule tab); every UI that shows "hours"
+  // reads that via getHoursOfOperationForToday. This mirrors Location.hoursOfOperation,
+  // which currently has no reader — do NOT add a Location.hoursOfOperation editor, as
+  // it would create a second, competing source of truth.
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
   isVirtual?: boolean;

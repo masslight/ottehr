@@ -101,7 +101,12 @@ export default function EditVirtualLocationPage(): JSX.Element {
         ...originalLocation.address,
         state: formData.state,
       },
-      status: formData.operateInLocation ? 'active' : 'suspended',
+      // 'inactive' (not 'suspended') is the soft-delete/archive status across the app:
+      // admin-set-schedule-owner-active uses it, and the booking paths filter on it
+      // (list-bookables requires status==='active'; getSchedules filters status:not=inactive).
+      // 'suspended' would drop the location from the bookables list but STILL let a direct
+      // link resolve and vend slots — so it must be 'inactive' to fully leave patient booking.
+      status: formData.operateInLocation ? 'active' : 'inactive',
     };
 
     mutation.mutate(

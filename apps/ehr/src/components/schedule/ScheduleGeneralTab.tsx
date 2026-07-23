@@ -71,6 +71,7 @@ export default function ScheduleGeneralTab({
   const [newRoom, setNewRoom] = useState<string>('');
   const [description, setDescription] = useState<string>(item.owner.description ?? '');
   const [addressLine, setAddressLine] = useState<string>(item.owner.address?.line?.[0] ?? '');
+  const [addressLine2, setAddressLine2] = useState<string>(item.owner.address?.line?.[1] ?? '');
   const [addressCity, setAddressCity] = useState<string>(item.owner.address?.city ?? '');
   const [addressState, setAddressState] = useState<string>(item.owner.address?.state ?? '');
   const [addressPostalCode, setAddressPostalCode] = useState<string>(item.owner.address?.postalCode ?? '');
@@ -91,6 +92,7 @@ export default function ScheduleGeneralTab({
     setRooms(toRoomEntries(item.owner.rooms ?? []));
     setDescription(item.owner.description ?? '');
     setAddressLine(item.owner.address?.line?.[0] ?? '');
+    setAddressLine2(item.owner.address?.line?.[1] ?? '');
     setAddressCity(item.owner.address?.city ?? '');
     setAddressState(item.owner.address?.state ?? '');
     setAddressPostalCode(item.owner.address?.postalCode ?? '');
@@ -193,16 +195,18 @@ export default function ScheduleGeneralTab({
 
   const buildAddressPayload = (): UpdateScheduleParams['address'] => {
     const line = addressLine.trim();
+    const line2 = addressLine2.trim();
     const city = addressCity.trim();
     const state = addressState.trim();
     const postalCode = addressPostalCode.trim();
-    if (!line && !city && !state && !postalCode) {
+    if (!line && !line2 && !city && !state && !postalCode) {
       return null;
     }
+    const lines = [line, line2].filter((segment) => segment !== '');
     return {
       use: 'work',
       type: 'physical',
-      line: line ? [line] : undefined,
+      line: lines.length > 0 ? lines : undefined,
       city: city || undefined,
       state: state || undefined,
       postalCode: postalCode || undefined,
@@ -377,6 +381,12 @@ export default function ScheduleGeneralTab({
                     label="Street"
                     value={addressLine}
                     onChange={(event) => setAddressLine(event.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Street line 2"
+                    value={addressLine2}
+                    onChange={(event) => setAddressLine2(event.target.value)}
                     fullWidth
                   />
                   <TextField

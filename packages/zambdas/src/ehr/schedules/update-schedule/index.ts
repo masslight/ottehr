@@ -116,7 +116,9 @@ const sanitizeAddress = (raw: Address | null | undefined): Address | undefined =
   if (line.length === 0 && city === '' && state === '' && postalCode === '') {
     return undefined;
   }
-  const address: Address = { use: 'work', type: 'physical' };
+  // Country is always US until the product supports other countries; it is written
+  // on the backend rather than collected in the UI, so it can't drift or be omitted.
+  const address: Address = { use: 'work', type: 'physical', country: 'US' };
   if (line.length > 0) address.line = line;
   if (city !== '') address.city = city;
   if (state !== '') address.state = state;

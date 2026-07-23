@@ -12,12 +12,28 @@ import {
 } from 'utils';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import {
-  allPhysicalDefaultLocations,
-  defaultGroup,
-  virtualDefaultLocations,
-} from '../packages/zambdas/src/scripts/setup-default-locations';
+import runtimeSeedLocations from '../config/runtime-seed/locations-and-schedules.json' assert { type: 'json' };
 import { createClinicalOystehrClient } from '../packages/zambdas/src/shared';
+
+// Default scheduling resources moved out of Terraform into config/runtime-seed/
+// (created at runtime by seed-runtime-resources). Derive the lists this e2e setup
+// needs directly from that config, the same way the old seed script did.
+const defaultVirtualStates = new Set<string>();
+const defaultPhysical: { state: string; city: string; name: string }[] = [];
+for (const wrapper of Object.values(runtimeSeedLocations.fhirResources) as any[]) {
+  const res = wrapper.resource;
+  if (res.resourceType === 'Location' && res.address && res.name) {
+    const { state, city } = res.address;
+    if (isLocationVirtual(res)) {
+      if (state) defaultVirtualStates.add(state);
+    } else if (city && state) {
+      defaultPhysical.push({ state, city, name: res.name });
+    }
+  }
+}
+const virtualDefaultLocations = Array.from(defaultVirtualStates).map((state) => ({ state }));
+const allPhysicalDefaultLocations = defaultPhysical;
+const defaultGroup = 'Visit Followup Group';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
