@@ -106,8 +106,28 @@ describe('isInActivePatientArStage', () => {
     expect(isInActivePatientArStage(activeStatuses())).toBe(true);
   });
 
-  it('accepts patient-ar with insurance never started (self-pay from the start)', () => {
-    expect(isInActivePatientArStage(activeStatuses({ insuranceArStatus: '' }))).toBe(true);
+  it('accepts self-pay claims once pre-invoice rules mark them ready to invoice', () => {
+    expect(
+      isInActivePatientArStage(
+        activeStatuses({
+          insuranceArStatus: '',
+          patientArStatus: 'ready-to-invoice',
+        })
+      )
+    ).toBe(true);
+  });
+
+  it('rejects self-pay claims whose pre-invoice rules have not passed', () => {
+    for (const patientArStatus of ['', 'not-invoiced', 'invoiced']) {
+      expect(
+        isInActivePatientArStage(
+          activeStatuses({
+            insuranceArStatus: '',
+            patientArStatus,
+          })
+        )
+      ).toBe(false);
+    }
   });
 
   it('accepts finalized regardless of paid or adjudication outcome', () => {

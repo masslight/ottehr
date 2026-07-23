@@ -133,7 +133,8 @@ async function buildPatientArClaimItems(
 export function isInActivePatientArStage(statuses: ClaimStatusValues): boolean {
   if (statuses.arStage !== AR_STAGE.patient) return false;
   if (statuses.patientArStatus === 'finalized') return false;
-  return statuses.insuranceArStatus === 'finalized' || statuses.insuranceArStatus === '';
+  if (statuses.insuranceArStatus === '') return statuses.patientArStatus === 'ready-to-invoice';
+  return statuses.insuranceArStatus === 'finalized';
 }
 
 export function isActivePatientArClaim(statuses: ClaimStatusValues, payments: ClaimPaymentSummary): boolean {
