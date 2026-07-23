@@ -9,6 +9,7 @@ import {
   ListItemIcon,
   ListItemText,
   Paper,
+  Popover,
   Stack,
   SxProps,
   TextField,
@@ -36,6 +37,7 @@ import {
 } from './chart-types';
 import { leafKey } from './exam-ros-catalog';
 import { MedicationSearchPicker } from './MedicationSearchPicker';
+import { containsTranscriptHeader, extractTranscriptHeaderLabels, transcriptHeaderLine } from './transcript-docs';
 import { useChartAssistant } from './useChartAssistant';
 
 export type ChartAssistant = ReturnType<typeof useChartAssistant>;
@@ -125,7 +127,6 @@ export function AssistantColumn({
     reviewError,
     reviewAnchorId,
     describePlanStep,
-    handleSend,
     sendText,
     handleSkipPicker,
     handleRefinePicker,
@@ -172,37 +173,6 @@ export function AssistantColumn({
   // Escalating status timers for the thinking and review bubbles (see SLOW_AFTER_S above).
   const thinkingElapsed = useElapsedSeconds(conv?.kind === 'thinking' ? conv : null);
   const reviewElapsed = useElapsedSeconds(reviewLoading);
-
-  // One-slot send queue: the composer stays enabled during a turn so the provider can keep
-  // typing, but handleSend must never run concurrently with an active turn — a Send while
-  // thinking stashes the text here and it auto-sends when the turn finishes. A second Send
-  // while one is queued replaces it.
-  const [queuedText, setQueuedText] = useState<string | null>(null);
-  const queuedDraftRef = useRef('');
-  useEffect(() => {
-    if (isThinking || queuedText === null) return;
-    // handleSend reads the composer state, so stage the queued text there first (preserving any
-    // draft typed after queueing), then send on the re-render where the staged value is visible.
-    if (refineText !== queuedText) {
-      queuedDraftRef.current = refineText;
-      setRefineText(queuedText);
-      return;
-    }
-    setQueuedText(null);
-    void handleSend(); // clears the composer synchronously…
-    setRefineText(queuedDraftRef.current); // …then the preserved draft goes back in
-    queuedDraftRef.current = '';
-  }, [isThinking, queuedText, refineText, handleSend, setRefineText]);
-
-  const trySend = (): void => {
-    if (!refineText.trim()) return;
-    if (isThinking) {
-      setQueuedText(refineText.trim());
-      setRefineText('');
-      return;
-    }
-    void handleSend();
-  };
 
   // ---- Transcript priming --------------------------------------------------------------------
   // Ambient-scribe recordings and the intake HPI chatbot each leave a DocumentReference on the
@@ -288,7 +258,9 @@ export function AssistantColumn({
     const text =
       toSend.length === 1
         ? decodeTranscript(toSend[0].data)
-        : toSend.map((t) => `=== ${transcriptLabel(t.doc)} ===\n${decodeTranscript(t.data)}`).join('\n\n');
+        : toSend
+            .map((t) => `${transcriptHeaderLine(transcriptLabel(t.doc))}\n${decodeTranscript(t.data)}`)
+            .join('\n\n');
     setUsedTranscriptIds((prev) => {
       const next = new Set(prev);
       for (const t of toSend) next.add(t.doc.id!);
@@ -309,8 +281,112 @@ export function AssistantColumn({
 
   // Offer the one-click prime only while it's clearly the opening move: nothing charted yet and
   // the provider hasn't sent anything this session (a user thread bubble exists once they have —
-  // including a transcript sent via chip).
+  // including a transcript sent from the preview card).
   const showPrimeBanner = unusedTranscripts.length > 0 && chartLooksEmpty && !thread.some((m) => m.role === 'user');
+
+  // Composer send. The hook's handleSend can't serve the composer anymore: transcript text
+  // inserted via the preview card must route as narrative (its section header is the signal —
+  // a short chat transcript could otherwise fall under the length heuristic), and a SUCCESSFUL
+  // send must consume the transcripts whose headers survived verbatim. Both need the send
+  // result, which handleSend doesn't expose. Mirrors handleSend's clear-composer-synchronously
+  // contract (the queue effect below relies on it). Edited/unknown headers stamp nothing —
+  // conservative by design.
+  const sendComposer = async (): Promise<void> => {
+    const message = refineText.trim();
+    if (!message) return;
+    setRefineText('');
+    const forceNarrative = containsTranscriptHeader(message);
+    const sent = await sendText(message, forceNarrative ? { forceNarrative: true } : undefined);
+    if (!sent || !forceNarrative) return;
+    const labels = new Set(extractTranscriptHeaderLabels(message));
+    const matched = transcriptDocs.filter((t) => labels.has(transcriptLabel(t.doc)));
+    if (matched.length === 0) return;
+    setUsedTranscriptIds((prev) => {
+      const next = new Set(prev);
+      for (const t of matched) next.add(t.doc.id!);
+      return next;
+    });
+    for (const t of matched) await markTranscriptPrimed(t.doc);
+  };
+
+  // One-slot send queue: the composer stays enabled during a turn so the provider can keep
+  // typing, but sendComposer must never run concurrently with an active turn — a Send while
+  // thinking stashes the text here and it auto-sends when the turn finishes. A second Send
+  // while one is queued replaces it.
+  const [queuedText, setQueuedText] = useState<string | null>(null);
+  const queuedDraftRef = useRef('');
+  useEffect(() => {
+    if (isThinking || queuedText === null) return;
+    // sendComposer reads the composer state, so stage the queued text there first (preserving any
+    // draft typed after queueing), then send on the re-render where the staged value is visible.
+    if (refineText !== queuedText) {
+      queuedDraftRef.current = refineText;
+      setRefineText(queuedText);
+      return;
+    }
+    setQueuedText(null);
+    void sendComposer(); // clears the composer synchronously…
+    setRefineText(queuedDraftRef.current); // …then the preserved draft goes back in
+    queuedDraftRef.current = '';
+    // sendComposer is recreated every render (it closes over the freshest composer/transcript
+    // state) — listing it would just make the effect re-run each render; the guards above already
+    // make that harmless, and the states it's called with are all in the deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isThinking, queuedText, refineText, setRefineText]);
+
+  const trySend = (): void => {
+    if (!refineText.trim()) return;
+    if (isThinking) {
+      setQueuedText(refineText.trim());
+      setRefineText('');
+      return;
+    }
+    void sendComposer();
+  };
+
+  // ---- Transcript preview card ---------------------------------------------------------------
+  // Chip click opens a preview instead of sending: the provider reads the transcript and picks
+  // Generate chart (the full prime flow) / Insert into composer (to edit before sending) / Copy.
+  // Tracked by doc id, not by captured object, so the card always renders the freshest doc.
+  const [previewAnchor, setPreviewAnchor] = useState<HTMLElement | null>(null);
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const copyResetRef = useRef<number | null>(null);
+  useEffect(() => {
+    // Unmount-only cleanup for the "Copied" reset timer.
+    return () => {
+      if (copyResetRef.current !== null) clearTimeout(copyResetRef.current);
+    };
+  }, []);
+  const previewTranscript = previewDocId ? transcriptDocs.find((t) => t.doc.id === previewDocId) : undefined;
+  const closePreview = (): void => {
+    setPreviewAnchor(null);
+    setPreviewDocId(null);
+    setCopied(false);
+    if (copyResetRef.current !== null) clearTimeout(copyResetRef.current);
+  };
+
+  // Append (never replace): the provider may have a draft in progress. The blank-line separator
+  // plus the transcript's section header keeps the sources separable in the message, and the
+  // header is what routes the eventual send as narrative + stamps the transcript consumed.
+  const insertIntoComposer = (t: { doc: DocumentReference; data: string }): void => {
+    const block = `${transcriptHeaderLine(transcriptLabel(t.doc))}\n${decodeTranscript(t.data)}`;
+    setRefineText(refineText.trim() ? `${refineText.trimEnd()}\n\n${block}` : block);
+    closePreview();
+    requestAnimationFrame(() => refineInputRef.current?.focus());
+  };
+
+  // Raw text, no header — for pasting outside the assistant. "Copied" only on confirmed write.
+  const copyTranscript = (t: { data: string }): void => {
+    navigator.clipboard.writeText(decodeTranscript(t.data)).then(
+      () => {
+        setCopied(true);
+        if (copyResetRef.current !== null) clearTimeout(copyResetRef.current);
+        copyResetRef.current = window.setTimeout(() => setCopied(false), 1500);
+      },
+      (e) => captureException(e)
+    );
+  };
 
   const transcriptChips = (transcriptDocs.length > 0 || transcriptPending) && (
     <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ px: 1.5, pt: 1 }}>
@@ -322,16 +398,72 @@ export function AssistantColumn({
             size="small"
             variant="outlined"
             label={`${used ? '✓' : ''} ${transcriptLabel(t.doc)}`.trim()}
-            // Used (✓) chips stay clickable: the durable primed mark would otherwise permanently
-            // lock out deliberate re-priming (e.g. after a chart wipe). The banner is the
-            // accident-prevention layer; an explicit chip click is deliberate user intent.
-            disabled={isThinking}
-            onClick={() => void sendTranscript(t)}
+            // Used (✓) chips stay clickable: the preview is read-only, and its Generate action is
+            // the deliberate re-prime path (the durable primed mark would otherwise permanently
+            // lock out re-priming, e.g. after a chart wipe). The preview stays openable while a
+            // turn runs — its actions are what disable on isThinking.
+            onClick={(e) => {
+              setPreviewAnchor(e.currentTarget);
+              setPreviewDocId(t.doc.id!);
+            }}
           />
         );
       })}
       {transcriptPending && <Chip size="small" variant="outlined" disabled label="🎤 Transcribing…" />}
     </Stack>
+  );
+
+  const transcriptPreview = previewTranscript && (
+    <Popover
+      open={!!previewAnchor}
+      anchorEl={previewAnchor}
+      onClose={closePreview}
+      anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+      transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+    >
+      <Box sx={{ p: 1.5, width: 480, maxWidth: '90vw' }}>
+        <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+          {transcriptLabel(previewTranscript.doc)}
+        </Typography>
+        <Box sx={{ maxHeight: '40vh', overflowY: 'auto', p: 1, bgcolor: 'action.hover', borderRadius: 1, mb: 1 }}>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            {decodeTranscript(previewTranscript.data)}
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            variant="contained"
+            sx={{ textTransform: 'none' }}
+            disabled={isThinking}
+            onClick={() => {
+              closePreview();
+              void sendTranscript(previewTranscript);
+            }}
+          >
+            Generate chart
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            sx={{ textTransform: 'none' }}
+            disabled={isThinking}
+            onClick={() => insertIntoComposer(previewTranscript)}
+          >
+            Insert into composer
+          </Button>
+          <Button
+            size="small"
+            variant="text"
+            sx={{ textTransform: 'none' }}
+            disabled={isThinking}
+            onClick={() => copyTranscript(previewTranscript)}
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </Stack>
+      </Box>
+    </Popover>
   );
 
   const primeBanner = showPrimeBanner && (
@@ -1109,6 +1241,7 @@ export function AssistantColumn({
         </Stack>
       </Box>
       {transcriptChips}
+      {transcriptPreview}
       {refineBar}
     </Box>
   );

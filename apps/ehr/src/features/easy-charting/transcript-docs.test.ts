@@ -1,7 +1,13 @@
 import { DocumentReference } from 'fhir/r4b';
 import { AIChatDetails } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { hasNewTranscriptDocument, transcriptDocumentIds } from './transcript-docs';
+import {
+  containsTranscriptHeader,
+  extractTranscriptHeaderLabels,
+  hasNewTranscriptDocument,
+  transcriptDocumentIds,
+  transcriptHeaderLine,
+} from './transcript-docs';
 
 const transcriptDoc = (id: string): DocumentReference => ({
   resourceType: 'DocumentReference',
@@ -55,5 +61,41 @@ describe('hasNewTranscriptDocument', () => {
   it('is false when no transcripts exist at all', () => {
     expect(hasNewTranscriptDocument(aiChat([]), new Set())).toBe(false);
     expect(hasNewTranscriptDocument(undefined, new Set())).toBe(false);
+  });
+});
+
+describe('transcript header helpers', () => {
+  it('round-trips a label through build → extract', () => {
+    const label = '🎤 Dr. Jane Smith — 3/14/2026';
+    const text = `${transcriptHeaderLine(label)}\nPatient presents with cough.`;
+    expect(containsTranscriptHeader(text)).toBe(true);
+    expect(extractTranscriptHeaderLabels(text)).toEqual([label]);
+  });
+
+  it('extracts every header label in order from a multi-transcript message', () => {
+    const text = [
+      transcriptHeaderLine('🎤 Dr. A'),
+      'first transcript body',
+      '',
+      transcriptHeaderLine('💬 Chatbot'),
+      'second transcript body',
+    ].join('\n');
+    expect(extractTranscriptHeaderLabels(text)).toEqual(['🎤 Dr. A', '💬 Chatbot']);
+  });
+
+  it('finds a header mid-message (composer draft above an inserted transcript)', () => {
+    const text = `also add strep test\n\n${transcriptHeaderLine('🎤 Dr. A')}\nbody`;
+    expect(containsTranscriptHeader(text)).toBe(true);
+  });
+
+  it('reports no headers for plain text, including === used inline', () => {
+    expect(containsTranscriptHeader('add diagnosis sinusitis')).toBe(false);
+    expect(containsTranscriptHeader('the rash === totally gone by now')).toBe(false);
+    expect(extractTranscriptHeaderLabels('add diagnosis sinusitis')).toEqual([]);
+  });
+
+  it('tolerates surrounding whitespace and CRLF line endings', () => {
+    const text = `  ${transcriptHeaderLine('🎤 Dr. A')}  \r\nbody`;
+    expect(extractTranscriptHeaderLabels(text)).toEqual(['🎤 Dr. A']);
   });
 });
