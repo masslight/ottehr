@@ -1,0 +1,8 @@
+{
+  "name": "Shoulder X-Ray, 2 Views",
+  "cptCode": "73030",
+  "cptDisplay": "Radiologic examination, shoulder; complete, minimum of 2 views",
+  "studyName": "X-Ray Shoulder 2 Views (AP and Y/Axillary)",
+  "clinicalHistory": "Shoulder pain, suspected dislocation or fracture",
+  "stat": false
+}

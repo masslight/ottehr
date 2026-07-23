@@ -1,0 +1,8 @@
+{
+  "name": "Acute Abdominal Series (3 Views)",
+  "cptCode": "74022",
+  "cptDisplay": "Radiologic examination, abdomen; complete acute abdomen series and single-view chest",
+  "studyName": "X-Ray Acute Abdomen Series (Supine, Upright, Upright Chest)",
+  "clinicalHistory": "Abdominal pain — evaluate for obstruction, perforation (free air), ileus",
+  "stat": false
+}

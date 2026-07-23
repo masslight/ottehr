@@ -1,0 +1,8 @@
+{
+  "name": "Thumb X-Ray, 3 Views",
+  "cptCode": "73140",
+  "cptDisplay": "Radiologic examination, finger(s); minimum of 2 views",
+  "studyName": "X-Ray Thumb 3 Views (AP, Oblique, Lateral)",
+  "clinicalHistory": "Thumb injury — evaluate for fracture, Bennett or Rolando fracture, UCL injury",
+  "stat": false
+}

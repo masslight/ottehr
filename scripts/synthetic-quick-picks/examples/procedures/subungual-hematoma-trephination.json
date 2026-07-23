@@ -1,0 +1,36 @@
+{
+  "name": "Subungual Hematoma — Trephination",
+  "procedureType": "nail-trephination",
+  "cptCodes": [
+    {
+      "code": "11740",
+      "display": "Evacuation of subungual hematoma"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "S60.211A",
+      "display": "Contusion of right index finger with damage to nail, initial encounter"
+    }
+  ],
+  "bodySite": "other",
+  "otherBodySite": "Finger or toe",
+  "bodySide": "left",
+  "technique": [
+    "clean"
+  ],
+  "medicationUsed": "none",
+  "suppliesUsed": [
+    "other"
+  ],
+  "otherSuppliesUsed": "18g needle or electrocautery",
+  "complications": "none",
+  "patientResponse": "improved",
+  "postInstructions": [
+    "wound-care",
+    "return-if-worsening",
+    "other"
+  ],
+  "otherPostInstructions": "Antibiotics not routinely needed if nail intact; F/U if signs of infection",
+  "timeSpent": "less-5-min"
+}

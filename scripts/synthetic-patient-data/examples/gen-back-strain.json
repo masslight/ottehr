@@ -1,0 +1,276 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Acute lumbar strain",
+  "patient": {
+    "firstName": "Pat",
+    "lastName": "Sample",
+    "dateOfBirth": "1985-01-01",
+    "sex": "female",
+    "email": "pat.sample@example.com",
+    "phoneNumber": "+12015550100",
+    "address": {
+      "line1": "100 Main Street",
+      "city": "New Brunswick",
+      "state": "NJ",
+      "postalCode": "08901"
+    },
+    "race": "Other Race",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Aetna",
+        "memberId": "AET100200300",
+        "groupNumber": "GRP-AET-100",
+        "planName": "Aetna Choice PPO",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Other - lower back pain after lifting, worse with movement",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "completed"
+  },
+  "emCode": {
+    "code": "99213",
+    "display": "Office visit, established, low complexity"
+  },
+  "vitals": {
+    "temperature": {
+      "value": 37,
+      "unit": "C"
+    },
+    "heartRate": {
+      "value": 78
+    },
+    "bloodPressure": {
+      "systolic": 122,
+      "diastolic": 78
+    },
+    "respirationRate": {
+      "value": 16
+    },
+    "oxygenSaturation": {
+      "value": 99
+    },
+    "weight": {
+      "value": 75,
+      "unit": "kg"
+    },
+    "height": {
+      "value": 170,
+      "unit": "cm"
+    }
+  },
+  "diagnoses": [
+    {
+      "code": "S39.012A",
+      "display": "Strain of muscle, fascia and tendon of lower back, initial encounter",
+      "isPrimary": true
+    }
+  ],
+  "exam": [
+    {
+      "field": "alert",
+      "value": true
+    },
+    {
+      "field": "active",
+      "value": true
+    },
+    {
+      "field": "in-no-acute-distress",
+      "value": true
+    },
+    {
+      "field": "well-hydrated",
+      "value": true
+    },
+    {
+      "field": "normocephalic",
+      "value": true
+    },
+    {
+      "field": "atraumatic",
+      "value": true
+    },
+    {
+      "field": "right-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "left-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "lids-and-lashes-normal",
+      "value": true
+    },
+    {
+      "field": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "no-effusion",
+      "value": true
+    },
+    {
+      "field": "normal-canals",
+      "value": true
+    },
+    {
+      "field": "normal-external-ear",
+      "value": true
+    },
+    {
+      "field": "moist-mucous-membranes",
+      "value": true
+    },
+    {
+      "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+      "value": true
+    },
+    {
+      "field": "uvula-midline",
+      "value": true
+    },
+    {
+      "field": "normal-appearance-of-neck",
+      "value": true
+    },
+    {
+      "field": "no-rash",
+      "value": true
+    },
+    {
+      "field": "warm-and-dry",
+      "value": true
+    },
+    {
+      "field": "regular-rate-and-rhythm-with-no-murmur",
+      "value": true
+    },
+    {
+      "field": "extremities-are-warm-and-well-perfused",
+      "value": true
+    },
+    {
+      "field": "good-air-movement-throughout-lung-fields",
+      "value": true
+    },
+    {
+      "field": "no-signs-of-respiratory-distress",
+      "value": true
+    },
+    {
+      "field": "chest-is-clear-to-auscultation-bilaterally",
+      "value": true
+    },
+    {
+      "field": "soft",
+      "value": true
+    },
+    {
+      "field": "nondistended",
+      "value": true
+    },
+    {
+      "field": "nontender",
+      "value": true
+    },
+    {
+      "field": "moves-all-extremities-symmetrically",
+      "value": true
+    },
+    {
+      "field": "no-obvious-injury-or-swelling",
+      "value": true
+    },
+    {
+      "field": "normal-mental-status",
+      "value": true
+    },
+    {
+      "field": "normal-tone",
+      "value": true
+    },
+    {
+      "field": "back-comment",
+      "value": true,
+      "note": "Paraspinal lumbar muscle tenderness and spasm; pain with flexion; no midline bony tenderness, no CVA tenderness."
+    },
+    {
+      "field": "neurologic-comment",
+      "value": true,
+      "note": "Straight-leg raise negative bilaterally; strength 5/5, sensation intact, reflexes symmetric; no saddle anesthesia."
+    }
+  ],
+  "reviewOfSystems": [
+    {
+      "field": "ros-msk-back-pain-reports"
+    },
+    {
+      "field": "ros-msk-muscle-aches-reports"
+    },
+    {
+      "field": "ros-msk-limited-rom-reports"
+    },
+    {
+      "field": "ros-neuro-numbness-denies"
+    },
+    {
+      "field": "ros-neuro-weakness-denies"
+    },
+    {
+      "field": "ros-gu-incontinence-denies"
+    }
+  ],
+  "medicalDecision": "Mechanical low back pain after lifting with paraspinal spasm and no neurologic deficit or red flags (no incontinence, saddle anesthesia, fever, or trauma). Mechanical lumbar strain. Encouraged activity as tolerated, NSAIDs and muscle relaxant; return precautions for weakness, numbness, or bowel/bladder changes.",
+  "prescriptions": [
+    {
+      "name": "ibuprofen 600 mg tablet",
+      "sig": "Take 1 tablet by mouth every 6 hours as needed for pain (with food)"
+    },
+    {
+      "name": "cyclobenzaprine 5 mg tablet",
+      "sig": "Take 1 tablet by mouth three times daily as needed for spasm"
+    }
+  ],
+  "disposition": {
+    "type": "pcp-no-type",
+    "note": "Activity as tolerated, NSAIDs, muscle relaxant for back strain. Return for leg weakness, numbness, or loss of bladder/bowel control.",
+    "followUpIn": 7
+  },
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

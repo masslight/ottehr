@@ -1,0 +1,35 @@
+{
+  "name": "Paronychia — Drainage",
+  "procedureType": "abscess-drainage",
+  "cptCodes": [
+    {
+      "code": "10060",
+      "display": "Incision and drainage of abscess (simple or single)"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "L03.011",
+      "display": "Cellulitis of right finger"
+    }
+  ],
+  "bodySite": "other",
+  "otherBodySite": "Finger (paronychia)",
+  "bodySide": "left",
+  "technique": [
+    "sterile"
+  ],
+  "medicationUsed": "local",
+  "suppliesUsed": [
+    "other"
+  ],
+  "otherSuppliesUsed": "#11 blade, lidocaine 1% w/o epi for digital block",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "wound-care",
+    "other"
+  ],
+  "otherPostInstructions": "Warm soaks QID; PO antibiotics if cellulitis",
+  "timeSpent": "5-10-min"
+}

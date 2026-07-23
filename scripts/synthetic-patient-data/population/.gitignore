@@ -1,0 +1,9 @@
+# Runtime artifacts — regenerable, environment-specific, or large
+.logs/
+.scenarios/
+.run.lock
+population-plan.json
+population-progress.json
+schedule-backup-*.json
+la-schedule-backup.json
+_*.ts

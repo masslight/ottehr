@@ -1,0 +1,264 @@
+{
+  "schemaVersion": "1.0",
+  "label": "Contact dermatitis",
+  "patient": {
+    "firstName": "Pat",
+    "lastName": "Sample",
+    "dateOfBirth": "1985-01-01",
+    "sex": "female",
+    "email": "pat.sample@example.com",
+    "phoneNumber": "+12015550100",
+    "address": {
+      "line1": "100 Main Street",
+      "city": "New Brunswick",
+      "state": "NJ",
+      "postalCode": "08901"
+    },
+    "race": "Other Race",
+    "ethnicity": "Not Hispanic or Latino",
+    "preferredLanguage": "English",
+    "preferredCommunication": "Cell Phone",
+    "mobileOptIn": true,
+    "responsibleParty": {
+      "relationship": "Self"
+    },
+    "consents": {
+      "hipaa": true,
+      "treat": true,
+      "signerRelationship": "Self"
+    },
+    "fixtures": {
+      "idCardFront": "../fixtures/driversLicenseFront.jpeg",
+      "idCardBack": "../fixtures/driversLicenseBackSample.jpeg",
+      "insuranceCardFront": "../fixtures/insuranceSampleFront.png",
+      "insuranceCardBack": "../fixtures/insuranceSampleBack.jpeg"
+    },
+    "insurance": {
+      "primary": {
+        "carrier": "Aetna",
+        "memberId": "AET100200300",
+        "groupNumber": "GRP-AET-100",
+        "planName": "Aetna Choice PPO",
+        "subscriberRelationship": "self"
+      }
+    }
+  },
+  "visit": {
+    "type": "in-person",
+    "date": "2026-04-25",
+    "reasonForVisit": "Rash or skin issue - itchy red rash where a new bracelet touched the skin",
+    "locationName": "New York",
+    "language": "en",
+    "targetStatus": "completed"
+  },
+  "emCode": {
+    "code": "99213",
+    "display": "Office visit, established, low complexity"
+  },
+  "vitals": {
+    "temperature": {
+      "value": 37,
+      "unit": "C"
+    },
+    "heartRate": {
+      "value": 78
+    },
+    "bloodPressure": {
+      "systolic": 122,
+      "diastolic": 78
+    },
+    "respirationRate": {
+      "value": 16
+    },
+    "oxygenSaturation": {
+      "value": 99
+    },
+    "weight": {
+      "value": 75,
+      "unit": "kg"
+    },
+    "height": {
+      "value": 170,
+      "unit": "cm"
+    }
+  },
+  "diagnoses": [
+    {
+      "code": "L25.9",
+      "display": "Unspecified contact dermatitis, unspecified cause",
+      "isPrimary": true
+    }
+  ],
+  "exam": [
+    {
+      "field": "alert",
+      "value": true
+    },
+    {
+      "field": "active",
+      "value": true
+    },
+    {
+      "field": "in-no-acute-distress",
+      "value": true
+    },
+    {
+      "field": "well-hydrated",
+      "value": true
+    },
+    {
+      "field": "normocephalic",
+      "value": true
+    },
+    {
+      "field": "atraumatic",
+      "value": true
+    },
+    {
+      "field": "right-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "left-eye-conjunctiva-non-injected-no-discharge",
+      "value": true
+    },
+    {
+      "field": "lids-and-lashes-normal",
+      "value": true
+    },
+    {
+      "field": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+      "value": true
+    },
+    {
+      "field": "no-effusion",
+      "value": true
+    },
+    {
+      "field": "normal-canals",
+      "value": true
+    },
+    {
+      "field": "normal-external-ear",
+      "value": true
+    },
+    {
+      "field": "moist-mucous-membranes",
+      "value": true
+    },
+    {
+      "field": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+      "value": true
+    },
+    {
+      "field": "uvula-midline",
+      "value": true
+    },
+    {
+      "field": "normal-appearance-of-neck",
+      "value": true
+    },
+    {
+      "field": "warm-and-dry",
+      "value": true
+    },
+    {
+      "field": "regular-rate-and-rhythm-with-no-murmur",
+      "value": true
+    },
+    {
+      "field": "extremities-are-warm-and-well-perfused",
+      "value": true
+    },
+    {
+      "field": "good-air-movement-throughout-lung-fields",
+      "value": true
+    },
+    {
+      "field": "no-signs-of-respiratory-distress",
+      "value": true
+    },
+    {
+      "field": "chest-is-clear-to-auscultation-bilaterally",
+      "value": true
+    },
+    {
+      "field": "soft",
+      "value": true
+    },
+    {
+      "field": "nondistended",
+      "value": true
+    },
+    {
+      "field": "nontender",
+      "value": true
+    },
+    {
+      "field": "moves-all-extremities-symmetrically",
+      "value": true
+    },
+    {
+      "field": "no-obvious-injury-or-swelling",
+      "value": true
+    },
+    {
+      "field": "normal-mental-status",
+      "value": true
+    },
+    {
+      "field": "normal-tone",
+      "value": true
+    },
+    {
+      "field": "skin-comment",
+      "value": true,
+      "note": "Well-demarcated erythematous, scaly patch in the distribution of jewelry contact on the wrist; no vesicles, no secondary infection, no spreading cellulitis."
+    }
+  ],
+  "reviewOfSystems": [
+    {
+      "field": "ros-skin-rash-reports"
+    },
+    {
+      "field": "ros-skin-itching-reports"
+    },
+    {
+      "field": "ros-skin-redness-reports"
+    },
+    {
+      "field": "ros-constitutional-fever-denies"
+    },
+    {
+      "field": "ros-skin-wounds-denies"
+    }
+  ],
+  "medicalDecision": "Localized allergic contact dermatitis in a jewelry distribution without signs of secondary infection. Counseled on allergen avoidance; mid-potency topical steroid and oral antihistamine for itch; return precautions for spreading, weeping, or signs of infection.",
+  "prescriptions": [
+    {
+      "name": "triamcinolone 0.1% cream",
+      "sig": "Apply a thin layer to the affected skin twice daily for up to 2 weeks"
+    },
+    {
+      "name": "cetirizine 10 mg tablet",
+      "sig": "Take 1 tablet by mouth once daily for itching"
+    }
+  ],
+  "disposition": {
+    "type": "pcp-no-type",
+    "note": "Avoid the trigger; topical steroid + antihistamine for contact dermatitis. Return for spreading rash, blistering, pus, or fever.",
+    "followUpIn": 7
+  },
+  "signOff": {
+    "practitionerName": "Demo Admin",
+    "userRole": "Provider",
+    "timezone": "America/New_York",
+    "supervisorApproval": false,
+    "patientInfoConfirmed": true,
+    "complete": true
+  }
+}

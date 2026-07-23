@@ -1,0 +1,8 @@
+{
+  "name": "Chest X-Ray, 1 View (AP Portable)",
+  "cptCode": "71045",
+  "cptDisplay": "Radiologic examination, chest; single view",
+  "studyName": "X-Ray Chest 1 View (AP Portable)",
+  "clinicalHistory": "Patient unable to stand; portable AP for screening",
+  "stat": false
+}

@@ -945,16 +945,19 @@ export function makeDispositionDTO(
       ? followUp.orderDetail?.find((detail) => detail.coding?.[0]?.system === 'specialty-transfer')?.text || undefined
       : undefined;
 
-  const followUpArr = subFollowUp?.map((element) => {
-    const performerCode = element.performerType?.coding?.[0].code;
-    const followUpType = Object.keys(followUpToPerformerMap).find(
-      (keyName) => performerCode === followUpToPerformerMap[keyName as DispositionFollowUpType]?.coding?.[0].code
-    );
-
-    return {
-      type: followUpType as DispositionFollowUpType,
-      note: element.note?.[0].text,
-    };
+  // Resolve each sub-follow-up's type via the shared reverse lookup (coding code OR text,
+  // so the coding-less 'other'/'lurie-ct' performer types disambiguate correctly), and skip
+  // entries whose type can't be resolved rather than emitting a bogus type that downstream
+  // consumers (visit-note PDF, review tab) can't render.
+  const followUpArr = subFollowUp?.flatMap((element) => {
+    const followUpType = followUpTypeFromPerformerType(element.performerType);
+    if (!followUpType) return [];
+    return [
+      {
+        type: followUpType,
+        note: element.note?.[0].text,
+      },
+    ];
   });
 
   const followUpTime = followUp.occurrenceTiming?.repeat?.offset;
@@ -1842,6 +1845,27 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
   'lurie-ct': createCodeableConcept(undefined, 'lurie-ct'),
   other: createCodeableConcept(undefined, 'other'),
 };
+
+/**
+ * Reverse-maps a sub-follow-up ServiceRequest.performerType back to its DispositionFollowUpType.
+ *
+ * Most performer types are identified by coding[0].code, but 'other' and 'lurie-ct' are built
+ * coding-less (text only) in followUpToPerformerMap. Matching on coding code alone would let
+ * `undefined === undefined` resolve every coding-less performer type to whichever coding-less map
+ * entry comes first ('lurie-ct'), so the key is derived from coding code OR text and an entry with
+ * no derivable key never matches.
+ */
+export function followUpTypeFromPerformerType(
+  performerType: CodeableConcept | undefined
+): DispositionFollowUpType | undefined {
+  const key = performerType?.coding?.[0]?.code ?? performerType?.text;
+  if (key === undefined) return undefined;
+  return (Object.keys(followUpToPerformerMap) as DispositionFollowUpType[]).find((typeName) => {
+    const mapped = followUpToPerformerMap[typeName];
+    const mappedKey = mapped?.coding?.[0]?.code ?? mapped?.text;
+    return mappedKey === key;
+  });
+}
 
 export function makeProceduresDTOFromFhirResources(
   encounter: Encounter,

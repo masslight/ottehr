@@ -1,0 +1,40 @@
+{
+  "name": "Laceration Repair — Hand/Finger, Sutures",
+  "procedureType": "laceration-repair",
+  "cptCodes": [
+    {
+      "code": "12001",
+      "display": "Simple repair of superficial wounds, ≤2.5 cm"
+    },
+    {
+      "code": "12002",
+      "display": "Simple repair, 2.6–7.5 cm"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "S61.219A",
+      "display": "Laceration without foreign body of unspecified finger without damage to nail, initial encounter"
+    }
+  ],
+  "bodySite": "other",
+  "otherBodySite": "Hand/finger",
+  "bodySide": "left",
+  "technique": [
+    "sterile"
+  ],
+  "medicationUsed": "local",
+  "suppliesUsed": [
+    "suture-kit",
+    "other"
+  ],
+  "otherSuppliesUsed": "5-0 nylon, lidocaine 1% w/o epi for digital block",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "wound-care",
+    "other"
+  ],
+  "otherPostInstructions": "Suture removal in 10–14 days; splint over joint if applicable",
+  "timeSpent": "10-20-min"
+}

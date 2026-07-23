@@ -1,0 +1,8 @@
+{
+  "name": "Tibia/Fibula X-Ray, 2 Views",
+  "cptCode": "73590",
+  "cptDisplay": "Radiologic examination, tibia and fibula; 2 views",
+  "studyName": "X-Ray Tibia/Fibula 2 Views (AP and Lateral)",
+  "clinicalHistory": "Lower-leg pain or deformity after trauma — evaluate for tibia/fibula fracture",
+  "stat": false
+}

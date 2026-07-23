@@ -1,0 +1,35 @@
+{
+  "name": "Epistaxis Control — Cautery (Silver Nitrate)",
+  "procedureType": "nasal-packing",
+  "cptCodes": [
+    {
+      "code": "30901",
+      "display": "Control nasal hemorrhage, anterior, simple"
+    }
+  ],
+  "diagnoses": [
+    {
+      "code": "R04.0",
+      "display": "Epistaxis"
+    }
+  ],
+  "bodySite": "nose",
+  "bodySide": "not-applicable",
+  "technique": [
+    "clean"
+  ],
+  "medicationUsed": "topical",
+  "suppliesUsed": [
+    "speculum",
+    "other"
+  ],
+  "otherSuppliesUsed": "Silver nitrate sticks, oxymetazoline + lidocaine spray, headlamp",
+  "complications": "none",
+  "patientResponse": "tolerated-well",
+  "postInstructions": [
+    "return-if-worsening",
+    "other"
+  ],
+  "otherPostInstructions": "Only one side cauterized at a single visit; humidified saline spray BID",
+  "timeSpent": "5-10-min"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Acetaminophen 325 mg suppository (adult)",
+  "medicationId": "dfe3670c-cfae-4538-8adc-814624e490cc",
+  "medicationName": "Acetaminophen (325mg Suppository)",
+  "dose": 325,
+  "units": "mg",
+  "route": "37161004",
+  "instructions": "Adult: 325 mg PR if vomiting / unable to tolerate PO."
+}

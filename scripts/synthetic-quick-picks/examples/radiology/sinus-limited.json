@@ -1,0 +1,8 @@
+{
+  "name": "Sinus X-Ray (Limited)",
+  "cptCode": "70210",
+  "cptDisplay": "Radiologic examination, sinuses, paranasal; less than 3 views",
+  "studyName": "X-Ray Sinus 1-2 Views",
+  "clinicalHistory": "Persistent sinusitis with concern for opacification — limited utility, consider CT if available",
+  "stat": false
+}
