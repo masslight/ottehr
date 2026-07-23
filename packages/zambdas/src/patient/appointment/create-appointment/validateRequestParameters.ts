@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import {
   AllStates,
   APPOINTMENT_ALREADY_EXISTS_ERROR,
+  BOOKING_CONFIG,
   CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   checkSlotAvailable,
@@ -16,6 +17,7 @@ import {
   getSlotIsWalkin,
   INVALID_INPUT_ERROR,
   isLocationVirtual,
+  locationSupportsServiceMode,
   makeSlotAtLocationExtensionEntry,
   MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
@@ -34,11 +36,14 @@ import {
   SLOT_UNAVAILABLE_ERROR,
   VisitType,
 } from 'utils';
+import { z } from 'zod';
 import {
   checkIsEHRUser,
   isTestUser,
   phoneRegex,
   resolveBookingLocationId,
+  safeJsonParse,
+  safeValidate,
   userHasAccessToPatient,
   ZambdaInput,
 } from '../../../shared';
@@ -53,22 +58,26 @@ export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   appointmentMetadata?: Appointment['meta'];
 };
 
+const CreateAppointmentBodySchema = z.object({
+  slotId: z.string().uuid(),
+  patient: z.record(z.unknown()),
+  language: z.string().optional(),
+  locationState: z.string().optional(),
+  appointmentMetadata: z.record(z.unknown()).optional(),
+  followUpOptions: z.unknown().optional(),
+});
+
 export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
   if (!input.body) {
     throw new Error('No request body provided');
   }
   const isEHRUser = user && checkIsEHRUser(user);
 
-  const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions } = bodyJSON;
+  const { slotId, language, patient, locationState, appointmentMetadata, followUpOptions } = safeValidate(
+    CreateAppointmentBodySchema,
+    safeJsonParse(input.body)
+  );
   console.log('patient:', patient, 'slotId:', slotId);
-  // Check existence of necessary fields
-  if (patient === undefined) {
-    throw MISSING_REQUIRED_PARAMETERS(['patient']);
-  }
-  if (slotId === undefined) {
-    throw MISSING_REQUIRED_PARAMETERS(['slotId']);
-  }
 
   console.log('patient input:', JSON.stringify(patient));
   // Patient details
@@ -88,36 +97,36 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
-  if (!isEHRUser && Boolean(patient.email === undefined)) {
+  if (!isEHRUser && !patient.email && !patient.noEmail) {
     missingRequiredPatientFields.push('email');
   }
   if (missingRequiredPatientFields.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missingRequiredPatientFields.map((field) => `patient.${field}`));
   }
-  const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth).isValid;
+  const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth as string).isValid;
   if (isInvalidPatientDate) {
     throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date');
   }
 
-  if (patient.sex && !Object.values(PersonSex).includes(patient.sex)) {
+  if (patient.sex && !Object.values(PersonSex).includes(patient.sex as PersonSex)) {
     throw INVALID_INPUT_ERROR(
       `"patient.sex" must be one of the following values: ${JSON.stringify(Object.values(PersonSex))}`
     );
   }
 
   if (isEHRUser && !patient.email) {
-    patient.emailUser = undefined;
+    (patient as Record<string, unknown>).emailUser = undefined;
   }
 
-  if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber)) {
+  if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber as string)) {
     throw INVALID_INPUT_ERROR('patient phone number is not valid');
   }
 
-  patient.reasonForVisit = `${patient.reasonForVisit}${
+  (patient as Record<string, unknown>).reasonForVisit = `${patient.reasonForVisit}${
     patient?.reasonAdditional ? `${REASON_FOR_VISIT_SEPARATOR}${patient?.reasonAdditional}` : ''
   }`;
 
-  if (patient.reasonForVisit && patient.reasonForVisit.length > REASON_MAXIMUM_CHAR_LIMIT) {
+  if (patient.reasonForVisit && (patient.reasonForVisit as string).length > REASON_MAXIMUM_CHAR_LIMIT) {
     throw CHARACTER_LIMIT_EXCEEDED_ERROR('Reason for visit', REASON_MAXIMUM_CHAR_LIMIT);
   }
 
@@ -147,11 +156,11 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     slotId,
     user,
     isEHRUser,
-    patient,
+    patient: patient as unknown as PatientInfo,
     secrets: input.secrets,
     language,
     locationState,
-    appointmentMetadata,
+    appointmentMetadata: appointmentMetadata as Appointment['meta'],
     followUpOptions: validatedFollowUpOptions,
   };
 }
@@ -314,6 +323,37 @@ export const createAppointmentComplexValidation = async (
     throw APPOINTMENT_ALREADY_EXISTS_ERROR;
   }
 
+  // Back-compat invariant enforcement on slot.serviceCategory. New Slots
+  // created via create-slot are guaranteed to carry a SERVICE_CATEGORY_SYSTEM
+  // coding (the create-slot invariant catches them at write time). But Slots
+  // persisted before that guard landed, or written directly via FHIR by
+  // admin/migration scripts, may still exist without one. The downstream
+  // Appointment.serviceCategory is derived from slot.serviceCategory, so a
+  // categoryless Slot would produce a categoryless Appointment — exactly the
+  // ambiguity downstream category-aware code (questionnaire resolution,
+  // billing, single-category-project assumptions) reads as broken.
+  //
+  // When the system supports urgent-care as a BOOKING_CONFIG category, treat
+  // it as a safe default — that matches the historical implicit behavior the
+  // codebase leaned on before the invariant was articulated. When it doesn't
+  // (genuinely category-less project — would be unusual but possible) we
+  // refuse rather than silently produce a malformed Appointment. The Slot
+  // itself isn't PATCHed — we mutate the in-memory representation so
+  // downstream code (Appointment build, capacity guard's category read) sees
+  // the resolved category without touching the persisted FHIR record.
+  const slotHasServiceCategoryCoding = (slot.serviceCategory ?? []).some((cc) =>
+    (cc.coding ?? []).some((c) => c.system === SERVICE_CATEGORY_SYSTEM)
+  );
+  if (!slotHasServiceCategoryCoding) {
+    const urgentCare = BOOKING_CONFIG.serviceCategories.find((sc) => sc.category.code === 'urgent-care');
+    if (!urgentCare) {
+      throw INVALID_INPUT_ERROR(
+        'Slot has no service category and the system does not support a default category. Cannot create an Appointment without a service category.'
+      );
+    }
+    slot.serviceCategory = [...(slot.serviceCategory ?? []), { coding: [{ ...urgentCare.category }] }];
+  }
+
   // Capacity guard. Reject the booking before any FHIR writes if the
   // Schedule's bucket for this start time is already exhausted (e.g., a
   // concurrent booking from another patient won the race after the
@@ -452,6 +492,24 @@ export const createAppointmentComplexValidation = async (
       throw INVALID_INPUT_ERROR(`Resolved booking Location is missing an id (expected ${bookingLocationId})`);
     }
     bookingLocation = resolved as ResolvedBookingLocation | undefined;
+  }
+
+  // Reconcile the slot's service mode against what the resolved booking Location
+  // can actually fulfill. A group may offer a mode that a given member's paired
+  // Location doesn't support (e.g. a virtual slot booked through a group whose
+  // provider is only paired with an in-person Location, or vice versa). This is
+  // the backstop for the surfacing filter in get-schedule: without it, the
+  // virtual mismatch fails further down with a confusing "locationState is
+  // required" error, and — worse — the in-person mismatch (in-person slot on a
+  // virtual-only Location) slips through entirely and books a broken visit.
+  // Skipped when no Location resolves (Practitioner/HS actors with no
+  // at-location stamp); mode capability is delegated to the location.ts seam.
+  if (bookingLocation && !locationSupportsServiceMode(bookingLocation, serviceMode)) {
+    throw INVALID_INPUT_ERROR(
+      `The selected time is not available for ${
+        serviceMode === ServiceMode.virtual ? 'virtual' : 'in-person'
+      } visits at this location.`
+    );
   }
 
   // When the caller didn't pass locationState explicitly, derive it from a virtual

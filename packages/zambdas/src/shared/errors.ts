@@ -1,14 +1,14 @@
 import { captureException } from '@sentry/aws-serverless';
 import { handleUnknownError } from 'utils';
 
-export const sendErrors = async (error: any, env: string): Promise<void> => {
+export const sendErrors = async (error: any, env: string, tags?: Record<string, string>): Promise<void> => {
   if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
     return;
   }
   console.log('sendErrors running');
 
   const errorToThrow = handleUnknownError(error);
-  captureException(errorToThrow);
+  captureException(errorToThrow, tags ? { tags } : undefined);
 };
 
 export const sendSlackNotification = async (message: string, env: string): Promise<void> => {

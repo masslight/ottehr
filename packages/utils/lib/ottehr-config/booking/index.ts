@@ -227,6 +227,26 @@ const getFormFields = (
           label: 'Email',
           type: 'string',
           dataType: 'Email',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['enable'],
+              operator: '!=',
+              answerBoolean: true,
+            },
+            {
+              targetQuestionLinkId: 'patient-no-email',
+              effect: ['filter'],
+              operator: '=',
+              answerBoolean: true,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        noEmail: {
+          key: 'patient-no-email',
+          label: "Don't have email",
+          type: 'boolean',
         },
         returnPatientCheck: {
           key: 'return-patient-check',
@@ -356,6 +376,9 @@ export interface BookingConfig {
   formConfig: QuestionnaireConfigType;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
   defaultWalkinLocationName?: string;
+  // Months ahead the prebook "Other dates" calendar allows selecting a date.
+  // Optional; consumers default to DEFAULT_PREBOOK_MAX_MONTHS_AHEAD when unset.
+  prebookMaxMonthsAhead?: number;
   // Questionnaire-related fields used for building the form
   FormFields?: Record<string, unknown>;
   questionnaireBase?: QuestionnaireBase;

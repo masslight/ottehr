@@ -1,4 +1,5 @@
-import { Box, Grid, Typography } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import { Box, Button, Grid, Typography } from '@mui/material';
 import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
@@ -9,9 +10,11 @@ import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointment
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VitalsUnitInputRow } from '../components/VitalsUnitInputRow';
 import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
 import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
+import { useVitalsUnitInputOrder } from '../hooks/useVitalsUnitInputOrder';
 import { VitalsCardProps } from '../types';
 
 type VitalsHeightCardProps = VitalsCardProps<VitalsHeightObservationDTO>;
@@ -32,6 +35,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
     latestHeightCm === undefined ? '' : HeightMeasurement.fromCm(latestHeightCm).getCm(HEIGHT_CM_DISPLAY_PRECISION);
 
   const { localState } = field;
+  const unitInputOrder = useVitalsUnitInputOrder();
 
   const { handleKeyDown } = useVitalsSaveOnEnter({
     onSave: field.save,
@@ -64,6 +68,21 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
         dataTestId={dataTestIds.vitalsPage.heightHeader}
+        headerItem={
+          field.hasData && !isReadOnly ? (
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<ClearIcon fontSize="small" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                field.onClearForm?.();
+              }}
+            >
+              Clear draft
+            </Button>
+          ) : undefined
+        }
       >
         {isReadOnly ? (
           renderRightColumn()
@@ -88,52 +107,54 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({ field }): JSX.Eleme
               >
                 {/* Height Input Field column */}
                 <Grid item xs={12} sm={10} md={10} lg={10} order={{ xs: 1, sm: 1, md: 1 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      gap: 1,
-                    }}
-                  >
-                    <VitalsTextInputFiled
-                      label="cm"
-                      value={localState.valueCm}
-                      disabled={field.isSaving}
-                      isInputError={localState.validationError}
-                      onChange={localState.handleCmChange}
-                      onKeyDown={handleKeyDown}
-                      data-testid={dataTestIds.vitalsPage.heightInput}
-                    />
-                    <Typography fontSize={25}>≈</Typography>
-                    <VitalsTextInputFiled
-                      label="total inches"
-                      value={localState.valueInches}
-                      disabled={field.isSaving}
-                      isInputError={localState.validationError}
-                      onChange={localState.handleInchesChange}
-                      onKeyDown={handleKeyDown}
-                      data-testid={dataTestIds.vitalsPage.heightTotalInchesInput}
-                    />
-                    <Typography fontSize={25}>≈</Typography>
-                    <VitalsTextInputFiled
-                      label="ft"
-                      value={localState.valueFeet}
-                      disabled={field.isSaving}
-                      isInputError={localState.validationError}
-                      onChange={localState.handleFeetChange}
-                      onKeyDown={handleKeyDown}
-                      data-testid={dataTestIds.vitalsPage.heightFeetInput}
-                    />
-                    <VitalsTextInputFiled
-                      label="inches"
-                      value={localState.valueInchRemainder}
-                      disabled={field.isSaving}
-                      isInputError={localState.validationError}
-                      onChange={localState.handleInchRemainderChange}
-                      onKeyDown={handleKeyDown}
-                      data-testid={dataTestIds.vitalsPage.heightInchRemainderInput}
-                    />
-                  </Box>
+                  <VitalsUnitInputRow
+                    order={unitInputOrder}
+                    metricInput={
+                      <VitalsTextInputFiled
+                        label="cm"
+                        value={localState.valueCm}
+                        disabled={field.isSaving}
+                        isInputError={localState.validationError}
+                        onChange={localState.handleCmChange}
+                        onKeyDown={handleKeyDown}
+                        data-testid={dataTestIds.vitalsPage.heightInput}
+                      />
+                    }
+                    imperialInput={
+                      // Imperial group: total inches ≈ ft/in. Kept as one node so its internal order
+                      // is preserved regardless of the configured metric/imperial order.
+                      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                        <VitalsTextInputFiled
+                          label="total inches"
+                          value={localState.valueInches}
+                          disabled={field.isSaving}
+                          isInputError={localState.validationError}
+                          onChange={localState.handleInchesChange}
+                          onKeyDown={handleKeyDown}
+                          data-testid={dataTestIds.vitalsPage.heightTotalInchesInput}
+                        />
+                        <Typography fontSize={25}>≈</Typography>
+                        <VitalsTextInputFiled
+                          label="ft"
+                          value={localState.valueFeet}
+                          disabled={field.isSaving}
+                          isInputError={localState.validationError}
+                          onChange={localState.handleFeetChange}
+                          onKeyDown={handleKeyDown}
+                          data-testid={dataTestIds.vitalsPage.heightFeetInput}
+                        />
+                        <VitalsTextInputFiled
+                          label="inches"
+                          value={localState.valueInchRemainder}
+                          disabled={field.isSaving}
+                          isInputError={localState.validationError}
+                          onChange={localState.handleInchRemainderChange}
+                          onKeyDown={handleKeyDown}
+                          data-testid={dataTestIds.vitalsPage.heightInchRemainderInput}
+                        />
+                      </Box>
+                    }
+                  />
                 </Grid>
 
                 {/* Add Button column */}

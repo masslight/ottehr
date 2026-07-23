@@ -1,5 +1,5 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, SaveRadiologyReportZambdaInput, Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { SaveRadiologyReportZambdaInput, SaveRadiologyReportZambdaInputSchema, Secrets } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: SaveRadiologyReportZambdaInput;
@@ -7,7 +7,7 @@ export interface ValidatedInput {
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const body = validateBody(input);
+  const body = safeValidate(SaveRadiologyReportZambdaInputSchema, validateJsonBody(input));
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
@@ -17,31 +17,6 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   return {
     body,
     callerAccessToken,
-  };
-};
-
-const validateBody = (input: ZambdaInput): SaveRadiologyReportZambdaInput => {
-  const { serviceRequestId, report } = validateJsonBody(input);
-
-  if (!serviceRequestId) {
-    throw MISSING_REQUIRED_PARAMETERS(['serviceRequestId']);
-  }
-
-  if (!report) {
-    throw MISSING_REQUIRED_PARAMETERS(['report']);
-  }
-
-  if (typeof serviceRequestId !== 'string') {
-    throw INVALID_INPUT_ERROR('serviceRequestId must be a string');
-  }
-
-  if (typeof report !== 'string') {
-    throw INVALID_INPUT_ERROR('report must be a string');
-  }
-
-  return {
-    serviceRequestId,
-    report,
   };
 };
 
@@ -61,9 +36,10 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
-    // userMe() (called by the handler to resolve the caller's Practitioner)
-    // reads ENVIRONMENT to take the M2M-client branch; the previously-stripped
-    // secrets object made getSecret(ENVIRONMENT) throw for M2M callers.
-    ...(ENVIRONMENT ? { ENVIRONMENT } : {}),
+    // userMe() (and other downstream helpers) read ENVIRONMENT via getSecret;
+    // getOptionalSecret only falls back to process.env when secrets is null, so
+    // a narrowed non-null secrets object that omits ENVIRONMENT makes those
+    // calls throw. Carry ENVIRONMENT through.
+    ENVIRONMENT,
   };
 };

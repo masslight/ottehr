@@ -4,9 +4,10 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isTelemedAppointment } from 'utils';
-import { createOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
+import { handleReviewTaskAndPdf } from './taskPdfHandler';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;
@@ -20,13 +21,13 @@ export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput):
     console.log('already have token');
   }
 
-  const oystehr = createOystehrClient(token, secrets);
+  const oystehr = createClinicalOystehrClient(token, secrets);
 
   const effectInput = await validateSubmitInputs(input, oystehr);
 
   console.log('effect input', JSON.stringify(effectInput));
 
-  const qr = await performEffect(effectInput, oystehr);
+  const qr = await performEffect(effectInput, oystehr, token);
 
   return {
     statusCode: 200,
@@ -34,8 +35,13 @@ export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput):
   };
 });
 
-const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {
-  const { updatedAnswers, questionnaireResponseId, secrets, currentQRStatus, appointmentId } = input;
+const performEffect = async (
+  input: SubmitPaperworkEffectInput,
+  oystehr: Oystehr,
+  token: string
+): Promise<QuestionnaireResponse> => {
+  const { updatedAnswers, questionnaireResponseId, secrets, currentQRStatus, appointmentId, createReviewTaskAndPdf } =
+    input;
 
   let newStatus = 'completed';
   if (currentQRStatus === 'completed' || currentQRStatus === 'amended') {
@@ -109,5 +115,11 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
     console.log('error writing audit event', JSON.stringify(e, null, 2));
     captureException(e);
   }
+
+  if (createReviewTaskAndPdf) {
+    console.log('entering createReviewTaskAndPdf');
+    await handleReviewTaskAndPdf({ questionnaireResponse: patchedPaperwork, oystehr, secrets, oystehrToken: token });
+  }
+
   return patchedPaperwork;
 };

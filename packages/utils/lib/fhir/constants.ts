@@ -21,6 +21,7 @@ import {
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
+  RADIOLOGY_REPORT_CODE,
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
@@ -32,6 +33,7 @@ import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
 export const PRIVATE_EXTENSION_BASE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions';
 export const PUBLIC_EXTENSION_BASE_URL = 'https://extensions.fhir.zapehr.com';
+export const OYSTEHR_EXTENSION_BASE_URL = 'https://extensions.fhir.oystehr.com';
 export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
@@ -48,8 +50,9 @@ export const OTTEHR_CODE_SYSTEM_BASE_URL = 'https://fhir.ottehr.com/CodeSystem';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 // https://terminology.hl7.org/en/NamingSystem-CLIA.html
-export const FHIR_IDENTIFIER_CLIA = 'urn:oid:2.16.840.1.113883.4.7';
+export const FHIR_IDENTIFIER_CLIA = 'http://terminology.hl7.org/NamingSystem/CLIA';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+export const FHIR_IDENTIFIER_CODE_NPI = 'NPI';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_IDENTIFIER_CODE_TAXONOMY = 'ZZ';
@@ -225,6 +228,15 @@ export const FHIR_EXTENSION = {
     consentObtained: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
     },
+    externalRadiologyOrder: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/external-radiology-order`,
+    },
+    radiologyTimeWindow: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/radiology-time-window`,
+    },
+    radiologySafetyFlag: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/radiology-safety-flag`,
+    },
   },
   RelatedPerson: {
     responsiblePartyRelationship: {
@@ -265,6 +277,20 @@ export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
 export const SLUG_REGEX = /^[a-zA-Z0-9-]+$/;
 export const SLUG_VALIDATION_MESSAGE = 'must be a URL-safe slug (letters, digits, hyphens)';
 export const isValidSlug = (slug: string): boolean => SLUG_REGEX.test(slug);
+
+/**
+ * Derive a URL-safe slug from a human-entered name. Any run of characters that
+ * isn't a letter/digit collapses to a single hyphen, and leading/trailing
+ * hyphens are trimmed — so the result always satisfies {@link isValidSlug}
+ * (or is empty when the name has no URL-safe characters at all, e.g. a purely
+ * non-Latin name). Case is preserved to match the existing slug convention
+ * (e.g. "NewYork-NY"). Callers must handle the empty-string case (invalid).
+ */
+export const slugFromName = (name: string): string =>
+  name
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
 /**
  * Optional admin-editable display name for a PractitionerRole-actored schedule.
@@ -328,6 +354,12 @@ export const APPOINTMENT_LOCKED_META_TAG = {
   code: 'APPOINTMENT_LOCKED',
 };
 
+export const ENCOUNTER_LOCKED_META_TAG_SYSTEM = 'encounter-locked-status';
+export const ENCOUNTER_LOCKED_META_TAG = {
+  system: ENCOUNTER_LOCKED_META_TAG_SYSTEM,
+  code: 'ENCOUNTER_LOCKED',
+};
+
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_SYSTEM = 'encounter-erx-sync-status';
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_CODE = 'ERX_PATIENT_SYNCED';
 export const FHIR_ENCOUNTER_ERX_PATIENT_SYNC_TAG = {
@@ -374,6 +406,12 @@ export const ServiceModeCoding = {
 };
 
 export const SCHEDULE_NUM_DAYS = 2;
+
+// Default for BookingConfig.prebookMaxMonthsAhead — how many months ahead the
+// prebook "Other dates" calendar lets you select a date. Consumers fall back to
+// this when the active booking config doesn't set an explicit value, preserving
+// the historical ~1-month window.
+export const DEFAULT_PREBOOK_MAX_MONTHS_AHEAD = 1;
 
 export enum ScheduleStrategy {
   owns = 'owns',
@@ -450,6 +488,21 @@ export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
 
 /** Extension URL for the JSON-blob runtime config on service-category resources. */
 export const SERVICE_CATEGORY_CONFIG_EXTENSION_URL = ottehrExtensionUrl('service-category-config');
+
+/** meta.tag identifying a Questionnaire as practice-managed (admin-authored custom form). */
+export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'practice-managed',
+};
+
+/** meta.tag identifying how a one off QR was triggered */
+export const QR_DISTRIBUTION_TAG = {
+  system: ottehrCodeSystemUrl('qr-distribution'),
+  code: 'practitioner', // right now only triggered by users sending from visit details but this could be expanded in the future
+};
+
+/** meta.tag system for who sent triggered QR send, code is expected to be practitioner reference and display is expected to be a human readable name */
+export const QR_SENT_BY_SYSTEM = ottehrCodeSystemUrl('qr-practitioner-distribution-by');
 
 // ── Service-category characteristic systems (one per dimension) ─────────────
 
@@ -563,6 +616,7 @@ export const BUCKET_NAMES = {
   STATEMENTS: 'statements',
   PATIENT_EDUCATION: 'patient-education',
   PATIENT_EDUCATION_ADMIN: 'patient-education-admin',
+  RADIOLOGY_REPORTS: 'radiology-reports',
   REPORTS: 'invoiceable-patients-reports',
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
   MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
@@ -650,6 +704,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.PATIENT_EDUCATION,
     display: 'Patient Education',
     documentTypeCode: PATIENT_EDUCATION_DOC_TYPE_CODE,
+  },
+  {
+    title: BUCKET_NAMES.RADIOLOGY_REPORTS,
+    display: 'Radiology Reports',
+    documentTypeCode: RADIOLOGY_REPORT_CODE,
   },
   {
     title: BUCKET_NAMES.MEDICAL_RECORD_EXPORTS,
@@ -742,6 +801,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
   groupType: `${PRIVATE_EXTENSION_BASE_URL}/group-type`,
+  hideControlLabel: `${PRIVATE_EXTENSION_BASE_URL}/hide-control-label`,
   infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,
   inputWidth: `${PRIVATE_EXTENSION_BASE_URL}/input-width`,
   minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
@@ -961,9 +1021,12 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
 export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-places-id'); // added when the pharmacy was selected with places search
+
 // docs.oystehr.com/oystehr/services/erx/patient-sync/#preferred-pharmacy
 export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
+
+export const PRESCRIPTION_ERX_PHARMACY_ID_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-id';
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 
@@ -1029,8 +1092,6 @@ export const GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM = `${OTTEHR_CODE_SYSTEM_BASE_
 /** Builds the full meta.tag system URL from a chart data field name (e.g. 'chief-complaint' → full URL). */
 export const chartDataTagSystem = (fieldName: string): string => `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}`;
 
-export const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
-
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE = ottehrCodeSystemUrl('task-type');
 export const VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE = 'video-chat-waiting-room-notification';
 
@@ -1049,6 +1110,38 @@ export const FAX_SENT_PROVENANCE_ACTIVITY_CODING: Coding = {
   display: PROVENANCE_FAX_ACTIVITY_DISPLAY.faxSent,
   system: PROVENANCE_FAX_SYSTEM,
 };
+
+/** Identifier system Oystehr stamps on the Communication resources it creates for outbound faxes. */
+export const OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM = 'https://identifiers.oystehr.com/fax';
+/** Extension on those Communications whose CodeableConcept code Oystehr updates as the fax progresses. */
+export const OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/outbound-fax-status';
+export const OYSTEHR_OUTBOUND_FAX_STATUS_CODES = {
+  delivered: 'DELIVERED',
+  stopped: 'STOPPED',
+} as const;
+
+export const OUTBOUND_DELIVERY_TASK_SYSTEM = ottehrCodeSystemUrl('outbound-delivery');
+export const OUTBOUND_DELIVERY_TASK_CODES = {
+  fax: 'fax',
+  email: 'email',
+} as const;
+export const OUTBOUND_DELIVERY_INPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-input');
+export const OUTBOUND_DELIVERY_INPUT_CODES = {
+  recipientAddress: 'recipient-address',
+  recipientName: 'recipient-name',
+  documentReference: 'document-reference',
+  senderId: 'sender-id',
+  senderDisplay: 'sender-display',
+  senderOrganization: 'sender-organization',
+} as const;
+export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
+export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
+  communication: 'communication',
+  error: 'error',
+} as const;
+export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
+export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');
+export const OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-claim');
 
 export const EMPLOYEE_ID_SYSTEM = ottehrIdentifierSystem('employee-id');
 
@@ -1070,3 +1163,10 @@ export const EXAM_MIGRATION_VERSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/exam-mi
 export const CURRENT_EXAM_MIGRATION_VERSION = 2;
 export const INCOMPATIBLE_EXAM_VERSION_MESSAGE =
   "This chart's exam version is incompatible with the current exam configuration, please consult the visit PDF.";
+
+export const BILLING_RESOURCE_TAG = {
+  system: 'https://fhir.ottehr.com/billing/resource-type',
+  code: 'billing-resource',
+};
+
+export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';

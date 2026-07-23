@@ -59,12 +59,10 @@ export default function PatientsList(): ReactElement {
       setLoading(true);
       setError(null);
       try {
-        const hasSearch = filters.name || filters.dob || filters.identifier || filters.uuid;
         const params: SearchBillingPatientsInput = {
           offset: page * pageSize,
           pageSize,
         };
-        if (hasSearch) params.includeWorkingCopies = true;
         if (filters.name) params.name = filters.name;
         if (filters.dob) params.dob = filters.dob;
         if (filters.identifier) params.identifier = filters.identifier;
@@ -134,17 +132,12 @@ export default function PatientsList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
-          <Typography variant="h4" color="primary.dark" fontWeight={600}>
-            Patients
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {total} total
-          </Typography>
-        </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          Patients
+        </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
-          Add patient
+          Add Patient
         </Button>
       </Box>
 
@@ -227,6 +220,7 @@ export default function PatientsList(): ReactElement {
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
         slots={dataGridSlots}
+        pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
 

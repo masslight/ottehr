@@ -11,7 +11,7 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -28,7 +28,7 @@ interface Input extends GetPatientLoginPhoneNumbersInput {
 export const index = wrapHandler(ZAMBDA_NAME, async (zambdaInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const input = validateRequestParameters(zambdaInput);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
-  const oystehr = createOystehrClient(m2mToken, input.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
   const phoneNumbers = await getLoginPhoneNumbers(input, oystehr);
   return {
     statusCode: 200,

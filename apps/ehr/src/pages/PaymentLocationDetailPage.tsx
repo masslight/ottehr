@@ -21,8 +21,8 @@ import {
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BILLING_URL } from 'src/App';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { BILLING_URL } from 'src/features/admin/adminRoutes';
 import PageContainer from 'src/layout/PageContainer';
 import { TerminalReaderInfo } from 'src/rcm/state/payments/payments.api';
 import {
@@ -444,7 +444,6 @@ export default function PaymentLocationDetailPage(): ReactElement {
           <CustomBreadcrumbs
             chain={[
               { link: '/admin', children: 'Admin' },
-              { link: BILLING_URL, children: 'Billing Configuration' },
               { link: `${BILLING_URL}/payment-locations`, children: 'Payment Locations' },
               { link: '#', children: 'Not Found' },
             ]}
@@ -477,7 +476,6 @@ export default function PaymentLocationDetailPage(): ReactElement {
         <CustomBreadcrumbs
           chain={[
             { link: '/admin', children: 'Admin' },
-            { link: BILLING_URL, children: 'Billing Configuration' },
             { link: `${BILLING_URL}/payment-locations`, children: 'Payment Locations' },
             { link: '#', children: location.name || 'Unnamed Location' },
           ]}

@@ -75,6 +75,7 @@ export default function CreateClaim(): ReactElement {
   const methods = useForm<CreateClaimForm>({ defaultValues });
   const {
     control,
+    getValues,
     handleSubmit,
     setValue,
     watch,
@@ -291,7 +292,7 @@ export default function CreateClaim(): ReactElement {
             <IconButton size="small" onClick={() => navigate('/claims')}>
               <ArrowBackIcon fontSize="small" />
             </IconButton>
-            <Typography variant="h6" color="primary.dark" fontWeight={600}>
+            <Typography variant="h5" color="primary.dark">
               Create a Claim
             </Typography>
           </Box>
@@ -366,7 +367,7 @@ export default function CreateClaim(): ReactElement {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Search Patient"
+                    label="Search Patient *"
                     size="small"
                     error={!!fieldError}
                     helperText={fieldError?.message}
@@ -393,7 +394,7 @@ export default function CreateClaim(): ReactElement {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Select Coverage"
+                    label="Select Coverage *"
                     size="small"
                     placeholder={selectedPatient ? 'Choose coverage...' : 'Select a patient first'}
                   />
@@ -449,7 +450,7 @@ export default function CreateClaim(): ReactElement {
                   <TextField
                     {...p}
                     size="small"
-                    label="Choose Rendering Provider"
+                    label="Choose Rendering Provider *"
                     error={!!fieldError}
                     helperText={fieldError?.message}
                   />
@@ -471,7 +472,17 @@ export default function CreateClaim(): ReactElement {
               <Autocomplete
                 options={locations}
                 value={field.value}
-                onChange={(_, v) => field.onChange(v)}
+                onChange={(_, v) => {
+                  field.onChange(v);
+                  // Default each service line's POS to the chosen facility's place of service (overridable).
+                  const pos = v?.posCode;
+                  if (pos) {
+                    setValue(
+                      'serviceLines',
+                      getValues('serviceLines').map((l) => ({ ...l, placeOfService: pos }))
+                    );
+                  }
+                }}
                 onInputChange={(_, val, reason) => {
                   if (reason === 'input') searchLocations(val || undefined);
                 }}
@@ -494,7 +505,7 @@ export default function CreateClaim(): ReactElement {
                   <TextField
                     {...p}
                     size="small"
-                    label="Choose Service Facility"
+                    label="Choose Service Facility *"
                     error={!!fieldError}
                     helperText={fieldError?.message}
                   />
@@ -539,7 +550,7 @@ export default function CreateClaim(): ReactElement {
                   <TextField
                     {...p}
                     size="small"
-                    label="Choose Billing Provider"
+                    label="Choose Billing Provider *"
                     error={!!fieldError}
                     helperText={fieldError?.message}
                   />
@@ -597,6 +608,26 @@ export default function CreateClaim(): ReactElement {
             )}
           />
         </FormSection>
+
+        <Divider />
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}></Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button size="small" onClick={() => navigate('/claims')}>
+              Cancel
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={isSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+              onClick={handleCreate}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Creating...' : 'Create'}
+            </Button>
+          </Box>
+        </Box>
       </Box>
     </FormProvider>
   );
@@ -605,9 +636,7 @@ export default function CreateClaim(): ReactElement {
 function FormSection({ label, children }: { label: string; children: React.ReactNode }): ReactElement {
   return (
     <Box sx={{ py: 2.5 }}>
-      <Typography variant="overline" color="primary.dark" sx={{ fontWeight: 600, letterSpacing: 1, fontSize: 12 }}>
-        {label}
-      </Typography>
+      <Typography variant="h6">{label}</Typography>
       <Box sx={{ mt: 1.5 }}>{children}</Box>
     </Box>
   );

@@ -1,6 +1,6 @@
 import { AdminGetTemplateDetailInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 const AdminGetTemplateDetailSchema = z.object({
   templateId: z.string().uuid(),
@@ -17,7 +17,7 @@ export function validateRequestParameters(
     throw MISSING_REQUEST_BODY;
   }
 
-  const parsed = JSON.parse(input.body) as unknown;
+  const parsed = safeJsonParse(input.body) as unknown;
   const { templateId } = safeValidate(AdminGetTemplateDetailSchema, parsed);
 
   return {

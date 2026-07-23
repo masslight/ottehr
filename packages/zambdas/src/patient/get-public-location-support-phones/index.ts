@@ -9,7 +9,7 @@ import {
   LocationSupportPhoneEntry,
   SecretsKeys,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createClinicalOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
 let oystehrToken: string;
 const ZAMBDA_NAME = 'get-public-location-support-phones';
@@ -21,7 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!oystehrToken) {
       oystehrToken = await getAuth0Token(secrets);
     }
-    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
     const response = await performEffect(oystehr);
     return { statusCode: 200, body: JSON.stringify(response) };

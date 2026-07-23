@@ -54,6 +54,8 @@ import {
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
   User,
@@ -81,7 +83,10 @@ import {
   APPOINTMENT_LOCKED_META_TAG_SYSTEM,
   BirthSex,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
+  ENCOUNTER_LOCKED_META_TAG,
+  ENCOUNTER_LOCKED_META_TAG_SYSTEM,
   FHIR_EXTENSION,
+  FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_NPI,
@@ -126,6 +131,46 @@ export function getNPI(resource: Practitioner | Organization | Location | Health
     return ident.system === FHIR_IDENTIFIER_NPI;
   })?.value;
 }
+
+// Set, replace, or (when npi is empty/null) remove both NPI identifiers.
+export function setNpi(resource: Practitioner | Organization | Location, npi: string | null): void {
+  const identifier = resource.identifier ?? [];
+
+  // The `system|value` identifier is used for search
+  const existing = identifier.find((id) => id.system === FHIR_IDENTIFIER_NPI);
+  if (npi) {
+    if (existing) existing.value = npi;
+    else identifier.push({ system: FHIR_IDENTIFIER_NPI, value: npi });
+    resource.identifier = identifier;
+  } else if (existing) {
+    resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_NPI);
+  }
+
+  // The `system|code|value` identifier is used by Oystehr RCM and not supported for search by Oystehr FHIR
+  const existingCoded = identifier.find(
+    (id) =>
+      id.type?.coding?.[0].system === FHIR_IDENTIFIER_SYSTEM && id.type?.coding?.[0].code === FHIR_IDENTIFIER_CODE_NPI
+  );
+  if (npi) {
+    if (existingCoded) existingCoded.value = npi;
+    else
+      identifier.push({
+        type: { coding: [{ system: FHIR_IDENTIFIER_SYSTEM, code: FHIR_IDENTIFIER_CODE_NPI }] },
+        value: npi,
+      });
+    resource.identifier = identifier;
+  } else if (existingCoded) {
+    resource.identifier = identifier.filter(
+      (id) =>
+        !id.type ||
+        !id.type.coding ||
+        !id.type.coding.some(
+          (coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === FHIR_IDENTIFIER_CODE_NPI
+        )
+    );
+  }
+}
+
 export function getTaxID(
   resource: Practitioner | Organization | Location | HealthcareService | Patient
 ): string | undefined {
@@ -636,6 +681,28 @@ export const getAppointmentLockMetaTagOperations = (appointment: Appointment, is
   }
 };
 
+// Helper functions for encounter locking meta tags. Used for annotation follow-ups, which have no own
+// Appointment to carry the APPOINTMENT_LOCKED tag, so the lock is stored on the Encounter instead.
+export const isEncounterLocked = (encounter: Encounter): boolean => {
+  return (
+    encounter.meta?.tag?.some(
+      (tag) => tag.system === ENCOUNTER_LOCKED_META_TAG_SYSTEM && tag.code === ENCOUNTER_LOCKED_META_TAG.code
+    ) ?? false
+  );
+};
+
+export const getEncounterLockMetaTagOperations = (encounter: Encounter, isLocked: boolean): Operation[] => {
+  const lockedTag = ENCOUNTER_LOCKED_META_TAG;
+
+  if (isLocked) {
+    // Add the locked tag if it doesn't exist
+    return getPatchOperationsForNewMetaTags(encounter, [lockedTag]);
+  } else {
+    // Remove the locked tag if it exists
+    return [getPatchOperationToRemoveMetaTags(encounter, [lockedTag])];
+  }
+};
+
 export const getAbbreviationFromLocation = (location: Location): string | undefined => {
   return location.address?.state;
 };
@@ -654,6 +721,18 @@ export function getTaskResource(coding: TaskCoding, title: string, appointmentID
     code: {
       coding: [coding],
     },
+  };
+}
+
+// Task.input that tells the visit-note-pdf-and-email subscription handler to regenerate the PDF but
+// skip the patient completion email (used when the email was already sent on an earlier sign/save).
+// The producer contract here is the counterpart to `resolveSkipEmail` in the subscription handler.
+export function getSkipEmailTaskInput(): TaskInput {
+  return {
+    type: {
+      coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.SKIP_EMAIL }],
+    },
+    valueString: 'true',
   };
 }
 export const getStartTimeFromEncounterStatusHistory = (encounter: Encounter): string | undefined => {
@@ -1060,8 +1139,10 @@ export interface CoverageSubscriberInput {
   middleName?: string;
   lastName?: string;
   dob?: string;
-  birthSex?: BirthSex;
   address?: Address;
+  // Either birthSex or gender can be passed into this and we want to accept either
+  birthSex?: BirthSex;
+  gender?: string;
 }
 
 // CodeableConcept for Coverage.relationship.
@@ -1086,7 +1167,9 @@ export const buildCoverageSubscriberRelatedPerson = (
   resourceType: 'RelatedPerson',
   name: createFhirHumanName(subscriber.firstName, subscriber.middleName, subscriber.lastName),
   birthDate: subscriber.dob,
-  gender: mapBirthSexToGender(subscriber.birthSex),
+  gender: subscriber.birthSex
+    ? mapBirthSexToGender(subscriber.birthSex)
+    : (subscriber.gender as (RelatedPerson | Patient)['gender']) ?? 'unknown',
   patient: { reference: `Patient/${patientId}` },
   address: subscriber.address ? [subscriber.address] : undefined,
   relationship: [

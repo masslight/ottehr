@@ -366,7 +366,10 @@ const renderBodySections = <TData extends PdfData>(
 
       let targetY;
       if (leftColumnPage === rightColumnPage) {
-        targetY = Math.max(leftColumnY, rightColumnY);
+        // Y decreases down the page, so the point below BOTH columns is the smaller Y
+        // (the taller column). Using max here would start at the shorter column's baseline
+        // and overlap the taller one by the height delta.
+        targetY = Math.min(leftColumnY, rightColumnY);
       } else if (leftColumnPage > rightColumnPage) {
         targetY = leftColumnY;
       } else {
@@ -444,7 +447,8 @@ const renderBodySections = <TData extends PdfData>(
 
   let finalY;
   if (leftColumnPage === rightColumnPage) {
-    finalY = Math.max(leftColumnY, rightColumnY);
+    // Below both columns is the smaller Y (taller column); see the same-page note above.
+    finalY = Math.min(leftColumnY, rightColumnY);
   } else if (leftColumnPage > rightColumnPage) {
     finalY = leftColumnY;
   } else {

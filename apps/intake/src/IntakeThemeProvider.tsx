@@ -4,7 +4,7 @@ import * as customTheme from '@theme/index';
 import _ from 'lodash';
 import { FC } from 'react';
 import { BRANDING_CONFIG } from 'utils';
-import i18n from './lib/i18n';
+import { i18n } from 'utils/lib/frontend';
 import { IntakeThemeProviderBase } from './providers';
 import { PropsWithChildren } from './types';
 

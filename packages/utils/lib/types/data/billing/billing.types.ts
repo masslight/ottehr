@@ -1,7 +1,9 @@
 import { SubscriberRelationship } from '../../../fhir/constants';
-import { CODE_SYSTEM_APPOINTMENT_TYPE_CODES, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import { CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers';
+import type { EraClaimStatusCode, X12AdjustmentGroupCode } from './billing.constants';
 import type { BillingInsuranceType } from './billing.schemas';
 import { ClaimStatusValues } from './claim-status';
+import type { RulesEngineType } from './rules-engine.constants';
 
 // Insurance types in display order, with the labels shown across the billing app.
 export const BILLING_INSURANCE_TYPE_OPTIONS: { value: BillingInsuranceType; label: string }[] = [
@@ -49,7 +51,7 @@ export interface BillingPolicyHolderSummary {
   middleName: string;
   lastName: string;
   dob: string;
-  birthSex: 'Male' | 'Female' | 'Intersex' | '';
+  gender: string;
   addressParts: {
     line1: string;
     line2: string;
@@ -67,6 +69,7 @@ export interface BillingCoverageOption {
   payorId: string;
   payorFhirId: string;
   insuranceType?: BillingInsuranceType;
+  planType?: string;
   relationship?: SubscriberRelationship;
   memberId?: string;
   policyHolder?: BillingPolicyHolderSummary | null;
@@ -77,6 +80,7 @@ export interface BillingLocationOption {
   name: string;
   npi: string;
   address: string;
+  posCode: string;
 }
 
 // Service facility (FHIR Location) managed by the billing app's Service Facilities screens.
@@ -88,11 +92,9 @@ export interface ServiceFacilityItem {
   city: string;
   state: string;
   zip: string;
-  zipPlus4: string;
   npi: string;
   clia: string;
   posCode: string;
-  timezone: string;
   status: 'active' | 'inactive';
 }
 
@@ -114,10 +116,11 @@ export interface BillingProviderOption {
   taxonomyCode?: string;
   licenseType?: string;
   taxId?: string;
+  stripeAccountId?: string;
   address?: string;
   addressParts?: {
     line1: string;
-    line2: string;
+    line2?: string;
     city: string;
     state: string;
     postalCode: string;
@@ -135,9 +138,14 @@ export interface BillingPayerOption {
   payerId: string;
 }
 
+// A diagnosis (ICD-10) or procedure (CPT/HCPCS) code option from terminology search.
+export interface BillingCodeOption {
+  code: string;
+  display: string;
+}
+
 export interface EraListItem {
   id: string;
-  eraId: string;
   checkNumber: string;
   payerName: string;
   paymentDate: string;
@@ -150,7 +158,6 @@ export interface EraListItem {
 
 export interface EraDetailResponse {
   id: string;
-  eraId: string;
   checkNumber: string;
   checkDate: string;
   checkAmount: number;
@@ -170,6 +177,8 @@ export interface EraDetailResponse {
     paid: number;
     posted: number;
     status: string;
+    matched: boolean;
+    claimResponseIds: string[];
   }[];
 }
 
@@ -180,12 +189,15 @@ export interface BillingClaimItem {
   // list/detail now surface the `statuses` indicators below instead.
   status: string;
   statuses: ClaimStatusValues;
+  // The rules engine the claim's AR stage maps to (undefined when none applies) — the claims list
+  // only lets rows with an engine be selected for a bulk run.
+  rulesEngine?: RulesEngineType;
   patientName: string;
   patientDob: string;
   payerName: string;
   payerId: string;
   memberId: string;
-  appointmentType: keyof typeof CODE_SYSTEM_APPOINTMENT_TYPE_CODES | undefined;
+  service: string | undefined;
   serviceDate: string;
   facility: string;
   renderingProvider: string;
@@ -217,7 +229,6 @@ export interface PatientDetailResponse {
   };
   friendlyId: string;
   active: boolean;
-  // TODO: wire real balance from ClaimResponse/PaymentReconciliation
   balance: {
     claimsWithPatientBalance: number;
     pendingPayments: number;
@@ -237,8 +248,45 @@ export interface PatientDetailResponse {
   >[];
 }
 
+// One X12 CAS adjustment carried on a remit: group code (X12_ADJUSTMENT_GROUP_CODE) + CARC reason
+// code (e.g. 1 = deductible, 2 = coinsurance, 3 = copay, 45 = exceeds fee schedule).
+export interface ClaimRemitAdjustment {
+  groupCode: X12AdjustmentGroupCode;
+  reasonCode: string;
+  amount: number;
+}
+
+// One ERA payment (PaymentReconciliation) behind a claim's remits.
+export interface ClaimInsurancePayment {
+  paymentReconciliationId: string;
+  checkNumber: string;
+  paymentDate: string;
+  // the whole check's amount, not this claim's share (that's the remit's paid)
+  paymentAmount: number;
+  payerName: string;
+  status: string;
+}
+
+// One ERA adjudication (ClaimResponse) posted against a claim.
+export interface ClaimRemit {
+  claimResponseId: string;
+  date: string;
+  payerName: string;
+  status: string;
+  // CLP02 claim status code from the ERA (ERA_CLAIM_STATUS_CODE)
+  eraStatusCode: EraClaimStatusCode | '';
+  allowed: number | null;
+  paid: number;
+  patientResp: number | null;
+  adjustments: ClaimRemitAdjustment[];
+}
+
 export interface ClaimDetailResponse {
   id: string;
+  // Clinical Encounter this claim was generated from (from the claim's claim-encounter-id identifier).
+  encounterId: string;
+  // Clinical Appointment this claim was generated from (the EHR /visit/<id> route key).
+  appointmentId: string;
   type: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES;
   // Legacy `current-status` value (kept for compatibility); `statuses` carries the indicators shown in the UI.
   status: string;
@@ -246,7 +294,7 @@ export interface ClaimDetailResponse {
   created: string;
   billingType: string;
   billableStatus: string;
-  appointmentType?: string;
+  service?: string;
   patientName: string;
   patientDob: string;
   patientGender: string;
@@ -268,6 +316,9 @@ export interface ClaimDetailResponse {
   memberId: string;
   subscriberId: string;
   coverageStatus: string;
+  planType: string;
+  relationship: SubscriberRelationship;
+  policyHolder: BillingPolicyHolderSummary | null;
   responsibleParty: string;
   secondaryCoverageFhirId: string;
   secondaryPayerName: string;
@@ -279,13 +330,16 @@ export interface ClaimDetailResponse {
   renderingProviderType: string;
   renderingProvider: string;
   renderingNpi: string;
+  renderingTaxonomy: string;
   billingProviderFhirId: string;
   billingProviderType: string;
   billingProvider: string;
   billingNpi: string;
   billingTin: string;
+  billingTaxonomy: string;
   facilityFhirId: string;
   serviceFacility: string;
+  serviceFacilityId: string;
   serviceFacilityAddress: string;
   serviceFacilityAddressParts: {
     line1: string;
@@ -295,6 +349,7 @@ export interface ClaimDetailResponse {
     postalCode: string;
   };
   serviceFacilityNpi: string;
+  serviceFacilityClia?: string;
   diagnoses: { sequence: number; code: string; display: string }[];
   serviceLines: {
     sequence: number;
@@ -313,6 +368,8 @@ export interface ClaimDetailResponse {
   patientResp: number;
   patientPaid: number;
   balance: number;
+  remits: ClaimRemit[];
+  insurancePayments: ClaimInsurancePayment[];
   otherClaims: {
     id: string;
     status: string;
@@ -323,6 +380,7 @@ export interface ClaimDetailResponse {
     cptCodes: string[];
   }[];
   tags: string[];
+  pcn: string;
 }
 
 interface Paginated {
@@ -351,8 +409,16 @@ export interface SearchBillingLocationsResponse {
   locations: BillingLocationOption[];
 }
 
+export interface SearchBillingServicesResponse {
+  services: BillingService[];
+}
+
 export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
+}
+
+export interface SearchBillingProcedureCodesResponse {
+  codes: BillingCodeOption[];
 }
 
 export interface SearchBillingTagsResponse {
@@ -379,6 +445,59 @@ export interface TaggedClaimResponse {
   ok: true;
 }
 
+export interface ExportClaimX12Response {
+  x12: string;
+}
+
 export interface CreatedClaimResponse {
   claimId: string;
+}
+
+export type ChargeItemDefinitionType = 'charge-master' | 'fee-schedule';
+
+export type ChargeItemDefinitionDefault = 'insurance' | 'self-pay';
+
+export interface SearchChargeItemDefinitionItem {
+  id: string;
+  type: ChargeItemDefinitionType;
+  name: string;
+  status: 'active' | 'retired';
+  description?: string;
+  default?: ChargeItemDefinitionDefault;
+  effectiveDate?: string;
+}
+
+export interface SearchChargeItemDefinitionsResponse {
+  items: SearchChargeItemDefinitionItem[];
+  total: number;
+  offset: number;
+  pageSize: number;
+}
+
+export interface BillingChargeItemDefinitionProcedureCode {
+  code: string;
+  description?: string;
+  modifier?: string;
+  amount: number;
+}
+
+export interface BillingChargeItemDefinition {
+  id: string;
+  type: ChargeItemDefinitionType;
+  name: string;
+  status: 'active' | 'retired';
+  description?: string;
+  default?: ChargeItemDefinitionDefault;
+  effectiveDate?: string;
+  procedureCodes: BillingChargeItemDefinitionProcedureCode[];
+}
+
+export interface BillingService {
+  name: string;
+}
+
+export interface RecordBillingManualPaymentResponse {
+  paymentNoticeId: string;
+  // present when the notice is linked to an existing billing Claim
+  claimId?: string;
 }

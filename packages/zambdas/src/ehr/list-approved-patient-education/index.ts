@@ -6,13 +6,14 @@ import {
   getPresignedURL,
   getSecret,
   ListApprovedPatientEducationOutput,
+  normalizePatientEducationLanguage,
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
   SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  createOystehrClient,
+  createClinicalOystehrClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -28,7 +29,7 @@ export const index = wrapHandler(
     try {
       const validatedInput = validateRequestParameters(input);
       m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
-      const oystehr = createOystehrClient(m2mToken, validatedInput.secrets);
+      const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
       const result = await performEffect(oystehr, m2mToken);
       return {
@@ -78,6 +79,7 @@ const performEffect = async (oystehr: Oystehr, token: string): Promise<ListAppro
         title: docRef.content?.[0]?.attachment?.title ?? docRef.description ?? '',
         icdCodes: extractApprovedEducationIcdCodes(docRef),
         pdfPresignedUrl: presignedUrl,
+        language: normalizePatientEducationLanguage(docRef.content?.[0]?.attachment?.language),
       };
     })
   );

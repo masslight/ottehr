@@ -7,10 +7,12 @@ import {
   findExtensionIndex,
   getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
+  getEncounterLockMetaTagOperations,
   getEncounterStatusHistoryUpdateOp,
   getFullestAvailableName,
   getInPersonVisitStatus,
   getPatchBinary,
+  getSkipEmailTaskInput,
   getTaskResource,
   isAnnotationFollowupEncounter,
   SignAppointmentInput,
@@ -23,7 +25,7 @@ import {
 import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -37,7 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-  const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
   const response = await performEffect(oystehr, validatedParameters);
@@ -113,6 +115,7 @@ export const performEffect = async (
     if (appointment.id === undefined) {
       throw new Error('Appointment ID is not defined');
     }
+    const appointmentId = appointment.id;
 
     const patientName = getFullestAvailableName(patient);
 
@@ -121,12 +124,14 @@ export const performEffect = async (
     const sendClaimTaskResource = getTaskResource(
       TaskIndicator.sendClaim,
       `Send claim to ${patientName}`,
-      appointment.id
+      appointmentId
     );
     tasks.push(oystehr.fhir.create(sendClaimTaskResource));
 
-    // Create Task that will kick off subscription to create visit-note PDF and send an email to the patient
-    let shouldCreateVisitNoteTask = true;
+    // Determine whether this sign call is a supervisor approving a visit that was pending approval.
+    // The encounter was read before the status patch above, so the `awaiting-supervisor-approval`
+    // extension is still `true` here in that case.
+    let isSupervisorApproval = false;
     if (supervisorApprovalEnabled) {
       const extensionIndex = findExtensionIndex(
         visitResources.encounter.extension || [],
@@ -134,20 +139,14 @@ export const performEffect = async (
       );
 
       if (extensionIndex != null && extensionIndex >= 0) {
-        const awaitingSupervisorApproval = extractExtensionValue(visitResources.encounter.extension?.[extensionIndex]);
-        if (awaitingSupervisorApproval) {
-          shouldCreateVisitNoteTask = false;
-        }
+        isSupervisorApproval = !!extractExtensionValue(visitResources.encounter.extension?.[extensionIndex]);
       }
     }
-    if (shouldCreateVisitNoteTask) {
-      const visitNoteTaskResource = getTaskResource(
-        TaskIndicator.visitNotePDFAndEmail,
-        `Create visit note for ${patientName}`,
-        appointment.id
-      );
-      tasks.push(oystehr.fhir.create(visitNoteTaskResource));
-    }
+
+    // Create the Task that kicks off the visit-note PDF (and, unless suppressed, patient email)
+    // subscription. See getVisitNoteTask for why supervisor approval regenerates the PDF but skips
+    // the email.
+    tasks.push(oystehr.fhir.create(getVisitNoteTask(patientName, appointmentId, isSupervisorApproval)));
 
     const taskCreationResults = await Promise.all(tasks);
     console.log('Task creation results ', taskCreationResults);
@@ -157,6 +156,29 @@ export const performEffect = async (
     message: 'Appointment status successfully changed.',
   };
 };
+
+/**
+ * Builds the Task that triggers the visit-note PDF + patient-email subscription.
+ *
+ * On supervisor approval the PDF + email were already produced at provider-sign time; we still
+ * regenerate the PDF so the verifier's "Approved by ..." Provenance line appears, but attach a
+ * SKIP_EMAIL input so the patient is not notified a second time.
+ */
+export function getVisitNoteTask(
+  patientName: string | undefined,
+  appointmentId: string,
+  isSupervisorApproval: boolean
+): Task {
+  const task = getTaskResource(
+    TaskIndicator.visitNotePDFAndEmail,
+    isSupervisorApproval ? `Regenerate visit note for ${patientName}` : `Create visit note for ${patientName}`,
+    appointmentId
+  );
+  if (isSupervisorApproval) {
+    task.input = [getSkipEmailTaskInput()];
+  }
+  return task;
+}
 
 const changeFollowupEncounterStatusToCompleted = async (
   oystehr: Oystehr,
@@ -184,6 +206,7 @@ const changeFollowupEncounterStatusToCompleted = async (
     'completed'
   );
   encounterPatchOps.push(encounterStatusHistoryUpdate);
+  encounterPatchOps.push(...getEncounterLockMetaTagOperations(resourcesToUpdate.encounter, true));
 
   let provenanceCreate: BatchInputRequest<Provenance> | undefined;
 

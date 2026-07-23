@@ -1,6 +1,6 @@
 import React from 'react';
+import { InputMask } from 'ui-components';
 import { isPhoneNumberValid } from 'utils';
-import InputMask from '../InputMask';
 import { TextInput } from './TextInput';
 
 type Props = {

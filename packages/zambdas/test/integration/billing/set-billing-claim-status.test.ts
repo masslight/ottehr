@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { Claim } from 'fhir/r4b';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS, M2MClientMockType } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BILLING_RESOURCE_TAG } from '../../../src/billing/shared';
 import { setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 
 describe('set-billing-claim-status', () => {
@@ -15,7 +14,7 @@ describe('set-billing-claim-status', () => {
       'integration/set-billing-claim-status.test.ts',
       M2MClientMockType.provider
     );
-    oystehr = setup.oystehrTestUserM2M;
+    oystehr = setup.oystehrBilling;
     cleanup = setup.cleanup;
   }, 60_000);
 
@@ -42,7 +41,6 @@ describe('set-billing-claim-status', () => {
       priority: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/processpriority', code: 'normal' }] },
       // Claim.insurance is 1..* in FHIR R4; one display-only entry satisfies the cardinality.
       insurance: [{ sequence: 1, focal: true, coverage: { display: 'Self-pay' } }],
-      meta: { tag: [BILLING_RESOURCE_TAG] },
     });
     createdClaimIds.push(claim.id!);
 

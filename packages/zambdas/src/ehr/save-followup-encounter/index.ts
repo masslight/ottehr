@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
 import { FOLLOWUP_TYPES, SaveFollowupEncounterZambdaInput, SaveFollowupEncounterZambdaOutput, Secrets } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { createEncounterResource, updateEncounterResource } from './helpers';
 
 const ZAMBDA_NAME = 'save-followup-encounter';
@@ -45,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('updated encounter details', encounterDetails);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   let encounter: Encounter | undefined;
 
   if (encounterDetails.encounterId) {

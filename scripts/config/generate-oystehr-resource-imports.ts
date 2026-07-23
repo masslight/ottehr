@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import { SpecFile } from '../../packages/spec/src/schema';
 import { Schema20250925, Spec20250925 } from '../../packages/spec/src/schema-20250925';
+import { createClinicalOystehrClient } from '../../packages/zambdas/src/shared';
 
 interface GenerateResourcesArgs {
   configDir: string;
@@ -60,7 +61,7 @@ async function generateOystehrResourceImports(input: {
   // Read all spec files from the config directory
   const specFiles = await fs.readdir(configDir, { withFileTypes: true });
   const jsonSpecFiles = specFiles
-    .filter((file) => file.isFile() && file.name.endsWith('.json'))
+    .filter((file) => file.name.endsWith('.json'))
     .map((file) => path.join(configDir, file.name));
 
   const specs: SpecFile[] = await Promise.all(
@@ -96,10 +97,13 @@ async function generateOystehrResourceImports(input: {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
 
-  const oystehr = new Oystehr({
+  const oystehr = createClinicalOystehrClient(
     accessToken,
-    projectId,
-  });
+    {},
+    {
+      projectId,
+    }
+  );
 
   const { $ } = await import('execa');
   const execaOpts: Options = {

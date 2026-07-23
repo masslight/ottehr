@@ -1,9 +1,9 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { List } from 'fhir/r4b';
-import { getAuth0Token } from '../shared';
+import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 import seed from './data/global-templates-seed.json';
-import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
+import { performEffectWithEnvFile } from './helpers';
 
 // The Global Templates Holder List is provisioned by Terraform
 // (config/oystehr/global-template-holder-list.json -> GlobalTemplatesHolderList).
@@ -28,10 +28,7 @@ const GLOBAL_TEMPLATES_TAG_CODE = 'global-templates';
 const recreateGlobalTemplates = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
-  const oystehr = new Oystehr({
-    fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
-    accessToken: token,
-  });
+  const oystehr = createClinicalOystehrClient(token, config);
 
   const holder = await getGlobalTemplatesHolder(oystehr);
   if (!holder) {

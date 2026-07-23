@@ -3,7 +3,7 @@ import { Communication } from 'fhir/r4b';
 import { userMe } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { makeCommunicationDTO } from '../../shared/chart-data';
-import { createOystehrClient } from '../../shared/helpers';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { checkIfProvidersInstruction, createCommunicationResource, updateCommunicationResource } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -13,7 +13,7 @@ const ZAMBDA_NAME = 'save-patient-instruction';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { instructionId, text, title, secrets, userToken } = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const myUserProfile = (await userMe(userToken, secrets)).profile;
   let communication: Communication;
 

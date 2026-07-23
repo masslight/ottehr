@@ -9,6 +9,7 @@ import {
   GetBookableItemListParams,
   getSecret,
   getSlugForBookableResource,
+  isLocationInPerson,
   isLocationVirtual,
   SecretsKeys,
   ServiceMode,
@@ -16,7 +17,7 @@ import {
   serviceModeForHealthcareService,
   stateCodeToFullName,
 } from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token, safeJsonParse, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'list-bookables';
 
@@ -126,7 +127,9 @@ async function getPhysicalLocations(oystehr: Oystehr): Promise<BookableItem[]> {
     oystehr
   );
 
-  const physicalLocations = allLocations.filter((location) => !isLocationVirtual(location));
+  // Include Locations explicitly marked in-person even when they're also virtual
+  // (dual-mode); legacy non-virtual Locations still qualify via the isLocationInPerson default.
+  const physicalLocations = allLocations.filter((location) => isLocationInPerson(location));
 
   console.log('physical locations found', physicalLocations);
 
@@ -200,7 +203,7 @@ function validateRequestParameters(input: ZambdaInput): GetBookableItemListParam
     throw new Error('No request body provided');
   }
 
-  const { serviceMode } = JSON.parse(input.body);
+  const { serviceMode } = safeJsonParse(input.body);
   if (!serviceMode) {
     throw new Error('serviceType parameter ("in-person"|"virtual") is required');
   }

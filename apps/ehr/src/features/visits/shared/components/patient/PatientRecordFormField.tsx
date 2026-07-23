@@ -4,9 +4,9 @@ import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField } from 'src/components/form';
-import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { InputMask } from 'ui-components';
 import {
   AnswerOptionSource,
   dedupeObjectsByKey,
@@ -15,11 +15,24 @@ import {
   FormFieldsGroupItem,
   FormFieldsInputItem,
   isRemovableField,
+  PATIENT_RECORD_CONFIG,
   QuestionnaireItemGroupType,
 } from 'utils';
 
+// Flat map of linkId → field config, built once at module load for source-field lookup.
+const allFieldConfigs = new Map<string, FormFieldsInputItem>();
+for (const section of Object.values(PATIENT_RECORD_CONFIG.FormFields)) {
+  const items = (section as any).items;
+  if (!items) continue;
+  const itemValues = Array.isArray(items) ? items.flatMap((group: any) => Object.values(group)) : Object.values(items);
+  for (const field of itemValues as FormFieldsInputItem[]) {
+    if (field?.key) allFieldConfigs.set(field.key, field);
+  }
+}
+
 interface PatientRecordFormFieldProps {
-  item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
+  // undefined when a project's config omits a field a shared container references
+  item: FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem | undefined;
   isLoading: boolean;
   hiddenFormFields?: string[];
   requiredFormFields?: string[];
@@ -27,15 +40,23 @@ interface PatientRecordFormFieldProps {
   disabled?: boolean;
 }
 
+type PatientRecordFormFieldContentProps = Omit<PatientRecordFormFieldProps, 'item'> & {
+  item: NonNullable<PatientRecordFormFieldProps['item']>;
+};
+
 const PatientRecordFormField: FC<PatientRecordFormFieldProps> = (props) => {
+  // Guard against configs that omit a referenced field (e.g. `noEmail`).
+  if (!props.item) {
+    return null;
+  }
   const isHidden = props.hiddenFormFields?.includes(props.item.key);
   if (isHidden) {
     return null;
   }
-  return <PatientRecordFormFieldContent {...props} />;
+  return <PatientRecordFormFieldContent {...props} item={props.item} />;
 };
 
-const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
+const PatientRecordFormFieldContent: FC<PatientRecordFormFieldContentProps> = ({
   item,
   requiredFormFields,
   isLoading,
@@ -70,10 +91,22 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   }
 
   // Dynamic population: when field is disabled, copy value from source field
-  const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
+  const rawSourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
   const stashedValueRef = useRef<any>(null);
 
   const triggerState = dynamicPopulation?.triggerState ?? 'disabled';
+
+  // Determine whether the source field is currently hidden (disabled + disabledDisplay:'hidden').
+  // When it is, treat its effective value as empty so downstream fields don't pick up stale data.
+  const sourceFieldConfig = dynamicPopulation?.sourceLinkId
+    ? allFieldConfigs.get(dynamicPopulation.sourceLinkId)
+    : undefined;
+  const sourceEffects = sourceFieldConfig
+    ? evaluateFieldTriggers(sourceFieldConfig, formValues, sourceFieldConfig.enableBehavior)
+    : null;
+  const sourceIsHidden = sourceEffects?.enabled === false && sourceFieldConfig?.disabledDisplay === 'hidden';
+  const sourceEmptyValue = sourceFieldConfig?.type === 'boolean' ? false : '';
+  const sourceFieldValue = sourceIsHidden ? sourceEmptyValue : rawSourceFieldValue;
 
   useEffect(() => {
     if (dynamicPopulation && triggerState === 'disabled' && isDisabled) {
@@ -81,7 +114,9 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
       // Only update if the source value is different from current value
       if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
-        stashedValueRef.current = currentValue;
+        // When the source field is hidden/cleared, clear the stash too so re-enabling
+        // this field doesn't restore a stale value from before the source was cleared.
+        stashedValueRef.current = sourceIsHidden ? null : currentValue;
         // shouldDirty:false — this field mirrors the source as derived state; the
         // trigger field the user actually toggles carries the dirty signal.
         setValue(item.key, sourceFieldValue, { shouldDirty: false });
@@ -92,7 +127,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
         stashedValueRef.current = null;
       }
     }
-  }, [sourceFieldValue, isDisabled, dynamicPopulation, triggerState, item.key, setValue, getValues]);
+  }, [sourceFieldValue, isDisabled, dynamicPopulation, triggerState, item.key, setValue, getValues, sourceIsHidden]);
 
   if (isDisabled && disabledDisplay === 'hidden') {
     return null;
@@ -318,51 +353,36 @@ type AnswerSourceStrategy = {
   answerSource: AnswerOptionSource;
 };
 
-interface DynamicReferenceFieldProps {
-  item: Omit<FormFieldsInputItem | FormFieldsDisplayItem, 'options'>;
-  optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
-  id?: string;
+export interface AnswerOptionsQueryInput {
+  id: string;
+  valueSet?: string;
+  answerSource?: AnswerOptionSource;
 }
 
 /**
- * If the currently selected value is not in the active options list,
- * include it with an "(inactive)" suffix so it remains visible.
+ * Builds the get-answer-options input for an answerSource-driven reference field. Exported so
+ * other consumers (e.g. the insurance-card carrier suggestion) can share the exact same query
+ * key — and therefore the same React Query cache entry — as the field's own options load.
  */
-function ensureSelectedOptionVisible(options: Reference[], selected: Reference | null | undefined): Reference[] {
-  if (!selected?.reference) return options;
-  const isInList = options.some((opt) => opt.reference === selected.reference);
-  if (isInList) return options;
-  const inactiveLabel = selected.display ? `${selected.display} (inactive)` : selected.reference;
-  return [...options, { ...selected, display: inactiveLabel }];
-}
+export const buildAnswerSourceOptionsInput = (answerSource: AnswerOptionSource): AnswerOptionsQueryInput => ({
+  id: answerSource.zambdaId,
+  answerSource,
+});
 
-const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
+/**
+ * Loads the answer options a DynamicReferenceField offers (deduped `Reference[]`). Keyed by the
+ * serialized input, so any two callers with the same input share one fetch.
+ */
+export const useAnswerOptionsQuery = (
+  optionsInput: AnswerOptionsQueryInput | undefined,
+  enabled = true
+): { data: Reference[] | undefined; isLoading: boolean; isRefetching: boolean } => {
   const { oystehrZambda } = useApiClients();
-  const { control, setValue } = useFormContext();
-  const optionsInput = (() => {
-    const base = { id: 'get-answer-options' };
-    if (optionStrategy.type === 'valueSet') {
-      return {
-        ...base,
-        valueSet: optionStrategy.valueSet,
-      };
-    }
-    return {
-      ...base,
-      id: optionStrategy.answerSource.zambdaId,
-      answerSource: optionStrategy.answerSource,
-    };
-  })();
-
-  const {
-    data: answerOptions,
-    isLoading,
-    isRefetching,
-  } = useQuery({
-    queryKey: [JSON.stringify(optionsInput)],
+  return useQuery({
+    queryKey: [JSON.stringify(optionsInput ?? null)],
 
     queryFn: async () => {
-      if (!oystehrZambda) {
+      if (!oystehrZambda || !optionsInput) {
         throw new Error('API client not available');
       }
       return await oystehrZambda?.zambda
@@ -379,8 +399,37 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStr
         });
     },
 
-    enabled: !!oystehrZambda,
+    enabled: !!oystehrZambda && !!optionsInput && enabled,
   });
+};
+
+interface DynamicReferenceFieldProps {
+  item: Omit<FormFieldsInputItem | FormFieldsDisplayItem, 'options'>;
+  optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
+  id?: string;
+}
+
+/**
+ * If the currently selected value is not in the active options list, include it with a
+ * "(historical)" suffix so it remains visible. These are typically old organization-based
+ * references that are no longer returned by the active options query; the display stored on the
+ * saved reference is used as-is.
+ */
+function ensureSelectedOptionVisible(options: Reference[], selected: Reference | null | undefined): Reference[] {
+  if (!selected?.reference) return options;
+  const isInList = options.some((opt) => opt.reference === selected.reference);
+  if (isInList) return options;
+  return [...options, { ...selected, display: `${selected.display || selected.reference} (historical)` }];
+}
+
+const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ item, optionStrategy, id }) => {
+  const { control, setValue } = useFormContext();
+  const optionsInput: AnswerOptionsQueryInput =
+    optionStrategy.type === 'valueSet'
+      ? { id: 'get-answer-options', valueSet: optionStrategy.valueSet }
+      : buildAnswerSourceOptionsInput(optionStrategy.answerSource);
+
+  const { data: answerOptions, isLoading, isRefetching } = useAnswerOptionsQuery(optionsInput);
   // console.log('Insurance options from query:', insuranceOptions);
 
   return (

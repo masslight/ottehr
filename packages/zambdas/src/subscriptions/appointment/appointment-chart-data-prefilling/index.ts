@@ -26,7 +26,7 @@ import {
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../../../shared/chart-data';
-import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
+import { createClinicalOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const CHUNK_SIZE = 50;
@@ -60,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!appointment.id) throw new Error("Appointment FHIR resource doesn't exist.");
 
   oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
-  const oystehr = createOystehrClient(oystehrToken, secrets);
+  const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
   console.log('Created zapToken and fhir client');
 
   const resourceBundle = (

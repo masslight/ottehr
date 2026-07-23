@@ -1,4 +1,4 @@
-import { Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Add as AddIcon, Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
 import {
   Alert,
   Autocomplete,
@@ -26,6 +26,7 @@ import {
 } from 'utils';
 import { searchBillingEras, searchBillingPatients, searchBillingPayers } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { ImportEraDialog } from '../components/ImportEraDialog';
 import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
@@ -34,7 +35,6 @@ import { formatCurrency } from '../utils/format';
 interface Filters {
   // ERA-level
   checkNumber?: string;
-  eraId?: string;
   eraDateFrom?: string;
   eraDateTo?: string;
   eraStatus?: string;
@@ -48,7 +48,7 @@ interface Filters {
 }
 
 const columns: GridColDef[] = [
-  { field: 'checkNumber', headerName: 'Check No.', width: 120 },
+  { field: 'checkNumber', headerName: 'Check No.', width: 150 },
   { field: 'paymentDate', headerName: 'Check Date', width: 120 },
   {
     field: 'paymentAmount',
@@ -59,7 +59,6 @@ const columns: GridColDef[] = [
     valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
   { field: 'payerName', headerName: 'Payer', flex: 1, minWidth: 200 },
-  { field: 'eraId', headerName: 'ERA ID', width: 180 },
   {
     field: 'status',
     headerName: 'Status',
@@ -88,10 +87,10 @@ export default function ERAList(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   // ERA-level filters
   const [checkNumber, setCheckNumber] = useState('');
-  const [eraId, setEraId] = useState('');
   const [eraDateFrom, setEraDateFrom] = useState('');
   const [eraDateTo, setEraDateTo] = useState('');
   const [eraStatus, setEraStatus] = useState('');
@@ -119,7 +118,6 @@ export default function ERAList(): ReactElement {
           offset: pagination.page * pagination.pageSize,
         };
         if (filters.checkNumber) params.checkNumber = filters.checkNumber;
-        if (filters.eraId) params.eraId = filters.eraId;
         if (filters.eraDateFrom) params.eraDateFrom = filters.eraDateFrom;
         if (filters.eraDateTo) params.eraDateTo = filters.eraDateTo;
         if (filters.eraStatus) params.eraStatus = filters.eraStatus;
@@ -161,10 +159,7 @@ export default function ERAList(): ReactElement {
       if (!oystehrZambda) return;
       debounce(async () => {
         try {
-          const res = await searchBillingPatients(
-            oystehrZambda,
-            query ? { name: query, includeWorkingCopies: true } : {}
-          );
+          const res = await searchBillingPatients(oystehrZambda, query ? { name: query } : {});
           setPatientOptions(res.patients ?? []);
         } catch {
           setPatientOptions([]);
@@ -184,7 +179,6 @@ export default function ERAList(): ReactElement {
   const currentFilters = useCallback(
     (overrides?: Filters): Filters => ({
       checkNumber: overrides?.checkNumber ?? checkNumber,
-      eraId: overrides?.eraId ?? eraId,
       eraDateFrom: overrides?.eraDateFrom ?? eraDateFrom,
       eraDateTo: overrides?.eraDateTo ?? eraDateTo,
       eraStatus: overrides?.eraStatus ?? eraStatus,
@@ -197,7 +191,6 @@ export default function ERAList(): ReactElement {
     }),
     [
       checkNumber,
-      eraId,
       eraDateFrom,
       eraDateTo,
       eraStatus,
@@ -232,7 +225,6 @@ export default function ERAList(): ReactElement {
 
   const clearFilters = (): void => {
     setCheckNumber('');
-    setEraId('');
     setEraDateFrom('');
     setEraDateTo('');
     setEraStatus('');
@@ -249,7 +241,6 @@ export default function ERAList(): ReactElement {
 
   const hasFilters =
     checkNumber ||
-    eraId ||
     eraDateFrom ||
     eraDateTo ||
     eraStatus ||
@@ -262,9 +253,14 @@ export default function ERAList(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h4" color="primary.dark" fontWeight={600} sx={{ mb: 3 }}>
-        ERAs
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Typography variant="h4" color="primary.dark" fontWeight={600}>
+          ERAs
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowImportDialog(true)}>
+          Import ERA
+        </Button>
+      </Box>
 
       <TextField
         fullWidth
@@ -293,14 +289,6 @@ export default function ERAList(): ReactElement {
           onChange={(e) => handleDebouncedFilter(setCheckNumber, 'checkNumber')(e.target.value)}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 140 }}
-        />
-        <TextField
-          size="small"
-          label="ERA ID"
-          value={eraId}
-          onChange={(e) => handleDebouncedFilter(setEraId, 'eraId')(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel>ERA Status</InputLabel>
@@ -454,8 +442,17 @@ export default function ERAList(): ReactElement {
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
         slots={dataGridSlots}
+        pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
       />
+      {showImportDialog && (
+        <ImportEraDialog
+          onClose={() => {
+            setShowImportDialog(false);
+            void fetchEras({}, paginationModel);
+          }}
+        />
+      )}
     </Box>
   );
 }

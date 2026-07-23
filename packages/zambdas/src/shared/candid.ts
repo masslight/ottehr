@@ -38,7 +38,7 @@ import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/ty
 import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
-import { RelatedCausesCode } from 'candidhealth/api/resources/relatedCauses/resources/v1';
+import { RelatedCausesCode, RelatedCausesInformation } from 'candidhealth/api/resources/relatedCauses/resources/v1';
 import {
   DrugIdentification,
   MeasurementUnitCode,
@@ -52,6 +52,7 @@ import {
   Condition,
   Coverage,
   Encounter,
+  EncounterDiagnosis,
   Extension,
   Identifier,
   Location,
@@ -128,13 +129,27 @@ const CANDID_CASH_PAY_PAYER = 'Cash Pay';
 
 /**
  * Whether the claim should bill a single "Cash Pay" payer instead of insurance. This is true for
- * employer-paid and self-pay visits, determined by the encounter's payment variant (the authoritative
- * billing signal chosen during paperwork). Note an occupational-medicine *service category* visit can
- * still be insurance-pay, so the service category must not be used to make this decision.
+ * self-pay visits, and for employer-paid visits only when the visit is occupational medicine. The
+ * payment variant comes from the encounter (the authoritative billing signal chosen during paperwork).
+ * Note an occupational-medicine *service category* visit can still be insurance-pay, so the service
+ * category must not be used on its own to make this decision; it only gates the employer variant.
+ *
+ * WC visits always use their WC insurance coverage regardless of the payment variant. A WC patient
+ * without general insurance may select "I will pay without insurance" on the payment page (which sets
+ * paymentVariant = selfPay), but the WC insurer — not Cash Pay — is the correct billing vehicle.
  */
-const shouldUseCashPayCoverage = (encounter: Encounter): boolean => {
+const shouldUseCashPayCoverage = (encounter: Encounter, appointment: Appointment): boolean => {
+  if (isAppointmentWorkersComp(appointment)) {
+    return false;
+  }
   const paymentVariant = getPaymentVariantFromEncounter(encounter);
-  return paymentVariant === PaymentVariant.employer || paymentVariant === PaymentVariant.selfPay;
+  if (paymentVariant === PaymentVariant.selfPay) {
+    return true;
+  }
+  if (paymentVariant === PaymentVariant.employer) {
+    return isAppointmentOccupationalMedicine(appointment);
+  }
+  return false;
 };
 
 interface BillingProviderData {
@@ -316,9 +331,14 @@ function getExtensionString(extensions: Extension[] | undefined, url: string): s
   return extensions?.find((extension: Extension) => extension.url === url)?.valueString;
 }
 
-function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
+export function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): DiagnosisCreate[] {
+  const isPrimary = (encounterDiagnosis: EncounterDiagnosis): boolean => (encounterDiagnosis.rank ?? -1) === 1;
+  // Process the primary diagnosis first so that if the same code is also entered as a secondary
+  // diagnosis, the primary wins the code-based dedup below and is not dropped (which would otherwise
+  // cause the send-claim flow to fail with "Primary diagnosis is absent").
+  const orderedDiagnoses = [...(encounter.diagnosis ?? [])].sort((a, b) => Number(isPrimary(b)) - Number(isPrimary(a)));
   const seenCodes = new Set<string>();
-  return (encounter.diagnosis ?? []).flatMap<DiagnosisCreate>((encounterDiagnosis) => {
+  return orderedDiagnoses.flatMap<DiagnosisCreate>((encounterDiagnosis) => {
     const diagnosisResourceId = encounterDiagnosis.condition.reference?.split('/')[1];
     const diagnosisResource = diagnoses.find((resource) => resource.id === diagnosisResourceId);
     const diagnosisCode = diagnosisResource?.code?.coding?.[0].code;
@@ -328,7 +348,7 @@ function createCandidDiagnoses(encounter: Encounter, diagnoses: Condition[]): Di
     seenCodes.add(diagnosisCode);
     return [
       {
-        codeType: (encounterDiagnosis.rank ?? -1) === 1 ? DiagnosisTypeCode.Abk : DiagnosisTypeCode.Abf,
+        codeType: isPrimary(encounterDiagnosis) ? DiagnosisTypeCode.Abk : DiagnosisTypeCode.Abf,
         code: diagnosisCode,
       },
     ];
@@ -695,7 +715,7 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     coverages,
     insuranceOrgs,
     candidApiClient,
-    shouldUseCashPayCoverage(ourEncounter)
+    shouldUseCashPayCoverage(ourEncounter, ourAppointment)
   );
 
   // Update patient with the coverages
@@ -1211,7 +1231,7 @@ export async function createEncounterFromAppointment(
   // Candid pre-encounter appointment already existed, e.g. payment was collected at check-in), force
   // the Cash Pay filing order here so employer-paid and self-pay claims never bill an insurance payer
   // that may have been selected.
-  if (!didPreEncounterSync && shouldUseCashPayCoverage(visitResources.encounter)) {
+  if (!didPreEncounterSync && shouldUseCashPayCoverage(visitResources.encounter, visitResources.appointment)) {
     console.log('[CLAIM SUBMISSION] Enforcing Cash Pay coverage for employer-paid/self-pay claim');
     await enforceCashPayCoverageForCandidPatient(createEncounterInput.patient, candidApiClient);
   }
@@ -1235,10 +1255,14 @@ export async function createEncounterFromAppointment(
   }
 
   // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
+  // WC visits always bill through WC insurance, so they are always InsurancePay even when the
+  // encounter's paymentVariant is selfPay (a WC patient without general insurance selects
+  // "I will pay without insurance" on the payment page, which sets selfPay, but the WC insurer
+  // is still the responsible party for the claim).
   const packageEncounter = visitResources.encounter;
   const paymentVariantFromEncounter = getPaymentVariantFromEncounter(packageEncounter);
   const candidResponsibleParty: ResponsiblePartyType =
-    paymentVariantFromEncounter && paymentVariantFromEncounter === PaymentVariant.selfPay
+    !isAppointmentWorkersComp(visitResources.appointment) && paymentVariantFromEncounter === PaymentVariant.selfPay
       ? ResponsiblePartyType.SelfPay
       : ResponsiblePartyType.InsurancePay;
   if (candidResponsibleParty && candidEncounterId) {
@@ -1428,11 +1452,6 @@ async function candidCreateEncounterFromAppointmentRequest(
     tags.push(TagId(CANDID_TAG_PRE_OP));
   }
 
-  const accidentTypes =
-    accident?.code?.coding
-      ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
-      ?.map((coding) => coding.code as string) ?? [];
-
   // Note: dateOfService field must not be provided as service line date of service is already sent
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
@@ -1477,17 +1496,36 @@ async function candidCreateEncounterFromAppointmentRequest(
     ),
     diagnoses: candidDiagnoses,
     accidentDate: accident?.onsetDateTime,
-    relatedCausesInformation:
-      accident != null
-        ? {
-            relatedCausesCode1: accidentTypes[0] as RelatedCausesCode,
-            relatedCausesCode2: accidentTypes[1] as RelatedCausesCode,
-            stateOrProvinceCode: accident?.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)
-              ?.valueString,
-          }
-        : undefined,
+    relatedCausesInformation: buildRelatedCausesInformation(accident),
     serviceLines,
     tagIds: tags,
+  };
+}
+
+/**
+ * Builds the Candid related-causes information from an accident-tagged Condition, or returns
+ * undefined when there is nothing to send.
+ *
+ * A Condition may carry the "accident" meta tag but have no coding — for example when the accident
+ * checkbox was toggled on and then off without the Condition being removed. In that case there are no
+ * accident type codes, so we must return undefined rather than build an object with an undefined
+ * relatedCausesCode1, which Candid rejects because that field is required.
+ */
+export function buildRelatedCausesInformation(accident: Condition | undefined): RelatedCausesInformation | undefined {
+  const accidentTypes =
+    accident?.code?.coding
+      ?.filter((coding) => coding.system === ACCIDENT_TYPE_SYSTEM && coding.code != null)
+      ?.map((coding) => coding.code as string) ?? [];
+
+  if (accidentTypes.length === 0) {
+    return undefined;
+  }
+
+  return {
+    relatedCausesCode1: accidentTypes[0] as RelatedCausesCode,
+    relatedCausesCode2: accidentTypes[1] as RelatedCausesCode,
+    stateOrProvinceCode: accident?.extension?.find((extension) => extension.url === ACCIDENT_STATE_EXTENSION)
+      ?.valueString,
   };
 }
 

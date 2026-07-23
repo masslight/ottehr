@@ -1,7 +1,7 @@
 {
   "name": "ui-components",
   "private": true,
-  "version": "1.37.2",
+  "version": "1.39.4",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
@@ -16,10 +16,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.4.0",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
     "heic-to": "^1.5.2",
     "tsconfig": "*",
     "utils": "*"
+  },
+  "peerDependencies": {
+    "@types/fhir": ">=0.0.30",
+    "react-hook-form": ">=7.0.0"
   }
 }

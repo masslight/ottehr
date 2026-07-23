@@ -6,7 +6,7 @@ import {
   Secrets,
 } from 'utils';
 import { z } from 'zod';
-import { ZambdaInput } from '../../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../../shared';
 
 const AdminUpdateInHouseLabStatusSchema = z.object({
   updateType: z.literal('toggle-status'),
@@ -42,7 +42,7 @@ export function validateRequestParameters(
 
   let params: AdminUpdateInHouseLabInput;
   try {
-    params = JSON.parse(input.body);
+    params = safeJsonParse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }

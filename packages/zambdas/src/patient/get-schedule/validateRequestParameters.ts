@@ -6,11 +6,12 @@ import {
   ScheduleType,
   Secrets,
   ServiceCategoryCode,
+  ServiceMode,
   SLUG_REGEX,
   SLUG_VALIDATION_MESSAGE,
 } from 'utils';
 import { z } from 'zod';
-import { safeValidate, ZambdaInput } from '../../shared';
+import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 
 export const SCHEDULE_TYPES = ['location', 'provider', 'group'] as const;
 
@@ -25,6 +26,10 @@ const GetScheduleBodySchema = z.object({
   scheduleType: z.enum(SCHEDULE_TYPES),
   selectedDate: z.string().date().optional(),
   serviceCategoryCode: z.string().optional(),
+  // Tolerant on purpose: the mode comes from a raw URL path segment. An
+  // unrecognized value coerces to undefined (no mode filter) rather than 400,
+  // preserving the pre-filter behavior for malformed booking links.
+  serviceMode: z.nativeEnum(ServiceMode).optional().catch(undefined),
   atLocationSlug: SlugSchema.optional(),
 });
 
@@ -38,8 +43,9 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     scheduleType,
     selectedDate,
     serviceCategoryCode: maybeServiceCategoryCode,
+    serviceMode,
     atLocationSlug,
-  } = safeValidate(GetScheduleBodySchema, JSON.parse(input.body));
+  } = safeValidate(GetScheduleBodySchema, safeJsonParse(input.body));
 
   let serviceCategoryCode: ServiceCategoryCode | undefined;
 
@@ -57,6 +63,7 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     secrets: input.secrets,
     selectedDate,
     serviceCategoryCode,
+    serviceMode,
     atLocationSlug,
   };
 }

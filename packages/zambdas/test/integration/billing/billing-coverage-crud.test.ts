@@ -12,15 +12,13 @@ import {
   UpdateBillingCoverageInput,
 } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BILLING_RESOURCE_TAG } from '../../../src/billing/shared';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 
 // Happy-path coverage CRUD for the billing app's Patient details Insurance tab. Exercises each of the
 // new zambdas in sequence (create -> get -> update -> delete) against a seeded billing patient and a
 // real RCM payer.
 describe('billing coverage CRUD', () => {
-  let zambda: Oystehr; // M2M client used to invoke zambdas
-  let admin: Oystehr; // admin FHIR client used to seed / assert / clean up
+  let oystehr: Oystehr; // admin FHIR client used to seed / assert / clean up
   let cleanup: () => Promise<void>;
   let processId: string;
 
@@ -30,26 +28,24 @@ describe('billing coverage CRUD', () => {
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('integration/billing-coverage-crud.test.ts', M2MClientMockType.provider);
-    zambda = setup.oystehrTestUserM2M;
-    admin = setup.oystehr;
+    oystehr = setup.oystehrBilling;
     cleanup = setup.cleanup;
     processId = setup.processId;
 
-    const patient = await admin.fhir.create<Patient>(
+    const patient = await oystehr.fhir.create<Patient>(
       addProcessIdMetaTagToResource(
         {
           resourceType: 'Patient',
           active: true,
           name: [{ family: 'CoverageCrud', given: ['Integration'] }],
           birthDate: '1990-01-01',
-          meta: { tag: [BILLING_RESOURCE_TAG] },
         } as Patient,
         processId
       ) as Patient
     );
     patientId = patient.id!;
 
-    const payersResponse = (await zambda.zambda.execute({ id: 'search-billing-payers' }))
+    const payersResponse = (await oystehr.zambda.execute({ id: 'search-billing-payers' }))
       .output as SearchBillingPayersResponse;
     expect(payersResponse.payers.length).toBeGreaterThan(0);
     payer = payersResponse.payers[0];
@@ -62,18 +58,20 @@ describe('billing coverage CRUD', () => {
       try {
         const param = resourceType === 'Account' ? 'subject' : resourceType === 'Coverage' ? 'beneficiary' : 'patient';
         const resources = (
-          await admin.fhir.search<Account | Coverage | RelatedPerson>({
+          await oystehr.fhir.search<Account | Coverage | RelatedPerson>({
             resourceType,
             params: [{ name: param, value: `Patient/${patientId}` }],
           })
         ).unbundle();
-        await Promise.all(resources.map((r) => admin.fhir.delete({ resourceType, id: r.id! }).catch(() => undefined)));
+        await Promise.all(
+          resources.map((r) => oystehr.fhir.delete({ resourceType, id: r.id! }).catch(() => undefined))
+        );
       } catch {
         // best-effort cleanup
       }
     }
     try {
-      if (patientId) await admin.fhir.delete({ resourceType: 'Patient', id: patientId });
+      if (patientId) await oystehr.fhir.delete({ resourceType: 'Patient', id: patientId });
     } catch {
       // best-effort cleanup
     }
@@ -88,12 +86,12 @@ describe('billing coverage CRUD', () => {
       insuranceType: 'primary',
       relationship: 'Self',
     };
-    const { id } = (await zambda.zambda.execute({ id: 'create-billing-coverage', ...input }))
+    const { id } = (await oystehr.zambda.execute({ id: 'create-billing-coverage', ...input }))
       .output as CreatedResourceResponse;
     expect(id).toBeTruthy();
     coverageId = id;
 
-    const coverage = await admin.fhir.get<Coverage>({ resourceType: 'Coverage', id });
+    const coverage = await oystehr.fhir.get<Coverage>({ resourceType: 'Coverage', id });
     expect(coverage.status).toBe('active');
     expect(coverage.beneficiary?.reference).toBe(`Patient/${patientId}`);
     // Self subscriber points at the patient (no standalone RelatedPerson).
@@ -102,7 +100,7 @@ describe('billing coverage CRUD', () => {
 
     // Primary lives in the patient billing account (PBILLACCT) at priority 1.
     const accounts = (
-      await admin.fhir.search<Account>({
+      await oystehr.fhir.search<Account>({
         resourceType: 'Account',
         params: [{ name: 'subject', value: `Patient/${patientId}` }],
       })
@@ -114,7 +112,7 @@ describe('billing coverage CRUD', () => {
   }, 90_000);
 
   it('get-patient-coverages returns the created coverage with its insurance type', async () => {
-    const response = (await zambda.zambda.execute({ id: 'get-patient-coverages', patientId }))
+    const response = (await oystehr.zambda.execute({ id: 'get-patient-coverages', patientId }))
       .output as GetPatientCoveragesResponse;
 
     const found = response.coverages.find((c) => c.id === coverageId);
@@ -136,15 +134,15 @@ describe('billing coverage CRUD', () => {
         firstName: 'Jane',
         lastName: 'Doe',
         dob: '1985-03-02',
-        birthSex: 'Female',
+        gender: 'female',
         address: { line1: '1 Main St', city: 'Boston', state: 'MA', postalCode: '02118' },
       },
     };
-    const { id } = (await zambda.zambda.execute({ id: 'update-billing-coverage', ...input }))
+    const { id } = (await oystehr.zambda.execute({ id: 'update-billing-coverage', ...input }))
       .output as SavedResourceResponse;
     expect(id).toBe(coverageId);
 
-    const coverage = await admin.fhir.get<Coverage>({ resourceType: 'Coverage', id: coverageId });
+    const coverage = await oystehr.fhir.get<Coverage>({ resourceType: 'Coverage', id: coverageId });
     expect(coverage.subscriberId).toBe('MEMBER-002');
     expect(coverage.relationship?.coding?.[0]?.code).toBe('spouse');
     // Non-self subscriber is a standalone RelatedPerson reference, not a contained resource.
@@ -152,7 +150,7 @@ describe('billing coverage CRUD', () => {
     expect(subscriberRef.startsWith('RelatedPerson/')).toBe(true);
     expect(coverage.contained ?? []).toHaveLength(0);
 
-    const relatedPerson = await admin.fhir.get<RelatedPerson>({
+    const relatedPerson = await oystehr.fhir.get<RelatedPerson>({
       resourceType: 'RelatedPerson',
       id: subscriberRef.split('/')[1],
     });
@@ -160,7 +158,7 @@ describe('billing coverage CRUD', () => {
     expect(relatedPerson.patient?.reference).toBe(`Patient/${patientId}`);
 
     // The enriched read reflects the policy holder.
-    const response = (await zambda.zambda.execute({ id: 'get-patient-coverages', patientId }))
+    const response = (await oystehr.zambda.execute({ id: 'get-patient-coverages', patientId }))
       .output as GetPatientCoveragesResponse;
     const found = response.coverages.find((c) => c.id === coverageId);
     expect(found?.relationship).toBe('Spouse');
@@ -168,29 +166,29 @@ describe('billing coverage CRUD', () => {
   }, 90_000);
 
   it('delete-billing-coverage hard-deletes the coverage and its subscriber', async () => {
-    const coverageBefore = await admin.fhir.get<Coverage>({ resourceType: 'Coverage', id: coverageId });
+    const coverageBefore = await oystehr.fhir.get<Coverage>({ resourceType: 'Coverage', id: coverageId });
     const subscriberId = coverageBefore.subscriber?.reference?.split('/')[1];
 
-    const result = (await zambda.zambda.execute({ id: 'delete-billing-coverage', coverageId }))
+    const result = (await oystehr.zambda.execute({ id: 'delete-billing-coverage', coverageId }))
       .output as DeletedResponse;
     expect(result.deleted).toBe(true);
 
     // Coverage is gone from the patient's coverage list and from FHIR.
-    const response = (await zambda.zambda.execute({ id: 'get-patient-coverages', patientId }))
+    const response = (await oystehr.zambda.execute({ id: 'get-patient-coverages', patientId }))
       .output as GetPatientCoveragesResponse;
     expect(response.coverages.find((c) => c.id === coverageId)).toBeUndefined();
-    await expect(admin.fhir.get<Coverage>({ resourceType: 'Coverage', id: coverageId })).rejects.toBeDefined();
+    await expect(oystehr.fhir.get<Coverage>({ resourceType: 'Coverage', id: coverageId })).rejects.toBeDefined();
 
     // The standalone RelatedPerson subscriber is deleted too.
     if (subscriberId) {
       await expect(
-        admin.fhir.get<RelatedPerson>({ resourceType: 'RelatedPerson', id: subscriberId })
+        oystehr.fhir.get<RelatedPerson>({ resourceType: 'RelatedPerson', id: subscriberId })
       ).rejects.toBeDefined();
     }
 
     // It is also unlinked from the billing account.
     const accounts = (
-      await admin.fhir.search<Account>({
+      await oystehr.fhir.search<Account>({
         resourceType: 'Account',
         params: [{ name: 'subject', value: `Patient/${patientId}` }],
       })

@@ -1,5 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { HealthcareService, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { createClinicalOystehrClient } from 'ui-components';
 import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
@@ -99,12 +100,16 @@ import {
   DeleteLabOrderZambdaOutput,
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
+  DeleteRadiologyResultZambdaInput,
+  DeleteRadiologyResultZambdaOutput,
   DeleteUserZambdaInput,
   DeleteUserZambdaOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
   EmCodeOutput,
+  GetActionLogsInput,
+  GetActionLogsOutput,
   GetAllergyQuickPicksResponse,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
@@ -137,6 +142,8 @@ import {
   GetQuickTextQuickPicksResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
+  GetRadiologyOrderPdfZambdaInput,
+  GetRadiologyOrderPdfZambdaOutput,
   GetRadiologyQuickPicksResponse,
   GetScheduleParams,
   GetScheduleRequestParams,
@@ -150,8 +157,6 @@ import {
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
-  Icd10SearchRequestParams,
-  Icd10SearchResponse,
   ImmunizationQuickPickData,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
@@ -160,6 +165,8 @@ import {
   InsuranceQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
+  ListRadiologyResultsZambdaInput,
+  ListRadiologyResultsZambdaOutput,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
@@ -178,6 +185,13 @@ import {
   PendingSupervisorApprovalInput,
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
+  PracticeManagedQuestionnaireCreateInput,
+  PracticeManagedQuestionnaireCreateOutput,
+  PracticeManagedQuestionnaireGetInput,
+  PracticeManagedQuestionnaireGetOutput,
+  PracticeManagedQuestionnaireListOutput,
+  PracticeManagedQuestionnaireUpdateInput,
+  PracticeManagedQuestionnaireUpdateOutput,
   PresignUploadUrlResponse,
   ProcedureQuickPickData,
   QuickPickRemoveResponse,
@@ -189,6 +203,10 @@ import {
   RecentPatientsReportZambdaOutput,
   RenameCustomFolderInput,
   RenameCustomFolderOutput,
+  RetryActionLogInput,
+  RetryActionLogOutput,
+  RotateInsuranceCardImageInput,
+  RotateInsuranceCardImageResponse,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   SaveRadiologyReportZambdaInput,
@@ -198,6 +216,10 @@ import {
   SearchLegacyRecordsOutput,
   SendForFinalReadZambdaInput,
   SendForFinalReadZambdaOutput,
+  SendPatientFormInput,
+  SendPatientFormOutput,
+  SendRadiologyOrderFaxZambdaInput,
+  SendRadiologyOrderFaxZambdaOutput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -221,15 +243,21 @@ import {
   UpdateProcedureQuickPickResponse,
   UpdateProgressNoteConfigInput,
   UpdateQuickTextQuickPickResponse,
+  UpdateRadiologyOrderZambdaInput,
+  UpdateRadiologyOrderZambdaOutput,
   UpdateRadiologyQuickPickResponse,
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  UploadDotVisionDocumentInput,
+  UploadDotVisionDocumentOutput,
   UploadPatientConditionPhotoInput,
   UploadPatientConditionPhotoOutput,
   UploadPatientProfilePhotoInput,
+  UploadRadiologyResultZambdaInput,
+  UploadRadiologyResultZambdaOutput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
   VisitDocuments,
@@ -306,6 +334,7 @@ const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
+const ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID = 'rotate-insurance-card-image';
 const ADMIN_GET_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-picks';
 const ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-pick';
 const ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID = 'admin-update-quick-pick';
@@ -325,7 +354,9 @@ const ADMIN_UPDATE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-update-service-category';
 const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
 const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
 const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
-const ADMIN_DELETE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-delete-practitioner-role';
+const ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID = 'admin-set-practitioner-role-active';
+const ADMIN_SET_SCHEDULE_OWNER_ACTIVE_ZAMBDA_ID = 'admin-set-schedule-owner-active';
+const ADMIN_UPDATE_GROUP_ZAMBDA_ID = 'admin-update-group';
 const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
 const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
 const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
@@ -339,12 +370,14 @@ const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
 const CREATE_CUSTOM_FOLDER_ZAMBDA_ID = 'create-custom-folder';
 const RENAME_CUSTOM_FOLDER_ZAMBDA_ID = 'rename-custom-folder';
 const DELETE_CUSTOM_FOLDER_ZAMBDA_ID = 'delete-custom-folder';
+const MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID = 'practice-managed-questionnaire-get';
+const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-list';
+const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
+const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
+const SEND_PATIENT_FORM = 'send-patient-form';
 
 export const getUser = async (token: string): Promise<User> => {
-  const oystehr = new Oystehr({
-    accessToken: token,
-    projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
-  });
+  const oystehr = createClinicalOystehrClient(token);
   return oystehr.user.me();
 };
 
@@ -1220,6 +1253,102 @@ export const sendForFinalRead = async (
   }
 };
 
+export const updateRadiologyOrder = async (
+  oystehr: Oystehr,
+  parameters: UpdateRadiologyOrderZambdaInput
+): Promise<UpdateRadiologyOrderZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-update-order',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getRadiologyOrderPdf = async (
+  oystehr: Oystehr,
+  parameters: GetRadiologyOrderPdfZambdaInput
+): Promise<GetRadiologyOrderPdfZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-get-order-pdf',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const sendRadiologyOrderFax = async (
+  oystehr: Oystehr,
+  parameters: SendRadiologyOrderFaxZambdaInput
+): Promise<SendRadiologyOrderFaxZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-send-fax',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listRadiologyResults = async (
+  oystehr: Oystehr,
+  parameters: ListRadiologyResultsZambdaInput
+): Promise<ListRadiologyResultsZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-list-results',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteRadiologyResult = async (
+  oystehr: Oystehr,
+  parameters: DeleteRadiologyResultZambdaInput
+): Promise<DeleteRadiologyResultZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-delete-result',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const uploadRadiologyResult = async (
+  oystehr: Oystehr,
+  parameters: UploadRadiologyResultZambdaInput
+): Promise<UploadRadiologyResultZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-upload-result',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const getRadiologyOrders = async (
   oystehr: Oystehr,
   parameters: GetRadiologyOrderListZambdaInput
@@ -1547,22 +1676,6 @@ export const getOrCreateVisitDetailsPdf = async (
   }
 };
 
-export const icd10Search = async (
-  oystehr: Oystehr,
-  parameters: Icd10SearchRequestParams
-): Promise<Icd10SearchResponse> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: 'icd-10-search',
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
 export const listTemplates = async (
   oystehr: Oystehr,
   parameters: ListTemplatesZambdaInput
@@ -1623,7 +1736,7 @@ export const getPatientMedicalRecordZip = async (
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -1634,6 +1747,22 @@ export const uploadPatientConditionPhoto = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'upload-patient-condition-photo',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const uploadDotVisionDocument = async (
+  oystehr: Oystehr,
+  parameters: UploadDotVisionDocumentInput
+): Promise<UploadDotVisionDocumentOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'upload-dot-vision-document',
       ...parameters,
     });
     return chooseJson(response);
@@ -1661,7 +1790,7 @@ export const pendingSupervisorApproval = async (
 
 export const unlockAppointment = async (
   oystehr: Oystehr,
-  parameters: { appointmentId: string }
+  parameters: { appointmentId?: string; encounterId?: string }
 ): Promise<{ message: string }> => {
   try {
     if (UNLOCK_APPOINTMENT_ZAMBDA_ID == null) {
@@ -1745,6 +1874,30 @@ export const getVisitFaxHistory = async (
   }
 };
 
+export const getActionLogs = async (oystehr: Oystehr, parameters: GetActionLogsInput): Promise<GetActionLogsOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-action-logs',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const retryActionLog = async (
+  oystehr: Oystehr,
+  parameters: RetryActionLogInput
+): Promise<RetryActionLogOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'retry-action-log', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
 export const updatePatientVisitDetails = async (
   oystehr: Oystehr,
   parameters: UpdateVisitDetailsInput
@@ -1794,6 +1947,30 @@ export const bulkUpdateInsuranceStatus = async (
     }
     const response = await oystehr.zambda.execute({
       id: BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+/**
+ * Rotates a stored insurance-card image `rotationDegrees` CLOCKWISE, server-side and in place
+ * (same attachment url), so the fix persists everywhere the image is consumed. Also clears the
+ * extraction's "looks rotated" (`readable=false`) hint.
+ */
+export const rotateInsuranceCardImage = async (
+  oystehr: Oystehr,
+  parameters: RotateInsuranceCardImageInput
+): Promise<RotateInsuranceCardImageResponse> => {
+  try {
+    if (ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID == null) {
+      throw new Error('rotate insurance card image zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -2862,6 +3039,80 @@ export const migrateExamData = async (
   }
 };
 
+// ── Practice Managed Questionnaires ──
+export async function practiceManagedQuestionnaireGet(
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireGetInput
+): Promise<PracticeManagedQuestionnaireGetOutput> {
+  try {
+    const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_GET_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
+
+export async function practiceManagedQuestionnaireList(
+  oystehr: Oystehr
+): Promise<PracticeManagedQuestionnaireListOutput> {
+  try {
+    const response = await oystehr.zambda.execute({ id: MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+}
+
+export const practiceManagedQuestionnaireUpdate = async (
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireUpdateInput
+): Promise<PracticeManagedQuestionnaireUpdateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const practiceManagedQuestionnaireCreate = async (
+  oystehr: Oystehr,
+  parameters: PracticeManagedQuestionnaireCreateInput
+): Promise<PracticeManagedQuestionnaireCreateOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const sendPatientForm = async (
+  oystehr: Oystehr,
+  parameters: SendPatientFormInput
+): Promise<SendPatientFormOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: SEND_PATIENT_FORM,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
 // ── Service Categories (FHIR-backed bookable appointment categories) ──
 
 export interface ServiceCategoryRuntimeConfig {
@@ -2883,6 +3134,8 @@ export interface ServiceCategory {
   id?: string;
   name: string;
   code: string;
+  /** Short abbreviation (2-3 chars) shown on the Tracking Board and patient visit lists — e.g. 'UC', 'WC'. */
+  abbreviation?: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
 }
@@ -2964,12 +3217,43 @@ export const updatePractitionerRole = async (
   return chooseJson(response);
 };
 
-export const deletePractitionerRole = async (
+export const setPractitionerRoleActive = async (
   oystehr: Oystehr,
-  input: { roleId: string }
-): Promise<{ deactivatedScheduleCount: number }> => {
+  input: { roleId: string; active: boolean }
+): Promise<{ active: boolean }> => {
   const response = await oystehr.zambda.execute({
-    id: ADMIN_DELETE_PRACTITIONER_ROLE_ZAMBDA_ID,
+    id: ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const setScheduleOwnerActive = async (
+  oystehr: Oystehr,
+  input: { scheduleId: string; active: boolean }
+): Promise<{ active: boolean; owner: { resourceType: 'Location' | 'Practitioner'; id: string } }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_SET_SCHEDULE_OWNER_ACTIVE_ZAMBDA_ID,
+    ...input,
+  } as any);
+  return chooseJson(response);
+};
+
+export const updateGroup = async (
+  oystehr: Oystehr,
+  input: {
+    groupId: string;
+    name?: string;
+    /** Empty string clears the slug identifier entirely. */
+    slug?: string;
+    locationIds?: string[];
+    supportedCategoryHsIds?: string[];
+    assignmentMode?: 'anonymous' | 'provider';
+    allLocations?: boolean;
+  }
+): Promise<{ group: HealthcareService }> => {
+  const response = await oystehr.zambda.execute({
+    id: ADMIN_UPDATE_GROUP_ZAMBDA_ID,
     ...input,
   } as any);
   return chooseJson(response);

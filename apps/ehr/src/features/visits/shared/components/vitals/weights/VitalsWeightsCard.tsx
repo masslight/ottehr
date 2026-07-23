@@ -1,4 +1,5 @@
-import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import { Box, Button, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
 import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
@@ -17,8 +18,10 @@ import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointment
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VitalsUnitInputRow } from '../components/VitalsUnitInputRow';
 import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useVitalsSaveOnEnter } from '../hooks/useVitalsSaveOnEnter';
+import { useVitalsUnitInputOrder } from '../hooks/useVitalsUnitInputOrder';
 import { VitalsCardProps } from '../types';
 
 type VitalsWeightsCardProps = VitalsCardProps<VitalsWeightObservationDTO>;
@@ -34,6 +37,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Ele
   const latestWeightKg = field.current[0]?.value;
   const isPatientRefused = field.current[0]?.extraWeightOptions?.includes('patient_refused');
   const { localState } = field;
+  const unitInputOrder = useVitalsUnitInputOrder();
 
   const handleWeightOptionChanged = useCallback(
     async (isChecked: boolean, weightOption: VitalsWeightOption): Promise<void> => {
@@ -91,6 +95,21 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Ele
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
         dataTestId={dataTestIds.vitalsPage.weightHeader}
+        headerItem={
+          field.hasData && !isReadOnly ? (
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<ClearIcon fontSize="small" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                field.onClearForm?.();
+              }}
+            >
+              Clear draft
+            </Button>
+          ) : undefined
+        }
       >
         {isReadOnly ? (
           renderRightColumn()
@@ -115,32 +134,30 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Ele
               >
                 {/* Weight Input Field column */}
                 <Grid item xs={12} sm={8} md={8} lg={8} order={{ xs: 1, sm: 1, md: 1 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: vitalsConfig['vital-weight'].unit === 'kg' ? 'row' : 'row-reverse',
-                      gap: 1,
-                    }}
-                  >
-                    <VitalsTextInputFiled
-                      label="Weight (kg)"
-                      value={localState.weightKg ? formatWeightKg(localState.weightKg) : ''}
-                      disabled={field.isSaving || localState.isPatientRefusedSelected}
-                      isInputError={localState.validationError}
-                      onChange={localState.handleKgInput}
-                      onKeyDown={handleKeyDown}
-                      data-testid={dataTestIds.vitalsPage.weightInput}
-                    />
-                    <Typography fontSize={25}>≈</Typography>
-                    <VitalsTextInputFiled
-                      label="Weight (lbs)"
-                      value={localState.weightKg ? formatWeightLbs(localState.weightKg) : ''}
-                      disabled={field.isSaving || localState.isPatientRefusedSelected}
-                      isInputError={localState.validationError}
-                      onChange={localState.handleLbsInput}
-                      onKeyDown={handleKeyDown}
-                    />
-                  </Box>
+                  <VitalsUnitInputRow
+                    order={unitInputOrder}
+                    metricInput={
+                      <VitalsTextInputFiled
+                        label="Weight (kg)"
+                        value={localState.weightKg ? formatWeightKg(localState.weightKg) : ''}
+                        disabled={field.isSaving || localState.isPatientRefusedSelected}
+                        isInputError={localState.validationError}
+                        onChange={localState.handleKgInput}
+                        onKeyDown={handleKeyDown}
+                        data-testid={dataTestIds.vitalsPage.weightInput}
+                      />
+                    }
+                    imperialInput={
+                      <VitalsTextInputFiled
+                        label="Weight (lbs)"
+                        value={localState.weightKg ? formatWeightLbs(localState.weightKg) : ''}
+                        disabled={field.isSaving || localState.isPatientRefusedSelected}
+                        isInputError={localState.validationError}
+                        onChange={localState.handleLbsInput}
+                        onKeyDown={handleKeyDown}
+                      />
+                    }
+                  />
                 </Grid>
 
                 {/* Add Button column */}

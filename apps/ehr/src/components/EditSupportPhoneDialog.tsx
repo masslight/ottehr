@@ -1,8 +1,8 @@
 import { LoadingButton } from '@mui/lab';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
+import { InputMask } from 'ui-components';
 import { phoneRegex, standardizePhoneNumber } from 'utils';
-import InputMask from './InputMask';
 
 export interface EditSupportPhoneDialogProps {
   open: boolean;

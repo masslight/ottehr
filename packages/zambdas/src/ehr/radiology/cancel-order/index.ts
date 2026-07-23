@@ -7,11 +7,12 @@ import {
   CancelRadiologyOrderZambdaInput,
   createCancellationTagOperations,
   fetchServiceRequestFromAdvaPACS,
+  FHIR_EXTENSION,
   getSecret,
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -30,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   const secrets = validateSecrets(unsafeInput.secrets);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const validatedInput = await validateInput(unsafeInput, oystehr);
 
@@ -47,6 +48,15 @@ const performEffect = async (validatedInput: ValidatedInput, secrets: Secrets, o
     validatedInput.body.serviceRequestId,
     oystehr
   );
+
+  // External (print-only) orders are never transmitted to AdvaPACS, so there is nothing to revoke there.
+  const isExternal =
+    oystehrServiceRequest.extension?.find((ext) => ext.url === FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
+      ?.valueBoolean === true;
+  if (isExternal) {
+    return;
+  }
+
   await updateServiceRequestToRevokedInAdvaPacs(oystehrServiceRequest, secrets);
 };
 

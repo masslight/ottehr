@@ -9,6 +9,7 @@ import {
   ExternalLabOrderingLocations,
   flattenBundleResources,
   isAppointmentWorkersComp,
+  isLocationInPerson,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_LIST_CODE_CODING,
   LAB_ORG_TYPE_CODING,
@@ -16,15 +17,15 @@ import {
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
-  OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
   STATIC_COMPENDIUM_LAB_GUID,
   VALUE_SETS,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler } from '../../../../shared';
-import { createOystehrClient } from '../../../../shared/helpers';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
+import { getOrderableItems } from '../../shared/orderable-items';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -46,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success');
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const { accounts, coverages, labGuids, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
     await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
@@ -60,13 +61,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   let labs: OrderableItemSearchResult[] = [];
   if (testItemSearch) {
-    labs = await getLabs(labGuids, { textSearch: testItemSearch }, m2mToken);
+    labs = await getOrderableItems(labGuids, { textSearch: testItemSearch }, m2mToken);
   }
 
   if (selectedLabSet) {
     console.log('searching orderable items for the lab set', selectedLabSet.listName);
     const labRequests = selectedLabSet.labs.map(async (lab) => {
-      const labSearchRes = await getLabs([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
+      const labSearchRes = await getOrderableItems([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
 
       let staticLabName: string | undefined;
       if (lab.labGuid === STATIC_COMPENDIUM_LAB_GUID) {
@@ -223,16 +224,9 @@ const getResources = async (
     }
     if (resource.resourceType === 'Location') {
       const loc = resource as Location;
-      if (
-        loc.id &&
-        loc.identifier &&
-        loc.name &&
-        !loc.extension?.some(
-          (ext) =>
-            ext.valueCoding?.code === 'vi' &&
-            ext.valueCoding?.system === 'http://terminology.hl7.org/CodeSystem/location-physical-type'
-        )
-      ) {
+      // Lab orders are placed at in-person Locations; a dual-mode Location that
+      // is also virtual still qualifies as long as it's marked in-person.
+      if (loc.id && loc.identifier && loc.name && isLocationInPerson(loc)) {
         orderingLocations.push({
           name: loc.name,
           id: loc.id,
@@ -280,61 +274,6 @@ const getResources = async (
     appointmentIsWorkersComp,
     labLists,
   };
-};
-
-type LabSearch = { textSearch: string } | { itemCodes: string[] } | { textSearch: string; itemCodes: string[] };
-const getLabs = async (
-  labGuids: string[],
-  search: LabSearch,
-  m2mToken: string
-): Promise<OrderableItemSearchResult[]> => {
-  const labIds = labGuids.join(',');
-  let cursor = '';
-  let totalReturn = 0;
-  const items: OrderableItemSearchResult[] = [];
-
-  const searchParams = [`labIds=${labIds}`];
-
-  if ('textSearch' in search) searchParams.push(`itemNames=${search.textSearch}`);
-  if ('itemCodes' in search) searchParams.push(`itemCodes=${search.itemCodes.join(',')}`);
-
-  console.log('searchParams before join', searchParams);
-
-  do {
-    const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?${searchParams.join('&')}&limit=100&cursor=${cursor}`;
-    console.log('check me!', url);
-    const orderableItemsSearch = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${m2mToken}`,
-      },
-    });
-
-    if (!orderableItemsSearch.ok)
-      throw EXTERNAL_LAB_ERROR(`Failed to fetch orderable items: ${orderableItemsSearch.status}`);
-
-    console.log(`orderable item search for search term "${search}"`);
-    const response = await orderableItemsSearch.json();
-
-    let orderableItemRes = response.orderableItems;
-    if (!Array.isArray(orderableItemRes)) {
-      console.error(
-        `orderableItemRes was not an array. It was: ${JSON.stringify(orderableItemRes)}. Returning no orderable items`
-      );
-      orderableItemRes = [];
-    }
-    const itemsToBeReturned = orderableItemRes.length;
-    console.log('This is orderableItemRes len', itemsToBeReturned);
-
-    items.push(...(orderableItemRes as OrderableItemSearchResult[]));
-    cursor = response?.metadata?.nextCursor || '';
-    totalReturn += itemsToBeReturned;
-    console.log('totalReturn:', totalReturn);
-  } while (cursor && totalReturn <= 100); // capping at 100 so that the zambda doesn't fail. (no one is scrolling through that many anyway)
-  // if we hear no complaints about the 100 return (i highly doubt we will) we can simplify this logic by getting rid of the cursor logic
-  // and the do while - the first call will only ever return 100 and i suspect thats really all we need
-
-  return items;
 };
 
 const getCoverageInfo = (accounts: Account[], coverages: Coverage[]): CreateLabCoverageInfo[] => {

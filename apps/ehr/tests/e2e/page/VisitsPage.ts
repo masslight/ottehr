@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 export class VisitsPage {
@@ -106,10 +107,20 @@ export class VisitsPage {
    * tomorrow because the day's schedule is past closing).
    */
   async selectDate(date: string): Promise<void> {
-    const dateInput = this.#page.getByTestId(dataTestIds.dashboard.dateFilter);
-    await dateInput.click();
-    await dateInput.fill(date);
-    await dateInput.blur();
+    const target = DateTime.fromFormat(date, 'MM/dd/yyyy');
+    await this.#page.getByTestId(dataTestIds.dashboard.dateFilter).click();
+    const dayButton = this.#page.getByTestId(dataTestIds.dashboard.datePickerDay(target.toISODate() ?? ''));
+    // The calendar opens on the currently selected month, which is not necessarily this month —
+    // step toward the target based on the month the calendar actually shows, re-read each pass.
+    for (let i = 0; i < 24 && !(await dayButton.isVisible()); i++) {
+      const shownMonthText = await this.#page.locator('.MuiPickersCalendarHeader-label').first().innerText();
+      const shownMonth = DateTime.fromFormat(shownMonthText, 'MMMM yyyy');
+      const monthArrowLabel =
+        shownMonth.isValid && target < shownMonth.startOf('month') ? 'Previous month' : 'Next month';
+      await this.#page.getByRole('button', { name: monthArrowLabel }).click();
+    }
+    // Clicking a day in single-date mode commits it as both range boundaries and closes the picker.
+    await dayButton.click();
   }
 
   async selectGroup(groupName: string): Promise<void> {
@@ -128,7 +139,8 @@ async function waitForTrackingBoardReady(page: Page): Promise<void> {
       url.pathname === '/visits' &&
       url.searchParams.has('tab') &&
       url.searchParams.has('visitType') &&
-      url.searchParams.has('date'),
+      url.searchParams.has('dateFrom') &&
+      url.searchParams.has('dateTo'),
     { timeout: 30000 }
   );
 }

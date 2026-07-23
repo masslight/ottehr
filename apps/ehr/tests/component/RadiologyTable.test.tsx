@@ -32,6 +32,7 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
   const mockOrders: GetRadiologyOrderListZambdaOrder[] = [
     {
       serviceRequestId: 'order1',
+      cptCodeDisplay: 'X-Ray Chest PA and Lateral',
       studyType: 'X-Ray Chest PA and Lateral',
       diagnosis: 'Chest pain',
       orderAddedDateTime: '2024-12-20T10:00:00Z',
@@ -44,6 +45,7 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
     },
     {
       serviceRequestId: 'order2',
+      cptCodeDisplay: 'CT Head',
       studyType: 'CT Head',
       diagnosis: 'Headache',
       orderAddedDateTime: '2024-12-19T14:30:00Z',
@@ -75,8 +77,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     mockNavigate.mockReturnValue(vi.fn());
@@ -164,8 +168,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();
@@ -191,8 +197,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();
@@ -216,8 +224,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();
@@ -260,8 +270,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();
@@ -289,8 +301,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: mockDialog,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();

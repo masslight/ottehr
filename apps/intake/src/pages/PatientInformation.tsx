@@ -5,9 +5,11 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import api from 'src/api/ottehrApi';
-import { PaperworkContext, usePaperworkContext } from 'src/features/paperwork/context';
-import PagedQuestionnaire from 'src/features/paperwork/PagedQuestionnaire';
+import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
+import { PaperworkContext } from 'ui-components';
+import { PagedQuestionnaire } from 'ui-components';
+import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import {
   convertQRItemToLinkIdMap,
   convertQuestionnaireItemToQRLinkIdMap,
@@ -104,6 +106,8 @@ export const PatientInfoCollection: FC = () => {
   }, [allItems, currentPageIndex, prepopulatedQuestionnaire]);
   const currentPageId = allItems?.[currentPageIndex]?.linkId;
 
+  const paperworkComponentHelpers = usePaperworkComponentHelpers();
+
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       paperwork: [], // todo
@@ -132,8 +136,18 @@ export const PatientInfoCollection: FC = () => {
       refetchSetupData: () => {
         throw new Error('Function not implemented.');
       },
+      paperworkComponentHelpers,
     };
-  }, [allItems, contextItems, currentPageId, defaultValues, pages, questionnaireResponse, saveButtonDisabled]);
+  }, [
+    allItems,
+    contextItems,
+    currentPageId,
+    defaultValues,
+    pages,
+    questionnaireResponse,
+    saveButtonDisabled,
+    paperworkComponentHelpers,
+  ]);
 
   useEffect(() => {
     if (isSuccess) {
@@ -244,8 +258,9 @@ const PatientInformation = (): JSX.Element => {
 
   const defaultValues = (() => {
     if (!pageId) return {};
+    const freshDefaults = paperworkInProgress[pageId] || {};
     const storedValueString = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
-    let defaults = paperworkInProgress[pageId] || {};
+    let defaults = freshDefaults;
     if (storedValueString) {
       try {
         const storedValues = JSON.parse(storedValueString)[pageId];
@@ -253,6 +268,13 @@ const PatientInformation = (): JSX.Element => {
       } catch (error) {
         console.error('Error parsing stored patient information:', error);
       }
+    }
+    // patient-no-email is authoritative from the Patient resource.
+    // Always prefer the fresh server value over stale sessionStorage so the checkbox
+    // reflects the actual patient state when the user returns to this page.
+    const freshNoEmail = freshDefaults['patient-no-email'];
+    if (freshNoEmail !== undefined) {
+      defaults = { ...defaults, 'patient-no-email': freshNoEmail };
     }
     return defaults;
   })();
@@ -290,6 +312,7 @@ const PatientInformation = (): JSX.Element => {
               sessionStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({ [pageId]: data }));
             }
           }}
+          skipValidation={false}
         />
       )}
       <ErrorDialog

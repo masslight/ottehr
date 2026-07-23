@@ -16,7 +16,7 @@ import { configCptCodeTestId, configRunAsRepeatBtnTestId } from '../../utils/tes
 
 interface InHouseSelectedTestTableProps {
   selectedTests: DataEntryTestItem[];
-  setSelectedTests: (value: React.SetStateAction<DataEntryTestItem[]>) => void;
+  setSelectedTests: (value: DataEntryTestItem[]) => void;
   displayRunAsRepeat: boolean;
 }
 
@@ -114,8 +114,8 @@ export const InHouseSelectedTestTable: React.FC<InHouseSelectedTestTableProps> =
 
                         const orderMode = checked ? 'repeat' : 'standard';
 
-                        setSelectedTests((prev) =>
-                          prev.map((item) => (item.name === test.name ? { ...item, orderMode } : item))
+                        setSelectedTests(
+                          selectedTests.map((item) => (item.name === test.name ? { ...item, orderMode } : item))
                         );
                       }}
                     />
@@ -125,8 +125,8 @@ export const InHouseSelectedTestTable: React.FC<InHouseSelectedTestTableProps> =
               <TableCell align="right">
                 <DeleteIconButton
                   onClick={() =>
-                    setSelectedTests((prev) =>
-                      prev.filter((tempLab) => {
+                    setSelectedTests(
+                      selectedTests.filter((tempLab) => {
                         const tempLabName = tempLab.name;
                         const labName = test.name;
 
