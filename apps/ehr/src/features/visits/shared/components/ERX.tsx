@@ -5,10 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { PendingErxEnrollmentDialog } from 'src/components/dialogs/PendingErxEnrollmentDialog';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { is18YearsOrYounger, RoleType, VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { RoleType } from 'utils';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
-import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
-import { useChartFields } from '../hooks/useChartFields';
+import { getErxPatientSyncErrorMessage, useErxPatientVitals } from '../hooks/useErxPatientVitals';
 import {
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
@@ -46,50 +45,7 @@ export const ERX: FC<{
   const [pendingErxEnrollmentDialogOpen, setPendingErxEnrollmentDialogOpen] = useState<boolean>(false);
 
   // Step 1: Get patient vitals
-  const heightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalHeight, 'patient', 1);
-  const weightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalWeight, 'patient', 1);
-
-  const {
-    data: heightVitalObservationResponse,
-    isLoading: isHeightLoading,
-    isFetched: isHeightFetched,
-  } = useChartFields({
-    requestedFields: { [heightSearchConfig.fieldName]: heightSearchConfig.searchParams },
-    enabled: Boolean(encounter?.id),
-  });
-
-  const {
-    data: weightVitalObservationResponse,
-    isLoading: isWeightLoading,
-    isFetched: isWeightFetched,
-  } = useChartFields({
-    requestedFields: { [weightSearchConfig.fieldName]: weightSearchConfig.searchParams },
-    enabled: Boolean(encounter?.id),
-  });
-
-  const hasValidHeight = (observations?: VitalsObservationDTO[]): boolean =>
-    observations?.some(
-      (obs) => obs.field === VitalFieldNames.VitalHeight && 'value' in obs && typeof obs.value === 'number'
-    ) ?? false;
-
-  const hasValidWeight = (observations?: VitalsObservationDTO[]): boolean =>
-    observations?.some((obs) => {
-      if (obs.field !== VitalFieldNames.VitalWeight) return false;
-
-      if ('value' in obs && typeof obs.value === 'number') {
-        return true;
-      }
-
-      return 'extraWeightOptions' in obs && obs.extraWeightOptions?.includes('patient_refused');
-    }) ?? false;
-
-  const vitalsRequired = !patient?.birthDate || is18YearsOrYounger(patient.birthDate);
-  const hasVitals =
-    !vitalsRequired ||
-    (hasValidHeight(heightVitalObservationResponse?.vitalsObservations) &&
-      hasValidWeight(weightVitalObservationResponse?.vitalsObservations));
-  const isVitalsLoading = isHeightLoading || isWeightLoading;
-  const isVitalsFetched = isHeightFetched && isWeightFetched;
+  const { hasVitals, isVitalsLoading, isVitalsFetched } = useErxPatientVitals();
 
   // Step 2: Check practitioner enrollment
   const {
@@ -147,21 +103,7 @@ export const ERX: FC<{
     onError: (error) => {
       console.log(error);
       safelyCaptureException(error);
-      let errorMsg = 'Something went wrong while trying to sync patient to eRx';
-
-      if (error.code === '4006') {
-        if (error.message?.toLowerCase()?.includes('phone')) {
-          errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
-        } else if (error.message?.includes('eRx service is not configured')) {
-          errorMsg = `eRx service is not configured. Please contact support.`;
-        } else if (error.message?.includes('Weight must be entered for patient 18 years old and under')) {
-          errorMsg = `Weight must be entered for patient 18 years old and under. Please specify patient's weight in the 'Vitals' tab.`;
-        } else {
-          errorMsg = `Something is wrong with patient data.`;
-        }
-      }
-
-      enqueueSnackbar(errorMsg, { variant: 'error' });
+      enqueueSnackbar(getErxPatientSyncErrorMessage(error, phoneNumber), { variant: 'error' });
       onStatusChanged(ERXStatus.ERROR);
     },
   });
@@ -333,8 +275,7 @@ export const ERX: FC<{
     if (isTimeout && !isPractitionerConnected) {
       onStatusChanged(ERXStatus.ERROR);
     } else if (
-      isHeightLoading ||
-      isWeightLoading ||
+      isVitalsLoading ||
       isPatientSyncing ||
       isEnrollingPractitioner ||
       isConnectingPractitioner ||
@@ -343,8 +284,7 @@ export const ERX: FC<{
       onStatusChanged(ERXStatus.LOADING);
     }
   }, [
-    isHeightLoading,
-    isWeightLoading,
+    isVitalsLoading,
     isPatientSyncing,
     onStatusChanged,
     isEnrollingPractitioner,
