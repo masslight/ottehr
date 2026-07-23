@@ -316,6 +316,13 @@
       "src": "src/billing/delete-charge-item-definition/index",
       "zip": ".dist/zips/delete-charge-item-definition.zip"
     },
+    "BULK-ADD-CHARGE-ITEM-DEFINITION-PROCEDURE-CODES": {
+      "name": "bulk-add-charge-item-definition-procedure-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/bulk-add-charge-item-definition-procedure-codes/index",
+      "zip": ".dist/zips/bulk-add-charge-item-definition-procedure-codes.zip"
+    },
     "BILLING-STRIPE-WEBHOOK": {
       "name": "billing-stripe-webhook",
       "type": "http_open",
