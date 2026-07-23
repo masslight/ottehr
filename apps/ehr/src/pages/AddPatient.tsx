@@ -35,6 +35,7 @@ import {
   getFirstName,
   getLastName,
   getMiddleName,
+  getPhoneNumberDigits,
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
@@ -260,7 +261,7 @@ export default function AddPatient(): JSX.Element {
       lastName: getLastName(patientFromUrl),
       dateOfBirth: patientFromUrl.birthDate,
       sex: patientFromUrl.gender,
-      phoneNumber: patientFromUrl.telecom?.find((t) => t.system === 'phone')?.value?.replace('+1', ''),
+      phoneNumber: getPhoneNumberDigits(patientFromUrl.telecom?.find((t) => t.system === 'phone')?.value),
     });
     setBirthDate(patientFromUrl.birthDate ? DateTime.fromISO(patientFromUrl.birthDate) : null);
     setShowFields('existingPatientSelected');
