@@ -2,10 +2,11 @@
 // visit-status lifecycle constants shared by the harness, the daily census, and
 // the cleanup scripts.
 //
-// These were previously re-declared as literals in several files (each carrying a
-// "must match synthesize-visit.ts" comment). Centralizing them removes the drift
-// risk — which is especially important for the cleanup scripts, whose delete
-// scope depends on the synthetic identifier matching exactly what the harness wrote.
+// Where a value is owned by Ottehr (the visit-status extension URL, the status
+// vocabulary) we IMPORT it from `utils` rather than copy it, so a change upstream
+// propagates here instead of silently drifting. The synthetic-data tag/identifier
+// systems below are owned by THIS pipeline, so they're defined here.
+import { FHIR_EXTENSION, visitStatusArray } from 'utils';
 
 /** Patient.identifier system marking a synthetic patient (idempotent reuse + cleanup scope). */
 export const SYNTHETIC_PATIENT_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synthetic-patient-id';
@@ -17,10 +18,20 @@ export const SYNTH_CRON_CODE = 'synth-cron';
 /** meta.tag system carrying the census run date (tag value = YYYY-MM-DD). */
 export const SYNTH_CRON_RUN_DATE_SYSTEM = 'https://fhir.ottehr.com/sid/synth-cron-run-date';
 
-/** Encounter.statusHistory extension carrying the Ottehr visit-status code. */
-export const OTTEHR_VISIT_STATUS_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/visit-status';
+/**
+ * Encounter.statusHistory extension carrying the Ottehr visit-status code.
+ * Imported from utils — writing a different URL makes the EHR fall through to a
+ * legacy renderer that emits garbage durations, so this must stay in lockstep.
+ */
+export const OTTEHR_VISIT_STATUS_EXTENSION_URL = FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url;
 
-/** Ottehr in-person visit-status lifecycle, in order. */
+/**
+ * Ottehr in-person visit-status lifecycle, in forward-walk order. This is the
+ * subset of utils' canonical `visitStatusArray` that the harness walks (it omits
+ * the terminal / non-forward states: cancelled, no show, awaiting supervisor
+ * approval, unknown). Kept as an explicit literal for the precise tuple type; the
+ * drift guard below fails loudly at load if any entry no longer exists upstream.
+ */
 export const VISIT_STATUS_ORDER = [
   'pending',
   'arrived',
@@ -33,6 +44,17 @@ export const VISIT_STATUS_ORDER = [
 ] as const;
 
 export type VisitStatus = (typeof VISIT_STATUS_ORDER)[number];
+
+// Drift guard: if utils renames/removes a status, fail here instead of silently
+// walking a stale lifecycle (tsx strips types, so this is a runtime check).
+for (const s of VISIT_STATUS_ORDER) {
+  if (!(visitStatusArray as readonly string[]).includes(s)) {
+    throw new Error(
+      `VISIT_STATUS_ORDER "${s}" is no longer in utils' visitStatusArray — ` +
+        `the synth status lifecycle has drifted from Ottehr. Reconcile shared/constants.ts.`
+    );
+  }
+}
 
 export interface StatusGapMinutes {
   min: number;

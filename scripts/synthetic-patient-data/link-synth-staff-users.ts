@@ -9,7 +9,8 @@
 //   npx tsx scripts/synthetic-patient-data/link-synth-staff-users.ts
 // Optional: APPLICATION_ID='<ehr-app-id>' to override application auto-detection.
 import { Practitioner } from 'fhir/r4b';
-import { createOystehrFromToken, mintAccessToken } from './shared/oystehr-client';
+import { FHIR_IDENTIFIER_NPI } from 'utils';
+import { createOystehrFromToken, mintAccessToken, searchAllPages } from './shared/oystehr-client';
 
 const STAFF_MARKER_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff';
 const STAFF_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff-id';
@@ -47,6 +48,33 @@ const slug = (s: string): string =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
+// NPI check digit = Luhn over the 80840-prefixed 9-digit base. Oystehr now
+// validates the NPI checksum on create/update-provider, so a synthetic provider
+// with a blank/arbitrary NPI is rejected on Save. Generate a deterministic
+// (stable across reruns) and per-provider-unique valid NPI.
+function npiCheckDigit(nineDigits: string): number {
+  const full = `80840${nineDigits}`;
+  let sum = 0;
+  let dbl = true; // rightmost digit doubles first — the check digit is appended
+  for (let i = full.length - 1; i >= 0; i--) {
+    let d = full.charCodeAt(i) - 48;
+    if (dbl) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    dbl = !dbl;
+  }
+  return (10 - (sum % 10)) % 10;
+}
+function npiForStaff(s: StaffDef): string {
+  const key = `${slug(s.first)}-${slug(s.last)}-${s.role}`;
+  let h = 2166136261;
+  for (const c of key) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  const base = `1${String(h % 100000000).padStart(8, '0')}`; // 9 digits, no leading zero
+  return `${base}${npiCheckDigit(base)}`;
+}
+
 const STAFF: StaffDef[] = [
   { first: 'Maria', last: 'Alvarez', role: 'provider', location: 'Los Angeles', credential: 'MD' },
   { first: 'James', last: 'Okafor', role: 'provider', location: 'Los Angeles', credential: 'DO' },
@@ -78,7 +106,11 @@ function practitionerResource(s: StaffDef): Practitioner {
   return {
     resourceType: 'Practitioner',
     active: true,
-    identifier: [{ system: STAFF_ID_SYSTEM, value: `${slug(s.first)}-${slug(s.last)}-${s.role}` }],
+    identifier: [
+      { system: STAFF_ID_SYSTEM, value: `${slug(s.first)}-${slug(s.last)}-${s.role}` },
+      // Providers carry a checksum-valid NPI (see npiForStaff) — MAs / front-desk don't.
+      ...(s.credential ? [{ system: FHIR_IDENTIFIER_NPI, value: npiForStaff(s) }] : []),
+    ],
     meta: {
       tag: [
         { system: STAFF_MARKER_SYSTEM, code: 'synth-staff' },
@@ -142,13 +174,23 @@ async function main(): Promise<void> {
     if (!roleIdByName.get(rn)) throw new Error(`Required role "${rn}" not found in this project.`);
   }
 
-  const existingUsernames = new Set((await oystehr.user.list()).map((u) => u.name));
+  // Idempotency keyed on the stable synth-staff identifier (paginated), NOT the
+  // display username: the Practitioner is what carries a durable id, and
+  // oystehr.user.list() isn't paginated — on a large project an existing staff
+  // user could sit past page 1 and cause a duplicate invite on rerun.
+  const existingStaff = await searchAllPages<Practitioner>(oystehr, 'Practitioner', [
+    { name: 'identifier', value: `${STAFF_ID_SYSTEM}|` },
+  ]);
+  const existingStaffIds = new Set(
+    existingStaff.map((p) => p.identifier?.find((i) => i.system === STAFF_ID_SYSTEM)?.value).filter(Boolean)
+  );
 
   let invited = 0;
   let skipped = 0;
   for (const s of STAFF) {
     const name = `${s.first} ${s.last}${s.credential ? ', ' + s.credential : ''}`;
-    if (existingUsernames.has(name)) {
+    const stableId = `${slug(s.first)}-${slug(s.last)}-${s.role}`;
+    if (existingStaffIds.has(stableId)) {
       skipped++;
       continue;
     }

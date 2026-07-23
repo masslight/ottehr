@@ -42,18 +42,23 @@ export const PATIENT_CASCADE_TIERS: CascadeEntry[][] = [
     { rt: 'DocumentReference', param: 'subject' },
     { rt: 'List', param: 'subject' },
   ],
-  // 4. Coverage / billing surface
+  // 4. Coverage / billing surface. Order is referencer-before-referenced so a
+  // sequential delete never 409s on a still-referenced parent:
+  //   CoverageEligibilityResponse → CoverageEligibilityRequest (.request)
+  //   Account → Coverage (.coverage[].coverage) and → RelatedPerson (.guarantor)
+  //   Coverage → RelatedPerson (.subscriber) → so RelatedPerson is deleted LAST.
   [
-    { rt: 'CoverageEligibilityRequest', param: 'patient' },
     { rt: 'CoverageEligibilityResponse', param: 'patient' },
-    { rt: 'Coverage', param: 'beneficiary' },
+    { rt: 'CoverageEligibilityRequest', param: 'patient' },
     { rt: 'Account', param: 'subject' },
+    { rt: 'Coverage', param: 'beneficiary' },
     { rt: 'RelatedPerson', param: 'patient' },
   ],
-  // 5. Visit container resources
+  // 5. Visit container resources, referencer-first:
+  //   QuestionnaireResponse → Encounter (.encounter) → Appointment (.appointment)
   [
+    { rt: 'QuestionnaireResponse', param: 'subject' },
     { rt: 'Encounter', param: 'patient' },
     { rt: 'Appointment', param: 'patient' },
-    { rt: 'QuestionnaireResponse', param: 'subject' },
   ],
 ];

@@ -156,9 +156,24 @@ function runOne(v: PlannedVisit): Promise<void> {
       { env: { ...process.env, SYNTH_SCAFFOLD_OFFSET_MIN: String(scaffoldOffsetMin) } }
     );
     const chunks: string[] = [];
+    let settled = false;
     child.stdout.on('data', (d) => chunks.push(d.toString()));
     child.stderr.on('data', (d) => chunks.push(d.toString()));
+    // A spawn-level failure (ENOENT / EMFILE under concurrency) emits 'error' with
+    // NO 'close' — without this listener Node throws an uncaught exception that
+    // aborts the whole resumable run and strands the worker promise. Record it as a
+    // retryable failure and resolve so the pool continues and a re-run retries it.
+    child.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      recordOutcome(v.seq, 'failed', `spawn error: ${err instanceof Error ? err.message : String(err)}`);
+      console.log(`  ✗ seq ${v.seq} spawn error: ${err instanceof Error ? err.message : err}  [log: ${logFile}]`);
+      flushProgress();
+      resolvePromise();
+    });
     child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
       const out = chunks.join('');
       writeFileSync(logFile, out);
       if (code === 0) {

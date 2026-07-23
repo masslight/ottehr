@@ -20,9 +20,9 @@
  *   2. Procedure, Observation, Condition, MedicationStatement,
  *      AllergyIntolerance, EpisodeOfCare, ImagingStudy
  *   3. DocumentReference, List
- *   4. CoverageEligibilityRequest, CoverageEligibilityResponse,
- *      Coverage, Account, RelatedPerson
- *   5. Encounter, Appointment, QuestionnaireResponse
+ *   4. CoverageEligibilityResponse, CoverageEligibilityRequest,
+ *      Account, Coverage, RelatedPerson
+ *   5. QuestionnaireResponse, Encounter, Appointment
  *   6. Patient
  *
  * Slots themselves are not deleted — they belong to the Schedule, will
@@ -53,7 +53,7 @@
 import Oystehr from '@oystehr/sdk';
 import type { Appointment, Encounter, FhirResource, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
 import { SYNTHETIC_PATIENT_ID_SYSTEM as SYNTH_PATIENT_ID_SYSTEM } from './shared/constants';
-import { createOystehrFromEnv, need } from './shared/oystehr-client';
+import { createOystehrFromEnv, need, searchAllPages } from './shared/oystehr-client';
 import { PATIENT_CASCADE_TIERS, type ResourceTypeName } from './shared/patient-cascade';
 import { isTransientNetworkError } from './shared/retry';
 
@@ -61,6 +61,11 @@ const args = process.argv.slice(2);
 const isExecute = args.includes('--execute');
 const all = args.includes('--all');
 const orphanCleanup = args.includes('--orphan-cleanup');
+// Escape hatch for deleting a Patient that lacks the synthetic identifier
+// (e.g. a legacy synth patient created before the identifier system existed).
+// Off by default: single-target deletes verify the synth marker first so a
+// wrong/real id can never cascade-delete a real chart.
+const force = args.includes('--force');
 const positional = args.filter((a) => !a.startsWith('--'));
 if (!all && positional.length !== 1) {
   console.error('Usage: tsx cleanup-synth-patient.ts <patientId> [--execute] [--orphan-cleanup]');
@@ -123,6 +128,29 @@ async function deleteByPatient(
  */
 async function cleanupOrphansForPatient(oystehr: Oystehr, patientId: string): Promise<void> {
   console.log(`\n── Patient/${patientId} (orphan-cleanup) ──`);
+
+  // Same safety gate as the full cascade: don't delete a non-synthetic patient's
+  // booked appointments on a single-target run. --all is already synth-scoped.
+  if (!force) {
+    let isSynthetic = false;
+    try {
+      const p = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+      isSynthetic = (p.identifier ?? []).some((i) => i.system === SYNTH_PATIENT_ID_SYSTEM);
+    } catch (err) {
+      if (!isTransientNetworkError(err)) {
+        console.warn(`  ⚠ Patient/${patientId} not found — nothing to clean up`);
+        return;
+      }
+      // transient: can't confirm → fall through to the refusal below
+    }
+    if (!isSynthetic) {
+      console.warn(
+        `  ⛔ REFUSING orphan-cleanup for Patient/${patientId}: not confirmed synthetic ` +
+          `(${SYNTH_PATIENT_ID_SYSTEM}). Pass --force to override.`
+      );
+      return;
+    }
+  }
 
   const tryDelete = async (rt: string, id: string): Promise<boolean> => {
     if (!isExecute) return true;
@@ -215,6 +243,7 @@ async function cleanupForPatient(oystehr: Oystehr, patientId: string): Promise<v
   // next run and pile new visits on top of the un-deleted old ones).
   let patientLabel = patientId;
   let patientFound = false;
+  let isSynthetic = false;
   for (let attempt = 0; attempt < 3 && !patientFound; attempt++) {
     try {
       const p = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
@@ -223,6 +252,7 @@ async function cleanupForPatient(oystehr: Oystehr, patientId: string): Promise<v
         const given = (name.given ?? []).join(' ');
         patientLabel = `${given} ${name.family ?? ''}`.trim() || patientId;
       }
+      isSynthetic = (p.identifier ?? []).some((i) => i.system === SYNTH_PATIENT_ID_SYSTEM);
       patientFound = true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -231,11 +261,9 @@ async function cleanupForPatient(oystehr: Oystehr, patientId: string): Promise<v
         return;
       }
       if (attempt === 2) {
-        console.warn(
-          `  ⚠ Patient/${patientId} lookup failed after 3 attempts (${msg}) — proceeding with deletion anyway`
-        );
-        // Fall through and try deletion using the bare patient ID — the
-        // tier searches don't need the Patient resource itself.
+        console.warn(`  ⚠ Patient/${patientId} lookup failed after 3 attempts (${msg})`);
+        // Can't verify the synthetic marker without the Patient — fall through;
+        // the guard below refuses to delete an unverified patient unless --force.
         break;
       }
       const delayMs = 500 * Math.pow(2, attempt);
@@ -245,21 +273,42 @@ async function cleanupForPatient(oystehr: Oystehr, patientId: string): Promise<v
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
-  console.log(`  patient: ${patientLabel}`);
+  console.log(`  patient: ${patientLabel}${isSynthetic ? ' [synthetic]' : ''}`);
+
+  // Safety gate: never cascade-delete a Patient we can't confirm is synthetic.
+  // --all already scopes the search to the synthetic identifier system, so those
+  // always pass; this only blocks a single-target delete of a real/unknown id
+  // (a typo'd or copy-pasted production id) unless the operator passes --force.
+  if (!isSynthetic && !force) {
+    if (!patientFound) {
+      console.warn(
+        `  ⛔ REFUSING to delete Patient/${patientId}: could not fetch it to confirm the synthetic ` +
+          `identifier (${SYNTH_PATIENT_ID_SYSTEM}). Re-run when reachable, or pass --force to override.`
+      );
+    } else {
+      console.warn(
+        `  ⛔ REFUSING to delete Patient/${patientId}: it does NOT carry the synthetic identifier ` +
+          `(${SYNTH_PATIENT_ID_SYSTEM}) — it looks like real data. Pass --force only if you are certain.`
+      );
+    }
+    return;
+  }
 
   let totalFound = 0;
   let totalDeleted = 0;
   let totalFailed = 0;
 
-  // Walk each tier sequentially; within a tier search/delete in parallel.
+  // Walk each tier sequentially, AND delete types WITHIN a tier sequentially in
+  // listed (referencer-before-referenced) order. Parallel within-tier deletes
+  // raced reference chains — e.g. Encounter deleted while its QuestionnaireResponse
+  // still pointed at it, or Coverage while its Account did — producing 409s that
+  // left the parent (and then the Patient) undeleted. See PATIENT_CASCADE_TIERS.
   for (let i = 0; i < TIERS.length; i++) {
     const tier = TIERS[i];
-    const tierResults = await Promise.all(
-      tier.map(async (t) => ({
-        ...t,
-        counts: await deleteByPatient(oystehr, t.rt, t.param, patientId),
-      }))
-    );
+    const tierResults: Array<{ rt: ResourceTypeName; param: string; counts: Counts }> = [];
+    for (const t of tier) {
+      tierResults.push({ ...t, counts: await deleteByPatient(oystehr, t.rt, t.param, patientId) });
+    }
     for (const tr of tierResults) {
       if (tr.counts.found > 0) {
         const verb = isExecute ? 'deleted' : 'would delete';
@@ -300,15 +349,12 @@ async function main(): Promise<void> {
 
   const patientIds: string[] = [];
   if (all) {
-    const synthPatients = (
-      await oystehr.fhir.search<Patient>({
-        resourceType: 'Patient',
-        params: [
-          { name: 'identifier', value: `${SYNTH_PATIENT_ID_SYSTEM}|` },
-          { name: '_count', value: '500' },
-        ],
-      })
-    ).unbundle();
+    // Paginate — a population build creates ~2,560 synth patients, well past any
+    // single-page cap. The old `_count:500` silently cleaned only the first 500
+    // while logging "Found 500", reading as if the wipe were complete.
+    const synthPatients = await searchAllPages<Patient>(oystehr, 'Patient', [
+      { name: 'identifier', value: `${SYNTH_PATIENT_ID_SYSTEM}|` },
+    ]);
     for (const p of synthPatients) if (p.id) patientIds.push(p.id);
     console.log(`Found ${patientIds.length} synth-tagged Patient(s)`);
   } else {

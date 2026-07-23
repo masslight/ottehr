@@ -8,7 +8,7 @@
 //   npx env-cmd -f packages/zambdas/.env/synth.json \
 //   npx tsx scripts/synthetic-patient-data/fix-synth-staff-qualifications.ts
 import { Practitioner, PractitionerQualification } from 'fhir/r4b';
-import { createOystehrFromEnv } from './shared/oystehr-client';
+import { createOystehrFromEnv, searchAllPages } from './shared/oystehr-client';
 
 const STAFF_MARKER_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff';
 const LOCATION_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff-location';
@@ -41,11 +41,12 @@ function properQualification(code: string, state: string): PractitionerQualifica
 async function main(): Promise<void> {
   const oystehr = await createOystehrFromEnv();
 
-  const bundle = await oystehr.fhir.search<Practitioner>({
-    resourceType: 'Practitioner',
-    params: [{ name: '_tag', value: `${STAFF_MARKER_SYSTEM}|synth-staff` }],
-  });
-  const practitioners = bundle.unbundle().filter((r) => r.resourceType === 'Practitioner') as Practitioner[];
+  // Paginate — relying on the server's default page size could skip some of the
+  // 24 staff, leaving legacy-shaped qualifications that keep 500-ing the EHR
+  // employee detail page unrepaired.
+  const practitioners = await searchAllPages<Practitioner>(oystehr, 'Practitioner', [
+    { name: '_tag', value: `${STAFF_MARKER_SYSTEM}|synth-staff` },
+  ]);
   console.log(`Found ${practitioners.length} synth-staff Practitioners.`);
 
   let fixed = 0;

@@ -58,18 +58,22 @@ export const zambdaPost = async (
  * response's `output` field when present (the local zambda server wraps results),
  * the parsed body otherwise, or undefined for an empty body.
  */
-export const zambdaExecute = async (
+// TOut lets a call site pin the response shape, e.g.
+//   const { id } = await zambdaExecute<{ id: string }>(ctx, 'create-slot', body);
+// so a change to the zambda's output surfaces at the call site instead of via a
+// runtime `undefined`. Defaults to `unknown` (unchanged for existing callers).
+export const zambdaExecute = async <TOut = unknown>(
   ctx: ZambdaCtx,
   id: string,
   body: unknown,
   opts: ZambdaPostOptions = {}
-): Promise<unknown> => {
+): Promise<TOut> => {
   const res = await zambdaPost(ctx, id, body, opts);
   const text = await res.text();
   if (!res.ok) {
     throw new Error(`${id} failed: ${res.status} ${text.slice(0, 300)}`);
   }
-  if (!text) return undefined;
+  if (!text) return undefined as TOut;
   const parsed = JSON.parse(text) as { output?: unknown };
-  return parsed.output ?? parsed;
+  return (parsed.output ?? parsed) as TOut;
 };

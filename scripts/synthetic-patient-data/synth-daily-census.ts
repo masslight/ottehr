@@ -23,6 +23,7 @@ import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { resolve } from 'path';
+import { APPOINTMENT_LOCKED_META_TAG, APPOINTMENT_LOCKED_META_TAG_SYSTEM } from 'utils';
 import {
   AuthoredResultsByTest,
   finalizeInHouseLabs,
@@ -220,23 +221,24 @@ async function catchUp(): Promise<void> {
   // Prior-day synth-cron visits that still need signing. NOTE: an in-progress
   // visit at 'ready for provider' or beyond already carries Appointment.status
   // 'fulfilled' (Ottehr flips it once the patient reaches the exam stage) — so we
-  // MUST include 'fulfilled' here or those visits are never caught up. The loop
-  // skips any whose visit-status is already 'completed' (truly signed/done).
-  const found = (
-    await withRetry('catch-up Appointment search', 3, () =>
-      o.fhir.search({
-        resourceType: 'Appointment',
-        params: [
-          { name: '_tag', value: `${CRON_SYSTEM}|synth-cron` },
-          { name: 'date', value: `lt${todayStart}` },
-          { name: 'status', value: 'proposed,pending,booked,arrived,checked-in,waitlist,fulfilled' },
-          { name: '_count', value: '300' },
-        ],
-      })
-    )
-  )
-    .unbundle()
-    .filter((r: any) => r.resourceType === 'Appointment') as any[];
+  // MUST include 'fulfilled' here or those visits are never caught up.
+  //
+  // Signing LOCKS the appointment (APPOINTMENT_LOCKED meta tag) but leaves its
+  // status 'fulfilled' forever, so a plain query re-matches every already-signed
+  // visit each day — the matched set grows without bound and, once past a single
+  // page, a genuinely-unsigned visit could be truncated away and never signed.
+  // Exclude locked (signed) appointments at the server via `_tag:not`, and
+  // PAGINATE (searchAllPages) so nothing is silently capped. The loop still skips
+  // visit-status 'completed' as belt-and-suspenders if a server ignores `:not`.
+  const LOCKED_TAG = `${APPOINTMENT_LOCKED_META_TAG_SYSTEM}|${APPOINTMENT_LOCKED_META_TAG.code}`;
+  const found = await withRetry('catch-up Appointment search', 3, () =>
+    searchAllPages<any>(o, 'Appointment', [
+      { name: '_tag', value: `${CRON_SYSTEM}|synth-cron` },
+      { name: '_tag:not', value: LOCKED_TAG },
+      { name: 'date', value: `lt${todayStart}` },
+      { name: 'status', value: 'proposed,pending,booked,arrived,checked-in,waitlist,fulfilled' },
+    ])
+  );
   // Defensive dedupe by id: visits are independent across workers, but the same
   // appointment appearing twice (server-side search quirk) would race itself.
   const appts = [...new Map(found.map((a) => [a.id, a])).values()];
@@ -480,6 +482,30 @@ function appointmentTimeForStatus(status: string, now: DateTime, rng: () => numb
   return { date: u.toFormat('yyyy-MM-dd'), time: u.toFormat('HH:mm') };
 }
 
+// Parse the harness's machine-readable SYNTH_RESULT line (a stable contract, so
+// the census doesn't scrape the free-form "Created:" log). Returns {} when absent
+// so the caller can fall back to the legacy regex scrape.
+function parseSynthResult(out: string): {
+  patientId?: string;
+  appointmentId?: string;
+  encounterId?: string;
+  questionnaireResponseId?: string;
+} {
+  const m = out.match(/^SYNTH_RESULT (\{.*\})\s*$/m);
+  if (!m) return {};
+  try {
+    const r = JSON.parse(m[1]) as Record<string, string | null>;
+    return {
+      patientId: r.patientId ?? undefined,
+      appointmentId: r.appointmentId ?? undefined,
+      encounterId: r.encounterId ?? undefined,
+      questionnaireResponseId: r.questionnaireResponseId ?? undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 // Future start for a pre-booked (pending) appointment — later today so it stays
 // on today's board. We PATCH the appointment to this instead of booking through
 // create-appointment (which rejects off-grid/unavailable future slots).
@@ -493,16 +519,39 @@ function prebookFutureStart(now: DateTime, rng: () => number): DateTime {
 async function generate(staff: { providers: string[]; mas: string[] }): Promise<void> {
   const { o } = await auth();
   const today = DateTime.now().setZone(TZ).toFormat('yyyy-MM-dd');
-  // Idempotency: already ran today?
-  const existing = (await o.fhir.search({
-    resourceType: 'Appointment',
-    params: [
-      { name: '_tag', value: `${RUN_DATE_SYSTEM}|${today}` },
-      { name: '_count', value: '1' },
-      { name: '_total', value: 'accurate' },
-    ],
-  })) as any;
-  const already = existing.total ?? existing.unbundle().length;
+  // Idempotency: fetch every run-date-tagged Appointment for today WITH its
+  // Patient, paginated. We key the top-up skip on the patient email (which encodes
+  // today + the visit index) so a top-up re-creates exactly the missing visits —
+  // robust to a prior run that created a non-contiguous / out-of-order subset.
+  //
+  // Do NOT rely on Bundle.total: when the server omits it the old `_count:1`
+  // fallback capped `already` at 1, so the census re-created ~COUNT visits EVERY
+  // run and compounded daily. Counting the actual resources is accurate.
+  const PAGE = 200;
+  const existingResources: any[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const page = (
+      await o.fhir.search({
+        resourceType: 'Appointment',
+        params: [
+          { name: '_tag', value: `${RUN_DATE_SYSTEM}|${today}` },
+          { name: '_count', value: String(PAGE) },
+          { name: '_offset', value: String(offset) },
+          { name: '_include', value: 'Appointment:patient' },
+        ],
+      })
+    ).unbundle();
+    existingResources.push(...page);
+    if (page.filter((r: any) => r.resourceType === 'Appointment').length < PAGE) break;
+  }
+  const already = existingResources.filter((r: any) => r.resourceType === 'Appointment').length;
+  const createdEmails = new Set<string>(
+    existingResources
+      .filter((r: any) => r.resourceType === 'Patient')
+      .flatMap((p: any) =>
+        (p.telecom ?? []).filter((t: any) => t.system === 'email').map((t: any) => t.value as string)
+      )
+  );
   if (already >= COUNT) {
     console.log(`[generate] already ${already} synth-cron visits for ${today} — skipping.`);
     return;
@@ -538,6 +587,7 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
     const location = IN_PERSON_LOCATIONS[i % IN_PERSON_LOCATIONS.length];
     const { date: apptDate, time } = appointmentTimeForStatus(statuses[i], now, rng);
 
+    const email = `${slug(first)}.${slug(last)}.${today}.${i}@example.com`;
     const base = JSON.parse(readFileSync(resolve(EXAMPLES, arch.file), 'utf-8'));
     base.label = `${first} ${last} — ${arch.label} (census ${today})`;
     base.patient = {
@@ -546,7 +596,7 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
       lastName: last,
       dateOfBirth: dobForAge(age, rng),
       sex,
-      email: `${slug(first)}.${slug(last)}.${today}.${i}@example.com`,
+      email,
     };
     base.visit = { ...base.visit, date: apptDate, time, locationName: location, targetStatus: statuses[i] };
     // complete:true so the harness ALWAYS runs the status walk (phase 13) up to
@@ -555,12 +605,15 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
     // non-completed visit in the waiting room. Final signing is gated separately
     // by targetStatus!=='completed' in phase 14, so only 'completed' visits sign.
     base.signOff = { ...(base.signOff ?? {}), complete: true };
-    // Partial-day rerun: indices < `already` were created by an earlier run
-    // today — skip them so the rerun tops up to COUNT instead of adding COUNT
-    // more. Everything above still executes so the date-seeded rng stream (and
-    // therefore names/archetypes for the remaining indices) is identical to the
-    // run that would have created all COUNT in one go.
-    if (i < already) continue;
+    // Consume the prebook rng for EVERY pending index — BEFORE the top-up skip —
+    // so the date-seeded stream (names/archetypes/times for later indices) is
+    // identical whether or not earlier indices are skipped.
+    const prebookStartISO = statuses[i] === 'pending' ? prebookFutureStart(now, rng).toUTC().toISO()! : undefined;
+    // Partial-day rerun: skip visits already created today, matched by the
+    // deterministic per-index email (robust to a prior run that created a
+    // non-contiguous / out-of-order subset — a plain `i < already` index cutoff
+    // would re-create some and never create others).
+    if (createdEmails.has(email)) continue;
     const scenarioFile = resolve(SCEN_DIR, `census-${today}-${String(i).padStart(3, '0')}.json`);
     writeFileSync(scenarioFile, JSON.stringify(base, null, 2));
     visits.push({
@@ -571,11 +624,11 @@ async function generate(staff: { providers: string[]; mas: string[] }): Promise<
       intakeMA: staff.mas[i % staff.mas.length],
       location,
       label: base.label,
-      prebookStartISO: statuses[i] === 'pending' ? prebookFutureStart(now, rng).toUTC().toISO()! : undefined,
+      prebookStartISO,
     });
   }
 
-  const creating = statuses.slice(already); // statuses of the visits this run will create
+  const creating = visits.map((v) => v.targetStatus); // statuses of the visits this run will actually create
   console.log(
     `[generate] ${visits.length} visits for ${today} (statuses: ${STATUS_MIX.map(
       (m) => m.status + '×' + creating.filter((s) => s === m.status).length
@@ -634,9 +687,21 @@ async function runGeneratePool(visits: Visit[], harness: HarnessCommand, today: 
           }
         );
         const chunks: string[] = [];
+        let settled = false;
         child.stdout.on('data', (d) => chunks.push(d.toString()));
         child.stderr.on('data', (d) => chunks.push(d.toString()));
+        // A spawn-level failure (ENOENT / EMFILE) emits 'error' with NO 'close' —
+        // without this the worker's promise never resolves and the whole pool
+        // (Promise.all below) hangs forever. Resolve so the census continues.
+        child.on('error', (err) => {
+          if (settled) return;
+          settled = true;
+          console.log(`  ⚠ ${v.label}: harness spawn error: ${err instanceof Error ? err.message : err}`);
+          res();
+        });
         child.on('close', async (code) => {
+          if (settled) return;
+          settled = true;
           // The entire body is guarded: an unexpected throw here (e.g. auth
           // re-mint failing after retries) must neither strand this worker
           // (res() lives in `finally`) nor kill the census via an unhandled
@@ -645,8 +710,12 @@ async function runGeneratePool(visits: Visit[], harness: HarnessCommand, today: 
             const out = chunks.join('');
             if (code === 0) {
               done++;
-              const apptId = out.match(/Appointment:\s+([a-f0-9-]+)/)?.[1];
-              const encId = out.match(/Encounter:\s+([a-f0-9-]+)/)?.[1];
+              // Prefer the harness's structured SYNTH_RESULT line (stable
+              // contract); fall back to scraping the human-readable "Created:"
+              // lines for older harness builds that don't emit it.
+              const result = parseSynthResult(out);
+              const apptId = result.appointmentId ?? out.match(/Appointment:\s+([a-f0-9-]+)/)?.[1];
+              const encId = result.encounterId ?? out.match(/Encounter:\s+([a-f0-9-]+)/)?.[1];
               // A visit whose Appointment/Encounter never gets the synth-cron +
               // run-date tags is a "zombie": invisible to next-day catch-up AND
               // to cleanup. Treat scrape misses and tag failures as loud,
@@ -749,12 +818,35 @@ async function runGeneratePool(visits: Visit[], harness: HarnessCommand, today: 
   console.log(`[generate] created ${done}/${visits.length}, untagged: ${untagged}.`);
 }
 
+// ── Production safety ─────────────────────────────────────────────────────────
+// Never seed synthetic data into production. process.env.ENVIRONMENT alone is NOT
+// a reliable signal: it isn't part of the census credential contract
+// (packages/zambdas/.env/<env>.json holds only AUTH0_*/PROJECT_*), so in the
+// normal launch path it is undefined and a lone ENVIRONMENT check silently passes.
+// Key the refusal off the operator-supplied --env (which the wrapper always
+// passes) as well, and run it BEFORE minting a token or touching the project.
+function assertNotProduction(): void {
+  const isProd = (v: string | undefined): boolean => {
+    const s = (v || '').trim().toLowerCase();
+    return s === 'production' || s === 'prod';
+  };
+  const signals = [
+    isProd(ENV) && `--env=${ENV}`,
+    isProd(process.env.ENVIRONMENT) && `ENVIRONMENT=${process.env.ENVIRONMENT}`,
+  ].filter(Boolean);
+  if (signals.length) {
+    throw new Error(
+      `Refusing to run the synthetic census against production (${signals.join(', ')}). ` +
+        `The census only seeds demo/lower environments.`
+    );
+  }
+}
+
 async function main(): Promise<void> {
+  // Safety first — refuse production before authenticating or touching anything.
+  assertNotProduction();
   console.log(`synth-daily-census — env=${ENV}, count=${COUNT}, phase=${PHASE}, zambda=${ZAMBDA_API}`);
   const { at, o, projectId } = await auth();
-  // Refuse production.
-  if ((process.env.ENVIRONMENT || '').toLowerCase() === 'production')
-    throw new Error('Refusing to run against production.');
 
   // ── Env readiness (runs every time, so the script adapts to any project) ──
   // FATAL: in-person Locations + their Schedules, and ≥1 provider — without these

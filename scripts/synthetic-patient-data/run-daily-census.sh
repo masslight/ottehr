@@ -70,6 +70,13 @@ abort_missing_creds() {
 
 # ── Preflight (no server needed) ──────────────────────────────────────────────
 log "preflight: env=${ENVNAME}, port=${PORT}, repo=${REPO}"
+# Never boot a server or run the census against production (the TS census refuses
+# too, but stop here before spending a server boot / token mint).
+case "$(printf '%s' "$ENVNAME" | tr '[:upper:]' '[:lower:]')" in
+  production|prod)
+    log "REFUSING to run against '${ENVNAME}' — the census only seeds demo/lower environments."
+    exit 6 ;;
+esac
 [[ -f "$CENSUS" && -f "$ARCHETYPES" && -f "$SIGN_ZAMBDA" && -f "$LOCAL_SERVER" ]] || abort_wrong_branch
 [[ -f "$CREDS" && -f "$SECRETS" ]] || abort_missing_creds
 
@@ -80,12 +87,16 @@ if lsof -ti ":$PORT" >/dev/null 2>&1; then
 fi
 
 log "starting ephemeral zambda server (ENV=${ENVNAME}) on :$PORT …"
-# The local server logs each request's full secrets object. Stream its output
-# through a redaction filter so no plaintext secret value (any *_SECRET / *_KEY /
-# *_CLIENT / *_TOKEN / *_PASSWORD field) is ever written to disk. The server log
+# The local server logs request/response objects that can contain secrets. Stream
+# its output through a redaction filter so no plaintext secret value is written to
+# disk. We use perl (not sed): the old sed filter only matched UPPERCASE keys in
+# double-quoted JSON, so it missed util.inspect object dumps (`KEY: 'value'`,
+# unquoted single-quoted), lowercase keys (access_token / client_secret), and
+# bearer / JWT tokens. This catches all of them, case-insensitively. The server log
 # is also deleted on success below (kept only on failure, redacted, for debugging).
-REDACT='s/("[A-Z0-9_]*(SECRET|KEY|CLIENT|TOKEN|PASSWORD)[A-Z0-9_]*" *: *")[^"]*/\1<redacted>/g'
-( cd "$REPO/packages/zambdas" && PORT="$PORT" ENV="$ENVNAME" npx tsx src/local-server/index.ts -- "secrets=.env/zambda-secrets-${ENVNAME}.json" ) > >(sed -E "$REDACT" > "$SERVERLOG") 2>&1 &
+# \x27 = literal single-quote (keeps this program single-quote-free for bash).
+REDACT_PL='s/(Bearer\s+)[\w.\-]+/$1<redacted>/gi; s/eyJ[\w\-]+\.[\w\-]+\.[\w\-]+/<redacted-jwt>/g; s/("?[\w-]*(?:secret|key|client|token|password)[\w-]*"?\s*[:=]\s*)("[^"]*"|\x27[^\x27]*\x27|[^\s,;}"\x27]+)/$1<redacted>/gi;'
+( cd "$REPO/packages/zambdas" && PORT="$PORT" ENV="$ENVNAME" npx tsx src/local-server/index.ts -- "secrets=.env/zambda-secrets-${ENVNAME}.json" ) > >(perl -pe "$REDACT_PL" > "$SERVERLOG") 2>&1 &
 SERVER_PID=$!
 
 cleanup() {

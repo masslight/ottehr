@@ -38,9 +38,15 @@ const REPEAT_MIX: Array<{ visits: number; frac: number }> = [
   { visits: 4, frac: 0.02 },
 ];
 
-// Trailing 12-month window. "Today" is passed in via env so the planner stays
-// pure (Date.now is fine here — this is a one-shot generator, not the harness).
-const TODAY = new Date();
+// Trailing 12-month window anchored on "today". Pass --today YYYY-MM-DD to make
+// the plan FULLY reproducible (same seed + same --today → byte-identical plan);
+// omit it and the anchor is the wall-clock run instant, so the emitted dates/DOBs
+// depend on WHEN you run it (the seed still fixes every random choice). The plan
+// is generated once and persisted, so wall-clock is usually fine — but --today is
+// there when you need bit-for-bit reproduction.
+const TODAY_ARG = arg('--today');
+const TODAY = TODAY_ARG ? new Date(`${TODAY_ARG}T00:00:00Z`) : new Date();
+if (TODAY_ARG && isNaN(TODAY.getTime())) throw new Error(`--today must be YYYY-MM-DD, got "${TODAY_ARG}"`);
 const WINDOW_DAYS = 365;
 
 // ── Seeded RNG (mulberry32) ──────────────────────────────────────────────────
@@ -193,7 +199,13 @@ for (let p = 0; p < TARGET_PATIENTS; p++) {
   const compatible = ARCHETYPES.filter((a) => age >= a.ageMin && age <= a.ageMax && (a.sex === 'any' || a.sex === sex));
   const pool = compatible.length ? compatible : [seed];
 
-  const offsets = visitDayOffsets(k);
+  // Clamp visit offsets so no visit predates the patient's DOB. Matters for
+  // age-0 infants (DOB is only 0–364 days back) where an unclamped offset up to
+  // WINDOW_DAYS would place the encounter before birth (impossible: negative age,
+  // DOB-after-encounter). For age ≥ 1 daysSinceBirth ≥ 365, so this is a no-op.
+  const dobMs = new Date(`${dob}T00:00:00Z`).getTime();
+  const daysSinceBirth = Math.max(0, Math.floor((TODAY.getTime() - dobMs) / 86_400_000));
+  const offsets = visitDayOffsets(k).map((o) => Math.min(o, daysSinceBirth));
   for (let v = 0; v < k; v++) {
     const archetype = v === 0 ? seed : weightedArchetype(pool);
     const { date, time } = dateTimeForDayOffset(offsets[v], location);
@@ -215,8 +227,12 @@ for (let p = 0; p < TARGET_PATIENTS; p++) {
   }
 }
 
-// Chronological order, then assign stable seq.
-visits.sort((a, b) => (a.date + a.time < b.date + b.time ? -1 : 1));
+// Chronological order, then assign stable seq. Use a proper 3-way comparator
+// (returning 1 for ties, as before, is not a valid comparator and left same-minute
+// visits ordered arbitrarily across V8 versions); tie-break on patientKey +
+// archetype so seq assignment is stable and reproducible.
+const sortKey = (v: PlannedVisit): string => `${v.date}T${v.time}|${v.patientKey}|${v.archetypeKey}`;
+visits.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
 visits.forEach((v, i) => (v.seq = i + 1));
 
 // ── Summary ────────────────────────────────────────────────────────────────────
@@ -234,6 +250,7 @@ for (const v of visits) months[v.date.slice(0, 7)] = (months[v.date.slice(0, 7)]
 const plan = {
   meta: {
     seed: SEED,
+    today: TODAY.toISOString().slice(0, 10), // window anchor — pass --today to reproduce
     generatedAt: TODAY.toISOString(),
     patients: TARGET_PATIENTS,
     uniquePatients: usedKeys.size,

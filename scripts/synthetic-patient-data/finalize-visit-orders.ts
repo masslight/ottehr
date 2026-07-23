@@ -433,21 +433,36 @@ async function main(): Promise<void> {
     } patient(s) with labs.`
   );
 
-  const all = (
-    await o.fhir.search({
-      resourceType: 'Appointment',
-      params: [
-        { name: '_tag', value: `${RUN_DATE_SYSTEM}|${date}` },
-        { name: '_count', value: '300' },
-        { name: '_revinclude', value: 'Encounter:appointment' },
-        { name: '_include', value: 'Appointment:patient' },
-      ],
-    })
-  ).unbundle();
+  // Paginate over the day's Appointments (+ their Encounters/Patients) so a heavy
+  // standalone backfill isn't silently truncated at one page. _offset applies to
+  // the base Appointment; each page brings its revincluded Encounters + included
+  // Patients, so we stop when a page returns fewer Appointments than requested.
+  const PAGE = 200;
+  const all: any[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const page = (
+      await o.fhir.search({
+        resourceType: 'Appointment',
+        params: [
+          { name: '_tag', value: `${RUN_DATE_SYSTEM}|${date}` },
+          { name: '_count', value: String(PAGE) },
+          { name: '_offset', value: String(offset) },
+          { name: '_revinclude', value: 'Encounter:appointment' },
+          { name: '_include', value: 'Appointment:patient' },
+        ],
+      })
+    ).unbundle();
+    all.push(...page);
+    if (page.filter((r: any) => r.resourceType === 'Appointment').length < PAGE) break;
+  }
   const encs = all.filter((r: any) => r.resourceType === 'Encounter') as any[];
   const patients = new Map(all.filter((r: any) => r.resourceType === 'Patient').map((p: any) => [p.id, p]));
 
-  let tot = 0;
+  let labTot = 0;
+  let labSkipped = 0; // orders with nothing resolvable to finalize (surfaced below, not silent)
+  let radTot = 0;
+  let medTot = 0;
+  let immTot = 0;
   let failedTot = 0;
   let skippedInProgress = 0;
   for (const e of encs) {
@@ -465,21 +480,46 @@ async function main(): Promise<void> {
     const attendingId = (e.participant ?? [])
       .find((pt: any) => pt.type?.some((t: any) => t.coding?.some((c: any) => c.code === 'ATND')))
       ?.individual?.reference?.split('/')[1];
+    const who = `${p?.name?.[0]?.given?.[0] ?? '?'} ${p?.name?.[0]?.family ?? ''}`.trim();
+    // Labs, radiology, and meds/immunizations ALL come back on a completed visit —
+    // finalize every order type, not just labs, so a standalone --census-day
+    // backfill matches what the daily census does inline. Each type is independent:
+    // a failure in one is counted and does not skip the others.
     try {
-      const { finalized, failed } = await finalizeInHouseLabs(ctx, e.id, authored, execute, attendingId);
-      if (finalized) {
-        console.log(`  ${p?.name?.[0]?.given?.[0] ?? '?'} ${p?.name?.[0]?.family ?? ''}: ${finalized} lab(s)`);
-        tot += finalized;
-      }
+      const { finalized, failed, skipped } = await finalizeInHouseLabs(ctx, e.id, authored, execute, attendingId);
+      if (finalized) console.log(`  ${who}: ${finalized} lab(s)`);
+      labTot += finalized;
+      labSkipped += skipped;
       failedTot += failed;
     } catch (err: any) {
-      console.log(`  ✗ encounter ${e.id}: ${err.message}`);
+      console.log(`  ✗ ${who} labs (encounter ${e.id}): ${err.message}`);
+      failedTot++;
+    }
+    try {
+      const { finalized } = await finalizeRadiology(ctx, e.id, execute);
+      if (finalized) console.log(`  ${who}: ${finalized} radiology report(s)`);
+      radTot += finalized;
+    } catch (err: any) {
+      console.log(`  ✗ ${who} radiology (encounter ${e.id}): ${err.message}`);
+      failedTot++;
+    }
+    try {
+      const { medications, immunizations } = await finalizeMedicationsAndImmunizations(ctx, e.id, execute);
+      if (medications || immunizations)
+        console.log(`  ${who}: ${medications} med(s), ${immunizations} immunization(s)`);
+      medTot += medications;
+      immTot += immunizations;
+    } catch (err: any) {
+      console.log(`  ✗ ${who} meds/immunizations (encounter ${e.id}): ${err.message}`);
       failedTot++;
     }
   }
+  const verb = execute ? 'finalized' : 'would be finalized';
   console.log(
-    `\nDone — ${tot} lab order(s) ${execute ? 'finalized' : 'would be finalized'}` +
-      `${failedTot ? `, ${failedTot} FAILED` : ''} for ${date}` +
+    `\nDone for ${date} — ${labTot} lab(s), ${radTot} radiology report(s), ${medTot} med(s), ` +
+      `${immTot} immunization(s) ${verb}` +
+      `${failedTot ? `, ${failedTot} FAILED` : ''}` +
+      `${labSkipped ? `, ${labSkipped} lab order(s) had nothing resolvable to finalize` : ''}` +
       `${finalizeAll ? '' : ` (skipped ${skippedInProgress} in-progress visit(s) — orders stay pending)`}.`
   );
   if (failedTot) process.exitCode = 1;

@@ -26,7 +26,7 @@
 import Oystehr from '@oystehr/sdk';
 import type { AllergyIntolerance, Condition, EpisodeOfCare, MedicationStatement, Patient, Procedure } from 'fhir/r4b';
 import { SYNTHETIC_PATIENT_ID_SYSTEM as SYNTH_PATIENT_ID_SYSTEM } from './shared/constants';
-import { createOystehrFromEnv } from './shared/oystehr-client';
+import { createOystehrFromEnv, searchAllPages } from './shared/oystehr-client';
 
 const args = process.argv.slice(2);
 const isExecute = args.includes('--execute');
@@ -161,15 +161,11 @@ async function main(): Promise<void> {
 
   const patientIds: string[] = [];
   if (all) {
-    const synthPatients = (
-      await oystehr.fhir.search<Patient>({
-        resourceType: 'Patient',
-        params: [
-          { name: 'identifier', value: `${SYNTH_PATIENT_ID_SYSTEM}|` },
-          { name: '_count', value: '200' },
-        ],
-      })
-    ).unbundle();
+    // Paginate — the synth population can be thousands of patients; a fixed cap
+    // would silently de-dupe only the first page.
+    const synthPatients = await searchAllPages<Patient>(oystehr, 'Patient', [
+      { name: 'identifier', value: `${SYNTH_PATIENT_ID_SYSTEM}|` },
+    ]);
     for (const p of synthPatients) if (p.id) patientIds.push(p.id);
     console.log(`Found ${patientIds.length} synth-tagged Patient(s)`);
   } else {

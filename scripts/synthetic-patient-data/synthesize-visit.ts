@@ -129,7 +129,12 @@ import { resolve } from 'path';
 import { finalizeInHouseLabs, finalizeRadiology, LAB_NAME_ALIASES, normalizeLabName } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
 import { arg } from './shared/cli';
-import { STATUS_GAP_DISTRIBUTIONS, SYNTHETIC_PATIENT_ID_SYSTEM, VISIT_STATUS_ORDER } from './shared/constants';
+import {
+  OTTEHR_VISIT_STATUS_EXTENSION_URL,
+  STATUS_GAP_DISTRIBUTIONS,
+  SYNTHETIC_PATIENT_ID_SYSTEM,
+  VISIT_STATUS_ORDER,
+} from './shared/constants';
 import { createOystehrFromToken, mintAccessToken, need } from './shared/oystehr-client';
 import { withRetry } from './shared/retry';
 import { zambdaExecute, zambdaPost } from './shared/zambda';
@@ -291,6 +296,19 @@ function logFhir(op: string, detail: string): void {
 
 function logNote(text: string): void {
   console.log(`  • ${text}`);
+}
+
+// Material-incompleteness warnings: things that mean the signed visit is missing
+// data it should have had (a failed order create, no Coverage, a failed intake
+// page). These are logged inline AND collected so the end-of-run summary can call
+// out that the visit completed but is incomplete — instead of the failure being
+// buried mid-log under a "success" footer. (Expected catalog-gap skips — e.g. a
+// medication absent from the formulary — stay plain console.warn per the
+// graceful-degradation contract; only real failures go through here.)
+const runWarnings: string[] = [];
+function logWarn(text: string): void {
+  runWarnings.push(text);
+  console.warn(`  ⚠ ${text}`);
 }
 
 // ── Phase 0 — prerequisite lookups ────────────────────────────────────────────
@@ -647,8 +665,10 @@ async function phase0_5_createSlot(ctx: SynthesisContext): Promise<void> {
   // capacity/availability guard entirely (capacityGuardApplies → false). This is
   // both robust (no schedule-hours/capacity/orphan-slot fragility) and more
   // correct — urgent-care visits ARE walk-ins. Future/today visits keep the
-  // normal scheduled-slot path. The slot lands historically, so Phase 15 is a
-  // no-op for these.
+  // normal scheduled-slot path. NOTE: the Slot lands at the historical time here,
+  // but create-appointment's walk-in branch stamps Appointment.start = now, so
+  // Phase 15 still runs to backdate the Appointment/Encounter — and it re-pins the
+  // Slot to the appointment's final start (it does NOT shift the slot by a delta).
   const historical = intendedHistoricalStart(s);
   const startISO = historical ? historical.toUTC().toISO()! : computeSlotStartISO(s);
   const walkin = historical != null;
@@ -1174,7 +1194,7 @@ async function phase1_5_intakePaperwork(ctx: SynthesisContext): Promise<void> {
         zambdaPost(ctx, 'patch-paperwork', body, { execPublic: true })
       );
       if (!res.ok) {
-        console.warn(`  ⚠ patch-paperwork (${page.linkId}) failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
+        logWarn(`patch-paperwork (${page.linkId}) failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
         continue;
       }
       logNote(`patched ${page.linkId}`);
@@ -1257,9 +1277,7 @@ async function runLocalHarvest(ctx: SynthesisContext, pageLinkId: string): Promi
     zambdaPost(ctx, 'sub-harvest-paperwork-page', refreshedTask, { execPublic: true })
   );
   if (!harvestRes.ok) {
-    console.warn(
-      `  ⚠ local harvest (${pageLinkId}) failed: ${harvestRes.status} ${(await harvestRes.text()).slice(0, 300)}`
-    );
+    logWarn(`local harvest (${pageLinkId}) failed: ${harvestRes.status} ${(await harvestRes.text()).slice(0, 300)}`);
     return;
   }
   logNote(`harvested ${pageLinkId} (local)`);
@@ -2148,9 +2166,7 @@ async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
       const callZambda = (b: unknown): Promise<Response> => zambdaPost(ctx, 'create-update-medication-order', b);
       const res = await callZambda(createBody);
       if (!res.ok) {
-        console.warn(
-          `  ⚠ create-update-medication-order (create) failed: ${res.status} ${(await res.text()).slice(0, 200)}`
-        );
+        logWarn(`create-update-medication-order (create) failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
         continue;
       }
       const created = (await res.json()) as { id?: string; output?: { id?: string } };
@@ -2212,7 +2228,7 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
       }
       const res = await zambdaPost(ctx, 'create-update-immunization-order', orderBody);
       if (!res.ok) {
-        console.warn(`  ⚠ create-update-immunization-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+        logWarn(`create-update-immunization-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
         continue;
       }
       const orderJson = (await res.json()) as { output?: { id?: string }; id?: string };
@@ -2283,7 +2299,7 @@ async function phase9_radiology(ctx: SynthesisContext): Promise<void> {
       // 500s — route through local until cloud catches up.
       const res = await zambdaPost(ctx, 'radiology-create-order', orderBody);
       if (!res.ok) {
-        console.warn(`  ⚠ radiology-create-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+        logWarn(`radiology-create-order failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
         continue;
       }
       const orderJson = (await res.json()) as {
@@ -2520,7 +2536,7 @@ async function enrichCoverageAndSynthesizeEligibility(ctx: SynthesisContext, s: 
   ).unbundle();
   const coverage = coverages.find((c) => c.status === 'active');
   if (!coverage?.id) {
-    console.warn('  ⚠ no active Coverage found — skipping eligibility synthesis');
+    logWarn('no active Coverage found — eligibility synthesis skipped (visit signed without Coverage/eligibility)');
     return;
   }
 
@@ -3107,14 +3123,13 @@ async function phase13_5_backdateStatusHistory(ctx: SynthesisContext): Promise<v
     return;
   }
 
-  // Index existing entries by their ottehr-visit-status extension code so we
-  // can preserve each entry's FHIR status + extension shape while replacing
-  // its period. Must match `FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url`
-  // in packages/utils/lib/fhir/constants.ts — that's what `getVisitStatusHistory`
-  // looks up. Writing a different URL here makes the EHR fall through to a
-  // legacy fallback that emits multiple derived entries per real entry,
-  // producing 28-entry dashboard rows that render garbage durations.
-  const OTT_EXT_URL = 'https://extensions.fhir.zapehr.com/visit-status';
+  // Index existing entries by their ottehr-visit-status extension code so we can
+  // preserve each entry's FHIR status + extension shape while replacing its period.
+  // The URL comes from utils via shared/constants (FHIR_EXTENSION.EncounterStatusHistory
+  // .ottehrVisitStatus.url) — that's what `getVisitStatusHistory` looks up. A wrong
+  // URL makes the EHR fall through to a legacy renderer that emits many derived
+  // entries per real one, producing dashboard rows with garbage durations.
+  const OTT_EXT_URL = OTTEHR_VISIT_STATUS_EXTENSION_URL;
   const byOttStatus = new Map<string, (typeof existing)[number]>();
   for (const entry of existing) {
     const code = entry.extension?.find((e) => e.url === OTT_EXT_URL)?.valueCode;
@@ -3294,15 +3309,18 @@ async function phase15_backdateVisitToHistory(ctx: SynthesisContext): Promise<vo
     await ctx.oystehr.fhir.patch({ resourceType: 'Appointment', id: ctx.appointmentId, operations: apptOps });
   }
 
-  // Slot.start/.end (appointment references it; keep them consistent)
-  if (ctx.slotId) {
+  // Slot.start/.end must match the (now-backdated) Appointment — but do NOT shift
+  // the Slot by the same delta. The walk-in Slot was booked at the historical time
+  // in Phase 0.5, while create-appointment's walk-in branch stamped
+  // Appointment.start = now (create-appointment/index.ts). The two therefore have
+  // DIFFERENT baselines, so applying the appointment's delta to the slot would
+  // double-shift it (slot lands ~a year too early). Pin the Slot to the
+  // Appointment's final start/end instead, so they always agree.
+  if (ctx.slotId && (newApptStart || newApptEnd)) {
     try {
-      const slot = await ctx.oystehr.fhir.get<import('fhir/r4b').Slot>({ resourceType: 'Slot', id: ctx.slotId });
       const slotOps: Array<{ op: 'replace'; path: string; value: string }> = [];
-      const ns = shift(slot.start);
-      const ne = shift(slot.end);
-      if (ns) slotOps.push({ op: 'replace', path: '/start', value: ns });
-      if (ne) slotOps.push({ op: 'replace', path: '/end', value: ne });
+      if (newApptStart) slotOps.push({ op: 'replace', path: '/start', value: newApptStart });
+      if (newApptEnd) slotOps.push({ op: 'replace', path: '/end', value: newApptEnd });
       if (slotOps.length) {
         await ctx.oystehr.fhir.patch({ resourceType: 'Slot', id: ctx.slotId, operations: slotOps });
       }
@@ -3392,6 +3410,40 @@ async function cleanupFailedRun(ctx: SynthesisContext): Promise<void> {
     await tryDelete('QuestionnaireResponse', ctx.questionnaireResponseId);
   }
   if (ctx.encounterId) {
+    // Late-failure orphans: chart data + orders written in Phase 3+ are bound to
+    // THIS Encounter. Delete them (scoped strictly to Encounter/<id> — never the
+    // Patient or its prior visits) before removing the Encounter, so a failure
+    // after Phase 3 doesn't leave resources dangling against a deleted Encounter.
+    // Ordered children-before-parents to minimise dependency 409s. Patient-tier
+    // data (Coverage/Account/CER) intentionally persists for reuse on rerun.
+    const encounterBound: Array<{ rt: string; param: string }> = [
+      { rt: 'Observation', param: 'encounter' },
+      { rt: 'Condition', param: 'encounter' },
+      { rt: 'Procedure', param: 'encounter' },
+      { rt: 'MedicationAdministration', param: 'context' }, // child of MedicationRequest
+      { rt: 'DiagnosticReport', param: 'encounter' }, // child of ServiceRequest
+      { rt: 'Immunization', param: 'encounter' },
+      { rt: 'DocumentReference', param: 'encounter' },
+      { rt: 'Communication', param: 'encounter' },
+      { rt: 'MedicationRequest', param: 'encounter' },
+      { rt: 'ServiceRequest', param: 'encounter' },
+    ];
+    for (const { rt, param } of encounterBound) {
+      try {
+        const found = (
+          await ctx.oystehr.fhir.search({
+            resourceType: rt as 'Observation',
+            params: [
+              { name: param, value: `Encounter/${ctx.encounterId}` },
+              { name: '_count', value: '200' },
+            ],
+          })
+        ).unbundle() as Array<{ id?: string }>;
+        for (const r of found) if (r.id) await tryDelete(rt, r.id);
+      } catch (err) {
+        console.warn(`  ⚠ ${rt} search (encounter) failed: ${err instanceof Error ? err.message : err}`);
+      }
+    }
     await tryDelete('Encounter', ctx.encounterId);
   }
   if (ctx.appointmentId) {
@@ -3525,6 +3577,26 @@ async function main(): Promise<void> {
     if (ctx.appointmentId) console.log(`  Appointment:             ${ctx.appointmentId}`);
     if (ctx.encounterId) console.log(`  Encounter:               ${ctx.encounterId}`);
     if (ctx.questionnaireResponseId) console.log(`  QuestionnaireResponse:   ${ctx.questionnaireResponseId}`);
+    // Surface material-incompleteness warnings collected during the run so a
+    // signed-but-incomplete visit isn't reported as a clean success.
+    if (runWarnings.length) {
+      console.log('');
+      console.log(`⚠ VISIT COMPLETED WITH ${runWarnings.length} WARNING(S) — data may be incomplete:`);
+      for (const w of runWarnings) console.log(`    - ${w}`);
+    }
+    // Machine-readable result line — a STABLE contract for orchestrators
+    // (synth-daily-census, run-population) so they parse this instead of scraping
+    // the human-readable "Created:" lines (which are free to change). One line,
+    // fixed `SYNTH_RESULT ` prefix, JSON payload. Keep the prefix/shape stable.
+    console.log(
+      `SYNTH_RESULT ${JSON.stringify({
+        patientId: ctx.patientId ?? null,
+        appointmentId: ctx.appointmentId ?? null,
+        encounterId: ctx.encounterId ?? null,
+        questionnaireResponseId: ctx.questionnaireResponseId ?? null,
+        warnings: runWarnings.length,
+      })}`
+    );
   }
 }
 
