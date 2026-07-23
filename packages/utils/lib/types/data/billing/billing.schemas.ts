@@ -567,6 +567,13 @@ export const GetChargeItemDefinitionInputSchema = z.object({
   chargeItemDefinitionId: nonEmptyString.uuid(),
 });
 
+export const ChargeItemDefinitionProcedureCodeSchema = z.object({
+  code: nonEmptyString,
+  description: nonEmptyString.optional(),
+  modifier: nonEmptyString.optional(),
+  amount: z.number().nonnegative(),
+});
+
 export const UpdateChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
   chargeItemDefinitionId: nonEmptyString.uuid(),
@@ -575,21 +582,19 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
   effectiveDate: nonEmptyString.nullable().optional(),
   description: nonEmptyString.nullable().optional(),
   default: z.enum(['insurance', 'self-pay']).nullable().optional(),
-  procedureCodes: z
-    .array(
-      z.object({
-        code: nonEmptyString,
-        description: nonEmptyString.optional(),
-        modifier: nonEmptyString.optional(),
-        amount: z.number().nonnegative(),
-      })
-    )
-    .optional(),
+  procedureCodes: z.array(ChargeItemDefinitionProcedureCodeSchema).optional(),
 });
 
 export const DeleteChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
   chargeItemDefinitionId: nonEmptyString.uuid(),
+});
+
+export const BulkAddChargeItemDefinitionProcedureCodesInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  chargeItemDefinitionId: nonEmptyString.uuid(),
+  procedureCodes: z.array(ChargeItemDefinitionProcedureCodeSchema).min(1),
+  replaceAll: z.boolean().default(false),
 });
 
 export const ImportEraInputSchema = z.object({
@@ -655,6 +660,9 @@ export type CreateChargeItemDefinitionInput = z.output<typeof CreateChargeItemDe
 export type GetChargeItemDefinitionInput = z.output<typeof GetChargeItemDefinitionInputSchema>;
 export type UpdateChargeItemDefinitionInput = z.output<typeof UpdateChargeItemDefinitionInputSchema>;
 export type DeleteChargeItemDefinitionInput = z.output<typeof DeleteChargeItemDefinitionInputSchema>;
+export type BulkAddChargeItemDefinitionProcedureCodesInput = z.output<
+  typeof BulkAddChargeItemDefinitionProcedureCodesInputSchema
+>;
 export type GetServiceFacilityInput = z.output<typeof GetServiceFacilityInputSchema>;
 export type SearchServiceFacilitiesInput = z.output<typeof SearchServiceFacilitiesInputSchema>;
 export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputSchema>;
