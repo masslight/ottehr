@@ -38,7 +38,7 @@ export const UserMenu: FC = () => {
   // eRX enrollment/notifications require an NPI (DoseSpot). The provider notifications bell is a
   // general, visit-linked inbox — not NPI-gated — so keep it on a role check.
   const userHasNPI = user?.hasNPI;
-  const showProviderNotifications = user?.hasRole([RoleType.Provider]);
+  const showProviderNotifications = user?.hasRole([RoleType.Provider, RoleType.Clinician]);
 
   const practitioner = user?.profileResource;
 
