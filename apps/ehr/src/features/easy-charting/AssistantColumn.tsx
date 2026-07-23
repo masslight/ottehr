@@ -1272,7 +1272,8 @@ export function AssistantColumn({
           {noteEditCards}
         </Stack>
       </Box>
-      {chipsPortalEl ? createPortal(transcriptChips, chipsPortalEl) : transcriptChips}
+      {/* Fragment wrapper: MUI's prop-types reject a bare ReactPortal as a Box child. */}
+      {chipsPortalEl ? <Fragment>{createPortal(transcriptChips, chipsPortalEl)}</Fragment> : transcriptChips}
       {transcriptPreview}
       {refineBar}
     </Box>
