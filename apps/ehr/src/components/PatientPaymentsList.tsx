@@ -971,8 +971,9 @@ export default function PatientPaymentList({
         {(patientCreditCents ?? 0) > 0 && (
           <Alert
             severity="success"
-            icon={<WarningAmberIcon fontSize="inherit" sx={{ color: '#f57c00' }} />}
-            sx={{ mt: 1, fontWeight: 700 }}
+            variant="outlined"
+            icon={<WarningAmberIcon fontSize="inherit" />}
+            sx={{ mt: 1, fontWeight: 700, color: 'green' }}
           >
             {`Outstanding Patient CREDIT: ${formatUsd((patientCreditCents ?? 0) / 100)}`}
           </Alert>

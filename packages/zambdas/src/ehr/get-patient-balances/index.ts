@@ -8,7 +8,6 @@ import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
-  fetchPreEncounterPatient,
   lambdaResponse,
   wrapHandler,
   ZambdaInput,
@@ -122,16 +121,22 @@ export async function performEffect(
     return noData;
   }
 
+  console.log(`Patient id: ${patientId}`);
+
   // Save the balances in the map
   console.group('saveBalancesInMap');
   saveBalancesInMap(claims, claimIdToEncounterIdMap, encounterDataMap);
   console.groupEnd();
   console.debug('saveBalancesInMap success');
 
+  console.log(`Patient id: ${patientId}`);
+
   console.group('getPendingPatientPayments');
   const pendingPatientPayments = await getPendingPatientPayments(candidApiClient, patientId);
   console.groupEnd();
   console.debug('getPendingPatientPayments success');
+
+  console.log(`Patient id: ${patientId}`);
 
   console.group('getPatientCreditCents');
   const patientCreditCents = await getPatientCreditCents(candidApiClient, patientId);
@@ -294,19 +299,10 @@ async function getPendingPatientPayments(candidApiClient: CandidApiClient, patie
 }
 
 async function getPatientCreditCents(candidApiClient: CandidApiClient, patientId: string): Promise<number> {
-  // Look up the Candid pre-encounter patient by MRN (= FHIR patient UUID)
-  const patientLookup = await fetchPreEncounterPatient(patientId, candidApiClient);
-  if (!patientLookup) {
-    console.log(`No Candid pre-encounter patient found for FHIR patient ${patientId}, skipping credit check`);
-    return 0;
-  }
-
-  const candidPatientId = patientLookup.id;
-
   try {
-    const response = await candidApiClient.fetch(`/api/patients/v1/${candidPatientId}`);
+    const response = await candidApiClient.fetch(`/api/patients/v1/${patientId}`);
     if (!response.ok) {
-      console.warn(`Candid patients v1 request failed with status ${response.status} for patient ${candidPatientId}`);
+      console.warn(`Candid patients v1 request failed with status ${response.status} for patient ${patientId}`);
       return 0;
     }
     const data = (await response.json()) as { patient_balance_total_cents: number };
