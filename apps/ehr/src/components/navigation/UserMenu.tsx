@@ -25,7 +25,7 @@ import {
   useEnrollPractitionerToERX,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { BRANDING_CONFIG, getFullestAvailableName, RoleType } from 'utils';
+import { BRANDING_CONFIG, getFullestAvailableName } from 'utils';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
@@ -35,7 +35,7 @@ export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const [pendingReviewOpen, setPendingReviewOpen] = useState<boolean>(false);
   const user = useEvolveUser();
-  const userIsProvider = user?.hasRole([RoleType.Provider]);
+  const userHasNPI = user?.hasNPI;
 
   const practitioner = user?.profileResource;
 
@@ -104,7 +104,7 @@ export const UserMenu: FC = () => {
     <>
       <CommandPaletteSearchButton sx={{ mr: 2 }} />
       <UnsolicitedResultsIcon />
-      {userIsProvider && <ProviderNotifications />}
+      {userHasNPI && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>
           <ListItemAvatar sx={{ minWidth: 'auto', mr: { xs: '0', sm: 2 } }}>
@@ -131,7 +131,7 @@ export const UserMenu: FC = () => {
           </Box>
         </MenuItem>
         <Divider />
-        {isPractitionerEnrollmentChecked && userIsProvider && !practitionerEnrollmentStatus?.identityVerified && (
+        {isPractitionerEnrollmentChecked && userHasNPI && !practitionerEnrollmentStatus?.identityVerified && (
           <>
             {practitionerMissingFields.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: 300, gap: 1, padding: '6px 16px' }}>
