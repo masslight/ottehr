@@ -11,109 +11,7 @@ import {
 import { bulkAddChargeItemDefinitionProcedureCodes } from '../api/api';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { useApiClients } from '../hooks/useAppClients';
-
-function cleanHeader(raw: string): string {
-  return raw
-    .replace(/^\uFEFF/, '')
-    .trim()
-    .toLowerCase();
-}
-
-/** Priority-ordered patterns for each CSV column type. First match wins. */
-const CODE_PATTERNS = [
-  /^proc(edure)?\s*code$/,
-  /^cpt\s*(\/\s*hcpcs|code)?$/,
-  /^hcpcs(\s*code)?$/,
-  /^service\s*code$/,
-  /^code$/,
-  /proc(edure)?/,
-  /^cpt/,
-];
-const AMOUNT_PATTERNS = [/amount/, /price/, /^rate$/, /^fee$/, /^charge$/, /^cost$/];
-const MODIFIER_PATTERNS = [/^mod(ifier)?$/];
-const DESCRIPTION_PATTERNS = [/^desc(ription)?$/, /desc/];
-
-function findColumnIndex(headers: string[], patterns: RegExp[], exclude: Set<number>): number {
-  for (const pattern of patterns) {
-    const idx = headers.findIndex((c, i) => !exclude.has(i) && pattern.test(c));
-    if (idx >= 0) return idx;
-  }
-  return -1;
-}
-
-function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        current += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      result.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-  result.push(current);
-  return result;
-}
-
-function parseAmount(raw: string | undefined): number {
-  const cleaned = raw?.trim().replace(/^\$/, '').replace(/,/g, '');
-  if (!cleaned) return NaN;
-  // Number('') / parseFloat('12abc') pitfalls: validate the entire cleaned value
-  return Number(cleaned);
-}
-
-function codeKey(pc: Pick<BillingChargeItemDefinitionProcedureCode, 'code' | 'modifier'>): string {
-  return `${pc.code}|${pc.modifier ?? ''}`;
-}
-
-type DeltaStatus = 'added' | 'changed' | 'removed';
-
-interface DeltaRow {
-  status: DeltaStatus;
-  code: BillingChargeItemDefinitionProcedureCode;
-  previousAmount?: number;
-}
-
-function computeDelta(
-  current: BillingChargeItemDefinitionProcedureCode[],
-  uploaded: BillingChargeItemDefinitionProcedureCode[],
-  csvHasDescriptions: boolean
-): { rows: DeltaRow[]; unchangedCount: number } {
-  const currentByKey = new Map(current.map((pc) => [codeKey(pc), pc]));
-  const uploadedKeys = new Set(uploaded.map(codeKey));
-  const rows: DeltaRow[] = [];
-  let unchangedCount = 0;
-  for (const pc of uploaded) {
-    const existing = currentByKey.get(codeKey(pc));
-    if (!existing) {
-      rows.push({ status: 'added', code: pc });
-    } else if (existing.amount !== pc.amount || (csvHasDescriptions && pc.description !== existing.description)) {
-      rows.push({ status: 'changed', code: pc, previousAmount: existing.amount });
-    } else {
-      unchangedCount++;
-    }
-  }
-  for (const pc of current) {
-    if (!uploadedKeys.has(codeKey(pc))) {
-      rows.push({ status: 'removed', code: pc });
-    }
-  }
-  return { rows, unchangedCount };
-}
+import { codeKey, computeDelta, DeltaStatus, parseProcedureCodeCsv } from '../utils/procedureCodeCsv';
 
 const DELTA_CHIP_COLOR: Record<DeltaStatus, 'success' | 'warning' | 'error'> = {
   added: 'success',
@@ -152,55 +50,22 @@ export function BulkImportProcedureCodes({
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
+    let parsed;
     try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter((line) => line.trim());
-      if (lines.length < 2) {
-        enqueueSnackbar('CSV file must have a header row and at least one data row.', { variant: 'error' });
-        return;
-      }
-      const headerCols = parseCsvLine(lines[0]).map(cleanHeader);
-      const claimed = new Set<number>();
-      const codeIdx = findColumnIndex(headerCols, CODE_PATTERNS, claimed);
-      if (codeIdx >= 0) claimed.add(codeIdx);
-      const amountIdx = findColumnIndex(headerCols, AMOUNT_PATTERNS, claimed);
-      if (amountIdx >= 0) claimed.add(amountIdx);
-      const modifierIdx = findColumnIndex(headerCols, MODIFIER_PATTERNS, claimed);
-      if (modifierIdx >= 0) claimed.add(modifierIdx);
-      const descriptionIdx = findColumnIndex(headerCols, DESCRIPTION_PATTERNS, claimed);
-      if (codeIdx < 0 || amountIdx < 0) {
-        enqueueSnackbar('CSV must have "Procedure Code" and "Amount" columns.', { variant: 'error' });
-        return;
-      }
-
-      const codes: BillingChargeItemDefinitionProcedureCode[] = [];
-      const skipped: string[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = parseCsvLine(lines[i]);
-        const code = values[codeIdx]?.trim();
-        const amount = parseAmount(values[amountIdx]);
-        if (!code || !Number.isFinite(amount) || amount < 0) {
-          skipped.push(`Row ${i + 1}: invalid code or amount`);
-          continue;
-        }
-        const modifier = modifierIdx >= 0 ? values[modifierIdx]?.trim() || undefined : undefined;
-        const description = descriptionIdx >= 0 ? values[descriptionIdx]?.trim() || undefined : undefined;
-        codes.push({ code, description, modifier, amount });
-      }
-      if (!codes.length) {
-        enqueueSnackbar('No valid rows found in the CSV file.', { variant: 'error' });
-        return;
-      }
-
-      const dedupedByKey = new Map(codes.map((pc) => [codeKey(pc), pc]));
-      setUploadedCodes([...dedupedByKey.values()]);
-      setCsvHasDescriptions(descriptionIdx >= 0);
-      setSkippedRows(skipped);
-      setError(null);
-      setPreviewOpen(true);
+      parsed = parseProcedureCodeCsv(await file.text());
     } catch {
       enqueueSnackbar('Error reading CSV file. Please try again.', { variant: 'error' });
+      return;
     }
+    if (!parsed.ok) {
+      enqueueSnackbar(parsed.error, { variant: 'error' });
+      return;
+    }
+    setUploadedCodes(parsed.codes);
+    setCsvHasDescriptions(parsed.hasDescriptions);
+    setSkippedRows(parsed.skippedRows);
+    setError(null);
+    setPreviewOpen(true);
   }, []);
 
   const saveCodes = useCallback(

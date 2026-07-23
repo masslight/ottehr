@@ -46,6 +46,7 @@
     "@mui/icons-material": "^5.14.9",
     "@mui/lab": "^5.0.0-alpha.170",
     "@mui/x-data-grid-pro": "^6.3.0",
+    "csv-parse": "^6.2.1",
     "notistack": "^3.0.1",
     "tsconfig": "*",
     "utils": "*"
