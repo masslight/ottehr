@@ -18,6 +18,7 @@ import {
 import { captureException } from '@sentry/react';
 import { DocumentReference } from 'fhir/r4b';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AIChatDetails,
@@ -98,6 +99,7 @@ export function AssistantColumn({
   aiChat,
   chartLooksEmpty,
   transcriptPending,
+  chipsPortalEl,
 }: {
   assistant: ChartAssistant;
   aiChat: AIChatDetails | undefined;
@@ -105,6 +107,9 @@ export function AssistantColumn({
   // A recording was uploaded and its transcript is still being produced server-side — show a
   // placeholder chip so the provider knows the system heard them.
   transcriptPending?: boolean;
+  // When set, the transcript chips render into this element (the page header) via portal instead
+  // of above the composer. Chip state/handlers stay here either way.
+  chipsPortalEl?: HTMLElement | null;
 }): JSX.Element {
   const {
     conv,
@@ -409,7 +414,7 @@ export function AssistantColumn({
   };
 
   const transcriptChips = (transcriptDocs.length > 0 || transcriptPending) && (
-    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ px: 1.5, pt: 1 }}>
+    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
       {transcriptDocs.map((t) => {
         const used = isUsedTranscript(t);
         return (
@@ -447,8 +452,9 @@ export function AssistantColumn({
       open={!!previewAnchor}
       anchorEl={previewAnchor}
       onClose={closePreview}
-      anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-      transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      // Chips live in the page header (via portal), so open the preview below its chip.
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      transformOrigin={{ vertical: 'top', horizontal: 'right' }}
     >
       <Box sx={{ p: 1.5, width: 480, maxWidth: '90vw' }}>
         <Typography variant="subtitle2" sx={{ mb: 0.75, fontSize: '0.875rem' }}>
@@ -1266,7 +1272,7 @@ export function AssistantColumn({
           {noteEditCards}
         </Stack>
       </Box>
-      {transcriptChips}
+      {chipsPortalEl ? createPortal(transcriptChips, chipsPortalEl) : transcriptChips}
       {transcriptPreview}
       {refineBar}
     </Box>

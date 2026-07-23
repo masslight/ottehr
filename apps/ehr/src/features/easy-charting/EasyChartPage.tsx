@@ -55,6 +55,10 @@ export default function EasyChartPage(): JSX.Element {
   const { encounterId } = useParams<{ encounterId: string }>();
   const { oystehr } = useApiClients();
 
+  // Header slot the AssistantColumn portals its transcript chips into. Held in state (not a ref)
+  // so the column re-renders once the element mounts.
+  const [chipsPortalEl, setChipsPortalEl] = useState<HTMLElement | null>(null);
+
   // Deletions must drop items from the AI needs-review map, but the provenance layer is built ON
   // TOP of the chart-data layer — so the callback goes through a ref that's pointed at
   // clearAiChartedId right after the provenance hook runs (assignment during render is safe here:
@@ -556,19 +560,26 @@ export default function EasyChartPage(): JSX.Element {
             </Typography>
           )}
         </Box>
-        {appointmentId && (
-          <Button
-            variant="outlined"
-            size="small"
-            component="a"
-            href={`/in-person/${appointmentId}/cc-and-intake-notes`}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ textTransform: 'none' }}
-          >
-            Open in regular chart
-          </Button>
-        )}
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+          {/* Transcript chips render here via portal from AssistantColumn (which owns their state). */}
+          <Box
+            ref={setChipsPortalEl}
+            sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center', justifyContent: 'flex-end' }}
+          />
+          {appointmentId && (
+            <Button
+              variant="outlined"
+              size="small"
+              component="a"
+              href={`/in-person/${appointmentId}/cc-and-intake-notes`}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ textTransform: 'none', flexShrink: 0 }}
+            >
+              Open in regular chart
+            </Button>
+          )}
+        </Stack>
       </Stack>
 
       <Box
@@ -589,6 +600,7 @@ export default function EasyChartPage(): JSX.Element {
           aiChat={chartData?.aiChat}
           chartLooksEmpty={chartLooksEmpty}
           transcriptPending={transcriptPending}
+          chipsPortalEl={chipsPortalEl}
         />
       </Box>
 
