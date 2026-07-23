@@ -94,6 +94,20 @@ export function buildInvoiceTask(params: BuildInvoiceTaskParams): Task {
   };
 }
 
+export function sendInvoiceTaskDedupeQuery(encounterId: string): { name: string; value: string }[] {
+  const coding = RcmTaskCodings.sendInvoiceToPatient.coding?.[0];
+  return [
+    {
+      name: 'encounter',
+      value: `Encounter/${encounterId}`,
+    },
+    {
+      name: 'code',
+      value: `${coding?.system}|${coding?.code}`,
+    },
+  ];
+}
+
 export function buildPrefilledInvoiceInput(params: {
   claimId: string;
   finalizationDateIso: string;

@@ -16,6 +16,7 @@ import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
   isOttehrBillingInvoicingEnabled,
+  sendInvoiceTaskDedupeQuery,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -233,9 +234,11 @@ async function createTaskForClaim(params: {
       config,
     });
 
-    const created = await clinicalClient.fhir.create(task);
+    const created = await clinicalClient.fhir.create(task, {
+      ifNoneExist: sendInvoiceTaskDedupeQuery(encounter.id!),
+    });
 
-    console.log(`Created task: ${created.id} (encounter: ${encounter.id}, claim: ${item.claimId})`);
+    console.log(`Ensured task: ${created.id} (encounter: ${encounter.id}, claim: ${item.claimId})`);
   } catch (error) {
     console.error(`Failed to create task for claim ${pkg.item.claimId}:`, error);
 

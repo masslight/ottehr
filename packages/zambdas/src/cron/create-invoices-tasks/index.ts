@@ -24,6 +24,7 @@ import {
   createClinicalOystehrClient,
   getCandidEncounterIdFromEncounter,
   isCandidInvoicingEnabled,
+  sendInvoiceTaskDedupeQuery,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -115,9 +116,11 @@ export async function createTaskForEncounter(
 
     console.log('Creating task:', JSON.stringify(task));
 
-    const created = await oystehr.fhir.create(task);
+    const created = await oystehr.fhir.create(task, {
+      ifNoneExist: sendInvoiceTaskDedupeQuery(encounter.id!),
+    });
 
-    console.log(`Created task: ${created.id} (encounter: ${encounter.id}, claim: ${claim.claimId})`);
+    console.log(`Ensured task: ${created.id} (encounter: ${encounter.id}, claim: ${claim.claimId})`);
   } catch (error) {
     console.error(
       `Failed to create task for encounter ${encounterPkg.encounter.id}, claim ${encounterPkg.claim.claimId}:`,

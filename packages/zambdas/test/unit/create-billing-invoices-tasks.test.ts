@@ -199,6 +199,19 @@ describe('create-billing-invoices-tasks', () => {
     expect(createdTask.encounter?.reference).toBe('Encounter/enc-1');
     expect(parseInvoiceTaskInput(createdTask).amountCents).toBe(5050);
     expect(parseInvoiceTaskInput(createdTask).claimId).toBe('claim-1');
+
+    const sendInvoiceCoding = RcmTaskCodings.sendInvoiceToPatient.coding?.[0];
+    const createOptions = mockClinicalClient.fhir.create.mock.calls[0][1] as { ifNoneExist?: unknown };
+    expect(createOptions.ifNoneExist).toEqual([
+      {
+        name: 'encounter',
+        value: 'Encounter/enc-1',
+      },
+      {
+        name: 'code',
+        value: `${sendInvoiceCoding?.system}|${sendInvoiceCoding?.code}`,
+      },
+    ]);
   });
 
   it('skips claims without encounter linkage, warning without a Sentry exception', async () => {
