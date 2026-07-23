@@ -78,7 +78,9 @@ export default function Navbar(): ReactElement | null {
       if (user.hasRole([RoleType.Staff])) {
         navItems = { ...navItems, ...staffNavbarItems };
       }
-      if (user.hasRole([RoleType.Provider])) {
+      // Clinicians get the same navigation as Providers; the NPI-gated actions within those pages are
+      // disabled separately based on NPI presence.
+      if (user.hasRole([RoleType.Provider, RoleType.Clinician])) {
         navItems = { ...navItems, ...providerNavbarItems };
       }
       if (user.hasRole([RoleType.CustomerSupport])) {
