@@ -120,6 +120,7 @@ const mockPatient: Patient = {
 const mockPatientBalances: GetPatientBalancesZambdaOutput = {
   totalBalanceCents: 300,
   pendingPaymentCents: 50,
+  patientCreditCents: 0,
   encounters: [
     {
       encounterId: 'encounter-1',

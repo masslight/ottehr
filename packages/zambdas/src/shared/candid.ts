@@ -421,7 +421,7 @@ function getSelfPayBillingProvider(): BillingProviderData {
   return STUB_BILLING_PROVIDER_DATA;
 }
 
-async function fetchPreEncounterPatient(
+export async function fetchPreEncounterPatient(
   medicalRecordNumber: string,
   apiClient: CandidApiClient
 ): Promise<CandidPreEncounterPatient | undefined> {
