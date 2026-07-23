@@ -4,14 +4,18 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect, useRef, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  buildEasyChartNoteContext,
+  buildEasyChartStateSummary,
   CPTCodeDTO,
   CreateLabPaymentMethod,
   DataEntryTestItem,
   DiagnosisDTO,
   DispositionDTO,
   DispositionType,
+  EASY_CHART_PRECOMPUTED_PLAN_VERSION,
   EasyChartAgentIntent,
   EasyChartPlannerStep,
+  EasyChartPrecomputedPlan,
   EasyChartTokenUsage,
   type ExamObservationDTO,
   fahrenheitToCelsius,
@@ -63,14 +67,7 @@ import {
   TemplateMatch,
   UpdateProcedureIntent,
 } from './chart-types';
-import {
-  EXAM_LEAVES,
-  ExamLeaf,
-  FIELD_TO_SECTION_LABEL,
-  ROS_LEAVES,
-  RosLeaf,
-  SECTION_TO_COMMENT_FIELD,
-} from './exam-ros-catalog';
+import { EXAM_LEAVES, ExamLeaf, ROS_LEAVES, RosLeaf, SECTION_TO_COMMENT_FIELD } from './exam-ros-catalog';
 import {
   ambiguousCluster,
   applyProcedureUpdates,
@@ -590,18 +587,12 @@ export function useChartAssistant({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv, plan]);
 
-  // Build the noteContext we send to the LLM. The in-person CC↔HPI swap is applied here so
-  // the LLM sees text under the labels the provider reads (chiefComplaint = CC label's text).
+  // Build the noteContext we send to the LLM (the shared builder applies the in-person CC↔HPI
+  // swap). Shared with the server-side plan precompute, which must build the identical input.
   const buildNoteContext = (): NonNullable<Parameters<typeof easyChartAgent>[1]['noteContext']> | undefined => {
     const ctx = chartDataRef.current;
     if (!ctx) return undefined;
-    return {
-      chiefComplaint: ctx.historyOfPresentIllness?.text ?? undefined,
-      historyOfPresentIllness: ctx.chiefComplaint?.text ?? undefined,
-      mechanismOfInjury: ctx.mechanismOfInjury?.text ?? undefined,
-      ros: ctx.ros?.text ?? undefined,
-      medicalDecision: ctx.medicalDecision?.text ?? undefined,
-    };
+    return buildEasyChartNoteContext(ctx);
   };
 
   // Run the post-completion review pass and load its suggestion cards. `narrativeArg` is the
@@ -1553,7 +1544,10 @@ export function useChartAssistant({
   // Never rejects — failures render as an error bubble in the thread. Resolves true when the
   // message made it through the pipeline, false when nothing was sent (guard bail) or the send
   // failed, so callers with durable side effects (transcript consumed-marks) can skip them.
-  const sendText = async (message: string, opts?: { forceNarrative?: boolean }): Promise<boolean> => {
+  const sendText = async (
+    message: string,
+    opts?: { forceNarrative?: boolean; planCache?: EasyChartPrecomputedPlan }
+  ): Promise<boolean> => {
     if (!message || !oystehrZambda || !encounterId) return false;
     pushUserMessage(message);
     setConv({ kind: 'thinking', user: message });
@@ -1568,21 +1562,45 @@ export function useChartAssistant({
         // E&M pass. encounterId lets the planner anchor demographics on the real Patient.
         const chartState = buildChartStateSummary(chartDataRef.current);
         const incremental = !!lastNarrativeRef.current || !!chartDataRef.current?.emCode;
-        const planRes = await easyChartPlanner(oystehrZambda, {
-          narrative: message,
-          noteContext,
-          chartState,
-          encounterId,
-          incremental,
-        });
-        recordUsage(planRes.usage);
+        // Precomputed-plan cache (stamped on the transcript DocumentReference while the recording
+        // was processed): usable only when this send matches what the precompute assumed — same
+        // contract version, a non-incremental first pass, and a byte-identical chartState (any
+        // chart edit since precompute must invalidate it). A hit skips the planner call entirely;
+        // the cached steps still flow through the same carry-over/guard path below.
+        const cache = opts?.planCache;
+        const cacheMiss = !cache
+          ? 'none'
+          : cache.v !== EASY_CHART_PRECOMPUTED_PLAN_VERSION
+          ? 'version'
+          : incremental
+          ? 'incremental'
+          : cache.chartState !== chartState
+          ? 'chart-state-drift'
+          : undefined;
+        let planSteps: EasyChartPlannerStep[];
+        if (cache && !cacheMiss) {
+          console.log('[easy-chart] precomputed plan HIT — skipped planner call');
+          if (cache.usage) recordUsage(cache.usage);
+          planSteps = cache.steps;
+        } else {
+          console.log(`[easy-chart] precomputed plan MISS (${cacheMiss})`);
+          const planRes = await easyChartPlanner(oystehrZambda, {
+            narrative: message,
+            noteContext,
+            chartState,
+            encounterId,
+            incremental,
+          });
+          recordUsage(planRes.usage);
+          planSteps = planRes.steps;
+        }
         // Planner-path primary carry-over (same class as the review swap bug): a dictated
         // correction can remove the charted PRIMARY dx and add its replacement in ONE plan — and
         // on an incremental message the planner server's never-usurp rule has already demoted the
         // adds to explicit isPrimary:false, so nothing would restore a primary. Resolve the remove
         // against the chart BEFORE execution and reclaim the primary onto the replacement.
         // Add-only plans (no remove-diagnosis) pass through untouched — never-usurp stays intact.
-        const steps = carrySwapPrimary(planRes.steps, chartDataRef.current, { reclaimPrimary: true });
+        const steps = carrySwapPrimary(planSteps, chartDataRef.current, { reclaimPrimary: true });
         if (steps.length === 0) {
           setConv({
             kind: 'unknown',
@@ -1647,96 +1665,11 @@ export function useChartAssistant({
   };
 
   // Build a free-text summary of what's currently on the chart, for the planner refresh
-  // after apply-template. Only includes the categories the planner can emit add-* steps for.
-  const buildChartStateSummary = (data: GetChartDataResponse | null | undefined): string => {
-    if (!data) return '';
-    const lines: string[] = [];
-    if (data.diagnosis?.length) {
-      lines.push(
-        `Diagnoses: ${data.diagnosis
-          .map((d) => `${d.code} — ${d.display}${d.isPrimary ? ' (primary)' : ''}`)
-          .join('; ')}`
-      );
-    }
-    if (data.conditions?.length) {
-      lines.push(`Past medical conditions: ${data.conditions.map((c) => `${c.code} — ${c.display}`).join('; ')}`);
-    }
-    if (data.medications?.length) {
-      lines.push(`Medications: ${data.medications.map((m) => m.name).join('; ')}`);
-    }
-    if (data.allergies?.length) {
-      lines.push(`Allergies: ${data.allergies.map((a) => a.name).join('; ')}`);
-    }
-    if (data.surgicalHistory?.length) {
-      lines.push(`Surgical history: ${data.surgicalHistory.map((s) => s.display).join('; ')}`);
-    }
-    if (data.episodeOfCare?.length) {
-      lines.push(`Hospitalizations: ${data.episodeOfCare.map((h) => h.display).join('; ')}`);
-    }
-    if (data.procedures?.length) {
-      lines.push(
-        `Procedures on encounter: ${data.procedures
-          .map((p) => p.procedureType ?? p.cptCodes?.[0]?.display ?? 'procedure')
-          .join('; ')}`
-      );
-    }
-    const checkedExam = (data.examObservations ?? []).filter((o) => o.value === true);
-    if (checkedExam.length > 0) {
-      // Group by section label for readability.
-      const bySection: Record<string, string[]> = {};
-      for (const o of checkedExam) {
-        const section = FIELD_TO_SECTION_LABEL[o.field] ?? 'Other';
-        const checked = (o.components ?? []).filter((c) => c.value);
-        const label =
-          checked.length > 0 ? `${o.label ?? o.field} (${checked.map((c) => c.label).join(', ')})` : o.label ?? o.field;
-        (bySection[section] ??= []).push(label);
-      }
-      lines.push(
-        'Exam findings already checked:\n' +
-          Object.entries(bySection)
-            .map(([sec, items]) => `  ${sec}: ${items.join('; ')}`)
-            .join('\n')
-      );
-    }
-    // ROS findings already charted (the pertinent positives/negatives). Without this, the review
-    // pass can't see charted ROS and re-suggests "add the pertinent negatives you noted" for
-    // negatives the planner already captured.
-    const checkedRos = (data.rosObservations ?? []).filter((o) => o.value === true);
-    if (checkedRos.length > 0) {
-      lines.push('ROS findings already charted: ' + checkedRos.map((o) => rosObsLabel(o)).join('; '));
-    }
-    if (data.medicalDecision?.text?.trim()) {
-      lines.push(`MDM already present (length ${data.medicalDecision.text.trim().length} chars).`);
-    }
-    if (data.emCode?.code) {
-      lines.push(
-        `E&M code already charted: ${data.emCode.code}${data.emCode.display ? ` — ${data.emCode.display}` : ''}.`
-      );
-    }
-    // CPT + disposition lines: the review's "cpt" and "disposition" checks skip anything already
-    // charted, and they can only see it through this summary.
-    if (data.cptCodes?.length) {
-      lines.push(
-        `CPT codes already charted: ${data.cptCodes
-          .map((c) => `${c.code}${c.display ? ` — ${c.display}` : ''}`)
-          .join('; ')}`
-      );
-    }
-    if (data.disposition?.type) {
-      lines.push(
-        `Disposition already set: ${data.disposition.type}${data.disposition.note ? ` — ${data.disposition.note}` : ''}`
-      );
-    }
-    // Lab orders live outside chartData; include them so a re-plan doesn't re-order the same test.
-    if (labOrders.length) {
-      lines.push(
-        `Labs already ordered: ${labOrders
-          .map((o) => `${o.testName} (${o.kind === 'in-house' ? 'in-house' : o.labName ?? 'send-out'})`)
-          .join('; ')}`
-      );
-    }
-    return lines.join('\n');
-  };
+  // after apply-template. Shared with the server-side plan precompute — the chartState string is
+  // the precomputed-plan cache-equality key, so both sides call the same utils builder (the
+  // client additionally folds in its separately-fetched lab orders).
+  const buildChartStateSummary = (data: GetChartDataResponse | null | undefined): string =>
+    buildEasyChartStateSummary(data, labOrders);
 
   const handleApplyTemplate = async (template: TemplateMatch, user: string): Promise<void> => {
     if (!apiClient || !oystehrZambda || !encounterId) return;

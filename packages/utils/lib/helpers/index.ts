@@ -2,6 +2,7 @@ export { findClaimsBy, getCandidInventoryPages, getOrCreateCandidApiClient } fro
 export * from './check-office-open';
 export * from './create-demo-visits';
 export * from './deploy';
+export * from './easy-chart-chart-state';
 export * from './helpers';
 export * from './in-house-labs';
 export * from './parseCommaSeparatedTags';

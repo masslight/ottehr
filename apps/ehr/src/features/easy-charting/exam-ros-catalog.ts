@@ -3,29 +3,10 @@
 import type { ExamItemConfig } from 'config-types';
 import { examConfig, InPersonRosConfig } from 'utils';
 
-// Walk examConfig once to map every leaf exam field name to its most-specific section label
-// (e.g. "Right ear" inside the "Ears" card) so we can group abnormal findings by body section.
-export function buildFieldToSectionLabel(config: ExamItemConfig): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const [, section] of Object.entries(config)) {
-    const walk = (components: Record<string, unknown>, currentLabel: string): void => {
-      for (const [key, comp] of Object.entries(components)) {
-        const c = comp as { type?: string; label?: string; components?: Record<string, unknown> };
-        if ((c?.type === 'column' || c?.type === 'dropdown') && c.components) {
-          walk(c.components, c.label ?? currentLabel);
-        } else {
-          map[key] = currentLabel;
-        }
-      }
-    };
-    walk(section.components.normal as Record<string, unknown>, section.label);
-    walk(section.components.abnormal as Record<string, unknown>, section.label);
-    walk(section.components.comment as Record<string, unknown>, section.label);
-  }
-  return map;
-}
-
-export const FIELD_TO_SECTION_LABEL = buildFieldToSectionLabel(examConfig.default.components);
+// buildFieldToSectionLabel / FIELD_TO_SECTION_LABEL moved to utils (easy-chart-chart-state) so the
+// server-side plan precompute builds the identical chart-state summary; re-exported for existing
+// importers.
+export { buildFieldToSectionLabel, FIELD_TO_SECTION_LABEL } from 'utils';
 
 // Section label → its free-text comment field. The exam tab is mostly checkboxes plus one
 // free-text area per section; findings the matcher can't confidently map to a checkbox get

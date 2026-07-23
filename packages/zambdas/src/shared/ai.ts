@@ -3,7 +3,7 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
+import { Appointment, Condition, DocumentReference, Encounter, Extension, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -26,6 +26,7 @@ import {
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { makeObservationResource } from './chart-data/index';
+import { precomputeEasyChartPlan } from './easy-chart/precompute';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
 import { createPresignedUrl } from './z3Utils';
@@ -552,6 +553,7 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
 
   return createResourcesFromAiInterview(
     oystehr,
+    m2mToken,
     args.encounterID,
     transcript,
     args.z3URL,
@@ -579,6 +581,7 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
 
 export async function createResourcesFromAiInterview(
   oystehr: Oystehr,
+  m2mToken: string,
   encounterID: string,
   chatTranscript: string,
   z3URL: string | null,
@@ -646,10 +649,17 @@ export async function createResourcesFromAiInterview(
     fields = 'labs, erx, procedures, ' + fields;
   }
 
-  const aiResponseString = await invokeChatbotVertexAI(
-    [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
-    secrets
-  );
+  // Field extraction and the easy-chart plan precompute run CONCURRENTLY — they're independent
+  // LLM calls over the same transcript. precomputeEasyChartPlan never rejects (it resolves
+  // undefined on skip or any failure), so a precompute problem can never fail this pipeline; only
+  // the extraction call's outcome governs it, exactly as before.
+  const [aiResponseString, precomputedPlanExtension] = await Promise.all([
+    invokeChatbotVertexAI(
+      [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
+      secrets
+    ),
+    precomputeEasyChartPlan(oystehr, m2mToken, encounterID, chatTranscript, secrets),
+  ]);
   console.log(`AI response: "${aiResponseString}"`);
   let aiResponse;
   try {
@@ -676,7 +686,8 @@ export async function createResourcesFromAiInterview(
       z3URL,
       chatTranscript,
       duration,
-      mimeType
+      mimeType,
+      precomputedPlanExtension ? [precomputedPlanExtension] : undefined
     )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
@@ -699,7 +710,8 @@ function createDocumentReference(
   z3URL: string | null,
   transcript: string,
   duration: number | undefined,
-  mimeType: string | null
+  mimeType: string | null,
+  extraExtensions?: Extension[]
 ): BatchInputPostRequest<DocumentReference> {
   const documentReference: DocumentReference = {
     resourceType: 'DocumentReference',
@@ -750,16 +762,19 @@ function createDocumentReference(
         },
       ],
     },
-    extension: providerUserProfile
-      ? [
-          {
-            url: `${PUBLIC_EXTENSION_BASE_URL}/provider`,
-            valueReference: {
-              reference: providerUserProfile,
+    extension: [
+      ...(providerUserProfile
+        ? [
+            {
+              url: `${PUBLIC_EXTENSION_BASE_URL}/provider`,
+              valueReference: {
+                reference: providerUserProfile,
+              },
             },
-          },
-        ]
-      : [],
+          ]
+        : []),
+      ...(extraExtensions ?? []),
+    ],
   };
   return saveResourceRequest(documentReference, documentReferenceCreateUrl);
 }

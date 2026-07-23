@@ -1395,13 +1395,9 @@ export function findRosRemoveMatchesScored(
     .sort((a, b) => b.score - a.score);
 }
 
-// Human label for a charted ROS observation, e.g. "Denies Eye pain" — its polarity (from the
-// field suffix) plus the symptom label.
-export function rosObsLabel(o: ExamObservationDTO): string {
-  const state = getRosFindingStateFromKey(o.field);
-  const verb = state === RosFindingState.Denies ? 'Denies' : state === RosFindingState.Reports ? 'Reports' : '';
-  return `${verb}${verb ? ' ' : ''}${o.label ?? o.field}`;
-}
+// rosObsLabel ("Denies Eye pain") moved to utils (easy-chart-chart-state) so the server-side plan
+// precompute builds the identical chart-state summary; re-exported for existing importers.
+export { rosObsLabel } from 'utils';
 
 export function findProcedureMatches(
   intent: AddProcedureIntent,

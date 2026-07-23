@@ -1,3 +1,5 @@
+import { PUBLIC_EXTENSION_BASE_URL } from '../../fhir/constants';
+
 // Every intent kind the agent and planner can emit — the single source for the JSON-schema enums
 // and post-parse kind checks in both zambdas (they share one action vocabulary; the planner just
 // returns an ordered list). Keep in lockstep with the EasyChartAgentIntent union below.
@@ -280,6 +282,22 @@ export interface EasyChartPlannerInput {
 export type EasyChartPlannerStep = EasyChartAgentIntent & { sourceText?: string };
 
 export interface EasyChartPlannerOutput {
+  steps: EasyChartPlannerStep[];
+  usage?: EasyChartTokenUsage;
+}
+
+// Precomputed-plan cache: when an ambient-scribe recording is processed server-side, the planner
+// runs on the transcript in parallel with field extraction and its plan is stored on the transcript
+// DocumentReference under this extension (valueString = JSON.stringify(EasyChartPrecomputedPlan)).
+// The EHR client compares its own freshly-built chartState against the cached one and, on an exact
+// match, executes the cached steps instead of making a live planner call.
+export const EASY_CHART_PRECOMPUTED_PLAN_VERSION = 1;
+export const EASY_CHART_PRECOMPUTED_PLAN_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/easy-chart-precomputed-plan`;
+export interface EasyChartPrecomputedPlan {
+  v: number;
+  // The chart-state summary (buildEasyChartStateSummary output) the plan was computed against —
+  // the cache-equality key: any drift means the chart changed since precompute and the cache is stale.
+  chartState: string;
   steps: EasyChartPlannerStep[];
   usage?: EasyChartTokenUsage;
 }

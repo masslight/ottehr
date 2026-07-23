@@ -22,8 +22,10 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AIChatDetails,
   EASY_CHART_NOTE_TEXT_FIELD_LABELS,
+  EASY_CHART_PRECOMPUTED_PLAN_EXTENSION_URL,
   EASY_CHART_PRIMED_EXTENSION_URL,
   EasyChartAgentIntent,
+  EasyChartPrecomputedPlan,
 } from 'utils';
 import { getDocumentReferenceSource, getSource } from '../visits/shared/components/OttehrAi';
 import {
@@ -204,6 +206,21 @@ export function AssistantColumn({
   // createDocumentReference in the ai zambda shared helpers) — plain atob would mangle non-ASCII.
   const decodeTranscript = (data: string): string => decodeURIComponent(escape(atob(data)));
 
+  // Precomputed-plan cache stamped on the DocumentReference by the recording pipeline. Only valid
+  // for the transcript's UN-EDITED decoded text, so exclusively the direct transcript send paths
+  // pass it — never the composer (inserted text may be edited). A malformed payload counts as
+  // absent: the cache is purely an optimization and sendText falls back to a live planner call.
+  const extractPlanCache = (doc: DocumentReference): EasyChartPrecomputedPlan | undefined => {
+    const raw = doc.extension?.find((e) => e.url === EASY_CHART_PRECOMPUTED_PLAN_EXTENSION_URL)?.valueString;
+    if (!raw) return undefined;
+    try {
+      return JSON.parse(raw) as EasyChartPrecomputedPlan;
+    } catch (e) {
+      captureException(e);
+      return undefined;
+    }
+  };
+
   // Durable consumed mark: stamp the primed extension on the DocumentReference once its transcript
   // has been sent, so the prime banner stays gone across reloads and other browsers. Patch, not
   // update: our in-memory copy of the doc can be stale, and a full update would clobber concurrent
@@ -237,7 +254,7 @@ export function AssistantColumn({
   // the provider can retry.
   const sendTranscript = async (t: { doc: DocumentReference; data: string }): Promise<void> => {
     setUsedTranscriptIds((prev) => new Set(prev).add(t.doc.id!));
-    const sent = await sendText(decodeTranscript(t.data), { forceNarrative: true });
+    const sent = await sendText(decodeTranscript(t.data), { forceNarrative: true, planCache: extractPlanCache(t.doc) });
     if (!sent) {
       setUsedTranscriptIds((prev) => {
         const next = new Set(prev);
@@ -266,7 +283,10 @@ export function AssistantColumn({
       for (const t of toSend) next.add(t.doc.id!);
       return next;
     });
-    const sent = await sendText(text, { forceNarrative: true });
+    // A combined multi-transcript message was never precomputed — only the single-transcript send
+    // (whose text is exactly the decoded transcript) can use the cache.
+    const planCache = toSend.length === 1 ? extractPlanCache(toSend[0].doc) : undefined;
+    const sent = await sendText(text, { forceNarrative: true, planCache });
     if (!sent) {
       // Failed send: nothing was consumed — restore the session marks so the banner reappears.
       setUsedTranscriptIds((prev) => {
