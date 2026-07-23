@@ -243,10 +243,7 @@ export default function CreateClaim(): ReactElement {
         payload.serviceLines = validLines.map((l) => {
           // Split the free-text modifiers field on any run of commas and/or whitespace
           // so "25, 59" and "25 59" both yield ["25", "59"].
-          const modifiers = l.modifiers
-            .split(/[,\s]+/)
-            .map((m) => m.trim())
-            .filter(Boolean);
+          const modifiers = parseModifiers(l.modifiers);
           const pointers = l.diagnosisPointers.filter((p) => p >= 1 && p <= diagnoses.length);
           return {
             cptCode: l.cptCode.trim(),
@@ -597,6 +594,10 @@ export default function CreateClaim(): ReactElement {
                 if (withCpt.some((l) => !(Number(l.units) > 0))) return 'Units must be a positive number';
                 if (withCpt.some((l) => l.charges.trim() === '' || !Number.isFinite(Number(l.charges))))
                   return 'Charges must be a number';
+                if (withCpt.some((l) => parseModifiers(l.modifiers).length > 4))
+                  return 'Maximum 4 modifiers can be used';
+                if (withCpt.some((l) => parseModifiers(l.modifiers).find((modifier) => modifier.length !== 2)))
+                  return 'Every modifier needs to be 2 chars long';
                 return true;
               },
             }}
@@ -640,4 +641,11 @@ function FormSection({ label, children }: { label: string; children: React.React
       <Box sx={{ mt: 1.5 }}>{children}</Box>
     </Box>
   );
+}
+
+function parseModifiers(modifiersString: string): string[] {
+  return modifiersString
+    .split(/[,\s]+/)
+    .map((m) => m.trim())
+    .filter(Boolean);
 }
