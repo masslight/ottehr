@@ -790,6 +790,18 @@ interface UsageAgg {
   cacheWriteTokens: number;
   thinkingTokens: number;
 }
+// Primary→backup escalation buckets per phase, from usage.escalation (EasyChartEscalationInfo).
+// noData = the phase's usage block carries no escalation field (result predates it) — never a
+// denominator, mirroring the dispositionVoiced precedent. okProviders tallies usage.provider of
+// primary-ok calls (normally all 'gemini') so the summary line can name the primary; on a
+// primary-failed call usage.provider is the BACKUP's provider, so it is not tallied here.
+interface EscalationAgg {
+  primaryOk: number;
+  primaryFailed: number;
+  reasons: Record<string, number>;
+  okProviders: Record<string, number>;
+  noData: number;
+}
 export interface AggregateSummary {
   scoredCases: number;
   scopes: { plannerOnly: AggScope; final: AggScope };
@@ -825,6 +837,7 @@ export interface AggregateSummary {
     firedByPattern: Record<string, number>;
   };
   usage: { planner: UsageAgg; review: UsageAgg };
+  escalation: { planner: EscalationAgg; review: EscalationAgg };
 }
 
 const SET_SECTIONS = ['diagnoses', 'cpt', 'ros', 'exam', 'medsPrescribed', 'medsInHouse', 'immunizations'] as const;
@@ -957,6 +970,10 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     planner: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
     review: { calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, thinkingTokens: 0 },
   };
+  const escalation: AggregateSummary['escalation'] = {
+    planner: { primaryOk: 0, primaryFailed: 0, reasons: {}, okProviders: {}, noData: 0 },
+    review: { primaryOk: 0, primaryFailed: 0, reasons: {}, okProviders: {}, noData: 0 },
+  };
   const dispositionVoiced: AggregateSummary['dispositionVoiced'] = {
     voicedGold: 0,
     voicedPredicted: 0,
@@ -1010,6 +1027,18 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
       usage[phase].cacheReadTokens += u.cacheReadTokens ?? 0;
       usage[phase].cacheWriteTokens += u.cacheWriteTokens ?? 0;
       usage[phase].thinkingTokens += u.thinkingTokens ?? 0;
+      const esc = u.escalation; // absent = result predates the field → no-data bucket
+      const e = escalation[phase];
+      if (!esc) e.noData++;
+      else if (esc.primaryFailed) {
+        e.primaryFailed++;
+        const r = esc.reason ?? '(unspecified)';
+        e.reasons[r] = (e.reasons[r] ?? 0) + 1;
+      } else {
+        e.primaryOk++;
+        const p = u.provider ?? '(unknown)';
+        e.okProviders[p] = (e.okProviders[p] ?? 0) + 1;
+      }
     }
   }
   return {
@@ -1021,6 +1050,7 @@ export function aggregateScores(scores: CaseScore[]): AggregateSummary {
     dispositionVoiced,
     dispositionTrigger,
     usage,
+    escalation,
   };
 }
 
@@ -1112,6 +1142,26 @@ export function formatSummary(agg: AggregateSummary): string {
     lines.push(
       `usage[${phase}]: ${u.calls} calls, in ${u.inputTokens}, out ${u.outputTokens}, cacheR ${u.cacheReadTokens}, cacheW ${u.cacheWriteTokens}, think ${u.thinkingTokens}`
     );
+    // Primary-failure rate over calls WITH escalation data; pre-field result files land in
+    // "no data" and are never a denominator (dispositionVoiced precedent).
+    const e = agg.escalation[phase];
+    const withData = e.primaryOk + e.primaryFailed;
+    if (withData === 0) {
+      lines.push(`escalation[${phase}]: no data`);
+    } else {
+      const byCount = (rec: Record<string, number>): string =>
+        Object.entries(rec)
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, n]) => `${k} ${n}`)
+          .join(', ');
+      const pct = ((e.primaryFailed / withData) * 100).toFixed(0);
+      const reasons = byCount(e.reasons);
+      lines.push(
+        `escalation[${phase}]: ${byCount(e.okProviders) || 'primary 0'}, backup ${e.primaryFailed} ` +
+          `(${pct}% primary failure${reasons ? ` — reasons: ${reasons}` : ''})` +
+          (e.noData > 0 ? `, no data ${e.noData}` : '')
+      );
+    }
   }
   return lines.join('\n');
 }
@@ -1643,6 +1693,78 @@ function runSelfTest(): void {
       ),
       true
     );
+  }
+
+  // Fixture I — primary→backup escalation observability (usage.escalation, additive on the zambda
+  // usage blocks): verbatim pass-through on the score (byte-identical when absent), phase
+  // bucketing including the no-data bucket, and the summary line in both modes.
+  {
+    const gold = emptyGold();
+    const st = emptySimState();
+    const mkUsage = (
+      provider: 'gemini' | 'claude',
+      escalation?: EasyChartTokenUsage['escalation']
+    ): EasyChartTokenUsage => ({
+      provider,
+      inputTokens: 100,
+      outputTokens: 50,
+      ...(escalation ? { escalation } : {}),
+    });
+    const ok = scoreCase('fixtureI1', gold, st, {
+      planner: mkUsage('gemini', { primaryFailed: false, primaryAttempts: 1 }),
+      review: mkUsage('gemini', { primaryFailed: false, primaryAttempts: 2 }),
+    });
+    const failed = scoreCase('fixtureI2', gold, st, {
+      planner: mkUsage('claude', { primaryFailed: true, primaryAttempts: 1, reason: 'timeout' }),
+      review: mkUsage('claude', { primaryFailed: true, primaryAttempts: 2, reason: 'rejected-by-acceptResult' }),
+    });
+    // Pre-field result file: usage present, no escalation key anywhere.
+    const legacy = scoreCase('fixtureI3', gold, st, { planner: mkUsage('gemini'), review: mkUsage('gemini') });
+    const noUsage = scoreCase('fixtureI4', gold, st); // no usage at all: excluded, not even no-data
+    check('I escalation stashed on score usage', ok.usage?.planner?.escalation, {
+      primaryFailed: false,
+      primaryAttempts: 1,
+    });
+    check('I legacy usage omits the key (byte-identical)', 'escalation' in (legacy.usage?.planner ?? {}), false);
+    const agg = aggregateScores([ok, failed, legacy, noUsage]);
+    check('I agg planner buckets', agg.escalation.planner, {
+      primaryOk: 1,
+      primaryFailed: 1,
+      reasons: { timeout: 1 },
+      okProviders: { gemini: 1 },
+      noData: 1,
+    });
+    check('I agg review buckets', agg.escalation.review, {
+      primaryOk: 1,
+      primaryFailed: 1,
+      reasons: { 'rejected-by-acceptResult': 1 },
+      okProviders: { gemini: 1 },
+      noData: 1,
+    });
+    const summaryText = formatSummary(agg);
+    check(
+      'I summary planner line',
+      summaryText.includes(
+        'escalation[planner]: gemini 1, backup 1 (50% primary failure — reasons: timeout 1), no data 1'
+      ),
+      true
+    );
+    check(
+      'I summary review line',
+      summaryText.includes(
+        'escalation[review]: gemini 1, backup 1 (50% primary failure — reasons: rejected-by-acceptResult 1), no data 1'
+      ),
+      true
+    );
+    const aggLegacy = aggregateScores([legacy, noUsage]);
+    check('I legacy corpus goes to noData', aggLegacy.escalation.planner, {
+      primaryOk: 0,
+      primaryFailed: 0,
+      reasons: {},
+      okProviders: {},
+      noData: 1,
+    });
+    check('I summary no-data mode', formatSummary(aggLegacy).includes('escalation[planner]: no data'), true);
   }
 
   console.log(failures === 0 ? '\nSELF-TEST PASS' : `\nSELF-TEST FAIL (${failures} failing checks)`);

@@ -12,6 +12,7 @@ import {
   AiSuggestionItem,
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+  EasyChartEscalationInfo,
   EasyChartTokenUsage,
   fixAndParseJsonObjectFromString,
   getFormatDuration,
@@ -377,7 +378,11 @@ export async function invokeChatbotStructured(
   // narrative). When it returns false the attempt is a soft failure: retry the primary once, then
   // escalate to the backup; a backup result that is also rejected is returned anyway — the guard
   // is best-effort and never becomes an error the caller sees.
-  acceptResult?: (parsed: unknown) => boolean
+  acceptResult?: (parsed: unknown) => boolean,
+  // Observability only (fires exactly once, just before the result is settled): did the primary
+  // fail (→ the answer came from the backup), how many primary attempts ran, and a coarse reason.
+  // Measurement, not control — it never alters the escalation behavior above.
+  onEscalation?: (info: EasyChartEscalationInfo) => void
 ): Promise<string> {
   const dispatch = (backend: string, maxTokens: number, timeoutMs: number): Promise<string> => {
     const sep = backend.indexOf(':');
@@ -422,7 +427,9 @@ export async function invokeChatbotStructured(
   const rejectedByGuard = (raw: string): boolean =>
     acceptResult != null && !acceptResult(parseStructuredModelOutput(raw, 'structured result (acceptResult guard)'));
 
+  let primaryAttempts = 0;
   try {
+    primaryAttempts = 1;
     let result = await dispatch(primary, maxOutputTokens, PRIMARY_TIMEOUT_MS);
     if (rejectedByGuard(result)) {
       // A valid-but-rejected result (e.g. flash-lite's one-off empty plan) is usually transient —
@@ -430,6 +437,7 @@ export async function invokeChatbotStructured(
       console.warn(
         `invokeChatbotStructured: structured result rejected by acceptResult, retrying primary "${primary}".`
       );
+      primaryAttempts = 2;
       result = await dispatch(primary, maxOutputTokens, PRIMARY_TIMEOUT_MS);
       if (rejectedByGuard(result)) {
         // Throw into the escalation below — deliberately the same machinery (logging, capture,
@@ -437,6 +445,7 @@ export async function invokeChatbotStructured(
         throw new Error('structured result rejected by acceptResult twice');
       }
     }
+    onEscalation?.({ primaryFailed: false, primaryAttempts });
     return result;
   } catch (err) {
     // Primary failed (a flash-lite runaway hitting the cap, a truncated/blocked response, a
@@ -451,6 +460,9 @@ export async function invokeChatbotStructured(
       }); falling back to "${backup}".`
     );
     captureException(err);
+    // Report before the backup runs: even if the backup also throws (whole call fails), the
+    // primary's failure was still observed by the caller's callback.
+    onEscalation?.({ primaryFailed: true, primaryAttempts, reason: classifyEscalationReason(err) });
     const backupResult = await dispatch(backup, 32768, BACKUP_TIMEOUT_MS);
     if (rejectedByGuard(backupResult)) {
       // The guard is best-effort: the backup's answer is the last resort, so return it rather
@@ -461,6 +473,27 @@ export async function invokeChatbotStructured(
     }
     return backupResult;
   }
+}
+
+// Coarse escalation-reason category for EasyChartEscalationInfo, derived from what the failure
+// paths above can actually distinguish (by error name/message from this same module — the throw
+// sites are all here):
+//   'timeout'                 — the per-attempt AbortSignal budget fired (TimeoutError/AbortError)
+//   'empty-response'          — Vertex 200 with no usable candidate text (blocked/no candidates;
+//                               the observed 0-in/0-out-token failure lands here)
+//   'truncated'               — MAX_TOKENS/max_tokens output truncation (either provider)
+//   'unparseable'             — output that parseStructuredModelOutput could not repair
+//   'rejected-by-acceptResult'— the semantic guard rejected two parsed primary results
+//   'error'                   — anything else (HTTP errors, network failures past retries, …)
+function classifyEscalationReason(err: unknown): string {
+  const name = (err as Error)?.name;
+  if (name === 'TimeoutError' || name === 'AbortError') return 'timeout';
+  const message = String((err as Error)?.message ?? err);
+  if (message.includes('rejected by acceptResult')) return 'rejected-by-acceptResult';
+  if (message.includes('no usable text')) return 'empty-response';
+  if (message.includes('truncated')) return 'truncated';
+  if (message.includes('non-JSON')) return 'unparseable';
+  return 'error';
 }
 
 // Parse a model's JSON output, recovering fenced/noisy-but-fixable output (```json fences, trailing

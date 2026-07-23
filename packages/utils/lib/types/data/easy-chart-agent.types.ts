@@ -215,6 +215,18 @@ export interface EasyChartAgentInput {
   noteContext?: EasyChartNoteContext;
 }
 
+// Primary→backup escalation observability for one invokeChatbotStructured call (additive, like
+// dispositionTrigger/etiologyGuard): whether the primary model failed (so the final responder —
+// the provider/model on the surrounding usage block — is the backup), how many primary attempts
+// were made (2 when the acceptResult guard triggered the one retry), and a coarse reason category
+// derived from the failure ('timeout' | 'empty-response' | 'truncated' | 'unparseable' |
+// 'rejected-by-acceptResult' | 'error'). Purely a measurement — absent on responses predating it.
+export interface EasyChartEscalationInfo {
+  primaryFailed: boolean;
+  primaryAttempts: number;
+  reason?: string;
+}
+
 // TEMPORARY (debug): per-call LLM token usage, surfaced from the zambda so the easy-chart UI can
 // show how many tokens a charting session consumes. provider tells Gemini (agent) vs Claude
 // (planner/review) apart; cache* are populated when prompt caching is active.
@@ -226,6 +238,9 @@ export interface EasyChartTokenUsage {
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
   thinkingTokens?: number;
+  // Escalation info for the call that produced this usage (planner/review attach it after the
+  // invoke completes; provider/model above always describe the FINAL responder).
+  escalation?: EasyChartEscalationInfo;
 }
 
 export interface EasyChartAgentOutput {

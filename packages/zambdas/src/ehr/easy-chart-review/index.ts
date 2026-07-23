@@ -5,6 +5,7 @@ import {
   EASY_CHART_NOTE_TEXT_FIELD_LABELS as LABELS,
   EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
   EasyChartAgentIntent,
+  EasyChartEscalationInfo,
   EasyChartNoteContext,
   EasyChartReviewOutput,
   EasyChartSuggestion,
@@ -482,6 +483,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // planner-secret/default chain, identical to before this knob existed.
   const reviewModelOverride = getOptionalSecret(SecretsKeys.EASY_CHART_REVIEW_MODEL, secrets) || undefined;
   let usage: EasyChartTokenUsage | undefined;
+  let escalation: EasyChartEscalationInfo | undefined;
   const raw = await invokeChatbotStructured(
     [{ text: buildPrompt(narrative, chartState, noteContext, patientContext, patientStatus, dispositionMatch) }],
     secrets,
@@ -489,8 +491,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     reviewModelOverride,
     (u) => {
       usage = u;
+    },
+    undefined,
+    undefined,
+    (e) => {
+      escalation = e;
     }
   );
+  // Failure-rate observability for the flash-lite-primary decision: surface the escalation info
+  // on the response's usage block, and leave one greppable line when the primary failed.
+  if (escalation?.primaryFailed) {
+    console.warn(
+      `[easy-chart-escalation] review: primary failed after ${escalation.primaryAttempts} attempt(s), ` +
+        `reason=${escalation.reason ?? 'unknown'}, final responder ${usage?.provider ?? 'unknown'}/${
+          usage?.model ?? 'unknown'
+        }`
+    );
+  }
+  if (usage && escalation) usage.escalation = escalation;
 
   // Unparseable/malformed model output is an upstream failure, not a user-input problem — raw
   // throws (they page). INVALID_INPUT_ERROR here blamed the provider and hid model outages.

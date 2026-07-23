@@ -7,6 +7,7 @@ import {
   EASY_CHART_INTENT_KINDS as KIND_VALUES,
   EASY_CHART_NOTE_TEXT_FIELD_LABELS as LABELS,
   EASY_CHART_NOTE_TEXT_FIELDS as NOTE_TEXT_FIELDS,
+  EasyChartEscalationInfo,
   EasyChartNoteTextField as NoteTextField,
   EasyChartPlannerOutput,
   EasyChartPlannerStep,
@@ -838,6 +839,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const patientStatus = noteContext?.patientStatus ?? derivedPatientStatus;
 
   let usage: EasyChartTokenUsage | undefined;
+  let escalation: EasyChartEscalationInfo | undefined;
   const raw = await invokeChatbotStructured(
     [
       {
@@ -869,8 +871,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (narrative.length < NON_TRIVIAL_NARRATIVE_MIN_LENGTH) return true;
       const steps = (parsed as { steps?: unknown } | null)?.steps;
       return Array.isArray(steps) && steps.length > 0;
+    },
+    (e) => {
+      escalation = e;
     }
   );
+  // Failure-rate observability for the flash-lite-primary decision: surface the escalation info
+  // on the response's usage block, and leave one greppable line when the primary failed.
+  if (escalation?.primaryFailed) {
+    console.warn(
+      `[easy-chart-escalation] planner: primary failed after ${escalation.primaryAttempts} attempt(s), ` +
+        `reason=${escalation.reason ?? 'unknown'}, final responder ${usage?.provider ?? 'unknown'}/${
+          usage?.model ?? 'unknown'
+        }`
+    );
+  }
+  if (usage && escalation) usage.escalation = escalation;
 
   // Unparseable/malformed model output is an upstream failure, not a user-input problem — raw
   // throws (they page). Wrapping these in INVALID_INPUT_ERROR blamed the provider's narrative and
