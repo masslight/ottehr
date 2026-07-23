@@ -20,12 +20,30 @@ export const STRICT_HCPCS = /^[A-V]\d{4}$/; // HCPCS Level II (J-codes, etc.)
 // ICD-10 via the Oystehr terminology service (the same platform search the EHR picker uses),
 // threaded into the resolution functions as an injected IcdSearchFn (see icd-search.ts) so the
 // guards stay pure and tests run against deterministic fixtures.
-// Opposing anatomic qualifier pairs. A hinted CODE whose display contradicts the intent's own
-// text on one of these (intent says "left upper eyelid", code display says "right lower eyelid")
-// is a mis-hint even though the code itself is real — prefer the display-based search instead.
-const OPPOSING_QUALIFIERS: Array<[RegExp, RegExp]> = [
+// Mutually exclusive qualifier groups. A hinted CODE whose display sits in a DIFFERENT member of
+// a group than the intent's own text (intent says "left upper eyelid", code display says "right
+// lower eyelid"; intent says "right index finger", code display says "right thumb") is a mis-hint
+// even though the code itself is real — prefer the display-based search instead. A contradiction
+// requires both texts to name a member and NO member to match both, so a text naming several
+// members ("thumb and index finger") never contradicts a code for any of them.
+const OPPOSING_QUALIFIER_GROUPS: RegExp[][] = [
   [/\bleft\b/i, /\bright\b/i],
   [/\bupper\b/i, /\blower\b/i],
+  // Digits are disjoint sites ICD partitions into sibling codes (S61.01x thumb vs S61.21x other
+  // finger). A "right index finger" laceration display once charted the right-THUMB code: same
+  // anatomy class, same S6 block, and display overlap carried by "laceration"+"foreign"+"body",
+  // so only a digit-level opposition catches it.
+  [
+    /\bthumb\b/i,
+    /\b(?:index|pointer)\s+finger/i,
+    /\bmiddle\s+finger/i,
+    /\bring\s+finger/i,
+    /\b(?:little|pinky|fifth)\s+finger/i,
+  ],
+  // Wound types are sibling partitions of the same injury categories (S61.21x laceration vs
+  // S61.23x puncture wound): a "Laceration of right index finger" display once carried the
+  // PUNCTURE code past the overlap check on shared site words alone.
+  [/\blacerat/i, /\bpuncture\b/i, /\bbite\b/i],
 ];
 // Coarse anatomy classes for hint/search sanity — a PALM splinter must never resolve to an
 // EYELID foreign-body code just because "retained foreign body" matched. Only obviously
@@ -146,14 +164,13 @@ export function contradictsHistoryContext(intentText: string, code: string, code
   return !EXPLICIT_HISTORY_INTENT.test(intentText);
 }
 
-function contradictsQualifiers(intentText: string, codeDisplay: string): boolean {
-  for (const [a, b] of OPPOSING_QUALIFIERS) {
-    if (
-      (a.test(intentText) && !a.test(codeDisplay) && b.test(codeDisplay)) ||
-      (b.test(intentText) && !b.test(codeDisplay) && a.test(codeDisplay))
-    ) {
-      return true;
-    }
+// Exported for direct unit tests of the group vocabulary.
+export function contradictsQualifiers(intentText: string, codeDisplay: string): boolean {
+  for (const group of OPPOSING_QUALIFIER_GROUPS) {
+    const inIntent = group.filter((m) => m.test(intentText));
+    if (inIntent.length === 0) continue;
+    const inDisplay = group.filter((m) => m.test(codeDisplay));
+    if (inDisplay.length > 0 && !inDisplay.some((m) => inIntent.includes(m))) return true;
   }
   return false;
 }
@@ -521,8 +538,16 @@ export async function validateIntentCode(
         return 'etiology-repaired';
       }
     }
-    if (resolved) r.code = resolved.code;
-    else delete r.code; // nothing valid → the client picker resolves by display
+    if (resolved) {
+      // The charted {code, display} pair must come from ONE terminology row — a corrected code
+      // under the model's own display once paired "right index finger" text with the right-THUMB
+      // code. The canonical display is also what the client's exact-code lookup charts anyway,
+      // so syncing it here makes the reviewed pair match the charted one.
+      r.code = resolved.code;
+      r.display = resolved.display;
+    } else {
+      delete r.code; // nothing valid → the client picker resolves by display
+    }
   } else if ((r.kind === 'set-em-code' || r.kind === 'add-cpt') && typeof r.code === 'string' && r.code.trim()) {
     if (!oystehr) return 'ok'; // degraded: no client → can't validate, keep as-is
     const resolved = await resolveCptHcpcs(oystehr, r.code, typeof r.display === 'string' ? r.display : '');

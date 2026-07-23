@@ -1212,6 +1212,22 @@
     "display": "Contusion of lower back and pelvis, initial encounter"
   },
   {
+    "code": "S61.011A",
+    "display": "Laceration without foreign body of right thumb without damage to nail, initial encounter"
+  },
+  {
+    "code": "S61.210A",
+    "display": "Laceration without foreign body of right index finger without damage to nail, initial encounter"
+  },
+  {
+    "code": "S61.211A",
+    "display": "Laceration without foreign body of left index finger without damage to nail, initial encounter"
+  },
+  {
+    "code": "S61.230A",
+    "display": "Puncture wound without foreign body of right index finger without damage to nail, initial encounter"
+  },
+  {
     "code": "S70.11XA",
     "display": "Contusion of right thigh, initial encounter"
   },

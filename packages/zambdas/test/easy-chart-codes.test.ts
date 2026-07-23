@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   contradictsHistoryContext,
   contradictsInjuryRegion,
+  contradictsQualifiers,
   repairUnsupportedEtiology,
   resolveIcd,
   unsupportedEtiologyQualifiers,
@@ -74,6 +75,93 @@ describe('resolveIcd', () => {
   it('keeps a correct-region injury hint as-is', async () => {
     const resolved = await resolveIcd(search, 'S70.11XA', 'Contusion of right thigh', []);
     expect(resolved!.code).toBe('S70.11XA');
+  });
+});
+
+// Pair consistency: a charted {code, display} must be internally consistent. A live case charted
+// a "right index finger" laceration DISPLAY over the right-THUMB code (S61.011A vs the correct
+// S61.210A) — same anatomy class, same S6 block, and enough shared words to pass the overlap
+// check, so only digit-level (thumb / index / middle / ring / little) and wound-type (laceration /
+// puncture / bite) qualifier groups catch the mismatch. Official ICD-10 display text throughout.
+describe('resolveIcd pair consistency (digit / wound-type qualifiers)', () => {
+  it('rejects a thumb code hinted for an index-finger display and resolves the index-finger code', async () => {
+    const resolved = await resolveIcd(search, 'S61.011A', 'Laceration without foreign body of right index finger', [
+      'laceration right index finger',
+      'finger laceration',
+    ]);
+    expect(resolved).toBeDefined();
+    expect(resolved!.code).toBe('S61.210A');
+    expect(resolved!.display).toBe(
+      'Laceration without foreign body of right index finger without damage to nail, initial encounter'
+    );
+  });
+
+  it('rejects a puncture-wound code hinted for a laceration display', async () => {
+    const resolved = await resolveIcd(search, 'S61.230A', 'Laceration of right index finger without damage to nail', [
+      'finger laceration',
+    ]);
+    expect(resolved!.code).toBe('S61.210A');
+  });
+
+  it('rejects a right-side code hinted for a left-side display', async () => {
+    const resolved = await resolveIcd(search, 'S61.210A', 'Laceration of left index finger', []);
+    expect(resolved!.code).toBe('S61.211A');
+    expect(resolved!.display.toLowerCase()).toContain('left index finger');
+  });
+
+  it('keeps a consistent digit hint as-is, display taken from the code row', async () => {
+    const resolved = await resolveIcd(search, 'S61.210A', 'Laceration without foreign body of right index finger', []);
+    expect(resolved!.code).toBe('S61.210A');
+    expect(resolved!.display).toBe(
+      'Laceration without foreign body of right index finger without damage to nail, initial encounter'
+    );
+  });
+
+  it('resolves nothing when every candidate contradicts the display qualifiers', async () => {
+    // "Pointer finger" display, thumb code hinted, and the display search surfaces only the thumb
+    // row — better no code (client picker resolves by display) than a contradictory pair.
+    const resolved = await resolveIcd(search, 'S61.011A', 'Laceration of right pointer finger', []);
+    expect(resolved).toBeUndefined();
+  });
+});
+
+describe('contradictsQualifiers digit / wound-type groups', () => {
+  it('flags cross-digit and cross-wound-type displays', () => {
+    expect(
+      contradictsQualifiers(
+        'Laceration without foreign body of right index finger',
+        'Laceration without foreign body of right thumb without damage to nail, initial encounter'
+      )
+    ).toBe(true);
+    expect(
+      contradictsQualifiers(
+        'Laceration of right index finger without damage to nail',
+        'Puncture wound without foreign body of right index finger without damage to nail, initial encounter'
+      )
+    ).toBe(true);
+  });
+
+  it('passes matching digits and imposes no constraint when only one side names a member', () => {
+    expect(
+      contradictsQualifiers(
+        'Laceration of right index finger',
+        'Laceration without foreign body of right index finger without damage to nail, initial encounter'
+      )
+    ).toBe(false);
+    // Intent names no digit ("finger" alone is not a group member) → thumb code unconstrained.
+    expect(contradictsQualifiers('Finger laceration', 'Laceration without foreign body of right thumb')).toBe(false);
+    // Code display names no wound type → unconstrained.
+    expect(contradictsQualifiers('Laceration of finger', 'Unspecified open wound of right index finger')).toBe(false);
+  });
+
+  it('never contradicts when a text names several members of the group', () => {
+    expect(
+      contradictsQualifiers('Laceration of thumb and index finger', 'Laceration without foreign body of right thumb')
+    ).toBe(false);
+    // "Dog bite laceration" names both wound-type members, so an open-bite code stays eligible.
+    expect(
+      contradictsQualifiers('Dog bite laceration of hand', 'Open bite of right index finger, initial encounter')
+    ).toBe(false);
   });
 });
 
@@ -362,6 +450,52 @@ describe('validateIntentCode etiology guard (add-diagnosis + evidence)', () => {
     const r: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Acute pharyngitis', code: 'J02.9' };
     expect(await validateIntentCode(r, undefined)).toBe('ok');
     expect(r.code).toBe('J02.9');
+  });
+});
+
+// The charted pair leaves validateIntentCode as ONE terminology row: whenever a code resolves,
+// the display is synced to that code's canonical display — the code half was previously corrected
+// while the model's display was kept, which is how a "right index finger" display shipped over the
+// right-thumb code.
+describe('validateIntentCode pair consistency (add-diagnosis)', () => {
+  it('corrects code AND display together for the thumb-vs-index-finger live shape', async () => {
+    const r: Record<string, unknown> = {
+      kind: 'add-diagnosis',
+      display: 'Laceration without foreign body of right index finger',
+      code: 'S61.011A',
+      searchTerms: ['laceration right index finger', 'finger laceration'],
+      isPrimary: true,
+    };
+    expect(await validateIntentCode(r, undefined, undefined, search)).toBe('ok');
+    expect(r.code).toBe('S61.210A');
+    expect(r.display).toBe(
+      'Laceration without foreign body of right index finger without damage to nail, initial encounter'
+    );
+    expect(r.isPrimary).toBe(true);
+  });
+
+  it('syncs the display to the accepted code\'s canonical row ("code wins, display corrected")', async () => {
+    const r: Record<string, unknown> = {
+      kind: 'add-diagnosis',
+      display: 'Laceration of right index finger',
+      code: 'S61.210A',
+    };
+    expect(await validateIntentCode(r, undefined, undefined, search)).toBe('ok');
+    expect(r.code).toBe('S61.210A');
+    expect(r.display).toBe(
+      'Laceration without foreign body of right index finger without damage to nail, initial encounter'
+    );
+  });
+
+  it('drops the code and keeps the display when no consistent row exists', async () => {
+    const r: Record<string, unknown> = {
+      kind: 'add-diagnosis',
+      display: 'Laceration of right pointer finger',
+      code: 'S61.011A',
+    };
+    expect(await validateIntentCode(r, undefined, undefined, search)).toBe('ok');
+    expect(r.code).toBeUndefined();
+    expect(r.display).toBe('Laceration of right pointer finger'); // the client picker resolves it
   });
 });
 

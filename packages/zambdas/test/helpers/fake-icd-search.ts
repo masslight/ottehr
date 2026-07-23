@@ -53,4 +53,10 @@ export const PLATFORM_DISPLAY_FIXTURES: Record<string, Icd10Code[]> = {
   'candidal vulvovaginitis unspecified': fromCorpus('B37.31', 'B37.32'),
   'suppurative acute otitis media recurrent bilateral': fromCorpus('H66.006'),
   'gingivostomatitis and pharyngotonsillitis': fromCorpus('B00.2'),
+  // Digit / wound-type pair-consistency cases: rows the qualifier groups must skip (wrong digit,
+  // wrong wound type, wrong side) are listed before the consistent row.
+  'laceration without foreign body of right index finger': fromCorpus('S61.011A', 'S61.230A', 'S61.210A'),
+  'laceration of right index finger without damage to nail': fromCorpus('S61.230A', 'S61.210A'),
+  'laceration of left index finger': fromCorpus('S61.210A', 'S61.211A'),
+  'laceration of right pointer finger': fromCorpus('S61.011A'),
 };
