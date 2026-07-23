@@ -396,9 +396,18 @@ export default function ClaimDetail(): ReactElement {
             </>
           )}
         </Box>
-        {runEngine && (
-          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
-            {runEngine.runButtonLabel}
+
+        {EHR_URL && claim.appointmentId && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<OpenInNewIcon />}
+            href={`${EHR_URL}/visit/${claim.appointmentId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ mt: 0.5, flexShrink: 0 }}
+          >
+            View in EHR
           </Button>
         )}
         <Button
@@ -410,20 +419,12 @@ export default function ClaimDetail(): ReactElement {
         >
           Export X12
         </Button>
+        {runEngine && (
+          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
+            {runEngine.runButtonLabel}
+          </Button>
+        )}
       </Box>
-      {EHR_URL && claim.appointmentId && (
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<OpenInNewIcon />}
-          href={`${EHR_URL}/visit/${claim.appointmentId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{ mt: 0.5, flexShrink: 0 }}
-        >
-          View in EHR
-        </Button>
-      )}
 
       <ExportX12Dialog
         open={exportOpen}

@@ -3,7 +3,6 @@ import {
   Apartment as ApartmentIcon,
   Business as BusinessIcon,
   Description as DescriptionIcon,
-  Home as HomeIcon,
   Label as LabelIcon,
   List as ListIcon,
   Logout as LogoutIcon,
@@ -22,7 +21,7 @@ import { otherColors } from '../themes/ottehr/colors';
 const DRAWER_WIDTH = 220;
 
 const navItems = [
-  { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
+  // { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
   { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
   { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
   { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
