@@ -16,7 +16,22 @@ import { HOLD_TAG_NAME, RULES_ENGINE_TYPES, RulesEngineType } from './rules-engi
 
 export const RulesEngineTypeSchema = z.enum(RULES_ENGINE_TYPES);
 
-export const RULE_OPERATORS = ['eq', 'neq', 'in', 'notIn', 'contains', 'notContains', 'exists', 'notExists'] as const;
+export const RULE_OPERATORS = [
+  'eq',
+  'neq',
+  'in',
+  'notIn',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'contains',
+  'notContains',
+  'startsWith',
+  'notStartsWith',
+  'exists',
+  'notExists',
+] as const;
 export type RuleOperator = (typeof RULE_OPERATORS)[number];
 export const RuleOperatorSchema = z.enum(RULE_OPERATORS);
 
@@ -26,12 +41,66 @@ export const MULTI_VALUE_OPERATORS: readonly RuleOperator[] = ['in', 'notIn'];
 export const operatorNeedsValue = (op: RuleOperator): boolean => !NO_VALUE_OPERATORS.includes(op);
 export const operatorIsMultiValue = (op: RuleOperator): boolean => MULTI_VALUE_OPERATORS.includes(op);
 
+// Operator semantics shared by the rule-builder UI (labels) and the generated documentation
+// (labels + descriptions). `dateLabel` overrides the label when the field being compared is a date.
+export interface RuleOperatorMetadata {
+  label: string;
+  dateLabel?: string;
+  description: string;
+}
+
+export const RULE_OPERATOR_METADATA: Record<RuleOperator, RuleOperatorMetadata> = {
+  eq: { label: 'equals', description: 'The property exactly equals the value.' },
+  neq: { label: 'does not equal', description: 'The property does not exactly equal the value.' },
+  in: { label: 'is one of', description: 'The property equals one of the listed values.' },
+  notIn: { label: 'is not one of', description: 'The property equals none of the listed values.' },
+  gt: {
+    label: 'is greater than',
+    dateLabel: 'is after',
+    description: 'The property is greater than the value (numerically for amounts, chronologically for dates).',
+  },
+  gte: {
+    label: 'is at least',
+    dateLabel: 'is on or after',
+    description: 'The property is greater than or equal to the value.',
+  },
+  lt: {
+    label: 'is less than',
+    dateLabel: 'is before',
+    description: 'The property is less than the value (numerically for amounts, chronologically for dates).',
+  },
+  lte: {
+    label: 'is at most',
+    dateLabel: 'is on or before',
+    description: 'The property is less than or equal to the value.',
+  },
+  contains: {
+    label: 'contains',
+    description: 'A text property contains the value as a substring; a list property includes the value as an entry.',
+  },
+  notContains: { label: 'does not contain', description: 'The negation of "contains".' },
+  startsWith: {
+    label: 'starts with',
+    description: 'A text property begins with the value (e.g. member ID starts with XKD).',
+  },
+  notStartsWith: { label: 'does not start with', description: 'The negation of "starts with".' },
+  exists: { label: 'is present', description: 'The property has a (non-empty) value on the claim.' },
+  notExists: { label: 'is empty', description: 'The property is missing or empty on the claim.' },
+};
+
 export const RULE_LOGIC = ['and', 'or'] as const;
 export type RuleLogic = (typeof RULE_LOGIC)[number];
 
 // Discriminator values, named so consumers (schemas, evaluator, UI) don't sprinkle raw strings.
 export const RULE_CONDITION_TYPE = { all: 'all', field: 'field', group: 'group' } as const;
-export const RULE_ACTION_TYPE = { setField: 'setField', applyTag: 'applyTag', noop: 'noop' } as const;
+export const RULE_ACTION_TYPE = {
+  setField: 'setField',
+  applyTag: 'applyTag',
+  addServiceLine: 'addServiceLine',
+  updateServiceLines: 'updateServiceLines',
+  removeServiceLines: 'removeServiceLines',
+  noop: 'noop',
+} as const;
 export const RULE_OUTCOME_TYPE = { actions: 'actions', conditional: 'conditional', noop: 'noop' } as const;
 
 // A condition's comparison value: a scalar (eq/neq/contains), a list (in/notIn), or absent
@@ -62,10 +131,62 @@ export const RuleConditionSchema: z.ZodType<RuleCondition> = z.lazy(() =>
   ])
 );
 
+// --- Service line match (the line predicate carried by the service-line actions) ---
+//
+// Service lines are an array, so the actions that touch them carry their own per-line predicate
+// ("update lines where cptCode = X") instead of relying on the rule's condition — a condition can
+// detect that a matching line exists, but only the action's match binds *which* lines to change.
+// Shaped as a discriminated union so a `group` variant (AND/OR across line properties) can be added
+// later without a breaking change.
+export const SERVICE_LINE_MATCH_TYPE = { all: 'all', field: 'field' } as const;
+
+export type ServiceLineMatch =
+  | { type: 'all' }
+  | { type: 'field'; property: string; operator: RuleOperator; value?: RuleConditionValue };
+
+export const ServiceLineMatchSchema: z.ZodType<ServiceLineMatch> = z.discriminatedUnion('type', [
+  z.object({ type: z.literal(SERVICE_LINE_MATCH_TYPE.all) }),
+  z.object({
+    type: z.literal(SERVICE_LINE_MATCH_TYPE.field),
+    property: z.string().min(1),
+    operator: RuleOperatorSchema,
+    value: ConditionValueSchema.optional(),
+  }),
+]);
+
+// How an updateServiceLines action applies its value: `set` replaces the property (the default);
+// `add`/`remove` edit one entry of a list-valued property (modifiers).
+export const SERVICE_LINE_SET_OPERATIONS = ['set', 'add', 'remove'] as const;
+export type ServiceLineSetOperation = (typeof SERVICE_LINE_SET_OPERATIONS)[number];
+
+// The fields of a new service line added by the addServiceLine action. All values are strings (the
+// rule value model) and are validated at save time (format) and apply time (claim-dependent checks);
+// blank optional fields fall back to the same defaults the claim editor uses — see
+// ADD_SERVICE_LINE_FIELDS in the field catalog, which documents each field and drives the UI.
+export const AddServiceLineInputSchema = z.object({
+  cptCode: z.string().min(1),
+  // Comma-separated modifier codes.
+  modifiers: z.string().optional(),
+  units: z.string().optional(),
+  charges: z.string().min(1),
+  placeOfService: z.string().optional(),
+  serviceDate: z.string().optional(),
+  // Comma-separated 1-based pointers into the claim's diagnosis list.
+  diagnosisPointers: z.string().optional(),
+});
+export type AddServiceLineInput = z.output<typeof AddServiceLineInputSchema>;
+
 // --- Action ---
 export type RuleAction =
   | { type: 'setField'; field: string; value: string | null }
   | { type: 'applyTag'; tag: string }
+  | { type: 'addServiceLine'; line: AddServiceLineInput }
+  | {
+      type: 'updateServiceLines';
+      match: ServiceLineMatch;
+      set: { property: string; value: string; operation?: ServiceLineSetOperation };
+    }
+  | { type: 'removeServiceLines'; match: ServiceLineMatch }
   | { type: 'noop' };
 
 // Tags are free text in the UI, but the engine halts on an exact HOLD_TAG_NAME match — so
@@ -79,6 +200,19 @@ const tagNameSchema = z
 export const RuleActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal(RULE_ACTION_TYPE.setField), field: z.string().min(1), value: z.string().nullable() }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.applyTag), tag: tagNameSchema }),
+  z.object({ type: z.literal(RULE_ACTION_TYPE.addServiceLine), line: AddServiceLineInputSchema }),
+  z.object({
+    type: z.literal(RULE_ACTION_TYPE.updateServiceLines),
+    match: ServiceLineMatchSchema,
+    set: z.object({
+      property: z.string().min(1),
+      // Empty is meaningful only for list-valued properties ("clear the modifiers"); scalar-property
+      // writers reject it at apply time and the engine holds the claim.
+      value: z.string(),
+      operation: z.enum(SERVICE_LINE_SET_OPERATIONS).optional(),
+    }),
+  }),
+  z.object({ type: z.literal(RULE_ACTION_TYPE.removeServiceLines), match: ServiceLineMatchSchema }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.noop) }),
 ]);
 

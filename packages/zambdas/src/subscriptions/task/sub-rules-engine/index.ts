@@ -8,6 +8,7 @@ import {
   Patient,
   Practitioner,
   ProvenanceAgent,
+  RelatedPerson,
   Task,
 } from 'fhir/r4b';
 import {
@@ -102,7 +103,8 @@ export async function complexValidation(
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
-      `serviceFacility=${model.serviceFacility?.id ?? 'none'}`
+      `billingProvider=${model.billingProvider?.id ?? 'none'}, ` +
+      `serviceFacility=${model.serviceFacility?.id ?? 'none'}, subscribers=${model.subscribers.length}`
   );
   return { engine, claimId, rules, model };
 }
@@ -206,16 +208,24 @@ async function loadClaimModel(oystehr: Oystehr, claimId: string): Promise<RulesE
     patient: graph.patient,
     coverages: graph.coverages,
     renderingProvider: graph.renderingProvider,
+    billingProvider: graph.billingProvider,
     serviceFacility: graph.serviceFacility,
+    subscribers: graph.subscribers,
   };
 }
 
-type ModelResource = Claim | Patient | Coverage | Practitioner | Organization | Location;
+type ModelResource = Claim | Patient | Coverage | Practitioner | Organization | Location | RelatedPerson;
 
 function modelResources(model: RulesEngineClaimModel): ModelResource[] {
-  return [model.claim, model.patient, ...model.coverages, model.renderingProvider, model.serviceFacility].filter(
-    (r): r is ModelResource => !!r?.id
-  );
+  return [
+    model.claim,
+    model.patient,
+    ...model.coverages,
+    model.renderingProvider,
+    model.billingProvider,
+    model.serviceFacility,
+    ...model.subscribers,
+  ].filter((r): r is ModelResource => !!r?.id);
 }
 
 // Deep-cloned state of each model resource as loaded: the dirty check compares against it, and it is
