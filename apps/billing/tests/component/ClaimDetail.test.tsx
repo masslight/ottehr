@@ -109,6 +109,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePayments: [],
   otherClaims: [],
   tags: [],
+  pcn: '',
 });
 
 function renderDetail(): void {

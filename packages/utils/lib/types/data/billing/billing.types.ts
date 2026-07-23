@@ -380,6 +380,7 @@ export interface ClaimDetailResponse {
     cptCodes: string[];
   }[];
   tags: string[];
+  pcn: string;
 }
 
 interface Paginated {
