@@ -47,6 +47,7 @@ import {
   userMe,
 } from 'utils';
 import {
+  assertPractitionerHasNPI,
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
   fillMeta,
@@ -129,6 +130,9 @@ const performEffect = async (
     resourceType: 'Practitioner',
     id: practitionerRelativeReference.split('/')[1],
   });
+
+  // Ordering imaging is an NPI-gated action — block callers without an NPI (e.g. Clinician role).
+  assertPractitionerHasNPI(ourPractitioner);
 
   // Create the order in FHIR
   const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);

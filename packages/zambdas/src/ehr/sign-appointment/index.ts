@@ -22,7 +22,13 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  getMyPractitionerId,
+  requirePractitionerNPI,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -56,6 +62,10 @@ export const performEffect = async (
   }
 ): Promise<SignAppointmentResponse> => {
   const { appointmentId, encounterId, timezone, supervisorApprovalEnabled, userToken, secrets } = params;
+
+  // Signing / co-signing a note is an NPI-gated action. Block callers whose Practitioner has no NPI
+  // (e.g. the Clinician role) — this also stops the downstream claim submission the sign kicks off.
+  await requirePractitionerNPI(oystehr, await getMyPractitionerId(userToken, secrets));
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {

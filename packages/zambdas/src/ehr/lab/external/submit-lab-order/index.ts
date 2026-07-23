@@ -13,7 +13,13 @@ import {
   SubmitLabOrderOutput,
   userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  requirePractitionerNPI,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../../shared';
 import {
   getBundledOrderResources,
   makeOrderFormsAndDocRefs,
@@ -41,6 +47,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const currentUser = await userMe(userToken, secrets);
+
+  // Submitting an external lab order is an NPI-gated action — block callers without an NPI (e.g. Clinician role).
+  await requirePractitionerNPI(oystehr, currentUser.profile.replace('Practitioner/', ''));
 
   const now = DateTime.now();
 
