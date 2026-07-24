@@ -68,8 +68,13 @@ vi.mock('../../src/features/visits/shared/components/ERX', () => ({
   ERX: () => <div />,
   ERXStatus: {
     LOADING: 'loading',
+    READY: 'ready',
     COMPLETE: 'complete',
   },
+}));
+
+vi.mock('../../src/features/visits/shared/components/ERXInteractionsReadiness', () => ({
+  ERXInteractionsReadiness: () => null,
 }));
 
 vi.mock('../../src/features/visits/in-person/hooks/useMedicationHistory', () => ({
@@ -256,6 +261,16 @@ describe('EditableMedicationCard', () => {
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
       expect(screen.getByTestId('field-medicationId')).toHaveAttribute('data-value', '');
+    });
+
+    it('shows the interaction checking banner when the draft contains a medicationId', () => {
+      useInHouseMedicationOrderStore.getState().setDraft(ENCOUNTER_ID, { medicationId: 'med-draft-1' });
+
+      render(<EditableMedicationCard type="order-new" />);
+
+      // erxEnabled is seeded true from the draft, so the component enters the
+      // eRx loading state. The banner shows "checking..." rather than a stale "not found".
+      expect(screen.getByText(/checking\.\.\./)).toBeInTheDocument();
     });
   });
 });
