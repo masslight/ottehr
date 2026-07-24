@@ -1,6 +1,6 @@
 import Oystehr, { RcmListPayersResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Location, Organization } from 'fhir/r4b';
+import { Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import {
   adminAddInHouseLab,
@@ -62,7 +62,6 @@ import {
   ImmunizationQuickPickData,
   InHouseMedicationQuickPickData,
   isApiError,
-  isLocationVirtual,
   PracticeManagedQuestionnaireCreateInput,
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
@@ -75,37 +74,6 @@ import {
   UpdateEmCodeInput,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
-
-export const useVirtualLocationsQuery = (): UseQueryResult<Location[], Error> => {
-  const { oystehr } = useApiClients();
-
-  return useQuery({
-    queryKey: ['virtual-locations'],
-
-    queryFn: async () => {
-      const resources = await oystehr!.fhir.search<Location>({
-        resourceType: 'Location',
-        params: [
-          {
-            name: 'address-state:missing',
-            value: 'false',
-          },
-        ],
-      });
-
-      return resources
-        .unbundle()
-        .filter(isLocationVirtual)
-        .sort((a, b) => {
-          const stateA = a.address?.state || '';
-          const stateB = b.address?.state || '';
-          return stateA.localeCompare(stateB);
-        });
-    },
-
-    enabled: !!oystehr,
-  });
-};
 
 export const useInsurancesQuery = (ids?: string[], enabled?: boolean): UseQueryResult<Organization[], Error> => {
   const { oystehr } = useApiClients();

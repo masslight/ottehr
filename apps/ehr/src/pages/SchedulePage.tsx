@@ -1,9 +1,6 @@
-import CheckIcon from '@mui/icons-material/Check';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
-import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import EditIcon from '@mui/icons-material/Edit';
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Autocomplete,
@@ -12,7 +9,6 @@ import {
   Checkbox,
   CircularProgress,
   FormControlLabel,
-  IconButton,
   Paper,
   Skeleton,
   Switch,
@@ -45,7 +41,6 @@ import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';
 import { formatLocationLabel } from '../components/schedule/locationLabel';
 import ScheduleComponent from '../components/schedule/ScheduleComponent';
-import ScheduleGeneralTab from '../components/schedule/ScheduleGeneralTab';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
@@ -76,8 +71,6 @@ export default function SchedulePage(): ReactElement {
 
   const [statusPatchLoading, setStatusPatchLoading] = useState(false);
   const [copiedLinkKey, setCopiedLinkKey] = useState<string | null>(null);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
 
   // todo: currently these things are props of the schedule owner and get rendered as the content of the "general" tab
   // would like to refactor that tab to be its own Page responsible for displaying the configuration of
@@ -331,54 +324,10 @@ export default function SchedulePage(): ReactElement {
     },
   });
 
-  const saveNameMutation = useMutation({
-    mutationFn: async (newName: string) => {
-      if (!oystehrZambda || !item) {
-        throw new Error('Schedule not loaded');
-      }
-      return await updateSchedule({ scheduleId: item.id, name: newName }, oystehrZambda);
-    },
-    onError: (error: any) => {
-      if (isApiError(error)) {
-        enqueueSnackbar((error as APIError).message, { variant: 'error' });
-      } else {
-        enqueueSnackbar('Could not save the new name.', { variant: 'error' });
-      }
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['ehr-get-schedule'] });
-      setIsEditingName(false);
-      enqueueSnackbar('Name saved.', { variant: 'success' });
-    },
-  });
-
   const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching || saveScheduleChanges.isPending;
 
   const handleTabChange = (event: React.SyntheticEvent, newTabName: string): void => {
     setTabName(newTabName);
-  };
-
-  const startEditName = (): void => {
-    setNameDraft(item?.owner?.name ?? '');
-    setIsEditingName(true);
-  };
-
-  const cancelEditName = (): void => {
-    setIsEditingName(false);
-    setNameDraft('');
-  };
-
-  const submitName = (): void => {
-    const trimmed = nameDraft.trim();
-    if (!trimmed) {
-      enqueueSnackbar('Name cannot be empty.', { variant: 'warning' });
-      return;
-    }
-    if (trimmed === item?.owner?.name) {
-      setIsEditingName(false);
-      return;
-    }
-    saveNameMutation.mutate(trimmed);
   };
 
   const isLocationOwner = item?.owner?.type === 'Location';
@@ -540,55 +489,14 @@ export default function SchedulePage(): ReactElement {
               ]}
             />
 
-            {isEditingName && isLocationOwner ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginTop: 1 }}>
-                <TextField
-                  value={nameDraft}
-                  onChange={(event) => setNameDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      submitName();
-                    } else if (event.key === 'Escape') {
-                      event.preventDefault();
-                      cancelEditName();
-                    }
-                  }}
-                  size="small"
-                  autoFocus
-                  disabled={saveNameMutation.isPending}
-                  sx={{ minWidth: 300, '& input': { fontSize: '2rem', fontWeight: 700 } }}
-                />
-                <LoadingButton
-                  loading={saveNameMutation.isPending}
-                  onClick={submitName}
-                  color="primary"
-                  aria-label="Save name"
-                  sx={{ minWidth: 0, p: 1 }}
-                >
-                  <CheckIcon />
-                </LoadingButton>
-                <IconButton
-                  onClick={cancelEditName}
-                  disabled={saveNameMutation.isPending}
-                  aria-label="Cancel name edit"
-                  size="small"
-                >
-                  <CloseIcon />
-                </IconButton>
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginTop: 1 }}>
-                <Typography variant="h3" color="primary.dark">
-                  {item?.owner?.name || <Skeleton width={150} />}
-                </Typography>
-                {isLocationOwner && (
-                  <IconButton onClick={startEditName} aria-label="Edit name" size="small">
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </Box>
-            )}
+            {/* Location name is edited on the dedicated Location config page; this schedule
+                page is schedule-only for Location owners. (PractitionerRole names are edited
+                on the General tab below.) */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginTop: 1 }}>
+              <Typography variant="h3" color="primary.dark">
+                {item?.owner?.name || <Skeleton width={150} />}
+              </Typography>
+            </Box>
             {item?.owner.detailText && (
               <Typography marginBottom={1} fontWeight={400}>
                 {item.owner.detailText}
@@ -598,42 +506,27 @@ export default function SchedulePage(): ReactElement {
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <TabList onChange={handleTabChange} aria-label="Tabs">
                   <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 700 }} />
-                  <Tab
-                    label={
-                      createMode ? (
-                        <Tooltip title="Set up the schedule first to configure general settings." arrow>
-                          <span>General</span>
-                        </Tooltip>
-                      ) : (
-                        'General'
-                      )
-                    }
-                    value="general"
-                    disabled={createMode}
-                    // Re-enable pointer events on the disabled tab so the
-                    // tooltip still fires on hover; `disabled` already blocks
-                    // selection. Target the .Mui-disabled class directly —
-                    // MUI's disabled rule sets pointer-events: none with
-                    // higher specificity than a plain root override.
-                    sx={{
-                      textTransform: 'none',
-                      fontWeight: 700,
-                      ...(createMode ? { '&.Mui-disabled': { pointerEvents: 'auto' } } : {}),
-                    }}
-                  />
-                  {item?.owner.type === 'Location' && (
+                  {/* Location owners configure their (non-schedule) properties on the dedicated
+                      Location config page (/admin/locations/:id), not here — the schedule page is
+                      schedule-only for them. The General tab remains for PractitionerRole owners. */}
+                  {!isLocationOwner && (
                     <Tab
                       label={
                         createMode ? (
-                          <Tooltip title="Set up the schedule first to configure location settings." arrow>
-                            <span>Location</span>
+                          <Tooltip title="Set up the schedule first to configure general settings." arrow>
+                            <span>General</span>
                           </Tooltip>
                         ) : (
-                          'Location'
+                          'General'
                         )
                       }
-                      value="location"
+                      value="general"
                       disabled={createMode}
+                      // Re-enable pointer events on the disabled tab so the
+                      // tooltip still fires on hover; `disabled` already blocks
+                      // selection. Target the .Mui-disabled class directly —
+                      // MUI's disabled rule sets pointer-events: none with
+                      // higher specificity than a plain root override.
                       sx={{
                         textTransform: 'none',
                         fontWeight: 700,
@@ -860,18 +753,6 @@ export default function SchedulePage(): ReactElement {
                     </form>
                   </Paper>
                 </TabPanel>
-                {item?.owner.type === 'Location' && (
-                  <TabPanel value="location">
-                    <ScheduleGeneralTab
-                      item={item}
-                      onSchedulePersisted={setItem}
-                      onSave={async (params) => {
-                        await saveScheduleChanges.mutateAsync(params);
-                      }}
-                      isSaving={somethingIsLoadingInSomeWay}
-                    />
-                  </TabPanel>
-                )}
               </Paper>
             </TabContext>
           </Box>

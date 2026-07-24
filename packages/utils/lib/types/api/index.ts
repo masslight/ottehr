@@ -49,6 +49,7 @@ export * from './progress-note-config';
 export * from './procedures.constants';
 export * from './radiology';
 export * from './rcm-claims';
+export * from './locations';
 export * from './recent-patients-report.types';
 export * from './save-followup-encounter.types';
 export * from './schedules';

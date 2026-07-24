@@ -25,19 +25,17 @@ import {
   GLOBAL_TEMPLATES_URL,
   INSURANCES_URL,
   OUTREACH_URL,
-  PAYMENT_LOCATIONS_URL,
-  VIRTUAL_LOCATIONS_URL,
 } from './features/admin/adminRoutes';
 import { AdminLayout } from './features/admin/AdminSidebar';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import LocationConfigPage from './features/locations/LocationConfigPage';
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
 import EditChargeItem from './features/visits/telemed/components/admin/EditChargeItem';
 import EditInsurance from './features/visits/telemed/components/admin/EditInsurance';
-import EditVirtualLocationPage from './features/visits/telemed/components/admin/EditVirtualLocationPage';
 import GlobalTemplateDetailPage from './features/visits/telemed/components/admin/GlobalTemplateDetailPage';
 import ImmunizationQuickPickDetailPage from './features/visits/telemed/components/admin/ImmunizationQuickPickDetailPage';
 import AdminAddInHouseLab from './features/visits/telemed/components/admin/in-house-labs/AdminAddInHouseLab';
@@ -68,7 +66,6 @@ import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
-import PaymentLocationDetailPage from './pages/PaymentLocationDetailPage';
 import Reports from './pages/Reports';
 import {
   AiAssistedEncounters,
@@ -266,14 +263,13 @@ function App(): ReactElement {
                   <Route path="/admin/group/id/:group-id" element={<GroupPage />} />
                   <Route path="/admin/schedule/id/:schedule-id" element={<SchedulePage />} />
                   <Route path="/admin/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
+                  <Route path="/admin/locations/:location-id" element={<LocationConfigPage />} />
                   <Route path="/admin/medications/add" element={<AddMedicationPage />} />
                   <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
-                  <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={`${INSURANCES_URL}/:insuranceTab/:insurance`} element={<EditInsurance />} />
                   <Route path={`${BILLING_URL}/:billingTab/:insuranceTab/:insurance`} element={<EditInsurance />} />
                   <Route path={`${FEE_SCHEDULES_URL}/:id`} element={<EditChargeItem />} />
                   <Route path={`${CHARGE_MASTERS_URL}/:id`} element={<EditChargeItem mode="charge-master" />} />
-                  <Route path={`${PAYMENT_LOCATIONS_URL}/:id`} element={<PaymentLocationDetailPage />} />
                   <Route path={`${GLOBAL_TEMPLATES_URL}/:templateId`} element={<GlobalTemplateDetailPage />} />
                   <Route path="/admin/in-house-labs/add" element={<AdminAddInHouseLab />} />
                   <Route path="/admin/in-house-labs/:activityDefinitionId" element={<AdminInHouseLabDetails />} />

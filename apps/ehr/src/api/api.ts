@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { HealthcareService, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
+import { HealthcareService, Location, Medication, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { createClinicalOystehrClient } from 'ui-components';
 import {
   AdminAddInHouseLabInput,
@@ -66,6 +66,7 @@ import {
   CreateInsuranceQuickPickResponse,
   CreateLabOrderParameters,
   CreateLabOrderZambdaOutput,
+  CreateLocationParams,
   CreateMedicalConditionQuickPickInput,
   CreateMedicalConditionQuickPickResponse,
   CreateMedicationHistoryQuickPickInput,
@@ -121,6 +122,7 @@ import {
   GetLabelPrintingConfigInput,
   GetLabelPrintingConfigOutput,
   GetLabOrdersParameters,
+  GetLocationParams,
   GetLocationSupportPhonesOutput,
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
@@ -215,6 +217,7 @@ import {
   SubmitLabOrderInput,
   SubmitLabOrderOutput,
   SyncMailedStatementStatusesOutput,
+  ToggleLocationActiveParams,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
@@ -225,6 +228,7 @@ import {
   UpdateInsuranceQuickPickResponse,
   UpdateInvoiceTaskZambdaInput,
   UpdateLabOrderResourcesInput,
+  UpdateLocationParams,
   UpdateMedicalConditionQuickPickResponse,
   UpdateMedicationHistoryQuickPickResponse,
   UpdateNursingOrderInput,
@@ -296,6 +300,10 @@ const EHR_GET_SCHEDULE_ZAMBDA_ID = 'ehr-get-schedule';
 const UPDATE_SCHEDULE_ZAMBDA_ID = 'update-schedule';
 const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = 'list-schedule-owners';
 const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
+const CREATE_LOCATION_ZAMBDA_ID = 'create-location';
+const GET_LOCATION_ZAMBDA_ID = 'get-location';
+const UPDATE_LOCATION_ZAMBDA_ID = 'update-location';
+const TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID = 'toggle-location-active';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID = 'create-in-house-lab-order';
 const GET_IN_HOUSE_ORDERS_ZAMBDA_ID = 'get-in-house-orders';
@@ -342,7 +350,6 @@ const ADMIN_DELETE_SERVICE_CATEGORY_ZAMBDA_ID = 'admin-delete-service-category';
 const ADMIN_CREATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-create-practitioner-role';
 const ADMIN_UPDATE_PRACTITIONER_ROLE_ZAMBDA_ID = 'admin-update-practitioner-role';
 const ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID = 'admin-set-practitioner-role-active';
-const ADMIN_SET_SCHEDULE_OWNER_ACTIVE_ZAMBDA_ID = 'admin-set-schedule-owner-active';
 const ADMIN_UPDATE_GROUP_ZAMBDA_ID = 'admin-update-group';
 const GET_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'get-label-printing-config';
 const ADMIN_UPDATE_LABEL_PRINTING_CONFIG_ZAMBDA_ID = 'admin-update-label-printing-config';
@@ -991,6 +998,31 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
     console.log(error);
     throw error;
   }
+};
+
+// ── Pure Location CRUD (keyed by Location id, decoupled from Schedule) ──
+
+export const createLocation = async (params: CreateLocationParams, oystehr: Oystehr): Promise<Location> => {
+  const response = await oystehr.zambda.execute({ id: CREATE_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): Promise<Location> => {
+  const response = await oystehr.zambda.execute({ id: GET_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const updateLocation = async (params: UpdateLocationParams, oystehr: Oystehr): Promise<Location> => {
+  const response = await oystehr.zambda.execute({ id: UPDATE_LOCATION_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const toggleLocationActive = async (
+  params: ToggleLocationActiveParams,
+  oystehr: Oystehr
+): Promise<{ id: string; status: string }> => {
+  const response = await oystehr.zambda.execute({ id: TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID, ...params });
+  return chooseJson(response);
 };
 
 export type UploadPatientProfilePhotoParameters = Omit<UploadPatientProfilePhotoInput, 'action'> & {
@@ -3106,17 +3138,6 @@ export const setPractitionerRoleActive = async (
 ): Promise<{ active: boolean }> => {
   const response = await oystehr.zambda.execute({
     id: ADMIN_SET_PRACTITIONER_ROLE_ACTIVE_ZAMBDA_ID,
-    ...input,
-  } as any);
-  return chooseJson(response);
-};
-
-export const setScheduleOwnerActive = async (
-  oystehr: Oystehr,
-  input: { scheduleId: string; active: boolean }
-): Promise<{ active: boolean; owner: { resourceType: 'Location' | 'Practitioner'; id: string } }> => {
-  const response = await oystehr.zambda.execute({
-    id: ADMIN_SET_SCHEDULE_OWNER_ACTIVE_ZAMBDA_ID,
     ...input,
   } as any);
   return chooseJson(response);

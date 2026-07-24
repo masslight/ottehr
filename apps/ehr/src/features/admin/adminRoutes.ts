@@ -4,7 +4,6 @@
 export const INSURANCES_URL = '/admin/insurances';
 export const FEE_SCHEDULES_URL = '/admin/fee-schedule';
 export const CHARGE_MASTERS_URL = '/admin/charge-masters';
-export const VIRTUAL_LOCATIONS_URL = '/admin/virtual-locations';
 export const BILLING_URL = '/admin/billing';
 export const BILLING_INSURANCE_URL = '/admin/billing/insurance';
 export const PAYMENT_LOCATIONS_URL = '/admin/billing/payments/locations';

@@ -1,4 +1,5 @@
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
+import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
@@ -12,10 +13,8 @@ import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
-import PinDropOutlinedIcon from '@mui/icons-material/PinDropOutlined';
 import PinOutlinedIcon from '@mui/icons-material/PinOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
-import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
@@ -23,6 +22,7 @@ import { ReactElement, ReactNode } from 'react';
 import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
+import LocationsListPage from 'src/features/locations/LocationsListPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
 import EMCodesAdminPage from 'src/features/visits/telemed/components/admin/EMCodesAdminPage';
 import EmployersTab from 'src/features/visits/telemed/components/admin/employers/EmployersTab';
@@ -33,7 +33,6 @@ import LabSetsAdminPage from 'src/features/visits/telemed/components/admin/lab-s
 import AdminPrintingConfig from 'src/features/visits/telemed/components/admin/label-printing-config/AdminLabelPrintingConfigPage';
 import QuickPicksAdminPage from 'src/features/visits/telemed/components/admin/QuickPicksAdminPage';
 import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin/support-dialog/SupportDialogAdminPage';
-import States from 'src/features/visits/telemed/components/admin/VirtualLocationsPage';
 import AdminCustomFoldersPage from 'src/pages/AdminCustomFoldersPage';
 import MedicationsConfigurationPage from 'src/pages/configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from 'src/pages/Employees';
@@ -44,7 +43,6 @@ import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES, RoleType } from 'utils';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
-import { PaymentLocationsList } from './BillingConfiguration';
 import { FeeSchedulesIcon, InHouseLabsIcon, InsuranceIcon, ProgressNoteIcon, StethoscopeIcon } from './icons';
 
 /** Context derived from the URL that the deeper-nested admin pages still rely on. */
@@ -91,10 +89,10 @@ export const adminNavGroups: AdminNavGroup[] = [
         render: () => <SchedulesPage />,
       },
       {
-        label: 'Virtual Locations',
-        path: '/admin/virtual-locations',
-        icon: <PublicOutlinedIcon />,
-        render: () => <States />,
+        label: 'Locations',
+        path: '/admin/locations',
+        icon: <ApartmentOutlinedIcon />,
+        render: () => <LocationsListPage />,
       },
     ],
   },
@@ -176,12 +174,6 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/billing/employers',
         icon: <BusinessCenterOutlinedIcon />,
         render: () => <EmployersTab />,
-      },
-      {
-        label: 'Payment Locations',
-        path: '/admin/billing/payment-locations',
-        icon: <PinDropOutlinedIcon />,
-        render: () => <PaymentLocationsList />,
       },
       {
         label: 'Invoicing',

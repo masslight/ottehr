@@ -1,4 +1,4 @@
-import { Address, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { Closure, Timezone } from '../../../main';
 import { DailySchedule, ScheduleOverrides } from '../../../utils';
 
@@ -10,16 +10,6 @@ export interface UpdateScheduleParams {
   scheduleOverrides?: ScheduleOverrides;
   active?: Schedule['active'];
   closures?: Closure[];
-  isVirtual?: boolean;
-  isInPerson?: boolean;
-  stripeAccountId?: string | null;
-  advapacsLocationId?: string | null;
-  rooms?: string[];
-  name?: string;
-  description?: string | null;
-  address?: Address | null;
-  telecom?: TelecomUpdate | null;
-  reviewLink?: string | null;
 }
 
 export interface TelecomUpdate {

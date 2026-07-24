@@ -2,10 +2,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import EmailIcon from '@mui/icons-material/Email';
 import ErrorIcon from '@mui/icons-material/Error';
-import FaxIcon from '@mui/icons-material/Fax';
-import PhoneIcon from '@mui/icons-material/Phone';
 import {
   Box,
   Chip,
@@ -20,10 +17,6 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
-import { BILLING_URL } from 'src/features/admin/adminRoutes';
-import PageContainer from 'src/layout/PageContainer';
 import { TerminalReaderInfo } from 'src/rcm/state/payments/payments.api';
 import {
   usePaymentLocationsQuery,
@@ -31,18 +24,33 @@ import {
   useStripeAccountInfoQuery,
   useTerminalReadersQuery,
 } from 'src/rcm/state/payments/payments.queries';
-import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils';
+
+// Ported from the (retired) Payment Locations detail page. This is the one thing that
+// page did that Location config didn't: Stripe Connect status + terminal-reader config,
+// which live on Stripe/Device resources rather than the Location. Now a section of the
+// unified Location config page.
+
+const STRIPE_ACCOUNT_ID_REGEX = /^acct_[a-zA-Z0-9]{8,}$/;
+const NO_TERMINAL = '__none__';
+
+/** Legacy values that were once stored as terminal location IDs to indicate simulation mode. */
+const LEGACY_SIMULATION_VALUES = new Set(['sim', 'simulated', 'simulation']);
+const isLegacySimulationValue = (id: string | undefined): boolean =>
+  Boolean(id && LEGACY_SIMULATION_VALUES.has(id.toLowerCase().trim()));
+
+const READER_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+  online: 'success',
+  offline: 'default',
+};
 
 function CopyableValue({ label, value }: { label: string; value: string | undefined }): ReactElement {
   const [copied, setCopied] = useState(false);
-
   const handleCopy = (): void => {
     if (!value) return;
     void navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
   return (
     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, py: 0.5 }}>
       <Typography variant="body2" color="text.secondary" sx={{ width: 160, flexShrink: 0 }}>
@@ -80,31 +88,61 @@ function CopyableValue({ label, value }: { label: string; value: string | undefi
   );
 }
 
-const TELECOM_ICONS: Record<string, ReactElement> = {
-  phone: <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />,
-  fax: <FaxIcon sx={{ fontSize: 16, color: 'text.secondary' }} />,
-  email: <EmailIcon sx={{ fontSize: 16, color: 'text.secondary' }} />,
-};
-
-const STRIPE_ACCOUNT_ID_REGEX = /^acct_[a-zA-Z0-9]{8,}$/;
-
-const NO_TERMINAL = '__none__';
-
-/** Legacy values that were once stored as terminal location IDs to indicate simulation mode. */
-const LEGACY_SIMULATION_VALUES = new Set(['sim', 'simulated', 'simulation']);
-const isLegacySimulationValue = (id: string | undefined): boolean =>
-  Boolean(id && LEGACY_SIMULATION_VALUES.has(id.toLowerCase().trim()));
-
-const READER_STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
-  online: 'success',
-  offline: 'default',
-};
-
 function ReaderStatusChip({ status }: { status: string | null }): ReactElement {
   const label = status || 'unknown';
   const color = READER_STATUS_COLORS[label] ?? 'default';
   return (
     <Chip label={label} size="small" color={color} variant="outlined" sx={{ fontWeight: 500, fontSize: '0.75rem' }} />
+  );
+}
+
+function ReaderCard({ reader }: { reader: TerminalReaderInfo }): ReactElement {
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5, mb: 1, '&:last-child': { mb: 0 } }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {reader.label || reader.deviceType}
+        </Typography>
+        <ReaderStatusChip status={reader.status} />
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+          <Typography variant="caption" color="text.secondary">
+            Model:
+          </Typography>
+          <Typography variant="caption">{reader.deviceType}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+          <Typography variant="caption" color="text.secondary">
+            Serial:
+          </Typography>
+          <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+            {reader.serialNumber || '—'}
+          </Typography>
+        </Box>
+        {reader.ipAddress && (
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              IP:
+            </Typography>
+            <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+              {reader.ipAddress}
+            </Typography>
+          </Box>
+        )}
+        {reader.deviceSwVersion && (
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              Software:
+            </Typography>
+            <Typography variant="caption">{reader.deviceSwVersion}</Typography>
+          </Box>
+        )}
+      </Box>
+      <Box sx={{ mt: 0.5 }}>
+        <CopyableValue label="Reader ID" value={reader.id} />
+      </Box>
+    </Paper>
   );
 }
 
@@ -190,63 +228,6 @@ function SelectedTerminalLocationDetails({
   );
 }
 
-function ReaderCard({ reader }: { reader: TerminalReaderInfo }): ReactElement {
-  return (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 1.5,
-        mb: 1,
-        '&:last-child': { mb: 0 },
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {reader.label || reader.deviceType}
-        </Typography>
-        <ReaderStatusChip status={reader.status} />
-      </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
-            Model:
-          </Typography>
-          <Typography variant="caption">{reader.deviceType}</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
-            Serial:
-          </Typography>
-          <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-            {reader.serialNumber || '—'}
-          </Typography>
-        </Box>
-        {reader.ipAddress && (
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              IP:
-            </Typography>
-            <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-              {reader.ipAddress}
-            </Typography>
-          </Box>
-        )}
-        {reader.deviceSwVersion && (
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              Software:
-            </Typography>
-            <Typography variant="caption">{reader.deviceSwVersion}</Typography>
-          </Box>
-        )}
-      </Box>
-      <Box sx={{ mt: 0.5 }}>
-        <CopyableValue label="Reader ID" value={reader.id} />
-      </Box>
-    </Paper>
-  );
-}
-
 function StripeConnectSection({
   locationId,
   stripeAccountId,
@@ -254,17 +235,13 @@ function StripeConnectSection({
   terminalDeviceId,
 }: {
   locationId: string;
-  stripeAccountId: string | undefined;
+  stripeAccountId: string;
   stripeTerminalLocationId: string | undefined;
   terminalDeviceId: string | undefined;
-}): ReactElement | null {
-  const isValidFormat = stripeAccountId ? STRIPE_ACCOUNT_ID_REGEX.test(stripeAccountId) : false;
+}): ReactElement {
+  const isValidFormat = STRIPE_ACCOUNT_ID_REGEX.test(stripeAccountId);
   const { data, isLoading, isError } = useStripeAccountInfoQuery(isValidFormat ? stripeAccountId : undefined);
   const saveMutation = useSaveTerminalLocationMutation();
-
-  if (!stripeAccountId) {
-    return null;
-  }
 
   const hasError = !isValidFormat || isError || data?.error;
   const isConnected = isValidFormat && data?.accountInfo && !data?.error;
@@ -379,10 +356,7 @@ function StripeConnectSection({
                 }
                 onChange={(e: SelectChangeEvent) => {
                   const value = e.target.value;
-                  saveMutation.mutate({
-                    locationId,
-                    terminalLocationId: value === NO_TERMINAL ? null : value,
-                  });
+                  saveMutation.mutate({ locationId, terminalLocationId: value === NO_TERMINAL ? null : value });
                 }}
                 disabled={saveMutation.isPending}
                 renderValue={(selected) => {
@@ -412,7 +386,7 @@ function StripeConnectSection({
           </Box>
 
           <SelectedTerminalLocationDetails
-            stripeAccountId={stripeAccountId!}
+            stripeAccountId={stripeAccountId}
             terminalLocationId={stripeTerminalLocationId}
             terminalLocations={data?.terminalLocations ?? []}
             terminalDeviceId={terminalDeviceId}
@@ -423,137 +397,35 @@ function StripeConnectSection({
   );
 }
 
-export default function PaymentLocationDetailPage(): ReactElement {
-  const { id } = useParams<{ id: string }>();
-  const { data: locations, isLoading } = usePaymentLocationsQuery();
+/**
+ * Stripe Connect status + terminal-reader configuration for a Location. `stripeAccountId`
+ * is the PERSISTED value (edited via the account-ID field above and saved); terminal
+ * data is looked up per-location from the payment-locations query.
+ */
+export default function LocationPaymentsSection({
+  locationId,
+  stripeAccountId,
+}: {
+  locationId: string;
+  stripeAccountId: string | undefined;
+}): ReactElement {
+  const { data: paymentLocations } = usePaymentLocationsQuery();
+  const entry = paymentLocations?.find((pl) => pl.location.id === locationId);
 
-  const paymentLocation = locations?.find((pl) => pl.location.id === id);
-
-  if (isLoading) {
+  if (!stripeAccountId) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
+      <Typography variant="body2" color="text.disabled">
+        Set (and save) a Stripe Account ID above to view connection status and terminal readers.
+      </Typography>
     );
-  }
-
-  if (!paymentLocation) {
-    return (
-      <PageContainer tabTitle="Payment Location">
-        <>
-          <CustomBreadcrumbs
-            chain={[
-              { link: '/admin', children: 'Admin' },
-              { link: `${BILLING_URL}/payment-locations`, children: 'Payment Locations' },
-              { link: '#', children: 'Not Found' },
-            ]}
-          />
-          <Paper sx={{ padding: 3, marginTop: 2 }}>
-            <Typography color="text.secondary">Location not found.</Typography>
-          </Paper>
-        </>
-      </PageContainer>
-    );
-  }
-
-  const { location, supportsVirtualVisits, stripeTerminalLocationId, terminalDeviceId } = paymentLocation;
-
-  const stripeAccountId = location.extension?.find((ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL)
-    ?.valueString;
-
-  const address = location.address;
-  const addressLines: string[] = [];
-  if (address?.line) addressLines.push(...address.line);
-  const cityStateZip = [address?.city, address?.state, address?.postalCode].filter(Boolean).join(', ');
-  if (cityStateZip) addressLines.push(cityStateZip);
-  if (address?.country && address.country !== 'US' && address.country !== 'USA') {
-    addressLines.push(address.country);
   }
 
   return (
-    <PageContainer tabTitle="Payment Location">
-      <>
-        <CustomBreadcrumbs
-          chain={[
-            { link: '/admin', children: 'Admin' },
-            { link: `${BILLING_URL}/payment-locations`, children: 'Payment Locations' },
-            { link: '#', children: location.name || 'Unnamed Location' },
-          ]}
-        />
-        <Paper sx={{ padding: 3, marginTop: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {location.name || 'Unnamed Location'}
-            </Typography>
-            {supportsVirtualVisits && (
-              <Chip
-                label="Virtual Visits Supported"
-                size="small"
-                sx={{ backgroundColor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }}
-              />
-            )}
-          </Box>
-
-          <Box sx={{ mb: 2 }}>
-            <CopyableValue label="Location ID" value={location.id} />
-          </Box>
-
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-              gap: 3,
-            }}
-          >
-            {/* Contact & Address */}
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Contact & Address
-              </Typography>
-
-              {addressLines.length > 0 ? (
-                <Box sx={{ mb: 1.5 }}>
-                  {addressLines.map((line, i) => (
-                    <Typography key={i} variant="body2">
-                      {line}
-                    </Typography>
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.disabled" sx={{ mb: 1.5 }}>
-                  No address on file
-                </Typography>
-              )}
-
-              {location.telecom && location.telecom.length > 0 ? (
-                location.telecom.map((t, i) => (
-                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.25 }}>
-                    {TELECOM_ICONS[t.system ?? ''] ?? null}
-                    <Typography variant="body2">{t.value}</Typography>
-                    {t.use && (
-                      <Typography variant="caption" color="text.secondary">
-                        ({t.use})
-                      </Typography>
-                    )}
-                  </Box>
-                ))
-              ) : (
-                <Typography variant="body2" color="text.disabled">
-                  No telecom on file
-                </Typography>
-              )}
-            </Paper>
-
-            {/* Stripe Connect */}
-            <StripeConnectSection
-              locationId={location.id!}
-              stripeAccountId={stripeAccountId}
-              stripeTerminalLocationId={stripeTerminalLocationId}
-              terminalDeviceId={terminalDeviceId}
-            />
-          </Box>
-        </Paper>
-      </>
-    </PageContainer>
+    <StripeConnectSection
+      locationId={locationId}
+      stripeAccountId={stripeAccountId}
+      stripeTerminalLocationId={entry?.stripeTerminalLocationId}
+      terminalDeviceId={entry?.terminalDeviceId}
+    />
   );
 }
