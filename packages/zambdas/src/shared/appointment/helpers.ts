@@ -250,9 +250,14 @@ export function creatingPatientUpdateRequest(
     value: patientExtension,
   });
 
-  const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
-  if (emailPatchOps.length >= 1) {
-    patientPatchOperations.push(...emailPatchOps);
+  // Only touch email when it was explicitly provided or noEmail was explicitly set to true.
+  // If neither is present (e.g. EHR create-visit form which doesn't collect email), leave the
+  // existing email on the patient resource untouched.
+  if (patient.email !== undefined || patient.noEmail) {
+    const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
+    if (emailPatchOps.length >= 1) {
+      patientPatchOperations.push(...emailPatchOps);
+    }
   }
 
   const fhirPatientName = assertDefined(maybeFhirPatient.name, 'patient.name');
