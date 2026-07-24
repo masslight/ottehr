@@ -501,7 +501,10 @@ export default function AddPatient(): JSX.Element {
       // first name, last name, and phone are empty strings when untouched
       { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
       { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.length === 0 },
-      { field: 'phone', invalid: patientInfo.phoneNumber != null && patientInfo.phoneNumber.length !== 10 },
+      {
+        field: 'phone',
+        invalid: patientInfo.phoneNumber != null && getPhoneNumberDigits(patientInfo.phoneNumber) == null,
+      },
       {
         field: 'dateOfBirth',
         invalid: patientInfo.newPatient ? !birthDate : !patientInfo.dateOfBirth,
