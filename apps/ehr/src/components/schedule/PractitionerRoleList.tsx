@@ -1,5 +1,6 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import {
   Autocomplete,
@@ -30,7 +31,12 @@ import { Location, PractitionerRole, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createPractitionerRole, listServiceCategories, setPractitionerRoleActive } from 'src/api/api';
+import {
+  createPractitionerRole,
+  listServiceCategories,
+  setPractitionerRoleActive,
+  updatePractitionerRole,
+} from 'src/api/api';
 import { getPractitionerRoleAllCategories, SCHEDULE_DISPLAY_NAME_EXTENSION_URL, TIMEZONES } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 
@@ -70,6 +76,11 @@ export default function PractitionerRoleList({
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingDeactivate, setPendingDeactivate] = useState<ScheduleRow | null>(null);
+  // Rename edits only the schedule's display name. Location/services are set at
+  // create time and intentionally not editable here — changing them mid-life
+  // muddles the role's identity, so a different config means a new schedule.
+  const [renameRow, setRenameRow] = useState<ScheduleRow | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const listQueryKey = ['practitioner-role-list', practitionerId];
 
@@ -146,7 +157,12 @@ export default function PractitionerRoleList({
           schedule,
           categoryLabels,
           displayLabel: explicitName || deriveDisplayLabel(location?.name),
-          active: role.active !== false,
+          // A schedule counts as active only if BOTH the role and the Schedule
+          // resource are active. The row toggle sets both together, but the
+          // schedule page can deactivate the Schedule alone — reflecting that
+          // here keeps this list honest instead of showing a green row for a
+          // schedule that's actually out of booking circulation.
+          active: role.active !== false && schedule?.active !== false,
         };
       });
 
@@ -192,6 +208,26 @@ export default function PractitionerRoleList({
         err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string'
           ? (err as any).message
           : 'Failed to create schedule.';
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+
+  const renameRole = useMutation({
+    mutationFn: async ({ roleId, displayName }: { roleId: string; displayName: string }) => {
+      if (!oystehrZambda) throw new Error('zambda client not ready');
+      return updatePractitionerRole(oystehrZambda, { roleId, displayName });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: listQueryKey });
+      enqueueSnackbar('Schedule renamed.', { variant: 'success' });
+      setRenameRow(null);
+    },
+    onError: (err) => {
+      console.error(err);
+      const message =
+        err && typeof err === 'object' && 'message' in err && typeof (err as any).message === 'string'
+          ? (err as any).message
+          : 'Failed to rename schedule.';
       enqueueSnackbar(message, { variant: 'error' });
     },
   });
@@ -324,7 +360,22 @@ export default function PractitionerRoleList({
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.role.id} sx={{ opacity: row.active ? 1 : 0.6 }}>
-                <TableCell sx={{ color: row.active ? 'text.primary' : 'text.disabled' }}>{row.displayLabel}</TableCell>
+                <TableCell sx={{ color: row.active ? 'text.primary' : 'text.disabled' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {row.displayLabel}
+                    <Tooltip title="Rename schedule">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setRenameRow(row);
+                          setRenameValue(row.displayLabel);
+                        }}
+                      >
+                        <DriveFileRenameOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </TableCell>
                 <TableCell>{row.categoryLabels.join(', ')}</TableCell>
                 <TableCell>
                   <ScheduleStatusToggle
@@ -367,6 +418,39 @@ export default function PractitionerRoleList({
         isSubmitting={createRole.isPending}
         practitionerName={practitionerName}
       />
+
+      <Dialog open={!!renameRow} onClose={() => !renameRole.isPending && setRenameRow(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Rename schedule</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Name"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            sx={{ mt: 1 }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && renameValue.trim() && renameRow?.role.id) {
+                renameRole.mutate({ roleId: renameRow.role.id, displayName: renameValue.trim() });
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRenameRow(null)} disabled={renameRole.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={renameRole.isPending || !renameValue.trim()}
+            onClick={() =>
+              renameRow?.role.id && renameRole.mutate({ roleId: renameRow.role.id, displayName: renameValue.trim() })
+            }
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={!!pendingDeactivate} onClose={() => !setActive.isPending && setPendingDeactivate(null)}>
         <DialogTitle>Deactivate schedule?</DialogTitle>
