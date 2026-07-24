@@ -34,7 +34,7 @@ async function performEffect(
   const searchParams: { name: string; value: string }[] = [
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
-    { name: '_sort', value: 'family' },
+    { name: '_sort', value: '-_lastUpdated' },
     { name: '_total', value: 'accurate' },
     ...EXCLUDE_WORKING_COPIES_PARAMS,
   ];
