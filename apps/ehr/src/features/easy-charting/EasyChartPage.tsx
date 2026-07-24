@@ -40,6 +40,9 @@ import {
 } from 'utils';
 import { showEnvironmentBanner } from '../../App';
 import { AmbientScribeFab } from '../visits/in-person/components/progress-note/AmbientScribeFab';
+import { useGetImmunizationOrders } from '../visits/in-person/hooks/useImmunization';
+import { useOystehrAPIClient } from '../visits/shared/hooks/useOystehrAPIClient';
+import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
 import { AssistantColumn } from './AssistantColumn';
 import { chartHasSubstantiveContent } from './chart-content';
 import {} from './chart-types';
@@ -129,6 +132,41 @@ export default function EasyChartPage(): JSX.Element {
   const [appointmentStart, setAppointmentStart] = useState<string | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [reasonForVisit, setReasonForVisit] = useState<string | null>(null);
+
+  // Review & Sign parity sections that are NOT part of the chart-data fetch (precompute-cache
+  // safety: separate queries, never piggybacked on fetchEasyChartData's requested fields).
+  // In-house MAR orders — same underlying query useMedicationAPI wraps, called directly because
+  // that hook reads the appointment store, which this page doesn't populate.
+  const { data: medicationOrdersData } = useGetMedicationOrders({ field: 'encounterId', value: encounterId ?? '' });
+  const inHouseMedications = medicationOrdersData?.orders ?? [];
+  // Immunizations, filtered to administered like Review & Sign's ProgressNoteDetails.
+  const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
+    encounterIds: encounterId ? [encounterId] : undefined,
+  });
+  const immunizationOrders = (immunizationOrdersResponse?.orders ?? []).filter((order) =>
+    ['administered', 'administered-partly'].includes(order.status)
+  );
+  // Legacy single-string addendum (Encounter extension) — a separate scoped chart-data query, like
+  // Review & Sign's AddendumCard does via useChartFields. Non-critical: on failure the note simply
+  // renders without it.
+  const apiClient = useOystehrAPIClient();
+  const [legacyAddendumText, setLegacyAddendumText] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    if (!apiClient || !encounterId) return;
+    void (async () => {
+      try {
+        const res = await apiClient.getChartData({ encounterId, requestedFields: { addendumNote: {} } });
+        if (!cancelled) setLegacyAddendumText(res.addendumNote?.text || undefined);
+      } catch (e) {
+        console.error('Failed to load legacy addendum note:', e);
+        captureException(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiClient, encounterId]);
 
   useEasyChartQuickPicks(encounterId, async (p) => {
     await saveAndMerge(p);
@@ -489,6 +527,9 @@ export default function EasyChartPage(): JSX.Element {
         onConfirmProcedureField={confirmProcedureField}
         onConfirmProcedure={confirmProcedure}
         appointmentStart={appointmentStart ?? undefined}
+        inHouseMedications={inHouseMedications}
+        immunizationOrders={immunizationOrders}
+        legacyAddendumText={legacyAddendumText}
       />
     </>
   ) : null;

@@ -6,18 +6,23 @@ import { Box, Button, Divider, IconButton, Paper, Stack, Tooltip, Typography } f
 import {
   DiagnosisDTO,
   type ExamObservationDTO,
+  ExtendedMedicationDataForResponse,
   GetChartDataResponse,
+  ImmunizationOrder,
   MedicationDTO,
   NOTE_TYPE,
   NoteDTO,
   ProcedureDTO,
   VitalsObservationDTO,
 } from 'utils';
+import { AddendumSection, hasAddendaToShow } from './AddendumSection';
 import { AdditionalQuestionsSection, hasAdditionalQuestions } from './AdditionalQuestionsSection';
 import { AiAlternative, AiChartedItem } from './AiChartedItem';
 import { AiChartedMeta, AiField, ChartNoteKey, EasyChartLabOrder, ProcedureProvenance } from './chart-types';
 import { DispositionSection } from './DispositionSection';
 import { FIELD_TO_SECTION_LABEL } from './exam-ros-catalog';
+import { ImmunizationSection } from './ImmunizationSection';
+import { InHouseMedicationsSection } from './InHouseMedicationsSection';
 import InlineNoteField from './InlineNoteField';
 import { hasLabResultsToShow, LabResultsList } from './LabResultsList';
 // Shared section-header styling so each band in the note reads like a real section header
@@ -33,6 +38,7 @@ import {
   Section,
   VitalRow,
 } from './note-ui';
+import { PrescriptionsSection } from './PrescriptionsSection';
 import { PrivacyPolicyLine } from './PrivacyPolicyLine';
 import { RadiologySection } from './RadiologySection';
 import { ReviewableInstructionLine } from './ReviewableInstructionLine';
@@ -108,6 +114,15 @@ export interface NoteSectionsProps {
   // ISO start of the visit's Appointment, for the privacy-policy acknowledgement line. Omitted →
   // the line renders without the date.
   appointmentStart?: string;
+  // In-house (administered) MAR orders for this encounter, from a separate get-medication-orders
+  // query (NOT the chart-data fetch). Omitted/empty → no section (unless medication notes exist).
+  inHouseMedications?: ExtendedMedicationDataForResponse[];
+  // Administered immunization orders, from a separate get-immunization-orders query (already
+  // filtered to administered/administered-partly). Omitted/empty → no section.
+  immunizationOrders?: ImmunizationOrder[];
+  // Legacy single-string addendum (Encounter extension), fetched separately. The per-author
+  // addendum notes come from data.notes.
+  legacyAddendumText?: string;
 }
 
 export function NoteSections({
@@ -140,6 +155,9 @@ export function NoteSections({
   onConfirmProcedureField,
   onConfirmProcedure,
   appointmentStart,
+  inHouseMedications,
+  immunizationOrders,
+  legacyAddendumText,
 }: NoteSectionsProps): JSX.Element {
   const removeHandler = (field: string, dto: { resourceId?: string }): (() => void) | undefined =>
     editable && onRemoveItem && dto.resourceId ? () => onRemoveItem(field, dto) : undefined;
@@ -267,7 +285,13 @@ export function NoteSections({
   const hospitalizationNotes = notesOfType(NOTE_TYPE.HOSPITALIZATION);
   const vitalsNotes = notesOfType(NOTE_TYPE.VITALS);
   const screeningNotes = notesOfType(NOTE_TYPE.SCREENING);
+  const inHouseMedicationNotes = notesOfType(NOTE_TYPE.MEDICATION);
+  const addendumNotes = notesOfType(NOTE_TYPE.ADDENDUM);
   const showAdditionalQuestions = hasAdditionalQuestions(data.observations, screeningNotes);
+  const showInHouseMedications = (inHouseMedications?.length ?? 0) > 0 || inHouseMedicationNotes.length > 0;
+  const showImmunizations = (immunizationOrders?.length ?? 0) > 0;
+  const prescribedMedications = data.prescribedMedications ?? [];
+  const showAddendum = hasAddendaToShow(addendumNotes, legacyAddendumText);
 
   const examBySection = new Map<string, typeof abnormalExam>();
   abnormalExam.forEach((o) => {
@@ -304,7 +328,11 @@ export function NoteSections({
     allergyNotes.length ||
     medicationNotes.length ||
     hospitalizationNotes.length ||
-    vitalsNotes.length;
+    vitalsNotes.length ||
+    showInHouseMedications ||
+    showImmunizations ||
+    prescribedMedications.length ||
+    showAddendum;
 
   // In editable mode we always render so the free-text editors are available to type into even
   // on a brand-new encounter; read-only mode keeps the original empty placeholder.
@@ -476,6 +504,15 @@ export function NoteSections({
             <SectionNotes notes={hospitalizationNotes} />
           </Section>
         )}
+
+        {/* In-house (administered) meds + immunizations after Hospitalizations, mirroring the tail
+            of Review & Sign's medical-history block. Both are query-backed (fetched in
+            EasyChartPage, separate from chart data) and display-only. */}
+        {showInHouseMedications && (
+          <InHouseMedicationsSection medications={inHouseMedications ?? []} notes={inHouseMedicationNotes} />
+        )}
+
+        {showImmunizations && <ImmunizationSection orders={immunizationOrders ?? []} />}
 
         {(editable || chiefComplaint) && (
           <Section title="Chief Complaint">
@@ -1063,6 +1100,10 @@ export function NoteSections({
         {/* Radiology after Lab Results, mirroring Review & Sign's results ordering. Read-only. */}
         {radiologyOrders.length > 0 && <RadiologySection radiologyOrders={radiologyOrders} />}
 
+        {/* eRx prescriptions before Patient Instructions, mirroring Review & Sign's ordering.
+            Display-only — prescribing happens in the regular chart. */}
+        {prescribedMedications.length > 0 && <PrescriptionsSection prescriptions={prescribedMedications} />}
+
         {instructions.length > 0 && (
           <CollapsibleSection title={`Patient Instructions (${instructions.length})`}>
             <Stack spacing={0.5}>
@@ -1089,6 +1130,10 @@ export function NoteSections({
 
         {/* Static privacy-policy acknowledgement at the very bottom, like Review & Sign. */}
         <PrivacyPolicyLine appointmentStart={appointmentStart} />
+
+        {/* Addenda AFTER the privacy line, like Review & Sign's AddendumCard. Read-only here —
+            addenda are added/edited in the regular chart. */}
+        {showAddendum && <AddendumSection notes={addendumNotes} legacyText={legacyAddendumText} />}
       </Stack>
     </Paper>
   );
