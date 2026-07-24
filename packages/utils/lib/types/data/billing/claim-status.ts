@@ -1,4 +1,5 @@
-import { Claim } from 'fhir/r4b';
+import { Claim, Extension } from 'fhir/r4b';
+import { ottehrExtensionUrl } from '../../../fhir/systemUrls';
 
 /**
  * Billing claim status indicators.
@@ -255,4 +256,33 @@ export function claimStatusValuesToTags(values: Partial<ClaimStatusValues>): { s
     }
   }
   return tags;
+}
+
+export const CLAIM_STATUS_DATE_EXTENSION_URLS = {
+  insuranceFinalized: ottehrExtensionUrl('claim-insurance-finalized-date'),
+  enteredPatientAr: ottehrExtensionUrl('claim-entered-patient-ar-date'),
+} as const;
+
+export function buildClaimStatusDateExtensions(
+  before: Pick<Claim, 'meta' | 'extension'>,
+  afterValues: ClaimStatusValues,
+  recorded: string
+): Extension[] | undefined {
+  const beforeValues = getClaimStatusValues(before);
+  const urls: string[] = [];
+  if (afterValues.insuranceArStatus === 'finalized' && beforeValues.insuranceArStatus !== 'finalized') {
+    urls.push(CLAIM_STATUS_DATE_EXTENSION_URLS.insuranceFinalized);
+  }
+  if (afterValues.arStage === AR_STAGE.patient && beforeValues.arStage !== AR_STAGE.patient) {
+    urls.push(CLAIM_STATUS_DATE_EXTENSION_URLS.enteredPatientAr);
+  }
+  if (urls.length === 0) return undefined;
+  const kept = (before.extension ?? []).filter((ext) => !urls.includes(ext.url));
+  return [
+    ...kept,
+    ...urls.map((url) => ({
+      url,
+      valueDateTime: recorded,
+    })),
+  ];
 }

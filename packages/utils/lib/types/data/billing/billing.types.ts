@@ -402,6 +402,29 @@ export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
 }
 
+// amounts in dollars
+export interface PatientArClaimItem {
+  claimId: string;
+  patientId: string;
+  patientName: string;
+  patientDob: string;
+  encounterId: string | null;
+  appointmentId: string | null;
+  serviceDate: string;
+  finalizationDate: string;
+  billed: number;
+  allowed: number;
+  insurancePaid: number;
+  patientResp: number;
+  patientPaid: number;
+  balance: number;
+  adjudicated: boolean;
+}
+
+export interface SearchBillingPatientARClaimsResponse extends Paginated {
+  claims: PatientArClaimItem[];
+}
+
 export interface SearchBillingProvidersResponse extends Paginated {
   providers: BillingProviderOption[];
 }

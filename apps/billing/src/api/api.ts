@@ -51,6 +51,8 @@ import {
   SearchBillingErasResponse,
   SearchBillingLocationsInputSchema,
   SearchBillingLocationsResponse,
+  SearchBillingPatientARClaimsInputSchema,
+  SearchBillingPatientARClaimsResponse,
   SearchBillingPatientsInputSchema,
   SearchBillingPatientsResponse,
   SearchBillingPayersInputSchema,
@@ -139,6 +141,12 @@ export const searchBillingClaims = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingClaimsInputSchema>
 ): Promise<SearchBillingClaimsResponse> => executeBillingZambda(oystehr, 'search-billing-claims', parameters);
+
+export const searchBillingPatientARClaims = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingPatientARClaimsInputSchema>
+): Promise<SearchBillingPatientARClaimsResponse> =>
+  executeBillingZambda(oystehr, 'search-billing-patient-ar-claims', parameters);
 
 export const getBillingClaimDetail = (
   oystehr: Oystehr,

@@ -1,5 +1,11 @@
 import { Account, Appointment, Bundle, Encounter, Patient, RelatedPerson, Slot, Task as FhirTask } from 'fhir/r4b';
-import { EXPORT_INVOICES_CSV_TASK_SYSTEM, PATIENT_BILLING_ACCOUNT_TYPE, RCM_TASK_SYSTEM, RcmTaskCode } from 'utils';
+import {
+  EXPORT_INVOICES_CSV_TASK_SYSTEM,
+  INVOICE_TASK_SOURCE_SYSTEM,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  RCM_TASK_SYSTEM,
+  RcmTaskCode,
+} from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockOystehrClient = {
@@ -261,6 +267,68 @@ describe('sub-export-invoices-csv', () => {
     const params = searchCall.params as { name: string; value: unknown }[];
     expect(params.find((p) => p.name === 'status')?.value).toBe('completed');
     expect(params.find((p) => p.name === 'business-status:not')).toBeDefined();
+  });
+
+  it('applies the source filter from task input to the search', async () => {
+    const emptyBundle = makeFhirBundle([], 0);
+    mockOystehrClient.fhir.search.mockResolvedValue(emptyBundle);
+
+    const sourceInput = (value: string): NonNullable<FhirTask['input']>[number] => ({
+      type: {
+        coding: [
+          {
+            system: EXPORT_INVOICES_CSV_TASK_SYSTEM,
+            code: 'filter-source',
+          },
+        ],
+      },
+      valueString: value,
+    });
+    const sourceToken = `${INVOICE_TASK_SOURCE_SYSTEM}|ottehr-billing`;
+    const searchParams = (): { name: string; value: unknown }[] =>
+      mockOystehrClient.fhir.search.mock.lastCall?.[0].params;
+
+    await capturedHandler(
+      {
+        task: makeExportTask({
+          input: [sourceInput('ottehr-billing')],
+        }),
+        secrets: {
+          PROJECT_ID: 'test-project',
+          PROJECT_API: 'https://api.example.com',
+        },
+      },
+      mockOystehrClient
+    );
+    expect(searchParams().find((p) => p.name === '_tag')?.value).toBe(sourceToken);
+
+    await capturedHandler(
+      {
+        task: makeExportTask({
+          input: [sourceInput('candid')],
+        }),
+        secrets: {
+          PROJECT_ID: 'test-project',
+          PROJECT_API: 'https://api.example.com',
+        },
+      },
+      mockOystehrClient
+    );
+    expect(searchParams().find((p) => p.name === '_tag:not')?.value).toBe(sourceToken);
+
+    await capturedHandler(
+      {
+        task: makeExportTask({
+          input: [sourceInput('garbage')],
+        }),
+        secrets: {
+          PROJECT_ID: 'test-project',
+          PROJECT_API: 'https://api.example.com',
+        },
+      },
+      mockOystehrClient
+    );
+    expect(searchParams().find((p) => p.name === '_tag' || p.name === '_tag:not')).toBeUndefined();
   });
 
   it('paginates through multiple pages', async () => {

@@ -1,11 +1,12 @@
-import { CodeableConcept, Task } from 'fhir/r4b';
+import { CodeableConcept, Coding, Task } from 'fhir/r4b';
 import z from 'zod';
-import { ottehrCodeSystemUrl } from '../../fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from '../../fhir/systemUrls';
 import { Secrets } from '../../secrets';
 
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
 export const EXPORT_INVOICES_ZAMBDA_KEY = 'export-invoices';
+export const CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY = 'create-invoice-tasks-for-billing-claims';
 export const EXPORT_INVOICES_CSV_TASK_CODE = 'export-invoices-csv';
 export const EXPORT_INVOICES_CSV_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
 export const EXPORT_CSV_OUTPUT_URL_CODE = 'export-csv-output-url';
@@ -32,6 +33,15 @@ export const InvoiceSortDirectionValues = {
 
 export const InvoiceTaskDisplayStatuses = ['ready', 'updating', 'sending', 'sent', 'error'] as const;
 export type InvoiceTaskDisplayStatus = (typeof InvoiceTaskDisplayStatuses)[number];
+
+export const InvoiceTaskSources = ['candid', 'ottehr-billing'] as const;
+export type InvoiceTaskSource = (typeof InvoiceTaskSources)[number];
+export const INVOICE_TASK_SOURCE_SYSTEM = ottehrCodeSystemUrl('invoice-task-source');
+export const invoiceTaskSourceTag = (source: InvoiceTaskSource): Coding => ({
+  system: INVOICE_TASK_SOURCE_SYSTEM,
+  code: source,
+});
+export const INVOICE_TASK_CLAIM_ID_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('invoice-task-claim-id');
 
 export const InvoiceTaskInputSchemaBase = z.object({
   dueDate: z.string(),
@@ -89,6 +99,7 @@ export const GetInvoicesTasksZambdaInputSchema = z.object({
   sortField: z.enum(InvoiceSortFields).optional(),
   sortDirection: z.enum(InvoiceSortDirections).optional(),
   hideZeroBalance: z.boolean().optional(),
+  source: z.enum(InvoiceTaskSources).optional(),
 });
 export const GetInvoicesTasksZambdaValidatedInputSchema = GetInvoicesTasksZambdaInputSchema.extend({
   secrets: z.custom<Secrets>().nullable(),
@@ -138,6 +149,7 @@ export const ExportInvoicesTasksCsvZambdaInputSchema = z.object({
   sortField: z.enum(InvoiceSortFields).optional(),
   sortDirection: z.enum(InvoiceSortDirections).optional(),
   hideZeroBalance: z.boolean().optional(),
+  source: z.enum(InvoiceTaskSources).optional(),
 });
 export const ExportInvoicesTasksCsvZambdaValidatedInputSchema = ExportInvoicesTasksCsvZambdaInputSchema.extend({
   secrets: z.custom<Secrets>().nullable(),
@@ -155,6 +167,30 @@ export type GetExportInvoicesCsvStatusInput = z.infer<typeof GetExportInvoicesCs
 export type GetExportInvoicesCsvStatusValidatedInput = z.infer<
   typeof GetExportInvoicesCsvStatusZambdaValidatedInputSchema
 >;
+
+export const CreateInvoiceTasksForBillingClaimsInputSchema = z.object({
+  claims: z.array(
+    z.object({
+      claimId: z.string().uuid(),
+      encounterId: z.string().uuid(),
+      finalizationDate: z.string(),
+      balance: z.number(),
+    })
+  ),
+});
+export const CreateInvoiceTasksForBillingClaimsValidatedInputSchema =
+  CreateInvoiceTasksForBillingClaimsInputSchema.extend({
+    secrets: z.custom<Secrets>().nullable(),
+  });
+export type BillingInvoiceTaskClaim = z.infer<typeof CreateInvoiceTasksForBillingClaimsInputSchema>['claims'][number];
+export type CreateInvoiceTasksForBillingClaimsInput = z.infer<typeof CreateInvoiceTasksForBillingClaimsInputSchema>;
+export type CreateInvoiceTasksForBillingClaimsValidatedInput = z.infer<
+  typeof CreateInvoiceTasksForBillingClaimsValidatedInputSchema
+>;
+export type CreateInvoiceTasksForBillingClaimsResponse = {
+  created: number;
+  skipped: number;
+};
 
 export type ExportInvoicesCsvKickOffResponse = { taskId: string };
 export type ExportInvoicesCsvStatusResponse = {

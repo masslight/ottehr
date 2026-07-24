@@ -20,6 +20,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
+import { getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
 import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
@@ -56,7 +57,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { patient, encounter, account, appointment, location, schedule, stripeAccountId } = fhirResources;
     console.log('Fhir resources fetched');
 
-    console.log('Getting stripe and candid ids');
+    const source = getInvoiceTaskSource(task);
+    console.log(`Resolving Stripe customer id for ${source} invoice task`);
     let stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
     if (!stripeCustomerId) {
       console.log('No Stripe customer ID on account, creating one now');
@@ -80,9 +82,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       );
     }
 
-    const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
-    if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
-    console.log('Stripe and candid ids retrieved');
+    if (source === 'candid' && !getCandidEncounterIdFromEncounter(encounter)) {
+      throw new Error('CandidEncounterId is not found');
+    }
+    console.log('Stripe customer id resolved');
 
     const timezone = resolveTimezone(schedule, location);
     const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
