@@ -1,14 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Patient, Provenance } from 'fhir/r4b';
+import { Claim, Patient } from 'fhir/r4b';
 import {
   AR_STAGE,
   chunkThings,
-  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-  CLAIM_STATUS_FIELDS_BY_KEY,
+  CLAIM_STATUS_DATE_EXTENSION_URLS,
   CLAIM_STATUS_TAG_SYSTEMS,
-  ClaimFieldChange,
   ClaimStatusValues,
-  formatClaimStatusValue,
   getClaimStatusValues,
   PatientArClaimItem,
   removePrefix,
@@ -20,7 +17,6 @@ import { ClaimPaymentSummary, fetchClaimResponsesByClaimIds, summarizeClaimPayme
 import { fhirName } from '../shared';
 
 const CLAIM_SCAN_PAGE_SIZE = 200;
-const PROVENANCE_BATCH = 100;
 const PATIENT_BATCH = 100;
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -112,20 +108,17 @@ async function buildPatientArClaimItems(
   billingClient: Oystehr,
   matches: PatientArMatch[]
 ): Promise<PatientArClaimItem[]> {
-  const [patientsById, provenancesByClaimId] = await Promise.all([
-    fetchPatientsById(
-      billingClient,
-      matches.map(({ patientId }) => patientId)
-    ),
-    fetchClaimProvenances(billingClient, matches.map(({ claimId }) => claimId).filter(Boolean)),
-  ]);
+  const patientsById = await fetchPatientsById(
+    billingClient,
+    matches.map(({ patientId }) => patientId)
+  );
 
-  return matches.map(({ claim, claimId, patientId, payments }) =>
+  return matches.map(({ claim, patientId, payments }) =>
     mapToPatientArClaimItem({
       claim,
       patient: patientsById.get(patientId),
       payments,
-      finalizationDate: deriveFinalizationDate(provenancesByClaimId.get(claimId) ?? [], claim),
+      finalizationDate: deriveFinalizationDate(claim),
     })
   );
 }
@@ -141,44 +134,16 @@ export function isActivePatientArClaim(statuses: ClaimStatusValues, payments: Cl
   return isInActivePatientArStage(statuses) && payments.balance > 0;
 }
 
-export function deriveFinalizationDate(provenances: Provenance[], claim: Claim): string {
-  const insuranceFinalizedLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.insuranceArStatus, 'finalized');
-  const patientArStageLabel = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.arStage, AR_STAGE.patient);
-
-  let insuranceFinalizedAt: string | undefined;
-  let enteredPatientArAt: string | undefined;
-  for (const provenance of provenances) {
-    const recorded = provenance.recorded;
-    if (!recorded) continue;
-    for (const change of parseChangeSet(provenance)) {
-      if (
-        change.field === 'status.insuranceArStatus' &&
-        change.newValue === insuranceFinalizedLabel &&
-        (!insuranceFinalizedAt || recorded > insuranceFinalizedAt)
-      ) {
-        insuranceFinalizedAt = recorded;
-      }
-      if (
-        change.field === 'status.arStage' &&
-        change.newValue === patientArStageLabel &&
-        (!enteredPatientArAt || recorded > enteredPatientArAt)
-      ) {
-        enteredPatientArAt = recorded;
-      }
-    }
-  }
-  return insuranceFinalizedAt ?? enteredPatientArAt ?? claim.meta?.lastUpdated ?? claim.created ?? '';
-}
-
-function parseChangeSet(provenance: Provenance): ClaimFieldChange[] {
-  const diffString = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL)?.valueString;
-  if (!diffString) return [];
-  try {
-    const parsed = JSON.parse(diffString);
-    return Array.isArray(parsed) ? (parsed as ClaimFieldChange[]) : [];
-  } catch {
-    return [];
-  }
+export function deriveFinalizationDate(claim: Claim): string {
+  const dateExtensionValue = (url: string): string | undefined =>
+    claim.extension?.find((ext) => ext.url === url)?.valueDateTime;
+  return (
+    dateExtensionValue(CLAIM_STATUS_DATE_EXTENSION_URLS.insuranceFinalized) ??
+    dateExtensionValue(CLAIM_STATUS_DATE_EXTENSION_URLS.enteredPatientAr) ??
+    claim.created ??
+    claim.meta?.lastUpdated ??
+    ''
+  );
 }
 
 export interface MapToPatientArClaimItemParams {
@@ -297,49 +262,4 @@ export async function fetchPatientsById(billingClient: Oystehr, patientIds: stri
     })
   );
   return byId;
-}
-
-async function fetchClaimProvenances(billingClient: Oystehr, claimIds: string[]): Promise<Map<string, Provenance[]>> {
-  const grouped = new Map<string, Provenance[]>();
-  const batches = chunkThings([...new Set(claimIds)], PROVENANCE_BATCH);
-  await Promise.all(
-    batches.map((batch) =>
-      fetchAllPages(async (offset, count) => {
-        const bundle = await billingClient.fhir.search<Provenance>({
-          resourceType: 'Provenance',
-          params: [
-            {
-              name: 'target',
-              value: batch.map((id) => `Claim/${id}`).join(','),
-            },
-            {
-              name: '_count',
-              value: String(count),
-            },
-            {
-              name: '_offset',
-              value: String(offset),
-            },
-          ],
-        });
-        for (const provenance of bundle.unbundle()) {
-          for (const claimId of provenanceClaimTargetIds(provenance)) {
-            const list = grouped.get(claimId) ?? [];
-            list.push(provenance);
-            grouped.set(claimId, list);
-          }
-        }
-        return bundle;
-      }, CLAIM_SCAN_PAGE_SIZE)
-    )
-  );
-  return grouped;
-}
-
-function provenanceClaimTargetIds(provenance: Provenance): Set<string> {
-  const ids = (provenance.target ?? [])
-    .map((target) => removePrefix('Claim/', target.reference ?? ''))
-    .filter((id): id is string => Boolean(id))
-    .map((id) => id.split('/')[0]);
-  return new Set(ids);
 }

@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Patient, Provenance } from 'fhir/r4b';
+import { Claim, Patient } from 'fhir/r4b';
 import {
   AR_STAGE,
-  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_STATUS_DATE_EXTENSION_URLS,
   CLAIM_STATUS_FIELDS_BY_KEY,
   ClaimStatusValues,
   claimStatusValuesToTags,
@@ -62,30 +62,6 @@ const claim = (overrides: Partial<Claim> = {}): Claim => ({
     reference: 'Patient/pat-1',
   },
   ...overrides,
-});
-
-const statusChangeProvenance = (recorded: string, field: string, newValue: string | null): Provenance => ({
-  resourceType: 'Provenance',
-  recorded,
-  target: [
-    {
-      reference: 'Claim/claim-1',
-    },
-  ],
-  agent: [],
-  extension: [
-    {
-      url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-      valueString: JSON.stringify([
-        {
-          field,
-          label: 'label',
-          previousValue: null,
-          newValue,
-        },
-      ]),
-    },
-  ],
 });
 
 const INSURANCE_FINALIZED_LABEL = formatClaimStatusValue(CLAIM_STATUS_FIELDS_BY_KEY.insuranceArStatus, 'finalized');
@@ -183,76 +159,75 @@ describe('isActivePatientArClaim', () => {
 });
 
 describe('deriveFinalizationDate', () => {
-  const testClaim = claim({
-    id: 'claim-1',
-    created: '2026-06-01',
-    meta: {
-      lastUpdated: '2026-06-20T10:00:00Z',
-    },
-  });
-
-  it('uses the insuranceArStatus -> finalized change', () => {
-    const provenances = [
-      statusChangeProvenance('2026-06-10T10:00:00Z', 'status.arStage', PATIENT_AR_STAGE_LABEL),
-      statusChangeProvenance('2026-06-05T10:00:00Z', 'status.insuranceArStatus', INSURANCE_FINALIZED_LABEL),
-    ];
-    expect(deriveFinalizationDate(provenances, testClaim)).toBe('2026-06-05T10:00:00Z');
-  });
-
-  it('uses the latest finalized change when there are several', () => {
-    const provenances = [
-      statusChangeProvenance('2026-06-05T10:00:00Z', 'status.insuranceArStatus', INSURANCE_FINALIZED_LABEL),
-      statusChangeProvenance('2026-06-12T10:00:00Z', 'status.insuranceArStatus', INSURANCE_FINALIZED_LABEL),
-    ];
-    expect(deriveFinalizationDate(provenances, testClaim)).toBe('2026-06-12T10:00:00Z');
-  });
-
-  it('ignores other status changes and non-finalized values', () => {
-    const provenances = [
-      statusChangeProvenance('2026-06-10T10:00:00Z', 'status.insuranceArStatus', 'Submitted'),
-      statusChangeProvenance('2026-06-11T10:00:00Z', 'status.patientArStatus', 'Finalized'),
-    ];
-    expect(deriveFinalizationDate(provenances, testClaim)).toBe('2026-06-20T10:00:00Z');
-  });
-
-  it('falls back to the arStage -> Patient AR change (self-pay creation)', () => {
-    const provenances = [statusChangeProvenance('2026-06-03T10:00:00Z', 'status.arStage', PATIENT_AR_STAGE_LABEL)];
-    expect(deriveFinalizationDate(provenances, testClaim)).toBe('2026-06-03T10:00:00Z');
-  });
-
-  it('falls back to meta.lastUpdated, then created, with no matching provenances', () => {
-    expect(deriveFinalizationDate([], testClaim)).toBe('2026-06-20T10:00:00Z');
-    expect(deriveFinalizationDate([], claim({ created: '2026-06-01' }))).toBe('2026-06-01');
-    expect(deriveFinalizationDate([], claim({ created: undefined }))).toBe('');
-  });
-
-  it('tolerates malformed change sets', () => {
-    const malformed: Provenance = {
-      resourceType: 'Provenance',
-      recorded: '2026-06-05T10:00:00Z',
-      target: [
-        {
-          reference: 'Claim/claim-1',
-        },
-      ],
-      agent: [],
+  const claimWithDateExtensions = (dates: { insuranceFinalized?: string; enteredPatientAr?: string }): Claim =>
+    claim({
+      id: 'claim-1',
       extension: [
-        {
-          url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-          valueString: 'not json {',
-        },
+        ...(dates.insuranceFinalized
+          ? [
+              {
+                url: CLAIM_STATUS_DATE_EXTENSION_URLS.insuranceFinalized,
+                valueDateTime: dates.insuranceFinalized,
+              },
+            ]
+          : []),
+        ...(dates.enteredPatientAr
+          ? [
+              {
+                url: CLAIM_STATUS_DATE_EXTENSION_URLS.enteredPatientAr,
+                valueDateTime: dates.enteredPatientAr,
+              },
+            ]
+          : []),
       ],
-    };
-    const notArray: Provenance = {
-      ...malformed,
-      extension: [
-        {
-          url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
-          valueString: '{"field":"status.insuranceArStatus"}',
-        },
-      ],
-    };
-    expect(deriveFinalizationDate([malformed, notArray], testClaim)).toBe('2026-06-20T10:00:00Z');
+    });
+
+  it('prefers the insurance-finalized date over the entered-patient-AR date', () => {
+    expect(
+      deriveFinalizationDate(
+        claimWithDateExtensions({
+          insuranceFinalized: '2026-06-05T10:00:00Z',
+          enteredPatientAr: '2026-06-10T10:00:00Z',
+        })
+      )
+    ).toBe('2026-06-05T10:00:00Z');
+  });
+
+  it('uses the entered-patient-AR date when there is no insurance-finalized date', () => {
+    expect(
+      deriveFinalizationDate(
+        claimWithDateExtensions({
+          enteredPatientAr: '2026-06-03T10:00:00Z',
+        })
+      )
+    ).toBe('2026-06-03T10:00:00Z');
+  });
+
+  it('falls back to created, then meta.lastUpdated, when the claim carries no date extension', () => {
+    expect(
+      deriveFinalizationDate(
+        claim({
+          created: '2026-06-01',
+        })
+      )
+    ).toBe('2026-06-01');
+    expect(
+      deriveFinalizationDate(
+        claim({
+          created: undefined,
+          meta: {
+            lastUpdated: '2026-06-20T10:00:00Z',
+          },
+        })
+      )
+    ).toBe('2026-06-20T10:00:00Z');
+    expect(
+      deriveFinalizationDate(
+        claim({
+          created: undefined,
+        })
+      )
+    ).toBe('');
   });
 });
 
