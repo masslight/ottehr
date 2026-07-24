@@ -10,6 +10,7 @@ import {
   providerToUpdateInput,
 } from '../constants/provider';
 import { useApiClients } from '../hooks/useAppClients';
+import { formatTaxId } from '../utils/format';
 import { AddressFields } from './AddressFields';
 import { EditableSection } from './claim/EditableSection';
 import { ProviderFields } from './ProviderFields';
@@ -127,7 +128,7 @@ export function ProviderDetailForm({
       <Row label="NPI" value={provider?.npi ?? ''} />
       <Row label="Taxonomy Code" value={provider?.taxonomyCode ?? ''} />
       {provider?.kind === 'individual' && <Row label="License Type" value={provider?.licenseType ?? ''} />}
-      <Row label="Tax ID / EIN" value={provider?.taxId ?? ''} />
+      <Row label="Tax ID / EIN" value={formatTaxId(provider?.taxId ?? '')} />
       {provider?.kind === 'organization' && <Row label="Stripe Account ID" value={provider.stripeAccountId ?? ''} />}
       <Row label="Address" value={provider?.address ?? ''} />
       <Row label="Roles" value={rolesLabel} hideBorder />

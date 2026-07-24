@@ -5,6 +5,7 @@ import {
   BillingCodeOption,
   BillingProviderOption,
   BillingRulesResponse,
+  BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   chooseJson,
   ClaimDetailResponse,
   CreateBillingClaimInputSchema,
@@ -339,6 +340,12 @@ export const deleteChargeItemDefinition = (
   oystehr: Oystehr,
   parameters: z.input<typeof DeleteChargeItemDefinitionInputSchema>
 ): Promise<void> => executeBillingZambda(oystehr, 'delete-charge-item-definition', parameters);
+
+export const bulkAddChargeItemDefinitionProcedureCodes = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BulkAddChargeItemDefinitionProcedureCodesInputSchema>
+): Promise<BillingChargeItemDefinition> =>
+  executeBillingZambda(oystehr, 'bulk-add-charge-item-definition-procedure-codes', parameters);
 
 // --- Payments ---
 

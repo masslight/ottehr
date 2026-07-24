@@ -8,11 +8,20 @@ import {
   COMPRESS_THRESHOLD_MB,
   FileInput,
 } from 'ui-components/lib/components/paperwork/form-components';
+import { downscaleImageForUpload } from 'utils/lib/frontend';
 import { describe, expect, test, vi } from 'vitest';
 
 vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
+
+vi.mock('utils/lib/frontend', async () => {
+  const actual = await vi.importActual<typeof import('utils/lib/frontend')>('utils/lib/frontend');
+  return {
+    ...actual,
+    downscaleImageForUpload: vi.fn(async (file: File) => file),
+  };
+});
 
 // FileInput/index.tsx imports convertHeicToJpegIfNeeded via a relative path
 // (../../../../utils/heic), not the ui-components barrel, so we must mock the
@@ -122,6 +131,29 @@ describe('FileInput image compression', () => {
       expect(mocked).toHaveBeenCalledTimes(1);
     });
     expect(mocked).toHaveBeenCalledWith(largeFile, { maxSizeMB: COMPRESS_TARGET_MB });
+  });
+
+  test('downscales images before the MB-based compression safety net', async () => {
+    const downscale = vi.mocked(downscaleImageForUpload);
+    downscale.mockClear();
+    const mocked = vi.mocked(imageCompression);
+    mocked.mockClear();
+
+    const { container } = render(<Wrapper />);
+    const input = findFileInput(container);
+
+    const largeFile = makeFile((COMPRESS_THRESHOLD_MB + 1) * MB);
+    fireEvent.change(input, { target: { files: [largeFile] } });
+
+    await waitFor(() => {
+      expect(downscale).toHaveBeenCalledTimes(1);
+    });
+    expect(downscale).toHaveBeenCalledWith(largeFile);
+    await waitFor(() => {
+      expect(mocked).toHaveBeenCalledTimes(1);
+    });
+    // the downscaled file is what feeds the compression step
+    expect(mocked.mock.calls[0][0]).toBe(await downscale.mock.results[0].value);
   });
 
   test('does not compress pdf attachments regardless of size', async () => {

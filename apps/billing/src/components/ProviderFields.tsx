@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { InputMask } from 'ui-components';
 import {
   isNPIValidWithChecksum,
   PractitionerQualificationCodesDisplay,
@@ -153,6 +154,10 @@ export function ProviderFields(): ReactElement {
               onChange={(e) => field.onChange(e.target.value)}
               error={!!fieldError}
               helperText={fieldError?.message}
+              inputProps={{ mask: '00-0000000', unmask: true }}
+              InputProps={{
+                inputComponent: InputMask as any,
+              }}
             />
           )}
         />

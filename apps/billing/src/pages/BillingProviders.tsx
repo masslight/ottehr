@@ -21,6 +21,7 @@ import { ProviderDetailSection } from '../components/ProviderDetailSection';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { useProvider } from '../hooks/useProvider';
+import { formatTaxId } from '../utils/format';
 
 interface ProviderRow {
   id: string;
@@ -47,7 +48,12 @@ const columns: GridColDef[] = [
     ),
   },
   { field: 'npi', headerName: 'NPI', width: 130 },
-  { field: 'taxId', headerName: 'Tax ID / EIN', width: 140 },
+  {
+    field: 'taxId',
+    headerName: 'Tax ID / EIN',
+    width: 140,
+    renderCell: (params) => <>{formatTaxId(params.value ?? '')}</>,
+  },
   { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },
 ];
 

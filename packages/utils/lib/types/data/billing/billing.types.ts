@@ -43,7 +43,8 @@ export interface BillingPatientOption {
   dob: string;
   gender: string;
   address: string;
-  friendlyId: string;
+  clinicalId: string;
+  clinicalFriendlyId: string;
 }
 
 export interface BillingPolicyHolderSummary {
@@ -227,7 +228,8 @@ export interface PatientDetailResponse {
     state: string;
     postalCode: string;
   };
-  friendlyId: string;
+  clinicalId: string;
+  clinicalFriendlyId: string;
   active: boolean;
   balance: {
     claimsWithPatientBalance: number;

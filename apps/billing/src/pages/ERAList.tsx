@@ -287,7 +287,6 @@ export default function ERAList(): ReactElement {
           label="Check Number"
           value={checkNumber}
           onChange={(e) => handleDebouncedFilter(setCheckNumber, 'checkNumber')(e.target.value)}
-          InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 140 }}
         />
         <FormControl size="small" sx={{ minWidth: 140 }}>

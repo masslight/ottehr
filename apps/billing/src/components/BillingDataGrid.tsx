@@ -4,7 +4,7 @@ import { otherColors } from '../themes/ottehr/colors';
 
 export const dataGridSx = {
   bgcolor: 'background.paper',
-  border: 'none',
+  border: `1px solid ${otherColors.lightDivider}`,
   borderRadius: 1,
   fontSize: 14,
   '& .MuiDataGrid-columnHeaders': {
