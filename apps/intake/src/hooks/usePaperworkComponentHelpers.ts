@@ -3,7 +3,13 @@ import api from 'src/api/ottehrApi';
 import { useOystehrAPIClient } from 'src/telemed/utils';
 import { PaperworkComponentHelpers } from 'ui-components/lib/components/paperwork/context';
 import {
+  CreateCardDocumentReferenceInput,
+  CreateCardDocumentReferenceResponse,
+  DeleteCardDocumentReferenceInput,
+  DeleteCardDocumentReferenceResponse,
   GetAnswerOptionsRequest,
+  GetCardExtractionInput,
+  GetCardExtractionResponse,
   HandleAnswerInput,
   PaymentMethodSetDefaultParameters,
   SearchPlacesInput,
@@ -66,9 +72,31 @@ export const usePaperworkComponentHelpers = (): PaperworkComponentHelpers => {
     return await api.createZ3Object(appointmentID, fileType, fileFormat, tokenlessZambdaClient, file);
   };
 
+  const createCardDocumentReference = async (
+    input: CreateCardDocumentReferenceInput
+  ): Promise<CreateCardDocumentReferenceResponse> => {
+    if (tokenlessZambdaClient == null) throw new Error('error searching, api client is undefined');
+    return await api.createCardDocumentReference(input, tokenlessZambdaClient);
+  };
+
+  const deleteCardDocumentReference = async (
+    input: DeleteCardDocumentReferenceInput
+  ): Promise<DeleteCardDocumentReferenceResponse> => {
+    if (tokenlessZambdaClient == null) throw new Error('error searching, api client is undefined');
+    return await api.deleteCardDocumentReference(input, tokenlessZambdaClient);
+  };
+
+  const getCardExtraction = async (input: GetCardExtractionInput): Promise<GetCardExtractionResponse> => {
+    if (tokenlessZambdaClient == null) throw new Error('error searching, api client is undefined');
+    return await api.getCardExtraction(input, tokenlessZambdaClient);
+  };
+
   return {
     handleSearchPlaces,
     createZ3Object,
+    createCardDocumentReference,
+    deleteCardDocumentReference,
+    getCardExtraction,
     aIInterviewStart,
     aIInterviewHandleAnswer,
     setDefaultPaymentMethod,
