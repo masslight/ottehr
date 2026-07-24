@@ -102,6 +102,7 @@ const PRIMARY_EHR_STAFF_ROLES = [
   RoleType.Staff,
   RoleType.Manager,
   RoleType.Provider,
+  RoleType.Clinician,
   RoleType.CustomerSupport,
 ];
 
