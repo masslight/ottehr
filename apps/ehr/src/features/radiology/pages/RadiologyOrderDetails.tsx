@@ -1,7 +1,7 @@
 import { LoadingButton } from '@mui/lab';
 import { Button, Checkbox, Chip, TextField, Tooltip, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -9,6 +9,7 @@ import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
+import { RadiologyReportDiagnosis, RadiologyReportDiagnosisField } from '../components/RadiologyReportDiagnosisField';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
 import { RadiologyViewImageBtn } from '../components/RadiologyViewImageBtn';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
@@ -21,6 +22,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const theme = useTheme();
 
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
+  const [preliminaryReportDx, setPreliminaryReportDx] = useState<RadiologyReportDiagnosis[]>([]);
+  const [missingPreliminaryReportDx, setMissingPreliminaryReportDx] = useState(false);
   const [finalReportByUser, setFinalReportByUser] = useState(false);
   const [finalReport, setFinalReport] = useState<string | undefined>();
   const [missingFinalReport, setMissingFinalReport] = useState(false);
@@ -48,6 +51,15 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const consentExists = useRadiologyConsentExists();
 
   const order = orders.find((order) => order.serviceRequestId === serviceRequestId);
+
+  // Seed the preliminary-read diagnosis picker with any diagnosis already on the order (diagnosis is
+  // optional at order time, so this may be empty). Runs once when the order first loads.
+  useEffect(() => {
+    if (order?.status === 'performed' && !order.preliminaryReport && order.diagnoses) {
+      setPreliminaryReportDx(order.diagnoses.map((d) => ({ code: d.code, display: d.display })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.serviceRequestId]);
 
   const saveReportButton = (label: string, loading?: boolean, btnOnClick?: () => void): JSX.Element => {
     const btn = (
@@ -166,21 +178,35 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               )}
 
               {order.status === 'performed' && !order.preliminaryReport && (
-                <Box sx={{ mt: 2 }}>
-                  <TextField
-                    id="preliminary-report-field"
-                    label="Preliminary Report"
-                    placeholder="Enter preliminary report for the radiology order"
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    maxRows={10}
-                    size="small"
-                    value={preliminaryReport}
-                    onChange={(e) => setPreliminaryReport(e.target.value)}
-                    disabled={isReadOnly}
-                  />
-                </Box>
+                <>
+                  <Box sx={{ mt: 2 }}>
+                    <RadiologyReportDiagnosisField
+                      value={preliminaryReportDx}
+                      onChange={(dx) => {
+                        setMissingPreliminaryReportDx(false);
+                        setPreliminaryReportDx(dx);
+                      }}
+                      disabled={isReadOnly}
+                      error={missingPreliminaryReportDx}
+                      helperText={missingPreliminaryReportDx ? 'Please enter a diagnosis to continue' : undefined}
+                    />
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <TextField
+                      id="preliminary-report-field"
+                      label="Preliminary Report"
+                      placeholder="Enter preliminary report for the radiology order"
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      maxRows={10}
+                      size="small"
+                      value={preliminaryReport}
+                      onChange={(e) => setPreliminaryReport(e.target.value)}
+                      disabled={isReadOnly}
+                    />
+                  </Box>
+                </>
               )}
 
               {order.preliminaryReport != null ? (
@@ -295,9 +321,18 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
             {order.status === 'performed' &&
               !order.preliminaryReport &&
-              saveReportButton('Save Preliminary Report', isSavingReport, () =>
-                handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary')
-              )}
+              saveReportButton('Save Preliminary Report', isSavingReport, () => {
+                if (preliminaryReportDx.length === 0) {
+                  setMissingPreliminaryReportDx(true);
+                  return;
+                }
+                void handleSaveReport(
+                  serviceRequestId,
+                  preliminaryReport || '',
+                  'preliminary',
+                  preliminaryReportDx.map((d) => d.code)
+                );
+              })}
 
             {order.status === 'preliminary' &&
               (finalReportByUser

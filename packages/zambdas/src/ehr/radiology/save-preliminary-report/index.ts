@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ServiceRequest } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { CodeableConcept, ServiceRequest } from 'fhir/r4b';
 import { DiagnosticReport, Reference } from 'fhir/r5';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
@@ -8,12 +9,14 @@ import {
   createOurDiagnosticReport,
   fetchServiceRequestFromAdvaPACS,
   getSecret,
+  MISSING_REQUIRED_PARAMETERS,
   RADIOLOGY_ERROR,
   SaveRadiologyReportZambdaOutput,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { validateICD10Codes } from '../create-order/validation';
 import { extractDiagnosticsFromAdvaPACSErrorBody } from '../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
@@ -43,7 +46,14 @@ async function performEffect(
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<SaveRadiologyReportZambdaOutput> {
-  const { serviceRequestId, report: preliminaryReport } = validatedInput.body;
+  const { serviceRequestId, report: preliminaryReport, diagnosisCodes } = validatedInput.body;
+
+  // Diagnosis is captured here (it is optional at order time) and is required to save a preliminary read.
+  // Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
+  if (diagnosisCodes == null || diagnosisCodes.length === 0) {
+    throw MISSING_REQUIRED_PARAMETERS(['diagnosisCodes']);
+  }
+  const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
 
   // Get the existing service request from Oystehr
   console.group('Fetching service request from Oystehr');
@@ -84,6 +94,21 @@ async function performEffect(
   await createOurDiagnosticReport(serviceRequest, advaPacsDiagnosticReport, preliminaryReport, oystehr);
   console.groupEnd();
   console.debug('DiagnosticReport created successfully in Oystehr');
+
+  // Persist the diagnosis onto the order so it surfaces as the order's diagnosis in lists/details.
+  console.group('Updating service request diagnosis in Oystehr');
+  const reasonCode: CodeableConcept[] = diagnoses.map((diagnosis) => ({ coding: [diagnosis] }));
+  const hasExistingReasonCode = Array.isArray(serviceRequest.reasonCode) && serviceRequest.reasonCode.length > 0;
+  const reasonCodeOperation: Operation = hasExistingReasonCode
+    ? { op: 'replace', path: '/reasonCode', value: reasonCode }
+    : { op: 'add', path: '/reasonCode', value: reasonCode };
+  await oystehr.fhir.patch({
+    resourceType: 'ServiceRequest',
+    id: serviceRequestId,
+    operations: [reasonCodeOperation],
+  });
+  console.groupEnd();
+  console.debug('Service request diagnosis updated successfully');
 
   return {};
 }

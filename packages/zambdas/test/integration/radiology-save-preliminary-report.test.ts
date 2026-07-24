@@ -54,11 +54,23 @@ describe('radiology-save-preliminary-report integration — happy path', () => {
     await cleanup();
   });
 
-  it('saves a preliminary radiology report', async () => {
+  it('rejects a preliminary radiology report without a diagnosis', async () => {
+    // Diagnosis is required when saving a preliminary read (it is optional at order time).
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'radiology-save-preliminary-report',
+        serviceRequestId,
+        report: 'Integration test preliminary report',
+      })
+    ).rejects.toThrow();
+  });
+
+  it('saves a preliminary radiology report with a diagnosis', async () => {
     const response = await oystehrZambdas.zambda.execute({
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
+      diagnosisCodes: ['E11.9'],
     });
     expect(response.output).toBeDefined();
   });
