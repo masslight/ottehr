@@ -126,6 +126,7 @@ export default function EasyChartPage(): JSX.Element {
   } = useAiProvenance({ encounterId, chartDataRef, saveAndMerge, deleteChartedResource });
   onResourceDeletedRef.current = clearAiChartedId;
   const [appointmentId, setAppointmentId] = useState<string | null>(null);
+  const [appointmentStart, setAppointmentStart] = useState<string | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [reasonForVisit, setReasonForVisit] = useState<string | null>(null);
 
@@ -285,7 +286,11 @@ export default function EasyChartPage(): JSX.Element {
         if (!cancelled && id) setAppointmentId(id);
         if (id) {
           const appointment = await oystehr.fhir.get<Appointment>({ resourceType: 'Appointment', id });
-          if (!cancelled) setReasonForVisit(appointment.description ?? null);
+          if (!cancelled) {
+            setReasonForVisit(appointment.description ?? null);
+            // For the privacy-policy acknowledgement line at the bottom of the note.
+            setAppointmentStart(appointment.start ?? null);
+          }
         }
         const patientRef = encounter.subject?.reference;
         const patientId = patientRef?.startsWith('Patient/') ? patientRef.slice('Patient/'.length) : null;
@@ -483,6 +488,7 @@ export default function EasyChartPage(): JSX.Element {
         procedureProvenance={procedureProv}
         onConfirmProcedureField={confirmProcedureField}
         onConfirmProcedure={confirmProcedure}
+        appointmentStart={appointmentStart ?? undefined}
       />
     </>
   ) : null;

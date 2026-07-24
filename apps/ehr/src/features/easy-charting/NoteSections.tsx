@@ -8,9 +8,12 @@ import {
   type ExamObservationDTO,
   GetChartDataResponse,
   MedicationDTO,
+  NOTE_TYPE,
+  NoteDTO,
   ProcedureDTO,
   VitalsObservationDTO,
 } from 'utils';
+import { AdditionalQuestionsSection, hasAdditionalQuestions } from './AdditionalQuestionsSection';
 import { AiAlternative, AiChartedItem } from './AiChartedItem';
 import { AiChartedMeta, AiField, ChartNoteKey, EasyChartLabOrder, ProcedureProvenance } from './chart-types';
 import { DispositionSection } from './DispositionSection';
@@ -30,7 +33,26 @@ import {
   Section,
   VitalRow,
 } from './note-ui';
+import { PrivacyPolicyLine } from './PrivacyPolicyLine';
+import { RadiologySection } from './RadiologySection';
 import { ReviewableInstructionLine } from './ReviewableInstructionLine';
+import { SchoolWorkExcuseSection } from './SchoolWorkExcuseSection';
+
+// Per-section provider notes (allergy / medication / hospitalization / vitals NoteDTOs from
+// chartData.notes) rendered as compact caption lines under the section's items, mirroring the
+// "…notes" sub-blocks of the Review & Sign containers.
+function SectionNotes({ notes }: { notes: NoteDTO[] }): JSX.Element | null {
+  if (notes.length === 0) return null;
+  return (
+    <Stack spacing={0.25} sx={{ mt: 0.5 }}>
+      {notes.map((n, i) => (
+        <Typography key={n.resourceId ?? i} variant="caption" color="text.secondary">
+          Note: {n.text}
+        </Typography>
+      ))}
+    </Stack>
+  );
+}
 
 // The full easy-chart note, rendered section by section (history, free-text fields, ROS, exam,
 // vitals, assessment, MDM, billing, procedures, labs, instructions, disposition). Split from
@@ -83,6 +105,9 @@ export interface NoteSectionsProps {
   procedureProvenance?: Map<string, ProcedureProvenance>;
   onConfirmProcedureField?: (resourceId: string, field: keyof ProcedureDTO) => void;
   onConfirmProcedure?: (resourceId: string) => void;
+  // ISO start of the visit's Appointment, for the privacy-policy acknowledgement line. Omitted →
+  // the line renders without the date.
+  appointmentStart?: string;
 }
 
 export function NoteSections({
@@ -114,6 +139,7 @@ export function NoteSections({
   procedureProvenance,
   onConfirmProcedureField,
   onConfirmProcedure,
+  appointmentStart,
 }: NoteSectionsProps): JSX.Element {
   const removeHandler = (field: string, dto: { resourceId?: string }): (() => void) | undefined =>
     editable && onRemoveItem && dto.resourceId ? () => onRemoveItem(field, dto) : undefined;
@@ -231,6 +257,17 @@ export function NoteSections({
   const vitals = data.vitalsObservations ?? [];
   const showLabResults = hasLabResultsToShow(data.inHouseLabResults, data.externalLabResults);
   const disposition = data.disposition;
+  const radiologyOrders = data.radiologyOrders ?? [];
+  const schoolWorkNotes = data.schoolWorkNotes ?? [];
+  // Per-type provider notes (Review & Sign appends these under the matching containers). They
+  // arrive in the same chart-data fetch (progressNoteChartDataRequestedFields.notes).
+  const notesOfType = (type: NOTE_TYPE): NoteDTO[] => (data.notes ?? []).filter((n) => n.type === type);
+  const allergyNotes = notesOfType(NOTE_TYPE.ALLERGY);
+  const medicationNotes = notesOfType(NOTE_TYPE.INTAKE_MEDICATION);
+  const hospitalizationNotes = notesOfType(NOTE_TYPE.HOSPITALIZATION);
+  const vitalsNotes = notesOfType(NOTE_TYPE.VITALS);
+  const screeningNotes = notesOfType(NOTE_TYPE.SCREENING);
+  const showAdditionalQuestions = hasAdditionalQuestions(data.observations, screeningNotes);
 
   const examBySection = new Map<string, typeof abnormalExam>();
   abnormalExam.forEach((o) => {
@@ -260,7 +297,14 @@ export function NoteSections({
     vitals.length ||
     procedures.length ||
     showLabResults ||
-    disposition?.type;
+    disposition?.type ||
+    radiologyOrders.length ||
+    schoolWorkNotes.length ||
+    showAdditionalQuestions ||
+    allergyNotes.length ||
+    medicationNotes.length ||
+    hospitalizationNotes.length ||
+    vitalsNotes.length;
 
   // In editable mode we always render so the free-text editors are available to type into even
   // on a brand-new encounter; read-only mode keeps the original empty placeholder.
@@ -277,7 +321,7 @@ export function NoteSections({
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Stack divider={<Divider flexItem />}>
-        {allergies.length > 0 && (
+        {(allergies.length > 0 || allergyNotes.length > 0) && (
           <Section title="Allergies">
             <Stack spacing={0.25}>
               {allergies.map((a, i) =>
@@ -297,10 +341,11 @@ export function NoteSections({
                 )
               )}
             </Stack>
+            <SectionNotes notes={allergyNotes} />
           </Section>
         )}
 
-        {medications.length > 0 && (
+        {(medications.length > 0 || medicationNotes.length > 0) && (
           <Section title="Medications">
             <Stack spacing={0.25}>
               {medications.map((m, i) =>
@@ -338,6 +383,7 @@ export function NoteSections({
                 )
               )}
             </Stack>
+            <SectionNotes notes={medicationNotes} />
           </Section>
         )}
 
@@ -401,7 +447,7 @@ export function NoteSections({
           </Section>
         )}
 
-        {hospitalizations.length > 0 && (
+        {(hospitalizations.length > 0 || hospitalizationNotes.length > 0) && (
           <Section title="Hospitalizations">
             <Stack spacing={0.25}>
               {hospitalizations.map((h, i) =>
@@ -427,6 +473,7 @@ export function NoteSections({
                 )
               )}
             </Stack>
+            <SectionNotes notes={hospitalizationNotes} />
           </Section>
         )}
 
@@ -546,7 +593,7 @@ export function NoteSections({
           </Section>
         )}
 
-        {vitals.length > 0 && (
+        {(vitals.length > 0 || vitalsNotes.length > 0) && (
           <Section title="Vitals">
             <Stack spacing={0.25}>
               {vitals.map((v, i) => (
@@ -563,6 +610,7 @@ export function NoteSections({
                 />
               ))}
             </Stack>
+            <SectionNotes notes={vitalsNotes} />
           </Section>
         )}
 
@@ -658,6 +706,11 @@ export function NoteSections({
                 );
               })}
           </Section>
+        )}
+
+        {/* Screening questions + ASQ + screening notes, after the exam area like Review & Sign. */}
+        {showAdditionalQuestions && (
+          <AdditionalQuestionsSection observations={data.observations} screeningNotes={screeningNotes} />
         )}
 
         {procedures.length > 0 && (
@@ -1007,6 +1060,9 @@ export function NoteSections({
           </Section>
         )}
 
+        {/* Radiology after Lab Results, mirroring Review & Sign's results ordering. Read-only. */}
+        {radiologyOrders.length > 0 && <RadiologySection radiologyOrders={radiologyOrders} />}
+
         {instructions.length > 0 && (
           <CollapsibleSection title={`Patient Instructions (${instructions.length})`}>
             <Stack spacing={0.5}>
@@ -1024,9 +1080,15 @@ export function NoteSections({
           </CollapsibleSection>
         )}
 
+        {/* School/work excuses next to Patient Instructions, matching Review & Sign's Plan block. */}
+        {schoolWorkNotes.length > 0 && <SchoolWorkExcuseSection schoolWorkNotes={schoolWorkNotes} />}
+
         {/* Disposition after Patient Instructions, matching Review & Sign's Plan ordering.
             Display-only — the assistant edits it via chat. */}
         {disposition?.type && <DispositionSection disposition={disposition} />}
+
+        {/* Static privacy-policy acknowledgement at the very bottom, like Review & Sign. */}
+        <PrivacyPolicyLine appointmentStart={appointmentStart} />
       </Stack>
     </Paper>
   );

@@ -1797,6 +1797,18 @@ export function computeChartWarnings(data: GetChartDataResponse): ChartWarning[]
     warnings.push({ id: 'no-em', text: 'Diagnoses are charted but no E&M level is set.' });
   }
 
+  // Sign blockers mirrored from Review & Sign's gating (ReviewAndSignButton): outstanding in-house
+  // results / reflex tests block signing, so surface them before the provider leaves the page.
+  if ((data.inHouseLabResults?.resultsPending?.length ?? 0) > 0) {
+    warnings.push({ id: 'inhouse-lab-results-pending', text: 'In-house lab results pending.' });
+  }
+  if ((data.inHouseLabResults?.reflexTestsPending?.length ?? 0) > 0) {
+    warnings.push({
+      id: 'reflex-test-results-pending',
+      text: `Reflex test results pending (${data.inHouseLabResults!.reflexTestsPending!.join(', ')}).`,
+    });
+  }
+
   return warnings;
 }
 
