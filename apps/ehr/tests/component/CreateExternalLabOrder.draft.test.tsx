@@ -34,6 +34,10 @@ vi.mock('src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
   useOystehrAPIClient: () => ({}),
 }));
 
+vi.mock('src/hooks/useEvolveUser', () => ({
+  default: () => ({ hasNPI: true, hasRole: () => false }),
+}));
+
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({
     encounter: { id: 'enc-external-test' },
