@@ -354,6 +354,25 @@ export const PROVIDER_RULES: AccessPolicy = {
   ],
 };
 
+// Clinician = Provider access minus the two NPI-gated capabilities that are enforced at the access
+// policy layer: client-side e-prescribing (eRx) and submitting Claims under a provider NPI. The other
+// NPI-gated actions (sign/co-sign, external labs & imaging orders, in-house medication orders) run
+// through M2M zambdas, so the access policy does not gate them — they are enforced in those zambdas
+// via requirePractitionerNPI. Derived from PROVIDER_RULES so it stays in sync as Provider access evolves.
+export const CLINICIAN_RULES: AccessPolicy = {
+  rule: PROVIDER_RULES.rule
+    // Drop e-prescribing entirely.
+    .filter((rule) => ![rule.resource].flat().includes('eRx:*'))
+    // Keep the rest of the RCM block (Appointment/Coverage/etc.) but remove the ability to write Claims.
+    .map((rule) => {
+      const resources = [rule.resource].flat();
+      if (!resources.includes('FHIR:Claim')) {
+        return rule;
+      }
+      return { ...rule, resource: resources.filter((resource) => resource !== 'FHIR:Claim') };
+    }),
+};
+
 export const CUSTOMER_SUPPORT_RULES: AccessPolicy = {
   rule: [...ADMINISTRATOR_RULES.rule, ...PROVIDER_RULES.rule],
 };
