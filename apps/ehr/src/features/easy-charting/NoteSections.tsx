@@ -43,6 +43,7 @@ import { PrivacyPolicyLine } from './PrivacyPolicyLine';
 import { RadiologySection } from './RadiologySection';
 import { ReviewableInstructionLine } from './ReviewableInstructionLine';
 import { SchoolWorkExcuseSection } from './SchoolWorkExcuseSection';
+import { VitalAddChips } from './VitalAddChips';
 
 // Per-section provider notes (allergy / medication / hospitalization / vitals NoteDTOs from
 // chartData.notes) rendered as compact caption lines under the section's items, mirroring the
@@ -630,7 +631,7 @@ export function NoteSections({
           </Section>
         )}
 
-        {(vitals.length > 0 || vitalsNotes.length > 0) && (
+        {(vitals.length > 0 || vitalsNotes.length > 0 || (editable && onSaveVital)) && (
           <Section title="Vitals">
             <Stack spacing={0.25}>
               {vitals.map((v, i) => (
@@ -647,6 +648,9 @@ export function NoteSections({
                 />
               ))}
             </Stack>
+            {/* When editable, un-charted standard vitals are always directly enterable via ghost
+                "+ <Label>" chips — no need to route simple numerics through the assistant. */}
+            {editable && onSaveVital && <VitalAddChips vitals={vitals} onSaveVital={onSaveVital} />}
             <SectionNotes notes={vitalsNotes} />
           </Section>
         )}

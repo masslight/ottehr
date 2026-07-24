@@ -16,9 +16,9 @@ import {
   Typography,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { HeightMeasurement, VitalsObservationDTO } from 'utils';
 import { AiChartedMeta } from './chart-types';
-import { formatVital, VITAL_LABEL, vitalUnitFields } from './vitals-display';
+import { formatVital, VITAL_LABEL, VitalUnitField, vitalUnitFields } from './vitals-display';
 
 // Shared section-header styling so each band in the note reads like a real section header
 // rather than a flat label. Underlined + bolded primary-color text on a hairline divider.
@@ -154,10 +154,133 @@ export function InlineEditableText({
   );
 }
 
+// The dual-unit inline entry field(s) for one vital, extracted from VitalRow's edit mode so the
+// "+ add" chips (VitalAddChips) reuse the exact same UI. Type in EITHER unit box and the sibling
+// re-derives live via vitalUnitFields' canonical parse/render (temp °C/°F, weight kg/lbs, height
+// cm/in — the inches box also takes 5'7"-style text); BP is sys/dia; single-unit vitals one box.
+// Enter or click-away commits (dto is undefined when nothing valid was entered); Escape cancels.
+export function VitalEntryEditor({
+  field,
+  initialCanonical,
+  initialSys,
+  initialDia,
+  onCommit,
+  onCancel,
+  children,
+}: {
+  field: string;
+  initialCanonical?: number;
+  initialSys?: number;
+  initialDia?: number;
+  onCommit: (dto: VitalsObservationDTO | undefined) => void;
+  onCancel: () => void;
+  children?: React.ReactNode;
+}): JSX.Element {
+  const isBp = field === 'vital-blood-pressure';
+  const { fields, toStored } = vitalUnitFields(field);
+  // `canonical` is the stored-unit value (°C / kg / cm / raw); `active` holds the in-progress text of
+  // the field currently being typed, so its raw entry isn't reformatted away while the OTHER unit
+  // field(s) re-derive live from `canonical`.
+  const [canonical, setCanonical] = useState<number | undefined>(initialCanonical);
+  const [active, setActive] = useState<{ idx: number; text: string } | null>(null);
+  const [sys, setSys] = useState(initialSys != null ? String(initialSys) : '');
+  const [dia, setDia] = useState(initialDia != null ? String(initialDia) : '');
+
+  const commit = (): void => {
+    if (isBp) {
+      const s = Number(sys);
+      const d = Number(dia);
+      onCommit(s && d ? ({ field, systolicPressure: s, diastolicPressure: d } as VitalsObservationDTO) : undefined);
+      return;
+    }
+    onCommit(
+      canonical == null || Number.isNaN(canonical)
+        ? undefined
+        : ({ field, value: toStored(canonical) } as VitalsObservationDTO)
+    );
+  };
+  const onKey = (e: React.KeyboardEvent): void => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
+  // Height's inches box additionally accepts feet-inches text like 5'7" (providers dictate height
+  // that way); it maps onto the existing fromFeetInchesText helper rather than converting here.
+  const isHeightInches = (f: VitalUnitField): boolean => field === 'vital-height' && f.label === 'in';
+  const parseFieldText = (f: VitalUnitField, text: string): number | undefined => {
+    const direct = f.parse(text);
+    if (direct != null) return direct;
+    if (isHeightInches(f)) {
+      const m = text.trim().match(/^(\d+(?:\.\d+)?)\s*['′]\s*(\d+(?:\.\d+)?)?\s*(?:["″])?$/);
+      if (m) return HeightMeasurement.fromFeetInchesText(m[1], m[2] ?? '')?.getCm();
+    }
+    return undefined;
+  };
+
+  return (
+    <ClickAwayListener onClickAway={commit}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.25, flexWrap: 'wrap' }}>
+        <Typography variant="body2">• {VITAL_LABEL[field] ?? field}:</Typography>
+        {isBp ? (
+          <>
+            <TextField
+              size="small"
+              type="number"
+              autoFocus
+              value={sys}
+              onChange={(e) => setSys(e.target.value)}
+              onKeyDown={onKey}
+              sx={{ width: 72 }}
+            />
+            <Typography variant="body2">/</Typography>
+            <TextField
+              size="small"
+              type="number"
+              value={dia}
+              onChange={(e) => setDia(e.target.value)}
+              onKeyDown={onKey}
+              sx={{ width: 72 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              mmHg
+            </Typography>
+          </>
+        ) : (
+          // One field per unit — type in either; the others convert live. Stored value is canonical.
+          fields.map((f, i) => (
+            <Box key={f.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <TextField
+                size="small"
+                type={isHeightInches(f) ? 'text' : 'number'}
+                autoFocus={i === 0}
+                value={active?.idx === i ? active.text : canonical != null ? f.render(canonical) : ''}
+                onChange={(e) => {
+                  const text = e.target.value;
+                  setActive({ idx: i, text });
+                  setCanonical(parseFieldText(f, text));
+                }}
+                onKeyDown={onKey}
+                sx={{ width: 90 }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                {f.label}
+              </Typography>
+            </Box>
+          ))
+        )}
+        {children}
+      </Box>
+    </ClickAwayListener>
+  );
+}
+
 // A vitals row: click-to-edit numeric value(s) like other note items, plus the same provenance/review
 // treatment (needs-review tint, sourced/inferred/review hover, Confirm ✓, Remove ✕). Vitals aren't
-// searchable, so they don't use AiChartedItem — edit is a plain number field per vital type
-// (two fields for BP). Temperature is edited in °F (US-dictated) and stored as °C.
+// searchable, so they don't use AiChartedItem — edit swaps in VitalEntryEditor (numeric field per
+// vital type, two fields for BP). Temperature is edited in °F (US-dictated) and stored as °C.
 export function VitalRow({
   vital,
   meta,
@@ -174,128 +297,39 @@ export function VitalRow({
   onSaveVital?: (dto: VitalsObservationDTO) => void;
 }): JSX.Element {
   const isBp = vital.field === 'vital-blood-pressure';
-  // Editable unit field(s) for this vital + the canonical→stored mapping. Lets the provider type in
-  // EITHER metric or imperial (temp °C/°F, weight kg/lbs, height cm/in) with live cross-conversion,
-  // reusing the same conversion helpers the regular Vitals screen uses.
-  const { fields, toStored } = vitalUnitFields(vital.field);
   const seedCanonical = 'value' in vital && vital.value != null ? Number(vital.value) : undefined;
   const [editing, setEditing] = useState(false);
-  // `canonical` is the stored-unit value (°C / kg / cm / raw); `active` holds the in-progress text of
-  // the field currently being typed, so its raw entry isn't reformatted away while the OTHER unit
-  // field(s) re-derive live from `canonical`.
-  const [canonical, setCanonical] = useState<number | undefined>(seedCanonical);
-  const [active, setActive] = useState<{ idx: number; text: string } | null>(null);
-  const [sys, setSys] = useState(isBp ? String(vital.systolicPressure ?? '') : '');
-  const [dia, setDia] = useState(isBp ? String(vital.diastolicPressure ?? '') : '');
   const canEdit = !!(editable && onSaveVital);
-
-  const startEdit = (): void => {
-    setCanonical(seedCanonical);
-    setActive(null);
-    setSys(isBp ? String(vital.systolicPressure ?? '') : '');
-    setDia(isBp ? String(vital.diastolicPressure ?? '') : '');
-    setEditing(true);
-  };
-  const commit = (): void => {
-    setEditing(false);
-    if (!onSaveVital) return;
-    if (isBp) {
-      const s = Number(sys);
-      const d = Number(dia);
-      if (!s || !d) return;
-      onSaveVital({
-        field: vital.field,
-        systolicPressure: s,
-        diastolicPressure: d,
-        resourceId: vital.resourceId,
-      } as VitalsObservationDTO);
-      return;
-    }
-    if (canonical == null || Number.isNaN(canonical)) return;
-    onSaveVital({
-      field: vital.field,
-      value: toStored(canonical),
-      resourceId: vital.resourceId,
-    } as VitalsObservationDTO);
-  };
-  const onKey = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      commit();
-    } else if (e.key === 'Escape') {
-      setEditing(false);
-    }
-  };
 
   if (editing && canEdit) {
     return (
-      <ClickAwayListener onClickAway={commit}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.25, flexWrap: 'wrap' }}>
-          <Typography variant="body2">• {VITAL_LABEL[vital.field] ?? vital.field}:</Typography>
-          {isBp ? (
-            <>
-              <TextField
-                size="small"
-                type="number"
-                autoFocus
-                value={sys}
-                onChange={(e) => setSys(e.target.value)}
-                onKeyDown={onKey}
-                sx={{ width: 72 }}
-              />
-              <Typography variant="body2">/</Typography>
-              <TextField
-                size="small"
-                type="number"
-                value={dia}
-                onChange={(e) => setDia(e.target.value)}
-                onKeyDown={onKey}
-                sx={{ width: 72 }}
-              />
-              <Typography variant="caption" color="text.secondary">
-                mmHg
-              </Typography>
-            </>
-          ) : (
-            // One field per unit — type in either; the others convert live. Stored value is canonical.
-            fields.map((f, i) => (
-              <Box key={f.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <TextField
-                  size="small"
-                  type="number"
-                  autoFocus={i === 0}
-                  value={active?.idx === i ? active.text : canonical != null ? f.render(canonical) : ''}
-                  onChange={(e) => {
-                    const text = e.target.value;
-                    setActive({ idx: i, text });
-                    setCanonical(f.parse(text));
-                  }}
-                  onKeyDown={onKey}
-                  sx={{ width: 90 }}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  {f.label}
-                </Typography>
-              </Box>
-            ))
-          )}
-          {/* Remove lives in edit mode (like other note items) — it appears once the row is selected. */}
-          {onRemove && (
-            <IconButton
-              size="small"
-              color="error"
-              aria-label="Remove vital"
-              sx={{ p: 0.25, ml: 0.5 }}
-              onClick={() => {
-                setEditing(false);
-                onRemove();
-              }}
-            >
-              <CloseIcon sx={{ fontSize: 16 }} />
-            </IconButton>
-          )}
-        </Box>
-      </ClickAwayListener>
+      <VitalEntryEditor
+        field={vital.field}
+        initialCanonical={seedCanonical}
+        initialSys={isBp ? vital.systolicPressure : undefined}
+        initialDia={isBp ? vital.diastolicPressure : undefined}
+        onCommit={(dto) => {
+          setEditing(false);
+          if (dto && onSaveVital) onSaveVital({ ...dto, resourceId: vital.resourceId } as VitalsObservationDTO);
+        }}
+        onCancel={() => setEditing(false)}
+      >
+        {/* Remove lives in edit mode (like other note items) — it appears once the row is selected. */}
+        {onRemove && (
+          <IconButton
+            size="small"
+            color="error"
+            aria-label="Remove vital"
+            sx={{ p: 0.25, ml: 0.5 }}
+            onClick={() => {
+              setEditing(false);
+              onRemove();
+            }}
+          >
+            <CloseIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        )}
+      </VitalEntryEditor>
     );
   }
 
@@ -314,7 +348,7 @@ export function VitalRow({
 
   return (
     <Box
-      onClick={canEdit ? startEdit : undefined}
+      onClick={canEdit ? (): void => setEditing(true) : undefined}
       sx={{
         display: 'flex',
         alignItems: 'center',
