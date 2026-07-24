@@ -22,6 +22,7 @@ import {
   getNursingOrdersUrl,
   getProcedureDetailsUrl,
   getProceduresUrl,
+  getRadiologyExternalOrderDetailsUrl,
   getRadiologyOrderEditUrl,
   getRadiologyUrl,
 } from 'src/features/visits/in-person/routing/helpers';
@@ -174,7 +175,11 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       orders: radiologyOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.studyType,
-        detailPageUrl: withEncounter(getRadiologyOrderEditUrl(navAppointmentId, order.serviceRequestId)),
+        detailPageUrl: withEncounter(
+          order.external
+            ? getRadiologyExternalOrderDetailsUrl(navAppointmentId, order.serviceRequestId)
+            : getRadiologyOrderEditUrl(navAppointmentId, order.serviceRequestId)
+        ),
         statusChip: <RadiologyTableStatusChip status={order.status} />,
         unreadBadge: RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
       })),
