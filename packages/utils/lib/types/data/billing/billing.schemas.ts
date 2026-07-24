@@ -2,11 +2,7 @@ import { z } from 'zod';
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from '../../../fhir/insurance';
 import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
-import {
-  CMS_PLACE_OF_SERVICE_CODE_SET,
-  CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
-  CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
-} from '../../../helpers/rcm/constants';
+import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
@@ -512,7 +508,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     claimId: nonEmptyString.uuid(),
     fields: z.object({
       type: z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES).optional(),
-      service: z.enum(CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES).optional(),
+      service: nonEmptyString.optional(),
       // Claim-level date of service; written to every service line by update-billing-claim.
       serviceDate: nonEmptyString.optional(),
       billingProvider: claimProviderRefSchema.optional(),
@@ -567,6 +563,13 @@ export const GetChargeItemDefinitionInputSchema = z.object({
   chargeItemDefinitionId: nonEmptyString.uuid(),
 });
 
+export const ChargeItemDefinitionProcedureCodeSchema = z.object({
+  code: nonEmptyString,
+  description: nonEmptyString.optional(),
+  modifier: nonEmptyString.optional(),
+  amount: z.number().nonnegative(),
+});
+
 export const UpdateChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
   chargeItemDefinitionId: nonEmptyString.uuid(),
@@ -575,21 +578,19 @@ export const UpdateChargeItemDefinitionInputSchema = z.object({
   effectiveDate: nonEmptyString.nullable().optional(),
   description: nonEmptyString.nullable().optional(),
   default: z.enum(['insurance', 'self-pay']).nullable().optional(),
-  procedureCodes: z
-    .array(
-      z.object({
-        code: nonEmptyString,
-        description: nonEmptyString.optional(),
-        modifier: nonEmptyString.optional(),
-        amount: z.number().nonnegative(),
-      })
-    )
-    .optional(),
+  procedureCodes: z.array(ChargeItemDefinitionProcedureCodeSchema).optional(),
 });
 
 export const DeleteChargeItemDefinitionInputSchema = z.object({
   type: z.enum(['charge-master', 'fee-schedule']),
   chargeItemDefinitionId: nonEmptyString.uuid(),
+});
+
+export const BulkAddChargeItemDefinitionProcedureCodesInputSchema = z.object({
+  type: z.enum(['charge-master', 'fee-schedule']),
+  chargeItemDefinitionId: nonEmptyString.uuid(),
+  procedureCodes: z.array(ChargeItemDefinitionProcedureCodeSchema).min(1),
+  replaceAll: z.boolean().default(false),
 });
 
 export const ImportEraInputSchema = z.object({
@@ -655,6 +656,9 @@ export type CreateChargeItemDefinitionInput = z.output<typeof CreateChargeItemDe
 export type GetChargeItemDefinitionInput = z.output<typeof GetChargeItemDefinitionInputSchema>;
 export type UpdateChargeItemDefinitionInput = z.output<typeof UpdateChargeItemDefinitionInputSchema>;
 export type DeleteChargeItemDefinitionInput = z.output<typeof DeleteChargeItemDefinitionInputSchema>;
+export type BulkAddChargeItemDefinitionProcedureCodesInput = z.output<
+  typeof BulkAddChargeItemDefinitionProcedureCodesInputSchema
+>;
 export type GetServiceFacilityInput = z.output<typeof GetServiceFacilityInputSchema>;
 export type SearchServiceFacilitiesInput = z.output<typeof SearchServiceFacilitiesInputSchema>;
 export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputSchema>;

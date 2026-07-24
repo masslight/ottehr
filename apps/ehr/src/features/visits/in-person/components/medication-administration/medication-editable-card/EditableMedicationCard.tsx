@@ -24,7 +24,8 @@ import {
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
-import { ERX, ERXStatus } from 'src/features/visits/shared/components/ERX';
+import { ERXStatus } from 'src/features/visits/shared/components/ERX';
+import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -794,7 +795,7 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
-        <ERX onStatusChanged={setERXStatus} showDefaultAlert={false} />
+        <ERXInteractionsReadiness onStatusChanged={setERXStatus} />
       ) : null}
       {medication?.id && (
         <DeleteDialog
