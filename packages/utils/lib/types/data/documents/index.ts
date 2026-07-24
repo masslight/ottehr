@@ -84,57 +84,6 @@ export interface InsuranceCardExtraction {
   extractedAt: string;
 }
 
-/**
- * Extension URL under which the extract-photo-id zambda stores the OCR extraction
- * result (as a JSON string in valueString) on the photo-ID DocumentReference.
- */
-export const PHOTO_ID_EXTRACTION_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/photo-id-extraction';
-
-/**
- * The per-field OCR extraction result for a photo-ID (driver's license / state ID) front image.
- * Every field is null when the value is not clearly printed on the ID.
- */
-export interface PhotoIdExtractionFields {
-  firstName: string | null;
-  middleName: string | null;
-  lastName: string | null;
-  suffix: string | null;
-  dateOfBirth: string | null; // YYYY-MM-DD
-  /** Normalized to 'Male' / 'Female' when the printed value is clear (M/F). */
-  sex: string | null;
-  addressLine1: string | null;
-  addressCity: string | null;
-  addressState: string | null;
-  addressZip: string | null;
-  licenseNumber: string | null;
-  expirationDate: string | null; // YYYY-MM-DD
-}
-
-/**
- * The JSON payload stored (stringified) in the PHOTO_ID_EXTRACTION_EXTENSION_URL
- * extension on a photo-ID front DocumentReference by the extract-photo-id zambda.
- * Readers consume this stored result — OCR is never invoked at read time.
- */
-export interface PhotoIdExtraction {
-  version: 1;
-  /** The model's verdict on whether the image is actually a US driver's license / state photo ID. */
-  isPhotoId: boolean;
-  /** null when notAPhotoId / skipped */
-  fields: PhotoIdExtractionFields | null;
-  /** Permanent no-op marker: the image is not a photo ID (or unprocessable); render nothing. */
-  notAPhotoId?: boolean;
-  /** DocumentReference.id the extraction was performed against. */
-  sourceDocRefId: string;
-  /** z3 url of the extracted attachment — the cheap idempotency key for subscription re-fires. */
-  sourceAttachmentUrl: string;
-  /** sha256 hex of the image bytes — durable audit key. */
-  imageHash: string;
-  /** Model used for the extraction, e.g. 'gemini-3.1-flash-lite'. */
-  model: string;
-  /** ISO instant the extraction was stored. */
-  extractedAt: string;
-}
-
 /** The clockwise rotation angles the rotate-insurance-card-image zambda accepts. */
 export const INSURANCE_CARD_ROTATION_DEGREES = [90, 180, 270] as const;
 export type InsuranceCardRotationDegrees = (typeof INSURANCE_CARD_ROTATION_DEGREES)[number];
