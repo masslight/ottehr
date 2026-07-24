@@ -1,4 +1,5 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
   Alert,
   Box,
@@ -94,6 +95,7 @@ export interface PaymentListProps {
   refetchPaymentList: () => Promise<void>;
   isRefetching: boolean;
   paymentListError: Error | null;
+  patientCreditCents?: number;
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -229,6 +231,7 @@ export default function PatientPaymentList({
   refetchPaymentList,
   isRefetching,
   paymentListError,
+  patientCreditCents,
 }: PaymentListProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
@@ -965,6 +968,16 @@ export default function PatientPaymentList({
             </GenericToolTip>
           )}
         </Box>
+        {(patientCreditCents ?? 0) > 0 && (
+          <Alert
+            severity="success"
+            variant="outlined"
+            icon={<WarningAmberIcon fontSize="inherit" />}
+            sx={{ mt: 1, fontWeight: 700, color: 'green' }}
+          >
+            {`Outstanding Patient CREDIT: ${formatUsd((patientCreditCents ?? 0) / 100)}`}
+          </Alert>
+        )}
         {paymentVariant === PaymentVariant.selfPay ? (
           selfPayLoading || !selfPayFetched ? (
             <CircularProgress size={20} sx={{ mt: 1 }} />
