@@ -6,7 +6,6 @@ import {
   formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
-  HeightMeasurement,
   LBS_IN_KG,
   roundTemperatureForSave,
   roundTemperatureValue,
@@ -64,8 +63,8 @@ export const numOrUndef = (t: string): number | undefined => {
 };
 
 // The editable unit field(s) for a value-bearing vital, plus the canonical→stored mapping. Vitals
-// store canonical units (°C, kg, cm); these let the provider type in either system and we convert,
-// reusing the same helpers (fahrenheitToCelsius, LBS_IN_KG, HeightMeasurement) the Vitals screen uses.
+// store canonical units (°C, kg); these let the provider type in either system and we convert,
+// reusing the same helpers (fahrenheitToCelsius, LBS_IN_KG) the Vitals screen uses.
 export function vitalUnitFields(field: string): { fields: VitalUnitField[]; toStored: (canonical: number) => number } {
   if (field === 'vital-temperature') {
     return {
@@ -99,19 +98,8 @@ export function vitalUnitFields(field: string): { fields: VitalUnitField[]; toSt
       toStored: (kg) => kg,
     };
   }
-  if (field === 'vital-height') {
-    return {
-      fields: [
-        { label: 'cm', parse: numOrUndef, render: (cm) => trimNum(cm) },
-        {
-          label: 'in',
-          parse: (t) => HeightMeasurement.fromInchesText(t)?.getCm(),
-          render: (cm) => `${HeightMeasurement.fromCm(cm).getInches()}`,
-        },
-      ],
-      toStored: (cm) => cm,
-    };
-  }
+  // Height doesn't route through here: VitalEntryEditor gives it the regular height card's four-box
+  // cm | total inches ≈ ft | in entry via HeightMeasurement directly.
   // Single-unit vitals (HR, RR, O₂ sat): one field, stored as entered.
   return {
     fields: [{ label: VITAL_UNIT[field] ?? '', parse: numOrUndef, render: (n) => trimNum(n) }],

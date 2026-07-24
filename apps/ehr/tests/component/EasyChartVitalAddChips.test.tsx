@@ -5,10 +5,19 @@ import { NoteSections } from '../../src/features/easy-charting/NoteSections';
 import { VitalAddChips } from '../../src/features/easy-charting/VitalAddChips';
 
 // "Option C — add-chips, progressive disclosure": un-charted standard vitals render as ghost
-// "+ <Label>" chips; clicking one swaps in the same dual-unit inline editor VitalRow uses, Enter
-// (or click-away) with a valid value saves the canonical DTO, Escape/empty reverts to the chip.
+// "+ <Label>" chips; clicking one opens the vital as its own "• Label:" entry line ABOVE the chips
+// row (the same line the saved VitalRow will occupy), using the dual-unit inline editor VitalRow
+// uses. Enter (or click-away) with a valid value saves the canonical DTO, Escape/empty removes the
+// line and the chip returns.
 describe('VitalAddChips', () => {
   const heartbeat = { field: 'vital-heartbeat', value: 70 } as VitalsObservationDTO;
+
+  // The chips-row Box is the chips' direct parent; the open editor line must live outside it.
+  const chipsRowOf = (chipName: string): HTMLElement => {
+    const row = screen.getByRole('button', { name: chipName }).parentElement;
+    if (!row) throw new Error('chip has no parent row');
+    return row;
+  };
 
   it('renders chips only for the standard vitals that are not yet charted', () => {
     render(<VitalAddChips vitals={[heartbeat]} onSaveVital={vi.fn()} />);
@@ -21,7 +30,7 @@ describe('VitalAddChips', () => {
     expect(screen.queryByRole('button', { name: '+ LMP' })).toBeNull();
   });
 
-  it('clicking a chip swaps in the dual-unit editor with the first input focused', () => {
+  it('clicking a chip opens the dual-unit editor with the first input focused', () => {
     render(<VitalAddChips vitals={[]} onSaveVital={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '+ Weight' }));
     expect(screen.queryByRole('button', { name: '+ Weight' })).toBeNull();
@@ -31,6 +40,21 @@ describe('VitalAddChips', () => {
     expect(document.activeElement).toBe(inputs[0]);
     expect(screen.getByText('kg')).toBeDefined();
     expect(screen.getByText('lbs')).toBeDefined();
+  });
+
+  it('opens the editor as its own "• Label:" line outside the chips row, and removes the chip while open', () => {
+    render(<VitalAddChips vitals={[]} onSaveVital={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Weight' }));
+    // The clicked chip is gone from the row; the others remain as plain chips.
+    expect(screen.queryByRole('button', { name: '+ Weight' })).toBeNull();
+    const chipsRow = chipsRowOf('+ Temp');
+    // The editor line has the saved-row structure ("• Label:" prefix, like VitalRow renders)…
+    const label = screen.getByText('• Weight:');
+    // …and lives outside the chips row, on its own line above it.
+    expect(chipsRow.contains(label)).toBe(false);
+    for (const input of screen.getAllByRole('spinbutton')) {
+      expect(chipsRow.contains(input)).toBe(false);
+    }
   });
 
   it('saves weight entered in lbs as the canonical kg value on Enter, and keeps the chip hidden while in flight', () => {
@@ -66,7 +90,7 @@ describe('VitalAddChips', () => {
     });
   });
 
-  it('Escape reverts to the chip without saving', () => {
+  it('Escape removes the editor line and the chip returns, without saving', () => {
     const onSaveVital = vi.fn();
     render(<VitalAddChips vitals={[]} onSaveVital={onSaveVital} />);
     fireEvent.click(screen.getByRole('button', { name: '+ Temp' }));
@@ -74,6 +98,7 @@ describe('VitalAddChips', () => {
     fireEvent.change(input, { target: { value: '98.6' } });
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(onSaveVital).not.toHaveBeenCalled();
+    expect(screen.queryByText('• Temp:')).toBeNull();
     expect(screen.getByRole('button', { name: '+ Temp' })).toBeDefined();
   });
 
@@ -85,6 +110,72 @@ describe('VitalAddChips', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onSaveVital).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: '+ HR' })).toBeDefined();
+  });
+
+  // Height mirrors the regular Vitals height card's three entry modes (cm alone, total inches
+  // alone, or the ft/in pair), with the same HeightMeasurement conversions/precision.
+  describe('height three-way entry', () => {
+    const openHeightBoxes = (): {
+      cm: HTMLInputElement;
+      inches: HTMLInputElement;
+      ft: HTMLInputElement;
+      inRem: HTMLInputElement;
+    } => {
+      fireEvent.click(screen.getByRole('button', { name: '+ Height' }));
+      const [cm, inches, ft, inRem] = screen.getAllByRole('spinbutton') as HTMLInputElement[];
+      return { cm, inches, ft, inRem };
+    };
+
+    it('renders four boxes: cm | total inches ≈ ft | in', () => {
+      render(<VitalAddChips vitals={[]} onSaveVital={vi.fn()} />);
+      const { cm } = openHeightBoxes();
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(4);
+      expect(document.activeElement).toBe(cm);
+      expect(screen.getByText('≈')).toBeDefined();
+      expect(screen.getByText('cm')).toBeDefined();
+      expect(screen.getByText('ft')).toBeDefined();
+    });
+
+    it('entering ft=5 in=7 cross-fills cm ≈ 170.2 and total inches 67', () => {
+      render(<VitalAddChips vitals={[]} onSaveVital={vi.fn()} />);
+      const { cm, inches, ft, inRem } = openHeightBoxes();
+      fireEvent.change(ft, { target: { value: '5' } });
+      fireEvent.change(inRem, { target: { value: '7' } });
+      expect(cm.value).toBe('170.2');
+      expect(inches.value).toBe('67');
+    });
+
+    it('entering cm cross-fills total inches and the ft/in pair', () => {
+      render(<VitalAddChips vitals={[]} onSaveVital={vi.fn()} />);
+      const { cm, inches, ft, inRem } = openHeightBoxes();
+      fireEvent.change(cm, { target: { value: '170' } });
+      expect(inches.value).toBe('66.93');
+      expect(ft.value).toBe('5');
+      expect(inRem.value).toBe('7');
+    });
+
+    it('entering total inches cross-fills cm and the ft/in pair', () => {
+      render(<VitalAddChips vitals={[]} onSaveVital={vi.fn()} />);
+      const { cm, inches, ft, inRem } = openHeightBoxes();
+      fireEvent.change(inches, { target: { value: '67' } });
+      expect(cm.value).toBe('170.2');
+      expect(ft.value).toBe('5');
+      expect(inRem.value).toBe('7');
+    });
+
+    it('saving from ft/in entry stores the canonical cm value', () => {
+      const onSaveVital = vi.fn();
+      render(<VitalAddChips vitals={[]} onSaveVital={onSaveVital} />);
+      const { ft, inRem } = openHeightBoxes();
+      fireEvent.change(ft, { target: { value: '5' } });
+      fireEvent.change(inRem, { target: { value: '7' } });
+      fireEvent.keyDown(inRem, { key: 'Enter' });
+      expect(onSaveVital).toHaveBeenCalledTimes(1);
+      const dto = onSaveVital.mock.calls[0][0];
+      expect(dto.field).toBe('vital-height');
+      // 5'7" = 67 in → 170.18 cm at the height save precision (2 decimals).
+      expect(dto.value).toBeCloseTo(170.18, 2);
+    });
   });
 });
 

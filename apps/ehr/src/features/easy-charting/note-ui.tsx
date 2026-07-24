@@ -16,9 +16,9 @@ import {
   Typography,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
-import { HeightMeasurement, VitalsObservationDTO } from 'utils';
+import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement, VitalsObservationDTO } from 'utils';
 import { AiChartedMeta } from './chart-types';
-import { formatVital, VITAL_LABEL, VitalUnitField, vitalUnitFields } from './vitals-display';
+import { formatVital, VITAL_LABEL, vitalUnitFields } from './vitals-display';
 
 // Shared section-header styling so each band in the note reads like a real section header
 // rather than a flat label. Underlined + bolded primary-color text on a hairline divider.
@@ -154,10 +154,16 @@ export function InlineEditableText({
   );
 }
 
+// Which of the four height boxes is being typed in. Mirrors useHeightLocalState's HeightField.
+type HeightBox = 'cm' | 'inches' | 'feet' | 'inchRemainder';
+
+const heightAsText = (value: number | undefined): string => (value === undefined ? '' : `${value}`);
+
 // The dual-unit inline entry field(s) for one vital, extracted from VitalRow's edit mode so the
 // "+ add" chips (VitalAddChips) reuse the exact same UI. Type in EITHER unit box and the sibling
-// re-derives live via vitalUnitFields' canonical parse/render (temp °C/°F, weight kg/lbs, height
-// cm/in — the inches box also takes 5'7"-style text); BP is sys/dia; single-unit vitals one box.
+// re-derives live via vitalUnitFields' canonical parse/render (temp °C/°F, weight kg/lbs); height
+// gets the regular height card's four boxes (cm | total inches ≈ ft | in, any mode cross-fills);
+// BP is sys/dia; single-unit vitals one box.
 // Enter or click-away commits (dto is undefined when nothing valid was entered); Escape cancels.
 export function VitalEntryEditor({
   field,
@@ -177,20 +183,34 @@ export function VitalEntryEditor({
   children?: React.ReactNode;
 }): JSX.Element {
   const isBp = field === 'vital-blood-pressure';
+  const isHeight = field === 'vital-height';
   const { fields, toStored } = vitalUnitFields(field);
-  // `canonical` is the stored-unit value (°C / kg / cm / raw); `active` holds the in-progress text of
+  // `canonical` is the stored-unit value (°C / kg / raw); `active` holds the in-progress text of
   // the field currently being typed, so its raw entry isn't reformatted away while the OTHER unit
   // field(s) re-derive live from `canonical`.
-  const [canonical, setCanonical] = useState<number | undefined>(initialCanonical);
+  const [canonical, setCanonical] = useState<number | undefined>(isHeight ? undefined : initialCanonical);
   const [active, setActive] = useState<{ idx: number; text: string } | null>(null);
   const [sys, setSys] = useState(initialSys != null ? String(initialSys) : '');
   const [dia, setDia] = useState(initialDia != null ? String(initialDia) : '');
+  // Height mirrors useHeightLocalState (the regular Vitals height card's state): one full-precision
+  // HeightMeasurement source of truth plus the raw text of the box being typed, so cm, total inches,
+  // and the ft/in pair cross-fill live with the card's exact conversions/precision. (The hook itself
+  // can't seed an initial value for VitalRow editing, so its logic is mirrored here instead.)
+  const [height, setHeight] = useState<HeightMeasurement | undefined>(() =>
+    isHeight && initialCanonical != null ? HeightMeasurement.fromCm(initialCanonical) : undefined
+  );
+  const [heightEditing, setHeightEditing] = useState<{ box: HeightBox; text: string } | null>(null);
 
   const commit = (): void => {
     if (isBp) {
       const s = Number(sys);
       const d = Number(dia);
       onCommit(s && d ? ({ field, systolicPressure: s, diastolicPressure: d } as VitalsObservationDTO) : undefined);
+      return;
+    }
+    if (isHeight) {
+      // getCm() defaults to the save precision — same DTO shape as useHeightLocalState's getDTO.
+      onCommit(height ? ({ field, value: height.getCm() } as VitalsObservationDTO) : undefined);
       return;
     }
     onCommit(
@@ -207,18 +227,35 @@ export function VitalEntryEditor({
       onCancel();
     }
   };
-  // Height's inches box additionally accepts feet-inches text like 5'7" (providers dictate height
-  // that way); it maps onto the existing fromFeetInchesText helper rather than converting here.
-  const isHeightInches = (f: VitalUnitField): boolean => field === 'vital-height' && f.label === 'in';
-  const parseFieldText = (f: VitalUnitField, text: string): number | undefined => {
-    const direct = f.parse(text);
-    if (direct != null) return direct;
-    if (isHeightInches(f)) {
-      const m = text.trim().match(/^(\d+(?:\.\d+)?)\s*['′]\s*(\d+(?:\.\d+)?)?\s*(?:["″])?$/);
-      if (m) return HeightMeasurement.fromFeetInchesText(m[1], m[2] ?? '')?.getCm();
+
+  const heightBoxValue = (box: HeightBox, derived: number | undefined): string =>
+    heightEditing?.box === box ? heightEditing.text : heightAsText(derived);
+  const onHeightChange = (box: HeightBox, text: string): void => {
+    setHeightEditing({ box, text });
+    if (box === 'cm') {
+      setHeight(HeightMeasurement.fromCmText(text));
+    } else if (box === 'inches') {
+      setHeight(HeightMeasurement.fromInchesText(text));
+    } else if (box === 'feet') {
+      const rem =
+        heightEditing?.box === 'inchRemainder' ? heightEditing.text : heightAsText(height?.getInchRemainder());
+      setHeight(HeightMeasurement.fromFeetInchesText(text, rem));
+    } else {
+      const feet = heightEditing?.box === 'feet' ? heightEditing.text : heightAsText(height?.getFeet());
+      setHeight(HeightMeasurement.fromFeetInchesText(feet, text));
     }
-    return undefined;
   };
+  const heightBox = (box: HeightBox, derived: number | undefined, autoFocus = false, width = 64): JSX.Element => (
+    <TextField
+      size="small"
+      type="number"
+      autoFocus={autoFocus}
+      value={heightBoxValue(box, derived)}
+      onChange={(e) => onHeightChange(box, e.target.value)}
+      onKeyDown={onKey}
+      sx={{ width }}
+    />
+  );
 
   return (
     <ClickAwayListener onClickAway={commit}>
@@ -248,19 +285,43 @@ export function VitalEntryEditor({
               mmHg
             </Typography>
           </>
+        ) : isHeight ? (
+          // The regular height card's three entry modes (VitalsHeightCard): cm alone, total inches
+          // alone, or the ft/in pair — typing in any mode cross-fills the others live.
+          <>
+            {heightBox('cm', height?.getCm(HEIGHT_CM_DISPLAY_PRECISION), true, 72)}
+            <Typography variant="caption" color="text.secondary">
+              cm
+            </Typography>
+            {heightBox('inches', height?.getInches(), false, 72)}
+            <Typography variant="caption" color="text.secondary">
+              in
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              ≈
+            </Typography>
+            {heightBox('feet', height?.getFeet())}
+            <Typography variant="caption" color="text.secondary">
+              ft
+            </Typography>
+            {heightBox('inchRemainder', height?.getInchRemainder())}
+            <Typography variant="caption" color="text.secondary">
+              in
+            </Typography>
+          </>
         ) : (
           // One field per unit — type in either; the others convert live. Stored value is canonical.
           fields.map((f, i) => (
             <Box key={f.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <TextField
                 size="small"
-                type={isHeightInches(f) ? 'text' : 'number'}
+                type="number"
                 autoFocus={i === 0}
                 value={active?.idx === i ? active.text : canonical != null ? f.render(canonical) : ''}
                 onChange={(e) => {
                   const text = e.target.value;
                   setActive({ idx: i, text });
-                  setCanonical(parseFieldText(f, text));
+                  setCanonical(f.parse(text));
                 }}
                 onKeyDown={onKey}
                 sx={{ width: 90 }}
