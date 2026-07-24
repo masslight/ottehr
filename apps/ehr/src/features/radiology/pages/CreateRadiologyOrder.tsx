@@ -247,8 +247,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     e.preventDefault();
     setSubmitting(true);
 
-    const paramsSatisfied =
-      orderDx.length > 0 && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
+    // Diagnosis is optional at order time — it is captured when the preliminary read is saved.
+    const paramsSatisfied = orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
 
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
@@ -281,7 +281,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
-      if (orderDx.length === 0) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (!clinicalHistory) errorMessage.push('Please enter clinical history to continue');
       if (clinicalHistory && clinicalHistory.length > 255)

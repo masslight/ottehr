@@ -37,6 +37,19 @@ vi.mock('../../src/features/radiology/components/RadiologyOrderHistoryCard', () 
   RadiologyOrderHistoryCard: () => <div data-testid="order-history-card" />,
 }));
 
+// Stub the ICD-10 diagnosis picker (it uses react-query internally); expose a button that
+// selects a fixed diagnosis and surface the validation message so tests can drive the flow.
+vi.mock('../../src/features/radiology/components/RadiologyReportDiagnosisField', () => ({
+  RadiologyReportDiagnosisField: ({ onChange, error, helperText }: any) => (
+    <div data-testid="report-dx-field">
+      <button type="button" onClick={() => onChange([{ code: 'A00', display: 'Cholera' }])}>
+        mock-add-dx
+      </button>
+      {error ? <span>{helperText}</span> : null}
+    </div>
+  ),
+}));
+
 vi.mock('src/themes/ottehr/icons/mui-radiology.svg', () => ({
   default: 'radiology-icon.svg',
 }));
@@ -68,6 +81,10 @@ const SEND_FOR_FINAL_READ_BTN_LABEL = 'Send for Final Read';
 const SAVE_AS_FINAL_BTN_LABEL = 'Save as Final';
 const FINAL_REPORT_TEXTBOX_LABEL = 'Final Report';
 const FINAL_REPORT_REQUIRED_MESSAGE = 'Final report is required';
+const SAVE_PRELIMINARY_REPORT_BTN_LABEL = 'Save Preliminary Report';
+const PRELIMINARY_REPORT_TEXTBOX_LABEL = 'Preliminary Report';
+const DIAGNOSIS_REQUIRED_MESSAGE = 'Please enter a diagnosis to continue';
+const ADD_DX_BTN_LABEL = 'mock-add-dx';
 
 // MUI Checkbox doesn't create an accessible <label>. The text sits in a sibling
 // Typography element, so we find it by text then walk up to the flex container and
@@ -256,6 +273,44 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       await user.click(screen.getByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL }));
 
       expect(mockHandleSendForFinalRead).toHaveBeenCalledWith(SERVICE_REQUEST_ID);
+    });
+  });
+
+  describe('preliminary report — diagnosis (status "performed")', () => {
+    const performedHookResult = (overrides = {}): ReturnType<typeof usePatientRadiologyOrders> =>
+      makeHookResult({ orders: [makeMockOrder({ status: RadiologyOrderStatus.performed })], ...overrides });
+
+    it('shows the diagnosis field and the Save Preliminary Report button', () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult());
+      renderPage();
+
+      expect(screen.getByTestId('report-dx-field')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).toBeInTheDocument();
+    });
+
+    it('shows a validation error and does not call handleSaveReport when no diagnosis is selected', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult({ handleSaveReport: mockHandleSaveReport }));
+
+      renderPage();
+      await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
+
+      expect(screen.getByText(DIAGNOSIS_REQUIRED_MESSAGE)).toBeInTheDocument();
+      expect(mockHandleSaveReport).not.toHaveBeenCalled();
+    });
+
+    it('calls handleSaveReport with the report text and selected diagnosis codes', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult({ handleSaveReport: mockHandleSaveReport }));
+
+      renderPage();
+      await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+      await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), 'Prelim findings');
+      await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
+
+      expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, 'Prelim findings', 'preliminary', ['A00']);
     });
   });
 

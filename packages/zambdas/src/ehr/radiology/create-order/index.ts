@@ -375,7 +375,8 @@ const writeOurServiceRequest = (
     priority: content.priority,
     code: content.code,
     orderDetail: content.orderDetail,
-    reasonCode: content.reasonCode,
+    // Omit reasonCode entirely when there is no diagnosis (optional at order time).
+    reasonCode: content.reasonCode.length > 0 ? content.reasonCode : undefined,
     authoredOn: now.toISO(),
     occurrenceDateTime: now.toISO(),
     contained: content.contained,

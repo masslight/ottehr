@@ -124,8 +124,8 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
     e.preventDefault();
     setSubmitting(true);
 
+    // Diagnosis is optional at order time — it is captured when the preliminary read is saved.
     const paramsSatisfied =
-      orderDx.length > 0 &&
       orderCpt &&
       encounter.id &&
       clinicalHistory.length <= 255 &&
@@ -168,7 +168,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
-      if (orderDx.length === 0) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
       if (clinicalHistory.length > 255) errorMessage.push('Clinical history must be 255 characters or less');
       if (phoneDigitsInvalid(orgPhone)) errorMessage.push('Please enter a valid 10-digit phone number');

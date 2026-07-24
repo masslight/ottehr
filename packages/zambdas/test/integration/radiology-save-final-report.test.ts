@@ -41,6 +41,8 @@ describe('radiology-save-final-report integration — happy path', () => {
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
+      // Diagnosis is required when saving a preliminary read (it is optional at order time).
+      diagnosisCodes: ['E11.9'],
     });
   }, 60_000);
 
