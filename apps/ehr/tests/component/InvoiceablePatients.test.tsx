@@ -42,10 +42,8 @@ vi.mock('src/features/chat/ChatModal', () => ({
 
 vi.mock('../../src/constants/feature-flags', () => ({
   FEATURE_FLAGS: {
-    CANDID_INVOICING_ENABLED: true,
     OTTEHR_BILLING_INVOICING_ENABLED: true,
   },
-  BOTH_INVOICING_SCREENS_ENABLED: true,
 }));
 
 const createWrapper = () => {

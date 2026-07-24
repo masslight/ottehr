@@ -4,12 +4,12 @@ import { Box, IconButton, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InvoiceTaskSource } from 'utils';
-import { BOTH_INVOICING_SCREENS_ENABLED } from '../../constants/feature-flags';
+import { FEATURE_FLAGS } from '../../constants/feature-flags';
 import PageContainer from '../../layout/PageContainer';
 import InvoiceablePatients, { INVOICE_TASK_SOURCE_LABELS } from './InvoiceablePatients';
 
 const pageTitle = (source: InvoiceTaskSource): string =>
-  BOTH_INVOICING_SCREENS_ENABLED
+  FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED
     ? `Invoiceable Patients Report — ${INVOICE_TASK_SOURCE_LABELS[source]}`
     : 'Invoiceable Patients Report';
 

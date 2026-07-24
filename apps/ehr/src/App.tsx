@@ -220,12 +220,10 @@ function App(): ReactElement {
                 <Route path="/reports/ai-assisted-encounters" element={<AiAssistedEncounters />} />
                 <Route path="/reports/practice-kpis" element={<PracticeKpis />} />
                 <Route path="/reports/data-exports" element={<DataExports />} />
-                {FEATURE_FLAGS.CANDID_INVOICING_ENABLED && (
-                  <Route
-                    path="/reports/invoiceable-patients"
-                    element={<InvoiceablePatientsReportPage source="candid" />}
-                  />
-                )}
+                <Route
+                  path="/reports/invoiceable-patients"
+                  element={<InvoiceablePatientsReportPage source="candid" />}
+                />
                 {FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED && (
                   <Route
                     path="/reports/invoiceable-patients-billing"

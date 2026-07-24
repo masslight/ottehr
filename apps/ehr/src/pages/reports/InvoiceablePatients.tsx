@@ -64,7 +64,7 @@ import { updateInvoiceTask } from '../../api/api';
 import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';
 import { MappedStatusChip } from '../../components/MappedStatusChip';
-import { BOTH_INVOICING_SCREENS_ENABLED } from '../../constants/feature-flags';
+import { FEATURE_FLAGS } from '../../constants/feature-flags';
 import { useApiClients } from '../../hooks/useAppClients';
 import { useSupportPhonesMap } from '../../hooks/useLocationSupportPhones';
 
@@ -535,7 +535,7 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
                 sx={{ whiteSpace: 'nowrap' }}
               />
             )}
-            {BOTH_INVOICING_SCREENS_ENABLED && (
+            {FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED && (
               <Chip label={INVOICE_TASK_SOURCE_LABELS[source]} variant="outlined" color="primary" size="small" />
             )}
             <Button

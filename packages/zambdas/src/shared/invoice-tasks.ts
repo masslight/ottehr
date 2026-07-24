@@ -17,12 +17,11 @@ import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { shouldUseCandid, shouldUseOttehrBilling } from './candid';
 
 interface InvoicingFlags {
-  candidInvoicingEnabled?: boolean;
   ottehrBillingInvoicingEnabled?: boolean;
 }
 
-export function isCandidInvoicingEnabled(secrets: Secrets, flags: InvoicingFlags = FEATURE_FLAGS_CONFIG): boolean {
-  return shouldUseCandid(secrets) && (flags.candidInvoicingEnabled ?? true);
+export function isCandidInvoicingEnabled(secrets: Secrets): boolean {
+  return shouldUseCandid(secrets);
 }
 
 export function isOttehrBillingInvoicingEnabled(

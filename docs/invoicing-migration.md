@@ -21,20 +21,21 @@ memory (not via a FHIR search) for per-claim dedupe and for refresh balance look
 
 ## 2. The two control knobs
 
-| Knob                                                       | Where                                                                                                                                | Answers                                                                | Values                                                        |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `BILLING_INTEGRATION`                                      | env secret                                                                                                                           | "Where do claims get submitted in this env?"                           | `candid`, `ottehr`, `all` (unset behaves as `candid`)         |
-| `candidInvoicingEnabled` / `ottehrBillingInvoicingEnabled` | feature flags (`packages/utils/lib/ottehr-config/feature-flags/index.ts`, schema in `packages/config-types/config/feature-flags.ts`) | "Which invoicing screens/producers does this customer's build enable?" | booleans; omitted → candid ON, billing OFF (today's behavior) |
+| Knob                            | Where                                                                                                                               | Answers                                                     | Values                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------- |
+| `BILLING_INTEGRATION`           | env secret                                                                                                                          | "Where do claims get submitted in this env?"                | `candid`, `ottehr`, `all` (unset behaves as `candid`)     |
+| `ottehrBillingInvoicingEnabled` | feature flag (`packages/utils/lib/ottehr-config/feature-flags/index.ts`, schema in `packages/config-types/config/feature-flags.ts`) | "Does this customer's build surface the billing invoicing?" | boolean; on → candid + billing, off/omitted → candid only |
 
-They compose: a producer cron runs only when its integration is active in the env AND its flag is on
-on in the build (`isCandidInvoicingEnabled` / `isOttehrBillingInvoicingEnabled` in
-`packages/zambdas/src/shared/invoice-tasks.ts`).
+They compose: candid invoicing runs wherever the env submits to Candid (`isCandidInvoicingEnabled` =
+`shouldUseCandid(secrets)`), and billing invoicing runs only where the env submits to Ottehr AND the
+build opts in (`isOttehrBillingInvoicingEnabled` = `shouldUseOttehrBilling(secrets) && flag`, both
+in `packages/zambdas/src/shared/invoice-tasks.ts`). Candid stays on for the whole transition;
+turning it off (billing only) is the deletion checklist below, not a flag.
 
 The checked-in core config (`packages/utils/lib/ottehr-config/feature-flags/index.ts`) deliberately
-sets **both** flags to `true`, so a core build runs in the state-2 transition (both screens) to
-exercise the full migration. The "candid ON / billing OFF" default is the _flag-omission_ semantic
-(`?? true` / `?? false`); per-customer configs omit the fields to land there, and set
-`ottehrBillingInvoicingEnabled: false` explicitly for a candid-only build.
+sets `ottehrBillingInvoicingEnabled: true`, so a core build runs in the state-2 transition (both
+screens) to exercise the full migration. Omitting the flag is the "candid only" default; per-
+customer candid builds simply leave it off.
 
 ## 3. What each surface keys on
 
@@ -48,11 +49,11 @@ exercise the full migration. The "candid ON / billing OFF" default is the _flag-
 
 ## 4. Migration states
 
-| State                    | Flags (candid, billing)         | Typical `BILLING_INTEGRATION` | Behavior                                                                                                                             |
+| State                    | `ottehrBillingInvoicingEnabled` | Typical `BILLING_INTEGRATION` | Behavior                                                                                                                             |
 | ------------------------ | ------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 1. Candid only (default) | `true, false` (or both omitted) | `candid`                      | Today's behavior, single "Patient Invoicing" screen                                                                                  |
-| 2. Transition            | `true, true`                    | `all`                         | Both screens, suffixed labels + source chips; both crons run; billers keep working lingering Candid AR while new billing AR flows in |
-| 3. Billing only          | `false, true`                   | `ottehr`                      | Single plain "Patient Invoicing" screen backed by patient AR                                                                         |
+| 1. Candid only (default) | off (or omitted)                | `candid`                      | Today's behavior, single "Patient Invoicing" screen                                                                                  |
+| 2. Transition            | on                              | `all`                         | Both screens, suffixed labels + source chips; both crons run; billers keep working lingering Candid AR while new billing AR flows in |
+| 3. Billing only          | on (candid removed in code)     | `ottehr`                      | Single plain "Patient Invoicing" screen backed by patient AR; reached via the deletion checklist, not the flag                       |
 
 Notes for state 2:
 
@@ -78,8 +79,10 @@ When state 3 is stable and no Candid AR remains collectible:
 3. Delete the candid encounter-id guard branch in `sub-send-invoice-to-patient`.
 4. Delete the Candid route (`/reports/invoiceable-patients`), its admin nav entry
    (`/admin/outreach/patient-invoices`), and re-point any bookmarks to the billing paths.
-5. Remove `candidInvoicingEnabled` from the flag schema/data/re-export and collapse
-   `BOTH_INVOICING_SCREENS_ENABLED` labeling (plain titles, drop the source chip).
+5. Drop the always-on candid gating: retire `isCandidInvoicingEnabled`, the hardcoded
+   `CANDID_INVOICING_ENABLED: true`, and collapse `BOTH_INVOICING_SCREENS_ENABLED` labeling (plain
+   titles, drop the source chip). `ottehrBillingInvoicingEnabled` can then be removed entirely once
+   billing is the only integration.
 6. Decide the fate of remaining `candid`-tagged/untagged Tasks: they cannot stay readable on the
    billing screen (they remain excluded by `_tag`), so either archive them or re-tag them after
    verifying no open AR.

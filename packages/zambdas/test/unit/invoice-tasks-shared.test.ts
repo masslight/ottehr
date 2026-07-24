@@ -47,29 +47,27 @@ const buildParams = {
 };
 
 describe('producer gates', () => {
-  it('runs the candid producer for candid-integrated envs unless the flag turns it off', () => {
-    for (const integration of ['candid', 'all', undefined]) {
-      expect(isCandidInvoicingEnabled(secretsWith(integration), { candidInvoicingEnabled: true })).toBe(true);
-      expect(isCandidInvoicingEnabled(secretsWith(integration), {})).toBe(true);
-      expect(isCandidInvoicingEnabled(secretsWith(integration), { candidInvoicingEnabled: false })).toBe(false);
+  it('runs the candid producer for every candid-integrated env', () => {
+    for (const envIntegration of ['candid', 'all', undefined]) {
+      expect(isCandidInvoicingEnabled(secretsWith(envIntegration))).toBe(true);
     }
-    expect(isCandidInvoicingEnabled(secretsWith('ottehr'), { candidInvoicingEnabled: true })).toBe(false);
+    expect(isCandidInvoicingEnabled(secretsWith('ottehr'))).toBe(false);
   });
 
   it('runs the billing producer only for ottehr-integrated envs with the flag explicitly on', () => {
-    for (const integration of ['ottehr', 'all']) {
-      expect(isOttehrBillingInvoicingEnabled(secretsWith(integration), { ottehrBillingInvoicingEnabled: true })).toBe(
-        true
-      );
-      expect(isOttehrBillingInvoicingEnabled(secretsWith(integration), {})).toBe(false);
-      expect(isOttehrBillingInvoicingEnabled(secretsWith(integration), { ottehrBillingInvoicingEnabled: false })).toBe(
-        false
-      );
+    for (const envIntegration of ['ottehr', 'all']) {
+      expect(
+        isOttehrBillingInvoicingEnabled(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: true })
+      ).toBe(true);
+      expect(isOttehrBillingInvoicingEnabled(secretsWith(envIntegration), {})).toBe(false);
+      expect(
+        isOttehrBillingInvoicingEnabled(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: false })
+      ).toBe(false);
     }
-    for (const integration of ['candid', undefined]) {
-      expect(isOttehrBillingInvoicingEnabled(secretsWith(integration), { ottehrBillingInvoicingEnabled: true })).toBe(
-        false
-      );
+    for (const envIntegration of ['candid', undefined]) {
+      expect(
+        isOttehrBillingInvoicingEnabled(secretsWith(envIntegration), { ottehrBillingInvoicingEnabled: true })
+      ).toBe(false);
     }
   });
 });

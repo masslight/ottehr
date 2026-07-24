@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 type FlagState = {
-  candid: boolean;
   billing: boolean;
 };
 
@@ -11,10 +10,8 @@ const loadNavGroups = async (
   vi.resetModules();
   vi.doMock('src/constants/feature-flags', () => ({
     FEATURE_FLAGS: {
-      CANDID_INVOICING_ENABLED: flags.candid,
       OTTEHR_BILLING_INVOICING_ENABLED: flags.billing,
     },
-    BOTH_INVOICING_SCREENS_ENABLED: flags.candid && flags.billing,
   }));
   const navModule = await import('../../src/features/admin/adminNav');
   return navModule.adminNavGroups;
@@ -38,9 +35,8 @@ describe('admin nav invoicing gating', () => {
     vi.resetModules();
   });
 
-  it('shows only the candid entry, plainly labeled, in the candid-only state', async () => {
+  it('shows only the candid entry, plainly labeled, when billing invoicing is off', async () => {
     const entries = await communicationsEntries({
-      candid: true,
       billing: false,
     });
     const candidEntry = entries.find((entry) => entry.path === '/admin/outreach/patient-invoices');
@@ -48,23 +44,11 @@ describe('admin nav invoicing gating', () => {
     expect(entries.map((entry) => entry.path)).not.toContain('/admin/outreach/patient-invoices-billing');
   });
 
-  it('shows only the billing entry, plainly labeled, in the billing-only state', async () => {
+  it('shows both entries with source-suffixed labels when billing invoicing is on', async () => {
     const entries = await communicationsEntries({
-      candid: false,
-      billing: true,
-    });
-    const billingEntry = entries.find((entry) => entry.path === '/admin/outreach/patient-invoices-billing');
-    expect(billingEntry?.label).toBe('Patient Invoicing');
-    expect(entries.map((entry) => entry.path)).not.toContain('/admin/outreach/patient-invoices');
-  });
-
-  it('shows both entries with source-suffixed labels in the transition state', async () => {
-    const entries = await communicationsEntries({
-      candid: true,
       billing: true,
     });
     const paths = await communicationsPaths({
-      candid: true,
       billing: true,
     });
     expect(paths).toContain('/admin/outreach/patient-invoices');

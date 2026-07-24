@@ -16,7 +16,6 @@ export const FeatureFlagsConfigSchema = z.object({
   skipSendingVisitNoteToPatientPortalEnabled: z.boolean(),
   sendgridEnabled: z.boolean(),
   hideRegisterAnotherPatient: z.boolean().optional(),
-  candidInvoicingEnabled: z.boolean().optional(),
   ottehrBillingInvoicingEnabled: z.boolean().optional(),
   // When false, the patient-facing booking flow only sees BOOKING_CONFIG
   // categories — FHIR-managed (admin-registered) HealthcareService categories

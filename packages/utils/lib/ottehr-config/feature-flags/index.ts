@@ -15,7 +15,6 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   legacyPatientFollowupsEnabled: false,
   skipSendingVisitNoteToPatientPortalEnabled: false,
   sendgridEnabled: false,
-  candidInvoicingEnabled: true,
   ottehrBillingInvoicingEnabled: true,
   // ON in core for testing + demoing the full FHIR-managed catalog flow.
   // Per-customer configs under local/secrets/<customer>/... omit this field
