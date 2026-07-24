@@ -45,7 +45,7 @@ describe('paperwork-to-pdf integration — happy path', () => {
       await oystehrAdmin.fhir.delete({ resourceType: 'DocumentReference', id: d.id! }).catch(() => undefined);
     }
     await cleanup();
-  });
+  }, 60_000);
 
   it('renders the paperwork to a pdf', async () => {
     const response = await oystehrProvider.zambda.execute({
