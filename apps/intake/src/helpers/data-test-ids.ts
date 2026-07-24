@@ -1,4 +1,7 @@
+import { formDataTestIds } from 'utils';
+
 export const dataTestIds = {
+  ...formDataTestIds,
   continueButton: 'loading-button',
   differentFamilyMember: 'Different family member',
   firstFlowPageTitle: 'first-flow-page-title',
@@ -23,19 +26,10 @@ export const dataTestIds = {
   patientNamePaperworkReviewScreen: 'patient-name',
   locationNamePaperworkReviewScreen: 'location-name',
   checkInTimePaperworkReviewScreen: 'check-in-time',
-  deletedButton: 'delete-button',
-  fileCardClearButton: 'file-card-clear-button',
-  fileCardUploadingButton: 'file-card-uploading-button',
   wrInviteeName: 'wr-invitee-name',
   wrInviteeContact: 'wr-invitee-contact',
-  cardNumber: 'card-number',
-  itemAddedValue: 'item-added-value',
   header: {
     authenticated: 'header-for-authenticated-user',
     unauthenticated: 'header-for-unauthenticated-user',
-  },
-  preferredPharmacy: {
-    pharmacySearch: 'pharmacy-search',
-    pharmacySearchDisplay: { text: 'pharmacy-search-display', button: 'pharmacy-search-display-reset-btn' },
   },
 };

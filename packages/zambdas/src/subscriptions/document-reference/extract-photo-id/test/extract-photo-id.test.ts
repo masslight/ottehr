@@ -223,15 +223,14 @@ describe('extract-photo-id handler', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toMatchObject({ documentReferenceId: 'docref-1', extracted: true });
 
-    // model call: prompt + inline image, schema, and PHI response logging suppressed
+    // model call: prompt + inline image + schema
     expect(invokeChatbotVertexAI).toHaveBeenCalledTimes(1);
-    const [parts, , schema, options] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    const [parts, , schema] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
     expect(parts[0]).toEqual({ text: EXTRACTION_PROMPT });
     expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
     expect((parts[1] as any).inlineData.data).toBe(IMAGE_BYTES.toString('base64'));
     expect(schema).toBe(photoIdResponseSchema);
     expect((schema as any).properties.isPhotoId).toEqual({ type: 'boolean' });
-    expect(options).toEqual({ suppressResponseLogging: true });
 
     const stored = getPatchedExtraction();
     expect(stored).toMatchObject({
@@ -382,18 +381,35 @@ describe('extract-photo-id handler', () => {
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it('handles an undownloadable image gracefully: captureException + 200 no-op, no marker written', async () => {
+  it('propagates a retryable error (not a 200 no-op) when the ID image fails to download', async () => {
+    // A download failure is often transient (network blip, presigned url race); returning 200
+    // would tell the subscription "handled" and permanently strand the ID unprocessed, so this
+    // must surface as a non-200 the subscription's retry semantics can act on.
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
     fetchMock.mockResolvedValue({ ok: false, status: 403, headers: { get: () => null } });
 
     const result = await invokeHandler(makeInput(docRef));
 
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ skipped: true, extracted: false });
+    expect(result.statusCode).toBe(500);
     expect(captureException).toHaveBeenCalled();
     expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
     expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the attachment's own contentType when Z3 returns application/octet-stream", async () => {
+    // Z3 returns the generic application/octet-stream when the object's content type wasn't
+    // recorded at upload time; a real ID image must not be marked unsupported because of that.
+    const docRef = makeDocRef();
+    setupHappyMocks(docRef);
+    fetchMock.mockResolvedValue(imageFetchResponse(IMAGE_BYTES, 'application/octet-stream'));
+
+    const result = await invokeHandler(makeInput(docRef));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({ extracted: true });
+    const [parts] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
+    expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
   });
 
   it('writes a permanent notAPhotoId marker for unsupported (non-image, non-pdf) content', async () => {

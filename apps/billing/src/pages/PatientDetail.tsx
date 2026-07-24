@@ -9,48 +9,38 @@ import {
   Chip,
   CircularProgress,
   IconButton,
-  MenuItem,
-  Select,
   Tab,
-  TextField,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
-import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   BILLING_INSURANCE_TYPE_OPTIONS,
   BILLING_INSURANCE_TYPE_TITLES,
   BillingCoverageOption,
   BillingInsuranceType,
+  commaFormattedName,
   getApiError,
   PatientDetailResponse,
   UpdateBillingPatientInput,
   VALUE_SETS,
 } from 'utils';
-import {
-  deleteBillingCoverage,
-  getBillingPatientDetail,
-  getPatientCoverages,
-  updateBillingCoverage,
-  updateBillingPatient,
-} from '../api/api';
-import {
-  AddCoverageDialog,
-  CoverageFormFields,
-  coverageFormFromOption,
-  CoverageFormState,
-  coverageToUpdateInput,
-  validateCoverageForm,
-} from '../components/AddCoverageDialog';
+import { deleteBillingCoverage, getPatientCoverages, updateBillingCoverage, updateBillingPatient } from '../api/api';
+import { AddCoverageDialog } from '../components/AddCoverageDialog';
+import { AddressFields } from '../components/AddressFields';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { EditableSection } from '../components/claim/EditableSection';
-import { DetailRow } from '../components/DetailRow';
-import { Field } from '../components/Field';
+import { CoverageFields } from '../components/CoverageFields';
+import { DemographicFields } from '../components/DemographicFields';
+import { Row } from '../components/Row';
 import { CLAIM_STATUS_COLORS, formatAntCaseString } from '../constants/claimStatus';
+import { CoverageForm, coverageToUpdateInput, defaultCoverageFormValues } from '../constants/coverage';
+import { defaultPatientFormValues, PatientForm, patientToUpdateInput } from '../constants/patient';
 import { useApiClients } from '../hooks/useAppClients';
+import { usePatient } from '../hooks/usePatient';
 import { otherColors } from '../themes/ottehr/colors';
-import { buildAddressInput, formatCurrency } from '../utils/format';
+import { formatCurrency } from '../utils/format';
 
 const INSURANCE_TYPE_ORDER: BillingInsuranceType[] = BILLING_INSURANCE_TYPE_OPTIONS.map((o) => o.value);
 const insuranceTypeRank = (type: BillingInsuranceType | undefined): number => {
@@ -90,14 +80,13 @@ const claimColumns: GridColDef[] = [
     headerAlign: 'right',
     valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
-  // TODO: should be wired from ClaimResponse? showing placeholder until real data available
   {
     field: 'insurancePaid',
     headerName: 'Insurance Paid',
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
   {
     field: 'patientResp',
@@ -105,7 +94,7 @@ const claimColumns: GridColDef[] = [
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
   {
     field: 'patientPaid',
@@ -113,7 +102,7 @@ const claimColumns: GridColDef[] = [
     width: 110,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: () => '—',
+    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
   },
 ];
 
@@ -122,28 +111,10 @@ export default function PatientDetail(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
-  const [patient, setPatient] = useState<PatientDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
-
-  const fetchDetail = useCallback(async () => {
-    if (!oystehrZambda || !id) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getBillingPatientDetail(oystehrZambda, { patientId: id });
-      setPatient(data);
-    } catch (err) {
-      setError(getApiError({ error: err, defaultError: 'Failed to load patient' }));
-    } finally {
-      setLoading(false);
-    }
-  }, [oystehrZambda, id]);
-
-  useEffect(() => {
-    void fetchDetail();
-  }, [fetchDetail]);
+  const [patient, refetch] = usePatient({ id: id!, onLoading: setLoading, onError: setError });
 
   const savePatient = useCallback(
     async (payload: Record<string, unknown>): Promise<string | null> => {
@@ -153,10 +124,10 @@ export default function PatientDetail(): ReactElement {
       } catch (err) {
         return getApiError({ error: err, defaultError: 'Failed to save changes' });
       }
-      await fetchDetail();
+      await refetch();
       return null;
     },
-    [oystehrZambda, id, fetchDetail]
+    [oystehrZambda, id, refetch]
   );
 
   if (loading && !patient) {
@@ -178,8 +149,6 @@ export default function PatientDetail(): ReactElement {
     );
   }
 
-  const patientName = `${patient.firstName} ${patient.lastName}`.trim() || 'Unknown';
-
   return (
     <Box sx={{ p: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
@@ -188,21 +157,21 @@ export default function PatientDetail(): ReactElement {
         </IconButton>
         <Box>
           <Typography variant="h5" color="primary.dark" fontWeight={600}>
-            {patientName}
+            {commaFormattedName(patient)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            DOB {patient.dob} | {patient.id}
+            DOB {patient.dob} | MRN {patient.clinicalId}
+            {patient.clinicalFriendlyId ? ` | ID ${patient.clinicalFriendlyId}` : ''}
           </Typography>
         </Box>
       </Box>
 
-      {/* TODO: wire real balance data from ClaimResponse/PaymentReconciliation */}
       <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
           <Box sx={{ display: 'flex', gap: 4 }}>
-            <BalanceItem label="Current Balance" value="—" />
-            <BalanceItem label="Claims with Patient Balance" value="—" />
-            <BalanceItem label="Pending Payments" value="—" />
+            <BalanceItem label="Current Balance" value={formatCurrency(patient.balance.currentBalance)} />
+            <BalanceItem label="Claims with Patient Balance" value={String(patient.balance.claimsWithPatientBalance)} />
+            <BalanceItem label="Pending Payments" value={formatCurrency(patient.balance.pendingPayments)} />
           </Box>
         </CardContent>
       </Card>
@@ -222,7 +191,7 @@ export default function PatientDetail(): ReactElement {
           </TabList>
 
           <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
-            <DemographicsSection patient={patient} onSave={savePatient} />
+            <PatientDemographicsSection patient={patient} onSave={savePatient} />
           </TabPanel>
 
           <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
@@ -249,143 +218,41 @@ export default function PatientDetail(): ReactElement {
   );
 }
 
-function DemographicsSection({
+export function PatientDemographicsSection({
+  title,
   patient,
   onSave,
 }: {
+  title?: string;
   patient: PatientDetailResponse;
-  onSave: (payload: Record<string, unknown>) => Promise<string | null>;
+  onSave: (payload: UpdateBillingPatientInput) => Promise<string | null>;
 }): ReactElement {
-  const [firstName, setFirstName] = useState(patient.firstName);
-  const [lastName, setLastName] = useState(patient.lastName);
-  const [dob, setDob] = useState(patient.dob);
-  const [gender, setGender] = useState(patient.gender);
-  const [phone, setPhone] = useState(patient.phone);
-  const [email, setEmail] = useState(patient.email);
-  const [line1, setLine1] = useState(patient.addressParts.line1);
-  const [line2, setLine2] = useState(patient.addressParts.line2);
-  const [city, setCity] = useState(patient.addressParts.city);
-  const [state, setState] = useState(patient.addressParts.state);
-  const [zip, setZip] = useState(patient.addressParts.postalCode);
+  const defaultValues = useMemo<PatientForm>(() => defaultPatientFormValues(patient), [patient]);
 
-  const resetFields = useCallback((): void => {
-    setFirstName(patient.firstName);
-    setLastName(patient.lastName);
-    setDob(patient.dob);
-    setGender(patient.gender);
-    setPhone(patient.phone);
-    setEmail(patient.email);
-    setLine1(patient.addressParts.line1);
-    setLine2(patient.addressParts.line2);
-    setCity(patient.addressParts.city);
-    setState(patient.addressParts.state);
-    setZip(patient.addressParts.postalCode);
-  }, [patient]);
-
-  useEffect(() => {
-    resetFields();
-  }, [resetFields]);
-
-  const handleSave = async (): Promise<string | null> => {
-    if (!firstName.trim() || !lastName.trim()) return 'First and last name are required';
-    const address = buildAddressInput(line1, line2, city, state, zip);
-    return onSave({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      ...(dob ? { dob } : {}),
-      ...(gender ? { gender } : {}),
-      ...(phone.trim() ? { phone: phone.trim() } : {}),
-      ...(email.trim() ? { email: email.trim() } : {}),
-      ...(address ? { address } : {}),
-    });
+  const handleSave = async (data: PatientForm): Promise<string | null> => {
+    return onSave(patientToUpdateInput(data, patient.id));
   };
-
-  const patientName = `${patient.firstName} ${patient.lastName}`.trim() || 'Unknown';
 
   return (
     <EditableSection
-      title="Demographics"
+      title={title ?? 'Demographics'}
+      defaultValues={defaultValues}
       onSave={handleSave}
-      onCancel={resetFields}
       editForm={
         <Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.25, maxWidth: 680 }}>
-            <Field label="First name">
-              <TextField size="small" fullWidth value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </Field>
-            <Field label="Last name">
-              <TextField size="small" fullWidth value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </Field>
-            <Field label="Date of birth">
-              <TextField size="small" fullWidth type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-            </Field>
-            <Field label="Gender">
-              <Select
-                size="small"
-                fullWidth
-                displayEmpty
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                renderValue={
-                  gender
-                    ? undefined
-                    : () => (
-                        <Box component="span" sx={{ color: 'text.disabled' }}>
-                          Select...
-                        </Box>
-                      )
-                }
-              >
-                <MenuItem value="male">Male</MenuItem>
-                <MenuItem value="female">Female</MenuItem>
-                <MenuItem value="other">Other</MenuItem>
-                <MenuItem value="unknown">Unknown</MenuItem>
-              </Select>
-            </Field>
-            <Field label="Phone" optional>
-              <TextField size="small" fullWidth value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </Field>
-            <Field label="Email" optional>
-              <TextField size="small" fullWidth value={email} onChange={(e) => setEmail(e.target.value)} />
-            </Field>
-            <Field label="Address line 1">
-              <TextField size="small" fullWidth value={line1} onChange={(e) => setLine1(e.target.value)} />
-            </Field>
-            <Field label="Address line 2" optional>
-              <TextField size="small" fullWidth value={line2} onChange={(e) => setLine2(e.target.value)} />
-            </Field>
-            <Field label="City">
-              <TextField size="small" fullWidth value={city} onChange={(e) => setCity(e.target.value)} />
-            </Field>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-              <Field label="State">
-                <TextField
-                  size="small"
-                  fullWidth
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  inputProps={{ maxLength: 2, style: { textTransform: 'uppercase' } }}
-                />
-              </Field>
-              <Field label="ZIP">
-                <TextField size="small" fullWidth value={zip} onChange={(e) => setZip(e.target.value)} />
-              </Field>
-            </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 1280 }}>
+            <DemographicFields />
+            <AddressFields />
           </Box>
-          <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: 12.5, mt: 2.5 }}>
-            MRN and Friendly ID are system-assigned and cannot be edited.
-          </Typography>
         </Box>
       }
     >
-      <DetailRow label="Patient" value={patientName} labelWidth={120} />
-      <DetailRow label="MRN" value={patient.id} labelWidth={120} />
-      <DetailRow label="Friendly ID" value={patient.friendlyId} labelWidth={120} />
-      <DetailRow label="DOB" value={patient.dob} labelWidth={120} />
-      <DetailRow label="Gender" value={patient.gender} labelWidth={120} />
-      <DetailRow label="Phone" value={patient.phone} labelWidth={120} />
-      <DetailRow label="Email" value={patient.email} labelWidth={120} />
-      <DetailRow label="Address" value={patient.address} labelWidth={120} />
+      <Row label="Patient" value={commaFormattedName(patient)} />
+      <Row label="DOB" value={patient.dob} />
+      <Row label="Gender" value={patient.gender} />
+      <Row label="Phone" value={patient.phone} />
+      <Row label="Email" value={patient.email} />
+      <Row label="Address" value={patient.address} hideBorder />
     </EditableSection>
   );
 }
@@ -470,7 +337,7 @@ function InsuranceTab({ patientId }: { patientId: string }): ReactElement {
   );
 }
 
-function CoverageCard({
+export function CoverageCard({
   coverage,
   unavailableTypes,
   onChanged,
@@ -480,27 +347,23 @@ function CoverageCard({
   onChanged: () => Promise<void>;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [form, setForm] = useState<CoverageFormState>(() => coverageFormFromOption(coverage));
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const resetForm = useCallback((): void => {
-    setForm(coverageFormFromOption(coverage));
     setConfirming(false);
     setDeleteError(null);
-  }, [coverage]);
+  }, []);
 
   useEffect(() => {
     resetForm();
   }, [resetForm]);
 
-  const handleSave = async (): Promise<string | null> => {
+  const handleSave = async (data: CoverageForm): Promise<string | null> => {
     if (!oystehrZambda || !coverage.id) return 'Client not ready';
-    const validationError = validateCoverageForm(form, false, unavailableTypes);
-    if (validationError) return validationError;
     try {
-      await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(form, coverage.id));
+      await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(data, coverage.id));
     } catch (err) {
       return getApiError({ error: err, defaultError: 'Failed to save coverage' });
     }
@@ -523,30 +386,22 @@ function CoverageCard({
   };
 
   const title = BILLING_INSURANCE_TYPE_TITLES[coverage.insuranceType ?? 'primary'];
-  const policyHolderName = coverage.policyHolder
-    ? `${coverage.policyHolder.firstName} ${coverage.policyHolder.lastName}`.trim()
-    : '';
+  const policyHolderName = commaFormattedName(coverage.policyHolder);
 
   return (
     <EditableSection
       title={title}
       onSave={handleSave}
       onCancel={resetForm}
-      editForm={
-        <CoverageFormFields
-          value={form}
-          onChange={setForm}
-          payerPlaceholder={coverage.payorName}
-          unavailableTypes={unavailableTypes}
-        />
-      }
+      defaultValues={defaultCoverageFormValues(coverage)}
+      editForm={<CoverageFields unavailableTypes={unavailableTypes} />}
     >
-      <DetailRow label="Payer" value={coverage.payorName} labelWidth={170} />
-      <DetailRow label="Payer ID" value={coverage.payorId} labelWidth={170} />
-      <DetailRow label="Member ID" value={coverage.memberId ?? coverage.subscriberId} labelWidth={170} />
-      {coverage.planType ? <DetailRow label="Plan type" value={planTypeLabel(coverage.planType)} /> : <></>}
-      <DetailRow label="Relationship to insured" value={coverage.relationship ?? ''} labelWidth={170} />
-      {policyHolderName && <DetailRow label="Policy holder" value={policyHolderName} labelWidth={170} />}
+      <Row label="Payer" value={coverage.payorName} />
+      <Row label="Payer ID" value={coverage.payorId} />
+      <Row label="Member ID" value={coverage.memberId ?? coverage.subscriberId} />
+      {coverage.planType ? <Row label="Plan type" value={planTypeLabel(coverage.planType)} /> : <></>}
+      <Row label="Relationship to insured" value={coverage.relationship ?? ''} hideBorder={!policyHolderName} />
+      {policyHolderName && <Row label="Policy holder" value={policyHolderName} hideBorder />}
       <Box sx={{ mt: 1.5 }}>
         {deleteError && (
           <Alert severity="error" sx={{ mb: 1 }}>

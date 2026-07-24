@@ -39,7 +39,7 @@ import {
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
-import { emailRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
+import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -145,11 +145,11 @@ export function getBucketAndObjectFromZ3URL(z3URL: string, projectAPI: string): 
   return { bucket, object };
 }
 
-export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
+export const isPostalCodeValid = (postalCode: string | undefined, requireFullZip?: boolean): boolean => {
   if (!postalCode) {
     return false;
   }
-  return zipRegex.test(postalCode);
+  return requireFullZip ? fullZipRegex.test(postalCode) : zipRegex.test(postalCode);
 };
 
 const tenDigitRegex = /^\d{10}$/;
@@ -328,21 +328,34 @@ export function validateDefined<T>(value: T, name: string): NonNullable<T> {
   return value;
 }
 
-export function standardizePhoneNumber(phoneNumber: string | undefined): string | undefined {
-  // input format:  some arbitrary format which may or may not include (, ), -, +1
-  // output format: (XXX) XXX-XXXX
+/**
+ * Extracts the bare 10-digit national number from an arbitrarily formatted phone string
+ * (e.g. "+12021234567", "(202) 123-4567", "202-123-4567"), stripping any formatting
+ * characters and a leading US country code. Returns undefined when the input can't be
+ * parsed to a 10-digit number. Use this to normalize FHIR-sourced phone values before
+ * feeding them to inputs/validation that expect unformatted digits.
+ */
+export function getPhoneNumberDigits(phoneNumber: string | undefined): string | undefined {
   if (!phoneNumber) {
     return undefined;
   }
 
   const digits = phoneNumber.replace(/\D/g, '');
-  let phoneNumberDigits: string | undefined;
 
   if (digits.length === 10) {
-    phoneNumberDigits = digits;
-  } else if (digits.length === 11 && digits.startsWith('1')) {
-    phoneNumberDigits = digits.slice(1);
+    return digits;
   }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return digits.slice(1);
+  }
+
+  return undefined;
+}
+
+export function standardizePhoneNumber(phoneNumber: string | undefined): string | undefined {
+  // input format:  some arbitrary format which may or may not include (, ), -, +1
+  // output format: (XXX) XXX-XXXX
+  const phoneNumberDigits = getPhoneNumberDigits(phoneNumber);
 
   if (!phoneNumberDigits) {
     return undefined;

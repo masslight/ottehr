@@ -1,9 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { BillingPatientOption, FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils';
+import { BillingPatientOption } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fhirName, formatAddress } from '../shared';
+import {
+  createBillingClient,
+  EXCLUDE_WORKING_COPIES_PARAMS,
+  fhirName,
+  formatAddress,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  SOURCE_IDENTIFIER_SYSTEM,
+} from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -28,6 +35,7 @@ async function performEffect(
     { name: '_count', value: String(pageSize) },
     { name: '_offset', value: String(offset) },
     { name: '_sort', value: 'family' },
+    { name: '_total', value: 'accurate' },
     ...EXCLUDE_WORKING_COPIES_PARAMS,
   ];
   if (params.uuid) searchParams.push({ name: '_id', value: params.uuid });
@@ -38,8 +46,10 @@ async function performEffect(
   const response = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params: searchParams });
 
   const patients = response.unbundle().map((p) => {
-    const ids = p.identifier ?? [];
-    const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
+    const clinicalFriendlyId = p.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+    const clinicalId = p.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Patient/', '');
 
     return {
       id: p.id,
@@ -49,7 +59,8 @@ async function performEffect(
       dob: p.birthDate ?? '',
       gender: p.gender ?? '',
       address: formatAddress(p.address?.[0]),
-      friendlyId,
+      clinicalId: clinicalId ?? '',
+      clinicalFriendlyId: clinicalFriendlyId ?? '',
     };
   });
 

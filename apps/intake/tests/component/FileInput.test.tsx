@@ -2,13 +2,14 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import imageCompression from 'browser-image-compression';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { downscaleImageForUpload } from 'utils/lib/frontend';
-import { describe, expect, test, vi } from 'vitest';
-import FileInput, {
+import { PaperworkContext } from 'ui-components';
+import {
   COMPRESS_TARGET_MB,
   COMPRESS_THRESHOLD_MB,
-} from '../../src/features/paperwork/components/FileInput';
-import { PaperworkContext } from '../../src/features/paperwork/context';
+  FileInput,
+} from 'ui-components/lib/components/paperwork/form-components';
+import { downscaleImageForUpload } from 'utils/lib/frontend';
+import { describe, expect, test, vi } from 'vitest';
 
 vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
@@ -21,6 +22,13 @@ vi.mock('utils/lib/frontend', async () => {
     downscaleImageForUpload: vi.fn(async (file: File) => file),
   };
 });
+
+// FileInput/index.tsx imports convertHeicToJpegIfNeeded via a relative path
+// (../../../../utils/heic), not the ui-components barrel, so we must mock the
+// resolved module path directly.
+vi.mock('ui-components/lib/utils/heic', () => ({
+  convertHeicToJpegIfNeeded: vi.fn(async (file: File) => file),
+}));
 
 vi.mock('ui-components', async () => {
   const actual = await vi.importActual<typeof import('ui-components')>('ui-components');
@@ -47,6 +55,9 @@ const stubPaperworkContext = (): PaperworkContext =>
   ({
     appointment: { id: 'appt-1' },
     setSaveButtonDisabled: vi.fn(),
+    paperworkComponentHelpers: {
+      createZ3Object: vi.fn(),
+    },
   }) as unknown as PaperworkContext;
 
 const Wrapper: FC<{ attachmentType?: 'image' | 'pdf' }> = ({ attachmentType = 'image' }) => {

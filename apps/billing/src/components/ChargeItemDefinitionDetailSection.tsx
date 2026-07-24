@@ -32,9 +32,10 @@ import {
   formatChargeItemDefinitionDefault,
 } from '../constants/chargeItemDefinition';
 import { useApiClients } from '../hooks/useAppClients';
+import { BulkImportProcedureCodes } from './BulkImportProcedureCodes';
 import { EditableSection } from './claim/EditableSection';
-import { DetailRow } from './DetailRow';
 import { Field } from './Field';
+import { Row } from './Row';
 
 export function ChargeItemDefinitionDetailSection({
   type,
@@ -183,10 +184,10 @@ export function ChargeItemDefinitionDetailSection({
           </Box>
         }
       >
-        <DetailRow label="Name" value={cid.name ?? 'unknown'} />
-        <DetailRow label="Description" value={cid.description ?? ''} />
-        <DetailRow label="Effective Date" value={cid.effectiveDate ?? ''} />
-        <DetailRow label="Is Default For" value={formatChargeItemDefinitionDefault(cid.default)} />
+        <Row label="Name" value={cid.name ?? 'unknown'} />
+        <Row label="Description" value={cid.description ?? ''} />
+        <Row label="Effective Date" value={cid.effectiveDate ?? ''} />
+        <Row label="Is Default For" value={formatChargeItemDefinitionDefault(cid.default)} hideBorder />
       </EditableSection>
       <Box sx={{ mt: 2 }}>
         <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
@@ -210,6 +211,7 @@ export function ChargeItemDefinitionDetailSection({
             }}
             sx={{ flex: 1 }}
           />
+          <BulkImportProcedureCodes type={type} cid={cid} onSaved={onSaved} />
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddDialogOpen(true)}>
             Add procedure code
           </Button>

@@ -121,8 +121,8 @@ describe('FloatingCardPreview', () => {
     expect(document.querySelector('[role="presentation"]')).toBeNull();
     expect(document.querySelector('.MuiDialog-root')).toBeNull();
 
-    // The panel is aria-labelled but not aria-modal.
-    expect(getPanel().getAttribute('aria-modal')).toBeNull();
+    // The panel is aria-labelled and explicitly non-modal (not just missing aria-modal).
+    expect(getPanel().getAttribute('aria-modal')).toBe('false');
 
     // The staffer keeps typing in the form while the preview floats.
     const input = screen.getByLabelText('Member ID') as HTMLInputElement;
@@ -152,6 +152,14 @@ describe('FloatingCardPreview', () => {
 
     expect(screen.getByRole('dialog', { name: `${TITLE} preview` })).toBeDefined();
     expect(document.activeElement).toBe(input);
+  });
+
+  it('announces the open via a visually-hidden live region, since it never takes focus', () => {
+    renderPreview();
+
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent(`${TITLE} preview opened`);
+    expect(status).toHaveAttribute('aria-live', 'polite');
   });
 
   it('is draggable by the header, clamped to the viewport, and ignores drags starting on buttons', () => {

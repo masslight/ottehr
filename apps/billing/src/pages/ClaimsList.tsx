@@ -19,7 +19,6 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AR_STAGE,
   BillingClaimItem,
   BillingPatientOption,
   BillingPayerOption,
@@ -29,16 +28,16 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
   getApiError,
-  MAX_SUBMIT_BILLING_CLAIMS,
+  MAX_RUN_RULES_ENGINE_CLAIMS,
   SearchBillingClaimsInput,
 } from 'utils';
 import {
+  runBillingRulesEngine,
   searchBillingClaims,
   searchBillingPatients,
   searchBillingPayers,
   searchBillingServices,
   searchBillingTags,
-  submitBillingClaims,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -318,29 +317,20 @@ export default function ClaimsList(): ReactElement {
     typeFilter ||
     selectedService;
 
-  const claimLabel = useCallback(
-    (claimId: string): string => {
-      const row = claims.find((c) => c.id === claimId);
-      if (!row) return claimId.slice(0, 8);
-      return row.serviceDate ? `${row.patientName} (${row.serviceDate})` : row.patientName;
-    },
-    [claims]
-  );
-
+  // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
+  // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
+  // applies the configured rules, then performs its engine's success effect — submit to the payer
+  // or make ready to invoice — or holds its claim, in the background.
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || selected.length === 0) return;
     setSubmitting(true);
     try {
-      const { results } = await submitBillingClaims(oystehrZambda, { claimIds: selected.map(String) });
-      const submitted = results.filter((r) => r.status === 'submitted');
-      const failed = results.filter((r) => r.status === 'error');
-      if (submitted.length > 0) {
-        enqueueSnackbar(`${submitted.length} claim(s) submitted`, { variant: 'success' });
-      }
-      if (failed.length > 0) {
-        const detail = failed.map((r) => `${claimLabel(r.claimId)} — ${r.error ?? 'failed'}`).join('; ');
-        enqueueSnackbar(`Failed to submit: ${detail}`, { variant: 'error' });
-      }
+      await runBillingRulesEngine(oystehrZambda, { claimIds: selected.map(String) });
+      enqueueSnackbar(
+        `Rules started for ${selected.length} claim(s) — each claim will be submitted, made ready to invoice, ` +
+          'or held shortly. Refresh to see the results.',
+        { variant: 'info' }
+      );
       setSelected([]);
     } catch (err) {
       enqueueSnackbar(
@@ -355,11 +345,11 @@ export default function ClaimsList(): ReactElement {
       setConfirmingSubmit(false);
       void fetchClaims(currentFilters(), paginationModel);
     }
-  }, [oystehrZambda, selected, claimLabel, fetchClaims, currentFilters, paginationModel]);
+  }, [oystehrZambda, selected, fetchClaims, currentFilters, paginationModel]);
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims
         </Typography>
@@ -367,8 +357,8 @@ export default function ClaimsList(): ReactElement {
           {selected.length > 0 && (
             <Tooltip
               title={
-                selected.length > MAX_SUBMIT_BILLING_CLAIMS
-                  ? `Select up to ${MAX_SUBMIT_BILLING_CLAIMS} claims to submit at once`
+                selected.length > MAX_RUN_RULES_ENGINE_CLAIMS
+                  ? `Select up to ${MAX_RUN_RULES_ENGINE_CLAIMS} claims to run rules on at once`
                   : ''
               }
             >
@@ -376,16 +366,16 @@ export default function ClaimsList(): ReactElement {
                 <Button
                   variant="outlined"
                   size="small"
-                  disabled={selected.length > MAX_SUBMIT_BILLING_CLAIMS}
+                  disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
                   onClick={() => setConfirmingSubmit(true)}
                 >
-                  Submit ({selected.length})
+                  Run rules ({selected.length})
                 </Button>
               </span>
             </Tooltip>
           )}
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
-            Create
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
+            Add Claim
           </Button>
         </Box>
       </Box>
@@ -575,23 +565,25 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
-        isRowSelectable={(params) => (params.row as BillingClaimItem).statuses?.arStage === AR_STAGE.insurancePayer}
+        isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
         rowSelectionModel={selected}
         onRowSelectionModelChange={setSelected}
         slots={dataGridSlots}
+        pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
 
       <ConfirmDialog
         open={confirmingSubmit}
-        title="Submit claims"
-        confirmLabel="Submit"
+        title="Run claim rules"
+        confirmLabel="Run rules"
         loading={submitting}
         onConfirm={() => void handleSubmit()}
         onCancel={() => setConfirmingSubmit(false)}
       >
-        Submit {selected.length} claim(s) to the payer? This sends them for processing and sets each Insurance AR Status
-        to Submitted.
+        Run rules for {selected.length} claim(s)? Each claim runs its AR stage's rules engine — when every rule passes,
+        Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a Hold
+        keeps a claim for review.
       </ConfirmDialog>
     </Box>
   );

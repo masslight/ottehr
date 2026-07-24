@@ -173,6 +173,7 @@ export const CLAIM_STATUS_FIELDS: ClaimStatusFieldDef[] = [
     defaultCode: null,
     options: [
       { code: 'created', label: 'Created' },
+      { code: 'ready-to-invoice', label: 'Ready to invoice' },
       { code: 'invoiced', label: 'Invoiced' },
       { code: 'finalized', label: 'Finalized' },
     ],

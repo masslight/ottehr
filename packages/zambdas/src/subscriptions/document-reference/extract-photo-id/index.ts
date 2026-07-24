@@ -3,9 +3,10 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createOystehrClient, getPresignedURL, getSecret, PhotoIdExtraction, SecretsKeys } from 'utils';
+import { createOystehrClient, getSecret, PhotoIdExtraction, SecretsKeys } from 'utils';
 import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../../shared/ai';
+import { downloadOcrSourceImage } from '../shared/extraction-helpers';
 import {
   buildExtractionPatchOperation,
   EXTRACTION_PROMPT,
@@ -21,9 +22,6 @@ const ZAMBDA_NAME = 'extract-photo-id';
 // warm-invocation cache, same as other subscription zambdas
 let oystehrToken: string;
 
-// PHI note: this handler logs only DocRef id, mime type, byte length, image hash, elapsed ms,
-// and boolean outcomes. It must never log the image payload, the raw model response, or any
-// extracted field value (names / DOB / license numbers are PHI).
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`[${ZAMBDA_NAME}] handler start, body length: ${input.body?.length ?? 0}`);
 
@@ -90,35 +88,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    // Fetch the ID image via presigned Z3 URL. An unreadable / undownloadable image must not
-    // crash the subscription: report it and no-op (no marker is written, so a re-fire or
-    // re-upload can still succeed later).
+    // Fetch the ID image via presigned Z3 URL. A download failure is often transient (network
+    // blip, presigned url race); returning 200 here would tell the subscription "handled" and
+    // leave the ID permanently unprocessed, so re-throw and let the subscription's retry
+    // semantics (same pattern as the parseModelResponse failure below) get another attempt.
     const startedAt = Date.now();
     let bytes: Buffer;
     let mimeType: string;
     try {
-      const presignedUrl = await getPresignedURL(attachmentUrl, oystehrToken);
-      const imageResponse = await fetch(presignedUrl);
-      if (!imageResponse.ok) {
-        throw new Error(
-          `Failed to download photo ID image for DocumentReference/${docRefId}: HTTP ${imageResponse.status}`
-        );
-      }
-      bytes = Buffer.from(await imageResponse.arrayBuffer());
-      mimeType = (
-        imageResponse.headers.get('Content-Type') ??
-        current.content?.[0]?.attachment?.contentType ??
-        'image/jpeg'
-      )
-        .split(';')[0]
-        .trim();
+      ({ bytes, mimeType } = await downloadOcrSourceImage({
+        attachmentUrl,
+        token: oystehrToken,
+        fallbackContentType: current.content?.[0]?.attachment?.contentType,
+      }));
     } catch (error) {
       console.error(`[${ZAMBDA_NAME}] failed to fetch photo ID image for DocumentReference/${docRefId}:`, error);
       captureException(error);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ documentReferenceId: docRefId, skipped: true, extracted: false }),
-      };
+      throw error;
     }
 
     const imageHash = sha256Hex(bytes);
@@ -149,8 +135,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const rawModelResponse = await invokeChatbotVertexAI(
       [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
       secrets,
-      photoIdResponseSchema,
-      { suppressResponseLogging: true } // response carries ID PHI — never log it
+      photoIdResponseSchema
     );
 
     let parsed;

@@ -91,6 +91,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     ownerId,
     ownerType,
     isVirtual,
+    isInPerson,
     stripeAccountId,
     advapacsLocationId,
     rooms,
@@ -171,6 +172,10 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     throw INVALID_INPUT_ERROR('"isVirtual" must be a boolean');
   }
 
+  if (isInPerson !== undefined && typeof isInPerson !== 'boolean') {
+    throw INVALID_INPUT_ERROR('"isInPerson" must be a boolean');
+  }
+
   if (stripeAccountId !== undefined && stripeAccountId !== null && typeof stripeAccountId !== 'string') {
     throw INVALID_INPUT_ERROR('"stripeAccountId" must be a string or null');
   }
@@ -243,6 +248,7 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     closures,
     slug,
     isVirtual,
+    isInPerson,
     stripeAccountId,
     advapacsLocationId,
     rooms,

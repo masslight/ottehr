@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { StandardFonts } from 'pdf-lib';
-import { BUCKET_NAMES, createFilesDocumentReferences, getPresignedURL, LabelConfig, MIME_TYPES, Secrets } from 'utils';
+import { BUCKET_NAMES, createFilesDocumentReferences, getPresignedURL, LabelConfig, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { convertLabeConfigToPdfClientStyles } from './external-labs-label-pdf';
@@ -204,7 +204,7 @@ async function createVisitLabelPDFHelper(
 
   try {
     const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
-    await uploadObjectToZ3(pdfBytes, presignedUrl, MIME_TYPES.PDF);
+    await uploadObjectToZ3(pdfBytes, presignedUrl);
   } catch (error: any) {
     throw new Error(`failed uploading pdf ${fileName} to z3:  ${JSON.stringify(error.message)}`);
   }

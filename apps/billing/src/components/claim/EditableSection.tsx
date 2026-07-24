@@ -1,39 +1,60 @@
 import { Edit as EditIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Card, CardContent, Collapse, Typography } from '@mui/material';
-import { FC, ReactNode, useState } from 'react';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Collapse, Typography } from '@mui/material';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
+import { DefaultValues, FieldValues, FormProvider, useForm } from 'react-hook-form';
+import { getApiError } from 'utils';
 
-interface EditableSectionProps {
+interface EditableSectionProps<T> {
   title: string;
   children: ReactNode;
   editForm?: ReactNode;
-  onSave?: () => Promise<string | null>;
+  defaultValues?: DefaultValues<T>;
+  onSave: (data: T) => Promise<string | null> | Promise<void>;
   onCancel?: () => void;
 }
 
-export const EditableSection: FC<EditableSectionProps> = ({ title, children, editForm, onSave, onCancel }) => {
+export const EditableSection = <T extends FieldValues>({
+  title,
+  children,
+  editForm,
+  defaultValues,
+  onSave,
+  onCancel,
+}: EditableSectionProps<T>): ReactElement => {
+  const methods = useForm<T, unknown, T>({
+    defaultValues,
+  });
+  const {
+    handleSubmit,
+    reset,
+    formState: { isSubmitting },
+  } = methods;
+
+  useEffect(() => {
+    reset(defaultValues);
+  }, [reset, defaultValues]);
+
   const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSave = async (): Promise<void> => {
-    if (!onSave) return;
+  const handleSave = async (data: T): Promise<void> => {
     setError(null);
-    setSaving(true);
     try {
-      const result = await onSave();
+      const result = await onSave(data);
       if (result) {
         setError(result);
       } else {
         setEditing(false);
       }
-    } finally {
-      setSaving(false);
+    } catch (err: unknown) {
+      setError(getApiError({ error: err, defaultError: 'Failed to submit request' }));
     }
   };
 
   const handleCancel = (): void => {
     setEditing(false);
     setError(null);
+    reset(defaultValues);
     onCancel?.();
   };
 
@@ -51,11 +72,11 @@ export const EditableSection: FC<EditableSectionProps> = ({ title, children, edi
           )}
           {editing && (
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button size="small" onClick={handleCancel} disabled={saving}>
+              <Button size="small" onClick={handleCancel} disabled={isSubmitting}>
                 Cancel
               </Button>
-              <Button size="small" variant="contained" onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save'}
+              <Button size="small" variant="contained" onClick={handleSubmit(handleSave)} disabled={isSubmitting}>
+                {isSubmitting ? 'Saving...' : 'Save'}
               </Button>
             </Box>
           )}
@@ -67,9 +88,37 @@ export const EditableSection: FC<EditableSectionProps> = ({ title, children, edi
         )}
         <Collapse in={!editing}>{children}</Collapse>
         <Collapse in={editing}>
-          <Box sx={{ mt: 2 }}>{editForm}</Box>
+          {/* {defaultValues ? ( */}
+          <FormProvider {...methods}>
+            <Box sx={{ mt: 2 }}>{editForm}</Box>
+          </FormProvider>
+          {/* ) : ( */}
+          {/* <></> */}
+          {/* )} */}
         </Collapse>
       </CardContent>
     </Card>
   );
 };
+
+export function EditableSectionSkeleton({ title }: { title: string }): ReactElement {
+  return (
+    <Card variant="outlined" sx={{ mb: 2 }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
+            {title}
+          </Typography>
+          <Button size="small" startIcon={<EditIcon fontSize="small" />} disabled={true}>
+            Edit
+          </Button>
+        </Box>
+        <Collapse in={true}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <CircularProgress />
+          </Box>
+        </Collapse>
+      </CardContent>
+    </Card>
+  );
+}

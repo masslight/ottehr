@@ -202,10 +202,27 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const bucketResources: { resource: { oystehr_z3_bucket: { [key: string]: any } } } = {
       resource: { oystehr_z3_bucket: {} },
     };
+    if (Object.keys(this.resources.buckets).length && !this.vars.ENVIRONMENT) {
+      throw new Error('ENVIRONMENT must be set to resolve bucket removal policies');
+    }
     for (const [bucketName, bucket] of Object.entries(this.resources.buckets)) {
+      if ('removalPolicy' in bucket) {
+        throw new Error(
+          `Bucket "${bucketName}" uses the removed "removalPolicy" field; use "retainInEnvironments" instead`
+        );
+      }
+      const rawRetain: unknown = bucket.retainInEnvironments ?? [];
+      if (!Array.isArray(rawRetain) || rawRetain.some((env) => typeof env !== 'string')) {
+        throw new Error(
+          `Bucket "${bucketName}" has an invalid "retainInEnvironments"; expected an array of environment name strings`
+        );
+      }
+      const retainInEnvironments: string[] = rawRetain;
+      const shouldRetain = retainInEnvironments.includes(this.vars.ENVIRONMENT);
       bucketResources.resource.oystehr_z3_bucket[bucketName] = {
         name: this.getValue(bucket.name, this.resources),
-        removal_policy: this.getValue(bucket.removalPolicy, this.resources),
+        removal_policy: shouldRetain ? 'retain' : 'delete',
+        force_destroy: shouldRetain ? undefined : true,
       };
     }
     if (Object.keys(bucketResources.resource.oystehr_z3_bucket).length) {
@@ -408,7 +425,13 @@ export class Schema20250925 implements Schema<Spec20250925> {
       const staticSecretRefs = Object.keys(this.resources.secrets)
         .map((name) => `"${name}": oystehr_secret.${name}.value`)
         .join(', ');
-      const zambdaSecretsExpr = `\${merge({for k, v in oystehr_secret.sendgrid_template_ids : k => v.value}, length(oystehr_secret.sendgrid_send_email_api_key) > 0 ? {"SENDGRID_SEND_EMAIL_API_KEY": one(oystehr_secret.sendgrid_send_email_api_key[*].value)} : {}, {${staticSecretRefs}})}`;
+      const zambdaSecretsExpr = `\${merge({for k, v in ${
+        outputsOutFile.includes('oystehr/') ? 'oystehr_secret.sendgrid_template_ids' : '{}'
+      } : k => v.value}, ${
+        outputsOutFile.includes('oystehr/')
+          ? 'length(oystehr_secret.sendgrid_send_email_api_key) > 0 ? {"SENDGRID_SEND_EMAIL_API_KEY": one(oystehr_secret.sendgrid_send_email_api_key[*].value)} : {}'
+          : '{}'
+      }, {${staticSecretRefs}})}`;
       outputDirectives.locals['zambda_secrets_for_local_server'] = { value: zambdaSecretsExpr };
       outputDirectives.output['zambda_secrets_for_local_server'] = {
         value: '${local.zambda_secrets_for_local_server.value}',

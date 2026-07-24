@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { FrontCardOrientationHint } from '../../src/features/visits/shared/components/patient/useInsuranceCardExtraction';
+import type { CardOrientationHint } from '../../src/features/visits/shared/components/patient/useInsuranceCardExtraction';
 
 // ============================================================================
 // MOCKS
@@ -14,9 +14,12 @@ const { mockRotateInsuranceCardImage, mockEnqueueSnackbar, mockOystehrZambda, ex
   mockOystehrZambda: { zambda: { execute: vi.fn() } },
   // Mutable per-test state the mocked extraction hook returns.
   extractionState: {
-    frontOrientation: { primary: null, secondary: null } as Record<
+    orientation: {
+      primary: { front: null, back: null },
+      secondary: { front: null, back: null },
+    } as Record<
       'primary' | 'secondary',
-      { docRefId: string; readable: boolean | null } | null
+      Record<'front' | 'back', { docRefId: string; readable: boolean | null } | null>
     >,
   },
 }));
@@ -38,7 +41,7 @@ vi.mock('src/features/visits/shared/components/patient/useInsuranceCardExtractio
   useInsuranceCardExtraction: () => ({
     primary: null,
     secondary: null,
-    frontOrientation: extractionState.frontOrientation,
+    orientation: extractionState.orientation,
     isLoading: false,
   }),
 }));
@@ -79,13 +82,20 @@ const renderHint = (overrides: RenderOverrides = {}): { onRotated: ReturnType<ty
   return { onRotated };
 };
 
-const setFrontHint = (hint: FrontCardOrientationHint | null): void => {
-  extractionState.frontOrientation = { primary: hint, secondary: null };
+const setOrientationHint = (
+  hint: CardOrientationHint | null,
+  { face = 'front', ordinal = 'primary' }: { face?: 'front' | 'back'; ordinal?: 'primary' | 'secondary' } = {}
+): void => {
+  extractionState.orientation = {
+    primary: { front: null, back: null },
+    secondary: { front: null, back: null },
+  };
+  extractionState.orientation[ordinal][face] = hint;
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  setFrontHint(null);
+  setOrientationHint(null);
 });
 
 // ============================================================================
@@ -93,7 +103,7 @@ beforeEach(() => {
 // ============================================================================
 describe('InsuranceCardOrientationHint', () => {
   it('renders the badge and rotate button when the OCR judged the displayed card not right-side-up', () => {
-    setFrontHint({ docRefId: DOC_REF_ID, readable: false });
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
     renderHint();
 
     expect(screen.getByText(CARD_MAY_BE_ROTATED_LABEL)).toBeInTheDocument();
@@ -101,7 +111,7 @@ describe('InsuranceCardOrientationHint', () => {
   });
 
   it('rotates 90 degrees clockwise on click and refreshes the displayed image', async () => {
-    setFrontHint({ docRefId: DOC_REF_ID, readable: false });
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
     mockRotateInsuranceCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
     const { onRotated } = renderHint();
 
@@ -120,7 +130,7 @@ describe('InsuranceCardOrientationHint', () => {
   });
 
   it('surfaces a rotate failure via the snackbar, does not refresh the image, and keeps the badge', async () => {
-    setFrontHint({ docRefId: DOC_REF_ID, readable: false });
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
     mockRotateInsuranceCardImage.mockRejectedValue(new Error('rotate failed'));
     const { onRotated } = renderHint();
 
@@ -141,7 +151,7 @@ describe('InsuranceCardOrientationHint', () => {
     ['readable is true (card judged upright)', true],
     ['readable is null (no verdict)', null],
   ])('renders the rotate button but no badge when %s', (_label, readable) => {
-    setFrontHint({ docRefId: DOC_REF_ID, readable: readable as boolean | null });
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: readable as boolean | null });
     renderHint();
 
     expect(screen.queryByText(CARD_MAY_BE_ROTATED_LABEL)).not.toBeInTheDocument();
@@ -149,7 +159,7 @@ describe('InsuranceCardOrientationHint', () => {
   });
 
   it('renders the rotate button but no badge when the card has no stored orientation hint at all', () => {
-    setFrontHint(null);
+    setOrientationHint(null);
     renderHint();
 
     expect(screen.queryByText(CARD_MAY_BE_ROTATED_LABEL)).not.toBeInTheDocument();
@@ -157,16 +167,23 @@ describe('InsuranceCardOrientationHint', () => {
   });
 
   it('renders the rotate button but no badge when the verdict belongs to a different (replaced) card image', () => {
-    setFrontHint({ docRefId: 'docref-old-deleted', readable: false });
+    setOrientationHint({ docRefId: 'docref-old-deleted', readable: false });
     renderHint();
 
     expect(screen.queryByText(CARD_MAY_BE_ROTATED_LABEL)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL })).toBeEnabled();
   });
 
-  it('renders the rotate button but no badge for a BACK card (OCR judges the front only)', () => {
-    // Even with a front verdict present for the same ordinal, the back card shows no badge.
-    setFrontHint({ docRefId: DOC_REF_ID, readable: false });
+  it('renders the badge for a BACK card when the back image itself was judged not right-side-up', () => {
+    setOrientationHint({ docRefId: 'docref-back-1', readable: false }, { face: 'back' });
+    renderHint({ face: 'back', documentReferenceId: 'docref-back-1' });
+
+    expect(screen.getByText(CARD_MAY_BE_ROTATED_LABEL)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL })).toBeEnabled();
+  });
+
+  it('tracks front and back orientation independently: a front verdict does not leak into the back card', () => {
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: false }, { face: 'front' });
     renderHint({ face: 'back', documentReferenceId: 'docref-back-1' });
 
     expect(screen.queryByText(CARD_MAY_BE_ROTATED_LABEL)).not.toBeInTheDocument();
@@ -174,7 +191,7 @@ describe('InsuranceCardOrientationHint', () => {
   });
 
   it('renders nothing when there is no displayed card (no DocumentReference id)', () => {
-    setFrontHint({ docRefId: DOC_REF_ID, readable: false });
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
     renderHint({ documentReferenceId: null });
 
     expect(screen.queryByText(CARD_MAY_BE_ROTATED_LABEL)).not.toBeInTheDocument();
@@ -182,7 +199,7 @@ describe('InsuranceCardOrientationHint', () => {
   });
 
   it('keeps the rotate control mounted across rotates so a 180°/270° card can be fixed with repeated clicks', async () => {
-    setFrontHint({ docRefId: DOC_REF_ID, readable: false });
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
     mockRotateInsuranceCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
     const { onRotated } = renderHint();
 
@@ -202,7 +219,7 @@ describe('InsuranceCardOrientationHint', () => {
   it('suppresses the badge after a successful rotate even when a stale readable=false verdict persists', async () => {
     // Simulate the backend readable-reset patch failing: the mocked extraction keeps returning
     // readable=false for this DocRef even after the rotate + refetch.
-    setFrontHint({ docRefId: DOC_REF_ID, readable: false });
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
     mockRotateInsuranceCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
     renderHint();
 

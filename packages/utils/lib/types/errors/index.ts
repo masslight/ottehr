@@ -38,6 +38,7 @@ export enum APIErrorCode {
   INVALID_RESOURCE_ID = 4202,
   MISSING_AUTH_TOKEN = 4203,
   MISSING_REQUEST_SECRETS = 4204,
+  PAYLOAD_TOO_LARGE = 4205,
   // 43xx
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
@@ -51,6 +52,7 @@ export enum APIErrorCode {
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
   PRACTITIONER_SCHEDULE_CONFLICT = 4342,
+  APPOINTMENT_SEARCH_TOO_BROAD = 4343,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -59,11 +61,14 @@ export enum APIErrorCode {
   ADMIN_IN_HOUSE_TEST_EXISTS = 4404,
   LABEL_PRINTING_GENERAL = 4405,
   RADIOLOGY_GENERAL = 4406,
-  INSURANCE_CARD_IMAGE_GENERAL = 4407,
+  MANAGED_QUESTIONNAIRE_GENERAL = 4407,
+  INSURANCE_CARD_IMAGE_GENERAL = 4408,
 
   // 45xx
   STRIPE_PAYMENT_ERROR_GENERIC = 4500,
   STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
+  ERA_IMPORT_FAILED = 4502,
+  MANUAL_PAYMENT_CONFLICT = 4503,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -119,6 +124,12 @@ export const NOT_AUTHORIZED: APIError = {
   message: 'You are not authorized to access this data',
   statusCode: 401,
 };
+
+export const MEDICAL_RECORD_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
+  code: APIErrorCode.PAYLOAD_TOO_LARGE,
+  message: `This medical record is too large to export as a single download (over ${maxMb} MB).`,
+  statusCode: 413,
+});
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_MODIFIED,
@@ -248,6 +259,12 @@ export const PRACTITIONER_SCHEDULE_CONFLICT_ERROR = (categoryNames: string[]): A
   )}. Remove ${categoryNames.length === 1 ? 'it' : 'them'} from that schedule first, or pick a different location.`,
 });
 
+export const APPOINTMENT_SEARCH_TOO_BROAD_ERROR: APIError = {
+  code: APIErrorCode.APPOINTMENT_SEARCH_TOO_BROAD,
+  message:
+    'This search returned too much data to load. Please narrow the date range or select fewer locations/providers and try again.',
+};
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -348,6 +365,20 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
     message,
   };
 };
+
+export const ERA_IMPORT_FAILED_ERROR = (message: string, statusCode?: number): APIError => {
+  return {
+    code: APIErrorCode.ERA_IMPORT_FAILED,
+    message,
+    statusCode,
+  };
+};
+// Raised when a record-billing-manual-payment idempotency key is replayed with different payment details.
+export const MANUAL_PAYMENT_CONFLICT_ERROR = (idempotencyKey: string): APIError => ({
+  code: APIErrorCode.MANUAL_PAYMENT_CONFLICT,
+  statusCode: 409,
+  message: `A different payment was already recorded with idempotency key "${idempotencyKey}". Use a new key to record a new payment.`,
+});
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
@@ -500,6 +531,13 @@ export const PRECONDITION_FAILED = (message?: string): APIError => ({
 export const RADIOLOGY_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.RADIOLOGY_GENERAL,
+    message,
+  };
+};
+
+export const MANAGED_QUESTIONNAIRE_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MANAGED_QUESTIONNAIRE_GENERAL,
     message,
   };
 };

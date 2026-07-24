@@ -62,6 +62,7 @@ export const MANUAL_TASK = {
     orderId: 'order-id',
     encounterId: 'encounter-id',
     patient: 'patient',
+    documentReferenceId: 'document-reference-id',
   },
 } as const;
 
