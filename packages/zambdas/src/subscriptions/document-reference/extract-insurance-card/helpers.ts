@@ -1,15 +1,7 @@
-import { createHash } from 'node:crypto';
 import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
-import { DocumentReference, Extension } from 'fhir/r4b';
+import { Extension } from 'fhir/r4b';
 import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction, InsuranceCardExtractionFields } from 'utils';
-
-/** sha256 hex of a Buffer. Uint8Array view (no copy): this workspace's @types/node rejects Buffer for BinaryLike. */
-export function sha256Hex(data: Buffer): string {
-  return createHash('sha256')
-    .update(new Uint8Array(data.buffer, data.byteOffset, data.byteLength))
-    .digest('hex');
-}
 
 export const EXTRACTION_PROMPT = `You are extracting data from an image for a healthcare record system.
 
@@ -26,9 +18,6 @@ If it is an insurance card, extract exactly these fields, using ONLY values that
 - rxGroup: the pharmacy RxGroup
 - insuranceType: the plan type if printed (e.g. PPO, HMO, EPO, POS, Medicaid, Medicare)
 - effectiveDate: the coverage effective date, formatted YYYY-MM-DD
-
-Also judge the card's orientation:
-- readable: is the card RIGHT-SIDE-UP — is its printed text in a normal, upright, human-readable orientation (not rotated sideways or upside-down)? Return true if it is right-side-up, false if it is not.
 
 Rules:
 - Set a field to null when the value is not clearly printed on the card. Do NOT guess or infer values.
@@ -52,7 +41,6 @@ export const insuranceCardResponseSchema = {
     rxGroup: { type: 'string', nullable: true },
     insuranceType: { type: 'string', nullable: true },
     effectiveDate: { type: 'string', nullable: true },
-    readable: { type: 'boolean', nullable: true },
   },
   required: [
     'isInsuranceCard',
@@ -66,7 +54,6 @@ export const insuranceCardResponseSchema = {
     'rxGroup',
     'insuranceType',
     'effectiveDate',
-    'readable',
   ],
 };
 
@@ -87,11 +74,6 @@ export interface ParsedModelResponse {
   isInsuranceCard: boolean;
   /** Normalized fields; null when isInsuranceCard is false or nothing at all was extracted. */
   fields: InsuranceCardExtractionFields | null;
-  /**
-   * The model's right-side-up / human-readable judgment for the card. Null whenever fields is
-   * null (notACard / all-null extraction) or the model did not return a boolean — never fabricated.
-   */
-  readable: boolean | null;
 }
 
 /**
@@ -106,7 +88,7 @@ export function parseModelResponse(raw: string): ParsedModelResponse {
   }
 
   if (parsed.isInsuranceCard !== true) {
-    return { isInsuranceCard: false, fields: null, readable: null };
+    return { isInsuranceCard: false, fields: null };
   }
 
   const fields = {} as InsuranceCardExtractionFields;
@@ -121,11 +103,8 @@ export function parseModelResponse(raw: string): ParsedModelResponse {
     }
   }
 
-  const readable = typeof parsed.readable === 'boolean' ? parsed.readable : null;
-
-  // all-null extraction is a permanent no-op condition, same as notACard — readable is nulled
-  // with it (a judgment about a card we store nothing for is not actionable)
-  return { isInsuranceCard: true, fields: anyValue ? fields : null, readable: anyValue ? readable : null };
+  // all-null extraction is a permanent no-op condition, same as notACard
+  return { isInsuranceCard: true, fields: anyValue ? fields : null };
 }
 
 export interface ExistingExtraction {
@@ -155,38 +134,6 @@ export function getExistingExtraction(extensions: Extension[] | undefined): Exis
     captureException(error);
     return { extraction: null, extensionIndex };
   }
-}
-
-/**
- * Builds the JSON-patch operations that keep the attachment metadata honest after the stored
- * image has been normalized (re-encoded / resized) in place: contentType and size are updated
- * only when they actually differ from what the DocumentReference already carries.
- */
-export function buildAttachmentMetadataOperations(
-  documentReference: DocumentReference,
-  contentType: string,
-  size: number
-): Operation[] {
-  const attachment = documentReference.content?.[0]?.attachment;
-  if (!attachment) {
-    return [];
-  }
-  const operations: Operation[] = [];
-  if (attachment.contentType !== contentType) {
-    operations.push({
-      op: attachment.contentType === undefined ? 'add' : 'replace',
-      path: '/content/0/attachment/contentType',
-      value: contentType,
-    });
-  }
-  if (attachment.size !== size) {
-    operations.push({
-      op: attachment.size === undefined ? 'add' : 'replace',
-      path: '/content/0/attachment/size',
-      value: size,
-    });
-  }
-  return operations;
 }
 
 export function buildExtractionExtension(extraction: InsuranceCardExtraction): Extension {
