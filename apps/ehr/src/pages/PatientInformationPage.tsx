@@ -9,7 +9,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { FC, ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { updatePatientVisitDetails } from 'src/api/api';
@@ -389,18 +389,6 @@ interface PatientAccountComponentProps {
   renderBackButton?: boolean;
   appointmentContext?: AppointmentContext;
   appointmentId?: string;
-  /**
-   * Visit-page-only: renders a coverage's compact card thumbnail inside its insurance block
-   * (threaded down to InsuranceContainer). Called with the 0-based card ordinal (0 = primary,
-   * 1 = secondary).
-   */
-  renderInsuranceCardThumbnail?: (ordinal: number) => ReactNode;
-  /**
-   * Optional compact content rendered right-aligned in the "Patient summary" section header
-   * (e.g. the visit page's clean photo-ID card thumbnail). Omitted on the standalone
-   * patient-info page.
-   */
-  photoIdCardSlot?: ReactNode;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -413,8 +401,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   renderBackButton = true,
   appointmentContext,
   appointmentId,
-  renderInsuranceCardThumbnail,
-  photoIdCardSlot,
 }) => {
   const navigate = useNavigate();
 
@@ -583,32 +569,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   if (!patient || !defaultFormVals) return loadingComponent;
 
-  const aboutPatientSection = (
-    <AboutPatientContainer
-      isLoading={isFetching || submitQR.isPending}
-      patientId={patient?.id}
-      encounterId={appointmentContext?.encounterId}
-      headerSlot={photoIdCardSlot}
-    />
-  );
-
-  const insuranceSection = (
-    <InsuranceSection
-      coverages={coverages}
-      patient={patient}
-      accountData={accountData}
-      removeCoverage={removeCoverage}
-      onRemoveCoverage={handleRemoveCoverage}
-      isAddingInsurance={isAddingInsurance}
-      onStartAddInsurance={handleStartAddInsurance}
-      onCancelAddInsurance={handleCancelAddInsurance}
-      onCloseAddInsurance={handleCloseAddInsurance}
-      newInsuranceOrdinal={newInsuranceOrdinal}
-      encounterId={appointmentContext?.encounterId}
-      renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
-    />
-  );
-
   return (
     <div>
       {isFetching && <LoadingScreen />}
@@ -630,7 +590,11 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
               />
               <Box sx={{ display: 'flex', gap: 3 }}>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {aboutPatientSection}
+                  <AboutPatientContainer
+                    isLoading={isFetching || submitQR.isPending}
+                    patientId={patient?.id}
+                    encounterId={appointmentContext?.encounterId}
+                  />
                   <ContactContainer
                     isLoading={isFetching || submitQR.isPending}
                     patientId={patient?.id}
@@ -649,7 +613,19 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                   />
                 </Box>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {insuranceSection}
+                  <InsuranceSection
+                    coverages={coverages}
+                    patient={patient}
+                    accountData={accountData}
+                    removeCoverage={removeCoverage}
+                    onRemoveCoverage={handleRemoveCoverage}
+                    isAddingInsurance={isAddingInsurance}
+                    onStartAddInsurance={handleStartAddInsurance}
+                    onCancelAddInsurance={handleCancelAddInsurance}
+                    onCloseAddInsurance={handleCloseAddInsurance}
+                    newInsuranceOrdinal={newInsuranceOrdinal}
+                    encounterId={appointmentContext?.encounterId}
+                  />
                   <ResponsibleInformationContainer
                     isLoading={isFetching || submitQR.isPending}
                     patientId={patient?.id}
