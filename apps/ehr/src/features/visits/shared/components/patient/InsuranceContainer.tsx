@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { FC, ReactElement, ReactNode, useEffect, useState } from 'react';
+import { FC, ReactElement, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
@@ -33,16 +33,9 @@ import {
 } from 'utils';
 import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
-import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
 import { InsuranceCarrierQuickPicks } from './InsuranceCarrierQuickPicks';
-import PatientRecordFormField, { buildAnswerSourceOptionsInput, useAnswerOptionsQuery } from './PatientRecordFormField';
+import PatientRecordFormField from './PatientRecordFormField';
 import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
-import {
-  buildAdditionalInfoSuggestion,
-  buildCarrierSuggestion,
-  buildPlanTypeSuggestion,
-  useInsuranceCardExtraction,
-} from './useInsuranceCardExtraction';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -53,11 +46,6 @@ type InsuranceContainerProps = {
   isNew?: boolean;
   onCancelAdd?: () => void;
   renderWithoutSection?: boolean;
-  /**
-   * Visit-page-only: renders this coverage's compact card thumbnail at the top of the block,
-   * right-aligned. Called with the 0-based card ordinal (0 = primary, 1 = secondary).
-   */
-  renderInsuranceCardThumbnail?: (ordinal: number) => ReactNode;
 };
 
 export const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, StatusStyleObject> = {
@@ -138,7 +126,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   isNew,
   onCancelAdd,
   renderWithoutSection,
-  renderInsuranceCardThumbnail,
 }) => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
@@ -159,40 +146,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const insurancePriority = watch(FormFields.insurancePriority.key);
   const currentInsurancePlanType = watch(FormFields.insurancePlanType.key);
-
-  // Insurance-card OCR suggestions. The extraction is stored on the card DocumentReference
-  // by the extract-insurance-card zambda; this only reads it. This container's ordinal picks
-  // the matching card (primary titles vs "-2" secondary titles).
-  const { primary: primaryCardFields, secondary: secondaryCardFields } = useInsuranceCardExtraction(patientId);
-  const cardFields = ordinal === 1 ? primaryCardFields : secondaryCardFields;
-  // Carrier is suggested payer-ID-first, then by name, resolved against the same
-  // get-all-insurance-payers option list the carrier reference field itself loads (identical query
-  // key → shared React Query cache, so a suggested pick is always an option the carrier
-  // Autocomplete offers). Only queried when a payer name or payer ID was extracted.
-  const carrierItem = FormFields.insuranceCarrier;
-  const carrierAnswerSource =
-    carrierItem && 'dataSource' in carrierItem ? carrierItem.dataSource?.answerSource : undefined;
-  const { data: carrierPayerOptions } = useAnswerOptionsQuery(
-    carrierAnswerSource ? buildAnswerSourceOptionsInput(carrierAnswerSource) : undefined,
-    Boolean(cardFields?.payer || cardFields?.payerId)
-  );
-  const carrierSuggestion = cardFields
-    ? buildCarrierSuggestion(cardFields.payer, cardFields.payerId, carrierPayerOptions ?? [])
-    : null;
-  const planTypeSuggestion = cardFields
-    ? buildPlanTypeSuggestion(
-        cardFields.insuranceType,
-        'options' in FormFields.insurancePlanType ? FormFields.insurancePlanType.options : undefined
-      )
-    : null;
-  const additionalInfoSuggestion = cardFields
-    ? buildAdditionalInfoSuggestion(
-        cardFields,
-        planTypeSuggestion != null,
-        carrierSuggestion?.resolvedByPayerId === true,
-        watch(FormFields.additionalInformation.key)
-      )
-    : null;
 
   // Surface the insurance type determined by the eligibility check into the editable
   // "Insurance plan type" dropdown when the field is empty. This intentionally re-applies whenever the
@@ -612,14 +565,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           </Grid>
         </Box>
       )}
-      {/* Compact card thumbnail for THIS coverage (visit page only), rendered unconditionally just
-          above the coverage form fields, right-aligned; it enlarges into the floating preview or,
-          with no card image yet, offers a compact upload/scan affordance. */}
-      {renderInsuranceCardThumbnail && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-          {renderInsuranceCardThumbnail(ordinal - 1)}
-        </Box>
-      )}
       <PatientRecordFormField
         item={FormFields.insurancePriority}
         isLoading={false}
@@ -633,45 +578,18 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
-      {carrierSuggestion && (
-        <InsuranceCardAiSuggestionRow
-          fieldKey={FormFields.insuranceCarrier.key}
-          suggestedDisplay={carrierSuggestion.display}
-          suggestedFormValue={carrierSuggestion.formValue}
-          suggestedComparable={carrierSuggestion.comparable}
-          candidates={carrierSuggestion.candidates}
-          pickerTitle={carrierSuggestion.pickerTitle}
-          getCurrentComparable={(value) => (value as { display?: string } | null)?.display ?? ''}
-        />
-      )}
       <PatientRecordFormField
         item={FormFields.insurancePlanType}
         isLoading={false}
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
-      {planTypeSuggestion && (
-        <InsuranceCardAiSuggestionRow
-          fieldKey={FormFields.insurancePlanType.key}
-          suggestedDisplay={planTypeSuggestion.display}
-          suggestedFormValue={planTypeSuggestion.formValue}
-          suggestedComparable={planTypeSuggestion.comparable}
-        />
-      )}
       <PatientRecordFormField
         item={FormFields.memberId}
         isLoading={false}
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
-      {cardFields?.memberId && (
-        <InsuranceCardAiSuggestionRow
-          fieldKey={FormFields.memberId.key}
-          suggestedDisplay={cardFields.memberId}
-          suggestedFormValue={cardFields.memberId}
-          compareAlphanumericOnly
-        />
-      )}
       <PatientRecordFormField
         item={FormFields.relationship}
         isLoading={false}
@@ -764,22 +682,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           requiredFormFields={requiredFields}
           hiddenFormFields={hiddenFields}
         />
-        {additionalInfoSuggestion && (
-          <InsuranceCardAiSuggestionRow
-            fieldKey={FormFields.additionalInformation.key}
-            suggestedDisplay={additionalInfoSuggestion.display}
-            suggestedFormValue={additionalInfoSuggestion.formValue}
-            suggestedComparable={additionalInfoSuggestion.comparable}
-            // The accept writes an appended value, not an exact replacement, so "already
-            // accepted" is "current text contains the card-derived text", not equality.
-            getCurrentComparable={(value) => {
-              const current = value == null ? '' : String(value);
-              return current.includes(additionalInfoSuggestion.comparable)
-                ? additionalInfoSuggestion.comparable
-                : current;
-            }}
-          />
-        )}
         {isNew ? (
           <Button
             onClick={onCancelAdd}
