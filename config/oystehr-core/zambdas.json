@@ -766,13 +766,6 @@
       "src": "src/subscriptions/document-reference/extract-insurance-card/index",
       "zip": ".dist/zips/extract-insurance-card.zip"
     },
-    "ROTATE-INSURANCE-CARD-IMAGE": {
-      "name": "rotate-insurance-card-image",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/rotate-insurance-card-image/index",
-      "zip": ".dist/zips/rotate-insurance-card-image.zip"
-    },
     "PROCESS-ERX-RESOURCES": {
       "name": "process-erx-resources",
       "type": "subscription",
