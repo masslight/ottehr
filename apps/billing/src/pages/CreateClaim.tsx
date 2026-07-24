@@ -391,7 +391,7 @@ export default function CreateClaim(): ReactElement {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Select Coverage *"
+                    label="Select Coverage"
                     size="small"
                     placeholder={selectedPatient ? 'Choose coverage...' : 'Select a patient first'}
                   />
