@@ -21,8 +21,7 @@ const PATIENT_BATCH = 100;
 const DEFAULT_PAGE_SIZE = 25;
 
 export interface SearchPatientArClaimsParams {
-  billingClient: Oystehr;
-  eraReadClient: Oystehr;
+  oystehr: Oystehr;
   patientId?: string;
   claimIds?: string[];
   includeZeroBalance?: boolean;
@@ -46,7 +45,7 @@ export async function searchPatientArClaims(
 
   const matches = await collectPatientArMatches(params);
   const page = matches.slice(offset, offset + pageSize);
-  const items = await buildPatientArClaimItems(params.billingClient, page);
+  const items = await buildPatientArClaimItems(params.oystehr, page);
 
   return {
     claims: items,
@@ -56,30 +55,26 @@ export async function searchPatientArClaims(
   };
 }
 
-export async function fetchAllActivePatientArClaims(params: {
-  billingClient: Oystehr;
-  eraReadClient: Oystehr;
-}): Promise<PatientArClaimItem[]> {
-  const matches = await collectPatientArMatches(params);
-  return buildPatientArClaimItems(params.billingClient, matches);
+export async function fetchAllActivePatientArClaims(oystehr: Oystehr): Promise<PatientArClaimItem[]> {
+  const matches = await collectPatientArMatches({ oystehr });
+  return buildPatientArClaimItems(oystehr, matches);
 }
 
 async function collectPatientArMatches(params: {
-  billingClient: Oystehr;
-  eraReadClient: Oystehr;
+  oystehr: Oystehr;
   patientId?: string;
   claimIds?: string[];
   includeZeroBalance?: boolean;
 }): Promise<PatientArMatch[]> {
-  const { billingClient, eraReadClient, patientId, claimIds, includeZeroBalance } = params;
+  const { oystehr, patientId, claimIds, includeZeroBalance } = params;
 
   const claims = await fetchPatientArStageClaims({
-    billingClient,
+    oystehr,
     patientId,
     claimIds,
   });
   const claimResponsesByClaimId = await fetchClaimResponsesByClaimIds(
-    eraReadClient,
+    oystehr,
     claims.map((c) => c.id).filter(Boolean) as string[]
   );
 
@@ -104,12 +99,9 @@ async function collectPatientArMatches(params: {
   return matches;
 }
 
-async function buildPatientArClaimItems(
-  billingClient: Oystehr,
-  matches: PatientArMatch[]
-): Promise<PatientArClaimItem[]> {
+async function buildPatientArClaimItems(oystehr: Oystehr, matches: PatientArMatch[]): Promise<PatientArClaimItem[]> {
   const patientsById = await fetchPatientsById(
-    billingClient,
+    oystehr,
     matches.map(({ patientId }) => patientId)
   );
 
@@ -187,11 +179,11 @@ function claimServiceDate(claim: Claim): string {
 }
 
 async function fetchPatientArStageClaims(params: {
-  billingClient: Oystehr;
+  oystehr: Oystehr;
   patientId?: string;
   claimIds?: string[];
 }): Promise<Claim[]> {
-  const { billingClient, patientId, claimIds } = params;
+  const { oystehr, patientId, claimIds } = params;
   const searchParams = [
     {
       name: '_tag',
@@ -217,7 +209,7 @@ async function fetchPatientArStageClaims(params: {
 
   const claims: Claim[] = [];
   await fetchAllPages(async (offset, count) => {
-    const bundle = await billingClient.fhir.search<Claim>({
+    const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
         ...searchParams,
@@ -237,13 +229,13 @@ async function fetchPatientArStageClaims(params: {
   return claims;
 }
 
-export async function fetchPatientsById(billingClient: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
+export async function fetchPatientsById(oystehr: Oystehr, patientIds: string[]): Promise<Map<string, Patient>> {
   const uniqueIds = [...new Set(patientIds)].filter(Boolean);
   if (uniqueIds.length === 0) return new Map();
   const byId = new Map<string, Patient>();
   await Promise.all(
     chunkThings(uniqueIds, PATIENT_BATCH).map(async (chunk) => {
-      const bundle = await billingClient.fhir.search<Patient>({
+      const bundle = await oystehr.fhir.search<Patient>({
         resourceType: 'Patient',
         params: [
           {

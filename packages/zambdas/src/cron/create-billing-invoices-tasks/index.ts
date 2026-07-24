@@ -7,7 +7,7 @@ import {
   CreateInvoiceTasksForBillingClaimsResponse,
 } from 'utils';
 import { fetchAllActivePatientArClaims } from '../../billing/search-billing-patient-ar-claims/handler';
-import { createBillingClient, createEraReadClient } from '../../billing/shared';
+import { createBillingClient } from '../../billing/shared';
 import { checkOrCreateM2MClientToken, isOttehrBillingInvoicingEnabled, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -31,14 +31,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const billingClient = createBillingClient(m2mToken, secrets);
-  const eraReadClient = createEraReadClient(m2mToken, secrets);
+  const oystehr = createBillingClient(m2mToken, secrets);
 
   console.group('performEffect');
-  const response = await performEffect({
-    billingClient,
-    eraReadClient,
-  });
+  const response = await performEffect(oystehr);
   console.groupEnd();
   console.debug('performEffect success', response);
 
@@ -48,22 +44,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-interface PerformEffectParams {
-  billingClient: Oystehr;
-  eraReadClient: Oystehr;
-}
-
 interface PerformEffectResponse extends CreateInvoiceTasksForBillingClaimsResponse {
   message: string;
 }
 
-async function performEffect(params: PerformEffectParams): Promise<PerformEffectResponse> {
-  const { billingClient, eraReadClient } = params;
-
-  const arClaims = await fetchAllActivePatientArClaims({
-    billingClient,
-    eraReadClient,
-  });
+async function performEffect(oystehr: Oystehr): Promise<PerformEffectResponse> {
+  const arClaims = await fetchAllActivePatientArClaims(oystehr);
   console.log(`Active patient AR claims: ${arClaims.length}`);
 
   const claims: BillingInvoiceTaskClaim[] = [];
@@ -89,7 +75,7 @@ async function performEffect(params: PerformEffectParams): Promise<PerformEffect
   }
 
   const result = chooseJson<CreateInvoiceTasksForBillingClaimsResponse>(
-    await billingClient.zambda.execute({
+    await oystehr.zambda.execute({
       id: CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY,
       claims,
     })

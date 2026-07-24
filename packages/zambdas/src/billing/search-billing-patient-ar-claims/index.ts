@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, createEraReadClient } from '../shared';
+import { createBillingClient } from '../shared';
 import { searchPatientArClaims } from './handler';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -15,13 +15,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.debug('validateRequestParameters success', restOfParams);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const billingClient = createBillingClient(m2mToken, secrets);
-  const eraReadClient = createEraReadClient(m2mToken, secrets);
+  const oystehr = createBillingClient(m2mToken, secrets);
 
   console.group('performEffect');
   const response = await searchPatientArClaims({
-    billingClient,
-    eraReadClient,
+    oystehr,
     ...params,
   });
   console.groupEnd();

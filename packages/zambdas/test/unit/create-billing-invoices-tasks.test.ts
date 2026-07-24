@@ -9,7 +9,6 @@ const mockBillingClient = {
     execute: (...args: unknown[]) => mockZambdaExecute(...args),
   },
 };
-const mockEraReadClient = { eraRead: true };
 const mockFetchAllActivePatientArClaims = vi.fn();
 
 vi.mock('../../src/shared', async (importOriginal) => {
@@ -23,7 +22,6 @@ vi.mock('../../src/shared', async (importOriginal) => {
 
 vi.mock('../../src/billing/shared', () => ({
   createBillingClient: () => mockBillingClient,
-  createEraReadClient: () => mockEraReadClient,
 }));
 
 vi.mock('../../src/billing/search-billing-patient-ar-claims/handler', () => ({
@@ -104,12 +102,7 @@ describe('create-billing-invoices-tasks', () => {
     const result = await runHandler();
     expect(result.statusCode).toBe(200);
 
-    expect(mockFetchAllActivePatientArClaims).toHaveBeenCalledWith(
-      expect.objectContaining({
-        billingClient: mockBillingClient,
-        eraReadClient: mockEraReadClient,
-      })
-    );
+    expect(mockFetchAllActivePatientArClaims).toHaveBeenCalledWith(mockBillingClient);
     expect(mockZambdaExecute).toHaveBeenCalledWith({
       id: 'create-invoice-tasks-for-billing-claims',
       claims: [
