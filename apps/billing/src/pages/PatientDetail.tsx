@@ -30,7 +30,7 @@ import { deleteBillingCoverage, getPatientCoverages, updateBillingCoverage, upda
 import { AddCoverageDialog } from '../components/AddCoverageDialog';
 import { AddressFields } from '../components/AddressFields';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { EditableSection } from '../components/claim/EditableSection';
+import { EditableSection, TitleWithSourceLink } from '../components/claim/EditableSection';
 import { CoverageFields } from '../components/CoverageFields';
 import { DemographicFields } from '../components/DemographicFields';
 import { Row } from '../components/Row';
@@ -222,10 +222,12 @@ export function PatientDemographicsSection({
   title,
   patient,
   onSave,
+  showSourceLink,
 }: {
   title?: string;
   patient: PatientDetailResponse;
   onSave: (payload: UpdateBillingPatientInput) => Promise<string | null>;
+  showSourceLink?: boolean;
 }): ReactElement {
   const defaultValues = useMemo<PatientForm>(() => defaultPatientFormValues(patient), [patient]);
 
@@ -235,7 +237,13 @@ export function PatientDemographicsSection({
 
   return (
     <EditableSection
-      title={title ?? 'Demographics'}
+      title={
+        <TitleWithSourceLink
+          title={title ?? 'Demographics'}
+          sourceId={showSourceLink ? patient.workingCopyReferenceResourceId : undefined}
+          sourceRouteBase="/patients/"
+        />
+      }
       defaultValues={defaultValues}
       onSave={handleSave}
       editForm={

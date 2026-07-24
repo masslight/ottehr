@@ -573,7 +573,7 @@ function PatientSection({ claim }: { claim: ClaimDetailResponse }): ReactElement
     return <EditableSectionSkeleton title="Patient" />;
   }
 
-  return <PatientDemographicsSection title="Patient" patient={patient} onSave={handleSave} />;
+  return <PatientDemographicsSection title="Patient" patient={patient} onSave={handleSave} showSourceLink />;
 }
 
 const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
@@ -872,6 +872,7 @@ function RenderingProviderSection({
         onSelectOption: setSelectedProvider,
         fetchOptions: searchProviders,
       }}
+      showSourceLink
     />
   );
 }
@@ -956,6 +957,7 @@ function FacilitySection({
         onSelectOption: setSelected,
         fetchOptions: searchServiceFacilities,
       }}
+      showSourceLink
     />
   );
 }
@@ -1064,6 +1066,7 @@ function BillingProviderSection({
         onSelectOption: setSelectedProvider,
         fetchOptions: searchProviders,
       }}
+      showSourceLink
     />
   );
 }

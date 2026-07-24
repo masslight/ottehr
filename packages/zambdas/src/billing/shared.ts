@@ -1043,6 +1043,13 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
 }
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
+  let workingCopyReferenceResourceId: string | undefined;
+  if (isWorkingCopy(resource)) {
+    workingCopyReferenceResourceId = resource.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Practitioner/', '')
+      ?.replace('Organization/', '');
+  }
   const addr = resource.address?.[0];
   const common = {
     id: resource.id ?? '',
@@ -1061,6 +1068,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
     bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
     isWorkingCopy: hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code),
+    workingCopyReferenceResourceId,
   };
   if (resource.resourceType === 'Practitioner') {
     return {
