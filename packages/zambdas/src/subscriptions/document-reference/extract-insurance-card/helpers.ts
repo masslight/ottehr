@@ -1,14 +1,8 @@
 import { createHash } from 'node:crypto';
+import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, Extension } from 'fhir/r4b';
 import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction, InsuranceCardExtractionFields } from 'utils';
-import {
-  assertBooleanClassifier,
-  buildExtractionExtension as buildGenericExtractionExtension,
-  buildExtractionPatchOperation as buildGenericExtractionPatchOperation,
-  extractFieldsWithAllNullFold,
-  getExistingExtraction as getGenericExistingExtraction,
-} from '../shared/extraction-helpers';
 
 /** sha256 hex of a Buffer. Uint8Array view (no copy): this workspace's @types/node rejects Buffer for BinaryLike. */
 export function sha256Hex(data: Buffer): string {
@@ -106,18 +100,32 @@ export interface ParsedModelResponse {
  * an all-null result is folded into fields=null so the caller writes the notACard marker.
  */
 export function parseModelResponse(raw: string): ParsedModelResponse {
-  const parsed = assertBooleanClassifier(JSON.parse(raw), 'isInsuranceCard');
+  const parsed = JSON.parse(raw);
+  if (parsed == null || typeof parsed !== 'object' || typeof parsed.isInsuranceCard !== 'boolean') {
+    throw new Error('Model response is not an object with a boolean isInsuranceCard field');
+  }
 
   if (parsed.isInsuranceCard !== true) {
     return { isInsuranceCard: false, fields: null, readable: null };
   }
 
-  const fields = extractFieldsWithAllNullFold<InsuranceCardExtractionFields>(parsed, EXTRACTION_FIELD_KEYS);
+  const fields = {} as InsuranceCardExtractionFields;
+  let anyValue = false;
+  for (const key of EXTRACTION_FIELD_KEYS) {
+    const value = parsed[key];
+    if (typeof value === 'string' && value.trim() !== '') {
+      fields[key] = value.trim();
+      anyValue = true;
+    } else {
+      fields[key] = null;
+    }
+  }
+
   const readable = typeof parsed.readable === 'boolean' ? parsed.readable : null;
 
   // all-null extraction is a permanent no-op condition, same as notACard — readable is nulled
   // with it (a judgment about a card we store nothing for is not actionable)
-  return { isInsuranceCard: true, fields, readable: fields ? readable : null };
+  return { isInsuranceCard: true, fields: anyValue ? fields : null, readable: anyValue ? readable : null };
 }
 
 export interface ExistingExtraction {
@@ -132,11 +140,21 @@ export interface ExistingExtraction {
  * re-extraction can overwrite it rather than crashing the subscription.
  */
 export function getExistingExtraction(extensions: Extension[] | undefined): ExistingExtraction {
-  return getGenericExistingExtraction<InsuranceCardExtraction>(
-    extensions,
-    INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
-    'insurance-card-extraction'
-  );
+  const extensionIndex = (extensions ?? []).findIndex((ext) => ext.url === INSURANCE_CARD_EXTRACTION_EXTENSION_URL);
+  if (extensionIndex < 0) {
+    return { extraction: null, extensionIndex: -1 };
+  }
+  const valueString = extensions?.[extensionIndex]?.valueString;
+  if (!valueString) {
+    return { extraction: null, extensionIndex };
+  }
+  try {
+    return { extraction: JSON.parse(valueString) as InsuranceCardExtraction, extensionIndex };
+  } catch (error) {
+    console.error('Malformed insurance-card-extraction extension found; it will be overwritten:', error);
+    captureException(error);
+    return { extraction: null, extensionIndex };
+  }
 }
 
 /**
@@ -172,7 +190,10 @@ export function buildAttachmentMetadataOperations(
 }
 
 export function buildExtractionExtension(extraction: InsuranceCardExtraction): Extension {
-  return buildGenericExtractionExtension(INSURANCE_CARD_EXTRACTION_EXTENSION_URL, extraction);
+  return {
+    url: INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
+    valueString: JSON.stringify(extraction),
+  };
 }
 
 /**
@@ -186,10 +207,12 @@ export function buildExtractionPatchOperation(
   extensionIndex: number,
   extraction: InsuranceCardExtraction
 ): Operation {
-  return buildGenericExtractionPatchOperation(
-    INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
-    extensions,
-    extensionIndex,
-    extraction
-  );
+  const extension = buildExtractionExtension(extraction);
+  if (extensions === undefined || extensions.length === 0) {
+    return { op: 'add', path: '/extension', value: [extension] };
+  }
+  if (extensionIndex >= 0) {
+    return { op: 'replace', path: `/extension/${extensionIndex}`, value: extension };
+  }
+  return { op: 'add', path: '/extension/-', value: extension };
 }
