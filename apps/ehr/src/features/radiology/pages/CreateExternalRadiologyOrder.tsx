@@ -302,6 +302,11 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
                   submitting={submitting}
                   submitLabel={isEditMode ? 'Save' : 'Order'}
                   errors={error}
+                  cancelUrl={
+                    initialOrder
+                      ? getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId)
+                      : undefined
+                  }
                 />
               </Grid>
             </Paper>
