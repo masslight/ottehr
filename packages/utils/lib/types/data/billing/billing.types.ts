@@ -418,7 +418,7 @@ export interface PatientArClaimItem {
   adjudicated: boolean;
 }
 
-export interface SearchBillingPatientArClaimsResponse extends Paginated {
+export interface SearchBillingPatientARClaimsResponse extends Paginated {
   claims: PatientArClaimItem[];
 }
 

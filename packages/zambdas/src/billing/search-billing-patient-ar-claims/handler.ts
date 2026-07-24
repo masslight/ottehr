@@ -12,7 +12,7 @@ import {
   getClaimStatusValues,
   PatientArClaimItem,
   removePrefix,
-  SearchBillingPatientArClaimsResponse,
+  SearchBillingPatientARClaimsResponse,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { fetchAllPages } from '../../shared';
@@ -44,7 +44,7 @@ interface PatientArMatch {
 
 export async function searchPatientArClaims(
   params: SearchPatientArClaimsParams
-): Promise<SearchBillingPatientArClaimsResponse> {
+): Promise<SearchBillingPatientARClaimsResponse> {
   const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
   const offset = params.offset ?? 0;
 
