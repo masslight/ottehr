@@ -288,6 +288,17 @@
       "src": "src/billing/create-billing-claim-from-encounter/index",
       "zip": ".dist/zips/create-billing-claim-from-encounter.zip"
     },
+    "CREATE-BILLING-INVOICES-TASKS": {
+      "name": "create-billing-invoices-tasks",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "300",
+      "src": "src/cron/create-billing-invoices-tasks/index",
+      "zip": ".dist/zips/create-billing-invoices-tasks.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    },
     "SEARCH-CHARGE-ITEM-DEFINITIONS": {
       "name": "search-charge-item-definitions",
       "type": "http_auth",

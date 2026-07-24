@@ -6,6 +6,7 @@ import { Secrets } from '../../secrets';
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
 export const EXPORT_INVOICES_ZAMBDA_KEY = 'export-invoices';
+export const CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY = 'create-invoice-tasks-for-billing-claims';
 export const EXPORT_INVOICES_CSV_TASK_CODE = 'export-invoices-csv';
 export const EXPORT_INVOICES_CSV_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
 export const EXPORT_CSV_OUTPUT_URL_CODE = 'export-csv-output-url';
@@ -166,6 +167,30 @@ export type GetExportInvoicesCsvStatusInput = z.infer<typeof GetExportInvoicesCs
 export type GetExportInvoicesCsvStatusValidatedInput = z.infer<
   typeof GetExportInvoicesCsvStatusZambdaValidatedInputSchema
 >;
+
+export const CreateInvoiceTasksForBillingClaimsInputSchema = z.object({
+  claims: z.array(
+    z.object({
+      claimId: z.string().uuid(),
+      encounterId: z.string().uuid(),
+      finalizationDate: z.string(),
+      balance: z.number(),
+    })
+  ),
+});
+export const CreateInvoiceTasksForBillingClaimsValidatedInputSchema =
+  CreateInvoiceTasksForBillingClaimsInputSchema.extend({
+    secrets: z.custom<Secrets>().nullable(),
+  });
+export type BillingInvoiceTaskClaim = z.infer<typeof CreateInvoiceTasksForBillingClaimsInputSchema>['claims'][number];
+export type CreateInvoiceTasksForBillingClaimsInput = z.infer<typeof CreateInvoiceTasksForBillingClaimsInputSchema>;
+export type CreateInvoiceTasksForBillingClaimsValidatedInput = z.infer<
+  typeof CreateInvoiceTasksForBillingClaimsValidatedInputSchema
+>;
+export type CreateInvoiceTasksForBillingClaimsResponse = {
+  created: number;
+  skipped: number;
+};
 
 export type ExportInvoicesCsvKickOffResponse = { taskId: string };
 export type ExportInvoicesCsvStatusResponse = {
