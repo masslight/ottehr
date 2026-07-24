@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient, Person } from 'fhir/r4b';
-import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
+import { PatientDetailResponse } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
 import {
@@ -10,6 +10,8 @@ import {
   formatAddress,
   getClaimStatus,
   resolvePayersByRef,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  SOURCE_IDENTIFIER_SYSTEM,
   toAddressParts,
 } from '../shared';
 import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
@@ -31,8 +33,11 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
 
   const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
 
-  const ids = patient.identifier ?? [];
-  const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
+  const clinicalFriendlyId = patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)
+    ?.valueString;
+  const clinicalId = patient.extension
+    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+    ?.valueReference?.reference?.replace('Patient/', '');
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
   const addr = patient.address?.[0];
@@ -47,7 +52,8 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     email,
     address: formatAddress(addr),
     addressParts: toAddressParts(addr),
-    friendlyId,
+    clinicalId: clinicalId ?? '',
+    clinicalFriendlyId: clinicalFriendlyId ?? '',
     active: patient.active !== false,
     balance,
     claims,

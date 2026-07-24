@@ -160,8 +160,8 @@ export default function PatientDetail(): ReactElement {
             {commaFormattedName(patient)}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            DOB {patient.dob} | MRN {patient.id}
-            {patient.friendlyId ? ` | ID ${patient.friendlyId}` : ''}
+            DOB {patient.dob} | MRN {patient.clinicalId}
+            {patient.clinicalFriendlyId ? ` | ID ${patient.clinicalFriendlyId}` : ''}
           </Typography>
         </Box>
       </Box>
