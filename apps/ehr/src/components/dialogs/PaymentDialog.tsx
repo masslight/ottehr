@@ -32,6 +32,7 @@ import {
   getPhoneNumberForIndividual,
   sleep,
 } from 'utils';
+import { v4 as uuidv4 } from 'uuid';
 import * as yup from 'yup';
 import { dataTestIds } from '../../constants/data-test-ids';
 import CardReaderTerminal, { CardReaderTerminalHandle } from '../CardReaderTerminal';
@@ -152,6 +153,18 @@ export default function ({
   const [isTerminalPaymentSubmitting, setIsTerminalPaymentSubmitting] = useState(false);
   const cardReaderTerminalRef = useRef<CardReaderTerminalHandle | null>(null);
 
+  // Idempotency key for the non-terminal (post) payment path. It must stay stable across retries
+  // of the same logical payment — e.g. when a response is lost on a flaky connection, the submit
+  // appears to fail, the dialog stays open, and the user clicks again — so the server can dedupe
+  // the replay instead of recording a duplicate PaymentNotice. It is regenerated each time the
+  // dialog opens (a successful submit closes it), so each distinct payment gets its own key.
+  const idempotencyKeyRef = useRef<string>(uuidv4());
+  useEffect(() => {
+    if (open) {
+      idempotencyKeyRef.current = uuidv4();
+    }
+  }, [open]);
+
   // When switching to card-reader, assume loading until the terminal component confirms otherwise.
   useEffect(() => {
     if (paymentMethod === 'card-reader') {
@@ -204,6 +217,7 @@ export default function ({
       amountInCents: Math.round(amount * 100),
       paymentMethod,
       paymentMethodId: creditCard || undefined,
+      idempotencyKey: idempotencyKeyRef.current,
     };
     await submitPayment(paymentData);
   };
