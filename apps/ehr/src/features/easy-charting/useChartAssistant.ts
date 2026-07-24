@@ -204,15 +204,18 @@ export function useChartAssistant({
   // Unified chat thread (session-only history, clears on reload). Each committed entry is a user
   // message or a settled assistant summary; the IN-PROGRESS turn renders live from `conv`/`plan` at
   // the bottom of the thread and is committed here once it settles (see the commit effect below).
-  type ThreadEntry = { id: number; role: 'user' | 'assistant'; text: string };
+  // planResults is set only on the "Plan complete" summary entry, so the thread keeps a settled
+  // per-step plan card (see SettledPlanCard) after the live running card disappears.
+  type PlanStepResult = { status: 'done' | 'skipped' | 'error'; label: string; message?: string };
+  type ThreadEntry = { id: number; role: 'user' | 'assistant'; text: string; planResults?: PlanStepResult[] };
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   // The conv object already folded into history, so the live region stops re-rendering it.
   const [committedConv, setCommittedConv] = useState<ConvStep | null>(null);
   const threadSeqRef = useRef(0);
   const pushUserMessage = (text: string): void =>
     setThread((t) => [...t, { id: (threadSeqRef.current += 1), role: 'user', text }]);
-  const pushAssistantMessage = (text: string): void =>
-    setThread((t) => [...t, { id: (threadSeqRef.current += 1), role: 'assistant', text }]);
+  const pushAssistantMessage = (text: string, planResults?: PlanStepResult[]): void =>
+    setThread((t) => [...t, { id: (threadSeqRef.current += 1), role: 'assistant', text, planResults }]);
 
   // TEMPORARY (debug): running per-session LLM token tally, fed by each zambda response's `usage`.
   const [tokenTally, setTokenTally] = useState({
@@ -264,6 +267,10 @@ export function useChartAssistant({
   // pendingReviewRef carries it from the plan-completion updater to the auto-trigger effect.
   const lastNarrativeRef = useRef<string>('');
   const pendingReviewRef = useRef<string | null>(null);
+  // Per-step results of a just-completed plan, carried from the plan-completion updater to the
+  // commit effect so the settled plan card persists in the thread (same ref-stash pattern as
+  // pendingReviewRef; cancelled plans never set it).
+  const pendingPlanResultsRef = useRef<PlanStepResult[] | null>(null);
 
   // Place an in-house lab order for a specific catalog test, then refresh the section. Shared by the
   // auto-pick dispatch and the disambiguation picker so the create call lives in one place.
@@ -510,6 +517,8 @@ export function useChartAssistant({
         // in a ref keeps the side effect out of this updater (StrictMode-safe / idempotent).
         pendingReviewRef.current = prev.narrative;
         lastNarrativeRef.current = prev.narrative;
+        // Same ref-stash pattern: the commit effect attaches these to the summary thread entry.
+        pendingPlanResultsRef.current = nextResults;
         return null;
       }
       return { ...prev, currentIdx: nextIdx, results: nextResults };
@@ -582,7 +591,11 @@ export function useChartAssistant({
     if (plan || !conv || committedConv === conv) return;
     const summary = summarizeConv(conv);
     if (summary == null) return;
-    pushAssistantMessage(summary);
+    // A just-completed plan stashed its per-step results — attach them so the thread keeps a
+    // settled plan card instead of just the one-line summary.
+    const planResults = pendingPlanResultsRef.current;
+    pendingPlanResultsRef.current = null;
+    pushAssistantMessage(summary, planResults ?? undefined);
     setCommittedConv(conv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv, plan]);

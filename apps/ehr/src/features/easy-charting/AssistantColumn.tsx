@@ -41,6 +41,7 @@ import {
 import { CollapsibleUserText } from './CollapsibleUserText';
 import { leafKey } from './exam-ros-catalog';
 import { MedicationSearchPicker } from './MedicationSearchPicker';
+import { SettledPlanCard } from './SettledPlanCard';
 import { containsTranscriptHeader, extractTranscriptHeaderLabels, transcriptHeaderLine } from './transcript-docs';
 import { useChartAssistant } from './useChartAssistant';
 
@@ -1277,6 +1278,8 @@ export function AssistantColumn({
                       expanded={expandedUserMsgIds.has(m.id)}
                       onToggle={() => toggleUserMsgExpanded(m.id)}
                     />
+                  ) : m.planResults ? (
+                    <SettledPlanCard summary={m.text} results={m.planResults} />
                   ) : (
                     <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
                       {m.text}
