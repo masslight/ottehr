@@ -6,17 +6,17 @@ import { Operation } from 'fast-json-patch';
 import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  chooseJson,
   createInvoiceTaskInput,
   findClaimsBy,
   getLatestTaskOutput,
   getOrCreateCandidApiClient,
   getStartTimeFromEncounterStatusHistory,
   mapDisplayToInvoiceTaskStatus,
+  SearchBillingPatientARClaimsResponse,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
 import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
-import { searchPatientArClaims } from '../../../billing/search-billing-patient-ar-claims/handler';
-import { createBillingClient, createEraReadClient } from '../../../billing/shared';
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
@@ -47,11 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   let refreshed: RefreshedInvoiceData | undefined;
   if (source === 'ottehr-billing') {
-    refreshed = await getBillingRefreshData({
-      billingClient: createBillingClient(m2mToken, secrets),
-      eraReadClient: createEraReadClient(m2mToken, secrets),
-      task,
-    });
+    refreshed = await getBillingRefreshData(oystehr, task);
   } else {
     const candid = await getOrCreateCandidApiClient(oystehr, secrets);
     refreshed = await getCandidRefreshData({
@@ -149,24 +145,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function getBillingRefreshData(params: {
-  billingClient: Oystehr;
-  eraReadClient: Oystehr;
-  task: Task;
-}): Promise<RefreshedInvoiceData | undefined> {
-  const { billingClient, eraReadClient, task } = params;
+async function getBillingRefreshData(oystehr: Oystehr, task: Task): Promise<RefreshedInvoiceData | undefined> {
   const claimId = getInvoiceTaskClaimId(task);
   if (!claimId) {
     console.warn(`Billing-sourced task ${task.id} has no claim id identifier`);
     return undefined;
   }
 
-  const response = await searchPatientArClaims({
-    billingClient,
-    eraReadClient,
-    claimIds: [claimId],
-    includeZeroBalance: true,
-  });
+  const response = chooseJson<SearchBillingPatientARClaimsResponse>(
+    await oystehr.zambda.execute({
+      id: 'search-billing-patient-ar-claims',
+      claimIds: [claimId],
+      includeZeroBalance: true,
+    })
+  );
   const item = response.claims.find((claim) => claim.claimId === claimId);
   if (!item) return undefined;
 

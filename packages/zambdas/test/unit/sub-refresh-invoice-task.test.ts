@@ -10,15 +10,16 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
+const mockZambdaExecute = vi.fn();
 const mockClinicalClient = {
   fhir: {
     search: vi.fn(),
     patch: vi.fn(),
   },
+  zambda: {
+    execute: (...args: unknown[]) => mockZambdaExecute(...args),
+  },
 };
-const mockBillingClient = { billing: true };
-const mockEraReadClient = { eraRead: true };
-const mockSearchPatientArClaims = vi.fn();
 const mockGetOrCreateCandidApiClient = vi.fn();
 
 vi.mock('../../src/shared', async (importOriginal) => {
@@ -30,15 +31,6 @@ vi.mock('../../src/shared', async (importOriginal) => {
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
-
-vi.mock('../../src/billing/shared', () => ({
-  createBillingClient: () => mockBillingClient,
-  createEraReadClient: () => mockEraReadClient,
-}));
-
-vi.mock('../../src/billing/search-billing-patient-ar-claims/handler', () => ({
-  searchPatientArClaims: (...args: unknown[]) => mockSearchPatientArClaims(...args),
-}));
 
 vi.mock('utils', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -121,25 +113,24 @@ describe('sub-refresh-invoice-task', () => {
   });
 
   it('refreshes a billing-sourced task from patient AR without touching Candid', async () => {
-    mockSearchPatientArClaims.mockResolvedValue({
-      claims: [arItem()],
-      total: 1,
-      offset: 0,
-      pageSize: 25,
+    mockZambdaExecute.mockResolvedValue({
+      output: {
+        claims: [arItem()],
+        total: 1,
+        offset: 0,
+        pageSize: 25,
+      },
     });
 
     const result = await runHandler(billingTask());
 
     expect(JSON.parse(result.body).message).toContain('successfully updated');
     expect(mockGetOrCreateCandidApiClient).not.toHaveBeenCalled();
-    expect(mockSearchPatientArClaims).toHaveBeenCalledWith(
-      expect.objectContaining({
-        billingClient: mockBillingClient,
-        eraReadClient: mockEraReadClient,
-        claimIds: ['claim-1'],
-        includeZeroBalance: true,
-      })
-    );
+    expect(mockZambdaExecute).toHaveBeenCalledWith({
+      id: 'search-billing-patient-ar-claims',
+      claimIds: ['claim-1'],
+      includeZeroBalance: true,
+    });
 
     expect(patchedInputEntry('amountCents')?.valueString).toBe('2550');
     const authoredOnOp = patchedOperations().find((op) => op.path === '/authoredOn') as
@@ -159,15 +150,17 @@ describe('sub-refresh-invoice-task', () => {
   });
 
   it('marks a billing task zero-balance when the claim balance drops to $0', async () => {
-    mockSearchPatientArClaims.mockResolvedValue({
-      claims: [
-        arItem({
-          balance: 0,
-        }),
-      ],
-      total: 1,
-      offset: 0,
-      pageSize: 25,
+    mockZambdaExecute.mockResolvedValue({
+      output: {
+        claims: [
+          arItem({
+            balance: 0,
+          }),
+        ],
+        total: 1,
+        offset: 0,
+        pageSize: 25,
+      },
     });
 
     await runHandler(billingTask());
@@ -187,11 +180,13 @@ describe('sub-refresh-invoice-task', () => {
   });
 
   it('fails a billing task whose claim left patient AR', async () => {
-    mockSearchPatientArClaims.mockResolvedValue({
-      claims: [],
-      total: 0,
-      offset: 0,
-      pageSize: 25,
+    mockZambdaExecute.mockResolvedValue({
+      output: {
+        claims: [],
+        total: 0,
+        offset: 0,
+        pageSize: 25,
+      },
     });
 
     const result = await runHandler(billingTask());
@@ -225,7 +220,7 @@ describe('sub-refresh-invoice-task', () => {
     const result = await runHandler(untaggedTask);
 
     expect(mockGetOrCreateCandidApiClient).toHaveBeenCalled();
-    expect(mockSearchPatientArClaims).not.toHaveBeenCalled();
+    expect(mockZambdaExecute).not.toHaveBeenCalled();
     expect(JSON.parse(result.body).message).toContain('no Candid inventory record');
   });
 });
