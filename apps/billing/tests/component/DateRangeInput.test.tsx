@@ -42,37 +42,41 @@ const clickDay = async (isoDate: string): Promise<void> => {
 };
 
 describe('DateRangeInput', () => {
-  it('displays a single date and commits both boundaries on one day click', async () => {
+  it('commits a single day when the same date is picked as start and end', async () => {
     render(<Harness from="2026-07-10" to="2026-07-10" />);
 
-    expect(screen.getByTestId(FIELD_TEST_ID)).toHaveValue('07/10/2026');
-
     await openPicker();
+    await clickDay('2026-07-15');
+    expect(getValues()).toBe('2026-07-10|2026-07-10');
     await clickDay('2026-07-15');
 
     expect(getValues()).toBe('2026-07-15|2026-07-15');
   });
 
-  it('commits only a complete range in Date Range mode', async () => {
+  it('commits a multi-day range on the second click', async () => {
     render(<Harness from="2026-07-10" to="2026-07-10" />);
 
     await openPicker();
-    await userEvent.click(screen.getByTestId('date-range-mode-checkbox'));
     await clickDay('2026-07-13');
-    // nothing happens until 2 dates are selected
     expect(getValues()).toBe('2026-07-10|2026-07-10');
     await clickDay('2026-07-17');
 
     expect(getValues()).toBe('2026-07-13|2026-07-17');
   });
 
+  it('displays a single date when both boundaries are the same day', () => {
+    render(<Harness from="2026-07-10" to="2026-07-10" />);
+
+    expect(screen.getByTestId(FIELD_TEST_ID)).toHaveValue('07/10/2026');
+  });
+
   it('displays a range when the boundaries differ', () => {
     render(<Harness from="2026-07-10" to="2026-07-14" />);
 
-    expect(screen.getByTestId(FIELD_TEST_ID)).toHaveValue('07/10/2026 – 07/14/2026');
+    expect(screen.getByTestId(FIELD_TEST_ID)).toHaveValue('07/10/2026 - 07/14/2026');
   });
 
-  it('sets both boundaries to today via the Today button', async () => {
+  it('sets a single day via the Today button', async () => {
     render(<Harness from="2026-07-10" to="2026-07-10" />);
 
     await openPicker();

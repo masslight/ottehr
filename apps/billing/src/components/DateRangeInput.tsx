@@ -1,13 +1,7 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import { Box, Button, Checkbox, Divider, FormControlLabel, Popover, TextField } from '@mui/material';
+import { Box, Button, Divider, Popover, TextField } from '@mui/material';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import {
-  DateCalendar,
-  DateRange,
-  DateRangeCalendar,
-  LocalizationProvider,
-  RangePosition,
-} from '@mui/x-date-pickers-pro';
+import { DateRange, DateRangeCalendar, LocalizationProvider, RangePosition } from '@mui/x-date-pickers-pro';
 import { DateTime } from 'luxon';
 import { MouseEvent, ReactElement, useState } from 'react';
 import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils';
@@ -56,22 +50,19 @@ type Props = {
 };
 
 /**
- * Date filter that defaults to single-date selection (one click picks a day and writes it to both
- * boundaries). Checking "Date Range" switches the same popover to a one-month range calendar where the
- * user picks a start and an end; only complete ranges are committed, so no intermediate pair is emitted.
+ * Date-range filter: one popover with a range calendar where the first click sets the start and the
+ * second the end. Picking the same day for both windows a single day. Only complete ranges are
+ * committed, so no intermediate (start, stale-end) pair ever triggers a fetch.
  */
 export const DateRangeInput = ({ label, valueFrom, valueTo, onChange, size, dataTestId }: Props): ReactElement => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [rangeMode, setRangeMode] = useState(false);
   const [pendingRange, setPendingRange] = useState<DateRange<DateTime>>([null, null]);
   const [rangePosition, setRangePosition] = useState<RangePosition>('start');
 
   const dateFrom = parseIsoDate(valueFrom);
   const dateTo = parseIsoDate(valueTo);
-  const isMultiDayRange = Boolean(dateFrom && dateTo && !dateFrom.hasSame(dateTo, 'day'));
 
   const openPicker = (event: MouseEvent<HTMLElement>): void => {
-    setRangeMode(isMultiDayRange);
     setPendingRange([dateFrom, dateTo]);
     setRangePosition('start');
     setAnchorEl(event.currentTarget);
@@ -81,15 +72,6 @@ export const DateRangeInput = ({ label, valueFrom, valueTo, onChange, size, data
 
   const commitRange = (from: DateTime, to: DateTime): void => {
     onChange(from.toISODate() ?? '', to.toISODate() ?? '');
-  };
-
-  const handleRangeModeToggle = (checked: boolean): void => {
-    setRangeMode(checked);
-    setPendingRange([dateFrom, dateTo]);
-    setRangePosition('start');
-    if (!checked && dateFrom && isMultiDayRange) {
-      commitRange(dateFrom, dateFrom);
-    }
   };
 
   const handleRangeChange = (value: DateRange<DateTime>): void => {
@@ -152,50 +134,25 @@ export const DateRangeInput = ({ label, valueFrom, valueTo, onChange, size, data
         }}
       >
         <LocalizationProvider dateAdapter={AdapterLuxon}>
-          {rangeMode ? (
-            <DateRangeCalendar
-              calendars={1}
-              sx={RANGE_CALENDAR_SX}
-              value={pendingRange}
-              onChange={handleRangeChange}
-              rangePosition={rangePosition}
-              onRangePositionChange={setRangePosition}
-              slotProps={{ day: withDayTestId }}
-            />
-          ) : (
-            <DateCalendar
-              value={dateFrom}
-              onChange={(day: DateTime | null) => {
-                if (day) {
-                  commitRange(day, day);
-                  closePicker();
-                }
-              }}
-              slotProps={{ day: withDayTestId }}
-            />
-          )}
+          <DateRangeCalendar
+            calendars={1}
+            sx={RANGE_CALENDAR_SX}
+            value={pendingRange}
+            onChange={handleRangeChange}
+            rangePosition={rangePosition}
+            onRangePositionChange={setRangePosition}
+            slotProps={{ day: withDayTestId }}
+          />
         </LocalizationProvider>
         <Divider />
         <Box
           sx={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-end',
             px: 1,
             py: 0.5,
           }}
         >
-          <FormControlLabel
-            sx={{ ml: 0 }}
-            control={
-              <Checkbox
-                checked={rangeMode}
-                onChange={(event) => handleRangeModeToggle(event.target.checked)}
-                inputProps={{ 'data-testid': 'date-range-mode-checkbox' } as Record<string, unknown>}
-              />
-            }
-            label="Date Range"
-          />
           <Button size="small" onClick={handleTodayClick} data-testid="date-range-today-button">
             Today
           </Button>
