@@ -38,6 +38,7 @@ import {
   RemoveIntent,
   UpdateProcedureIntent,
 } from './chart-types';
+import { CollapsibleUserText } from './CollapsibleUserText';
 import { leafKey } from './exam-ros-catalog';
 import { MedicationSearchPicker } from './MedicationSearchPicker';
 import { containsTranscriptHeader, extractTranscriptHeaderLabels, transcriptHeaderLine } from './transcript-docs';
@@ -367,6 +368,18 @@ export function AssistantColumn({
       return;
     }
     void sendComposer();
+  };
+
+  // Long user bubbles default collapsed; expanded ids persist for the session so a re-render
+  // (new thread entries, live conv updates) can't snap an expanded bubble shut.
+  const [expandedUserMsgIds, setExpandedUserMsgIds] = useState<Set<number>>(new Set());
+  const toggleUserMsgExpanded = (id: number): void => {
+    setExpandedUserMsgIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   // ---- Transcript preview card ---------------------------------------------------------------
@@ -1258,9 +1271,17 @@ export function AssistantColumn({
                     borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
                   }}
                 >
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {m.text}
-                  </Typography>
+                  {m.role === 'user' ? (
+                    <CollapsibleUserText
+                      text={m.text}
+                      expanded={expandedUserMsgIds.has(m.id)}
+                      onToggle={() => toggleUserMsgExpanded(m.id)}
+                    />
+                  ) : (
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {m.text}
+                    </Typography>
+                  )}
                 </Paper>
               </Box>
             </Fragment>
