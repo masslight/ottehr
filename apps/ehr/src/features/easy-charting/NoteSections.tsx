@@ -13,8 +13,10 @@ import {
 } from 'utils';
 import { AiAlternative, AiChartedItem } from './AiChartedItem';
 import { AiChartedMeta, AiField, ChartNoteKey, EasyChartLabOrder, ProcedureProvenance } from './chart-types';
+import { DispositionSection } from './DispositionSection';
 import { FIELD_TO_SECTION_LABEL } from './exam-ros-catalog';
 import InlineNoteField from './InlineNoteField';
+import { hasLabResultsToShow, LabResultsList } from './LabResultsList';
 // Shared section-header styling so each band in the note reads like a real section header
 // rather than a flat label. Underlined + bolded primary-color text on a hairline divider.
 import {
@@ -227,6 +229,8 @@ export function NoteSections({
   const surgicalHistory = data.surgicalHistory ?? [];
   const hospitalizations = data.episodeOfCare ?? [];
   const vitals = data.vitalsObservations ?? [];
+  const showLabResults = hasLabResultsToShow(data.inHouseLabResults, data.externalLabResults);
+  const disposition = data.disposition;
 
   const examBySection = new Map<string, typeof abnormalExam>();
   abnormalExam.forEach((o) => {
@@ -254,7 +258,9 @@ export function NoteSections({
     surgicalHistory.length ||
     hospitalizations.length ||
     vitals.length ||
-    procedures.length;
+    procedures.length ||
+    showLabResults ||
+    disposition?.type;
 
   // In editable mode we always render so the free-text editors are available to type into even
   // on a brand-new encounter; read-only mode keeps the original empty placeholder.
@@ -993,6 +999,14 @@ export function NoteSections({
           </Section>
         )}
 
+        {/* Lab RESULTS (what came back), separate from the orders above — same test can appear in
+            both, like Review & Sign. Read-only: results are documents, not editable chart items. */}
+        {showLabResults && (
+          <Section title="Lab Results">
+            <LabResultsList inHouse={data.inHouseLabResults} external={data.externalLabResults} />
+          </Section>
+        )}
+
         {instructions.length > 0 && (
           <CollapsibleSection title={`Patient Instructions (${instructions.length})`}>
             <Stack spacing={0.5}>
@@ -1009,6 +1023,10 @@ export function NoteSections({
             </Stack>
           </CollapsibleSection>
         )}
+
+        {/* Disposition after Patient Instructions, matching Review & Sign's Plan ordering.
+            Display-only — the assistant edits it via chat. */}
+        {disposition?.type && <DispositionSection disposition={disposition} />}
       </Stack>
     </Paper>
   );
