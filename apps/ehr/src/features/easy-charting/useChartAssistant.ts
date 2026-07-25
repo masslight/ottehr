@@ -212,10 +212,17 @@ export function useChartAssistant({
   // The conv object already folded into history, so the live region stops re-rendering it.
   const [committedConv, setCommittedConv] = useState<ConvStep | null>(null);
   const threadSeqRef = useRef(0);
-  const pushUserMessage = (text: string): void =>
-    setThread((t) => [...t, { id: (threadSeqRef.current += 1), role: 'user', text }]);
-  const pushAssistantMessage = (text: string, planResults?: PlanStepResult[]): void =>
-    setThread((t) => [...t, { id: (threadSeqRef.current += 1), role: 'assistant', text, planResults }]);
+  // Ids are assigned synchronously at push time (NOT inside the setThread updater, which React runs
+  // later): runReview anchors the "Reviewing…" indicator at threadSeqRef.current, so the ref must
+  // already include a just-pushed message's id when the push and the review start in the same effect.
+  const pushUserMessage = (text: string): void => {
+    const id = ++threadSeqRef.current;
+    setThread((t) => [...t, { id, role: 'user', text }]);
+  };
+  const pushAssistantMessage = (text: string, planResults?: PlanStepResult[]): void => {
+    const id = ++threadSeqRef.current;
+    setThread((t) => [...t, { id, role: 'assistant', text, planResults }]);
+  };
 
   // TEMPORARY (debug): running per-session LLM token tally, fed by each zambda response's `usage`.
   const [tokenTally, setTokenTally] = useState({
@@ -264,7 +271,7 @@ export function useChartAssistant({
   // app behaves. null → no anchor yet (loading / pre-suggestion); falls back to trailing render.
   const [reviewAnchorId, setReviewAnchorId] = useState<number | null>(null);
   // Narrative of the last applied plan, so the manual "Review note" button has something to review;
-  // pendingReviewRef carries it from the plan-completion updater to the auto-trigger effect.
+  // pendingReviewRef carries it from the plan-completion updater to the commit effect's auto-trigger.
   const lastNarrativeRef = useRef<string>('');
   const pendingReviewRef = useRef<string | null>(null);
   // Per-step results of a just-completed plan, carried from the plan-completion updater to the
@@ -513,8 +520,9 @@ export function useChartAssistant({
           (errCount > 0 ? `, ${errCount} error${errCount === 1 ? '' : 's'}` : '') +
           '.';
         setConv({ kind: 'unknown', user: prev.narrative, reply: summary });
-        // Hand the narrative to the auto-review effect (fires when `plan` becomes null). Stashing
-        // in a ref keeps the side effect out of this updater (StrictMode-safe / idempotent).
+        // Hand the narrative to the commit effect, which starts the auto-review after it pushes
+        // the settled plan card. Stashing in a ref keeps the side effect out of this updater
+        // (StrictMode-safe / idempotent).
         pendingReviewRef.current = prev.narrative;
         lastNarrativeRef.current = prev.narrative;
         // Same ref-stash pattern: the commit effect attaches these to the summary thread entry.
@@ -529,19 +537,6 @@ export function useChartAssistant({
     // deps unchanged and the plan stalls. The planLastAdvanceConvRef guard prevents double-advancing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv, plan?.currentIdx]);
-
-  // Auto-review: when a plan finishes (plan → null) and the completion updater stashed its
-  // narrative, run the review pass to surface suggestion cards. Clearing the ref before the call
-  // keeps this from re-firing on later plan-null transitions.
-  useEffect(() => {
-    if (plan === null && pendingReviewRef.current) {
-      const narrative = pendingReviewRef.current;
-      pendingReviewRef.current = null;
-      detectNoteFieldDrift();
-      void runReview(narrative);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan]);
 
   // A settled (terminal) assistant summary for a conv, or null if the conv is still in progress
   // (thinking / saving / a picker awaiting a choice). Used both to decide WHEN a turn is done and
@@ -597,6 +592,17 @@ export function useChartAssistant({
     pendingPlanResultsRef.current = null;
     pushAssistantMessage(summary, planResults ?? undefined);
     setCommittedConv(conv);
+    // Kick off the pending auto-review only after the settled plan card is in the thread, so the
+    // "Reviewing…" indicator anchors BELOW it (threadSeqRef now includes the card's id thanks to
+    // the synchronous id assignment in pushAssistantMessage). Firing from an earlier standalone
+    // [plan]-effect anchored the indicator ABOVE the tall settled card, where nobody saw it.
+    // pendingReviewRef is only ever set by the plan-completion updater, so non-plan turns skip this.
+    if (pendingReviewRef.current) {
+      const narrative = pendingReviewRef.current;
+      pendingReviewRef.current = null;
+      detectNoteFieldDrift();
+      void runReview(narrative);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv, plan]);
 
