@@ -170,6 +170,22 @@ export function AssistantColumn({
     return () => cancelAnimationFrame(id);
   }, [conv, plan, reviewLoading, thread]);
 
+  // Keep the active (▶) step visible as a running plan advances by scrolling ONLY the inner step
+  // list — scrollIntoView would also scroll the chat column and fight the follow-to-bottom effect
+  // above. The rect delta + scrollTop gives the step's offset from the top of the list's content
+  // regardless of offsetParent structure; center it in the box.
+  const planStepsScrollRef = useRef<HTMLDivElement | null>(null);
+  const currentStepRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const box = planStepsScrollRef.current;
+    const el = currentStepRef.current;
+    if (!box || !el) return;
+    const elTop = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+    const target = elTop - box.clientHeight / 2 + el.clientHeight / 2;
+    box.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+    // Re-center only when the active step changes — the refs cover everything the effect reads.
+  }, [plan?.currentIdx]);
+
   // Restore focus to the refine bar after each action completes so the provider can keep
   // typing the next request without manually clicking the input (a Send click moves focus to
   // the button). Triggered off the !isThinking edge — the end of a turn.
@@ -650,7 +666,7 @@ export function AssistantColumn({
       </Stack>
       {/* Full step list with status icons — surfaces what was already done so the provider
           can interpret a mid-plan picker in context. */}
-      <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+      <Box ref={planStepsScrollRef} sx={{ maxHeight: 200, overflowY: 'auto' }}>
         {plan.steps.map((step, i) => {
           const isCurrent = i === plan.currentIdx;
           const isDone = i < plan.results.length;
@@ -658,6 +674,7 @@ export function AssistantColumn({
           return (
             <Typography
               key={i}
+              ref={isCurrent ? currentStepRef : undefined}
               variant="body2"
               sx={{
                 display: 'block',
