@@ -181,9 +181,13 @@ export const REPORT_COMPONENTS = {
         'automatically — do NOT set fixed pixel widths.',
       'DO NOT build a MULTI-SERIES chart from long-format rows with ECharts — use Report.VegaChart with a ' +
         '"color" encoding for that.',
-      'onClick gives the clicked datum (for drill-down); when a click maps a formatted label back to data, match ' +
-        'by the SAME raw value you built the axis from (keep the raw key on the datum) — formatted labels ' +
-        '("13:00") never equal raw values (13).',
+      'onClick(datum) fires when a bar/point/slice is clicked (for drill-down). datum = { name (the clicked ' +
+        'category/axis label), value, seriesName, dataIndex } — this works with plain-array series data; you do ' +
+        'NOT need object-form data to get the clicked category. To drill down, filter "data" by the field you ' +
+        'built the category axis from, matched to datum.name.',
+      'When a click maps a FORMATTED label back to data, match by the SAME raw value you built the axis from ' +
+        '(formatted labels like "13:00" never equal raw values like 13) — build the axis from raw category ' +
+        'strings so datum.name compares directly.',
     ],
   },
   VegaChart: {
@@ -196,7 +200,8 @@ export const REPORT_COMPONENTS = {
         'encoding), HEATMAPS / shaded matrices ("rect" mark + "color" quantitative), layered statistical ' +
         'transforms (regression/loess), and faceted small multiples (≤ ~6 panels via "column"/"row").',
       'Do NOT set width — the component owns sizing.',
-      'onClick gives the clicked datum — same drill-down + label-matching caveat as Report.EChart.',
+      'onClick(datum) fires on a mark click (for drill-down); here datum is the underlying ROW object that ' +
+        'produced the mark, so read its field names directly (e.g. datum.provider) to filter "data".',
     ],
   },
   Link: {

@@ -32,10 +32,29 @@ export function EChart({ option, height = 400, onClick }: EChartProps): React.Re
       const full = withEChartsDefaults(option, optionPointCount(option));
       chart = echarts.init(ref.current);
       chart.setOption(full as echarts.EChartsCoreOption);
-      chart.on('click', (params: { data?: unknown }) => {
-        const datum = params.data as Record<string, unknown> | undefined;
-        if (datum && typeof datum === 'object' && clickRef.current) clickRef.current(datum);
-      });
+      chart.on(
+        'click',
+        (params: { name?: unknown; value?: unknown; seriesName?: unknown; dataIndex?: unknown; data?: unknown }) => {
+          if (!clickRef.current) return;
+
+          // Forward a consistent datum for EVERY data shape. ECharts gives the category name, the
+          // value, the series and the point index even when series data is plain numbers (the common
+          // case) — the previous "only if params.data is an object" check dropped those clicks. Object
+          // -form data points are spread on top so their own fields are available too.
+          const base = {
+            name: params.name,
+            value: params.value,
+            seriesName: params.seriesName,
+            dataIndex: params.dataIndex,
+          };
+          const datum =
+            params.data && typeof params.data === 'object'
+              ? { ...base, ...(params.data as Record<string, unknown>) }
+              : base;
+
+          clickRef.current(datum);
+        }
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
