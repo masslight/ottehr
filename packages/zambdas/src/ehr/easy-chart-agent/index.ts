@@ -10,13 +10,15 @@ import {
 } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotStructured, parseStructuredModelOutput } from '../../shared/ai';
+import { coerceNumericStepFields } from '../../shared/easy-chart/planner-core';
 import { detectSpeakerLabels, sniffDoseFormScoped, sniffIcdCodeScoped } from '../../shared/easy-chart/sniffers';
 import { normalizeVitalIntent, VITAL_FIELDS } from '../../shared/easy-chart/vitals';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-agent';
 
-const RESPONSE_SCHEMA = {
+// Exported for the digit-loop schema guard test.
+export const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     intent: {
@@ -33,7 +35,12 @@ const RESPONSE_SCHEMA = {
         procedureMatch: { type: 'string' },
         text: { type: 'string' }, // add-patient-instruction / set-disposition note text
         dispositionType: { type: 'string' }, // set-disposition: pcp | ed | specialty | another | ip
-        followUpInDays: { type: 'number' }, // set-disposition: "follow up in N days"
+        // DIGIT-LOOP GUARD: followUpInDays/value/systolic/diastolic are deliberately `string`, NOT
+        // `number` — under Vertex constrained decoding a JSON number has no closing token, so a
+        // flash-lite digit run self-reinforces to the token cap (see planner-core RESPONSE_SCHEMA).
+        // coerceNumericStepFields() restores the numeric contract right after parse; do NOT change
+        // these back to `number`.
+        followUpInDays: { type: 'string' }, // set-disposition: "follow up in N days"
         finding: { type: 'string', enum: ['reports', 'denies'] },
         updates: {
           type: 'array',
@@ -50,10 +57,10 @@ const RESPONSE_SCHEMA = {
         newText: { type: 'string' },
         // set-vital: numeric vitals use `value` (+ `unit` for temp); BP uses systolic/diastolic. The
         // client/normalizer recovers these from `display` too, so the model only has to get `display` right.
-        value: { type: 'number' },
+        value: { type: 'string' }, // string, not number — digit-loop guard (see above)
         unit: { type: 'string' },
-        systolic: { type: 'number' },
-        diastolic: { type: 'number' },
+        systolic: { type: 'string' }, // string, not number — digit-loop guard (see above)
+        diastolic: { type: 'string' }, // string, not number — digit-loop guard (see above)
       },
       required: ['kind'],
     },
@@ -335,6 +342,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (!i || typeof i !== 'object' || typeof i.kind !== 'string') {
     throw new Error('Model returned a malformed intent');
   }
+  // The schema declares value/systolic/diastolic/followUpInDays as strings (digit-loop guard) —
+  // restore the numeric contract before the typed-intent checks below expect numbers.
+  coerceNumericStepFields(i);
 
   let intent: EasyChartAgentIntent;
   if (i.kind === 'unknown') {

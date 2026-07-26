@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbotVertexAI, parseStructuredModelOutput } from '../../shared/ai';
+import { coerceNumericFields } from '../../shared/easy-chart/planner-core';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'easy-chart-eval-judge';
@@ -38,7 +39,8 @@ const SECTION_NAMES = [
   'Disposition / Plan',
 ];
 
-const RESPONSE_SCHEMA = {
+// Exported for the digit-loop schema guard test.
+export const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     sections: {
@@ -93,13 +95,17 @@ const RESPONSE_SCHEMA = {
         type: 'object',
         properties: {
           field: { type: 'string' },
-          score: { type: 'number' },
+          // DIGIT-LOOP GUARD: score/fidelityScore are deliberately `string`, NOT `number` — under
+          // Vertex constrained decoding a JSON number has no closing token, so a digit run can
+          // self-reinforce to the token cap (see planner-core RESPONSE_SCHEMA). coerceNumericFields()
+          // restores the numeric contract right after parse; do NOT change these back to `number`.
+          score: { type: 'string' },
           note: { type: 'string' },
         },
         required: ['field', 'score'],
       },
     },
-    fidelityScore: { type: 'number' },
+    fidelityScore: { type: 'string' }, // string, not number — digit-loop guard (see score above)
     summary: { type: 'string' },
   },
   required: ['sections', 'freeText', 'fidelityScore', 'summary'],
@@ -162,6 +168,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   );
 
   // Non-JSON judge output is an upstream model failure, not a caller mistake — raw throw (pages).
-  const scorecard = parseStructuredModelOutput(raw, 'eval-judge scorecard');
+  const scorecard = parseStructuredModelOutput(raw, 'eval-judge scorecard') as Record<string, unknown>;
+  // The schema emits score/fidelityScore as strings (digit-loop guard) — restore the numeric
+  // contract before returning so scorecard consumers keep receiving numbers.
+  coerceNumericFields(scorecard, ['fidelityScore']);
+  if (Array.isArray(scorecard.freeText)) {
+    for (const entry of scorecard.freeText) {
+      if (entry && typeof entry === 'object') coerceNumericFields(entry as Record<string, unknown>, ['score']);
+    }
+  }
   return { statusCode: 200, body: JSON.stringify(scorecard) };
 });

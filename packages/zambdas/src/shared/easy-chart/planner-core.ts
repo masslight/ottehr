@@ -174,19 +174,26 @@ export const RESPONSE_SCHEMA = {
 // The step-level numeric fields RESPONSE_SCHEMA declares as strings (see the digit-loop guard there).
 const NUMERIC_STEP_FIELDS = ['value', 'systolic', 'diastolic', 'followUpInDays'] as const;
 
-// Restores the numeric contract on a parsed step IN PLACE: the schema emits these fields as strings
-// (digit-loop guard), but everything downstream — client intent handlers, precompute stamps, the eval
-// sim — consumes numbers. A finite parse replaces the string; empty/non-numeric strings are deleted
-// (same as the model omitting the field). Already-numeric values (precomputed plans, the Claude backup
-// path) pass through untouched. Exported for the review zambda and unit tests.
-export function coerceNumericStepFields(step: Record<string, unknown>): void {
-  for (const field of NUMERIC_STEP_FIELDS) {
-    const v = step[field];
+// Restores the numeric contract on a parsed model-output object IN PLACE for the named fields: the
+// response schemas emit numeric fields as strings (digit-loop guard), but downstream consumers expect
+// numbers. A finite parse replaces the string; empty/non-numeric strings are deleted (same as the
+// model omitting the field). Already-numeric values pass through untouched. Exported for schemas
+// whose numeric fields differ from NUMERIC_STEP_FIELDS (e.g. the eval judge's scores) and unit tests.
+export function coerceNumericFields(obj: Record<string, unknown>, fields: readonly string[]): void {
+  for (const field of fields) {
+    const v = obj[field];
     if (typeof v !== 'string') continue;
     const n = v.trim() === '' ? NaN : Number(v);
-    if (Number.isFinite(n)) step[field] = n;
-    else delete step[field];
+    if (Number.isFinite(n)) obj[field] = n;
+    else delete obj[field];
   }
+}
+
+// Restores the numeric contract on a parsed step IN PLACE: the schema emits these fields as strings
+// (digit-loop guard), but everything downstream — client intent handlers, precompute stamps, the eval
+// sim — consumes numbers. Exported for the review/agent zambdas and unit tests.
+export function coerceNumericStepFields(step: Record<string, unknown>): void {
+  coerceNumericFields(step, NUMERIC_STEP_FIELDS);
 }
 
 export const buildPrompt = (

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { RESPONSE_SCHEMA as AGENT_RESPONSE_SCHEMA } from '../src/ehr/easy-chart-agent/index';
+import { RESPONSE_SCHEMA as JUDGE_RESPONSE_SCHEMA } from '../src/ehr/easy-chart-eval-judge/index';
 import { RESPONSE_SCHEMA as REVIEW_RESPONSE_SCHEMA } from '../src/ehr/easy-chart-review/index';
-import { coerceNumericStepFields, RESPONSE_SCHEMA } from '../src/shared/easy-chart/planner-core';
+import { coerceNumericFields, coerceNumericStepFields, RESPONSE_SCHEMA } from '../src/shared/easy-chart/planner-core';
 
 // Digit-loop regression pins. Under Vertex constrained decoding a JSON number has NO closing token,
 // so a `type:'number'` schema field is a trap: when flash-lite emits one on a step kind where it is
@@ -32,6 +34,20 @@ describe('easy-chart response schemas carry no raw number fields (digit-loop gua
   it('review RESPONSE_SCHEMA has no type:number anywhere', () => {
     const types: Array<{ path: string; type: string }> = [];
     collectTypes(REVIEW_RESPONSE_SCHEMA, 'REVIEW_RESPONSE_SCHEMA', types);
+    expect(types.length).toBeGreaterThan(0);
+    expect(types.filter((t) => t.type === 'number')).toEqual([]);
+  });
+
+  it('agent RESPONSE_SCHEMA has no type:number anywhere', () => {
+    const types: Array<{ path: string; type: string }> = [];
+    collectTypes(AGENT_RESPONSE_SCHEMA, 'AGENT_RESPONSE_SCHEMA', types);
+    expect(types.length).toBeGreaterThan(0);
+    expect(types.filter((t) => t.type === 'number')).toEqual([]);
+  });
+
+  it('eval-judge RESPONSE_SCHEMA has no type:number anywhere', () => {
+    const types: Array<{ path: string; type: string }> = [];
+    collectTypes(JUDGE_RESPONSE_SCHEMA, 'JUDGE_RESPONSE_SCHEMA', types);
     expect(types.length).toBeGreaterThan(0);
     expect(types.filter((t) => t.type === 'number')).toEqual([]);
   });
@@ -84,5 +100,38 @@ describe('coerceNumericStepFields (post-parse numeric-contract restoration)', ()
     const step: Record<string, unknown> = { kind: 'add-diagnosis', display: 'Acute pharyngitis', code: 'J02.9' };
     coerceNumericStepFields(step);
     expect(step).toEqual({ kind: 'add-diagnosis', display: 'Acute pharyngitis', code: 'J02.9' });
+  });
+});
+
+describe('coerceNumericFields (judge scorecard score fields)', () => {
+  it('coerces a string fidelityScore and freeText scores to numbers', () => {
+    const scorecard: Record<string, unknown> = {
+      fidelityScore: '72',
+      freeText: [{ field: 'medicalDecision', score: '2', note: 'thin' }],
+    };
+    coerceNumericFields(scorecard, ['fidelityScore']);
+    expect(scorecard.fidelityScore).toBe(72);
+    const entry = (scorecard.freeText as Array<Record<string, unknown>>)[0];
+    coerceNumericFields(entry, ['score']);
+    expect(entry.score).toBe(2);
+    expect(entry.note).toBe('thin');
+  });
+
+  it('deletes an empty-string score (same as the model omitting it)', () => {
+    const entry: Record<string, unknown> = { field: 'chiefComplaint', score: '' };
+    coerceNumericFields(entry, ['score']);
+    expect('score' in entry).toBe(false);
+  });
+
+  it('deletes a non-numeric fidelityScore', () => {
+    const scorecard: Record<string, unknown> = { fidelityScore: 'high' };
+    coerceNumericFields(scorecard, ['fidelityScore']);
+    expect('fidelityScore' in scorecard).toBe(false);
+  });
+
+  it('leaves an already-numeric score untouched', () => {
+    const entry: Record<string, unknown> = { field: 'historyOfPresentIllness', score: 88 };
+    coerceNumericFields(entry, ['score']);
+    expect(entry.score).toBe(88);
   });
 });
