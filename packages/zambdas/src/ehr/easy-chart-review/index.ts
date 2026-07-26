@@ -18,6 +18,7 @@ import { invokeChatbotStructured, parseStructuredModelOutput } from '../../share
 import { validateIntentCode } from '../../shared/easy-chart/codes';
 import { IcdSearchFn } from '../../shared/easy-chart/icd-search';
 import { derivePatientStatus, fetchPatientContext } from '../../shared/easy-chart/patient-context';
+import { coerceNumericStepFields } from '../../shared/easy-chart/planner-core';
 import { detectDispositionLanguage, DispositionLanguageMatch } from '../../shared/easy-chart/sniffers';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -63,7 +64,8 @@ const ACTION_KINDS = [
   'provider-note',
 ] as const;
 
-const RESPONSE_SCHEMA = {
+// exported for unit tests (schema pin: no raw `number` fields — see the digit-loop guard below)
+export const RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
     suggestions: {
@@ -95,7 +97,11 @@ const RESPONSE_SCHEMA = {
                 // set-disposition (the "disposition" check): where the patient goes next.
                 text: { type: 'string' },
                 dispositionType: { type: 'string' },
-                followUpInDays: { type: 'number' },
+                // DIGIT-LOOP GUARD: `string`, not `number` — a raw JSON number has no closing token
+                // under Vertex constrained decoding, and a stray `"followUpInDays": 0.` on a non-
+                // disposition action can digit-loop to the token cap (the planner's dominant MAX_TOKENS
+                // failure; seen here at ~1%). coerceNumericStepFields() restores the number after parse.
+                followUpInDays: { type: 'string' },
               },
               // isPrimary is REQUIRED (not just allowed): the diagnosis-swap card is a
               // remove-diagnosis + add-diagnosis pair, and when the model omits isPrimary on the
@@ -515,6 +521,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const parsed = parseStructuredModelOutput(raw, 'note review') as { suggestions?: unknown };
   if (!parsed || !Array.isArray(parsed.suggestions)) {
     throw new Error('Model returned a malformed review');
+  }
+  // The schema emits followUpInDays as a string (digit-loop guard on RESPONSE_SCHEMA) — restore the
+  // numeric contract on every action before validation; the client replays actions expecting numbers.
+  for (const item of parsed.suggestions) {
+    const actions = item && typeof item === 'object' ? (item as Record<string, unknown>).actions : undefined;
+    if (!Array.isArray(actions)) continue;
+    for (const action of actions) {
+      if (action && typeof action === 'object') coerceNumericStepFields(action as Record<string, unknown>);
+    }
   }
 
   // Shape-check first, then validate every surviving suggestion's action codes CONCURRENTLY —

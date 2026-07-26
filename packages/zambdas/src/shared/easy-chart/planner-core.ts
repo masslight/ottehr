@@ -145,13 +145,20 @@ export const RESPONSE_SCHEMA = {
           newText: { type: 'string' },
           text: { type: 'string' }, // add-patient-instruction / set-disposition note text
           dispositionType: { type: 'string' }, // set-disposition: pcp | ed | specialty | another | ip
-          followUpInDays: { type: 'number' }, // set-disposition: "follow up in N days"
+          followUpInDays: { type: 'string' }, // set-disposition: "follow up in N days"
           finding: { type: 'string', enum: ['reports', 'denies'] },
           // set-vital: numeric vitals use `value` (+ `unit` for temp/weight/height); BP uses systolic/diastolic.
-          value: { type: 'number' },
+          // DIGIT-LOOP GUARD: value/systolic/diastolic/followUpInDays are deliberately `string`, NOT
+          // `number`. With `type:'number'`, Vertex constrained decoding has no closing token for a JSON
+          // number, so when flash-lite emits one of these on a step kind where it's meaningless (e.g.
+          // `"value": 0.` on add-diagnosis) the digit run self-reinforces at temperature 0 and runs to
+          // the token cap — 31% of run9 planner calls died at MAX_TOKENS this way. A string gives the
+          // decoder a closing-quote escape at every position. coerceNumericStepFields() restores the
+          // numeric contract server-side right after parse; do NOT change these back to `number`.
+          value: { type: 'string' },
           unit: { type: 'string' },
-          systolic: { type: 'number' },
-          diastolic: { type: 'number' },
+          systolic: { type: 'string' },
+          diastolic: { type: 'string' },
           // PROVENANCE: the verbatim snippet from the narrative that justifies this step. Empty
           // string for steps INFERRED rather than spoken (default-normal exam, template defaults,
           // codes deduced from context). The client marks items sourced-vs-inferred from this.
@@ -163,6 +170,24 @@ export const RESPONSE_SCHEMA = {
   },
   required: ['steps'],
 };
+
+// The step-level numeric fields RESPONSE_SCHEMA declares as strings (see the digit-loop guard there).
+const NUMERIC_STEP_FIELDS = ['value', 'systolic', 'diastolic', 'followUpInDays'] as const;
+
+// Restores the numeric contract on a parsed step IN PLACE: the schema emits these fields as strings
+// (digit-loop guard), but everything downstream — client intent handlers, precompute stamps, the eval
+// sim — consumes numbers. A finite parse replaces the string; empty/non-numeric strings are deleted
+// (same as the model omitting the field). Already-numeric values (precomputed plans, the Claude backup
+// path) pass through untouched. Exported for the review zambda and unit tests.
+export function coerceNumericStepFields(step: Record<string, unknown>): void {
+  for (const field of NUMERIC_STEP_FIELDS) {
+    const v = step[field];
+    if (typeof v !== 'string') continue;
+    const n = v.trim() === '' ? NaN : Number(v);
+    if (Number.isFinite(n)) step[field] = n;
+    else delete step[field];
+  }
+}
 
 export const buildPrompt = (
   narrative: string,
@@ -888,6 +913,11 @@ export async function runEasyChartPlanner(
   const parsed = parseStructuredModelOutput(raw, 'chart plan') as { steps?: unknown };
   if (!parsed || !Array.isArray(parsed.steps)) {
     throw new Error('Model returned a malformed plan');
+  }
+  // The schema emits numeric step fields as strings (digit-loop guard on RESPONSE_SCHEMA) — restore
+  // the numeric contract before any validation/normalization below sees the steps.
+  for (const item of parsed.steps) {
+    if (item && typeof item === 'object') coerceNumericStepFields(item as Record<string, unknown>);
   }
 
   // Recurring speaker labels (e.g. "X31") computed once per request — used to keep transcript
