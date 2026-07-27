@@ -1,9 +1,8 @@
 import { Autocomplete, TextField } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useMergedInsuranceQuickPicks } from 'src/hooks/useMergedQuickPicks';
 
 export const InsuranceSearchField: React.FC<{
   value: string;
@@ -30,13 +29,9 @@ export const InsuranceSearchField: React.FC<{
     staleTime: 5 * 60 * 1000,
   });
 
-  const { quickPicks: existingPicks, loading: existingLoading } = useMergedInsuranceQuickPicks();
-  const existingReferences = useMemo(() => new Set(existingPicks.map((p) => p.organizationReference)), [existingPicks]);
-
-  const options = useMemo(
-    () => (existingLoading ? [] : (payers ?? []).filter((p) => !existingReferences.has(p.reference ?? ''))),
-    [existingLoading, payers, existingReferences]
-  );
+  // Every payer is selectable: a quick pick is now an arbitrary named preset, so multiple picks
+  // may reference the same payer (e.g. "Nomastin PPO" and "Nomastin HMO").
+  const options = payers ?? [];
   const selectedOption = value
     ? options.find((opt) => opt.display === value) ?? ({ display: value } as Reference)
     : null;
@@ -53,19 +48,19 @@ export const InsuranceSearchField: React.FC<{
           onChange(selected.display);
           // Display format is "<payerId> - <name>" when prependIdentifier=true.
           const payerId = selected.display.includes(' - ') ? selected.display.split(' - ')[0] : '';
-          onExtraData?.({ payerId, organizationReference: selected.reference });
+          onExtraData?.({ payerId, organizationReference: selected.reference, organizationDisplay: selected.display });
           setSearchTerm('');
         } else {
           onChange('');
-          onExtraData?.({ payerId: '', organizationReference: '' });
+          onExtraData?.({ payerId: '', organizationReference: '', organizationDisplay: '' });
         }
       }}
       getOptionLabel={(option) => option.display ?? ''}
       isOptionEqualToValue={(option, val) => option.reference === val.reference}
       options={options}
-      loading={isFetching || existingLoading}
+      loading={isFetching}
       fullWidth
-      noOptionsText={isFetching || existingLoading ? 'Loading payers…' : 'No matching payers'}
+      noOptionsText={isFetching ? 'Loading payers…' : 'No matching payers'}
       renderInput={(params) => (
         <TextField
           {...params}
