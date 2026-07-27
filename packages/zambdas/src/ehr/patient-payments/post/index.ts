@@ -142,6 +142,8 @@ const performEffect = async (
     const existingNotice = await findPaymentNoticeByIdempotencyKey(oystehrClient, encounterId, idempotencyKey);
     if (existingNotice) {
       console.log('idempotent replay detected; returning existing PaymentNotice', existingNotice.id);
+      // Guard against a first attempt that wrote the notice but died before scheduling the Task.
+      await ensurePaymentTaskForNotice(oystehrClient, existingNotice, encounterId);
       return { notice: existingNotice };
     }
   }
@@ -204,17 +206,44 @@ const performEffect = async (
   const paymentNotice = await oystehrClient.fhir.create<PaymentNotice>(
     noticeToWrite,
     idempotencyKey
-      ? { ifNoneExist: [{ name: 'identifier', value: `${PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|${idempotencyKey}` }] }
+      ? {
+          // Scope the match to this encounter, mirroring the search guard: the idempotency key is
+          // client-supplied, so without the encounter constraint a reused/colliding key could match
+          // a PaymentNotice from a different encounter and return the wrong resource.
+          ifNoneExist: [
+            { name: 'request', value: `Encounter/${encounterId}` },
+            { name: 'identifier', value: `${PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|${idempotencyKey}` },
+          ],
+        }
       : undefined
   );
 
-  // Write Task that will kick off subscription to perform Candid sync and create receipt PDF
+  // Kick off the subscription that performs Candid sync and creates the receipt PDF. Done
+  // idempotently (and again on replay above) so a first attempt that wrote the PaymentNotice but
+  // died before this point still gets its downstream work scheduled on retry.
+  await ensurePaymentTaskForNotice(oystehrClient, paymentNotice, encounterId);
+
+  return { notice: paymentNotice, paymentIntent };
+};
+
+// Creates the Candid-sync / receipt Task for a PaymentNotice, unless one already exists. Matches on
+// the Task's focus + code via a conditional create, so it is safe to call on an idempotent replay:
+// the subscription only marks the Task completed (never deletes it), so a finished Task still blocks
+// a duplicate, while a missing Task (previous attempt died before creating it) is (re)created.
+const ensurePaymentTaskForNotice = async (
+  oystehrClient: Oystehr,
+  paymentNotice: PaymentNotice,
+  encounterId: string
+): Promise<void> => {
   if (!paymentNotice.id) {
     throw new Error('PaymentNotice ID is required to create task');
   }
+  const { system, code } = TaskIndicator.patientPaymentCandidSyncAndReceipt;
+  const amountInDollars = paymentNotice.amount?.value ?? 0;
+
   const paymentTaskResource = getTaskResource(
     TaskIndicator.patientPaymentCandidSyncAndReceipt,
-    `Payment notice for $${(amountInCents / 100).toFixed(2)}`,
+    `Payment notice for $${amountInDollars.toFixed(2)}`,
     paymentNotice.id,
     encounterId
   );
@@ -223,10 +252,13 @@ const performEffect = async (
     type: 'PaymentNotice',
     reference: `PaymentNotice/${paymentNotice.id}`,
   };
-  const taskCreationResult = await oystehrClient.fhir.create(paymentTaskResource);
+  const taskCreationResult = await oystehrClient.fhir.create(paymentTaskResource, {
+    ifNoneExist: [
+      { name: 'focus', value: `PaymentNotice/${paymentNotice.id}` },
+      { name: 'code', value: `${system}|${code}` },
+    ],
+  });
   console.log('Task creation result:', taskCreationResult);
-
-  return { notice: paymentNotice, paymentIntent };
 };
 
 const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput => {
