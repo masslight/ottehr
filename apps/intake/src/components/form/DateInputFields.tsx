@@ -1,9 +1,9 @@
 import { FormControl, Grid, Input, InputBaseProps, InputLabel, MenuItem, Select, useMediaQuery } from '@mui/material';
 import { RefCallBack } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
 import { months } from 'utils';
 import { breakpoints } from '../../providers/IntakeThemeProviderBase';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 
 interface DateInputFieldProps extends InputBaseProps {
   selectedMonth: string;

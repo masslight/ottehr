@@ -45,6 +45,8 @@ import {
 } from '../shared';
 import { GetClaimDetailParams, validateRequestParameters } from './validateRequestParameters';
 
+const PCN_IDENTIFIER = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
+
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-detail';
 
@@ -233,6 +235,7 @@ async function performEffect(
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)
       .map((t) => t.code ?? '')
       .filter(Boolean),
+    pcn: claim.identifier?.find((i) => i.system === PCN_IDENTIFIER)?.value ?? claim.id?.replaceAll('-', '') ?? '',
   };
 }
 

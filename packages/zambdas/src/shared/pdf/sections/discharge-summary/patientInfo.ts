@@ -29,9 +29,10 @@ export const composePatientInformationForDischargeSummary: DataComposer<
   };
 };
 
-export const createPatientHeaderForDischargeSummary = <
-  TData extends { patient?: PatientInfoForDischargeSummary },
->(): PdfSection<TData, PatientInfoForDischargeSummary> => ({
+export const createCompactPatientHeader = <TData extends { patient?: PatientInfoForDischargeSummary }>(): PdfSection<
+  TData,
+  PatientInfoForDischargeSummary
+> => ({
   dataSelector: (data) => data.patient,
   render: (client, data, styles, assets) => {
     client.drawText(data.fullName, styles.textStyles.patientName);

@@ -1,5 +1,6 @@
 import { Location } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
+import { ServiceMode } from '../types';
 import { isValidSlug, PUBLIC_EXTENSION_BASE_URL, slugFromName } from './constants';
 import {
   isLocationFacilityGroup,
@@ -9,6 +10,7 @@ import {
   LOCATION_IN_PERSON_CODE,
   LOCATION_MANUALLY_CREATED_EXTENSION_URL,
   LOCATION_PHYSICAL_TYPE_SYSTEM,
+  locationSupportsServiceMode,
 } from './location';
 
 const LOCATION_FORM_EXTENSION_URL = `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`;
@@ -73,6 +75,33 @@ describe('location virtual / in-person helpers', () => {
     it('detects a facility group even alongside other codings', () => {
       expect(isLocationFacilityGroup(makeLocation('vi', 'si'))).toBe(true);
       expect(isLocationFacilityGroup(makeLocation())).toBe(false);
+    });
+  });
+
+  describe('locationSupportsServiceMode', () => {
+    const virtual = makeLocation('vi');
+    const inPerson = makeLocation(LOCATION_IN_PERSON_CODE);
+    const dualMode = makeLocation('vi', LOCATION_IN_PERSON_CODE);
+    const legacy = makeLocation(); // no location-form coding
+
+    it('admits a virtual-only Location for virtual and rejects it for in-person', () => {
+      expect(locationSupportsServiceMode(virtual, ServiceMode.virtual)).toBe(true);
+      expect(locationSupportsServiceMode(virtual, ServiceMode['in-person'])).toBe(false);
+    });
+
+    it('admits an in-person-only Location for in-person and rejects it for virtual', () => {
+      expect(locationSupportsServiceMode(inPerson, ServiceMode['in-person'])).toBe(true);
+      expect(locationSupportsServiceMode(inPerson, ServiceMode.virtual)).toBe(false);
+    });
+
+    it('admits a dual-mode Location for both modes', () => {
+      expect(locationSupportsServiceMode(dualMode, ServiceMode.virtual)).toBe(true);
+      expect(locationSupportsServiceMode(dualMode, ServiceMode['in-person'])).toBe(true);
+    });
+
+    it('treats a legacy (untagged) Location as in-person only', () => {
+      expect(locationSupportsServiceMode(legacy, ServiceMode['in-person'])).toBe(true);
+      expect(locationSupportsServiceMode(legacy, ServiceMode.virtual)).toBe(false);
     });
   });
 

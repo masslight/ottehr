@@ -35,7 +35,10 @@ import {
   GetPatientDetailInputSchema,
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
+  MatchClaimResponseToClaimInputSchema,
   PatientDetailResponse,
+  RecordBillingManualPaymentInputSchema,
+  RecordBillingManualPaymentResponse,
   RunBillingRulesEngineInputSchema,
   RunBillingRulesEngineResponse,
   SaveBillingRulesInputSchema,
@@ -304,6 +307,11 @@ export const getBillingEraDetail = (
 export const importEra = (oystehr: Oystehr, parameters: z.input<typeof ImportEraInputSchema>): Promise<any> =>
   executeBillingZambda(oystehr, 'import-era', parameters);
 
+export const matchClaimResponseToClaim = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof MatchClaimResponseToClaimInputSchema>
+): Promise<any> => executeBillingZambda(oystehr, 'match-claim-response', parameters);
+
 // --- ChargeItemDefinitions --
 
 export const searchChargeItemDefinitions = (
@@ -331,3 +339,11 @@ export const deleteChargeItemDefinition = (
   oystehr: Oystehr,
   parameters: z.input<typeof DeleteChargeItemDefinitionInputSchema>
 ): Promise<void> => executeBillingZambda(oystehr, 'delete-charge-item-definition', parameters);
+
+// --- Payments ---
+
+export const recordBillingManualPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RecordBillingManualPaymentInputSchema>
+): Promise<RecordBillingManualPaymentResponse> =>
+  executeBillingZambda(oystehr, 'record-billing-manual-payment', parameters);

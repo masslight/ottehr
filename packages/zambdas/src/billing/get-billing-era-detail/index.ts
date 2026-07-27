@@ -73,8 +73,8 @@ async function performEffect(
   }
   const uniqueClaimIds = [...responsesByClaimId.keys()];
 
-  let claims: Claim[] = [];
-  let patients: Patient[] = [];
+  const claims: Claim[] = [];
+  const patients: Patient[] = [];
   if (uniqueClaimIds.length > 0) {
     const claimResult = await oystehr.fhir.search<Claim | Patient>({
       resourceType: 'Claim',
@@ -84,27 +84,46 @@ async function performEffect(
       ],
     });
     const claimResources = claimResult.unbundle();
-    claims = claimResources.filter((r): r is Claim => r.resourceType === 'Claim');
-    patients = claimResources.filter((r): r is Patient => r.resourceType === 'Patient');
+    claims.push(...claimResources.filter((r): r is Claim => r.resourceType === 'Claim'));
+    patients.push(...claimResources.filter((r): r is Patient => r.resourceType === 'Patient'));
   }
 
-  const claimItems = claims.map((c) => {
-    const crs = responsesByClaimId.get(c.id ?? '') ?? [];
-    const patient = findRef<Patient>(patients, c.patient?.reference);
+  claimResponses
+    .filter((claimResponse) => !isMatchedToClaim(claimResponse))
+    .forEach((claimResponse) => {
+      const claim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
+      const patient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
+      if (claim && patient) {
+        const id = 'unmatched-' + claimResponse.id;
+        claim.id = id;
+        patient.id = id;
+        claim.patient.reference = 'Patient/' + id;
+        responsesByClaimId.set(id, [claimResponse]);
 
-    const billed = c.total?.value ?? 0;
-    const payments = summarizeClaimPayments(crs, billed);
-    const latestStatus = sortClaimResponsesByRecency(crs).at(-1)?.outcome ?? '';
+        claims.push(claim);
+        patients.push(patient);
+      }
+    });
+
+  const claimItems = claims.map((claim) => {
+    const claimResponses = responsesByClaimId.get(claim.id ?? '') ?? [];
+    const patient = findRef<Patient>(patients, claim.patient?.reference);
+
+    const billed = claim.total?.value ?? 0;
+    const payments = summarizeClaimPayments(claimResponses, billed);
+    const latestStatus = sortClaimResponsesByRecency(claimResponses).at(-1)?.outcome ?? '';
 
     return {
-      claimId: c.id ?? '',
+      claimId: claim.id ?? '',
       patientName: fhirName(patient),
-      dos: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
+      dos: claim.item?.[0]?.servicedPeriod?.start ?? claim.created ?? '',
       billed,
       allowed: payments.allowed,
       paid: payments.insurancePaid,
       posted: payments.insurancePaid,
       status: latestStatus,
+      matched: !claim.id?.startsWith('unmatched'),
+      claimResponseIds: claimResponses.map((claimResponse) => claimResponse.id).filter((id) => id != null),
     };
   });
 

@@ -2,7 +2,7 @@ import { SxProps } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getNewOrderUrl } from '../../routing/helpers';
+import { getNewMedicationOrderUrl } from '../../routing/helpers';
 import { ButtonRounded } from '../RoundedButton';
 
 interface OrderButtonProps {
@@ -20,7 +20,7 @@ export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'medium', sx, d
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;
     }
-    navigate(getNewOrderUrl(appointmentId));
+    navigate(getNewMedicationOrderUrl(appointmentId));
   };
 
   return (

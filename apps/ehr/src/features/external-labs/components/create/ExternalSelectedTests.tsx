@@ -6,7 +6,7 @@ import { nameLabTest, OrderableItemSearchResult } from 'utils';
 
 interface ExternalSelectedTestsProps {
   selectedLabs: OrderableItemSearchResult[];
-  setSelectedLabs: React.Dispatch<React.SetStateAction<OrderableItemSearchResult[]>>;
+  setSelectedLabs: (labs: OrderableItemSearchResult[]) => void;
 }
 
 export const ExternalSelectedTests: React.FC<ExternalSelectedTestsProps> = ({ selectedLabs, setSelectedLabs }) => {
@@ -21,16 +21,15 @@ export const ExternalSelectedTests: React.FC<ExternalSelectedTestsProps> = ({ se
           )}
           renderActions={(lab) => (
             <DeleteIconButton
-              onClick={() =>
-                setSelectedLabs((prev) =>
-                  prev.filter((tempLab) => {
-                    // we need the lab name for generic compendium labs (unique name will be the same)
-                    const selectedUniqueNameWithLab = `${lab.item.uniqueName}${lab.lab.labName}`;
-                    const tempLabUniqueNameWithLab = `${tempLab.item.uniqueName}${tempLab.lab.labName}`;
-                    return tempLabUniqueNameWithLab !== selectedUniqueNameWithLab;
-                  })
-                )
-              }
+              onClick={() => {
+                // we need the lab name for generic compendium labs (unique name will be the same)
+                const selectedUniqueNameWithLab = `${lab.item.uniqueName}${lab.lab.labName}`;
+                setSelectedLabs(
+                  selectedLabs.filter(
+                    (tempLab) => `${tempLab.item.uniqueName}${tempLab.lab.labName}` !== selectedUniqueNameWithLab
+                  )
+                );
+              }}
             />
           )}
         />

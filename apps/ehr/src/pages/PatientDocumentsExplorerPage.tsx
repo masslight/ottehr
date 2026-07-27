@@ -6,7 +6,7 @@ import { styled } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   PatientDocumentFoldersColumn,
   PatientDocumentFoldersColumnSkeleton,
@@ -43,6 +43,8 @@ const PatientDocumentsExplorerPage: FC = () => {
 
   const { id: patientId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialFolderName = searchParams.get('folder') || undefined;
 
   const { patient, loading: isLoadingPatientData } = useGetPatient(patientId);
   useEffect(() => {
@@ -78,6 +80,17 @@ const PatientDocumentsExplorerPage: FC = () => {
       setPendingSelectInternalName(null);
     }
   }, [documentsFolders, pendingSelectInternalName]);
+
+  // If a ?folder=<name> URL param is present, preselect that folder once the
+  // folder list has loaded. Used by the Patient Follow-up Task "Go To Task"
+  // deep link from completed practice-managed forms.
+  useEffect(() => {
+    if (!initialFolderName) return;
+    if (selectedFolder) return;
+    if (!documentsFolders.length) return;
+    const match = documentsFolders.find((f) => f.folderName?.toLowerCase() === initialFolderName.toLowerCase());
+    if (match) setSelectedFolder(match);
+  }, [initialFolderName, documentsFolders, selectedFolder]);
 
   const shouldShowClearFilters = searchDocNameFieldValue.trim().length > 0 || searchDocAddedDate || selectedFolder;
 

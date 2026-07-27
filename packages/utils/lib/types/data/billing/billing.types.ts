@@ -177,6 +177,8 @@ export interface EraDetailResponse {
     paid: number;
     posted: number;
     status: string;
+    matched: boolean;
+    claimResponseIds: string[];
   }[];
 }
 
@@ -378,6 +380,7 @@ export interface ClaimDetailResponse {
     cptCodes: string[];
   }[];
   tags: string[];
+  pcn: string;
 }
 
 interface Paginated {
@@ -491,4 +494,10 @@ export interface BillingChargeItemDefinition {
 
 export interface BillingService {
   name: string;
+}
+
+export interface RecordBillingManualPaymentResponse {
+  paymentNoticeId: string;
+  // present when the notice is linked to an existing billing Claim
+  claimId?: string;
 }

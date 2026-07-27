@@ -19,6 +19,7 @@ import {
   GetScheduleResponse,
   GetSlotDetailsParams,
   GetSlotDetailsResponse,
+  GetStandAlonePaperworkInput,
   GetSupportDialogOutput,
   HandleAnswerInput,
   isApiError,
@@ -301,6 +302,19 @@ class API {
         // todo: fix our awful error handling patterns
         throw apiErrorToThrow(error);
       }
+    }
+  }
+
+  async getStandAlonePaperwork(
+    zambdaClient: ZambdaClient,
+    input: GetStandAlonePaperworkInput
+  ): Promise<UCGetPaperworkResponse> {
+    try {
+      const response = await zambdaClient.execute('get-standalone-paperwork', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as UCGetPaperworkResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
     }
   }
 

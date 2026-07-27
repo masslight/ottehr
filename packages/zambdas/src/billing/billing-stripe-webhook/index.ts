@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, getSecret, PAYMENT_METHOD_EXTENSION_URL, SecretsKeys } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   checkOrCreateM2MClientToken,
   getStripeClient,
@@ -12,6 +11,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -71,19 +71,6 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     default:
       console.log('Ignoring unhandled event type:', event.type);
   }
-};
-
-const findBillingClaimForEncounter = async (oystehr: Oystehr, encounterId: string): Promise<Claim | undefined> => {
-  const claims = (
-    await oystehr.fhir.search<Claim>({
-      resourceType: 'Claim',
-      params: [{ name: 'identifier', value: `${ottehrIdentifierSystem('claim-encounter-id')}|${encounterId}` }],
-    })
-  ).unbundle();
-  if (claims.length > 1) {
-    throw new Error(`Found ${claims.length} billing Claims for encounter ${encounterId}, cannot pick one safely`);
-  }
-  return claims[0];
 };
 
 // picks the billing provider org stamped with the connected account id or default org otherwise,
@@ -161,13 +148,6 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId);
 };
-
-// before the claim exists this is a logical reference only, reconciled once the claim is created
-const claimRequestFor = (claim: Claim | undefined, encounterId: string): Reference => ({
-  type: 'Claim',
-  identifier: { system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId },
-  ...(claim?.id ? { reference: `Claim/${claim.id}` } : {}),
-});
 
 const persistPaymentNoticeUpsert = async (
   oystehr: Oystehr,

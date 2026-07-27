@@ -5,6 +5,7 @@ import {
   getQuestionnaireItemsAndProgress,
   makeValidationSchema,
   PatchPaperworkParameters,
+  qrSentManually,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   recursiveGroupTransform,
 } from 'utils';
@@ -37,6 +38,7 @@ export interface SubmitPaperworkEffectInput extends Omit<BasicInput, 'answers'>,
   updatedAnswers: QuestionnaireResponseItem[];
   questionnaireResponseId: string;
   currentQRStatus: QuestionnaireResponse['status'];
+  createReviewTaskAndPdf: boolean;
 }
 
 const PaperworkBodySchema = z.object({
@@ -197,6 +199,7 @@ const complexSubmitValidation = async (
     questionnaireResponseId,
     updatedAnswers: filteredAnswers,
     currentQRStatus: fullQRResource.status,
+    createReviewTaskAndPdf: qrSentManually(fullQRResource),
   };
 };
 const complexPatchValidation = async (
@@ -265,6 +268,7 @@ export const validateSubmitInputs = async (
 ): Promise<SubmitPaperworkEffectInput> => {
   const basic = basicValidation(input);
   const { answers } = basic;
+
   if (!Array.isArray(answers)) {
     throw new Error(`"answers" must be an array`);
   }

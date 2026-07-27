@@ -4,8 +4,10 @@ import BookmarkBorderOutlinedIcon from '@mui/icons-material/BookmarkBorderOutlin
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
@@ -18,6 +20,7 @@ import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 import { ReactElement, ReactNode } from 'react';
+import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
@@ -39,6 +42,8 @@ import SchedulesPage from 'src/pages/Schedules';
 import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
+import { GLOBAL_ACTION_LOG_VIEWER_ROLES, RoleType } from 'utils';
+import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 import { PaymentLocationsList } from './BillingConfiguration';
 import { FeeSchedulesIcon, InHouseLabsIcon, InsuranceIcon, ProgressNoteIcon, StethoscopeIcon } from './icons';
 
@@ -59,6 +64,8 @@ export interface AdminNavItem {
   centered?: boolean;
   /** Show a "Beta" chip next to the page title in the shared header. */
   beta?: boolean;
+  /** Explicit access policy; items without one stay admin-tier only. */
+  allowedRoles?: RoleType[];
   render: (ctx: AdminNavContext) => ReactNode;
 }
 
@@ -232,6 +239,13 @@ export const adminNavGroups: AdminNavGroup[] = [
         icon: <SendOutlinedIcon />,
         render: (ctx) => <ScheduledPatientOutreach outreachTab={ctx.outreachDetailTab} />,
       },
+      {
+        label: 'Action Logs',
+        path: '/admin/action-logs',
+        icon: <FaxOutlinedIcon />,
+        allowedRoles: GLOBAL_ACTION_LOG_VIEWER_ROLES,
+        render: () => <ActionLogsTabs />,
+      },
     ],
   },
   {
@@ -251,6 +265,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         centered: true,
         render: () => <ProgressNoteAdminPage />,
       },
+      {
+        label: 'Questionnaires',
+        path: '/admin/questionnaires',
+        icon: <ListAltIcon />,
+        render: () => <QuestionnaireAdminPage />,
+      },
     ],
   },
 ];
@@ -258,6 +278,19 @@ export const adminNavGroups: AdminNavGroup[] = [
 export const allAdminNavItems: AdminNavItem[] = adminNavGroups.flatMap((group) => group.items);
 
 export const DEFAULT_ADMIN_PATH = allAdminNavItems[0].path;
+
+/** Roles with access to every admin page unless an item supplies a narrower explicit policy. */
+export const ADMIN_TIER_ROLES: RoleType[] = [RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport];
+
+/** Nav groups the given user may see, dropping groups left with no accessible items. */
+export function resolveAccessibleAdminNavGroups(hasRole: (roles: RoleType[]) => boolean): AdminNavGroup[] {
+  return adminNavGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => hasRole(item.allowedRoles ?? ADMIN_TIER_ROLES)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 /** Landing target for bare /admin/billing — the first billing item, tracking nav order. */
 export const DEFAULT_BILLING_PATH =

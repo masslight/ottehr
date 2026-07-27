@@ -72,6 +72,27 @@ const makeVirtualLocation = (state?: string): Location => ({
   ...(state ? { address: { state } } : {}),
 });
 
+// In-person slot: stamped in-person → getServiceModeFromSlot returns in-person.
+const makeInPersonSlot = (overrides: Partial<Slot> = {}): Slot => ({
+  resourceType: 'Slot',
+  id: 'slot-1',
+  status: 'busy-tentative',
+  start: PAST_START,
+  end: PAST_END,
+  schedule: { reference: 'Schedule/sched-1' },
+  serviceCategory: [SlotServiceCategory.inPersonServiceMode],
+  extension: [makeSlotAtLocationExtensionEntry('loc-1')],
+  ...overrides,
+});
+
+// Legacy physical Location (no location-form coding) → in-person by default.
+const makePhysicalLocation = (): Location => ({
+  resourceType: 'Location',
+  id: 'loc-1',
+  status: 'active',
+  address: { state: 'FL' },
+});
+
 const baseInput = (overrides: Partial<CreateAppointmentBasicInput> = {}): CreateAppointmentBasicInput =>
   ({
     slotId: 'slot-1',
@@ -118,9 +139,26 @@ describe('createAppointmentComplexValidation — virtual locationState derivatio
     expect(result.locationState).toBe('CA');
   });
 
-  it('still throws when the resolved booking Location is not virtual and no locationState is supplied', async () => {
-    // The guard must remain in force: a virtual booking with no state to
-    // derive (booking Location isn't a virtual Location) is still rejected.
+  it('still throws when the virtual member Location has no usable state and none is supplied', async () => {
+    const oystehr = makeOystehrMock({
+      slotBundle: [makeVirtualSlot(), groupSchedule, groupOwner],
+      // Virtual Location but no address.state → nothing to derive.
+      locations: [makeVirtualLocation(undefined)],
+    });
+
+    await expect(createAppointmentComplexValidation(baseInput(), oystehr)).rejects.toThrow(/locationState/);
+  });
+});
+
+// The backstop: reject a slot whose resolved booking Location can't fulfill the
+// slot's service mode, in BOTH directions. Before this guard, the virtual
+// mismatch fell into a confusing "locationState is required" error and — worse
+// — the in-person mismatch (in-person slot on a virtual-only Location) booked a
+// broken visit with no error at all.
+describe('createAppointmentComplexValidation — service-mode vs booking-Location backstop', () => {
+  it('rejects a virtual booking whose resolved Location is not virtual', async () => {
+    // Physical Location (no vi coding) resolved for a virtual slot → rejected
+    // up front, a clearer failure than the old locationState path.
     const nonVirtualLoc: Location = {
       resourceType: 'Location',
       id: 'virtual-loc-1',
@@ -132,16 +170,31 @@ describe('createAppointmentComplexValidation — virtual locationState derivatio
       locations: [nonVirtualLoc],
     });
 
-    await expect(createAppointmentComplexValidation(baseInput(), oystehr)).rejects.toThrow(/locationState/);
+    await expect(createAppointmentComplexValidation(baseInput(), oystehr)).rejects.toThrow(/not available for virtual/);
   });
 
-  it('still throws when the virtual member Location has no usable state and none is supplied', async () => {
+  it('rejects an in-person booking whose resolved Location is virtual-only', async () => {
+    // Regression guard for the hole this PR closes: an in-person slot resolving
+    // to a virtual-only Location used to book successfully.
     const oystehr = makeOystehrMock({
-      slotBundle: [makeVirtualSlot(), groupSchedule, groupOwner],
-      // Virtual Location but no address.state → nothing to derive.
-      locations: [makeVirtualLocation(undefined)],
+      slotBundle: [makeInPersonSlot(), groupSchedule, groupOwner],
+      locations: [makeVirtualLocation('FL')],
     });
 
-    await expect(createAppointmentComplexValidation(baseInput(), oystehr)).rejects.toThrow(/locationState/);
+    await expect(createAppointmentComplexValidation(baseInput(), oystehr)).rejects.toThrow(
+      /not available for in-person/
+    );
+  });
+
+  it('resolves an in-person booking whose resolved Location supports in-person', async () => {
+    const oystehr = makeOystehrMock({
+      slotBundle: [makeInPersonSlot(), groupSchedule, groupOwner],
+      locations: [makePhysicalLocation()],
+    });
+
+    const result = await createAppointmentComplexValidation(baseInput(), oystehr);
+
+    expect(result.serviceMode).toBe(ServiceMode['in-person']);
+    expect(result.bookingLocation?.id).toBe('loc-1');
   });
 });

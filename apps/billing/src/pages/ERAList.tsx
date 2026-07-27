@@ -445,7 +445,14 @@ export default function ERAList(): ReactElement {
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
       />
-      {showImportDialog && <ImportEraDialog onClose={() => setShowImportDialog(false)} />}
+      {showImportDialog && (
+        <ImportEraDialog
+          onClose={() => {
+            setShowImportDialog(false);
+            void fetchEras({}, paginationModel);
+          }}
+        />
+      )}
     </Box>
   );
 }

@@ -1,6 +1,6 @@
 import { Box, Button, ButtonProps, Typography } from '@mui/material';
 import { FC, ReactNode, useState } from 'react';
-import { CustomDialog } from './CustomDialog';
+import { CustomDialog } from 'ui-components';
 
 type ConfirmationDialogProps = {
   response: () => void;

@@ -17,10 +17,11 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { LabSets } from 'src/features/external-labs/components/LabSets';
@@ -34,6 +35,7 @@ import {
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { useCreateInHouseLabStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
 import { DataEntryTestItem, getAttendingPractitionerId, isApiError, LabSetDTO, LabType } from 'utils';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getOrCreateVisitLabel } from '../../../api/api';
@@ -50,18 +52,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const { id: appointmentIdFromUrl } = useParams();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [selectedTests, setSelectedTests] = useState<DataEntryTestItem[]>([]);
-  const [notes, setNotes] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
-
-  const apiClient = useOystehrAPIClient();
-
-  const prefillData = location.state as {
-    testItemName?: string;
-    diagnoses?: DiagnosisDTO[];
-    type?: 'repeat' | 'reflex';
-  };
-
   const { encounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const didPrimaryDiagnosisInit = useRef(false);
@@ -69,8 +60,28 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+  const apiClient = useOystehrAPIClient();
 
   const { printVisitLabel } = usePrintVisitLabel();
+
+  const formStateDefaults: {
+    tests: DataEntryTestItem[];
+    assessmentDx: DiagnosisDTO[];
+    newDx: DiagnosisDTO[];
+    notes: string;
+  } = {
+    tests: [],
+    assessmentDx: [],
+    newDx: [],
+    notes: '',
+  };
+
+  const { setDraft, getDraft, clearDraft, hasDraft } = useCreateInHouseLabStore();
+  useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
+  const draft = encounter.id ? getDraft(encounter.id) : {};
+
+  const [selectedTests, setSelectedTests] = useState<DataEntryTestItem[]>(draft.testItems ?? formStateDefaults.tests);
+  const [notes, setNotes] = useState<string>(draft.notes ?? formStateDefaults.notes);
 
   const diagnosis = useMemo<DiagnosisDTO[]>(
     () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
@@ -79,24 +90,70 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   // already added diagnoses may have "added via in-house lab order" flag with true and false values
   // so, the "select dx" dropdown will show all diagnoses that are displayed on the Assessment page regardless of their source
-  const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>([]);
+  const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>(
+    draft.selectedAssessmentDx ?? formStateDefaults.assessmentDx
+  );
 
   // new diagnoses, the will have "added via in-house lab order" flag with true value,
   // and they will be linked to appointment resources in the create-in-house-lab-order zambda
-  const [selectedNewDiagnoses, setSelectedNewDiagnoses] = useState<DiagnosisDTO[]>([]);
+  const [selectedNewDiagnoses, setSelectedNewDiagnoses] = useState<DiagnosisDTO[]>(
+    draft.selectedNewDx ?? formStateDefaults.newDx
+  );
 
-  // init selectedAssessmentDiagnoses with primary diagnosis from main encounter
-  useEffect(() => {
+  const handleUpdateSelectedTests = useCallback(
+    (tests: DataEntryTestItem[]): void => {
+      setSelectedTests(tests);
+      if (encounter.id) setDraft(encounter.id, { testItems: tests });
+    },
+    [setSelectedTests, setDraft, encounter.id]
+  );
+
+  const handleUpdateAssessmentDx = useCallback(
+    (dx: DiagnosisDTO[]): void => {
+      setSelectedAssessmentDiagnoses(dx);
+      if (encounter.id) setDraft(encounter.id, { selectedAssessmentDx: dx });
+    },
+    [setSelectedAssessmentDiagnoses, setDraft, encounter.id]
+  );
+
+  const handleUpdateNewDx = (dx: DiagnosisDTO[]): void => {
+    setSelectedNewDiagnoses(dx);
+    if (encounter.id) setDraft(encounter.id, { selectedNewDx: dx });
+  };
+
+  const handleUpdateNote = (notes: string): void => {
+    setNotes(notes);
+    if (encounter.id) setDraft(encounter.id, { notes });
+  };
+
+  const determinePrimaryDiagnosis = useCallback((): DiagnosisDTO[] | undefined => {
     if (didPrimaryDiagnosisInit.current) {
       return;
     }
     const primaryDiagnosis = [diagnosis.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
+    return primaryDiagnosis;
+  }, [diagnosis]);
 
-    if (primaryDiagnosis.length && !selectedAssessmentDiagnoses.length) {
+  const handleClearForm = (): void => {
+    if (encounter.id) clearDraft(encounter.id);
+    // we recompute here so we don't get an unexpected result due to the ref used in determinePrimaryDiagnosis
+    const primaryDiagnosis = [diagnosis.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
+    setSelectedTests(formStateDefaults.tests);
+    setSelectedAssessmentDiagnoses(primaryDiagnosis.length ? primaryDiagnosis : formStateDefaults.assessmentDx);
+    setSelectedNewDiagnoses(formStateDefaults.newDx);
+    setNotes(formStateDefaults.notes);
+  };
+
+  // init selectedAssessmentDiagnoses with primary diagnosis from main encounter
+  // uses raw setter (not handleUpdateAssessmentDx) to avoid writing to the draft on auto-init
+  useEffect(() => {
+    if (draft.selectedAssessmentDx) return;
+    const primaryDiagnosis = determinePrimaryDiagnosis();
+    if (primaryDiagnosis?.length && !selectedAssessmentDiagnoses.length) {
       setSelectedAssessmentDiagnoses(primaryDiagnosis);
       didPrimaryDiagnosisInit.current = true;
     }
-  }, [diagnosis, selectedAssessmentDiagnoses]);
+  }, [determinePrimaryDiagnosis, selectedAssessmentDiagnoses, draft.selectedAssessmentDx]);
 
   // used to fetch dx icd10 codes
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -118,6 +175,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const availableTests = Object.values(createInHouseLabResources?.labs || {});
   const providerName = createInHouseLabResources?.providerName ?? '';
   const labSets = createInHouseLabResources?.labSets;
+  const prefillData = location.state as {
+    testItemName?: string;
+    diagnoses?: DiagnosisDTO[];
+    type?: 'repeat' | 'reflex';
+  };
 
   useEffect(() => {
     if (!prefillData || didPrefillInit.current || !availableTests.length) {
@@ -136,17 +198,18 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         found.orderMode = 'repeat';
       }
       console.log('"found" test', found);
-      setSelectedTests([found]);
+      handleUpdateSelectedTests([found]);
     }
 
     if (diagnoses) {
-      setSelectedAssessmentDiagnoses(diagnoses);
+      handleUpdateAssessmentDx(diagnoses);
     }
 
     didPrefillInit.current = true;
-  }, [prefillData, availableTests]);
+  }, [prefillData, availableTests, handleUpdateAssessmentDx, handleUpdateSelectedTests]);
 
   const handleBack = (): void => {
+    if (encounter.id) clearDraft(encounter.id);
     navigate(-1);
   };
 
@@ -156,10 +219,10 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     const GENERIC_ERROR_MSG = 'There was an error creating in-house lab order';
-    if (oystehrZambda && canBeSubmitted) {
+    if (oystehrZambda && canBeSubmitted && encounter.id) {
       try {
         const res = await createInHouseLabOrder(oystehrZambda, {
-          encounterId: encounter.id!,
+          encounterId: encounter.id,
           testItems: selectedTests,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
@@ -182,7 +245,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         }
 
         if (shouldPrintLabel) {
-          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id! });
+          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id });
 
           if (labelPdfs.length !== 1) {
             setError(['Expected 1 label pdf, received unexpected number']);
@@ -190,8 +253,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
           const labelPdf = labelPdfs[0];
 
-          await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id! });
+          await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId: encounter.id });
         }
+
+        // clear out the draft data on successful submit
+        clearDraft(encounter.id);
 
         if (res.serviceRequestIds.length === 1) {
           // we will only nav forward if one test was created, else we will direct the user back to the table
@@ -225,23 +291,23 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     if (!availableTests?.length) {
       return;
     }
-
-    setSelectedTests((currentTests) => {
+    const determineTests = (): DataEntryTestItem[] => {
       // Add newly checked tests
       const testsToAdd = newSelectedNames
-        .filter((name) => !currentTests.some((test) => test.name === name))
+        .filter((name) => !selectedTests.some((test) => test.name === name))
         .map((name) => availableTests.find((test) => test.name === name))
         .filter((test): test is DataEntryTestItem => test !== undefined);
 
       // Remove tests that were unchecked in the dropdown
       // Only remove tests that are present in availableTests (i.e. came from the dropdown)
-      const testsAfterRemovals = currentTests.filter((test) => {
+      const testsAfterRemovals = selectedTests.filter((test) => {
         const isAvailableTest = availableTests.some((availableTest) => availableTest.name === test.name);
         return !isAvailableTest || newSelectedNames.includes(test.name);
       });
 
       return [...testsAfterRemovals, ...testsToAdd];
-    });
+    };
+    handleUpdateSelectedTests(determineTests());
   };
 
   const handleSetSelectedLabsViaLabSets = async (labSet: LabSetDTO): Promise<void> => {
@@ -252,13 +318,14 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       const labs = res?.labs;
 
       if (labs) {
-        setSelectedTests((currentLabs) => {
-          const existingCodes = new Set(currentLabs.map((lab) => lab.adId));
+        const determineTests = (): DataEntryTestItem[] => {
+          const existingCodes = new Set(selectedTests.map((lab) => lab.adId));
 
           const newLabs = labs.filter((lab) => !existingCodes.has(lab.adId));
 
-          return [...currentLabs, ...newLabs];
-        });
+          return [...selectedTests, ...newLabs];
+        };
+        handleUpdateSelectedTests(determineTests());
       }
     }
   };
@@ -274,6 +341,15 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         >
           Order In-House Lab
         </Typography>
+        {encounter.id && hasDraft(encounter.id) && (
+          <UnsavedDraftWarning
+            message={
+              draft.hasNavigatedAway
+                ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                : 'You have a lab order in progress. Your draft will be saved.'
+            }
+          />
+        )}
 
         <Paper sx={{ p: 4 }}>
           {loading ? (
@@ -295,7 +371,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                   {selectedTests.length > 0 && (
                     <InHouseSelectedTestTable
                       selectedTests={selectedTests}
-                      setSelectedTests={setSelectedTests}
+                      setSelectedTests={handleUpdateSelectedTests}
                       displayRunAsRepeat={true}
                     />
                   )}
@@ -337,11 +413,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       onChange={(e) => {
                         const dxCodesFromSelect = Array.isArray(e.target.value) ? e.target.value : [e.target.value];
 
-                        const diagnosesFomSelect = dxCodesFromSelect
+                        const diagnosesFromSelect = dxCodesFromSelect
                           .map((code) => diagnosis.find((dx) => dx.code === code))
                           .filter((dx): dx is DiagnosisDTO => Boolean(dx));
 
-                        setSelectedAssessmentDiagnoses([...diagnosesFomSelect]);
+                        handleUpdateAssessmentDx([...diagnosesFromSelect]);
                       }}
                       renderValue={(selected) => {
                         if (selected.length === 0) {
@@ -384,8 +460,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                         selectedNewDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code) ||
                         selectedAssessmentDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code);
                       if (!alreadySelected) {
-                        setSelectedNewDiagnoses((diagnoses) => [
-                          ...diagnoses,
+                        handleUpdateNewDx([
+                          ...selectedNewDiagnoses,
                           { ...selectedDx, addedViaLabOrder: true, isPrimary: false },
                         ]);
                       } else {
@@ -426,8 +502,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                         renderActions={(value) => (
                           <DeleteIconButton
                             onClick={() =>
-                              setSelectedAssessmentDiagnoses((diagnoses) =>
-                                diagnoses.filter((dxVal) => dxVal.code !== value.code)
+                              handleUpdateAssessmentDx(
+                                selectedAssessmentDiagnoses.filter((dxVal) => dxVal.code !== value.code)
                               )
                             }
                           />
@@ -444,9 +520,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                         renderActions={(value) => (
                           <DeleteIconButton
                             onClick={() =>
-                              setSelectedNewDiagnoses((diagnoses) =>
-                                diagnoses.filter((dxVal) => dxVal.code !== value.code)
-                              )
+                              handleUpdateNewDx(selectedNewDiagnoses.filter((dxVal) => dxVal.code !== value.code))
                             }
                           />
                         )}
@@ -454,18 +528,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     </Box>
                   </Grid>
                 )}
-
-                {/* <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    id="notes"
-                    label="Notes (optional)"
-                    multiline
-                    rows={4}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                  />
-                </Grid> */}
 
                 <Grid item xs={12}>
                   <InHouseLabsNotesCard
@@ -475,7 +537,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     readOnly={false}
                     additionalBoxSxProps={{ mb: 3 }}
                     additionalTextFieldProps={{ minRows: 4 }}
-                    handleNotesUpdate={(newNote: string) => setNotes(newNote)}
+                    handleNotesUpdate={(newNote: string) => handleUpdateNote(newNote)}
                   />
                 </Grid>
 
@@ -489,17 +551,36 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
                 <Grid item xs={12} sx={{ mt: 3 }}>
                   <Stack direction="row" spacing={2} justifyContent="space-between">
-                    <Button
-                      variant="outlined"
-                      onClick={handleBack}
-                      sx={{
-                        borderRadius: '50px',
-                        px: 4,
-                        py: 1,
-                      }}
-                    >
-                      Cancel
-                    </Button>
+                    <Box>
+                      <Button
+                        variant="outlined"
+                        onClick={handleBack}
+                        sx={{
+                          borderRadius: '50px',
+                          px: 4,
+                          py: 1,
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      {encounter.id && hasDraft(encounter.id) && (
+                        <Button
+                          variant="outlined"
+                          sx={{
+                            borderRadius: '50px',
+                            px: 4,
+                            py: 1,
+                            ml: 2,
+                          }}
+                          onClick={() => {
+                            handleClearForm();
+                          }}
+                        >
+                          Clear Form
+                        </Button>
+                      )}
+                    </Box>
+
                     <Box>
                       <Button
                         data-testid={dataTestIds.orderInHouseLabPage.orderAndPrintLabelButton}

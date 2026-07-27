@@ -9,6 +9,7 @@ import {
 } from '../../../helpers/rcm/constants';
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
+import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -595,6 +596,25 @@ export const ImportEraInputSchema = z.object({
   era: nonEmptyString,
 });
 
+export const MatchClaimResponseToClaimInputSchema = z.object({
+  claimResponseId: nonEmptyString,
+  claimId: nonEmptyString,
+});
+
+export const RecordBillingManualPaymentInputSchema = z.object({
+  encounterId: nonEmptyString.uuid(),
+  amountInCents: z.number().int().positive(),
+  paymentMethod: z.enum(BILLING_MANUAL_PAYMENT_METHODS),
+  paymentDateISO: z.string().datetime({ offset: true }).optional(),
+  checkNumber: nonEmptyString.optional(),
+  description: nonEmptyString.optional(),
+  // embedded in a FHIR token search (`system|value`), so no `|` or whitespace
+  idempotencyKey: z
+    .string()
+    .max(128)
+    .regex(/^[A-Za-z0-9._-]+$/),
+});
+
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
@@ -641,3 +661,5 @@ export type SaveServiceFacilityInput = z.output<typeof SaveServiceFacilityInputS
 export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityInputSchema>;
 export type ImportEraInput = z.output<typeof ImportEraInputSchema>;
 export type GenderOption = z.input<typeof gender>;
+export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
+export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
