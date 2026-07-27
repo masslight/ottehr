@@ -759,27 +759,6 @@
       "src": "src/subscriptions/communication/communication-subscription/index",
       "zip": ".dist/zips/communication-subscription.zip"
     },
-    "EXTRACT-INSURANCE-CARD": {
-      "name": "extract-insurance-card",
-      "type": "subscription",
-      "runtime": "nodejs22.x",
-      "src": "src/subscriptions/document-reference/extract-insurance-card/index",
-      "zip": ".dist/zips/extract-insurance-card.zip"
-    },
-    "EXTRACT-PHOTO-ID": {
-      "name": "extract-photo-id",
-      "type": "subscription",
-      "runtime": "nodejs22.x",
-      "src": "src/subscriptions/document-reference/extract-photo-id/index",
-      "zip": ".dist/zips/extract-photo-id.zip"
-    },
-    "ROTATE-INSURANCE-CARD-IMAGE": {
-      "name": "rotate-insurance-card-image",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/rotate-insurance-card-image/index",
-      "zip": ".dist/zips/rotate-insurance-card-image.zip"
-    },
     "PROCESS-ERX-RESOURCES": {
       "name": "process-erx-resources",
       "type": "subscription",
@@ -2298,42 +2277,6 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/COMMUNICATION-SUBSCRIPTION/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          }
-        ]
-      }
-    },
-    "EXTRACT_INSURANCE_CARD_SUBSCRIPTION": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Extract insurance card fields with OCR when a card image is uploaded",
-        "criteria": "DocumentReference?type=http://loinc.org|64290-0&status=current",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/EXTRACT-INSURANCE-CARD/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          }
-        ]
-      }
-    },
-    "EXTRACT_PHOTO_ID_SUBSCRIPTION": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Extract photo ID fields with OCR when an ID image is uploaded",
-        "criteria": "DocumentReference?type=http://loinc.org|55188-7&status=current",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/EXTRACT-PHOTO-ID/id}"
         },
         "extension": [
           {
