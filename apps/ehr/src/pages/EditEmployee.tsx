@@ -180,7 +180,7 @@ export default function EditEmployeePage(): JSX.Element {
                   </Typography>
                   <Typography variant="body1" marginTop={1}>
                     {isActive
-                      ? 'When you deactivate this account, this employee will not have access to the system anymore.'
+                      ? 'When you deactivate this account, this employee will not have access to the system anymore. If they are enrolled in eRx, their prescriber enrollment is removed as well.'
                       : 'Activate this user account. This will immediately give the user the Staff role.'}
                   </Typography>
 

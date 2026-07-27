@@ -108,6 +108,11 @@
           "resource": ["eRx:Interaction"]
         },
         {
+          "action": ["eRx:Read", "eRx:Delete"],
+          "effect": "Allow",
+          "resource": ["eRx:Enrollment"]
+        },
+        {
           "action": ["Terminology:SearchCodes"],
           "effect": "Allow",
           "resource": ["Terminology:Code:*"]
