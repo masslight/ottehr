@@ -17,7 +17,11 @@ outreach) is source-agnostic over those Tasks. A Task's origin is recorded as a 
 treated as `candid` everywhere (`getInvoiceTaskSource`). Billing-produced tasks additionally carry
 an `invoice-task-claim-id` identifier recording the originating claim id, read off the task in
 memory (not via a FHIR search) for per-claim dedupe and for refresh balance lookups against the
-`search-billing-patient-ar-claims` endpoint.
+`search-billing-patient-ar-claims` endpoint. The billing producer is split across the
+clinical/billing boundary: the `create-billing-invoices-tasks` cron (billing app) reads Patient AR
+and delegates the Encounter lookup + Task creation to the clinical
+`create-invoice-tasks-for-billing-claims` endpoint via `zambda.execute`; Candid's producer is a
+single clinical cron.
 
 ## 2. The two control knobs
 
@@ -43,8 +47,9 @@ customer candid builds simply leave it off.
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | EHR routes + admin nav entries (`App.tsx`, `adminNav.tsx`)         | feature flags; both-mode adds "— Candid" / "— Ottehr Billing" labels and the on-table source chip                  |
 | `get-invoices-tasks`, `export-invoices`, `sub-export-invoices-csv` | `source` request param only (`candid` → `_tag:not`, `ottehr-billing` → `_tag`, absent → no filter)                 |
-| Candid cron `create-invoices-tasks`                                | `isCandidInvoicingEnabled(secrets)`                                                                                |
-| Billing cron `create-billing-invoices-tasks`                       | `isOttehrBillingInvoicingEnabled(secrets)`                                                                         |
+| Candid cron `create-invoices-tasks` (clinical)                     | `isCandidInvoicingEnabled(secrets)`                                                                                |
+| Billing cron `create-billing-invoices-tasks` (billing app)         | `isOttehrBillingInvoicingEnabled(secrets)`; delegates Task creation to the clinical endpoint below                 |
+| `create-invoice-tasks-for-billing-claims` (clinical)               | called by the billing cron; owns the Encounter lookup, dedupe, and Task write (no flag gate of its own)            |
 | `sub-refresh-invoice-task`, `sub-send-invoice-to-patient`          | the Task's own source tag (never a global toggle, because a both-mode env holds tasks of each kind simultaneously) |
 
 ## 4. Migration states
@@ -57,16 +62,16 @@ customer candid builds simply leave it off.
 
 Notes for state 2:
 
-- `sub-send-claim` submits the same encounter to BOTH systems under `all`. The billing cron's
-  per-encounter dedup (any send-invoice task on the encounter, regardless of source) enforces
-  at-most-one invoice task per visit, first-producer-wins, and reports every cross-source skip to
-  Sentry. Keep `all` short-lived.
+- `sub-send-claim` submits the same encounter to BOTH systems under `all`. The clinical
+  `create-invoice-tasks-for-billing-claims` endpoint's per-encounter dedup (any send-invoice task on
+  the encounter, regardless of source) enforces at-most-one invoice task per visit,
+  first-producer-wins, and warns on every cross-source skip. Keep `all` short-lived.
 - Flag/secret drift (e.g. billing screen on, env still `candid`) degrades to an empty screen; the
   producer gates AND both knobs, and refresh/send follow the task's own tag, so wrong data cannot be
   produced.
 - Billing claims created manually in the billing app (no clinical encounter) cannot ride the
-  Task/Stripe pipeline; the billing cron skips them loudly (Sentry). Their AR needs a separate
-  surface (follow-up).
+  Task/Stripe pipeline; the billing cron logs and skips them (no encounter to attach a Task to).
+  Their AR needs a separate surface (follow-up).
 
 ## 5. End-of-migration deletion checklist (Candid invoicing)
 
@@ -79,10 +84,10 @@ When state 3 is stable and no Candid AR remains collectible:
 3. Delete the candid encounter-id guard branch in `sub-send-invoice-to-patient`.
 4. Delete the Candid route (`/reports/invoiceable-patients`), its admin nav entry
    (`/admin/outreach/patient-invoices`), and re-point any bookmarks to the billing paths.
-5. Drop the always-on candid gating: retire `isCandidInvoicingEnabled`, the hardcoded
-   `CANDID_INVOICING_ENABLED: true`, and collapse `BOTH_INVOICING_SCREENS_ENABLED` labeling (plain
-   titles, drop the source chip). `ottehrBillingInvoicingEnabled` can then be removed entirely once
-   billing is the only integration.
+5. Remove the flag gating: retire `isCandidInvoicingEnabled`, make the billing route + admin nav
+   unconditional (drop the `FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED` checks in `App.tsx` /
+   `adminNav.tsx` / the report pages), and drop the source-suffixed labels + source chip for plain
+   titles. `ottehrBillingInvoicingEnabled` can then be deleted from the schema and config.
 6. Decide the fate of remaining `candid`-tagged/untagged Tasks: they cannot stay readable on the
    billing screen (they remain excluded by `_tag`), so either archive them or re-tag them after
    verifying no open AR.
@@ -92,7 +97,12 @@ When state 3 is stable and no Candid AR remains collectible:
 ## 6. Key files
 
 - `packages/zambdas/src/billing/search-billing-patient-ar-claims/`: the patient AR endpoint
-  (`searchPatientArClaims` core, imported by the billing cron and refresh)
+  (`fetchAllActivePatientArClaims` imported by the billing cron; the zambda is called by
+  `sub-refresh-invoice-task` over `zambda.execute`)
+- `packages/zambdas/src/cron/create-billing-invoices-tasks/`: billing-app cron that reads Patient AR
+  and delegates Task creation (registered in `config/billing-app-core`)
+- `packages/zambdas/src/ehr/create-invoice-tasks-for-billing-claims/`: clinical endpoint that writes
+  the send-invoice Tasks from the claims the cron passes
 - `packages/zambdas/src/shared/invoice-tasks.ts`: shared task builder + producer gates
 - `packages/utils/lib/helpers/tasks/invoices-tasks.ts`: source tag/identifier helpers + search-param
   builder
