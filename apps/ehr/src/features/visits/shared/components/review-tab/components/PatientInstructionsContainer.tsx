@@ -89,14 +89,10 @@ export const PatientInstructionsContainer: FC = () => {
         <AssessmentTitle>Subspecialty follow-up</AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {disposition?.followUp?.map((followUp) => {
-            const display = dispositionCheckboxOptions.find((option) => option.name === followUp.type)!.label;
-            let note = '';
-
-            if (followUp.type === 'other') {
-              note = `: ${followUp.note}`;
-            }
-
-            return <Typography key={followUp.type}>{`${display}${note}`}</Typography>;
+            const option = dispositionCheckboxOptions.find((o) => o.name === followUp.type);
+            if (!option) return null;
+            const note = followUp.type === 'other' && followUp.note ? `: ${followUp.note}` : '';
+            return <Typography key={followUp.type}>{`${option.label}${note}`}</Typography>;
           })}
         </Box>
       </>

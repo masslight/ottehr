@@ -1,5 +1,3 @@
-import { Mic } from '@mui/icons-material';
-import { Container, Fab, Paper } from '@mui/material';
 import { GlobalStyles, lightTheme, MeetingProvider } from 'amazon-chime-sdk-component-library-react';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
@@ -16,7 +14,7 @@ import { VideoChatContainer } from '../../telemed/components/appointment/VideoCh
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
 import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
-import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
+import { AmbientScribeFab } from '../components/progress-note/AmbientScribeFab';
 import { VirtualAppointmentFooter } from '../components/VirtualAppointmentFooter';
 import { BottomNavigation } from './BottomNavigation';
 
@@ -43,9 +41,6 @@ const contentWrapperStyle: React.CSSProperties = {
 
 export const InPersonLayout: React.FC = () => {
   const { encounter, appointment } = useAppointmentData();
-  const [recordingAnchorElement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
-  const recordingElementID = 'recording-element';
-  const recordingOpen = Boolean(recordingAnchorElement);
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
 
@@ -68,36 +63,7 @@ export const InPersonLayout: React.FC = () => {
           {/* Telemed visits record audio automatically via the Oystehr telemed service, so the manual
               start/pause/stop Ambient Scribe recorder is only shown for in-person visits. */}
           {!isFollowup && !virtual && (
-            <Container>
-              <Fab
-                color="primary"
-                aria-label=""
-                aria-describedby={recordingElementID}
-                sx={{ position: 'fixed', right: 8, bottom: virtual ? 130 : 8 }}
-                onClick={(event) =>
-                  recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
-                }
-              >
-                <Mic />
-              </Fab>
-              {encounter.id && (
-                <Paper
-                  sx={{
-                    position: 'fixed',
-                    right: '15px',
-                    bottom: '75px',
-                    zIndex: '10',
-                    ...(!recordingOpen && { display: 'none' }),
-                  }}
-                >
-                  <RecordAudioContainer
-                    visitID={encounter.id}
-                    aiChat={chartData?.aiChat}
-                    setRecordingAnchorElement={setRecordingAnchorElement}
-                  />
-                </Paper>
-              )}
-            </Container>
+            <AmbientScribeFab encounterId={encounter.id} aiChat={chartData?.aiChat} fabBottom={virtual ? 130 : 8} />
           )}
           <div
             style={{

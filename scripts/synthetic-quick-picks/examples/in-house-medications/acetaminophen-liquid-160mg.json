@@ -1,0 +1,9 @@
+{
+  "name": "Acetaminophen liquid 160 mg PO (peds)",
+  "medicationId": "98f44b78-15d3-4507-81c0-f87b00850063",
+  "medicationName": "Acetaminophen (Liquid)",
+  "dose": 160,
+  "units": "mg",
+  "route": "26643006",
+  "instructions": "Pediatric weight-based dose, 10–15 mg/kg PO. 160 mg = 5 mL of 32 mg/mL."
+}

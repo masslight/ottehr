@@ -28007,12 +28007,12 @@
             }
           ],
           "code": {
-            "text": "Rectal comment"
+            "text": "GU (Female) comment"
           },
           "meta": {
             "tag": [
               {
-                "code": "rectal-comment",
+                "code": "gu-female-comment",
                 "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
               }
             ]
@@ -29023,12 +29023,12 @@
             }
           ],
           "code": {
-            "text": "Rectal comment"
+            "text": "GU (Female) comment"
           },
           "meta": {
             "tag": [
               {
-                "code": "rectal-comment",
+                "code": "gu-female-comment",
                 "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
               }
             ]

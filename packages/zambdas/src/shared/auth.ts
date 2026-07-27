@@ -76,14 +76,29 @@ export async function getPersonForPatient(patientID: string, oystehr: Oystehr): 
 
 export type AuthType = 'regular';
 
+// True when the cached JWT is missing, unparseable, has no exp, or is within `skewSeconds` of
+// expiring. We refresh inside that window rather than at the hard expiry so a request never goes
+// out with a just-expired token.
+function isM2MTokenExpiringSoon(token: string, skewSeconds = 60): boolean {
+  try {
+    const exp = decodeJwt(token).exp;
+    if (typeof exp !== 'number') return true;
+    return Date.now() / 1000 >= exp - skewSeconds;
+  } catch {
+    return true;
+  }
+}
+
 export async function checkOrCreateM2MClientToken(token: string, secrets: Secrets | null): Promise<string> {
-  if (!token) {
+  // The token is cached in module scope across warm invocations. Refresh when it's missing OR
+  // expired/near-expiry — without the expiry check a long-running process (e.g. the local dev
+  // server) keeps reusing a stale token and every authed FHIR call 500s until the process restarts.
+  if (!token || isM2MTokenExpiringSoon(token)) {
     console.log('getting token');
     return await getAuth0Token(secrets);
-  } else {
-    console.log('already have token');
-    return token;
   }
+  console.log('already have token');
+  return token;
 }
 
 export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {

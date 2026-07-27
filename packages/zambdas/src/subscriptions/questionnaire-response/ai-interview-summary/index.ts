@@ -26,6 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const encounterID = questionnaireResponse.encounter?.reference?.split('/')[1] ?? '';
   const createdResources = await createResourcesFromAiInterview(
     oystehr,
+    oystehrToken,
     encounterID,
     chatTranscript,
     null,

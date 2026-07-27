@@ -41,3 +41,7 @@ terraform.json
 
 .claude
 scripts/setup/project/setup-progress.json
+
+# Harvested PHI-derived easy-chart eval corpus (never commit)
+scripts/easy-chart-eval/harvested-cases/
+scripts/easy-chart-eval/harvested-results/

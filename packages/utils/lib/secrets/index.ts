@@ -52,4 +52,15 @@ export enum SecretsKeys {
   PATIENT_LOGIN_REDIRECT_URL = 'PATIENT_LOGIN_REDIRECT_URL',
   POSTGRID_API_KEY = 'POSTGRID_API_KEY',
   POSTGRID_ENV = 'POSTGRID_ENV',
+  // Optional. Selects the easy-chart planner LLM backend as "<provider>:<model>"
+  // (provider = vertex | anthropic). Unset → defaults to vertex:gemini-3.1-flash-lite.
+  EASY_CHART_PLANNER_MODEL = 'EASY_CHART_PLANNER_MODEL',
+  // Optional. The reliable BACKUP model (same "<provider>:<model>" form) the easy-chart calls escalate
+  // to when the primary model fails (e.g. a flash-lite runaway hitting the output cap). Only runs on
+  // those failures, so its higher per-token cost is bounded. Unset → defaults to anthropic:claude-sonnet-4-6.
+  EASY_CHART_BACKUP_MODEL = 'EASY_CHART_BACKUP_MODEL',
+  // Optional. Per-pass override for the easy-chart REVIEW zambda's LLM backend (same
+  // "<provider>:<model>" form as EASY_CHART_PLANNER_MODEL), so the review model can be A/B-tested
+  // independently of the planner. Unset → the review follows the planner-secret/default chain.
+  EASY_CHART_REVIEW_MODEL = 'EASY_CHART_REVIEW_MODEL',
 }

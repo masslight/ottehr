@@ -106,6 +106,12 @@ import {
   DeleteUserZambdaOutput,
   DeleteVisitFilesInput,
   DownloadPatientProfilePhotoInput,
+  EasyChartAgentInput,
+  EasyChartAgentOutput,
+  EasyChartPlannerInput,
+  EasyChartPlannerOutput,
+  EasyChartReviewInput,
+  EasyChartReviewOutput,
   EHRVisitDetails,
   EmCodeOutput,
   GetActionLogsInput,
@@ -1696,6 +1702,54 @@ export const applyTemplate = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'apply-template',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const easyChartAgent = async (
+  oystehr: Oystehr,
+  parameters: EasyChartAgentInput
+): Promise<EasyChartAgentOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'easy-chart-agent',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const easyChartPlanner = async (
+  oystehr: Oystehr,
+  parameters: EasyChartPlannerInput
+): Promise<EasyChartPlannerOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'easy-chart-planner',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const easyChartReview = async (
+  oystehr: Oystehr,
+  parameters: EasyChartReviewInput
+): Promise<EasyChartReviewOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'easy-chart-review',
       ...parameters,
     });
     return chooseJson(response);

@@ -22,18 +22,26 @@ interface RecordAudioContainerProps {
   width?: string;
   aiChat: AIChatDetails | undefined;
   setRecordingAnchorElement: ((value: React.SetStateAction<HTMLButtonElement | null>) => void) | undefined;
+  // Fired after a recording is uploaded and its resources are created (the transcript itself is
+  // still produced asynchronously server-side). Lets host pages without the appointment store
+  // (e.g. easy-chart) start watching for the transcript.
+  onSaved?: () => void;
 }
 
 type LocalStatus = 'NOT_STARTED' | AudioRecordingStatus;
 
 export function RecordAudioContainer(props: RecordAudioContainerProps): ReactElement {
-  const { visitID, width = '400px', aiChat, setRecordingAnchorElement } = props;
+  const { visitID, width = '400px', aiChat, setRecordingAnchorElement, onSaved } = props;
   const { oystehrZambda: oystehr } = useApiClients();
   const evolveUser = useEvolveUser();
   const providerName = evolveUser?.profileResource?.name?.[0]
     ? oystehr?.fhir.formatHumanName(evolveUser.profileResource.name?.[0])
     : 'Unknown';
   const { refetch } = useChartData();
+  // Latest-callback ref: the store snapshots onComplete when the recording starts, so it must read
+  // onSaved through a ref to see the latest prop at upload time.
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
 
   // The recording lives in the store so it survives this component remounting on rotation; this is just
   // the view/controller. Selectors stay granular so the duration tick only re-renders the recording row.
@@ -84,7 +92,13 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
       console.error('Oystehr client is undefined');
       return;
     }
-    await audioRecordingActions.startRecording({ visitID, oystehr, onComplete: refetch });
+    await audioRecordingActions.startRecording({
+      visitID,
+      oystehr,
+      onComplete: () => {
+        void refetch().then(() => onSavedRef.current?.());
+      },
+    });
   };
 
   const pauseRecording = (): void => {

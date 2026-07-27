@@ -28,6 +28,8 @@ export * from './support-dialog';
 export * from './upload-patient-condition-photo.types';
 export * from './upload-dot-vision-document.types';
 export * from './custom-folder.types';
+export * from './easy-chart-agent.types';
+export * from './easy-charting.types';
 export * from './patient-education.types';
 export * from './legacy-data';
 export * from './practice-managed-questionnaires';
