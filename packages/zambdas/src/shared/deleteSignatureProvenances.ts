@@ -45,8 +45,14 @@ export const getSignatureProvenanceDeleteRequests = async (
     )
   );
 
-  return provenanceBundles
+  const signatureProvenances = provenanceBundles
     .flatMap((bundle) => bundle.unbundle())
-    .filter((provenance) => provenance.id && isSignatureProvenance(provenance))
-    .map((provenance) => ({ method: 'DELETE', url: `/Provenance/${provenance.id}` }));
+    .filter((provenance) => provenance.id && isSignatureProvenance(provenance));
+
+  const uniqueProvenancesById = new Map(signatureProvenances.map((provenance) => [provenance.id, provenance]));
+
+  return [...uniqueProvenancesById.values()].map((provenance) => ({
+    method: 'DELETE',
+    url: `/Provenance/${provenance.id}`,
+  }));
 };

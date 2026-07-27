@@ -74,6 +74,19 @@ describe('getSignatureProvenanceDeleteRequests', () => {
     expect(search).not.toHaveBeenCalled();
   });
 
+  test('dedupes a single provenance returned by more than one encounter search', async () => {
+    // e.g. a Provenance targeting both an Encounter and its parent visit's Encounter
+    const shared = provenance('prov-shared', 'author', 'Encounter/enc-1');
+    const { oystehr } = mockOystehr({
+      'enc-1': [shared],
+      'enc-2': [shared],
+    });
+
+    const requests = await getSignatureProvenanceDeleteRequests(oystehr, ['enc-1', 'enc-2']);
+
+    expect(requests).toEqual([{ method: 'DELETE', url: '/Provenance/prov-shared' }]);
+  });
+
   test('returns an empty array when there are no signature provenances', async () => {
     const { oystehr } = mockOystehr({ 'enc-1': [] });
 
