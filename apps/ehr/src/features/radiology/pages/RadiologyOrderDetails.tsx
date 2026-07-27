@@ -1,10 +1,13 @@
 import { LoadingButton } from '@mui/lab';
 import { Button, Checkbox, Chip, TextField, Tooltip, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
+import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { DiagnosisDTO } from 'utils';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
@@ -29,6 +32,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [missingFinalReport, setMissingFinalReport] = useState(false);
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { mutate: saveChartData } = useSaveChartData();
+  const { chartData, setPartialChartData } = useChartData();
 
   const {
     orders,
@@ -60,6 +65,50 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.serviceRequestId]);
+
+  // The diagnosis captured with the preliminary read is also written to the encounter's chart /
+  // Assessment (the billing/claims diagnosis list), mirroring what the order form does at order time.
+  // The save-preliminary-report zambda separately stores it on the order's reasonCode; without this
+  // step a diagnosis entered only at read time would never reach the Assessment.
+  const addReportDxToEncounter = async (dxList: RadiologyReportDiagnosis[]): Promise<void> => {
+    const existingDiagnoses = chartData?.diagnosis;
+    const newDx: DiagnosisDTO[] = dxList
+      .filter((dx) => !existingDiagnoses?.some((d) => d.code === dx.code))
+      .map((dx) => ({ code: dx.code, display: dx.display, isPrimary: false }));
+    if (newDx.length === 0) {
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      saveChartData(
+        { diagnosis: newDx },
+        {
+          onSuccess: (data) => {
+            const returnedDiagnosis = data.chartData.diagnosis || [];
+            setPartialChartData({ diagnosis: [...returnedDiagnosis, ...(existingDiagnoses || [])] });
+            resolve();
+          },
+          onError: (err) => reject(err),
+        }
+      );
+    });
+  };
+
+  const handleSavePreliminaryReport = async (): Promise<void> => {
+    // Write the diagnosis to the encounter first; a failure here must block the read so the two never
+    // diverge. The dedupe above makes a re-save safe after a partial failure.
+    try {
+      await addReportDxToEncounter(preliminaryReportDx);
+    } catch {
+      enqueueSnackbar('Failed to save the diagnosis to the encounter. Please try again.', { variant: 'error' });
+      return;
+    }
+    await handleSaveReport(
+      serviceRequestId,
+      preliminaryReport || '',
+      'preliminary',
+      preliminaryReportDx.map((d) => d.code)
+    );
+  };
 
   const saveReportButton = (label: string, loading?: boolean, btnOnClick?: () => void): JSX.Element => {
     const btn = (
@@ -326,12 +375,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   setMissingPreliminaryReportDx(true);
                   return;
                 }
-                void handleSaveReport(
-                  serviceRequestId,
-                  preliminaryReport || '',
-                  'preliminary',
-                  preliminaryReportDx.map((d) => d.code)
-                );
+                void handleSavePreliminaryReport();
               })}
 
             {order.status === 'preliminary' &&

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder, RadiologyOrderStatus } from 'utils';
@@ -61,6 +61,19 @@ vi.mock('../../src/features/visits/shared/components/PageTitle', () => ({
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: vi.fn(),
+}));
+
+// The order-details page writes the read-time diagnosis to the encounter chart/Assessment through the
+// appointment store. Stub it so saveChartData resolves synchronously (echoing the submitted diagnosis)
+// and expose the spies so tests can assert what gets written to the Assessment.
+const { mockSaveChartData, mockSetPartialChartData } = vi.hoisted(() => ({
+  mockSaveChartData: vi.fn((vars: any, opts: any) => opts?.onSuccess?.({ chartData: { diagnosis: vars.diagnosis } })),
+  mockSetPartialChartData: vi.fn(),
+}));
+
+vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useSaveChartData: () => ({ mutate: mockSaveChartData }),
+  useChartData: () => ({ chartData: { diagnosis: [] }, setPartialChartData: mockSetPartialChartData }),
 }));
 
 import { useNavigate, useParams } from 'react-router-dom';
@@ -310,7 +323,28 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), 'Prelim findings');
       await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
 
-      expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, 'Prelim findings', 'preliminary', ['A00']);
+      await waitFor(() =>
+        expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, 'Prelim findings', 'preliminary', ['A00'])
+      );
+    });
+
+    it('writes the selected diagnosis to the encounter chart/Assessment before saving the read', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult({ handleSaveReport: mockHandleSaveReport }));
+
+      renderPage();
+      await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+      await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), 'Prelim findings');
+      await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
+
+      await waitFor(() =>
+        expect(mockSaveChartData).toHaveBeenCalledWith(
+          { diagnosis: [{ code: 'A00', display: 'Cholera', isPrimary: false }] },
+          expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) })
+        )
+      );
+      expect(mockHandleSaveReport).toHaveBeenCalled();
     });
   });
 
