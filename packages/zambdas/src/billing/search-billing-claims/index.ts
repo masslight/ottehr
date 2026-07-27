@@ -84,16 +84,16 @@ async function performEffect(
   let total: number;
 
   if (filteringByServiceDate) {
-    includedResources = (await getAllFhirSearchPages<Claim>(
+    includedResources = await getAllFhirSearchPages<Claim | Patient | Location | Practitioner>(
       {
         resourceType: 'Claim',
         params: filterParams,
       },
       oystehr
-    )) as unknown as Resource[];
-    const matching = (includedResources.filter((r) => r.resourceType === 'Claim') as Claim[]).filter((c) =>
-      claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo)
     );
+    const matching = includedResources
+      .filter((r): r is Claim => r.resourceType === 'Claim')
+      .filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo));
     total = matching.length;
     pageClaims = matching.slice(offset, offset + pageSize);
   } else {
