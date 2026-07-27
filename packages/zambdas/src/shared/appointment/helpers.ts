@@ -250,9 +250,14 @@ export function creatingPatientUpdateRequest(
     value: patientExtension,
   });
 
-  const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
-  if (emailPatchOps.length >= 1) {
-    patientPatchOperations.push(...emailPatchOps);
+  // Only modify telecom when the submission explicitly included an email field.
+  // If both are absent (e.g. EHR staff booking a return visit), skip entirely so
+  // the patient's existing email is not overwritten with undefined.
+  if (patient.email !== undefined || patient.noEmail !== undefined) {
+    const emailPatchOps = getPatientPatchOpsPatientEmail(maybeFhirPatient, patient.noEmail ? undefined : patient.email);
+    if (emailPatchOps.length >= 1) {
+      patientPatchOperations.push(...emailPatchOps);
+    }
   }
 
   const fhirPatientName = assertDefined(maybeFhirPatient.name, 'patient.name');
