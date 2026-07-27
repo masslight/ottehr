@@ -6,6 +6,7 @@ import SaveAltIcon from '@mui/icons-material/SaveAlt';
 import {
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   FormControlLabel,
   IconButton,
@@ -54,6 +55,7 @@ import {
   InvoiceTaskDisplayStatus,
   InvoiceTaskDisplayStatuses,
   InvoiceTaskInput,
+  InvoiceTaskSource,
   mapDisplayToInvoiceTaskStatus,
   mapInvoiceTaskStatusToDisplay,
   PRIVATE_EXTENSION_BASE_URL,
@@ -62,6 +64,7 @@ import { updateInvoiceTask } from '../../api/api';
 import { GenericToolTip } from '../../components/GenericToolTip';
 import { SelectInput } from '../../components/input/SelectInput';
 import { MappedStatusChip } from '../../components/MappedStatusChip';
+import { FEATURE_FLAGS } from '../../constants/feature-flags';
 import { useApiClients } from '../../hooks/useAppClients';
 import { useSupportPhonesMap } from '../../hooks/useLocationSupportPhones';
 
@@ -70,6 +73,11 @@ const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 type QuickTextsContextValue = React.ComponentProps<typeof ChatModal>['quickTextsContext'];
 
 const LOCAL_STORAGE_FILTERS_KEY = 'invoices-tasks.filters';
+
+export const INVOICE_TASK_SOURCE_LABELS: Record<InvoiceTaskSource, string> = {
+  candid: 'Candid',
+  'ottehr-billing': 'Ottehr Billing',
+};
 
 const SP = {
   page: 'page',
@@ -134,8 +142,13 @@ const INVOICEABLE_TASK_STATUS_COLORS_MAP: {
   },
 };
 
-export default function InvoiceablePatients(): React.ReactElement {
+interface InvoiceablePatientsProps {
+  source: InvoiceTaskSource;
+}
+
+export default function InvoiceablePatients({ source }: InvoiceablePatientsProps): React.ReactElement {
   const { oystehrZambda, oystehr } = useApiClients();
+  const localStorageFiltersKey = `${LOCAL_STORAGE_FILTERS_KEY}.${source}`;
   const methods = useForm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedReportToSend, setSelectedReportToSend] = useState<InvoiceablePatientReport | undefined>();
@@ -157,7 +170,8 @@ export default function InvoiceablePatients(): React.ReactElement {
     (searchParams.get(SP.sortField) as InvoiceSortField | null) ?? InvoiceSortFieldValues.finalizationDate;
   const sortDirectionSP =
     (searchParams.get(SP.sortDirection) as InvoiceSortDirection | null) ?? InvoiceSortDirectionValues.desc;
-  const hideZeroBalanceSP = searchParams.get(SP.hideZeroBalance) !== 'false';
+  const zeroBalanceFilterEnabled = source !== 'ottehr-billing';
+  const hideZeroBalanceSP = zeroBalanceFilterEnabled ? searchParams.get(SP.hideZeroBalance) !== 'false' : false;
   const {
     data: invoiceablePatients,
     isLoading: isInvoiceablePatientsLoading,
@@ -165,6 +179,7 @@ export default function InvoiceablePatients(): React.ReactElement {
   } = useQuery<GetInvoicesTasksResponse>({
     queryKey: [
       GET_INVOICES_TASKS_ZAMBDA_KEY,
+      source,
       pageSP,
       statusSP,
       patientSP,
@@ -181,6 +196,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         sortField: sortFieldSP,
         sortDirection: sortDirectionSP,
         hideZeroBalance: hideZeroBalanceSP,
+        source,
       };
       const response = await oystehrZambda.zambda.execute({
         id: GET_INVOICES_TASKS_ZAMBDA_KEY,
@@ -299,6 +315,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         sortField: sortFieldSP,
         sortDirection: sortDirectionSP,
         hideZeroBalance: hideZeroBalanceSP,
+        source,
       };
       const kickOffResponse = await oystehrZambda.zambda.execute({
         id: EXPORT_INVOICES_ZAMBDA_KEY,
@@ -341,7 +358,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `invoiceable-patients-report.csv`;
+        link.download = `invoiceable-patients-report-${source}.csv`;
         link.click();
         URL.revokeObjectURL(url);
       } else {
@@ -462,17 +479,17 @@ export default function InvoiceablePatients(): React.ReactElement {
           queryParams.set(SP.hideZeroBalance, searchParams.get(SP.hideZeroBalance)!);
         setSearchParams(queryParams);
         if (Object.keys(filtersToPersist).length > 0) {
-          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
+          localStorage.setItem(localStorageFiltersKey, JSON.stringify(filtersToPersist));
         } else {
-          localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+          localStorage.removeItem(localStorageFiltersKey);
         }
       },
     });
     return () => callback();
-  }, [methods, searchParams, setSearchParams]);
+  }, [methods, searchParams, setSearchParams, localStorageFiltersKey]);
 
   useEffect(() => {
-    const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
+    const persistedFilters = localStorage.getItem(localStorageFiltersKey);
     if (searchParams.size === 0) {
       const queryParams = new URLSearchParams();
       if (persistedFilters != null) {
@@ -483,10 +500,10 @@ export default function InvoiceablePatients(): React.ReactElement {
       }
       if (!queryParams.has(SP.sortField)) queryParams.set(SP.sortField, InvoiceSortFieldValues.finalizationDate);
       if (!queryParams.has(SP.sortDirection)) queryParams.set(SP.sortDirection, InvoiceSortDirectionValues.desc);
-      if (!queryParams.has(SP.hideZeroBalance)) queryParams.set(SP.hideZeroBalance, 'true');
+      if (zeroBalanceFilterEnabled && !queryParams.has(SP.hideZeroBalance)) queryParams.set(SP.hideZeroBalance, 'true');
       setSearchParams(queryParams);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, localStorageFiltersKey, zeroBalanceFilterEnabled]);
 
   return (
     <Box>
@@ -502,20 +519,25 @@ export default function InvoiceablePatients(): React.ReactElement {
               sx={{ width: '30%', flex: 1 }}
               size="small"
             />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={hideZeroBalanceSP}
-                  onChange={(e) => {
-                    searchParams.set(SP.hideZeroBalance, e.target.checked ? 'true' : 'false');
-                    searchParams.set(SP.page, '0');
-                    setSearchParams(searchParams);
-                  }}
-                />
-              }
-              label="Hide $0 balances"
-              sx={{ whiteSpace: 'nowrap' }}
-            />
+            {zeroBalanceFilterEnabled && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hideZeroBalanceSP}
+                    onChange={(e) => {
+                      searchParams.set(SP.hideZeroBalance, e.target.checked ? 'true' : 'false');
+                      searchParams.set(SP.page, '0');
+                      setSearchParams(searchParams);
+                    }}
+                  />
+                }
+                label="Hide $0 balances"
+                sx={{ whiteSpace: 'nowrap' }}
+              />
+            )}
+            {FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED && (
+              <Chip label={INVOICE_TASK_SOURCE_LABELS[source]} variant="outlined" color="primary" size="small" />
+            )}
             <Button
               variant="text"
               size="small"

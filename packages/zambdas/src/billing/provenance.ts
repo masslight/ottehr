@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 import {
   Claim,
   Coding,
@@ -16,6 +17,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  buildClaimStatusDateExtensions,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
@@ -520,6 +522,7 @@ export async function commitClaimMetaTagsWithProvenance(
 ): Promise<void> {
   const claimReference = `Claim/${claim.id}`;
   const afterClaim: Claim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
+  const recorded = recordedNow();
   const provenance = claimProvenanceRequest({
     targetReference: claimReference,
     claimReference,
@@ -527,13 +530,28 @@ export async function commitClaimMetaTagsWithProvenance(
     after: afterClaim,
     agent,
     activity,
-    recorded: recordedNow(),
+    recorded,
     priorVersionReference: versionedReference(claim),
   });
+  const patchOperations: Operation[] = [
+    {
+      op: 'add',
+      path: '/meta/tag',
+      value: updatedTags,
+    },
+  ];
+  const dateExtensions = buildClaimStatusDateExtensions(claim, getClaimStatusValues(afterClaim), recorded);
+  if (dateExtensions) {
+    patchOperations.push({
+      op: 'add',
+      path: '/extension',
+      value: dateExtensions,
+    });
+  }
   const patch = getPatchBinary({
     resourceType: 'Claim',
     resourceId: claim.id!,
-    patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
+    patchOperations,
     ifMatch: makeOptimisticLockIfMatchHeader(claim),
   });
   const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
