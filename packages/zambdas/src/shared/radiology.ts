@@ -1,9 +1,10 @@
-import { DiagnosticReport, Extension, Organization, ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, DocumentReference, Extension, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   FHIR_EXTENSION,
   LATERALITY_SELECTORS,
   LateralityValue,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
+  RADIOLOGY_RESULT_DOC_REF_DOCTYPE,
   RadiologyDTO,
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
@@ -12,6 +13,16 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
 } from 'utils';
+
+// The single definition of "this radiology order has an uploaded result": a current DocumentReference
+// with the radiology-result type coding, related to the ServiceRequest. All radiology consumers must agree.
+export const isCurrentRadiologyResultDocRef = (docRef: DocumentReference, serviceRequestId: string): boolean =>
+  docRef.status === 'current' &&
+  !!docRef.type?.coding?.some(
+    (coding) =>
+      coding.system === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.system && coding.code === RADIOLOGY_RESULT_DOC_REF_DOCTYPE.code
+  ) &&
+  !!docRef.context?.related?.some((related) => related.reference === `ServiceRequest/${serviceRequestId}`);
 
 export const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
   if (!reports.length) return undefined;
