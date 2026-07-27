@@ -39,4 +39,9 @@ describe('search-billing-claims service date', () => {
     expect(claimMatchesServiceDateRange(claim, undefined, '2026-07-20')).toBe(true);
     expect(claimMatchesServiceDateRange(claim, '2026-07-20', undefined)).toBe(true);
   });
+
+  it('includes same-day claims when bounds are passed as ISO datetimes', () => {
+    const claim = makeClaim('2026-07-21', '2026-07-19');
+    expect(claimMatchesServiceDateRange(claim, '2026-07-19T00:00:00Z', '2026-07-19T23:59:59Z')).toBe(true);
+  });
 });

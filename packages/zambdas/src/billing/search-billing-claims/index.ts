@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   BillingClaimItem,
   CLAIM_STATUS_TAG_SYSTEMS,
@@ -132,11 +133,16 @@ async function performEffect(
 export const getClaimServiceDate = (claim: Claim): string =>
   claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '';
 
+const toServiceDay = (value?: string): string | null =>
+  value ? DateTime.fromISO(value, { setZone: true }).toISODate() : null;
+
 export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: string): boolean => {
-  const day = getClaimServiceDate(claim).slice(0, 10);
+  const day = toServiceDay(getClaimServiceDate(claim));
   if (!day) return false;
-  if (from && day < from) return false;
-  if (to && day > to) return false;
+  const fromDay = toServiceDay(from);
+  const toDay = toServiceDay(to);
+  if (fromDay && day < fromDay) return false;
+  if (toDay && day > toDay) return false;
   return true;
 };
 
