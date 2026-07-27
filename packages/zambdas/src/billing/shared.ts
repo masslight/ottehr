@@ -219,6 +219,8 @@ export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billi
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
+export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
+  'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
@@ -1041,6 +1043,13 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
 }
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
+  let workingCopyReferenceResourceId: string | undefined;
+  if (isWorkingCopy(resource)) {
+    workingCopyReferenceResourceId = resource.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Practitioner/', '')
+      ?.replace('Organization/', '');
+  }
   const addr = resource.address?.[0];
   const common = {
     id: resource.id ?? '',
@@ -1059,6 +1068,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
     bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
     isWorkingCopy: hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code),
+    workingCopyReferenceResourceId,
   };
   if (resource.resourceType === 'Practitioner') {
     return {

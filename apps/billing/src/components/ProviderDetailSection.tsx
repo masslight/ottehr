@@ -12,7 +12,7 @@ import {
 import { useApiClients } from '../hooks/useAppClients';
 import { formatTaxId } from '../utils/format';
 import { AddressFields } from './AddressFields';
-import { EditableSection } from './claim/EditableSection';
+import { EditableSection, TitleWithSourceLink } from './claim/EditableSection';
 import { ProviderFields } from './ProviderFields';
 import { Row } from './Row';
 
@@ -52,6 +52,7 @@ export function ProviderDetailForm({
   onSave,
   onCancel,
   selector,
+  showSourceLink,
 }: {
   provider: BillingProviderOption | null;
   role: ProviderRole;
@@ -63,6 +64,7 @@ export function ProviderDetailForm({
     onSelectOption: (value: BillingProviderOption | null) => void;
     fetchOptions: (value?: string) => void;
   };
+  showSourceLink?: boolean;
 }): ReactElement {
   const rolesLabel = [provider?.renders ? 'Rendering' : '', provider?.bills ? 'Billing' : '']
     .filter(Boolean)
@@ -74,7 +76,13 @@ export function ProviderDetailForm({
   };
   return (
     <EditableSection
-      title="Provider Details"
+      title={
+        <TitleWithSourceLink
+          title={'Provider Details'}
+          sourceId={showSourceLink ? provider?.workingCopyReferenceResourceId : undefined}
+          sourceRouteBase={role === 'rendering' ? '/rendering-providers/' : '/billing-providers/'}
+        />
+      }
       defaultValues={defaultValues}
       onSave={handleSave}
       onCancel={onCancel}

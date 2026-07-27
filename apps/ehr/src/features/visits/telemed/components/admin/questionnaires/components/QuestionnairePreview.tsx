@@ -88,6 +88,7 @@ export const QuestionnairePreview: FC<QuestionnairePreviewProps> = ({
   const controlButtons = useMemo(
     () => ({
       backButton: currentPageIndex !== 0,
+      backButtonLabel: 'Back',
       onBack: () => setCurrentPageIndex((prev) => prev - 1),
       loading: false, // no concept of loading here since nothing is being saved to the server
     }),

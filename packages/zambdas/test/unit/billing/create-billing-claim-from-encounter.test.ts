@@ -40,6 +40,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   getDefaultClaimSubmissionExtensions,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
@@ -63,8 +64,11 @@ import { validateRequestParameters } from '../../../src/billing/create-billing-c
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
+  BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
   CURRENT_STATUS_TAG_SYSTEM,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
   TAG_IS_SYSTEM_TAG_URL,
@@ -3247,6 +3251,89 @@ describe('create-billing-claim-from-encounter', () => {
                   quantity: { value: 1, unit: 'UN' },
                 },
               ],
+            },
+          },
+        ]),
+      });
+    });
+    it('includes patient friendly id on copied patients', async () => {
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: { transaction: txFn },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account],
+          appointment: clinicalResources.appointment,
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [...clinicalResources.conditions],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: {
+            ...clinicalResources.patient,
+            identifier: [{ system: `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/project-id-123`, value: '123456' }],
+          },
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+        },
+      };
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
+      expect(result.claimId).toEqual('claim');
+      expect(txFn).toHaveBeenCalledWith({
+        requests: expect.arrayContaining([
+          {
+            method: 'POST',
+            url: '/Patient',
+            fullUrl: 'urn:uuid:main-patient',
+            resource: {
+              resourceType: 'Patient',
+              extension: [
+                { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/patient-123' } },
+                { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },
+              ],
+            },
+          },
+          {
+            method: 'POST',
+            url: '/Patient',
+            fullUrl: 'urn:uuid:claim-patient',
+            resource: {
+              resourceType: 'Patient',
+              extension: [
+                { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'urn:uuid:main-patient' } },
+                { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },
+              ],
+              meta: {
+                tag: [BILLING_WORKING_COPY_TAG],
+              },
             },
           },
         ]),
