@@ -106,7 +106,7 @@ export const EditableMedicationCard: React.FC<{
   const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
   const { oystehr, oystehrZambda } = useApiClients();
   const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
-  const [erxEnabled, setErxEnabled] = useState(false);
+  const [erxEnabled, setErxEnabled] = useState(isCreating && !!draft?.medicationId);
   const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
   const currentUser = useEvolveUser();
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;

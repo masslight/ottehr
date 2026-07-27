@@ -1,5 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
+import CancelIcon from '@mui/icons-material/Cancel';
+import DownloadIcon from '@mui/icons-material/Download';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
@@ -8,6 +10,8 @@ import {
   Button,
   Checkbox,
   Grid,
+  IconButton,
+  Link as MUILink,
   MenuItem,
   Paper,
   Select,
@@ -15,27 +19,32 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
   useTheme,
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Appointment, Flag, Organization } from 'fhir/r4b';
+import { useMutation, UseMutationResult, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Appointment, Attachment, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  createZ3Object,
+  deleteVisitFiles,
   generatePaperworkPdf,
   getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
+  getPatientVisitFiles,
   getVisitFaxHistory,
   listServiceCategories,
   updatePatientVisitDetails,
+  updateVisitFiles,
 } from 'src/api/api';
-import CardThumbnail from 'src/components/CardThumbnail';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
-import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
+import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
+import ImageUploader from 'src/components/ImageUploader';
 import PatientBalances from 'src/components/PatientBalances';
 import { QuestionnaireResponseViewer } from 'src/components/QuestionnaireResponseViewer';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -48,6 +57,8 @@ import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
   BOOKING_CONFIG,
+  DocumentInfo,
+  DocumentType,
   EHRVisitDetails,
   FHIR_EXTENSION,
   FhirAppointmentType,
@@ -76,9 +87,12 @@ import {
   ServiceCategoryCode,
   ServiceMode,
   UpdateVisitDetailsInput,
+  UpdateVisitFilesInput,
+  VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
+import CardGridItem from '../components/CardGridItem';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch from '../components/DateSearch';
 import {
@@ -109,7 +123,6 @@ import {
 } from '../helpers/activityLogsUtils';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
-import { useVisitCards } from '../hooks/useVisitCards';
 import PageContainer from '../layout/PageContainer';
 import { PatientAccountComponent } from './PatientInformationPage';
 
@@ -175,6 +188,15 @@ const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({
   keyTitleMap: {},
 });
 
+interface SavedCardItem {
+  front: DocumentInfo | null;
+  frontId: string | null;
+  back: DocumentInfo | null;
+  backId: string | null;
+}
+
+type SavedCardCategory = 'id' | 'primary-ins' | 'secondary-ins';
+
 const usePatientData = (
   patientId?: string
 ): {
@@ -208,6 +230,8 @@ export default function VisitDetailsPage(): ReactElement {
   const { id: appointmentID } = useParams();
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('lg'));
+  const cardSectionHeight = isSmallScreen ? '120px' : '180px';
 
   const queryClient = useQueryClient();
 
@@ -226,16 +250,213 @@ export default function VisitDetailsPage(): ReactElement {
 
   const [editDialogConfig, setEditDialogConfig] = useState<EditDialogConfig>(CLOSED_EDIT_DIALOG);
 
+  // File variables
+
   const [cancelDialogOpen, setCancelDialogOpen] = useState<boolean>(false);
   const [hopQueueDialogOpen, setHopQueueDialogOpen] = useState<boolean>(false);
+  const [photoZoom, setPhotoZoom] = useState<boolean>(false);
+  const [zoomedIdx, setZoomedIdx] = useState<number>(0);
   const [issueDialogOpen, setIssueDialogOpen] = useState<boolean>(false);
   const [activityLogDialogOpen, setActivityLogDialogOpen] = useState<boolean>(false);
   const [activityLogsLoading, setActivityLogsLoading] = useState<boolean>(true);
   const [activityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
+  const [scannerModalOpen, setScannerModalOpen] = useState<boolean>(false);
+  const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
+  const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
+  const [deletingFileId, setDeletingFile] = useState<string | null>(null);
   const user = useEvolveUser();
 
+  const {
+    data: imageFileData,
+    isLoading: imagesLoading,
+    refetch: refetchFileData,
+  } = useQuery({
+    queryKey: ['get-visit-files', appointmentID],
+
+    queryFn: async (): Promise<VisitDocuments> => {
+      if (oystehrZambda && appointmentID) {
+        return getPatientVisitFiles(oystehrZambda, { appointmentId: appointmentID });
+      }
+      throw new Error('fhir client not defined or patientIds not provided');
+    },
+
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+
   const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+
+  const { fullCardPdfs, consentPdfUrls } = imageFileData || {
+    fullCardPdfs: [],
+    consentPdfUrls: [],
+  };
+
+  const { idCards, primaryInsuranceCards, secondaryInsuranceCards, imageCarouselObjs } = (() => {
+    const { photoIdCards, insuranceCards, insuranceCardsSecondary } = imageFileData || {
+      photoIdCards: [],
+      insuranceCards: [],
+      insuranceCardsSecondary: [],
+    };
+    const idCards: SavedCardItem = { front: null, frontId: null, back: null, backId: null };
+    const imageCarouselObjs: ImageCarouselObject[] = [];
+    const primaryInsuranceCards: SavedCardItem = {
+      front: null,
+      frontId: null,
+      back: null,
+      backId: null,
+    };
+    const secondaryInsuranceCards: SavedCardItem = {
+      front: null,
+      frontId: null,
+      back: null,
+      backId: null,
+    };
+    insuranceCards.forEach((card) => {
+      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
+      if (card.type === DocumentType.InsuranceFront) {
+        primaryInsuranceCards.front = card;
+        primaryInsuranceCards.frontId = card.id;
+      } else if (card.type === DocumentType.InsuranceBack) {
+        primaryInsuranceCards.back = card;
+        primaryInsuranceCards.backId = card.id;
+      }
+    });
+    insuranceCardsSecondary.forEach((card) => {
+      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
+      if (card.type === DocumentType.InsuranceFrontSecondary) {
+        secondaryInsuranceCards.front = card;
+        secondaryInsuranceCards.frontId = card.id;
+      } else if (card.type === DocumentType.InsuranceBackSecondary) {
+        secondaryInsuranceCards.back = card;
+        secondaryInsuranceCards.backId = card.id;
+      }
+    });
+    photoIdCards.forEach((card) => {
+      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
+      if (card.type === DocumentType.PhotoIdFront) {
+        idCards.front = card;
+        idCards.frontId = card.id;
+      } else if (card.type === DocumentType.PhotoIdBack) {
+        idCards.back = card;
+        idCards.backId = card.id;
+      }
+    });
+    return {
+      idCards,
+      primaryInsuranceCards,
+      secondaryInsuranceCards,
+      imageCarouselObjs,
+    };
+  })();
+
+  const handleCardImageClick = (imageType: string): void => {
+    const index = imageCarouselObjs.findIndex((obj) => obj.alt === imageType);
+    if (index > -1) {
+      setZoomedIdx(index);
+      setPhotoZoom(true);
+    }
+  };
+
+  const handleDeleteClick = async (id: string | null): Promise<void> => {
+    if (!oystehrZambda || !id) return;
+
+    try {
+      setDeletingFile(id);
+      await deleteVisitFiles(oystehrZambda, { documentId: id, patientId: patientId ?? '' });
+      setDeletingFile(null);
+      enqueueSnackbar('File deleted successfully', { variant: 'success' });
+      await refetchFileData();
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      setDeletingFile(null);
+      enqueueSnackbar('Error deleting document', { variant: 'error' });
+    }
+  };
+
+  // Handler for opening the scanner modal
+  const handleOpenScanner = (fileType: UpdateVisitFilesInput['fileType']): void => {
+    setScannerFileType(fileType);
+    setScannerModalOpen(true);
+  };
+
+  // Handler for when scanning is complete
+  const handleScanComplete = async (fileBlob: Blob | Blob[], fileName: string): Promise<void> => {
+    if (!oystehrZambda || !appointmentID || !scannerFileType) return;
+
+    try {
+      setUploadingFileType(scannerFileType);
+      // Handle PNG blobs (array of blobs)
+      if (Array.isArray(fileBlob)) {
+        // Upload each PNG file
+        for (let i = 0; i < fileBlob.length; i++) {
+          const blob = fileBlob[i];
+          const pngFileName = fileBlob.length > 1 ? `${fileName}-${i + 1}.png` : `${fileName}.png`;
+
+          const z3URL = await createZ3Object(
+            {
+              appointmentID,
+              fileType: scannerFileType,
+              fileFormat: 'png',
+              file: new File([blob], pngFileName, { type: 'image/png' }),
+            },
+            oystehrZambda
+          );
+
+          const attachment: Attachment = {
+            url: z3URL,
+            title: scannerFileType,
+            creation: DateTime.now().toISO(),
+          };
+
+          await filesMutation.mutateAsync({
+            appointmentId: appointmentID,
+            attachment,
+            fileType: scannerFileType,
+          });
+        }
+
+        setScannerModalOpen(false);
+        setUploadingFileType(null);
+        enqueueSnackbar(
+          `Successfully uploaded ${fileBlob.length} scanned ${fileBlob.length === 1 ? 'image' : 'images'}`,
+          { variant: 'success' }
+        );
+      } else {
+        // Handle single PDF blob (backward compatibility)
+        const pdfFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+
+        const z3URL = await createZ3Object(
+          {
+            appointmentID,
+            fileType: scannerFileType,
+            fileFormat: 'pdf',
+            file: new File([fileBlob], pdfFileName, { type: 'application/pdf' }),
+          },
+          oystehrZambda
+        );
+
+        const attachment: Attachment = {
+          url: z3URL,
+          title: scannerFileType,
+          creation: DateTime.now().toISO(),
+        };
+
+        await filesMutation.mutateAsync({
+          appointmentId: appointmentID,
+          attachment,
+          fileType: scannerFileType,
+        });
+
+        setScannerModalOpen(false);
+        setUploadingFileType(null);
+        enqueueSnackbar('Scanned document uploaded successfully', { variant: 'success' });
+      }
+    } catch (error) {
+      console.error('Error uploading scanned document:', error);
+      setUploadingFileType(null);
+      enqueueSnackbar('Error uploading scanned document', { variant: 'error' });
+    }
+  };
 
   const {
     data: visitDetailsData,
@@ -262,23 +483,6 @@ export default function VisitDetailsPage(): ReactElement {
   const patientId = patient?.id;
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
-
-  const {
-    imagesLoading,
-    refetchFileData,
-    consentPdfUrls,
-    idCards,
-    primaryInsuranceCards,
-    secondaryInsuranceCards,
-    filesMutation,
-    uploadingFileType,
-    deletingFileId,
-    handleDeleteClick,
-    scannerModalOpen,
-    setScannerModalOpen,
-    handleOpenScanner,
-    handleScanComplete,
-  } = useVisitCards({ appointmentId: appointmentID, patientId });
 
   const { data: faxData, isLoading: faxLoading } = useQuery({
     queryKey: ['get-visit-fax-history', appointmentID],
@@ -367,6 +571,16 @@ export default function VisitDetailsPage(): ReactElement {
   const fullName = (patient && getFormattedPatientFullName(patient)) ?? '';
 
   const isInPerson = isInPersonAppointment(appointment);
+
+  const filesMutation = useMutation({
+    mutationFn: async (input: UpdateVisitFilesInput) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      await updateVisitFiles(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await refetchFileData();
+    },
+  });
 
   const bookingDetailsMutation = useMutation({
     mutationFn: async (input: UpdateVisitDetailsInput) => {
@@ -742,69 +956,17 @@ export default function VisitDetailsPage(): ReactElement {
     [serviceCategory, appointment, reasonForVisit, encounter]
   );
 
-  // Renders the compact insurance-card thumbnail INSIDE the matching coverage block of the insurance
-  // section (0-based ordinal: 0 = primary, 1 = secondary), threaded down through
-  // PatientAccountComponent -> InsuranceSection -> InsuranceContainer. The clean thumbnail (front
-  // image + enlarge affordance only) opens the non-modal FloatingCardPreview, which hosts the
-  // front/back toggle, the rotate control, and a remove-and-reload control per face; a coverage with
-  // no card image gets a compact upload/scan affordance instead.
-  const renderInsuranceCardThumbnail = (ordinal: number): ReactNode => {
-    if (ordinal !== 0 && ordinal !== 1) {
-      return null;
-    }
-    const isPrimary = ordinal === 0;
-    const cards = isPrimary ? primaryInsuranceCards : secondaryInsuranceCards;
-    return (
-      <CardThumbnail
-        item={cards}
-        title={isPrimary ? 'Primary Insurance Card' : 'Secondary Insurance Card'}
-        appointmentID={appointmentID}
-        filesMutator={filesMutation}
-        uploadingFileType={uploadingFileType}
-        handleOpenScanner={handleOpenScanner}
-        imagesLoading={imagesLoading}
-        frontFileType={isPrimary ? 'insurance-card-front' : 'insurance-card-front-2'}
-        backFileType={isPrimary ? 'insurance-card-back' : 'insurance-card-back-2'}
-        handleDeleteClick={handleDeleteClick}
-        deletingFileId={deletingFileId}
-        previewHeaderActions={(face) => (
-          <InsuranceCardOrientationHint
-            patientId={patientId}
-            ordinal={isPrimary ? 'primary' : 'secondary'}
-            face={face}
-            documentReferenceId={face === 'front' ? cards.frontId : cards.backId}
-            onRotated={refetchFileData}
-          />
-        )}
-      />
-    );
-  };
-
-  // Clean photo-ID thumbnail rendered in the "Patient summary" section HEADER (right-aligned, next to
-  // the title), threaded down through PatientAccountComponent -> AboutPatientContainer. Same treatment
-  // as the insurance cards: front image + enlarge affordance only; clicking opens the non-modal
-  // FloatingCardPreview (front/back toggle lives there — no OCR/rotate for the ID, so no
-  // previewHeaderActions). Remove-and-reload is wired the same as the insurance cards. An ID with no
-  // image gets a compact upload/scan affordance instead.
-  const photoIdCardSlot = (
-    <CardThumbnail
-      item={idCards}
-      title="ID Card"
-      appointmentID={appointmentID}
-      filesMutator={filesMutation}
-      uploadingFileType={uploadingFileType}
-      handleOpenScanner={handleOpenScanner}
-      imagesLoading={imagesLoading}
-      frontFileType="photo-id-front"
-      backFileType="photo-id-back"
-      handleDeleteClick={handleDeleteClick}
-      deletingFileId={deletingFileId}
-    />
-  );
-
   return (
     <PageContainer>
       <>
+        {/* Card image zoom dialog */}
+        <ImageCarousel
+          imagesObj={imageCarouselObjs}
+          imageIndex={zoomedIdx}
+          setImageIndex={setZoomedIdx}
+          open={photoZoom}
+          setOpen={setPhotoZoom}
+        />
         {/* /* page */}
         <Grid container direction="row">
           <Grid item xs={0.25}></Grid>
@@ -854,9 +1016,6 @@ export default function VisitDetailsPage(): ReactElement {
                     Legacy Data
                   </Button>
                 )}
-                <RoundedButton to={`/patient/${patientId}/docs`} startIcon={<FolderOutlinedIcon></FolderOutlinedIcon>}>
-                  See All Patient Docs
-                </RoundedButton>
                 <Button
                   variant="outlined"
                   sx={{ borderRadius: '20px', textTransform: 'none' }}
@@ -1022,6 +1181,71 @@ export default function VisitDetailsPage(): ReactElement {
                 />
               </Grid>
             )}
+
+            {/* new insurance card and photo id */}
+            <Grid container direction="row" marginTop={2}>
+              <Grid item container sx={{ padding: '10px' }}>
+                <Paper sx={{ width: '100%' }}>
+                  <Box padding={2}>
+                    <Grid container justifyContent="space-between" sx={{ p: '0 22px' }}>
+                      <Typography variant="h4" color="primary.dark">
+                        Cards & IDs
+                      </Typography>
+                      <RoundedButton
+                        to={`/patient/${patientId}/docs`}
+                        startIcon={<FolderOutlinedIcon></FolderOutlinedIcon>}
+                      >
+                        See All Patient Docs
+                      </RoundedButton>
+                    </Grid>
+                    <Grid container item direction="row" alignItems="center" minHeight={cardSectionHeight}>
+                      <CardCategoryGridItem
+                        category="primary-ins"
+                        item={primaryInsuranceCards}
+                        appointmentID={appointmentID}
+                        filesMutator={filesMutation}
+                        fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
+                        handleImageClick={handleCardImageClick}
+                        handleOpenScanner={handleOpenScanner}
+                        imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
+                        handleDeleteClick={handleDeleteClick}
+                        isDeletingFront={deletingFileId === primaryInsuranceCards.frontId}
+                        isDeletingBack={deletingFileId === primaryInsuranceCards.backId}
+                      />
+                      <CardCategoryGridItem
+                        category="secondary-ins"
+                        item={secondaryInsuranceCards}
+                        appointmentID={appointmentID}
+                        filesMutator={filesMutation}
+                        fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
+                        handleImageClick={handleCardImageClick}
+                        handleOpenScanner={handleOpenScanner}
+                        imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
+                        handleDeleteClick={handleDeleteClick}
+                        isDeletingFront={deletingFileId === secondaryInsuranceCards.frontId}
+                        isDeletingBack={deletingFileId === secondaryInsuranceCards.backId}
+                      />
+                      <CardCategoryGridItem
+                        category="id"
+                        item={idCards}
+                        appointmentID={appointmentID}
+                        filesMutator={filesMutation}
+                        fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
+                        handleImageClick={handleCardImageClick}
+                        handleOpenScanner={handleOpenScanner}
+                        imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
+                        handleDeleteClick={handleDeleteClick}
+                        isDeletingFront={deletingFileId === idCards.frontId}
+                        isDeletingBack={deletingFileId === idCards.backId}
+                      />
+                    </Grid>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
 
             <Grid container item direction="column">
               <Grid item container sx={{ padding: '10px' }} marginBottom={2}>
@@ -1254,8 +1478,6 @@ export default function VisitDetailsPage(): ReactElement {
                 renderBackButton={false}
                 appointmentContext={appointmentContext}
                 appointmentId={appointmentID}
-                renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
-                photoIdCardSlot={photoIdCardSlot}
               />
             </Grid>
           </Grid>
@@ -1537,3 +1759,232 @@ export default function VisitDetailsPage(): ReactElement {
     </PageContainer>
   );
 }
+
+interface CardCategoryGridItemInput {
+  item: SavedCardItem;
+  category: SavedCardCategory;
+  appointmentID: string | undefined;
+  filesMutator: UseMutationResult<void, Error, UpdateVisitFilesInput, unknown>;
+  imagesLoading?: boolean;
+  fullCardPdf?: DocumentInfo | undefined;
+  uploadingFileType: UpdateVisitFilesInput['fileType'] | null;
+  handleImageClick: (imageType: string) => void;
+  handleOpenScanner: (fileType: UpdateVisitFilesInput['fileType']) => void;
+  handleDeleteClick: (id: string | null) => Promise<void>;
+  isDeletingFront: boolean;
+  isDeletingBack: boolean;
+}
+
+function parseFiletype(fileUrl: string): string {
+  const filetype = fileUrl.match(/\w+$/)?.[0];
+  if (filetype) {
+    return filetype;
+  } else {
+    throw new Error('Failed to parse filetype from url');
+  }
+}
+
+const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
+  item,
+  category,
+  appointmentID,
+  fullCardPdf,
+  filesMutator,
+  imagesLoading,
+  uploadingFileType,
+  handleImageClick,
+  handleOpenScanner,
+  handleDeleteClick,
+  isDeletingFront,
+  isDeletingBack,
+}) => {
+  const title = (() => {
+    if (category === 'primary-ins') {
+      return 'Primary Insurance Card';
+    } else if (category === 'secondary-ins') {
+      return 'Secondary Insurance Card';
+    } else {
+      return 'ID Card';
+    }
+  })();
+
+  const theme = useTheme();
+  const ASPECT_RATIO = 1.57; // Standard aspect ratio for ID and insurance cards
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
+  const downloadDisabled = imagesLoading || (!item.front && !item.back);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<'front' | 'back' | null>(null);
+
+  const itemIdentifier = (side: 'front' | 'back'): UpdateVisitFilesInput['fileType'] => {
+    if (category === 'primary-ins') {
+      return side === 'front' ? 'insurance-card-front' : 'insurance-card-back';
+    } else if (category === 'secondary-ins') {
+      return side === 'front' ? 'insurance-card-front-2' : 'insurance-card-back-2';
+    } else {
+      return side === 'front' ? 'photo-id-front' : 'photo-id-back';
+    }
+  };
+
+  const handleDownload = async (): Promise<void> => {
+    try {
+      for (const [key, card] of Array.from(Object.entries(item))) {
+        if (card?.presignedUrl) {
+          const fileType = parseFiletype(card.z3Url);
+
+          fetch(card.presignedUrl, { method: 'GET', headers: { 'Cache-Control': 'no-cache' } })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error('failed to fetch image from presigned url');
+              }
+              return response.blob();
+            })
+            .then((blob) => {
+              const url = window.URL.createObjectURL(new Blob([blob]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `${appointmentID}-${category}_${key}.${fileType}`;
+              link.style.display = 'none';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            })
+            .catch((error) => {
+              throw new Error(error);
+            });
+        }
+      }
+    } catch (error) {
+      console.error('Error downloading image:', error);
+    }
+  };
+
+  return (
+    <Grid container item direction="column" justifyContent="center" columnSpacing={1} xs={4} sm={4}>
+      <Grid
+        item
+        sx={{
+          paddingBottom: 1,
+          '& a': {
+            color: 'text.primary.light',
+          },
+        }}
+      >
+        {fullCardPdf?.presignedUrl && !downloadDisabled ? (
+          <MUILink
+            href={fullCardPdf.presignedUrl}
+            target="_blank"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              paddingLeft: isSmallScreen ? 2 : 3,
+              cursor: 'pointer',
+              textDecoration: 'none',
+            }}
+          >
+            <Typography color="primary.dark" variant="body2" textAlign="right" marginRight={1}>
+              {title}
+            </Typography>
+            <DownloadIcon fontSize="small" color="primary" />
+          </MUILink>
+        ) : (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: isSmallScreen ? 'center' : 'flex-start',
+              paddingLeft: isSmallScreen ? 1 : 3,
+              cursor: downloadDisabled ? 'default' : 'pointer',
+            }}
+            onClick={async () => {
+              if (downloadDisabled) return;
+              await handleDownload();
+            }}
+          >
+            <Typography color="primary.dark" variant="body2" marginRight={1}>
+              {title}
+            </Typography>
+            <DownloadIcon fontSize="small" color="primary" sx={{ display: downloadDisabled ? 'none' : 'initial' }} />
+          </Box>
+        )}
+      </Grid>
+      <Grid item container direction="row" justifyContent={'center'} spacing={1}>
+        {Object.entries(item)
+          .filter(([key]) => key !== 'frontId' && key !== 'backId')
+          .map(([key, card]) =>
+            card ? (
+              <Grid
+                item
+                key={card.type}
+                xs={5.5}
+                position={'relative'}
+                sx={{
+                  '&:hover .card-cancel-icon, &:focus-within .card-cancel-icon': {
+                    visibility: 'visible',
+                  },
+                }}
+              >
+                <CardGridItem
+                  card={card}
+                  appointmentID={appointmentID}
+                  fullCardPdf={fullCardPdf}
+                  aspectRatio={ASPECT_RATIO}
+                  handleClick={() => handleImageClick(card.type)}
+                  isLoading={key === 'front' ? isDeletingFront : isDeletingBack}
+                />
+                <IconButton
+                  className="card-cancel-icon"
+                  aria-label={`Delete ${key} card`}
+                  size="small"
+                  sx={{
+                    position: 'absolute',
+                    inset: '-4px -12px auto auto',
+                    color: theme.palette.error.dark,
+                    backgroundColor: theme.palette.background.paper,
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    '&:hover, &:focus-within': { backgroundColor: theme.palette.background.paper },
+                    padding: 0,
+                    visibility: 'hidden',
+                  }}
+                  onClick={() => setDeleteDialogOpen(key as 'front' | 'back')}
+                >
+                  <CancelIcon />
+                </IconButton>
+                <CustomDialog
+                  open={deleteDialogOpen === key}
+                  handleClose={() => setDeleteDialogOpen(null)}
+                  title="Confirm card deletion"
+                  description="Are you sure you want to delete this image?"
+                  closeButtonText="Cancel"
+                  confirmText="Delete"
+                  confirmLoading={key === 'front' ? isDeletingFront : isDeletingBack}
+                  handleConfirm={async () => {
+                    await handleDeleteClick(key === 'front' ? item.frontId : item.backId);
+                    setDeleteDialogOpen(null);
+                  }}
+                />
+              </Grid>
+            ) : (
+              <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>
+                <ImageUploader
+                  fileName={itemIdentifier(key as 'front' | 'back')}
+                  appointmentId={appointmentID!}
+                  aspectRatio={ASPECT_RATIO}
+                  disabled={imagesLoading}
+                  isUploading={uploadingFileType === itemIdentifier(key as 'front' | 'back')}
+                  onScanClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
+                  submitAttachment={async (attachment: Attachment) => {
+                    await filesMutator.mutateAsync({
+                      appointmentId: appointmentID!,
+                      attachment,
+                      fileType: itemIdentifier(key as 'front' | 'back'),
+                    });
+                  }}
+                />
+              </Grid>
+            )
+          )}
+      </Grid>
+    </Grid>
+  );
+};

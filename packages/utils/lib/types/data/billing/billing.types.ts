@@ -97,6 +97,7 @@ export interface ServiceFacilityItem {
   clia: string;
   posCode: string;
   status: 'active' | 'inactive';
+  workingCopyReferenceResourceId?: string;
 }
 
 export interface SearchServiceFacilitiesResponse {
@@ -129,6 +130,7 @@ export interface BillingProviderOption {
   renders: boolean;
   bills: boolean;
   isWorkingCopy: boolean;
+  workingCopyReferenceResourceId?: string;
 }
 
 // Payer option from the Oystehr RCM service. id is the RCM payer id (used in payer URLs);
@@ -230,6 +232,7 @@ export interface PatientDetailResponse {
   };
   clinicalId: string;
   clinicalFriendlyId: string;
+  workingCopyReferenceResourceId?: string;
   active: boolean;
   balance: {
     claimsWithPatientBalance: number;

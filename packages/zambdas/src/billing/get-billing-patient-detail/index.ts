@@ -9,6 +9,7 @@ import {
   fetchById,
   formatAddress,
   getClaimStatus,
+  isWorkingCopy,
   resolvePayersByRef,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
@@ -33,11 +34,24 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
 
   const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
 
-  const clinicalFriendlyId = patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)
-    ?.valueString;
-  const clinicalId = patient.extension
+  let clinicalId = patient.extension
     ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
     ?.valueReference?.reference?.replace('Patient/', '');
+  let clinicalFriendlyId = patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+  let workingCopyReferenceResourceId: string | undefined;
+  if (isWorkingCopy(patient)) {
+    workingCopyReferenceResourceId = patient.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Patient/', '');
+    if (workingCopyReferenceResourceId) {
+      const referencePatient = await fetchById<Patient>(oystehr, 'Patient', workingCopyReferenceResourceId);
+      clinicalId = referencePatient.extension
+        ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+        ?.valueReference?.reference?.replace('Patient/', '');
+      clinicalFriendlyId = referencePatient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)
+        ?.valueString;
+    }
+  }
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
   const addr = patient.address?.[0];
@@ -54,6 +68,7 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     addressParts: toAddressParts(addr),
     clinicalId: clinicalId ?? '',
     clinicalFriendlyId: clinicalFriendlyId ?? '',
+    workingCopyReferenceResourceId,
     active: patient.active !== false,
     balance,
     claims,
