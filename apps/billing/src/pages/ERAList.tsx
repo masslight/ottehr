@@ -440,7 +440,7 @@ export default function ERAList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
-        slots={dataGridSlots}
+        slots={dataGridSlots({ showCsvExport: true, csvFileName: 'eras' })}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
       />
