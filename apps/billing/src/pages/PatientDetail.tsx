@@ -208,7 +208,7 @@ export default function PatientDetail(): ReactElement {
               autoHeight
               pageSizeOptions={[25, 50]}
               initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-              slots={dataGridSlots}
+              slots={dataGridSlots()}
               sx={{ ...dataGridSx }}
             />
           </TabPanel>

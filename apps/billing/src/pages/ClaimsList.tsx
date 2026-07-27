@@ -568,7 +568,7 @@ export default function ClaimsList(): ReactElement {
         isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
         rowSelectionModel={selected}
         onRowSelectionModelChange={setSelected}
-        slots={dataGridSlots}
+        slots={dataGridSlots({ showCsvExport: true, csvFileName: 'claims' })}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
