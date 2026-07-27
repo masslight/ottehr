@@ -295,8 +295,8 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'renderingProvider.firstName')).toBe('Sam');
     expect(writeField(m, 'billingProvider.firstName', 'Sam')).toBe(false);
 
-    expect(writeField(m, 'billingProvider.taxId', '12-3456789')).toBe(true);
-    expect(readField(m, 'billingProvider.taxId')).toBe('12-3456789');
+    expect(writeField(m, 'billingProvider.taxId', '123456789')).toBe(true);
+    expect(readField(m, 'billingProvider.taxId')).toBe('123456789');
     expect(writeField(m, 'renderingProvider.taxonomy', '207Q00000X')).toBe(true);
     expect(readField(m, 'renderingProvider.taxonomy')).toBe('207Q00000X');
 
@@ -316,6 +316,33 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'patient.firstName', 'Janet')).toBe(true);
     expect(m.patient?.name?.[0]?.given).toEqual(['Janet', 'Q']);
     expect(readField(m, 'patient.middleName')).toBe('Q');
+  });
+
+  it('rejects invalid written values (the same checks save-time validation runs)', () => {
+    const m = makeModel();
+    expect(writeField(m, 'patient.state', 'XX')).toBe(false);
+    expect(writeField(m, 'patient.state', 'CA')).toBe(true);
+    expect(writeField(m, 'patient.state', null)).toBe(true); // clearing stays legal
+
+    expect(writeField(m, 'serviceFacility.zip', '123')).toBe(false);
+    expect(writeField(m, 'serviceFacility.zip', '94123-1234')).toBe(true);
+
+    // NPI validation uses the CMS checksum, matching the provider forms.
+    expect(writeField(m, 'renderingProvider.npi', '1234567890')).toBe(false);
+    expect(writeField(m, 'renderingProvider.npi', '1234567893')).toBe(true);
+
+    expect(writeField(m, 'serviceFacility.posCode', '99x')).toBe(false);
+    expect(writeField(m, 'serviceFacility.posCode', '11')).toBe(true);
+
+    expect(writeField(m, 'serviceFacility.clia', '05d1234567')).toBe(false);
+    expect(writeField(m, 'serviceFacility.clia', '05D1234567')).toBe(true);
+
+    expect(writeField(m, 'patient.birthDate', '01/01/1990')).toBe(false);
+    expect(writeField(m, 'patient.birthDate', '1990-01-01')).toBe(true);
+    expect(writeField(m, 'serviceDate', '02/02/2026')).toBe(false);
+
+    expect(writeField(m, 'billingProvider.taxonomy', '207Q')).toBe(false);
+    expect(writeField(m, 'billingProvider.taxId', '12-3456789')).toBe(false);
   });
 });
 
@@ -530,6 +557,31 @@ describe('service line actions', () => {
     ).toContain('diagnosis pointer 3');
     // The failed adds must not have appended anything.
     expect(m.claim.item).toHaveLength(1);
+  });
+
+  it('rejects invalid line place-of-service and service-date values instead of silently dropping them', () => {
+    const m = makeModel();
+    expect(
+      applyAction(
+        { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'placeOfService', value: '99x' } },
+        m
+      )
+    ).toContain('placeOfService');
+    expect(
+      applyAction(
+        { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'serviceDate', value: '02/02/2026' } },
+        m
+      )
+    ).toContain('serviceDate');
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', placeOfService: '99x' } }, m)
+    ).toContain('place of service');
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', serviceDate: '2026-2-2' } }, m)
+    ).toContain('service date');
+    // The failed actions must not have changed the claim's lines.
+    expect(m.claim.item).toHaveLength(1);
+    expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('20');
   });
 
   it('detects duplicate CPT codes and executes the canonical hold-on-duplicates rule', () => {

@@ -222,9 +222,15 @@ const applyAddServiceLine = (
   if (!set('charges', input.charges.trim())) return `could not add service line — invalid charges "${input.charges}"`;
   const units = input.units?.trim() || '1';
   if (!set('units', units)) return `could not add service line — invalid units "${input.units}"`;
-  if (input.modifiers?.trim()) set('modifiers', input.modifiers);
-  if (input.placeOfService?.trim()) set('placeOfService', input.placeOfService.trim());
-  set('serviceDate', serviceDate);
+  if (input.modifiers?.trim() && !set('modifiers', input.modifiers)) {
+    return `could not add service line — invalid modifiers "${input.modifiers}"`;
+  }
+  if (input.placeOfService?.trim() && !set('placeOfService', input.placeOfService.trim())) {
+    return `could not add service line — invalid place of service "${input.placeOfService}"`;
+  }
+  if (!set('serviceDate', serviceDate)) {
+    return `could not add service line — invalid service date "${serviceDate}"`;
+  }
   line.diagnosisSequence = resolved.pointers;
   // Mirror the claim editor: tie the line to the rendering provider (careTeam sequence 1) when set.
   if ((claim.careTeam ?? []).some((member) => member.sequence === 1)) line.careTeamSequence = [1];
@@ -284,7 +290,7 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): s
     case RULE_ACTION_TYPE.setField:
       return writeField(model, action.field, action.value)
         ? undefined
-        : `could not set "${action.field}" — the field is unknown or read-only, or the target is missing from this claim`;
+        : `could not set "${action.field}" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim`;
     case RULE_ACTION_TYPE.addServiceLine:
       return applyAddServiceLine(action, model);
     case RULE_ACTION_TYPE.updateServiceLines:

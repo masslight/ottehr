@@ -14,6 +14,7 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   CLAIM_TAG_SYSTEM,
   ClaimStatusFieldKey,
+  CMS_PLACE_OF_SERVICE_CODE_SET,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -28,11 +29,17 @@ import {
   getServiceLinePropertyDef,
   getTaxID,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
+  isCLIAValid,
+  isNPIValidWithChecksum,
+  isoDateRegex,
   isValidClaimStatusValue,
   ServiceLineSetOperation,
   setCoveragePlanType,
   setNpi,
+  STATE_CODES,
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  taxIdRegex,
+  zipRegex,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
@@ -176,13 +183,14 @@ const SERVICE_LINE_WRITERS: Record<string, ServiceLineWriter> = {
     return true;
   },
   placeOfService: (line, value) => {
+    if (value && !CMS_PLACE_OF_SERVICE_CODE_SET.has(value)) return false;
     line.locationCodeableConcept = value
       ? { coding: [{ system: CODE_SYSTEM_CMS_PLACE_OF_SERVICE, code: value }] }
       : undefined;
     return true;
   },
   serviceDate: (line, value) => {
-    if (!value) return false;
+    if (!value || !isoDateRegex.test(value)) return false;
     delete line.servicedDate;
     line.servicedPeriod = { ...line.servicedPeriod, start: value };
     return true;
@@ -432,7 +440,7 @@ const setClaimService = (claim: Claim, value: string | null): boolean => {
 // Claim-level DOS: the one date applies to every service line (matches the claim editor's
 // one-DOS-per-claim model). Fails when the claim has no service lines to date.
 const setServiceDate = (claim: Claim, value: string | null): boolean => {
-  if (!value) return false;
+  if (!value || !isoDateRegex.test(value)) return false;
   if (!claim.item?.length) return false;
   claim.item = claim.item.map(({ servicedDate: _replacedByPeriod, ...item }) => ({
     ...item,
@@ -462,6 +470,11 @@ const writePlanType = (model: RulesEngineClaimModel, value: string | null): bool
 
 type FieldWriter = (m: RulesEngineClaimModel, value: string | null) => boolean;
 
+// Writer-side value guard: a non-empty value must pass the same check save-time validation runs
+// (empty keeps each writer's own clear/reject semantics). The engine holds the claim on failure.
+const validOrEmpty = (value: string | null | undefined, check: (v: string) => boolean): boolean =>
+  !value || check(value);
+
 // Writers for the person-shaped fields (patient / policy holder), paired with personReaders.
 const personWriters = (
   prefix: string,
@@ -481,7 +494,9 @@ const personWriters = (
       ensureName(p).family = v || undefined;
     }),
     [`${prefix}.birthDate`]: withPerson((p, v) => {
+      if (!validOrEmpty(v, (d) => isoDateRegex.test(d))) return false;
       p.birthDate = v || undefined;
+      return true;
     }),
     [`${prefix}.gender`]: (m, v) => setPersonGender(resolve(m), v),
     [`${prefix}.addressLine1`]: withPerson((p, v) => setAddressLine(ensurePersonAddress(p), 0, v)),
@@ -490,10 +505,14 @@ const personWriters = (
       ensurePersonAddress(p).city = v || undefined;
     }),
     [`${prefix}.state`]: withPerson((p, v) => {
+      if (!validOrEmpty(v, (s) => STATE_CODES.has(s))) return false;
       ensurePersonAddress(p).state = v || undefined;
+      return true;
     }),
     [`${prefix}.zip`]: withPerson((p, v) => {
+      if (!validOrEmpty(v, (z) => zipRegex.test(z))) return false;
       ensurePersonAddress(p).postalCode = v || undefined;
+      return true;
     }),
   };
 };
@@ -505,7 +524,7 @@ const providerWriters = (
 ): Record<string, FieldWriter> => ({
   [`${prefix}.npi`]: (m, v) => {
     const p = resolve(m);
-    if (!p) return false;
+    if (!p || !validOrEmpty(v, isNPIValidWithChecksum)) return false;
     setNpi(p, v);
     return true;
   },
@@ -519,7 +538,7 @@ const providerWriters = (
   [`${prefix}.lastName`]: (m, v) => setProviderFamily(resolve(m), v),
   [`${prefix}.taxonomy`]: (m, v) => {
     const p = resolve(m);
-    if (!p) return false;
+    if (!p || !validOrEmpty(v, (t) => t.trim().length === 10)) return false;
     setTaxonomy(p, v ?? '');
     return true;
   },
@@ -590,7 +609,7 @@ const WRITERS: Record<string, FieldWriter> = {
   ...providerWriters('renderingProvider', (m) => m.renderingProvider),
   ...providerWriters('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m, v) => {
-    if (!m.billingProvider) return false;
+    if (!m.billingProvider || !validOrEmpty(v, (t) => taxIdRegex.test(t))) return false;
     setTaxId(m.billingProvider, v ?? '');
     return true;
   },
@@ -598,19 +617,35 @@ const WRITERS: Record<string, FieldWriter> = {
   'serviceFacility.name': withFacility((f, v) => {
     f.name = v ?? undefined;
   }),
-  'serviceFacility.npi': withFacility((f, v) => setNpi(f, v)),
-  'serviceFacility.clia': withFacility((f, v) => setClia(f, v || null)),
-  'serviceFacility.posCode': withFacility((f, v) => setFacilityPosCode(f, v)),
+  'serviceFacility.npi': withFacility((f, v) => {
+    if (!validOrEmpty(v, isNPIValidWithChecksum)) return false;
+    setNpi(f, v);
+    return true;
+  }),
+  'serviceFacility.clia': withFacility((f, v) => {
+    if (!validOrEmpty(v, isCLIAValid)) return false;
+    setClia(f, v || null);
+    return true;
+  }),
+  'serviceFacility.posCode': withFacility((f, v) => {
+    if (!validOrEmpty(v, (code) => CMS_PLACE_OF_SERVICE_CODE_SET.has(code))) return false;
+    setFacilityPosCode(f, v);
+    return true;
+  }),
   'serviceFacility.addressLine1': withFacility((f, v) => setAddressLine(ensureFacilityAddress(f), 0, v)),
   'serviceFacility.addressLine2': withFacility((f, v) => setAddressLine(ensureFacilityAddress(f), 1, v)),
   'serviceFacility.city': withFacility((f, v) => {
     ensureFacilityAddress(f).city = v || undefined;
   }),
   'serviceFacility.state': withFacility((f, v) => {
+    if (!validOrEmpty(v, (s) => STATE_CODES.has(s))) return false;
     ensureFacilityAddress(f).state = v || undefined;
+    return true;
   }),
   'serviceFacility.zip': withFacility((f, v) => {
+    if (!validOrEmpty(v, (z) => zipRegex.test(z))) return false;
     ensureFacilityAddress(f).postalCode = v || undefined;
+    return true;
   }),
 };
 

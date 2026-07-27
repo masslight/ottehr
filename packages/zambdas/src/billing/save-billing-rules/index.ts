@@ -2,12 +2,21 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Basic, List } from 'fhir/r4b';
-import { BillingRule, BillingRulesResponse, getSecret, HOLD_TAG_NAME, SecretsKeys } from 'utils';
+import {
+  BillingRule,
+  BillingRulesResponse,
+  collectApplyTagNames,
+  getSecret,
+  HOLD_TAG_NAME,
+  INVALID_INPUT_ERROR,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { HOLD_TAG_DESCRIPTION } from '../rules-engine/constants';
 import { rulesToList } from '../rules-engine/serialization';
 import {
   createBillingClient,
+  fetchDefinedTagNames,
   findRulesEngineList,
   listToRulesReportingMalformed,
   TAG_CODE_SYSTEM,
@@ -33,7 +42,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function complexValidation(oystehr: Oystehr, params: SaveBillingRulesParams): Promise<List | undefined> {
-  return findRulesEngineList(oystehr, params.engine);
+  const [existing] = await Promise.all([
+    findRulesEngineList(oystehr, params.engine),
+    validateAppliedTagsExist(oystehr, params.rules),
+  ]);
+  return existing;
+}
+
+// Every tag a rule applies must exist in the tags feature, so the rule builder's tag dropdown and
+// API-created rules obey the same contract. Hold is exempt: it is built into the engine and may not
+// be seeded as a stored tag yet (that only happens when an engine's first rules List is created).
+// Runs at most one Basic search, and none when no rule applies a non-Hold tag.
+async function validateAppliedTagsExist(oystehr: Oystehr, rules: SaveBillingRulesParams['rules']): Promise<void> {
+  const perRule = rules
+    .map((rule) => ({
+      name: rule.name,
+      tags: collectApplyTagNames(rule).filter((tag) => tag !== HOLD_TAG_NAME),
+    }))
+    .filter((entry) => entry.tags.length > 0);
+  if (perRule.length === 0) return;
+
+  const defined = await fetchDefinedTagNames(oystehr);
+  const problems = perRule.flatMap((entry) =>
+    entry.tags
+      .filter((tag) => !defined.has(tag))
+      .map((tag) => `rule "${entry.name}" applies unknown tag "${tag}" — create it on the Tags page first`)
+  );
+  if (problems.length > 0) throw INVALID_INPUT_ERROR(problems.join('; '));
 }
 
 export async function performEffect(

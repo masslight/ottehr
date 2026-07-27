@@ -4,6 +4,7 @@ import {
   RULE_FIELD_CATALOG,
   RULE_FIELD_GROUP_LABELS,
   RULE_FIELD_GROUPS,
+  RULE_VALUE_FORMATS,
   RuleFieldDef,
   RuleFieldValueType,
   SERVICE_LINE_PROPERTY_CATALOG,
@@ -47,11 +48,29 @@ const operatorLabel = (
   return valueType === 'date' && metadata.dateLabel ? metadata.dateLabel : metadata.label;
 };
 
-const allowedValues = (field: RuleFieldDef): string => {
+// Allowed-values phrase for a def with options: the docs note when present (states and POS codes
+// would be unreadable enumerated in a table cell), otherwise the enumerated option list.
+const allowedValues = (field: Pick<RuleFieldDef, 'options' | 'optionsDocNote'>): string => {
+  if (field.optionsDocNote) return field.optionsDocNote;
   if (!field.options) return '';
   return field.options
     .map((option) => (option.label === option.value ? `\`${option.value}\`` : `\`${option.value}\` (${option.label})`))
     .join(', ');
+};
+
+// The validation/constraint suffix of a def's description: allowed values, format hint, and the
+// cannot-be-cleared note — everything save-time validation and the engine writers enforce.
+const constraintNotes = (
+  def: Pick<RuleFieldDef, 'options' | 'optionsDocNote' | 'format' | 'requiredOnSet'>
+): string => {
+  const notes: string[] = [];
+  const values = allowedValues(def);
+  if (values) notes.push(` Allowed values: ${values}.`);
+  if (def.format && RULE_VALUE_FORMATS[def.format].validate) {
+    notes.push(` Format: ${RULE_VALUE_FORMATS[def.format].hint}.`);
+  }
+  if (def.requiredOnSet) notes.push(' Cannot be cleared — setting it requires a value.');
+  return notes.join('');
 };
 
 function renderFieldTable(fields: RuleFieldDef[]): string {
@@ -61,8 +80,7 @@ function renderFieldTable(fields: RuleFieldDef[]): string {
   ];
   for (const field of fields) {
     const operators = field.operators.map((op) => operatorLabel(field.valueType, op)).join(', ');
-    const values = allowedValues(field);
-    const description = values ? `${field.description} Allowed values: ${values}.` : field.description;
+    const description = `${field.description}${constraintNotes(field)}`;
     lines.push(
       `| ${cell(field.label)} | \`${field.id}\` | ${VALUE_TYPE_LABELS[field.valueType]} | ${cell(operators)} | ${
         field.settable ? 'yes' : 'no'
@@ -79,10 +97,11 @@ function renderServiceLinePropertyTable(properties: ServiceLinePropertyDef[]): s
   ];
   for (const property of properties) {
     const operators = property.operators.map((op) => operatorLabel(property.valueType, op)).join(', ');
+    const description = `${property.description}${constraintNotes(property)}`;
     lines.push(
       `| ${cell(property.label)} | \`${property.id}\` | ${VALUE_TYPE_LABELS[property.valueType]} | ${cell(
         operators
-      )} | ${property.settable ? 'yes' : 'no'} | ${cell(property.description)} |`
+      )} | ${property.settable ? 'yes' : 'no'} | ${cell(description)} |`
     );
   }
   return lines.join('\n');

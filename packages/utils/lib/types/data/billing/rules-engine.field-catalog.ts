@@ -1,14 +1,22 @@
 import { SUBSCRIBER_RELATIONSHIPS } from '../../../fhir/constants';
+import { isCLIAValid, isNPIValidWithChecksum } from '../../../helpers/helpers';
+import { CMS_PLACE_OF_SERVICE_CODE_SET, CMS_PLACE_OF_SERVICE_CODES } from '../../../helpers/rcm/constants';
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
+import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation';
+import { AllStates, stateCodeToFullName } from '../../common';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
+  operatorNeedsValue,
+  operatorTakesFragment,
   RuleAction,
   RuleCondition,
   RuleConditional,
+  RuleConditionValue,
   RuleOperator,
   RuleOutcome,
   ServiceLineMatch,
+  ServiceLineSetOperation,
 } from './rules-engine.schemas';
 
 // Catalog of the logical claim fields rules can condition on and (where settable) set. This is the
@@ -73,6 +81,48 @@ export interface RuleFieldOption {
   label: string;
 }
 
+// Value formats a text-typed field can declare. Formats with a `validate` are enforced on
+// exact-match condition values and written values (fragment operators like contains/startsWith
+// legitimately take partial values and skip them); `tag` and `cpt` carry no sync validator — they
+// pick the rule builder's input component (tag dropdown / CPT terminology autocomplete), and tag
+// existence is checked server-side at save time.
+export type RuleValueFormat = 'npi' | 'clia' | 'zip' | 'taxId' | 'taxonomy' | 'tag' | 'cpt';
+
+export interface RuleValueFormatDef {
+  // Sync per-value check; absent for formats that only drive input dispatch (tag, cpt).
+  validate?: (value: string) => string | undefined;
+  // One-line format hint for the generated docs and UI helper text.
+  hint: string;
+}
+
+// Messages mirror the billing app's form validation (billing.schemas.ts / the provider and
+// service-facility dialogs) so a value rejected here reads the same everywhere.
+export const RULE_VALUE_FORMATS: Record<RuleValueFormat, RuleValueFormatDef> = {
+  npi: {
+    validate: (v) =>
+      isNPIValidWithChecksum(v) ? undefined : 'NPI must be a valid 10-digit number with a correct check digit',
+    hint: 'a valid 10-digit NPI',
+  },
+  clia: {
+    validate: (v) => (isCLIAValid(v) ? undefined : 'CLIA must match the format NNDNNNNNNN, e.g. 05D1234567'),
+    hint: 'format NNDNNNNNNN, e.g. 05D1234567',
+  },
+  zip: {
+    validate: (v) => (zipRegex.test(v) ? undefined : 'ZIP code must be 5 digits, optionally with a 4-digit extension'),
+    hint: '5 digits, optionally with a 4-digit extension',
+  },
+  taxId: {
+    validate: (v) => (taxIdRegex.test(v) ? undefined : 'Tax ID / EIN must be exactly 9 digits'),
+    hint: 'exactly 9 digits',
+  },
+  taxonomy: {
+    validate: (v) => (v.trim().length === 10 ? undefined : 'Taxonomy code must be exactly 10 characters'),
+    hint: 'exactly 10 characters',
+  },
+  tag: { hint: 'a tag defined on the Tags page' },
+  cpt: { hint: 'a CPT/HCPCS code' },
+};
+
 export interface RuleFieldDef {
   id: string;
   label: string;
@@ -85,6 +135,14 @@ export interface RuleFieldDef {
   description: string;
   // Valid values for select fields (drives the rule builder dropdown and the docs).
   options?: RuleFieldOption[];
+  // Value format for text-typed fields: validation for exact-match/written values plus the rule
+  // builder's input dispatch (tag/cpt pickers).
+  format?: RuleValueFormat;
+  // setField normally treats an empty value as "clear the property"; fields whose writers reject
+  // empty (the payer, claim type, service date, coverage status, plan type) require a value instead.
+  requiredOnSet?: boolean;
+  // Docs: a short phrase rendered instead of enumerating a huge options list (states, POS codes).
+  optionsDocNote?: string;
 }
 
 const SCALAR_OPS: RuleOperator[] = [
@@ -129,6 +187,21 @@ const RELATIONSHIP_OPTIONS: RuleFieldOption[] = SUBSCRIBER_RELATIONSHIPS.map((re
   value: relationship,
   label: relationship,
 }));
+
+// The same US state list the billing address forms use (AllStates labels are the bare codes; show
+// the full name like AddressFields does).
+const STATE_OPTIONS: RuleFieldOption[] = AllStates.map((state) => ({
+  value: state.value,
+  label: `${state.value} - ${stateCodeToFullName[state.value] ?? state.value}`,
+}));
+const STATE_OPTIONS_DOC_NOTE = 'any two-letter US state/territory code';
+
+// The CMS place-of-service code set the service facility form picks from.
+const POS_OPTIONS: RuleFieldOption[] = CMS_PLACE_OF_SERVICE_CODES.map((pos) => ({
+  value: pos.code,
+  label: `${pos.code} - ${pos.display}`,
+}));
+const POS_OPTIONS_DOC_NOTE = 'any CMS place-of-service code';
 
 // One catalog entry per claim status indicator (AR stage, insurance/patient/non-insurance statuses),
 // generated from the same CLAIM_STATUS_FIELDS definition the claim screens use.
@@ -225,10 +298,12 @@ const personFields = (prefix: 'patient' | 'policyHolder', noun: string, settable
       id: `${prefix}.state`,
       label: 'State',
       group,
-      valueType: 'string',
-      operators: SCALAR_OPS,
+      valueType: 'select',
+      operators: ENUM_OPS,
       settable,
       description: `The state of the ${noun}'s address (two-letter code, e.g. CA).`,
+      options: STATE_OPTIONS,
+      optionsDocNote: STATE_OPTIONS_DOC_NOTE,
     },
     {
       id: `${prefix}.zip`,
@@ -238,6 +313,7 @@ const personFields = (prefix: 'patient' | 'policyHolder', noun: string, settable
       operators: SCALAR_OPS,
       settable,
       description: `The postal code of the ${noun}'s address.`,
+      format: 'zip',
     },
   ];
 };
@@ -255,6 +331,7 @@ const providerFields = (prefix: 'renderingProvider' | 'billingProvider', noun: s
       operators: SCALAR_OPS,
       settable: true,
       description: `The ${noun}'s NPI.`,
+      format: 'npi',
     },
     {
       id: `${prefix}.firstName`,
@@ -282,6 +359,7 @@ const providerFields = (prefix: 'renderingProvider' | 'billingProvider', noun: s
       operators: SCALAR_OPS,
       settable: true,
       description: `The ${noun}'s taxonomy code.`,
+      format: 'taxonomy',
     },
   ];
 };
@@ -296,6 +374,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: "The primary payer's ID. Setting it re-points the primary coverage's payer and the claim's insurer.",
+    requiredOnSet: true,
   },
   {
     id: 'type',
@@ -305,6 +384,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: ENUM_OPS,
     settable: true,
     description: 'The claim type (professional or institutional).',
+    requiredOnSet: true,
     options: [
       { value: 'professional', label: 'Professional' },
       { value: 'institutional', label: 'Institutional' },
@@ -329,6 +409,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     settable: true,
     description:
       'The date of service (read from the first service line). Setting it applies the one date to every service line, matching the claim editor.',
+    requiredOnSet: true,
   },
   {
     id: 'created',
@@ -414,6 +495,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     settable: false,
     description:
       'The list of CPT/HCPCS codes across the service lines. Use contains / does-not-contain to test for a code; change codes with the "Update service lines" action.',
+    format: 'cpt',
   },
   {
     id: 'duplicateCptCodes',
@@ -424,6 +506,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     settable: false,
     description:
       'The CPT/HCPCS codes that appear on more than one service line (empty when every line has a distinct code). "Is present" detects any duplicate billing; "contains" detects duplicates of a specific code.',
+    format: 'cpt',
   },
   {
     id: 'placeOfServiceCodes',
@@ -469,6 +552,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: ENUM_OPS,
     settable: true,
     description: "The primary coverage's status.",
+    requiredOnSet: true,
     options: COVERAGE_STATUS_OPTIONS,
   },
   {
@@ -479,6 +563,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: ENUM_OPS,
     settable: true,
     description: "The primary coverage's plan type (X12 insurance type code).",
+    requiredOnSet: true,
     options: PLAN_TYPE_OPTIONS,
   },
   {
@@ -505,6 +590,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: "The secondary payer's ID. Setting it re-points the secondary coverage's payer.",
+    requiredOnSet: true,
   },
   {
     id: 'secondaryInsurance.memberId',
@@ -529,6 +615,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: "The billing provider's tax ID (TIN).",
+    format: 'taxId',
   },
 
   // --- Service facility ---
@@ -549,6 +636,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: "The service facility's NPI.",
+    format: 'npi',
   },
   {
     id: 'serviceFacility.clia',
@@ -558,15 +646,18 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: "The service facility's CLIA number.",
+    format: 'clia',
   },
   {
     id: 'serviceFacility.posCode',
     label: 'Place of service code',
     group: 'serviceFacility',
-    valueType: 'string',
-    operators: SCALAR_OPS,
+    valueType: 'select',
+    operators: ENUM_OPS,
     settable: true,
     description: "The service facility's CMS place-of-service code (e.g. 11 for office, 20 for urgent care).",
+    options: POS_OPTIONS,
+    optionsDocNote: POS_OPTIONS_DOC_NOTE,
   },
   {
     id: 'serviceFacility.addressLine1',
@@ -599,10 +690,12 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     id: 'serviceFacility.state',
     label: 'State',
     group: 'serviceFacility',
-    valueType: 'string',
-    operators: SCALAR_OPS,
+    valueType: 'select',
+    operators: ENUM_OPS,
     settable: true,
     description: "The state of the service facility's address (two-letter code, e.g. CA).",
+    options: STATE_OPTIONS,
+    optionsDocNote: STATE_OPTIONS_DOC_NOTE,
   },
   {
     id: 'serviceFacility.zip',
@@ -612,6 +705,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: "The postal code of the service facility's address.",
+    format: 'zip',
   },
 
   // --- Tags ---
@@ -624,6 +718,7 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     settable: false,
     description:
       'The list of tags on the claim. Use contains / does-not-contain to test for a tag; add tags with the "Apply a tag" action.',
+    format: 'tag',
   },
 ];
 
@@ -642,7 +737,7 @@ export const getRuleFieldDef = (id: string): RuleFieldDef | undefined => CATALOG
 // by a unit test like the main catalog), and the generated documentation.
 // ---------------------------------------------------------------------------
 
-export type ServiceLineValueType = 'string' | 'number' | 'date' | 'list';
+export type ServiceLineValueType = 'string' | 'number' | 'date' | 'select' | 'list';
 
 export interface ServiceLinePropertyDef {
   id: string;
@@ -653,6 +748,11 @@ export interface ServiceLinePropertyDef {
   // Whether the property can be the target of an updateServiceLines action.
   settable: boolean;
   description: string;
+  // Valid values for select-typed properties (drives the rule builder dropdown and the docs).
+  options?: RuleFieldOption[];
+  format?: RuleValueFormat;
+  // Docs: rendered instead of enumerating a huge options list.
+  optionsDocNote?: string;
 }
 
 export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
@@ -663,6 +763,7 @@ export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: "The line's CPT/HCPCS procedure code. Setting it replaces the line's procedure coding.",
+    format: 'cpt',
   },
   {
     id: 'modifiers',
@@ -693,10 +794,12 @@ export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
   {
     id: 'placeOfService',
     label: 'Place of service code',
-    valueType: 'string',
-    operators: SCALAR_OPS,
+    valueType: 'select',
+    operators: ENUM_OPS,
     settable: true,
     description: "The line's CMS place-of-service code. Setting an empty value clears it.",
+    options: POS_OPTIONS,
+    optionsDocNote: POS_OPTIONS_DOC_NOTE,
   },
   {
     id: 'serviceDate',
@@ -727,10 +830,13 @@ export interface AddServiceLineFieldDef {
   required: boolean;
   // What happens when an optional field is left blank (docs table + UI helper text).
   whenBlank?: string;
+  // Valid values (drives an autocomplete in the add-line form and the docs).
+  options?: RuleFieldOption[];
+  format?: RuleValueFormat;
 }
 
 export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
-  { id: 'cptCode', label: 'CPT code', valueType: 'string', required: true },
+  { id: 'cptCode', label: 'CPT code', valueType: 'string', required: true, format: 'cpt' },
   { id: 'charges', label: 'Charges', valueType: 'number', required: true },
   { id: 'units', label: 'Units', valueType: 'number', required: false, whenBlank: '1' },
   {
@@ -740,7 +846,14 @@ export const ADD_SERVICE_LINE_FIELDS: AddServiceLineFieldDef[] = [
     required: false,
     whenBlank: 'no modifiers',
   },
-  { id: 'placeOfService', label: 'Place of service code', valueType: 'string', required: false, whenBlank: 'none' },
+  {
+    id: 'placeOfService',
+    label: 'Place of service code',
+    valueType: 'string',
+    required: false,
+    whenBlank: 'none',
+    options: POS_OPTIONS,
+  },
   {
     id: 'serviceDate',
     label: 'Service date',
@@ -785,9 +898,140 @@ export function addServiceLineFieldProblem(
         ? undefined
         : 'Diagnosis pointers must be comma-separated numbers (1 = first diagnosis)';
     }
+    case 'placeOfService':
+      if (!trimmed) return undefined;
+      return CMS_PLACE_OF_SERVICE_CODE_SET.has(trimmed) ? undefined : 'Unknown place of service code';
+    case 'serviceDate':
+      if (!trimmed) return undefined;
+      return isoDateRegex.test(trimmed) ? undefined : 'Service date must be an ISO date (YYYY-MM-DD)';
     default:
       return undefined;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Per-value validation, shared by the rule builder (react-hook-form rules on each value input) and
+// save-time validation (validateRuleFieldReferences below) so client and server stay in lockstep —
+// the same double duty addServiceLineFieldProblem performs for the add-line form. The engine's
+// writers enforce the same checks at apply time as the last line of defense.
+// ---------------------------------------------------------------------------
+
+const DATE_VALUE_PROBLEM = 'Must be an ISO date (YYYY-MM-DD)';
+const NUMBER_VALUE_PROBLEM = 'Must be a number';
+const VALUE_REQUIRED_PROBLEM = 'Value is required';
+
+// Strict single-value check against a def's options / valueType / format. Used for exact-match
+// condition values and written values; fragment operators bypass it (a partial NPI is legitimate).
+const strictValueProblem = (
+  def: Pick<RuleFieldDef, 'valueType' | 'options' | 'format'>,
+  value: string
+): string | undefined => {
+  if (def.options && !def.options.some((option) => option.value === value)) {
+    return 'Value must be one of the listed options';
+  }
+  if (def.valueType === 'date' && !isoDateRegex.test(value)) return DATE_VALUE_PROBLEM;
+  if (def.valueType === 'number' && !Number.isFinite(Number(value))) return NUMBER_VALUE_PROBLEM;
+  if (def.format) return RULE_VALUE_FORMATS[def.format].validate?.(value);
+  return undefined;
+};
+
+// One condition value's problem, or undefined. Operator-aware: exists/notExists take no value;
+// every other operator requires a non-empty value (in/notIn: a non-empty list of non-empty values);
+// fragment operators skip the strict checks; exact-match operators validate each value in full.
+export function ruleConditionValueProblem(
+  def: Pick<RuleFieldDef, 'valueType' | 'options' | 'format'>,
+  operator: RuleOperator,
+  value: RuleConditionValue | undefined
+): string | undefined {
+  if (!operatorNeedsValue(operator)) return undefined;
+  const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
+  if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
+  if (operatorTakesFragment(operator)) return undefined;
+  for (const v of values) {
+    const problem = strictValueProblem(def, v);
+    if (problem) return problem;
+  }
+  return undefined;
+}
+
+// A setField value's problem, or undefined. Empty means "clear the property" and is allowed unless
+// the field's writer requires a value (requiredOnSet); non-empty values are validated in full.
+export function setFieldValueProblem(
+  def: Pick<RuleFieldDef, 'valueType' | 'options' | 'format' | 'requiredOnSet'>,
+  value: string | null | undefined
+): string | undefined {
+  const trimmed = value?.trim() ?? '';
+  if (trimmed === '') return def.requiredOnSet ? VALUE_REQUIRED_PROBLEM : undefined;
+  return strictValueProblem(def, trimmed);
+}
+
+// A service-line match value's problem — same operator-aware logic over a line property def.
+export function serviceLineMatchValueProblem(
+  def: Pick<ServiceLinePropertyDef, 'valueType' | 'options' | 'format'>,
+  operator: RuleOperator,
+  value: RuleConditionValue | undefined
+): string | undefined {
+  if (!operatorNeedsValue(operator)) return undefined;
+  const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
+  if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
+  if (operatorTakesFragment(operator)) return undefined;
+  // List-valued line properties (modifiers) compare a single entry; no strict format applies.
+  if (def.valueType === 'list') return undefined;
+  for (const v of values) {
+    const problem = strictValueProblem(def, v);
+    if (problem) return problem;
+  }
+  return undefined;
+}
+
+// An updateServiceLines set value's problem — mirrors the line writers exactly: units require a
+// positive number, charges a non-negative number, cptCode/serviceDate a value; placeOfService and
+// modifiers-with-"set" allow empty (clears).
+export function serviceLineSetValueProblem(
+  def: Pick<ServiceLinePropertyDef, 'id' | 'valueType' | 'options' | 'format'>,
+  operation: ServiceLineSetOperation | undefined,
+  value: string | null | undefined
+): string | undefined {
+  const trimmed = value?.trim() ?? '';
+  if (def.valueType === 'list') {
+    // modifiers: add/remove need the one modifier; "set" replaces the list (empty clears).
+    const resolved = operation ?? 'set';
+    if (resolved !== 'set' && trimmed === '') return VALUE_REQUIRED_PROBLEM;
+    return undefined;
+  }
+  if (trimmed === '') {
+    // Only placeOfService is clearable among the scalar line properties (matches the writers).
+    return def.id === 'placeOfService' ? undefined : VALUE_REQUIRED_PROBLEM;
+  }
+  if (def.id === 'units') {
+    const units = Number(trimmed);
+    return Number.isFinite(units) && units > 0 ? undefined : 'Units must be a positive number';
+  }
+  if (def.id === 'charges') {
+    const charges = Number(trimmed);
+    return Number.isFinite(charges) && charges >= 0 ? undefined : 'Charges must be a non-negative number';
+  }
+  return strictValueProblem(def, trimmed);
+}
+
+// The tag names a rule's applyTag actions reference (deduped, in tree order) — save-billing-rules
+// checks them against the tags feature.
+export function collectApplyTagNames(rule: { conditional: RuleConditional }): string[] {
+  const names: string[] = [];
+  const visitOutcome = (outcome: RuleOutcome): void => {
+    if (outcome.type === 'actions') {
+      for (const action of outcome.actions) {
+        if (action.type === 'applyTag' && !names.includes(action.tag)) names.push(action.tag);
+      }
+    }
+    if (outcome.type === 'conditional') visitConditional(outcome.conditional);
+  };
+  const visitConditional = (conditional: RuleConditional): void => {
+    for (const branch of conditional.branches) visitOutcome(branch.outcome);
+    if (conditional.otherwise) visitOutcome(conditional.otherwise);
+  };
+  visitConditional(rule.conditional);
+  return names;
 }
 
 // ---------------------------------------------------------------------------
@@ -802,8 +1046,22 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
   const problems: string[] = [];
 
   const visitCondition = (condition: RuleCondition): void => {
-    if (condition.type === 'field' && !CATALOG_BY_ID.has(condition.field)) {
-      problems.push(`rule "${rule.name}" has a condition on unknown property "${condition.field}"`);
+    if (condition.type === 'field') {
+      const def = CATALOG_BY_ID.get(condition.field);
+      if (!def) {
+        problems.push(`rule "${rule.name}" has a condition on unknown property "${condition.field}"`);
+      } else if (!def.operators.includes(condition.operator)) {
+        problems.push(
+          `rule "${rule.name}" has a condition on "${condition.field}" with unsupported operator "${condition.operator}"`
+        );
+      } else {
+        const problem = ruleConditionValueProblem(def, condition.operator, condition.value);
+        if (problem) {
+          problems.push(
+            `rule "${rule.name}" has a condition on "${condition.field}" with an invalid value: ${problem}`
+          );
+        }
+      }
     }
     if (condition.type === 'group') condition.conditions.forEach(visitCondition);
   };
@@ -817,6 +1075,13 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
       problems.push(
         `rule "${rule.name}" matches service lines on "${match.property}" with unsupported operator "${match.operator}"`
       );
+    } else {
+      const problem = serviceLineMatchValueProblem(def, match.operator, match.value);
+      if (problem) {
+        problems.push(
+          `rule "${rule.name}" matches service lines on "${match.property}" with an invalid value: ${problem}`
+        );
+      }
     }
   };
 
@@ -827,6 +1092,9 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
         problems.push(`rule "${rule.name}" sets unknown property "${action.field}"`);
       } else if (!def.settable) {
         problems.push(`rule "${rule.name}" sets read-only property "${action.field}"`);
+      } else {
+        const problem = setFieldValueProblem(def, action.value);
+        if (problem) problems.push(`rule "${rule.name}" sets "${action.field}" to an invalid value: ${problem}`);
       }
       return;
     }
@@ -852,6 +1120,13 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
         problems.push(
           `rule "${rule.name}" uses operation "${action.set.operation}" on non-list service line property "${action.set.property}"`
         );
+      } else {
+        const problem = serviceLineSetValueProblem(def, action.set.operation, action.set.value);
+        if (problem) {
+          problems.push(
+            `rule "${rule.name}" updates service line property "${action.set.property}" with an invalid value: ${problem}`
+          );
+        }
       }
     }
   };

@@ -7,17 +7,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
 
-const { getBillingRulesMock, saveBillingRulesMock, stableClients } = vi.hoisted(() => ({
+const { getBillingRulesMock, saveBillingRulesMock, searchBillingTagsMock, stableClients } = vi.hoisted(() => ({
   getBillingRulesMock: vi.fn(),
   saveBillingRulesMock: vi.fn(),
+  searchBillingTagsMock: vi.fn(),
   stableClients: { oystehrZambda: {} },
 }));
 
 vi.mock('../../src/api/api', () => ({
   getBillingRules: getBillingRulesMock,
   saveBillingRules: saveBillingRulesMock,
-  // PayerSelect (rendered for the payerId condition) searches payers on open/input, not on mount.
+  // PayerSelect (rendered for the payerId condition) searches payers on open/input, not on mount;
+  // same for TagSelect (apply-tag action) and ProcedureCodeAutocomplete (CPT inputs).
   searchBillingPayers: () => Promise.resolve({ payers: [] }),
+  searchBillingProcedureCodes: () => Promise.resolve({ codes: [] }),
+  searchBillingTags: searchBillingTagsMock,
 }));
 
 // The real hook returns a stable client (zustand store, set once); the mock must too, or effects
@@ -185,5 +189,85 @@ describe('ConditionalEditor', () => {
     const tagInput = screen.getByLabelText(/Tag name/);
     await waitFor(() => expect(tagInput).toHaveFocus());
     expect(onValid).not.toHaveBeenCalled();
+  });
+
+  it('offers only existing tags (plus the built-in Hold) in the apply-tag picker', async () => {
+    searchBillingTagsMock.mockReset();
+    searchBillingTagsMock.mockResolvedValue({ tags: [{ name: 'VIP', description: 'White-glove payers' }] });
+    const conditional: RuleConditional = {
+      branches: [
+        { condition: { type: 'all' }, outcome: { type: 'actions', actions: [{ type: 'applyTag', tag: '' }] } },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    // Opening the picker triggers the one-time tag fetch.
+    fireEvent.mouseDown(screen.getByLabelText(/Tag name/));
+
+    expect(await screen.findByRole('option', { name: /VIP/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Hold/ })).toBeInTheDocument();
+    expect(searchBillingTagsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a state dropdown (not free text) for state conditions', async () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'patient.state', operator: 'eq', value: 'CA' },
+          outcome: { type: 'noop' },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    // The stored code renders with its full-name label, and the menu offers the other states.
+    const display = screen.getByText('CA - California');
+    fireEvent.mouseDown(display);
+    expect(await screen.findByRole('option', { name: 'TX - Texas' })).toBeInTheDocument();
+  });
+
+  it('blocks submit on a checksum-invalid NPI and passes once corrected', async () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          // 1234567890 is 10 digits but fails the Luhn check digit.
+          condition: { type: 'field', field: 'renderingProvider.npi', operator: 'eq', value: '1234567890' },
+          outcome: { type: 'noop' },
+        },
+      ],
+    };
+    const onValid = vi.fn();
+    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(screen.getByLabelText('Value')).toHaveAttribute('aria-invalid', 'true'));
+    expect(screen.getByText('NPI must be a valid 10-digit number with a correct check digit')).toBeInTheDocument();
+    expect(onValid).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Value'), { target: { value: '1234567893' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(onValid).toHaveBeenCalled());
+  });
+
+  it('clears a stale value error when the condition property changes', async () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'renderingProvider.npi', operator: 'eq', value: 'abc' },
+          outcome: { type: 'noop' },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(screen.getByLabelText('Value')).toHaveAttribute('aria-invalid', 'true'));
+
+    // Switch the condition to a different property; the NPI error no longer applies to its value.
+    fireEvent.mouseDown(screen.getByText('NPI'));
+    fireEvent.click((await screen.findAllByRole('option', { name: 'Member ID' }))[0]);
+
+    await waitFor(() => expect(screen.getByLabelText('Value')).not.toHaveAttribute('aria-invalid', 'true'));
   });
 });

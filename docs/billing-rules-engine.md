@@ -69,10 +69,10 @@ Which operators a property supports depends on its type (see the property tables
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
-| Payer ID | `payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The primary payer's ID. Setting it re-points the primary coverage's payer and the claim's insurer. |
-| Claim type | `type` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim type (professional or institutional). Allowed values: `professional` (Professional), `institutional` (Institutional). |
+| Payer ID | `payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The primary payer's ID. Setting it re-points the primary coverage's payer and the claim's insurer. Cannot be cleared — setting it requires a value. |
+| Claim type | `type` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The claim type (professional or institutional). Allowed values: `professional` (Professional), `institutional` (Institutional). Cannot be cleared — setting it requires a value. |
 | Service category | `service` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service category code on the claim (e.g. urgent-care, workers-comp). Categories are configurable, so the value is free text. |
-| Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The date of service (read from the first service line). Setting it applies the one date to every service line, matching the claim editor. |
+| Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The date of service (read from the first service line). Setting it applies the one date to every service line, matching the claim editor. Cannot be cleared — setting it requires a value. |
 | Created date | `created` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | no | The date the claim was created. Read-only. |
 | Billing type | `billingType` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | no | Whether the claim bills insurance or the patient. Derived from whether the claim carries a real coverage, so it is read-only (attach or remove a coverage to change it). Allowed values: `Insurance Pay`, `Self Pay`. |
 | Billable status | `billableStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | no | Whether the claim is billable. Derived from the claim's lifecycle status (entered-in-error claims are not billable), so it is read-only. Allowed values: `Billable`, `Not Billable`. |
@@ -110,16 +110,16 @@ Which operators a property supports depends on its type (see the property tables
 | Address line 1 | `patient.addressLine1` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The first street line of the patient's address. |
 | Address line 2 | `patient.addressLine2` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The second street line of the patient's address. |
 | City | `patient.city` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The city of the patient's address. |
-| State | `patient.state` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The state of the patient's address (two-letter code, e.g. CA). |
-| ZIP code | `patient.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The postal code of the patient's address. |
+| State | `patient.state` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The state of the patient's address (two-letter code, e.g. CA). Allowed values: any two-letter US state/territory code. |
+| ZIP code | `patient.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The postal code of the patient's address. Format: 5 digits, optionally with a 4-digit extension. |
 
 ### Primary insurance
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
 | Member ID | `insurance.memberId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The primary coverage's member/subscriber ID. |
-| Coverage status | `insurance.status` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The primary coverage's status. Allowed values: `active` (Active), `cancelled` (Cancelled), `draft` (Draft), `entered-in-error` (Entered in error). |
-| Plan type | `insurance.planType` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The primary coverage's plan type (X12 insurance type code). Allowed values: `09` (09 - Self Pay), `11` (11 - Other Non-Federal Programs), `12` (12 - PPO), `13` (13 - POS), `14` (14 - EPO), `15` (15 - Indemnity Insurance), `16` (16 - HMO Medicare Risk), `17` (17 - DMO), `AM` (AM - Auto), `BL` (BL - BlueCross BlueShield), `CH` (CH - Champus), `CI` (CI - Commercial Insurance Co), `DS` (DS - Disability), `FI` (FI - Federal Employees), `HM` (HM - HMO), `LM` (LM - Liability), `MA` (MA - Medicare Part A), `MB` (MB - Medicare Part B), `MC` (MC - Medicaid), `OF` (OF - Other Federal Program), `TV` (TV - Title V), `VA` (VA - Veterans Affairs Plan), `WC` (WC - Workers Comp Health Claim), `ZZ` (ZZ - Mutually Defined). |
+| Coverage status | `insurance.status` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The primary coverage's status. Allowed values: `active` (Active), `cancelled` (Cancelled), `draft` (Draft), `entered-in-error` (Entered in error). Cannot be cleared — setting it requires a value. |
+| Plan type | `insurance.planType` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The primary coverage's plan type (X12 insurance type code). Allowed values: `09` (09 - Self Pay), `11` (11 - Other Non-Federal Programs), `12` (12 - PPO), `13` (13 - POS), `14` (14 - EPO), `15` (15 - Indemnity Insurance), `16` (16 - HMO Medicare Risk), `17` (17 - DMO), `AM` (AM - Auto), `BL` (BL - BlueCross BlueShield), `CH` (CH - Champus), `CI` (CI - Commercial Insurance Co), `DS` (DS - Disability), `FI` (FI - Federal Employees), `HM` (HM - HMO), `LM` (LM - Liability), `MA` (MA - Medicare Part A), `MB` (MB - Medicare Part B), `MC` (MC - Medicaid), `OF` (OF - Other Federal Program), `TV` (TV - Title V), `VA` (VA - Veterans Affairs Plan), `WC` (WC - Workers Comp Health Claim), `ZZ` (ZZ - Mutually Defined). Cannot be cleared — setting it requires a value. |
 | Relationship to subscriber | `insurance.relationship` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | no | The patient's relationship to the primary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead. Allowed values: `Self`, `Child`, `Parent`, `Spouse`, `Common Law Spouse`, `Injured Party`, `Other`. |
 
 ### Policy holder
@@ -134,48 +134,48 @@ Which operators a property supports depends on its type (see the property tables
 | Address line 1 | `policyHolder.addressLine1` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The first street line of the primary policy holder's address. |
 | Address line 2 | `policyHolder.addressLine2` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The second street line of the primary policy holder's address. |
 | City | `policyHolder.city` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The city of the primary policy holder's address. |
-| State | `policyHolder.state` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The state of the primary policy holder's address (two-letter code, e.g. CA). |
-| ZIP code | `policyHolder.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The postal code of the primary policy holder's address. |
+| State | `policyHolder.state` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The state of the primary policy holder's address (two-letter code, e.g. CA). Allowed values: any two-letter US state/territory code. |
+| ZIP code | `policyHolder.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The postal code of the primary policy holder's address. Format: 5 digits, optionally with a 4-digit extension. |
 
 ### Secondary insurance
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
-| Secondary payer ID | `secondaryInsurance.payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The secondary payer's ID. Setting it re-points the secondary coverage's payer. |
+| Secondary payer ID | `secondaryInsurance.payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The secondary payer's ID. Setting it re-points the secondary coverage's payer. Cannot be cleared — setting it requires a value. |
 | Secondary member ID | `secondaryInsurance.memberId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The secondary coverage's member/subscriber ID. |
 
 ### Rendering provider
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
-| NPI | `renderingProvider.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's NPI. |
+| NPI | `renderingProvider.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's NPI. Format: a valid 10-digit NPI. |
 | First name | `renderingProvider.firstName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's first name (individual providers only; setting it on an organization provider fails the rule). |
 | Last name / organization name | `renderingProvider.lastName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's last name, or the organization name for organization providers. |
-| Taxonomy code | `renderingProvider.taxonomy` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's taxonomy code. |
+| Taxonomy code | `renderingProvider.taxonomy` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's taxonomy code. Format: exactly 10 characters. |
 
 ### Billing provider
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
-| NPI | `billingProvider.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's NPI. |
+| NPI | `billingProvider.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's NPI. Format: a valid 10-digit NPI. |
 | First name | `billingProvider.firstName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's first name (individual providers only; setting it on an organization provider fails the rule). |
 | Last name / organization name | `billingProvider.lastName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's last name, or the organization name for organization providers. |
-| Taxonomy code | `billingProvider.taxonomy` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's taxonomy code. |
-| Tax ID (TIN) | `billingProvider.taxId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's tax ID (TIN). |
+| Taxonomy code | `billingProvider.taxonomy` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's taxonomy code. Format: exactly 10 characters. |
+| Tax ID (TIN) | `billingProvider.taxId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's tax ID (TIN). Format: exactly 9 digits. |
 
 ### Service facility
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
 | Facility name | `serviceFacility.name` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's name. |
-| Facility NPI | `serviceFacility.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's NPI. |
-| CLIA number | `serviceFacility.clia` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's CLIA number. |
-| Place of service code | `serviceFacility.posCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's CMS place-of-service code (e.g. 11 for office, 20 for urgent care). |
+| Facility NPI | `serviceFacility.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's NPI. Format: a valid 10-digit NPI. |
+| CLIA number | `serviceFacility.clia` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's CLIA number. Format: format NNDNNNNNNN, e.g. 05D1234567. |
+| Place of service code | `serviceFacility.posCode` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The service facility's CMS place-of-service code (e.g. 11 for office, 20 for urgent care). Allowed values: any CMS place-of-service code. |
 | Address line 1 | `serviceFacility.addressLine1` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The first street line of the service facility's address. |
 | Address line 2 | `serviceFacility.addressLine2` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The second street line of the service facility's address. |
 | City | `serviceFacility.city` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The city of the service facility's address. |
-| State | `serviceFacility.state` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The state of the service facility's address (two-letter code, e.g. CA). |
-| ZIP code | `serviceFacility.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The postal code of the service facility's address. |
+| State | `serviceFacility.state` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The state of the service facility's address (two-letter code, e.g. CA). Allowed values: any two-letter US state/territory code. |
+| ZIP code | `serviceFacility.zip` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The postal code of the service facility's address. Format: 5 digits, optionally with a 4-digit extension. |
 
 ### Tags
 
@@ -199,7 +199,7 @@ touches.
 | Modifiers | `modifiers` | list of codes | contains, does not contain, is present, is empty | yes | The line's procedure modifiers. When updating, the operation chooses how the value applies: "set" replaces the whole list (comma-separated; empty clears it), "add" appends one modifier, "remove" drops one. |
 | Units | `units` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's unit count. Setting it requires a positive number. |
 | Charges | `charges` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | yes | The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed. |
-| Place of service code | `placeOfService` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The line's CMS place-of-service code. Setting an empty value clears it. |
+| Place of service code | `placeOfService` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The line's CMS place-of-service code. Setting an empty value clears it. Allowed values: any CMS place-of-service code. |
 | Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The line's date of service (YYYY-MM-DD). |
 
 ## Actions

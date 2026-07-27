@@ -3,7 +3,7 @@ import { Basic, List } from 'fhir/r4b';
 import { BillingRuleInput, DEFAULT_RULES_ENGINE, HOLD_TAG_NAME, RulesEngineType } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
-import { performEffect } from '../../../src/billing/save-billing-rules';
+import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';
 import { SaveBillingRulesParams } from '../../../src/billing/save-billing-rules/validateRequestParameters';
 
 const search = vi.fn();
@@ -100,5 +100,56 @@ describe('save-billing-rules performEffect', () => {
       code: RULES_ENGINE_FHIR['non-insurance-payer-pre-invoice'].listCode,
     });
     expect(savedList.title).toBe(RULES_ENGINE_FHIR['non-insurance-payer-pre-invoice'].listTitle);
+  });
+});
+
+describe('save-billing-rules complexValidation (applied tags must exist)', () => {
+  const tagRule = (name: string, tag: string): BillingRuleInput => ({
+    name,
+    description: '',
+    enabled: true,
+    conditional: {
+      branches: [{ condition: { type: 'all' }, outcome: { type: 'actions', actions: [{ type: 'applyTag', tag }] } }],
+    },
+  });
+
+  const tagBasic = (name: string): Basic => ({
+    resourceType: 'Basic',
+    code: { text: name, coding: [{ system: 'https://fhir.ottehr.com/billing/tag', code: 'tag' }] },
+  });
+
+  const mockSearches = (tags: Basic[]): void => {
+    search.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () => (resourceType === 'Basic' ? tags : []),
+    }));
+  };
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('passes when every applied tag is defined in the tags feature', async () => {
+    mockSearches([tagBasic('VIP')]);
+    await expect(complexValidation(oystehr, params([tagRule('Tag it', 'VIP')]))).resolves.toBeUndefined();
+    expect(search.mock.calls.filter(([q]) => q.resourceType === 'Basic')).toHaveLength(1);
+  });
+
+  it('rejects an unknown tag, naming the rule and the tag', async () => {
+    mockSearches([tagBasic('VIP')]);
+    await expect(complexValidation(oystehr, params([tagRule('Bad rule', 'Nope')]))).rejects.toThrow(
+      /rule "Bad rule" applies unknown tag "Nope"/
+    );
+  });
+
+  it('always allows the Hold tag, without even searching for tag definitions', async () => {
+    mockSearches([]);
+    await expect(complexValidation(oystehr, params([tagRule('Hold it', HOLD_TAG_NAME)]))).resolves.toBeUndefined();
+    expect(search.mock.calls.filter(([q]) => q.resourceType === 'Basic')).toHaveLength(0);
+  });
+
+  it('runs at most one tag search for many rules', async () => {
+    mockSearches([tagBasic('VIP'), tagBasic('Audit')]);
+    await expect(
+      complexValidation(oystehr, params([tagRule('A', 'VIP'), tagRule('B', 'Audit'), tagRule('C', 'VIP')]))
+    ).resolves.toBeUndefined();
+    expect(search.mock.calls.filter(([q]) => q.resourceType === 'Basic')).toHaveLength(1);
   });
 });

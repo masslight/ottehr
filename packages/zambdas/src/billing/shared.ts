@@ -244,6 +244,24 @@ export function isSystemTag(tag: Basic): boolean {
   return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
 }
 
+// Names of the tags defined in the tags feature (Basic resources; the name lives in code.text).
+// Used to validate tag references before they are written onto claims or into rules.
+export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
+  const result = await oystehr.fhir.search<Basic>({
+    resourceType: 'Basic',
+    params: [
+      { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+      { name: '_count', value: '200' },
+    ],
+  });
+  return new Set(
+    result
+      .unbundle()
+      .map((tag) => tag.code?.text)
+      .filter((name): name is string => !!name)
+  );
+}
+
 export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
 export const AUTO_ACCIDENT_TAG_DESCRIPTION = 'Claim is for a clinical encounter resulting from an auto accident';
 

@@ -38,8 +38,13 @@ export const RuleOperatorSchema = z.enum(RULE_OPERATORS);
 // Operator groupings shared by the evaluator and the rule-builder UI.
 export const NO_VALUE_OPERATORS: readonly RuleOperator[] = ['exists', 'notExists'];
 export const MULTI_VALUE_OPERATORS: readonly RuleOperator[] = ['in', 'notIn'];
+// Operators whose value is a fragment of the property (substring/prefix). Value validation only
+// requires a non-empty value for these — a partial NPI or ZIP is a legitimate fragment — whereas
+// exact-match operators validate the full value against the field's format/options.
+export const FRAGMENT_OPERATORS: readonly RuleOperator[] = ['contains', 'notContains', 'startsWith', 'notStartsWith'];
 export const operatorNeedsValue = (op: RuleOperator): boolean => !NO_VALUE_OPERATORS.includes(op);
 export const operatorIsMultiValue = (op: RuleOperator): boolean => MULTI_VALUE_OPERATORS.includes(op);
+export const operatorTakesFragment = (op: RuleOperator): boolean => FRAGMENT_OPERATORS.includes(op);
 
 // Operator semantics shared by the rule-builder UI (labels) and the generated documentation
 // (labels + descriptions). `dateLabel` overrides the label when the field being compared is a date.
