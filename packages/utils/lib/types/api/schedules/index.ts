@@ -58,6 +58,23 @@ export interface ScheduleListItem {
     open: string;
     close: string;
   };
+  /**
+   * Owner-context for provider (PractitionerRole) child rows: the Location the
+   * role is bound to, so the combined Schedules list can render a "Provider ·
+   * Location" pair per schedule. Absent for Location-owned schedules (there the
+   * owner IS the location).
+   */
+  locationId?: string;
+  locationName?: string;
+  /** Service categories this schedule offers (PR schedules). */
+  categoryLabels?: string[];
+  /**
+   * Effective liveness of THIS schedule for booking: `Schedule.active` combined
+   * with the owning PractitionerRole's `active` (a PR schedule needs both). For
+   * Location/Group schedules this is just `Schedule.active`; the owner-level
+   * status is carried separately on the owner.
+   */
+  active?: boolean;
 }
 
 export interface SchedulesAndOwnerListItem {

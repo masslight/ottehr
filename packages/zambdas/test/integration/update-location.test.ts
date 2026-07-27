@@ -4,6 +4,7 @@ import { ContactPoint, Extension, Location } from 'fhir/r4b';
 import {
   LOCATION_IN_PERSON_CODE,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
+  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
   M2MClientMockType,
   PUBLIC_EXTENSION_BASE_URL,
   RoleType,
@@ -740,6 +741,53 @@ describe('update-location zambda — intrinsic Location fields', () => {
 
       const refreshed = await readLocation(location.id!);
       expect(findReviewExt(refreshed)?.valueUrl).toBe('https://keep.example/review');
+    });
+  });
+
+  describe('supportPhone (Location support-phone extension)', () => {
+    const findSupportExt = (loc: Location): Extension | undefined =>
+      (loc.extension ?? []).find((ext) => ext.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL);
+
+    it('writes the support phone as a valueString and clears it when sent empty/null', async () => {
+      const location = await persistLocation(makePhysicalLocation(`upd-support-${randomUUID()}`));
+
+      await callUpdateLocation(location.id!, { supportPhone: '555-123-4567' });
+      let refreshed = await readLocation(location.id!);
+      expect(findSupportExt(refreshed)?.valueString).toBe('555-123-4567');
+
+      await callUpdateLocation(location.id!, { supportPhone: '' });
+      refreshed = await readLocation(location.id!);
+      expect(findSupportExt(refreshed)).toBeUndefined();
+
+      await callUpdateLocation(location.id!, { supportPhone: '555-123-4567' });
+      await callUpdateLocation(location.id!, { supportPhone: null });
+      refreshed = await readLocation(location.id!);
+      expect(findSupportExt(refreshed)).toBeUndefined();
+    });
+
+    it('trims whitespace and treats whitespace-only as empty', async () => {
+      const location = await persistLocation(makePhysicalLocation(`upd-support-trim-${randomUUID()}`));
+
+      await callUpdateLocation(location.id!, { supportPhone: '  555-999-0000  ' });
+      let refreshed = await readLocation(location.id!);
+      expect(findSupportExt(refreshed)?.valueString).toBe('555-999-0000');
+
+      await callUpdateLocation(location.id!, { supportPhone: '   \t' });
+      refreshed = await readLocation(location.id!);
+      expect(findSupportExt(refreshed)).toBeUndefined();
+    });
+
+    it('does not touch the support phone when the field is not sent', async () => {
+      const location = await persistLocation(
+        makePhysicalLocation(`upd-support-untouched-${randomUUID()}`, [
+          { url: LOCATION_SUPPORT_PHONE_EXTENSION_URL, valueString: '555-keep-me' },
+        ])
+      );
+
+      await callUpdateLocation(location.id!, { name: 'change something else' });
+
+      const refreshed = await readLocation(location.id!);
+      expect(findSupportExt(refreshed)?.valueString).toBe('555-keep-me');
     });
   });
 

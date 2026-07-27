@@ -24,6 +24,7 @@ import {
   isLocationInPerson,
   isLocationVirtual,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
+  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
   LocationFieldsInput,
   RoleType,
   ROOM_EXTENSION_URL,
@@ -82,6 +83,7 @@ export default function LocationConfigPage(): ReactElement {
   const [phone, setPhone] = useState('');
   const [url, setUrl] = useState('');
   const [fax, setFax] = useState('');
+  const [supportPhone, setSupportPhone] = useState('');
   const [reviewLink, setReviewLink] = useState('');
   const [stripeAccountId, setStripeAccountId] = useState('');
   const [advapacsLocationId, setAdvapacsLocationId] = useState('');
@@ -105,6 +107,7 @@ export default function LocationConfigPage(): ReactElement {
     setPhone(telecomValue(location, 'phone'));
     setUrl(telecomValue(location, 'url'));
     setFax(telecomValue(location, 'fax'));
+    setSupportPhone(extValue(location, LOCATION_SUPPORT_PHONE_EXTENSION_URL) ?? '');
     setReviewLink(location.extension?.find((e) => e.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl ?? '');
     setStripeAccountId(extValue(location, SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL) ?? '');
     setAdvapacsLocationId(extValue(location, SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL) ?? '');
@@ -130,6 +133,7 @@ export default function LocationConfigPage(): ReactElement {
         postalCode: addressPostalCode.trim() || undefined,
       },
       telecom: { phone: phone.trim() || null, url: url.trim() || null, fax: fax.trim() || null },
+      supportPhone: supportPhone.trim() || null,
       reviewLink: reviewLink.trim() || null,
       rooms: rooms.map((r) => r.value.trim()).filter((r) => r !== ''),
       // Stripe is managed on Payment Locations; only advapacs is edited here.
@@ -243,6 +247,13 @@ export default function LocationConfigPage(): ReactElement {
           <TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth />
           <TextField label="URL" value={url} onChange={(e) => setUrl(e.target.value)} fullWidth />
           <TextField label="Fax" value={fax} onChange={(e) => setFax(e.target.value)} fullWidth />
+          <TextField
+            label="Support phone"
+            value={supportPhone}
+            onChange={(e) => setSupportPhone(e.target.value)}
+            fullWidth
+            helperText="Front-desk number shown to patients in booking/support flows."
+          />
           <TextField
             label="Review link"
             value={reviewLink}

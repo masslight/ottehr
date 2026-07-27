@@ -17,11 +17,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   APIError,
   buildPrebookModeLinks,
-  CreateScheduleParams,
   isApiError,
   isValidSlug,
   isValidUUID,
@@ -31,7 +30,7 @@ import {
   UpdateScheduleParams,
 } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
-import { createSchedule, getSchedule, updateSchedule } from '../api/api';
+import { getSchedule, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';
 import ScheduleComponent from '../components/schedule/ScheduleComponent';
@@ -40,24 +39,9 @@ import PageContainer from '../layout/PageContainer';
 
 const INTAKE_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
-export function getResource(scheduleType: 'location' | 'group'): 'Location' | 'HealthcareService' {
-  if (scheduleType === 'location') {
-    return 'Location';
-  } else if (scheduleType === 'group') {
-    return 'HealthcareService';
-  }
-
-  console.log(`scheduleType unknown ${scheduleType}`);
-  throw new Error('scheduleType unknown');
-}
-
 export default function SchedulePage(): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
-  const scheduleType = useParams()['schedule-type'] as 'location' | 'group' | undefined;
-  const ownerId = useParams()['owner-id'] as string | undefined;
   const scheduleId = useParams()['schedule-id'] as string;
-  const createMode = scheduleType !== undefined && ownerId !== undefined;
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [tabName, setTabName] = useState('schedule');
@@ -106,18 +90,7 @@ export default function SchedulePage(): ReactElement {
     }
   }, [item]);
 
-  const queryEnabled = (() => {
-    if (!oystehrZambda) {
-      return false;
-    }
-    if (createMode) {
-      return true;
-    }
-    if (!createMode && isValidUUID(scheduleId)) {
-      return true;
-    }
-    return false;
-  })();
+  const queryEnabled = !!oystehrZambda && isValidUUID(scheduleId);
 
   const {
     isLoading,
@@ -125,16 +98,8 @@ export default function SchedulePage(): ReactElement {
     isRefetching,
     data: scheduleData,
   } = useQuery({
-    queryKey: ['ehr-get-schedule', scheduleId, ownerId, scheduleType],
-
-    queryFn: () =>
-      oystehrZambda
-        ? getSchedule(
-            { scheduleId, ownerId, ownerType: scheduleType ? getResource(scheduleType) : undefined },
-            oystehrZambda
-          )
-        : null,
-
+    queryKey: ['ehr-get-schedule', scheduleId],
+    queryFn: () => (oystehrZambda ? getSchedule({ scheduleId }, oystehrZambda) : null),
     enabled: queryEnabled,
   });
 
@@ -143,25 +108,6 @@ export default function SchedulePage(): ReactElement {
       setItem(data);
     }
   });
-
-  // Self-correct when we land on the create route for an owner that already
-  // has a persisted Schedule. The link at ScheduleInformation.tsx:404-409
-  // routes to /new/<owner-id> when item.schedules is empty at click time —
-  // which can be a stale-data race. Without this redirect, the user sees a
-  // headerless schedule editor (tabs hidden because createMode === true)
-  // even though the schedule exists. Redirecting to /id/<existing> drops
-  // us into edit mode where the General/Location tabs render correctly.
-  // Guard on isValidUUID: when no Schedule exists yet for the owner, the
-  // get-schedule zambda returns the sentinel id 'new-schedule' (not a real
-  // resource id). Redirecting on that sentinel would push us into edit mode
-  // (/id/new-schedule) where the tabs render and Save fails with
-  // '"scheduleId" value must be a valid UUID'. Only redirect when the owner
-  // genuinely has a persisted Schedule.
-  useEffect(() => {
-    if (createMode && scheduleData?.id && isValidUUID(scheduleData.id)) {
-      navigate(`/admin/schedule/id/${scheduleData.id}`, { replace: true });
-    }
-  }, [createMode, scheduleData?.id, navigate]);
 
   const saveScheduleChanges = useMutation({
     mutationFn: async (params: UpdateScheduleParams) => {
@@ -187,28 +133,6 @@ export default function SchedulePage(): ReactElement {
     },
   });
 
-  const createNewSchedule = useMutation({
-    mutationFn: async (params: CreateScheduleParams) => {
-      if (oystehrZambda) {
-        const response = await createSchedule(params, oystehrZambda);
-        return response;
-      }
-      throw new Error('fhir client not defined or patient id not provided');
-    },
-    onError: (error: any) => {
-      if (isApiError(error)) {
-        const message = (error as APIError).message;
-        enqueueSnackbar(message, { variant: 'error' });
-      } else {
-        enqueueSnackbar('Something went wrong! Schedule could not be created.', { variant: 'error' });
-      }
-    },
-    onSuccess: async (newSchedule: Schedule) => {
-      navigate(`/admin/schedule/id/${newSchedule.id}`);
-      enqueueSnackbar('Schedule added successfully!', { variant: 'success' });
-    },
-  });
-
   const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching || saveScheduleChanges.isPending;
 
   const handleTabChange = (event: React.SyntheticEvent, newTabName: string): void => {
@@ -229,21 +153,7 @@ export default function SchedulePage(): ReactElement {
       console.log('oystehr client is not defined');
       return;
     }
-    if (createMode && scheduleType) {
-      const ownerResourceType = getResource(scheduleType);
-      if (!ownerId || !ownerResourceType || !params.schedule) {
-        enqueueSnackbar('Schedule could not be created. Please reload the page and try again.', { variant: 'error' });
-        return;
-      }
-      const createParams: CreateScheduleParams = {
-        ...params,
-        ownerId: ownerId,
-        ownerType: ownerResourceType,
-      } as CreateScheduleParams;
-      createNewSchedule.mutate({ ...createParams });
-    } else {
-      saveScheduleChanges.mutate({ ...params });
-    }
+    saveScheduleChanges.mutate({ ...params });
   }
 
   // Active toggle acts on the Schedule resource itself (Schedule.active), not
@@ -296,8 +206,8 @@ export default function SchedulePage(): ReactElement {
           <Box>
             <CustomBreadcrumbs
               chain={[
-                { link: '/admin', state: { defaultTab: scheduleType }, children: 'Admin' },
-                { link: '/admin/schedules', state: { defaultTab: scheduleType }, children: 'Schedules' },
+                { link: '/admin', children: 'Admin' },
+                { link: '/admin/schedules', children: 'Schedules' },
                 { link: '#', children: item?.owner?.name || <Skeleton width={150} /> },
               ]}
             />
@@ -323,29 +233,7 @@ export default function SchedulePage(): ReactElement {
                       Location config page (/admin/locations/:id), not here — the schedule page is
                       schedule-only for them. The General tab remains for PractitionerRole owners. */}
                   {!isLocationOwner && (
-                    <Tab
-                      label={
-                        createMode ? (
-                          <Tooltip title="Set up the schedule first to configure general settings." arrow>
-                            <span>General</span>
-                          </Tooltip>
-                        ) : (
-                          'General'
-                        )
-                      }
-                      value="general"
-                      disabled={createMode}
-                      // Re-enable pointer events on the disabled tab so the
-                      // tooltip still fires on hover; `disabled` already blocks
-                      // selection. Target the .Mui-disabled class directly —
-                      // MUI's disabled rule sets pointer-events: none with
-                      // higher specificity than a plain root override.
-                      sx={{
-                        textTransform: 'none',
-                        fontWeight: 700,
-                        ...(createMode ? { '&.Mui-disabled': { pointerEvents: 'auto' } } : {}),
-                      }}
-                    />
+                    <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 700 }} />
                   )}
                 </TabList>
               </Box>
@@ -358,13 +246,12 @@ export default function SchedulePage(): ReactElement {
                 }}
               >
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
-                  {(scheduleId || createMode) && (
+                  {scheduleId && (
                     <ScheduleComponent
-                      id={scheduleId || 'new'}
+                      id={scheduleId}
                       item={item}
                       loading={somethingIsLoadingInSomeWay}
                       update={onSaveSchedule}
-                      hideOverrides={createMode}
                     />
                   )}
                 </TabPanel>

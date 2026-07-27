@@ -19,6 +19,8 @@ export interface LocationFieldsInput {
   stripeAccountId?: string | null;
   advapacsLocationId?: string | null;
   reviewLink?: string | null;
+  /** Front-desk / patient support phone number surfaced in booking flows. */
+  supportPhone?: string | null;
 }
 
 export interface CreateLocationParams extends LocationFieldsInput {

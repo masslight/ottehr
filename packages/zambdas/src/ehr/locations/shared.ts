@@ -5,6 +5,7 @@ import {
   LOCATION_MANUALLY_CREATED_EXTENSION_URL,
   LOCATION_PHYSICAL_TYPE_SYSTEM,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
+  LOCATION_SUPPORT_PHONE_EXTENSION_URL,
   LocationFieldsInput,
   RoleType,
   ROOM_EXTENSION_URL,
@@ -37,6 +38,7 @@ export const locationFieldsSchema = {
   stripeAccountId: z.string().nullish(),
   advapacsLocationId: z.string().nullish(),
   reviewLink: z.string().nullish(),
+  supportPhone: z.string().nullish(),
 };
 
 const PAYMENT_FIELD_ROLES: ReadonlyArray<string> = [RoleType.CustomerSupport];
@@ -125,6 +127,7 @@ export const applyLocationFields = (location: Location, fields: LocationFieldsIn
     stripeAccountId,
     advapacsLocationId,
     reviewLink,
+    supportPhone,
   } = fields;
 
   const extension = (location.extension ?? []).filter((ext: Extension) => {
@@ -141,6 +144,7 @@ export const applyLocationFields = (location: Location, fields: LocationFieldsIn
     if (advapacsLocationId !== undefined && ext.url === SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL) return false;
     if (rooms !== undefined && ext.url === ROOM_EXTENSION_URL) return false;
     if (reviewLink !== undefined && ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL) return false;
+    if (supportPhone !== undefined && ext.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL) return false;
     return true;
   });
 
@@ -161,6 +165,8 @@ export const applyLocationFields = (location: Location, fields: LocationFieldsIn
     extension.push({ url: SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL, valueString: advapacsLocationId.trim() });
   if (typeof reviewLink === 'string' && reviewLink.trim() !== '')
     extension.push({ url: LOCATION_REVIEW_LINK_EXTENSION_URL, valueUrl: reviewLink.trim() });
+  if (typeof supportPhone === 'string' && supportPhone.trim() !== '')
+    extension.push({ url: LOCATION_SUPPORT_PHONE_EXTENSION_URL, valueString: supportPhone.trim() });
   if (rooms !== undefined)
     rooms
       .map((room) => room.trim())

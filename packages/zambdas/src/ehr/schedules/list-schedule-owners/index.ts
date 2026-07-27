@@ -98,13 +98,21 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
           supportPhoneNumber,
           active,
         },
-        schedules: schedules.map((schedule) => ({
-          resourceType: schedule.resourceType,
-          timezone: getTimezone(schedule) ?? TIMEZONES[0],
-          id: schedule.id!,
-          upcomingScheduleChanges: getItemOverrideInformation(schedule),
-          todayHoursISO: getHoursOfOperationForToday(schedule),
-        })),
+        schedules: schedules.map((entry) => {
+          const schedule = entry.schedule;
+          return {
+            resourceType: schedule.resourceType,
+            timezone: getTimezone(schedule) ?? TIMEZONES[0],
+            id: schedule.id!,
+            upcomingScheduleChanges: getItemOverrideInformation(schedule),
+            todayHoursISO: getHoursOfOperationForToday(schedule),
+            locationId: entry.locationId,
+            locationName: entry.locationName,
+            categoryLabels: entry.categoryLabels,
+            // A PR schedule is live only if both the Schedule and its role are active.
+            active: schedule.active !== false && entry.roleActive !== false,
+          };
+        }),
       };
     })
     .sort((a, b) => {
@@ -141,10 +149,25 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   };
 };
 
+/**
+ * A schedule plus the per-PR context the combined Schedules list needs to render
+ * a "Provider · Location" pair. location fields, categoryLabels, and roleActive
+ * are populated only for provider (PractitionerRole) schedules; Location/Group
+ * schedules carry just the schedule.
+ */
+interface ScheduleEntry {
+  schedule: Schedule;
+  locationId?: string;
+  locationName?: string;
+  categoryLabels?: string[];
+  /** Owning PractitionerRole.active — combined with Schedule.active for liveness. */
+  roleActive?: boolean;
+}
+
 interface EffectInput {
   list: {
     owner: ScheduleOwnerFhirResource;
-    schedules: Schedule[];
+    schedules: ScheduleEntry[];
     /** Override for getNameForOwner — for Practitioner rows, getFullName(). */
     displayName?: string;
     /** Override for the address column. */
@@ -161,7 +184,7 @@ interface EffectInput {
 const complexValidation = async <T extends ScheduleOwnerFhirResource>(
   input: BasicInput,
   oystehr: Oystehr
-): Promise<{ list: { owner: T; schedules: Schedule[] }[] }> => {
+): Promise<{ list: { owner: T; schedules: ScheduleEntry[] }[] }> => {
   const { ownerType } = input;
   // splitting these into separate requests lest the _include lead to too large a response due to potentially very large json extension on
   // schedule resources.
@@ -218,7 +241,7 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
     (o) => o.resourceType !== 'HealthcareService' || !isServiceCategoryHealthcareService(o as HealthcareService)
   );
   const list = filteredOwners.map((owner) => {
-    const schedules = scheduleOwnerMap.get(owner.id!) ?? [];
+    const schedules = (scheduleOwnerMap.get(owner.id!) ?? []).map((schedule) => ({ schedule }));
     return {
       owner,
       schedules,
@@ -227,10 +250,11 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
   return { list };
 };
 
-// One row per active provider. Shows everyone, including providers who have
-// not yet had any schedule configured — their row reads as 0 schedules /
-// empty locations / empty categories, and the link still routes to the
-// employee detail page where setup happens.
+// One entry per provider that owns at least one schedule; the combined Schedules
+// list expands each into per-PractitionerRole "Provider · Location" child rows.
+// Providers with no schedule are omitted here — the list is per-schedule, and
+// un-scheduled providers are set up from the Employees page
+// (PractitionerRoleList → "Set up scheduling").
 //
 // Row id is the Oystehr User.id (not Practitioner.id) so /admin/employee/:id
 // and getUserDetails resolve correctly.
@@ -354,55 +378,59 @@ const complexValidationForPractitioner = async (_input: BasicInput, oystehr: Oys
     .map((practitioner) => {
       const practitionerRoles = rolesByPractitionerId.get(practitioner.id!) ?? [];
       const locationNames = new Set<string>();
-      const categoryLabels = new Set<string>();
-      const ownedSchedules: Schedule[] = [];
+      const categoryLabelsAgg = new Set<string>();
+      // One entry per (role → schedule) so the list can render a per-location
+      // child row for each of the provider's schedules.
+      const scheduleEntries: ScheduleEntry[] = [];
       for (const role of practitionerRoles) {
         const locationRef = role.location?.[0]?.reference;
         const location = locations.find((l) => `Location/${l.id}` === locationRef);
-        if (location?.name) locationNames.add(location.name);
+        const locationId = location?.id ?? locationRef?.split('/')[1];
+        const locationName = location?.name;
+        if (locationName) locationNames.add(locationName);
         // A PR with the all-categories toggle on offers every service in the
         // catalog; show that as a single "All services" badge rather than
         // expanding the full list (which could be long and changes any time
-        // a category is added).
+        // a category is added). `healthcareService[]` carries both category
+        // refs AND group-membership refs, so the category-tag filter keeps a
+        // group's name from surfacing as a phantom service.
+        let categoryLabels: string[];
         if (getPractitionerRoleAllCategories(role)) {
-          categoryLabels.add('All services');
+          categoryLabels = ['All services'];
         } else {
-          // `healthcareService[]` carries both service-category refs AND
-          // group-membership refs. Without the category-tag filter, a PR that
-          // belongs to a group would have the group's name surface as a
-          // phantom service in the admin rollup.
+          const labels = new Set<string>();
           for (const ref of role.healthcareService ?? []) {
             const hsId = ref.reference?.split('/')[1];
             const hs = healthcareServices.find((h) => h.id === hsId);
-            if (hs && isServiceCategoryHealthcareService(hs) && hs.name) categoryLabels.add(hs.name);
+            if (hs && isServiceCategoryHealthcareService(hs) && hs.name) labels.add(hs.name);
           }
+          // Emit at least one label so consumers can `.join()` unconditionally
+          // (empty + toggle off = offers nothing, not "all services").
+          categoryLabels = labels.size > 0 ? [...labels] : ['No services'];
         }
+        categoryLabels.forEach((c) => categoryLabelsAgg.add(c));
+        const roleActive = role.active !== false;
         for (const s of schedules) {
           if (s.actor?.some((a) => a.reference === `PractitionerRole/${role.id}`)) {
-            ownedSchedules.push(s);
+            scheduleEntries.push({ schedule: s, locationId, locationName, categoryLabels, roleActive });
           }
         }
       }
-      // Emit at least one label so consumers can `.join()` unconditionally.
-      // Pre-toggle, callers fell back to "All services" on empty, which is now
-      // wrong (empty + toggle off = offers nothing — see PR-level
-      // all-categories work).
-      const categoryLabelsArray = categoryLabels.size > 0 ? [...categoryLabels] : ['No services'];
+      const categoryLabelsArray = categoryLabelsAgg.size > 0 ? [...categoryLabelsAgg] : ['No services'];
       return {
         owner: { ...practitioner, id: userIdByPractitionerId.get(practitioner.id!)! },
-        schedules: ownedSchedules,
+        schedules: scheduleEntries,
         displayName: getFullName(practitioner),
         providerSchedulesSummary: {
           locationNames: [...locationNames],
           categoryLabels: categoryLabelsArray,
-          // Count owned Schedule resources, not PractitionerRoles. A PR may
-          // be missing its Schedule (in-flight setup, soft-deleted Schedule)
-          // or — less commonly — have more than one. The UI column labeled
-          // "Schedules" should reflect what was actually found.
-          scheduleCount: ownedSchedules.length,
+          scheduleCount: scheduleEntries.length,
         },
       };
-    });
+    })
+    // Providers with no schedule at all are omitted — the combined list is
+    // per-schedule; un-scheduled providers are set up from the Employees page.
+    .filter((item) => item.schedules.length > 0);
   return { list };
 };
 
