@@ -103,11 +103,24 @@ export default function EditEmployeePage(): JSX.Element {
     }
 
     try {
-      await userActivation(oystehrZambda, { userId: user.id, userActivationMode });
+      const { erxUnenrollment } = await userActivation(oystehrZambda, { userId: user.id, userActivationMode });
       await getUserAndUpdatePage();
-      enqueueSnackbar(`User was ${userActivationMode}d successfully`, {
-        variant: 'success',
-      });
+      if (erxUnenrollment === 'failed') {
+        // Access has already been revoked by the time the zambda reports this — only the eRx side
+        // failed — so it's a warning rather than an error. But it has to be said out loud: the copy
+        // above promises the prescriber enrollment is removed, and a plain success toast would leave
+        // the operator believing a departed clinician can no longer prescribe when they still can.
+        // Persisted (and keyed) because it needs follow-up, unlike the transient success toast.
+        enqueueSnackbar(
+          `User was ${userActivationMode}d, but their eRx prescriber enrollment could not be removed. ` +
+            `The failure has been reported — please contact support to have the enrollment removed.`,
+          { variant: 'warning', persist: true, preventDuplicate: true, key: 'erx-unenroll-failed' }
+        );
+      } else {
+        enqueueSnackbar(`User was ${userActivationMode}d successfully`, {
+          variant: 'success',
+        });
+      }
     } catch {
       const errorString = `Failed to ${userActivationMode} user. Please try again`;
       setErrors((prev) => ({ ...prev, submit: `${errorString}` }));
