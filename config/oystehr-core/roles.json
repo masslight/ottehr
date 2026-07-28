@@ -1270,6 +1270,34 @@
           ]
         },
         {
+          "action": [
+            "eRx:SearchMedication",
+            "eRx:GetMedication"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Medication"
+          ]
+        },
+        {
+          "action": [
+            "eRx:SearchAllergen"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Allergen"
+          ]
+        },
+        {
+          "action": [
+            "eRx:GetConfiguration"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Configuration"
+          ]
+        },
+        {
           "resource": [
             "FHIR:AllergyIntolerance:*",
             "FHIR:MedicationStatement:*"

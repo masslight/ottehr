@@ -354,6 +354,32 @@ export const PROVIDER_RULES: AccessPolicy = {
   ],
 };
 
+// The read-only slice of eRx the Clinician role keeps in place of Provider's blanket `eRx:*` grant.
+// These are Medispan reference-database lookups plus the project eRx configuration read: they carry no
+// prescribing authority and no NPI requirement, and the EHR needs them well outside the prescribing flow —
+// medication search, the in-house medication admin pages, and medication reconciliation in the chart all
+// call them. Same shape as the lookups Manager and Staff already hold in config/oystehr-core/roles.json.
+// Everything that writes or transmits a prescription (and the DoseSpot practitioner connect/enroll flows)
+// stays Provider-only, as do the patient-scoped eRx actions (eRx:SyncPatient, eRx:GetMedicationHistory)
+// and interaction checks (eRx:Check).
+const CLINICIAN_ERX_RULES: AccessPolicy['rule'] = [
+  {
+    action: ['eRx:SearchMedication', 'eRx:GetMedication'],
+    effect: 'Allow',
+    resource: ['eRx:Medication'],
+  },
+  {
+    action: ['eRx:SearchAllergen'],
+    effect: 'Allow',
+    resource: ['eRx:Allergen'],
+  },
+  {
+    action: ['eRx:GetConfiguration'],
+    effect: 'Allow',
+    resource: ['eRx:Configuration'],
+  },
+];
+
 // Clinician = Provider access minus the two NPI-gated capabilities that are enforced at the access
 // policy layer: client-side e-prescribing (eRx) and submitting Claims under a provider NPI. The other
 // NPI-gated actions (sign/co-sign, external labs & imaging orders, in-house medication orders) run
@@ -361,8 +387,8 @@ export const PROVIDER_RULES: AccessPolicy = {
 // via requirePractitionerNPI. Derived from PROVIDER_RULES so it stays in sync as Provider access evolves.
 export const CLINICIAN_RULES: AccessPolicy = {
   rule: PROVIDER_RULES.rule
-    // Drop e-prescribing entirely.
-    .filter((rule) => ![rule.resource].flat().includes('eRx:*'))
+    // Swap Provider's blanket eRx grant for the read-only reference lookups (see above).
+    .flatMap((rule) => ([rule.resource].flat().includes('eRx:*') ? CLINICIAN_ERX_RULES : [rule]))
     // Keep the rest of the RCM block (Appointment/Coverage/etc.) but remove the ability to write Claims.
     .map((rule) => {
       const resources = [rule.resource].flat();
