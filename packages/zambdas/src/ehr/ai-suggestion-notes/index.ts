@@ -15,27 +15,14 @@ let m2mToken: string;
 export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  const { type, hpi, details, appointmentId, encounterId, secrets } = validatedParameters;
+  const { type, secrets } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
   let prompt = undefined;
 
-  const procedureDetails = details?.procedureDetails;
-  if (type === 'procedure') {
-    prompt = `If the procedure material type and quantity are missing, return this message:
-
-      "Please specify closure type (e.g. tissue adhesive or surgical staples or sutures); if surgical staples or sutures, specify the material and quantity"
-
-      Only return this message if the text describes a wound or incision but does not include any or these: material type, length and a numerical count.
-
-      If these details are included return this message: "Procedure details are included".
-
-      Return a JSON object with a single field "suggestions" that has a list of strings.
-
-      ${procedureDetails}`;
-  } else if (type === 'missing-hpi') {
-    prompt = PROMPTS_CONFIG.HPI_SUGGESTION + `\nHPI: ${hpi}`;
+  if (type === 'missing-hpi') {
+    prompt = PROMPTS_CONFIG.HPI_SUGGESTION + `\nHPI: ${validatedParameters.hpi}`;
   } else if (type === 'note-review') {
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
@@ -50,7 +37,12 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       return { statusCode: 200, body: JSON.stringify({ suggestions: [] }) };
     }
 
-    const noteText = await assembleNoteReviewText(oystehr, m2mToken, appointmentId!, encounterId!);
+    const noteText = await assembleNoteReviewText(
+      oystehr,
+      m2mToken,
+      validatedParameters.appointmentId!,
+      validatedParameters.encounterId!
+    );
     prompt = buildNoteReviewPrompt(reviewPrompt, noteText);
   }
 
@@ -79,13 +71,7 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
     required: ['suggestions'],
   };
 
-  if (type === 'procedure' && !procedureDetails) {
-    suggestions = {
-      suggestions: [
-        'Please specify closure type (e.g. tissue adhesive or surgical staples or sutures); if surgical staples or sutures, specify the material and quantity',
-      ],
-    };
-  } else if (type === 'procedure' || type === 'missing-hpi' || type === 'note-review') {
+  if (type === 'missing-hpi' || type === 'note-review') {
     const aiResponseString = await invokeChatbotVertexAI([{ text: prompt }], secrets, suggestionSchema);
     // Same reason: a note-review response can quote the note back. A malformed payload is logged
     // as its structure below, which is what makes the failure diagnosable.

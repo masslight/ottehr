@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { formatInfusionTimeRange, repairDepthDisplayLabel } from 'utils/lib/procedure-coding/format';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
@@ -22,6 +23,9 @@ export const composeProcedures: DataComposer<ProgressNoteVisitDataInput, Procedu
     medicationUsed: procedure.medicationUsed,
     bodySite: procedure.bodySite,
     bodySide: procedure.bodySide,
+    lengthCm: procedure.lengthCm != null ? `${procedure.lengthCm} cm` : undefined,
+    repairDepth: procedure.repairDepth != null ? repairDepthDisplayLabel(procedure.repairDepth) : undefined,
+    infusionTime: formatInfusionTimeRange(procedure.infusionStartTime, procedure.infusionStopTime),
     technique: procedure.technique,
     suppliesUsed: procedure.suppliesUsed,
     procedureDetails: procedure.procedureDetails,
@@ -83,6 +87,21 @@ export const createProceduresSection = <TData extends { procedures?: Procedures 
           procedure.bodySite != null ? 'Site/location: ' + procedure.bodySite : undefined
         );
         drawRegularText(client, styles, procedure.bodySide != null ? 'Side of body: ' + procedure.bodySide : undefined);
+        drawRegularText(
+          client,
+          styles,
+          procedure.lengthCm != null ? 'Wound/lesion size: ' + procedure.lengthCm : undefined
+        );
+        drawRegularText(
+          client,
+          styles,
+          procedure.repairDepth != null ? 'Repair depth: ' + procedure.repairDepth : undefined
+        );
+        drawRegularText(
+          client,
+          styles,
+          procedure.infusionTime != null ? 'Infusion time: ' + procedure.infusionTime : undefined
+        );
         drawRegularText(
           client,
           styles,

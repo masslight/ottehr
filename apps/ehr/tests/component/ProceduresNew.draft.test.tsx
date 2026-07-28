@@ -64,8 +64,6 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetCPTHCPCSSearch: () => ({ isFetching: false, data: { codes: [] } }),
-  useRecommendBillingCodes: () => ({ mutateAsync: vi.fn() }),
-  useAiSuggestionNotes: () => ({ mutateAsync: vi.fn() }),
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -115,10 +113,6 @@ vi.mock('../../src/features/visits/in-person/components/InfoAlert', () => ({
   InfoAlert: () => <div />,
 }));
 
-vi.mock('../../src/features/visits/shared/components/AiSection', () => ({
-  AiSectionContainer: () => <div />,
-}));
-
 vi.mock('../../src/api/api', () => ({
   createProcedureQuickPick: vi.fn(),
   getProcedureQuickPicks: vi.fn().mockResolvedValue({ quickPicks: [] }),
@@ -148,7 +142,7 @@ const createWrapper = (): ((props: { children: ReactNode }) => JSX.Element) => {
   });
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>{children}</BrowserRouter>
     </QueryClientProvider>
   );
 };

@@ -599,6 +599,9 @@ export interface Procedures extends PdfData {
     medicationUsed?: string;
     bodySite?: string;
     bodySide?: string;
+    lengthCm?: string;
+    repairDepth?: string;
+    infusionTime?: string;
     technique?: string[];
     suppliesUsed?: string;
     procedureDetails?: string;

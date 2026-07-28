@@ -591,6 +591,10 @@ export interface ProcedureDTO extends SaveableDTO {
   technique?: string[];
   suppliesUsed?: string;
   procedureDetails?: string;
+  lengthCm?: number;
+  repairDepth?: string;
+  infusionStartTime?: string;
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   patientResponse?: string;

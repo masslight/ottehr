@@ -1,12 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
+import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/extract';
+import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { assertDefined, createClinicalOystehrClient, validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
   IMMUNIZATION_QUICK_PICK_CATEGORY,
@@ -37,6 +41,25 @@ interface CategoryConfig {
   requiredStringFields: string[];
   validator?: (oystehr: Oystehr, quickPick: Record<string, unknown>, quickPickId?: string) => Promise<void>;
 }
+
+const clockTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'must be a 24-hour HH:MM time');
+
+const repairDepthSchema = z.string().refine(isRepairDepthSelection, {
+  message: `must be one of: ${REPAIR_DEPTH_OPTIONS.map((option) => option.value).join(', ')}`,
+});
+
+const lengthCmSchema = z
+  .number()
+  .refine(isPlausibleLengthCm, { message: `must be greater than 0 and at most ${MAX_PLAUSIBLE_LENGTH_CM} cm` });
+
+const procedureQuickPickSchema = z
+  .object({
+    lengthCm: lengthCmSchema.optional(),
+    repairDepth: repairDepthSchema.optional(),
+    infusionStartTime: clockTimeSchema.optional(),
+    infusionStopTime: clockTimeSchema.optional(),
+  })
+  .passthrough();
 
 const CATEGORIES: CategoryConfig[] = [
   { category: ALLERGY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
@@ -75,7 +98,13 @@ const CATEGORIES: CategoryConfig[] = [
   { category: MEDICAL_CONDITION_QUICK_PICK_CATEGORY, requiredStringFields: ['display'] },
   { category: MEDICATION_HISTORY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
   { category: PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY, requiredStringFields: ['name', 'text'] },
-  { category: PROCEDURE_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
+  {
+    category: PROCEDURE_QUICK_PICK_CATEGORY,
+    requiredStringFields: ['name'],
+    validator: async (_oystehr, quickPick) => {
+      safeValidate(procedureQuickPickSchema, quickPick);
+    },
+  },
   {
     category: QUICK_TEXT_QUICK_PICK_CATEGORY,
     requiredStringFields: ['name', 'english'],
