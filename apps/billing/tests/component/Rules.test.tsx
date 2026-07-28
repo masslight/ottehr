@@ -7,20 +7,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConditionalEditor } from '../../src/components/rules/RuleBuilder';
 import Rules from '../../src/pages/Rules';
 
-const { getBillingRulesMock, saveBillingRulesMock, searchBillingTagsMock, stableClients } = vi.hoisted(() => ({
-  getBillingRulesMock: vi.fn(),
-  saveBillingRulesMock: vi.fn(),
-  searchBillingTagsMock: vi.fn(),
-  stableClients: { oystehrZambda: {} },
-}));
+const { getBillingRulesMock, saveBillingRulesMock, searchBillingProvidersMock, searchBillingTagsMock, stableClients } =
+  vi.hoisted(() => ({
+    getBillingRulesMock: vi.fn(),
+    saveBillingRulesMock: vi.fn(),
+    searchBillingProvidersMock: vi.fn(),
+    searchBillingTagsMock: vi.fn(),
+    stableClients: { oystehrZambda: {} },
+  }));
 
 vi.mock('../../src/api/api', () => ({
   getBillingRules: getBillingRulesMock,
   saveBillingRules: saveBillingRulesMock,
   // PayerSelect (rendered for the payerId condition) searches payers on open/input, not on mount;
-  // same for TagSelect (apply-tag action) and ProcedureCodeAutocomplete (CPT inputs).
+  // same for TagSelect (apply-tag action), ProcedureCodeAutocomplete (CPT inputs), and the
+  // provider/facility reference pickers.
   searchBillingPayers: () => Promise.resolve({ payers: [] }),
   searchBillingProcedureCodes: () => Promise.resolve({ codes: [] }),
+  searchBillingProviders: searchBillingProvidersMock,
+  searchBillingServiceFacilities: () => Promise.resolve({ facilities: [], total: 0, offset: 0, pageSize: 50 }),
   searchBillingTags: searchBillingTagsMock,
 }));
 
@@ -98,13 +103,13 @@ function ConditionalForm({
   onValid,
 }: {
   conditional: RuleConditional;
-  onValid?: () => void;
+  onValid?: (data?: { conditional: RuleConditional }) => void;
 }): ReactElement {
   const methods = useForm<{ conditional: RuleConditional }>({ defaultValues: { conditional } });
   return (
     <FormProvider {...methods}>
       <ConditionalEditor name="conditional" />
-      <button onClick={() => void methods.handleSubmit(() => onValid?.())()}>Save</button>
+      <button onClick={() => void methods.handleSubmit((data) => onValid?.(data))()}>Save</button>
     </FormProvider>
   );
 }
@@ -248,6 +253,64 @@ describe('ConditionalEditor', () => {
     fireEvent.change(screen.getByLabelText('Value'), { target: { value: '1234567893' } });
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(onValid).toHaveBeenCalled());
+  });
+
+  it('offers reference providers in the set-provider picker and stores the encoded reference', async () => {
+    searchBillingProvidersMock.mockReset();
+    searchBillingProvidersMock.mockResolvedValue({
+      providers: [
+        {
+          id: 'org-1',
+          kind: 'organization',
+          name: 'New Billing Group',
+          npi: '8888888888',
+          renders: false,
+          bills: true,
+          isWorkingCopy: false,
+        },
+      ],
+      total: 1,
+      offset: 0,
+      pageSize: 50,
+    });
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'billingProvider.ref', value: '' }] },
+        },
+      ],
+    };
+    const onValid = vi.fn();
+    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+
+    const input = screen.getByPlaceholderText('Search providers…');
+    fireEvent.mouseDown(input);
+    fireEvent.click(await screen.findByRole('option', { name: /New Billing Group/ }));
+    expect(searchBillingProvidersMock).toHaveBeenCalledWith(expect.anything(), { providerType: 'billing' });
+
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(onValid).toHaveBeenCalled());
+    const action = onValid.mock.calls[0][0].conditional.branches[0].outcome.actions[0];
+    expect(action).toEqual({ type: 'setField', field: 'billingProvider.ref', value: 'Organization/org-1' });
+  });
+
+  it('blocks submit when a set-provider action has no provider picked', async () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: { type: 'actions', actions: [{ type: 'setField', field: 'renderingProvider.ref', value: '' }] },
+        },
+      ],
+    };
+    const onValid = vi.fn();
+    render(<ConditionalForm conditional={conditional} onValid={onValid} />);
+
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(await screen.findByText('Value is required')).toBeInTheDocument();
+    expect(onValid).not.toHaveBeenCalled();
   });
 
   it('clears a stale value error when the condition property changes', async () => {

@@ -4,6 +4,7 @@ import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
   collectApplyTagNames,
+  collectSetResourceRefs,
   getRuleFieldDef,
   getServiceLinePropertyDef,
   ruleConditionValueProblem,
@@ -262,6 +263,71 @@ describe('rule value validation', () => {
     });
     expect(names).toEqual(['VIP', HOLD_TAG_NAME]);
   });
+
+  it('validates provider/facility reference values against their Type/id encoding', () => {
+    const billingRef = field('billingProvider.ref');
+    const facilityRef = field('serviceFacility.ref');
+    expect(field('renderingProvider.ref').providerRole).toBe('rendering');
+    expect(billingRef.providerRole).toBe('billing');
+
+    expect(setFieldValueProblem(billingRef, 'Organization/org-1')).toBeUndefined();
+    expect(setFieldValueProblem(billingRef, 'Practitioner/abc.def-123')).toBeUndefined();
+    expect(setFieldValueProblem(billingRef, 'org-1')).toContain('provider reference');
+    expect(setFieldValueProblem(billingRef, 'Location/loc-1')).toContain('provider reference');
+    expect(setFieldValueProblem(billingRef, '')).toBe('Value is required'); // requiredOnSet — no "clear provider"
+    expect(setFieldValueProblem(facilityRef, 'Location/loc-1')).toBeUndefined();
+    expect(setFieldValueProblem(facilityRef, 'Practitioner/abc')).toContain('facility reference');
+
+    // Conditions compare the same encoding (the copy's source-resource reference).
+    expect(ruleConditionValueProblem(billingRef, 'eq', 'Organization/org-1')).toBeUndefined();
+    expect(ruleConditionValueProblem(billingRef, 'in', ['Organization/org-1', 'nope'])).toContain('provider reference');
+    expect(ruleConditionValueProblem(facilityRef, 'exists', undefined)).toBeUndefined();
+  });
+
+  it('collects setField provider/facility refs across nested conditionals, deduped', () => {
+    const refs = collectSetResourceRefs({
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'conditional',
+              conditional: {
+                branches: [
+                  {
+                    condition: { type: 'all' },
+                    outcome: {
+                      type: 'actions',
+                      actions: [
+                        { type: 'setField', field: 'billingProvider.ref', value: 'Organization/org-1' },
+                        // Non-reference setFields are not collected.
+                        { type: 'setField', field: 'patient.state', value: 'CA' },
+                      ],
+                    },
+                  },
+                ],
+                otherwise: {
+                  type: 'actions',
+                  actions: [{ type: 'setField', field: 'serviceFacility.ref', value: 'Location/loc-1' }],
+                },
+              },
+            },
+          },
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [{ type: 'setField', field: 'billingProvider.ref', value: 'Organization/org-1' }],
+            },
+          },
+        ],
+      },
+    });
+    expect(refs).toEqual([
+      { field: 'billingProvider.ref', ref: 'Organization/org-1' },
+      { field: 'serviceFacility.ref', ref: 'Location/loc-1' },
+    ]);
+  });
 });
 
 describe('validateRuleFieldReferences', () => {
@@ -289,6 +355,27 @@ describe('validateRuleFieldReferences', () => {
       })
     );
     expect(problems).toEqual([]);
+  });
+
+  it('reports malformed provider/facility references and unsupported ref operators', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            // ENUM_OPS only — fragment matching an opaque reference is meaningless.
+            condition: { type: 'field', field: 'billingProvider.ref', operator: 'contains', value: 'Organization' },
+            outcome: {
+              type: 'actions',
+              actions: [{ type: 'setField', field: 'serviceFacility.ref', value: 'loc-1' }],
+            },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain('unsupported operator "contains"');
+    expect(problems[1]).toContain('sets "serviceFacility.ref" to an invalid value');
+    expect(problems[1]).toContain('facility reference');
   });
 
   it('reports unknown condition fields and unknown or read-only setField targets, including nested ones', () => {

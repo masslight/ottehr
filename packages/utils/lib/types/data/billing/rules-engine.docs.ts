@@ -35,6 +35,8 @@ const VALUE_TYPE_LABELS: Record<RuleFieldValueType, string> = {
   select: 'one of the listed values',
   list: 'list of codes',
   payer: 'payer ID',
+  provider: 'provider reference',
+  facility: 'facility reference',
 };
 
 // Escape/normalize a string for use inside a markdown table cell.

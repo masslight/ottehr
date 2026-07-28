@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
   Address,
   Claim,
@@ -20,6 +21,7 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   extractPayerIdFromUrl,
   getClaimStatusFieldValue,
@@ -50,9 +52,12 @@ import {
   getClaimType,
   getClaimTypeCoding,
   getTaxonomy,
+  prepareWorkingCopy,
+  resourceDisplayName,
   setClia,
   setTaxId,
   setTaxonomy,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 
 // The rules' view of a claim: the working-copy Claim plus the working-copy resources its rules can
@@ -70,6 +75,14 @@ export interface RulesEngineClaimModel {
   serviceFacility?: Location;
   // Working-copy subscriber RelatedPersons of the coverages (the policy holders).
   subscribers: RelatedPerson[];
+  // The reference resources (provider/facility page originals) named by the rule set's
+  // "set provider/facility from list" actions, prefetched by the engine so the synchronous
+  // writers can copy them. Keyed "ResourceType/id".
+  referenceResources?: Map<string, Practitioner | Organization | Location>;
+  // Local placeholder ids of working copies minted by writers during this run. persistModel
+  // POSTs them (fullUrl urn:uuid:<id>) ahead of the PUT phase and rewrites the claim's
+  // temporary urn references to the created ids.
+  createdCopyIds?: Set<string>;
 }
 
 // --- shared accessors ---
@@ -88,6 +101,12 @@ const primaryPolicyHolder = (m: RulesEngineClaimModel): RelatedPerson | undefine
 
 type Provider = Practitioner | Organization;
 type NamedResource = Patient | RelatedPerson | Practitioner;
+
+// The "ResourceType/id" of the reference resource a working copy was copied from (the
+// source-resource extension prepareWorkingCopy stamps). Copies made before the extension existed
+// read as absent.
+const sourceRef = (resource: Practitioner | Organization | Location | undefined): string | undefined =>
+  resource?.extension?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)?.valueReference?.reference;
 
 const getProviderFamily = (p?: Provider): string | undefined => {
   if (!p) return undefined;
@@ -320,10 +339,13 @@ const READERS: Record<string, FieldReader> = {
   'secondaryInsurance.payerId': (m) => extractPayerIdFromUrl(secondaryCoverage(m)?.payor?.[0]?.reference),
   'secondaryInsurance.memberId': (m) => secondaryCoverage(m)?.subscriberId,
 
+  'renderingProvider.ref': (m) => sourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
+  'billingProvider.ref': (m) => sourceRef(m.billingProvider),
   ...providerReaders('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m) => (m.billingProvider ? getTaxID(m.billingProvider) : undefined),
 
+  'serviceFacility.ref': (m) => sourceRef(m.serviceFacility),
   'serviceFacility.name': (m) => m.serviceFacility?.name,
   'serviceFacility.npi': (m) => (m.serviceFacility ? getNPI(m.serviceFacility) : undefined),
   'serviceFacility.clia': (m) => (m.serviceFacility ? getCLIA(m.serviceFacility) : undefined),
@@ -405,6 +427,72 @@ const setSecondaryPayerId = (model: RulesEngineClaimModel, value: string | null)
   const coverage = secondaryCoverage(model);
   if (!coverage) return false;
   coverage.payor = [{ reference: getPayerUrl(value) }];
+  return true;
+};
+
+// Register a writer-minted working copy: give it a local placeholder id (persistModel POSTs it and
+// swaps in the created id), and drop a pending copy it supersedes (a second swap of the same slot
+// in one run) so the superseded copy is never created. Returns the temporary urn reference.
+const registerCreatedCopy = (
+  model: RulesEngineClaimModel,
+  replaced: { id?: string } | undefined,
+  copy: { id?: string }
+): string => {
+  copy.id = randomUUID();
+  const created = (model.createdCopyIds ??= new Set<string>());
+  if (replaced?.id && created.has(replaced.id)) created.delete(replaced.id);
+  created.add(copy.id);
+  return `urn:uuid:${copy.id}`;
+};
+
+// Replace the claim's rendering/billing provider or service facility with a fresh working copy of a
+// reference resource picked from the provider/facility pages — the same swap update-billing-claim
+// performs. Writers are synchronous, so the original must have been prefetched into
+// model.referenceResources (the engine collects the rule set's refs up front); a missing or
+// type-mismatched ref fails the rule. The model slot is replaced so later rules read and edit the
+// new copy, and the copy is persisted with those later edits already applied.
+const setClaimResourceRef = (
+  model: RulesEngineClaimModel,
+  slot: 'renderingProvider' | 'billingProvider' | 'serviceFacility',
+  value: string | null
+): boolean => {
+  const original = value ? model.referenceResources?.get(value) : undefined;
+  if (!original?.id) return false;
+
+  if (slot === 'serviceFacility') {
+    if (original.resourceType !== 'Location') return false;
+    const copy = prepareWorkingCopy<Location>(original, original.id);
+    const reference = registerCreatedCopy(model, model.serviceFacility, copy);
+    model.serviceFacility = copy;
+    model.claim.facility = { reference, display: resourceDisplayName(copy) };
+    return true;
+  }
+
+  if (original.resourceType === 'Location') return false;
+  const copy =
+    original.resourceType === 'Practitioner'
+      ? prepareWorkingCopy<Practitioner>(original, original.id)
+      : prepareWorkingCopy<Organization>(original, original.id);
+  const reference = registerCreatedCopy(model, model[slot], copy);
+  model[slot] = copy;
+  if (slot === 'billingProvider') {
+    model.claim.provider = { reference, display: resourceDisplayName(copy) };
+    return true;
+  }
+  // The rendering provider rides on careTeam sequence 1, and every item must point at it — the
+  // same rebuild update-billing-claim performs.
+  model.claim.careTeam = [
+    {
+      sequence: 1,
+      provider: { reference, display: resourceDisplayName(copy) },
+      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+    },
+    ...(model.claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+  ];
+  model.claim.item = model.claim.item?.map((item) => ({
+    ...item,
+    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+  }));
   return true;
 };
 
@@ -606,7 +694,9 @@ const WRITERS: Record<string, FieldWriter> = {
     return true;
   },
 
+  'renderingProvider.ref': (m, v) => setClaimResourceRef(m, 'renderingProvider', v),
   ...providerWriters('renderingProvider', (m) => m.renderingProvider),
+  'billingProvider.ref': (m, v) => setClaimResourceRef(m, 'billingProvider', v),
   ...providerWriters('billingProvider', (m) => m.billingProvider),
   'billingProvider.taxId': (m, v) => {
     if (!m.billingProvider || !validOrEmpty(v, (t) => taxIdRegex.test(t))) return false;
@@ -614,6 +704,7 @@ const WRITERS: Record<string, FieldWriter> = {
     return true;
   },
 
+  'serviceFacility.ref': (m, v) => setClaimResourceRef(m, 'serviceFacility', v),
   'serviceFacility.name': withFacility((f, v) => {
     f.name = v ?? undefined;
   }),

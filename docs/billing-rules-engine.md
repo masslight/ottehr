@@ -31,7 +31,7 @@ on-success effect.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the engines, so it always matches what the engines
-actually support (68 properties, 55 of them settable).
+actually support (71 properties, 58 of them settable).
 
 ## Conditions
 
@@ -148,6 +148,7 @@ Which operators a property supports depends on its type (see the property tables
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
+| Provider (from list) | `renderingProvider.ref` | provider reference | equals, does not equal, is one of, is not one of, is present, is empty | yes | Which rendering provider the claim uses, as a reference resource from the Rendering Providers page. Conditions compare against the resource the claim's current rendering provider was copied from; setting it creates a fresh working copy of the chosen provider and re-points the claim — later rules read and edit the new copy. Cannot be cleared — setting it requires a value. |
 | NPI | `renderingProvider.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's NPI. Format: a valid 10-digit NPI. |
 | First name | `renderingProvider.firstName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's first name (individual providers only; setting it on an organization provider fails the rule). |
 | Last name / organization name | `renderingProvider.lastName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The rendering provider's last name, or the organization name for organization providers. |
@@ -157,6 +158,7 @@ Which operators a property supports depends on its type (see the property tables
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
+| Provider (from list) | `billingProvider.ref` | provider reference | equals, does not equal, is one of, is not one of, is present, is empty | yes | Which billing provider the claim uses, as a reference resource from the Billing Providers page. Conditions compare against the resource the claim's current billing provider was copied from; setting it creates a fresh working copy of the chosen provider and re-points the claim — later rules read and edit the new copy. Cannot be cleared — setting it requires a value. |
 | NPI | `billingProvider.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's NPI. Format: a valid 10-digit NPI. |
 | First name | `billingProvider.firstName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's first name (individual providers only; setting it on an organization provider fails the rule). |
 | Last name / organization name | `billingProvider.lastName` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The billing provider's last name, or the organization name for organization providers. |
@@ -167,6 +169,7 @@ Which operators a property supports depends on its type (see the property tables
 
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
+| Facility (from list) | `serviceFacility.ref` | facility reference | equals, does not equal, is one of, is not one of, is present, is empty | yes | Which service facility the claim uses, as a reference resource from the Service Facilities page. Conditions compare against the resource the claim's current facility was copied from; setting it creates a fresh working copy of the chosen facility and re-points the claim — later rules read and edit the new copy. Cannot be cleared — setting it requires a value. |
 | Facility name | `serviceFacility.name` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's name. |
 | Facility NPI | `serviceFacility.npi` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's NPI. Format: a valid 10-digit NPI. |
 | CLIA number | `serviceFacility.clia` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The service facility's CLIA number. Format: format NNDNNNNNNN, e.g. 05D1234567. |

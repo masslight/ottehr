@@ -53,8 +53,10 @@ import {
   setFieldValueProblem,
 } from 'utils';
 import { otherColors } from '../../themes/ottehr/colors';
+import { FacilitySelect } from '../FacilitySelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
+import { ProviderSelect } from '../ProviderSelect';
 import { TagSelect } from '../TagSelect';
 
 // ---------------------------------------------------------------------------
@@ -264,6 +266,33 @@ function FieldValueInput({
         value={value}
         onChange={onChange}
         label={label}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
+  if (def?.valueType === 'provider') {
+    return (
+      <ProviderSelect
+        providerRole={def.providerRole ?? 'billing'}
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        label={label ?? 'Provider'}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
+  if (def?.valueType === 'facility') {
+    return (
+      <FacilitySelect
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        label={label ?? 'Facility'}
         error={error}
         helperText={helperText}
         inputRef={inputRef}

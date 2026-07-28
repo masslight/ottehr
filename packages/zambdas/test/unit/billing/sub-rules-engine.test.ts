@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Organization, ProvenanceAgent, Resource } from 'fhir/r4b';
 import {
   AR_STAGE,
   BillingRule,
@@ -10,8 +10,8 @@ import {
   withArStageInitialization,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RulesEngineClaimModel } from '../../../src/billing/rules-engine/claim-model';
-import { BILLING_WORKING_COPY_TAG } from '../../../src/billing/shared';
+import { RulesEngineClaimModel, writeField } from '../../../src/billing/rules-engine/claim-model';
+import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG } from '../../../src/billing/shared';
 import {
   ensureClaimHeld,
   performEffect,
@@ -359,6 +359,75 @@ describe('sub-rules-engine persistModel', () => {
 
     expect(written).toBe(0);
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('creates writer-minted working copies first, then PUTs the claim with the real reference', async () => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel();
+    // The claim already carries an old billing-provider working copy that the swap replaces.
+    model.billingProvider = {
+      resourceType: 'Organization',
+      id: 'old-copy-1',
+      name: 'Old Billing Group',
+      meta: { versionId: '1', tag: [workingCopyTag] },
+    };
+    model.claim.provider = { reference: 'Organization/old-copy-1', display: 'Old Billing Group' };
+    const snapshot = snapshotModel(model);
+
+    const original: Organization = {
+      resourceType: 'Organization',
+      id: 'org-new',
+      name: 'New Billing Group',
+      meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: 'billing' }] },
+    };
+    model.referenceResources = new Map([['Organization/org-new', original]]);
+    expect(writeField(model, 'billingProvider.ref', 'Organization/org-new')).toBe(true);
+    const localId = model.billingProvider.id!;
+
+    // The create transaction echoes each POSTed resource back with a server id (order-matched).
+    transaction.mockImplementation(({ requests }: { requests: { method: string; resource?: Resource }[] }) =>
+      Promise.resolve({
+        entry: requests.map((request) => ({
+          resource:
+            request.method === 'POST' && request.resource?.resourceType === 'Organization'
+              ? { ...request.resource, id: 'copy-real-1' }
+              : request.resource,
+        })),
+      })
+    );
+
+    const written = await persistModel(oystehr, model, snapshot, AGENT);
+
+    expect(written).toBe(2); // the new copy + the claim
+    expect(transaction).toHaveBeenCalledTimes(2);
+
+    // Phase 1: POST with no id, a urn fullUrl, the working-copy tag, and a create-Provenance
+    // targeting that urn (rewritten by the server inside the transaction).
+    const phase1 = transaction.mock.calls[0][0].requests;
+    const post = phase1.find((r: { method: string; url: string }) => r.method === 'POST' && r.url === '/Organization');
+    expect(post.fullUrl).toBe(`urn:uuid:${localId}`);
+    expect(post.resource.id).toBeUndefined();
+    expect(post.resource.meta.tag).toContainEqual(workingCopyTag);
+    const provenance = phase1.find((r: { url: string }) => r.url === '/Provenance');
+    expect(provenance.resource.target[0].reference).toBe(`urn:uuid:${localId}`);
+
+    // Phase 2: the claim PUT carries the created id — never the urn — and the new copy is not PUT.
+    const phase2 = transaction.mock.calls[1][0].requests;
+    const claimPut = phase2.find(
+      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    );
+    expect(claimPut.resource.provider).toEqual({
+      reference: 'Organization/copy-real-1',
+      display: 'New Billing Group',
+    });
+    expect(
+      phase2.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url.startsWith('Organization/'))
+    ).toBe(false);
+    // The model object itself now carries the created id, and the superseded old copy was left
+    // untouched (orphaned) — no request in either phase mentions it.
+    expect(model.billingProvider.id).toBe('copy-real-1');
+    const allRequests = [...phase1, ...phase2];
+    expect(allRequests.some((r: { url: string }) => r.url.includes('old-copy-1'))).toBe(false);
   });
 });
 

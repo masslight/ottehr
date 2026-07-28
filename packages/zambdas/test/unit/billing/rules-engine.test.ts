@@ -1,4 +1,4 @@
-import { Basic, Claim } from 'fhir/r4b';
+import { Basic, Claim, Location, Organization, Practitioner } from 'fhir/r4b';
 import {
   BillingRule,
   CLAIM_TAG_SYSTEM,
@@ -34,6 +34,7 @@ import {
   executeRule,
 } from '../../../src/billing/rules-engine/evaluator';
 import { buildRulesEngineKickoffTask, listToRules, rulesToList } from '../../../src/billing/rules-engine/serialization';
+import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG, SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
 const makeModel = (): RulesEngineClaimModel => ({
   claim: {
@@ -609,6 +610,114 @@ describe('service line actions', () => {
     const result = executeRule(rule, m);
     expect(result.held).toBe(true);
     expect(claimTags(m)).toContain(HOLD_TAG_NAME);
+  });
+});
+
+describe('provider/facility reference swap', () => {
+  it("reads the working copy's source reference; copies without one read as absent", () => {
+    const m = makeModel();
+    expect(readField(m, 'billingProvider.ref')).toBeUndefined();
+    m.billingProvider!.extension = [
+      { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Organization/org-src' } },
+    ];
+    expect(readField(m, 'billingProvider.ref')).toBe('Organization/org-src');
+    expect(readField(m, 'renderingProvider.ref')).toBeUndefined();
+    expect(readField(m, 'serviceFacility.ref')).toBeUndefined();
+  });
+
+  it('swaps the billing provider to a fresh working copy of the picked reference resource', () => {
+    const m = makeModel();
+    const original: Organization = {
+      resourceType: 'Organization',
+      id: 'org-new',
+      name: 'New Billing Group',
+      meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: 'billing' }] },
+    };
+    m.referenceResources = new Map([['Organization/org-new', original]]);
+
+    expect(writeField(m, 'billingProvider.ref', 'Organization/org-new')).toBe(true);
+
+    // The model slot holds a working copy of the original under a local placeholder id...
+    const copy = m.billingProvider!;
+    expect(copy).not.toBe(original);
+    expect(copy.name).toBe('New Billing Group');
+    expect(copy.id).toBeDefined();
+    expect(copy.id).not.toBe('org-new');
+    expect(copy.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
+    expect(copy.extension).toContainEqual({
+      url: SOURCE_IDENTIFIER_SYSTEM,
+      valueReference: { reference: 'Organization/org-new' },
+    });
+    expect(m.createdCopyIds?.has(copy.id!)).toBe(true);
+    // ...and the claim points at it through the temporary urn, with a display name.
+    expect(m.claim.provider).toEqual({ reference: `urn:uuid:${copy.id}`, display: 'New Billing Group' });
+
+    // Later rules see and edit the new copy — never the original reference resource.
+    expect(readField(m, 'billingProvider.ref')).toBe('Organization/org-new');
+    expect(writeField(m, 'billingProvider.lastName', 'Renamed Group')).toBe(true);
+    expect(copy.name).toBe('Renamed Group');
+    expect(original.name).toBe('New Billing Group');
+  });
+
+  it('re-points careTeam sequence 1 and every item when swapping the rendering provider', () => {
+    const m = makeModel();
+    m.claim.careTeam = [
+      { sequence: 1, provider: { reference: 'Practitioner/old-copy' } },
+      { sequence: 2, provider: { reference: 'Practitioner/referrer' } },
+    ];
+    m.claim.item![0].careTeamSequence = [2];
+    const original: Practitioner = {
+      resourceType: 'Practitioner',
+      id: 'doc-2',
+      name: [{ given: ['Nina'], family: 'Nguyen' }],
+      meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: 'rendering' }] },
+    };
+    m.referenceResources = new Map([['Practitioner/doc-2', original]]);
+
+    expect(writeField(m, 'renderingProvider.ref', 'Practitioner/doc-2')).toBe(true);
+
+    const copy = m.renderingProvider!;
+    const seq1 = m.claim.careTeam!.find((member) => member.sequence === 1)!;
+    expect(seq1.provider?.reference).toBe(`urn:uuid:${copy.id}`);
+    expect(seq1.provider?.display).toBeDefined();
+    expect(seq1.role?.coding?.[0]?.code).toBe('82');
+    // The other care-team member survives, and every item points at sequence 1 plus what it had.
+    expect(m.claim.careTeam).toHaveLength(2);
+    expect(m.claim.item?.[0]?.careTeamSequence).toEqual([1, 2]);
+  });
+
+  it('swaps the service facility and supersedes an earlier pending copy in the same run', () => {
+    const m = makeModel();
+    const facilityA: Location = { resourceType: 'Location', id: 'loc-a', name: 'Clinic A' };
+    const facilityB: Location = { resourceType: 'Location', id: 'loc-b', name: 'Clinic B' };
+    m.referenceResources = new Map([
+      ['Location/loc-a', facilityA],
+      ['Location/loc-b', facilityB],
+    ]);
+
+    expect(writeField(m, 'serviceFacility.ref', 'Location/loc-a')).toBe(true);
+    const firstCopyId = m.serviceFacility!.id!;
+    expect(writeField(m, 'serviceFacility.ref', 'Location/loc-b')).toBe(true);
+
+    expect(m.claim.facility?.reference).toBe(`urn:uuid:${m.serviceFacility!.id}`);
+    expect(m.claim.facility?.display).toBe('Clinic B');
+    // Only the surviving copy is pending creation — the superseded one must never be POSTed.
+    expect(m.createdCopyIds?.has(firstCopyId)).toBe(false);
+    expect(m.createdCopyIds?.size).toBe(1);
+  });
+
+  it('fails the write when the reference is missing, type-mismatched, or empty', () => {
+    const m = makeModel();
+    expect(writeField(m, 'billingProvider.ref', 'Organization/nope')).toBe(false); // nothing prefetched
+    m.referenceResources = new Map<string, Practitioner | Organization | Location>([
+      ['Location/loc-1', { resourceType: 'Location', id: 'loc-1', name: 'Clinic' }],
+      ['Practitioner/doc-1', { resourceType: 'Practitioner', id: 'doc-1' }],
+    ]);
+    expect(writeField(m, 'billingProvider.ref', 'Location/loc-1')).toBe(false); // a facility is not a provider
+    expect(writeField(m, 'serviceFacility.ref', 'Practitioner/doc-1')).toBe(false); // a provider is not a facility
+    expect(writeField(m, 'renderingProvider.ref', '')).toBe(false); // no "clear the provider"
+    expect(m.createdCopyIds).toBeUndefined();
+    expect(m.claim.provider).toEqual({});
   });
 });
 

@@ -74,7 +74,11 @@ export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
 // - list: the claim-side value is a list of codes (diagnosis codes, CPT codes, tags); use
 //   contains/notContains to test membership
 // - payer: a payer id chosen via the payer search
-export type RuleFieldValueType = 'string' | 'number' | 'date' | 'select' | 'list' | 'payer';
+// - provider: a provider reference resource ("Practitioner/<id>" or "Organization/<id>") chosen
+//   from the rendering/billing providers list (the def's providerRole picks which)
+// - facility: a service facility reference resource ("Location/<id>") chosen from the service
+//   facilities list
+export type RuleFieldValueType = 'string' | 'number' | 'date' | 'select' | 'list' | 'payer' | 'provider' | 'facility';
 
 export interface RuleFieldOption {
   value: string;
@@ -143,6 +147,9 @@ export interface RuleFieldDef {
   requiredOnSet?: boolean;
   // Docs: a short phrase rendered instead of enumerating a huge options list (states, POS codes).
   optionsDocNote?: string;
+  // provider-typed fields: which provider list the value is picked from (and, at save time, which
+  // role tag the referenced resource must carry).
+  providerRole?: 'rendering' | 'billing';
 }
 
 const SCALAR_OPS: RuleOperator[] = [
@@ -322,7 +329,23 @@ const personFields = (prefix: 'patient' | 'policyHolder', noun: string, settable
 // working copy; "last name" doubles as the organization name for organization providers.
 const providerFields = (prefix: 'renderingProvider' | 'billingProvider', noun: string): RuleFieldDef[] => {
   const group: RuleFieldGroup = prefix;
+  const role = prefix === 'renderingProvider' ? 'rendering' : 'billing';
   return [
+    {
+      id: `${prefix}.ref`,
+      label: 'Provider (from list)',
+      group,
+      valueType: 'provider',
+      operators: ENUM_OPS,
+      settable: true,
+      description:
+        `Which ${noun} the claim uses, as a reference resource from the ${
+          role === 'rendering' ? 'Rendering' : 'Billing'
+        } Providers page. Conditions compare against the resource the claim's current ${noun} was copied from; ` +
+        `setting it creates a fresh working copy of the chosen provider and re-points the claim — later rules read and edit the new copy.`,
+      requiredOnSet: true,
+      providerRole: role,
+    },
     {
       id: `${prefix}.npi`,
       label: 'NPI',
@@ -619,6 +642,18 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
   },
 
   // --- Service facility ---
+  {
+    id: 'serviceFacility.ref',
+    label: 'Facility (from list)',
+    group: 'serviceFacility',
+    valueType: 'facility',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      "Which service facility the claim uses, as a reference resource from the Service Facilities page. Conditions compare against the resource the claim's current facility was copied from; " +
+      'setting it creates a fresh working copy of the chosen facility and re-points the claim — later rules read and edit the new copy.',
+    requiredOnSet: true,
+  },
   {
     id: 'serviceFacility.name',
     label: 'Facility name',
@@ -920,6 +955,10 @@ const DATE_VALUE_PROBLEM = 'Must be an ISO date (YYYY-MM-DD)';
 const NUMBER_VALUE_PROBLEM = 'Must be a number';
 const VALUE_REQUIRED_PROBLEM = 'Value is required';
 
+// FHIR resource ids are 1-64 chars of letters, digits, '-' and '.'.
+const PROVIDER_REF_REGEX = /^(Practitioner|Organization)\/[A-Za-z0-9.-]{1,64}$/;
+const FACILITY_REF_REGEX = /^Location\/[A-Za-z0-9.-]{1,64}$/;
+
 // Strict single-value check against a def's options / valueType / format. Used for exact-match
 // condition values and written values; fragment operators bypass it (a partial NPI is legitimate).
 const strictValueProblem = (
@@ -931,6 +970,12 @@ const strictValueProblem = (
   }
   if (def.valueType === 'date' && !isoDateRegex.test(value)) return DATE_VALUE_PROBLEM;
   if (def.valueType === 'number' && !Number.isFinite(Number(value))) return NUMBER_VALUE_PROBLEM;
+  if (def.valueType === 'provider' && !PROVIDER_REF_REGEX.test(value)) {
+    return 'Must be a provider reference (Practitioner/<id> or Organization/<id>)';
+  }
+  if (def.valueType === 'facility' && !FACILITY_REF_REGEX.test(value)) {
+    return 'Must be a facility reference (Location/<id>)';
+  }
   if (def.format) return RULE_VALUE_FORMATS[def.format].validate?.(value);
   return undefined;
 };
@@ -1032,6 +1077,40 @@ export function collectApplyTagNames(rule: { conditional: RuleConditional }): st
   };
   visitConditional(rule.conditional);
   return names;
+}
+
+// The provider/facility reference values a rule's setField actions assign (deduped, in tree
+// order) — save-billing-rules verifies each referenced resource exists, and the engine prefetches
+// the originals so the (synchronous) writers can copy them.
+export interface SetResourceRef {
+  field: string;
+  ref: string;
+}
+
+export function collectSetResourceRefs(rule: { conditional: RuleConditional }): SetResourceRef[] {
+  const refs: SetResourceRef[] = [];
+  const seen = new Set<string>();
+  const visitOutcome = (outcome: RuleOutcome): void => {
+    if (outcome.type === 'actions') {
+      for (const action of outcome.actions) {
+        if (action.type !== 'setField') continue;
+        const def = CATALOG_BY_ID.get(action.field);
+        if (def?.valueType !== 'provider' && def?.valueType !== 'facility') continue;
+        const ref = action.value?.trim();
+        const key = `${action.field}|${ref}`;
+        if (!ref || seen.has(key)) continue;
+        seen.add(key);
+        refs.push({ field: action.field, ref });
+      }
+    }
+    if (outcome.type === 'conditional') visitConditional(outcome.conditional);
+  };
+  const visitConditional = (conditional: RuleConditional): void => {
+    for (const branch of conditional.branches) visitOutcome(branch.outcome);
+    if (conditional.otherwise) visitOutcome(conditional.otherwise);
+  };
+  visitConditional(rule.conditional);
+  return refs;
 }
 
 // ---------------------------------------------------------------------------
