@@ -51,11 +51,11 @@ import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
 import AddPatient from './pages/AddPatient';
-import AddSchedulePage from './pages/AddSchedulePage';
 import { AdminPage } from './pages/AdminPage';
 import AppointmentsPage from './pages/Appointments';
 import AddMedicationPage from './pages/configuration/AddMedicationPage';
 import UpdateMedicationPage from './pages/configuration/UpdateMedicationPage';
+import CreateProviderGroupPage from './pages/CreateProviderGroupPage';
 import CreateSchedulePage from './pages/CreateSchedulePage';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeeProfilePage from './pages/EmployeeProfilePage';
@@ -261,7 +261,7 @@ function App(): ReactElement {
                   <Route path="/admin/employees/add" element={<AddEmployeePage />} />
                   <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
                   <Route path="/admin/schedule/add" element={<CreateSchedulePage />} />
-                  <Route path="/admin/schedule/:schedule-type/add" element={<AddSchedulePage />} />
+                  <Route path="/admin/provider-groups/add" element={<CreateProviderGroupPage />} />
                   <Route path="/admin/group/id/:group-id" element={<GroupPage />} />
                   <Route path="/admin/schedule/id/:schedule-id" element={<SchedulePage />} />
                   <Route path="/admin/locations/:location-id" element={<LocationConfigPage />} />

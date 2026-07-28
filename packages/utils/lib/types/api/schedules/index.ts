@@ -85,6 +85,50 @@ export interface ListScheduleOwnersResponse {
   list: SchedulesAndOwnerListItem[];
 }
 
+/**
+ * A row in the Provider groups list — a HealthcareService booking pool. Summarizes
+ * the two things that define a group: WHO it pools (all active providers, or the
+ * providers at specific locations) and WHAT services can be booked through it.
+ */
+export interface ProviderGroupListItem {
+  id: string;
+  name: string;
+  /** HealthcareService.active. */
+  active: boolean;
+  /** SLUG_SYSTEM identifier, for the booking link. */
+  slug?: string;
+  /** True when the group pools from every active provider (the `allLocations` lever). */
+  poolsAllProviders: boolean;
+  /** Names of the locations the group pools from — empty when `poolsAllProviders`. */
+  locationNames: string[];
+  /** Distinct active providers currently in the pool. */
+  providerCount: number;
+  /**
+   * Display names of the service categories bookable through the group (its
+   * `type[]` allow-list). Empty means the group does not restrict services —
+   * render as "All services".
+   */
+  serviceLabels: string[];
+}
+
+export interface ListProviderGroupsResponse {
+  groups: ProviderGroupListItem[];
+}
+
+export interface ToggleGroupActiveParams {
+  groupId: string;
+  /** `true` → active, `false` → inactive (archived; drops out of booking). */
+  active: boolean;
+}
+
+export interface CreateProviderGroupParams {
+  name: string;
+  /** True → pool every active provider (`.location[]` left empty). */
+  allLocations: boolean;
+  /** Locations to pool from when `allLocations` is false. */
+  locationIds?: string[];
+}
+
 export interface GetScheduleByIdParams {
   scheduleId: string;
 }

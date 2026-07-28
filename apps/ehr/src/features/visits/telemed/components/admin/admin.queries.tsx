@@ -11,7 +11,6 @@ import {
   adminUpdateInHouseLab,
   adminUpdateLabelPrintingConfig,
   adminUpdateLabSet,
-  adminUpdateLocationSupportPhones,
   adminUpdateSupportDialog,
   bulkUpdateInsuranceStatus,
   createEmCode,
@@ -47,7 +46,6 @@ import {
   AdminListInHouseLabsOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
-  AdminUpdateLocationSupportPhonesInput,
   AdminUpdatePrintingConfigInput,
   AdminUpdateSupportDialogInput,
   APIError,
@@ -652,33 +650,6 @@ export const useAdminUpdateSupportDialog = (): UseMutationResult<void, Error, Ad
     onError: (error: any) => {
       safelyCaptureException(error);
       let message = 'Failed to update support dialog.';
-      if (isApiError(error)) message = (error as APIError).message;
-      enqueueSnackbar(message, { variant: 'error' });
-    },
-  });
-};
-
-export const useAdminUpdateLocationSupportPhones = (): UseMutationResult<
-  void,
-  Error,
-  AdminUpdateLocationSupportPhonesInput
-> => {
-  const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: ['admin-update-location-support-phones'],
-    mutationFn: async (input: AdminUpdateLocationSupportPhonesInput) => {
-      if (!oystehrZambda) throw new Error('oystehr client is undefined');
-      await adminUpdateLocationSupportPhones(oystehrZambda, input);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['schedule-list'] });
-      enqueueSnackbar('Support phone numbers updated', { variant: 'success' });
-    },
-    onError: (error: any) => {
-      safelyCaptureException(error);
-      let message = 'Failed to update support phone numbers.';
       if (isApiError(error)) message = (error as APIError).message;
       enqueueSnackbar(message, { variant: 'error' });
     },

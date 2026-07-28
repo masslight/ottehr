@@ -7,6 +7,7 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
+import Groups2OutlinedIcon from '@mui/icons-material/Groups2Outlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
@@ -36,6 +37,7 @@ import SupportDialogAdminPage from 'src/features/visits/telemed/components/admin
 import AdminCustomFoldersPage from 'src/pages/AdminCustomFoldersPage';
 import MedicationsConfigurationPage from 'src/pages/configuration/MedicationsConfiguration';
 import EmployeesPage, { EmployeeTypes } from 'src/pages/Employees';
+import ProviderGroupsPage from 'src/pages/ProviderGroupsPage';
 import { InvoiceablePatients } from 'src/pages/reports/index';
 import SchedulesPage from 'src/pages/Schedules';
 import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
@@ -74,7 +76,7 @@ export interface AdminNavGroup {
 
 export const adminNavGroups: AdminNavGroup[] = [
   {
-    label: 'Services & Locations',
+    label: 'Practice',
     items: [
       {
         label: 'Services',
@@ -87,6 +89,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/schedules',
         icon: <CalendarMonthOutlinedIcon />,
         render: () => <SchedulesPage />,
+      },
+      {
+        label: 'Provider groups',
+        path: '/admin/provider-groups',
+        icon: <Groups2OutlinedIcon />,
+        render: () => <ProviderGroupsPage />,
       },
       {
         label: 'Locations',

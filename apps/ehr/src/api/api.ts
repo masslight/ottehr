@@ -22,7 +22,6 @@ import {
   AdminRenameTemplateOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateLabSetInput,
-  AdminUpdateLocationSupportPhonesInput,
   AdminUpdatePrintingConfigInput,
   AdminUpdateSupportDialogInput,
   AiAssistedEncountersReportZambdaInput,
@@ -76,6 +75,7 @@ import {
   CreatePatientInstructionQuickPickResponse,
   CreateProcedureQuickPickInput,
   CreateProcedureQuickPickResponse,
+  CreateProviderGroupParams,
   CreateQuickTextQuickPickInput,
   CreateQuickTextQuickPickResponse,
   CreateRadiologyQuickPickInput,
@@ -163,6 +163,7 @@ import {
   InsuranceQuickPickData,
   InviteParticipantRequestParameters,
   LabelPdf,
+  ListProviderGroupsResponse,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   ListTemplatesZambdaInput,
@@ -217,6 +218,7 @@ import {
   SubmitLabOrderInput,
   SubmitLabOrderOutput,
   SyncMailedStatementStatusesOutput,
+  ToggleGroupActiveParams,
   ToggleLocationActiveParams,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
@@ -299,11 +301,14 @@ const UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID = 'update-lab-order-resources';
 const EHR_GET_SCHEDULE_ZAMBDA_ID = 'ehr-get-schedule';
 const UPDATE_SCHEDULE_ZAMBDA_ID = 'update-schedule';
 const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = 'list-schedule-owners';
+const LIST_PROVIDER_GROUPS_ZAMBDA_ID = 'list-provider-groups';
 const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
 const CREATE_LOCATION_ZAMBDA_ID = 'create-location';
 const GET_LOCATION_ZAMBDA_ID = 'get-location';
 const UPDATE_LOCATION_ZAMBDA_ID = 'update-location';
 const TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID = 'toggle-location-active';
+const TOGGLE_GROUP_ACTIVE_ZAMBDA_ID = 'toggle-group-active';
+const ADMIN_CREATE_GROUP_ZAMBDA_ID = 'admin-create-group';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID = 'create-in-house-lab-order';
 const GET_IN_HOUSE_ORDERS_ZAMBDA_ID = 'get-in-house-orders';
@@ -357,7 +362,6 @@ const GENERATE_LABEL_XML_ZAMBDA_ID = 'generate-label-xml';
 const GET_SUPPORT_DIALOG_ZAMBDA_ID = 'get-support-dialog';
 const GET_PUBLIC_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'get-public-location-support-phones';
 const ADMIN_UPDATE_SUPPORT_DIALOG_ZAMBDA_ID = 'admin-update-support-dialog';
-const ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID = 'admin-update-location-support-phones';
 const ADMIN_GET_LAB_SETS = 'admin-get-lab-sets';
 const ADMIN_ADD_LAB_SET = 'admin-add-lab-set';
 const ADMIN_UPDATE_LAB_SET_ZAMBDA_ID = 'admin-update-lab-set';
@@ -953,6 +957,11 @@ export const listScheduleOwners = async (
   }
 };
 
+export const listProviderGroups = async (oystehr: Oystehr): Promise<ListProviderGroupsResponse> => {
+  const response = await oystehr.zambda.execute({ id: LIST_PROVIDER_GROUPS_ZAMBDA_ID });
+  return chooseJson(response);
+};
+
 export const getSchedule = async (params: GetScheduleParams, oystehr: Oystehr): Promise<ScheduleDTO> => {
   try {
     if (EHR_GET_SCHEDULE_ZAMBDA_ID == null) {
@@ -1022,6 +1031,22 @@ export const toggleLocationActive = async (
   oystehr: Oystehr
 ): Promise<{ id: string; status: string }> => {
   const response = await oystehr.zambda.execute({ id: TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const toggleGroupActive = async (
+  params: ToggleGroupActiveParams,
+  oystehr: Oystehr
+): Promise<{ id: string; active: boolean }> => {
+  const response = await oystehr.zambda.execute({ id: TOGGLE_GROUP_ACTIVE_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const createProviderGroup = async (
+  params: CreateProviderGroupParams,
+  oystehr: Oystehr
+): Promise<HealthcareService> => {
+  const response = await oystehr.zambda.execute({ id: ADMIN_CREATE_GROUP_ZAMBDA_ID, ...params });
   return chooseJson(response);
 };
 
@@ -2248,21 +2273,6 @@ export const adminUpdateSupportDialog = async (
   try {
     await oystehr.zambda.execute({
       id: ADMIN_UPDATE_SUPPORT_DIALOG_ZAMBDA_ID,
-      ...parameters,
-    });
-  } catch (error: unknown) {
-    console.log(error);
-    throw apiErrorToThrow(error);
-  }
-};
-
-export const adminUpdateLocationSupportPhones = async (
-  oystehr: Oystehr,
-  parameters: AdminUpdateLocationSupportPhonesInput
-): Promise<void> => {
-  try {
-    await oystehr.zambda.execute({
-      id: ADMIN_UPDATE_LOCATION_SUPPORT_PHONES_ZAMBDA_ID,
       ...parameters,
     });
   } catch (error: unknown) {
