@@ -558,6 +558,34 @@ export async function commitClaimMetaTagsWithProvenance(
   await oystehr.fhir.transaction<FhirResource>({ requests });
 }
 
+export async function addErrorProvenanceForClaimSubmission(
+  oystehr: Oystehr,
+  claim: Claim,
+  error: Error,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const claimReference = `Claim/${claim.id}`;
+  const recorded = recordedNow();
+  const provenance = claimProvenanceRequest({
+    targetReference: claimReference,
+    claimReference,
+    extraChanges: [
+      {
+        field: 'error',
+        label: 'Error',
+        previousValue: null,
+        newValue: error.message,
+      },
+    ],
+    activity: 'submit',
+    agent,
+    recorded,
+    priorVersionReference: versionedReference(claim),
+  });
+  if (!provenance) throw new Error('Error provenance unexpectedly null');
+  await oystehr.fhir.transaction<FhirResource>({ requests: [provenance] });
+}
+
 /**
  * Set (or clear) one claim-status field and record the change, atomically. The provenance-aware
  * counterpart of shared.ts#buildUpdatedClaimStatusTags, used by every endpoint that moves a claim's
