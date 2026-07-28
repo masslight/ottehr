@@ -782,6 +782,7 @@
       "description": "Please select another time",
       "title": "Sorry, the selected time is no longer available"
     },
+    "noSlotsForDate": "No available times on this date. Please select another date.",
     "officeClosed": {
       "today": "So sorry! Due to unforeseen circumstances, this office is closed today. Check out our convenient telemedicine option to connect with a {{PROJECT_NAME}} expert from the comfort of home OR click the 'tomorrow' button to view available slots for tomorrow.",
       "todayOrTomorrow": "So sorry! This office does not have any available prebook times today or tomorrow, but we've got you covered! Check out our convenient telemedicine option to connect with a {{PROJECT_NAME}} expert from the comfort of home."

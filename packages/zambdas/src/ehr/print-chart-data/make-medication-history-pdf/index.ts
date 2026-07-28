@@ -21,8 +21,8 @@ import { PdfRenderConfig, renderPdf, StyleFactory } from '../../../shared/pdf/pd
 import { PdfInfo, rgbNormalized } from '../../../shared/pdf/pdf-utils';
 import {
   composeVisitData,
+  createCompactPatientHeader,
   createMedicationsSectionForDischargeSummary,
-  createPatientHeaderForDischargeSummary,
   createVisitInfoSection,
 } from '../../../shared/pdf/sections';
 import { AssetPaths, MedicationHistoryInput, PatientInfoForDischargeSummary } from '../../../shared/pdf/types';
@@ -261,7 +261,7 @@ const styles: StyleFactory = (assets) => ({
 const medicationHistoryRenderConfig: PdfRenderConfig<MedicationHistoryInput> = {
   header: {
     title: 'Medication History',
-    leftSection: createPatientHeaderForDischargeSummary(),
+    leftSection: createCompactPatientHeader(),
     rightSection: createVisitInfoSection(),
   },
   headerBodySeparator: true,

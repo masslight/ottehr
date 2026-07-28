@@ -22,7 +22,7 @@ import {
 import { ExternalLabDetailPage } from 'tests/e2e/page/lab/external/ExternalLabDetailPage';
 import { ExternalLabsPage } from 'tests/e2e/page/lab/external/ExternalLabsPage';
 import { MOCK_LAB_RESULTS } from 'tests/e2e/page/lab/external/mock-data';
-import inHouseLabsMockData from 'tests/e2e/page/lab/in-house/mock-data.json' assert { type: 'json' };
+import { MOCK_E2E_AD_TAG, MOCK_INHOUSE_LAB_DATA } from 'tests/e2e/page/lab/in-house/mock-data';
 import { LabelPrintingConfigAdminPage } from 'tests/e2e/page/LabelPrintingConfigAdminPage';
 import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
 import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
@@ -262,11 +262,50 @@ test.describe('In-house labs page', async () => {
   let mockLabSetListId: string = 'unknown';
   let reflexTest: MockReflexTestConfig;
 
+  async function cleanupLeftoverInHouseLabsMocks(): Promise<void> {
+    try {
+      const oystehr = await resourceHandler.apiClient;
+
+      const leftOverActivityDefinitions = (
+        await oystehr.fhir.search<ActivityDefinition>({
+          resourceType: 'ActivityDefinition',
+          params: [{ name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` }],
+        })
+      ).unbundle();
+
+      const leftOverLists = (
+        await oystehr.fhir.search<List>({
+          resourceType: 'List',
+          params: [{ name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` }],
+        })
+      ).unbundle();
+
+      const leftoverRefs = [...leftOverActivityDefinitions, ...leftOverLists]
+        .filter((resource): resource is (ActivityDefinition | List) & { id: string } => !!resource.id)
+        .map((resource) => `${resource.resourceType}/${resource.id}`);
+
+      if (leftoverRefs.length) {
+        console.warn(
+          `Found ${
+            leftoverRefs.length
+          } leftover in-house labs mock resource(s) from a prior run; deleting: ${leftoverRefs.join(', ')}`
+        );
+        await oystehr.fhir.batch({
+          requests: leftoverRefs.map((ref) => ({ method: 'DELETE', url: ref })),
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to self-heal leftover in-house labs mock resources (best-effort):', error);
+    }
+  }
+
   test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
+    await cleanupLeftoverInHouseLabsMocks();
+
     const adRequests: BatchInputPostRequest<ActivityDefinition>[] = [];
 
     // standard + repeatable tests
-    inHouseLabsMockData.activityDefinitions.forEach((ad) => {
+    MOCK_INHOUSE_LAB_DATA.activityDefinitions.forEach((ad) => {
       const fhirActivityDefinition = ad as ActivityDefinition;
       const testItem = convertActivityDefinitionToDataEntryTestItem(fhirActivityDefinition);
 
@@ -297,7 +336,7 @@ test.describe('In-house labs page', async () => {
     });
 
     // reflex test
-    const { parentTest, childTest } = inHouseLabsMockData.reflexTest;
+    const { parentTest, childTest } = MOCK_INHOUSE_LAB_DATA.reflexTest;
 
     const parentTestItem = convertActivityDefinitionToDataEntryTestItem(
       parentTest.activityDefinition as ActivityDefinition
@@ -335,7 +374,7 @@ test.describe('In-house labs page', async () => {
     });
 
     // lab set
-    const listRequests = inHouseLabsMockData.lists.map((list) => {
+    const listRequests = MOCK_INHOUSE_LAB_DATA.lists.map((list) => {
       return {
         method: 'POST' as const,
         url: 'List',
@@ -356,13 +395,19 @@ test.describe('In-house labs page', async () => {
 
   test.afterAll('Deleting all ActivityDefinition and List resources used in in-house lab tests', async () => {
     if (mockResourceIds.length) {
-      const oystehr = await resourceHandler.apiClient;
-      await oystehr.fhir.batch({
-        requests: mockResourceIds.map((ref) => ({
-          method: 'DELETE' as const,
-          url: ref,
-        })),
-      });
+      try {
+        const oystehr = await resourceHandler.apiClient;
+        await oystehr.fhir.batch({
+          requests: mockResourceIds.map((ref) => ({
+            method: 'DELETE' as const,
+            url: ref,
+          })),
+        });
+      } catch (error) {
+        // Best-effort cleanup; a failure here shouldn't fail the suite. Any leftovers are
+        // picked up by cleanupLeftoverInHouseLabsMocks() on the next run.
+        console.warn('Failed to clean up in-house labs mock resources (best-effort):', error);
+      }
     }
   });
 

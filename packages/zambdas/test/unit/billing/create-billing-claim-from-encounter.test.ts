@@ -668,28 +668,6 @@ describe('create-billing-claim-from-encounter', () => {
         expectedError: FHIR_RESOURCE_NOT_FOUND('Procedure'),
       },
       {
-        name: 'throws error when coverage does not exist',
-        clinicalOystehrSearch: vi
-          .fn()
-          .mockResolvedValueOnce({
-            unbundle: () => [
-              clinicalResources.encounter,
-              clinicalResources.patient,
-              clinicalResources.appointment,
-              clinicalResources.location,
-              clinicalResources.practitioner,
-              clinicalResources.account,
-              ...clinicalResources.conditions,
-              clinicalResources.procedure,
-            ],
-          })
-          .mockResolvedValueOnce({ unbundle: () => [] }),
-        billingOystehrSearch: vi.fn().mockResolvedValueOnce({
-          unbundle: () => [],
-        }),
-        expectedError: FHIR_RESOURCE_NOT_FOUND('Coverage'),
-      },
-      {
         name: 'throws error when coverage does not have payor',
         clinicalOystehrSearch: vi
           .fn()
@@ -950,6 +928,91 @@ describe('create-billing-claim-from-encounter', () => {
         },
       },
       {
+        name: 'filters out fake 00000 payer coverages',
+        clinicalOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              clinicalResources.encounter,
+              clinicalResources.patient,
+              clinicalResources.appointment,
+              clinicalResources.location,
+              clinicalResources.practitioner,
+              clinicalResources.account,
+              ...clinicalResources.conditions,
+              clinicalResources.procedure,
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [
+              {
+                ...clinicalResources.coverage,
+                payor: [{ reference: new Oystehr({}).rcm.constructPayerUrl({ id: '00000' }) }],
+              },
+            ],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [clinicalResources.billingProvider],
+          }),
+        billingOystehrSearch: vi
+          .fn()
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          })
+          .mockResolvedValueOnce({
+            unbundle: () => [],
+          }),
+        secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' },
+        expectedError: null,
+        expectedResult: {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [],
+            diagnoses: [clinicalResources.conditions[1], clinicalResources.conditions[0]],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [],
+            billingProvider: undefined,
+            coverages: [],
+            mainPatient: undefined,
+            person: undefined,
+            practitioners: [],
+            renderingProvider: undefined,
+            serviceFacility: undefined,
+            subscribers: [],
+            autoAccidentTag: undefined,
+            billingService: undefined,
+            chargeMaster: undefined,
+          },
+        },
+      },
+      {
         name: 'succeeds with empty patient account and no found billing resources',
         clinicalOystehrSearch: vi
           .fn()
@@ -1120,7 +1183,11 @@ describe('create-billing-claim-from-encounter', () => {
         complexValidation(
           {
             fhir: { search: tc.clinicalOystehrSearch },
-            rcm: { getPayerByUrl: vi.fn().mockResolvedValue(oystehrResources.payor) },
+            rcm: {
+              config: {},
+              getPayerByUrl: vi.fn().mockResolvedValue(oystehrResources.payor),
+              constructPayerUrl: new Oystehr({}).rcm.constructPayerUrl,
+            },
           } as unknown as Oystehr,
           { fhir: { search: tc.billingOystehrSearch } } as unknown as Oystehr,
           { encounterId, secrets: tc.secrets ?? {} }

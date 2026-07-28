@@ -22,6 +22,7 @@ import {
   composeVitalsForDischargeSummary,
   composeWorkSchoolExcuseSection,
   createAllergiesSectionForDischargeSummary,
+  createCompactPatientHeader,
   createDiagnosesSection,
   createDispositionSection,
   createEducationalDocumentsSection,
@@ -30,7 +31,6 @@ import {
   createInHouseLabsSection,
   createInHouseMedicationsSectionForDischargeSummary,
   createMedicationsSectionForDischargeSummary,
-  createPatientHeaderForDischargeSummary,
   createPatientInstructionsSection,
   createPhysicianSection,
   createProceduresSection,
@@ -151,7 +151,7 @@ const createDischargeSummaryStyles: StyleFactory = (assets) => ({
 const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
   header: {
     title: 'DISCHARGE SUMMARY',
-    leftSection: createPatientHeaderForDischargeSummary(),
+    leftSection: createCompactPatientHeader(),
     rightSection: createVisitInfoSection(),
   },
   headerBodySeparator: true,

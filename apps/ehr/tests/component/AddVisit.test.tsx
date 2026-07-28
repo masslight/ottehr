@@ -536,27 +536,21 @@ describe('AddVisit', () => {
     });
   });
 
-  // OTR-2721: When staff pick a service that doesn't offer walk-in and then
-  // try to pick a walk-in visit type, the old form silently substituted the
-  // service to the first walk-in-compatible one (Acne Facial in the reporter's
-  // repro). The fix filters the Visit Type dropdown by the picked service so
-  // unsupported modalities aren't offered in the first place.
-  describe('Service Category ↔ Visit Type coupling (OTR-2721)', () => {
-    const walkInInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonWalkIn)?.label;
-    const prebookInPersonLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.InPersonPreBook)
-      ?.label;
-    const virtualScheduledLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualScheduled)
-      ?.label;
-    const virtualOnDemandLabel = BOOKING_CONFIG.ehrBookingOptions.find((o) => o.id === VisitType.VirtualOnDemand)
-      ?.label;
-
-    // FHIR-sourced categories go through the strict path in
-    // serviceCategorySupportsContext: empty arrays = "supports nothing". So
-    // tagging visitTypes:['prebook'] here excludes walk-in and lets us test
-    // the filter behavior without adding new BOOKING_CONFIG entries. Kept
-    // in-person-only so the virtual visit types drop out on the mode axis
-    // (rather than accidentally passing the empty-arrays-supports-all
-    // BOOKING_CONFIG rule).
+  // The Visit Type dropdown is authoritative from BOOKING_CONFIG.ehrBookingOptions and
+  // must show the full staff-facing catalog regardless of which service category is picked.
+  // An earlier iteration (OTR-2721) filtered visit types through the patient-side capability
+  // helper (serviceModes/visitTypes), which collapsed the EHR options to the patient-bookable
+  // subset — a category not tagged for walk-in / on-demand / post-telemed silently hid those
+  // configured EHR options. Compatibility is instead enforced on the service-category side and
+  // at submit, so these tests assert the visit-type list is never trimmed by the picked category.
+  describe('Visit Type dropdown is not filtered by Service Category', () => {
+    // A deliberately restrictive FHIR category: in-person + prebook only. FHIR
+    // categories take the strict path in serviceCategorySupportsContext (empty
+    // arrays = "supports nothing"), so this is the tightest category a project
+    // can produce — the exact shape that previously trimmed the visit-type list.
+    // We use it to prove the opposite now holds: the Visit Type dropdown still
+    // offers every configured ehrBookingOptions entry (walk-in, post-telemed, and
+    // both virtual modes) despite the category supporting none of them.
     const prebookOnlyFhirCategory = {
       id: 'fhir-svc-prebook-only',
       name: 'Crystal Therapy (Test)',
@@ -634,12 +628,11 @@ describe('AddVisit', () => {
       await user.click(option);
     };
 
-    it('filters the Visit Type dropdown to only modalities the picked Service Category supports', async () => {
-      // With a prebook-only in-person FHIR service picked, walk-in and both
-      // virtual options must drop out of the Visit Type dropdown. This is the
-      // "option (b)" fix from OTR-2721: hide the incompatible modalities up
-      // front so staff never reach the state where the old code silently
-      // swapped the service.
+    it('shows the full ehrBookingOptions list even when the picked Service Category is restrictive', async () => {
+      // With a prebook-only, in-person-only FHIR service picked, the Visit Type
+      // dropdown must still offer every configured EHR booking option — walk-in,
+      // post-telemed, and both virtual modes included. ehrBookingOptions is the
+      // staff catalog and is not narrowed to what the category exposes to patients.
       const user = userEvent.setup();
       render(
         <TestProviders>
@@ -653,27 +646,12 @@ describe('AddVisit', () => {
       await openVisitTypeDropdown(user);
 
       const listbox = await screen.findByRole('listbox');
-      // Each check is guarded on the label existing in the profile's
-      // ehrBookingOptions — some profiles omit virtual entirely (anycare,
-      // umc) or offer only walk-in (pedi-q). A visit type the profile
-      // doesn't offer at all is trivially absent from the filtered list;
-      // asserting against `undefined` would throw before the meaningful
-      // check even runs.
-      //
-      // Prebook + PostTelemed (in-person, visitCtx undefined → passes the
-      // visit-type dimension with any non-empty tag list) survive the filter.
-      if (prebookInPersonLabel) {
-        expect(within(listbox).getByText(prebookInPersonLabel)).toBeInTheDocument();
-      }
-      // Walk-in (in-person + walk-in) and the two virtual modes are excluded.
-      if (walkInInPersonLabel) {
-        expect(within(listbox).queryByText(walkInInPersonLabel)).not.toBeInTheDocument();
-      }
-      if (virtualScheduledLabel) {
-        expect(within(listbox).queryByText(virtualScheduledLabel)).not.toBeInTheDocument();
-      }
-      if (virtualOnDemandLabel) {
-        expect(within(listbox).queryByText(virtualOnDemandLabel)).not.toBeInTheDocument();
+      // Assert against the profile's actual ehrBookingOptions so this stays
+      // correct across profiles that omit virtual entirely (anycare, umc) or
+      // offer only walk-in (pedi-q): every option the profile configures must
+      // be present regardless of the restrictive category pick.
+      for (const option of BOOKING_CONFIG.ehrBookingOptions) {
+        expect(within(listbox).getByText(option.label)).toBeInTheDocument();
       }
     });
 

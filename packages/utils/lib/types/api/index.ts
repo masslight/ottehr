@@ -17,6 +17,7 @@ export * from './practice-kpis-report.types';
 export * from './visits-overview-report.types';
 export * from './user-activation.types';
 export * from './encounter.types';
+export * from './action-logs.types';
 export * from './get-appointments.types';
 export * from './get-employees';
 export * from './get-conversation.types';

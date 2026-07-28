@@ -18,6 +18,29 @@ const DISPLAY_FORMAT = 'MM/dd/yyyy';
 const INCOMPLETE_RANGE_MESSAGE = 'Both start and end dates are required.';
 const RANGE_ORDER_MESSAGE = 'Start date must be on or before end date.';
 
+// MUI's range calendar omits the standard month indicator and scales its day buttons to overlap
+// the range-preview border. Restore the shared visual treatment without changing range behavior,
+// colors, or the calendar's reserved six-week height.
+const RANGE_CALENDAR_SX = {
+  '& .MuiPickersCalendarHeader-labelContainer': {
+    cursor: 'default',
+    '&::after': {
+      borderLeft: '5px solid transparent',
+      borderRight: '5px solid transparent',
+      borderTop: '5px solid currentColor',
+      content: '""',
+      display: 'inline-block',
+      marginLeft: 0.5,
+    },
+  },
+  '& .MuiDateRangePickerDay-day': {
+    transform: 'none !important',
+    '& > *': {
+      transform: 'none !important',
+    },
+  },
+} as const;
+
 // Both sides parse in UTC so the day count is deterministic (24h/day) and matches how the
 // get-appointments zambda validates its cap server-side.
 const exceedsMaxRange = (dateFrom: string, dateTo: string, maxRangeDays: number): boolean =>
@@ -186,6 +209,7 @@ export const DateRangeInput: React.FC<Props> = ({
           {rangeMode ? (
             <DateRangeCalendar
               calendars={1}
+              sx={RANGE_CALENDAR_SX}
               value={pendingRange}
               onChange={handleRangeChange}
               rangePosition={rangePosition}

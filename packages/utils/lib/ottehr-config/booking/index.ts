@@ -376,6 +376,9 @@ export interface BookingConfig {
   formConfig: QuestionnaireConfigType;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
   defaultWalkinLocationName?: string;
+  // Months ahead the prebook "Other dates" calendar allows selecting a date.
+  // Optional; consumers default to DEFAULT_PREBOOK_MAX_MONTHS_AHEAD when unset.
+  prebookMaxMonthsAhead?: number;
   // Questionnaire-related fields used for building the form
   FormFields?: Record<string, unknown>;
   questionnaireBase?: QuestionnaireBase;

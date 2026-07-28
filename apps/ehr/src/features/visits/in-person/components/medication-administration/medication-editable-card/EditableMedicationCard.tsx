@@ -22,6 +22,7 @@ import {
   updateInHouseMedicationQuickPick,
 } from 'src/api/api';
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ERX, ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -31,6 +32,7 @@ import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { sortQuickPicks, useMergedInHouseMedicationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
+import { useInHouseMedicationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
 import {
   computeBillableUnits,
   ExtendedMedicationDataForResponse,
@@ -48,11 +50,9 @@ import {
   RoleType,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { useReactNavigationBlocker } from '../../../../shared/hooks/useReactNavigationBlocker';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
-import { ROUTER_PATH, routesInPerson } from '../../../routing/routesInPerson';
 import { InPersonModal } from '../../InPersonModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { interactionsSummary } from '../util';
@@ -97,6 +97,10 @@ export const EditableMedicationCard: React.FC<{
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const { mappedData, resources } = useAppointmentData();
   const selectsOptions = useFieldsSelectsOptions();
+  const encounterId = resources.encounter?.id ?? '';
+  const isCreating = typeFromProps === 'order-new';
+  const { setDraft, clearDraft, hasDraft, getDraft } = useInHouseMedicationOrderStore();
+  const draft = getDraft(encounterId);
   const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
   const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
   const { oystehr, oystehrZambda } = useApiClients();
@@ -128,8 +132,12 @@ export const EditableMedicationCard: React.FC<{
           ...medicationExtendedToMedicationData(medication),
           ...getInitialAutoFilledFields(medication, autoFilledFieldsRef),
         }
+      : isCreating && draft
+      ? draft
       : {}
   );
+  const localValuesRef = useRef(localValues);
+  localValuesRef.current = localValues;
 
   const { updateMedication, getMedicationFieldValue, getIsMedicationEditable, deleteMedication } =
     useMedicationManagement();
@@ -142,6 +150,19 @@ export const EditableMedicationCard: React.FC<{
   const [isDeleting, setIsDeleting] = useState(false);
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
+  useMarkDraftNavigatedAway({ encounterId: isCreating ? encounterId : '', setDraft, hasDraft });
+
+  const handleBack = (): void => {
+    if (isCreating && encounterId) clearDraft(encounterId);
+    navigate(getInHouseMedicationMARUrl(appointmentId!));
+  };
+
+  const handleClearForm = (): void => {
+    clearDraft(encounterId);
+    wasProvidedByFieldTouched.current = false;
+    setLocalValues({});
+  };
 
   const handleUnsavedStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
     isSavedRef.current = false;
@@ -182,11 +203,9 @@ export const EditableMedicationCard: React.FC<{
     value: MedicationData[Field]
   ): void => {
     isSavedRef.current = false;
-    if (field === 'dose') {
-      setLocalValues((prev) => ({ ...prev, [field]: Number(value) }));
-    } else {
-      setLocalValues((prev) => ({ ...prev, [field]: value }));
-    }
+    const newValues = { ...localValues, [field]: field === 'dose' ? Number(value) : value };
+    setLocalValues(newValues);
+    if (isCreating && encounterId) setDraft(encounterId, newValues);
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
       setErxEnabled(true);
     }
@@ -200,17 +219,19 @@ export const EditableMedicationCard: React.FC<{
       const medicationId: string | undefined =
         (quickPick.ndc && ndcToMedicationId?.[quickPick.ndc]) ??
         (quickPick.dosespotId != null ? medispanCodeToMedicationId?.[String(quickPick.dosespotId)] : undefined);
-      setLocalValues((prev) => ({
-        ...prev,
+      const newValues: Partial<MedicationData> = {
+        ...localValuesRef.current,
         medicationId,
         ...(quickPick.dose != null && { dose: quickPick.dose }),
         ...(quickPick.units != null && { units: quickPick.units }),
         ...(quickPick.route != null && { route: quickPick.route }),
         ...(quickPick.instructions != null && { instructions: quickPick.instructions }),
-      }));
+      };
+      setLocalValues(newValues);
+      if (isCreating && encounterId) setDraft(encounterId, newValues);
       if (isOrderType) setErxEnabled(true);
     },
-    [selectsOptions.medicationId, isOrderType]
+    [selectsOptions.medicationId, isOrderType, isCreating, encounterId, setDraft]
   );
 
   const handleFhirQuickPickSelect = useCallback(
@@ -221,8 +242,8 @@ export const EditableMedicationCard: React.FC<{
         resolvedMedicationId = selectsOptions.medicationId.options.find((o) => o.label === quickPick.medicationName)
           ?.value;
       }
-      setLocalValues((prev) => ({
-        ...prev,
+      const newValues: Partial<MedicationData> = {
+        ...localValuesRef.current,
         ...(resolvedMedicationId && { medicationId: resolvedMedicationId }),
         dose: quickPick.dose,
         units: quickPick.units,
@@ -236,11 +257,13 @@ export const EditableMedicationCard: React.FC<{
         ndc: quickPick.ndc,
         expDate: quickPick.expDate,
         cptCodes: quickPick.cptCodes ?? [],
-      }));
+      };
+      setLocalValues(newValues);
+      if (isCreating && encounterId) setDraft(encounterId, newValues);
       // Only enable ERX on order pages — the ERX component isn't rendered for dispense/completed-edit
       if (resolvedMedicationId && isOrderType) setErxEnabled(true);
     },
-    [isOrderType, selectsOptions.medicationId.options]
+    [isOrderType, selectsOptions.medicationId.options, isCreating, encounterId, setDraft]
   );
 
   const commandPaletteItems = useMemo(() => {
@@ -441,6 +464,7 @@ export const EditableMedicationCard: React.FC<{
 
       await updateMedication(medicationUpdateRequestInputRefRef.current);
       isSavedRef.current = true;
+      if (isCreating && encounterId) clearDraft(encounterId);
 
       if (newStatus) {
         setCurrentStatus(newStatus);
@@ -501,15 +525,6 @@ export const EditableMedicationCard: React.FC<{
     interactionsCheckState.interactions
   );
 
-  const isEditOrderPage = location.pathname.includes(
-    routesInPerson[ROUTER_PATH.IN_HOUSE_ORDER_EDIT].activeCheckPath as string
-  );
-
-  const isOrderPage = location.pathname.includes(
-    routesInPerson[ROUTER_PATH.IN_HOUSE_ORDER_NEW].activeCheckPath as string
-  );
-  const shouldBlockNavigation = (): boolean => !isSavedRef.current && (isEditOrderPage || isOrderPage) && isUnsavedData;
-  const { ConfirmationModal: ConfirmationModalForLeavePage } = useReactNavigationBlocker(shouldBlockNavigation);
   const saveButtonText = getSaveButtonText(
     medication?.status || 'pending',
     typeRef.current,
@@ -682,6 +697,15 @@ export const EditableMedicationCard: React.FC<{
 
   return (
     <>
+      {isCreating && hasDraft(encounterId) && (
+        <UnsavedDraftWarning
+          message={
+            draft.hasNavigatedAway
+              ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+              : 'You have a medication order in progress. Your draft will be saved.'
+          }
+        />
+      )}
       <MedicationCardView
         isEditable={getIsMedicationEditable(typeRef.current, medication)}
         type={typeRef.current}
@@ -713,6 +737,8 @@ export const EditableMedicationCard: React.FC<{
         }}
         onDelete={medication?.id && medication?.status !== 'cancelled' ? handleDeleteClick : undefined}
         isReadOnly={isReadOnly}
+        onBack={isCreating ? handleBack : undefined}
+        onClearForm={isCreating && hasDraft(encounterId) ? handleClearForm : undefined}
         onQuickPickSelect={
           typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
         }
@@ -750,7 +776,6 @@ export const EditableMedicationCard: React.FC<{
           ContentComponent={confirmationModalConfig.ContentComponent?.({}) as ReactElement}
         />
       ) : null}
-      <ConfirmationModalForLeavePage />
       {showInteractionAlerts && interactionsCheckState.interactions ? (
         <InteractionAlertsDialog
           medicationName={interactionsCheckState.medicationName ?? medication?.medicationName ?? ''}

@@ -14,6 +14,13 @@ vi.mock('browser-image-compression', () => ({
   default: vi.fn(async (file: File) => file),
 }));
 
+// FileInput/index.tsx imports convertHeicToJpegIfNeeded via a relative path
+// (../../../../utils/heic), not the ui-components barrel, so we must mock the
+// resolved module path directly.
+vi.mock('ui-components/lib/utils/heic', () => ({
+  convertHeicToJpegIfNeeded: vi.fn(async (file: File) => file),
+}));
+
 vi.mock('ui-components', async () => {
   const actual = await vi.importActual<typeof import('ui-components')>('ui-components');
   return {
