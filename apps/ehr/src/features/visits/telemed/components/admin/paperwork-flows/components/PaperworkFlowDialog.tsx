@@ -24,7 +24,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { createPaperworkFlow, updatePaperworkFlow } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { FlowForm, FlowService, SERVICE_MODE_LABEL, ServiceMode } from 'utils';
+import { APIError, FlowForm, FlowService, isApiError, SERVICE_MODE_LABEL, ServiceMode } from 'utils';
 import { OrderedFormEditor } from './OrderedFormEditor';
 
 const ALL_MODES: ServiceMode[] = Object.values(ServiceMode);
@@ -69,7 +69,6 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
       if (!oystehrZambda) throw new Error('Not connected');
       const flow = { name: draft.name, forms: draft.formsSelected, modes: draft.modes };
       if (editingFlowId) {
-        console.log('wat', editingFlowId);
         await updatePaperworkFlow(oystehrZambda, { flow, flowServices: draft.services, flowId: editingFlowId });
       } else {
         await createPaperworkFlow(oystehrZambda, { flow, flowServices: draft.services });
@@ -81,8 +80,10 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
       await queryClient.invalidateQueries({ queryKey: ['paperwork-flow-list'] });
       await queryClient.invalidateQueries({ queryKey: ['service-categories'] });
     },
-    onError: (err: unknown) => {
-      enqueueSnackbar(`Could not save flow: ${err instanceof Error ? err.message : 'unknown error'}`, {
+    onError: (error: unknown) => {
+      let message = error instanceof Error ? error.message : 'unknown error';
+      if (isApiError(error)) message = (error as APIError).message;
+      enqueueSnackbar(`Could not save flow: ${message}`, {
         variant: 'error',
       });
     },

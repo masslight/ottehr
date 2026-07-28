@@ -101,7 +101,7 @@ export const AdminSidebar: FC<AdminSidebarProps> = ({ children }) => {
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', '--admin-sidebar-width': `${drawerWidth}px` }}>
       <Drawer
         variant="permanent"
         sx={{

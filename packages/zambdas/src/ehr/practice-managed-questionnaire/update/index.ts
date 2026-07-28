@@ -1,9 +1,10 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
-import { practiceManagedQuestionnaireToFhir } from 'utils';
+import { MANAGED_QUESTIONNAIRE_ERROR, PAPERWORK_FLOW_TAG, practiceManagedQuestionnaireToFhir } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { patchQuestionnaireVersion } from '../helpers';
+import { getCanonicalUrlFromQ, searchActiveQuestionnairesByTag } from '../../paperwork-flow/shared';
+import { handleFormInFlows, patchQuestionnaireVersion } from '../helpers';
 import { validateQuestionnaire, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -28,6 +29,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (updateType === 'update-status') {
     const { questionnaireId, newStatus } = data;
     questionnaireIdToReturn = questionnaireId;
+
+    if (newStatus === 'retired') await validateFormIsExcludedFromFlows(questionnaireId, oystehr);
 
     console.log(`patching questionnaire status to ${newStatus} for Questionnaire/${questionnaireId}`);
     await updateQuestionnaireStatus(questionnaireId, newStatus, oystehr);
@@ -56,10 +59,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       operations: [{ op: 'replace', path: '/status', value: 'retired' }],
     };
 
+    console.log('checking if form is contained in any flows');
+    const flowRequests: BatchInputRequest<Questionnaire>[] = await handleFormInFlows({
+      previousVersion,
+      nextVersion,
+      url: rest.url,
+      oystehr,
+    });
+    console.log(
+      `Flows containing the target form that will be updated: ${
+        flowRequests.length > 0 ? `${flowRequests.map((request) => request.url)}` : 'none'
+      }`
+    );
+
     console.log(`Creating version ${nextVersion} of "${rest.url}", "superseding" Questionnaire/${previousId}`);
     const res = (
       await oystehr.fhir.transaction<Questionnaire>({
-        requests: [supersedeQPatchRequest, updatedQPostRequest],
+        requests: [supersedeQPatchRequest, updatedQPostRequest, ...flowRequests],
       })
     ).unbundle();
 
@@ -71,6 +87,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     body: JSON.stringify({ questionnaireId: questionnaireIdToReturn }),
   };
 });
+
+async function validateFormIsExcludedFromFlows(formQId: string, oystehr: Oystehr): Promise<void> {
+  console.log('checking if the form is contained in any flows before retiring');
+  const [targetFormQ, flowQuestionnaires] = await Promise.all([
+    oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: formQId }),
+    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
+  ]);
+
+  const canonicalUrl = getCanonicalUrlFromQ(targetFormQ);
+  const contained = flowQuestionnaires.filter((q) => {
+    return q.derivedFrom?.some((url) => url === canonicalUrl);
+  });
+
+  if (contained) {
+    const flowsImpacted = contained.map((flow) => flow.title);
+    throw MANAGED_QUESTIONNAIRE_ERROR(
+      `This form is contained in a paperwork flow, please remove it from the following: ${flowsImpacted.join(', ')}`
+    );
+  }
+  console.log('safe to retire');
+}
 
 async function updateQuestionnaireStatus(
   questionnaireId: string,

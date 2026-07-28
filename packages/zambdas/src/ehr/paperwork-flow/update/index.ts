@@ -5,6 +5,7 @@ import { Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import {
   FlowService,
+  PAPERWORK_FLOW_ERROR,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PaperworkFlowBase,
@@ -38,8 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  // get all active flow & form questionnaires
-  // get all services
+  // get all active flow & form questionnaires & services
   const resources = await getResources(oystehr, flowId, secrets);
   const canonical = getCanonicalUrlFromQ(resources.targetFlowQuestionnaire);
 
@@ -57,6 +57,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     flowQuestionnaire: resources.targetFlowQuestionnaire,
     formQuestionnaires: resources.allFormQuestionnaires,
   });
+
+  console.log(`Retiring target version ${targetFlowQuestionnaireRetirePatch.url}`);
+  console.log('New canonical url', nextCanonical);
 
   const additionalQuestionnairePatches = makeAdditionalFlowQuestionnairePatches({
     modes: flow.modes,
@@ -103,6 +106,12 @@ async function getResources(oystehr: Oystehr, flowId: string, secrets: Secrets |
     ]);
 
   const allFormQuestionnaires = [...formQuestionnaires, ...ottehrManagedQuestionnaires];
+
+  if (targetFlowQuestionnaire.status !== 'active') {
+    throw PAPERWORK_FLOW_ERROR(
+      `The flow you are trying to edit has been updated, please refresh the page and try again.`
+    );
+  }
 
   return { targetFlowQuestionnaire, allFlowQuestionnaires, allFormQuestionnaires, allServices };
 }
@@ -179,7 +188,12 @@ function makeAdditionalFlowQuestionnairePatches(input: {
   const { modes, ottehrManagedServices, flowQuestionnaires, targetFlowId } = input;
   const patchRequests: BatchInputPatchRequest<Questionnaire>[] = [];
 
-  if (ottehrManagedServices.length === 0) return patchRequests;
+  if (ottehrManagedServices.length === 0) {
+    console.log(
+      'No ottehr managed services are included in this flow, no patches need to be made to remove from elsewhere'
+    );
+    return patchRequests;
+  }
 
   const ottehrManagedServiceIds = new Set(ottehrManagedServices.map((service) => service.id));
 

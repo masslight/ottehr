@@ -1,5 +1,11 @@
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils';
+import {
+  PAPERWORK_FLOW_TAG,
+  PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
+  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+} from 'utils';
+import { PAPERWORK_FLOW_BASE_VERSION, searchActiveQuestionnairesByTag } from '../../paperwork-flow/shared';
 
 export const questionnaireElements = ['id', 'title', 'status', 'url', 'version', 'meta'] as const;
 export type FhirQuestionnaireSubset = Pick<Questionnaire, (typeof questionnaireElements)[number]>;
@@ -46,3 +52,64 @@ export const validateQisPracticeManaged = (questionnaire: Questionnaire, questio
     throw new Error(`Attempting to get questionnaire that is not practice managed Questionnaire/${questionnaireId}`);
   }
 };
+
+interface HandleFormInFlowInput {
+  previousVersion: string;
+  nextVersion: string;
+  url: string;
+  oystehr: Oystehr;
+}
+export async function handleFormInFlows(input: HandleFormInFlowInput): Promise<BatchInputRequest<Questionnaire>[]> {
+  const { oystehr, ...additionalInput } = input;
+  const flowQuestionnaires = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
+
+  return bumpFlowFormVersionRequests({ ...additionalInput, flowQuestionnaires });
+}
+
+// A form version bump must also bump every flow that derives from it: flow Questionnaires are
+// canonical (versioned) resources too, so rather than patching derivedFrom in place, the previous
+// flow version is retired and a new one is minted — identical except for the bumped flow version
+// and the updated form canonical in derivedFrom.
+export function bumpFlowFormVersionRequests(
+  input: Omit<HandleFormInFlowInput, 'oystehr'> & { flowQuestionnaires: Questionnaire[] }
+): BatchInputRequest<Questionnaire>[] {
+  const { previousVersion, nextVersion, url, flowQuestionnaires } = input;
+  const requests: BatchInputRequest<Questionnaire>[] = [];
+
+  const previousFormCanonical = `${url}|${previousVersion}`;
+  const nextFormCanonical = `${url}|${nextVersion}`;
+
+  for (const flow of flowQuestionnaires) {
+    const derivedFromIndex = flow.derivedFrom?.findIndex((canonical) => canonical === previousFormCanonical) ?? -1;
+    if (derivedFromIndex === -1) continue;
+
+    const retirePatch: BatchInputPatchRequest<Questionnaire> = {
+      method: 'PATCH',
+      url: `Questionnaire/${flow.id}`,
+      operations: [{ op: 'replace', path: '/status', value: 'retired' }],
+    };
+
+    const nextDerivedFrom = [...(flow.derivedFrom ?? [])];
+    nextDerivedFrom[derivedFromIndex] = nextFormCanonical;
+
+    const nextFlowVersion = flow.version ? patchQuestionnaireVersion(flow.version) : PAPERWORK_FLOW_BASE_VERSION;
+
+    const { id: _flowId, meta, ...rest } = flow;
+    const nextFlowQuestionnaire: Questionnaire = {
+      ...rest,
+      ...(meta?.tag && { meta: { tag: meta.tag } }),
+      version: nextFlowVersion,
+      derivedFrom: nextDerivedFrom,
+    };
+
+    const createPost: BatchInputPostRequest<Questionnaire> = {
+      method: 'POST',
+      url: '/Questionnaire',
+      resource: nextFlowQuestionnaire,
+    };
+
+    requests.push(retirePatch, createPost);
+  }
+
+  return requests;
+}
