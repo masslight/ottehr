@@ -1920,6 +1920,7 @@ export type ProcedureFormFields = Pick<
   | 'technique'
   | 'suppliesUsed'
   | 'procedureDetails'
+  | 'lengthCm'
   | 'specimenSent'
   | 'complications'
   | 'patientResponse'
@@ -1948,6 +1949,7 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
     .filter((value): value is string => value != null),
   suppliesUsed: getExtension(sr, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
   procedureDetails: getExtension(sr, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
+  lengthCm: getExtension(sr, FHIR_EXTENSION.ServiceRequest.lengthCm.url)?.valueDecimal,
   specimenSent: getExtension(sr, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
   complications: getExtension(sr, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
   patientResponse: getExtension(sr, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
@@ -1986,6 +1988,10 @@ export const createProcedureServiceRequest = (
       valueString: procedure.procedureDetails,
     },
     {
+      url: FHIR_EXTENSION.ServiceRequest.lengthCm.url,
+      valueDecimal: procedure.lengthCm,
+    },
+    {
       url: FHIR_EXTENSION.ServiceRequest.specimenSent.url,
       valueBoolean: procedure.specimenSent,
     },
@@ -2013,7 +2019,9 @@ export const createProcedureServiceRequest = (
       url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
       valueBoolean: procedure.consentObtained,
     },
-  ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
+  ].filter(
+    (extension) => extension.valueString != null || extension.valueBoolean != null || extension.valueDecimal != null
+  );
   // Linked Condition/Procedure references are usually plain ids that get the
   // FHIR resource-type prefix. Callers building requests for a FHIR transaction
   // can also pass a urn:uuid pre-formatted reference (e.g. the apply-template

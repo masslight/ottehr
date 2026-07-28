@@ -60,11 +60,13 @@ import {
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
   FHIR_CODE_REGEX,
+  Finding,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
+  ProcedureFactsInput,
   ProcedurePageState,
   ProcedureQuickPickData,
   PROCEDURES_CONFIG,
@@ -92,6 +94,7 @@ import {
   useSaveChartData,
 } from '../../shared/stores/appointment/appointment.store';
 import { InfoAlert } from '../components/InfoAlert';
+import { useProcedureCoding } from '../hooks/useProcedureCoding';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 import {
   combineMultipleValuesForSave,
@@ -153,6 +156,11 @@ const mergeCptCodes = (
   return mergedCodes;
 };
 
+// Engine display strings lead with the code ("12042 — Intermediate repair, …"); rows already
+// render the code in bold, so the duplicate prefix is stripped for display.
+const stripCodePrefix = (display: string, code: string): string =>
+  display.startsWith(code) ? display.slice(code.length).replace(/^\s*[—–-]\s*/, '') : display;
+
 interface LocalPageState extends Omit<ProcedurePageState, 'procedureDate' | 'procedureTime'> {
   procedureDate?: DateTime | null;
   procedureTime?: DateTime | null;
@@ -202,6 +210,7 @@ function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
     suppliesUsed: pageState.suppliesUsed,
     otherSuppliesUsed: pageState.otherSuppliesUsed,
     procedureDetails: pageState.procedureDetails,
+    lengthCm: pageState.lengthCm,
     specimenSent: pageState.specimenSent,
     complications: pageState.complications,
     otherComplications: pageState.otherComplications,
@@ -267,6 +276,7 @@ export default function ProceduresNew(): ReactElement {
     suppliesUsed: draft.suppliesUsed,
     otherSuppliesUsed: draft.otherSuppliesUsed,
     procedureDetails: draft.procedureDetails,
+    lengthCm: draft.lengthCm,
     specimenSent: draft.specimenSent,
     complications: draft.complications,
     otherComplications: draft.otherComplications,
@@ -331,6 +341,28 @@ export default function ProceduresNew(): ReactElement {
     const { values, other } = parseWithOther(rawValue, validOptions);
     return { postInstructions: values, otherPostInstructions: other };
   };
+
+  // Deterministic coding engine (client-side, synchronous) — separate from the AI call below.
+  const procedureFacts = useMemo<ProcedureFactsInput>(
+    () => ({
+      procedureType: formValues.procedureType,
+      bodySite: state.bodySite,
+      otherBodySite: state.otherBodySite,
+      bodySide: state.bodySide,
+      technique: state.technique,
+      suppliesUsed: state.suppliesUsed,
+      otherSuppliesUsed: state.otherSuppliesUsed,
+      medicationUsed: state.medicationUsed,
+      procedureDetails: state.procedureDetails,
+      specimenSent: state.specimenSent,
+      timeSpent: state.timeSpent,
+      cptCodes: state.cptCodes,
+      diagnoses: state.diagnoses,
+      lengthCm: state.lengthCm,
+    }),
+    [formValues.procedureType, state]
+  );
+  const codingAssist = useProcedureCoding(procedureFacts);
 
   useEffect(() => {
     const fetchRecommendedBillingCodes = async (): Promise<void> => {
@@ -407,6 +439,7 @@ export default function ProceduresNew(): ReactElement {
       suppliesUsed: parsedSupplies.suppliesUsed,
       otherSuppliesUsed: parsedSupplies.otherSuppliesUsed,
       procedureDetails: procedure.procedureDetails,
+      lengthCm: procedure.lengthCm,
       specimenSent: procedure.specimenSent,
       complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
       otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
@@ -471,6 +504,7 @@ export default function ProceduresNew(): ReactElement {
             technique: state.technique,
             suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
+            lengthCm: state.lengthCm,
             specimenSent: state.specimenSent,
             complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
             patientResponse: state.patientResponse,
@@ -646,9 +680,50 @@ export default function ProceduresNew(): ReactElement {
     </Box>
   );
 
+  // The deterministic engine's contribution to the Oystehr AI section: the determined top
+  // pick when the documentation determines the code, or the compact open-set line when only
+  // the code table is known. All text comes from the engine.
+  const deterministicSuggestionContent = (): ReactNode => {
+    const pick = codingAssist.suggestion?.suggestion;
+    if (pick) {
+      const pickAsSuggestion: ProcedureSuggestion = {
+        code: pick.code,
+        description: stripCodePrefix(pick.display, pick.code),
+        useWhen: pick.justification,
+      };
+      return (
+        <Box data-testid={dataTestIds.documentProcedurePage.bestMatchCptCode}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.dark' }}>
+            Best match — from your documentation
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+            <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(pick.code)}>
+              <strong>{pick.code}</strong> &ndash; {pickAsSuggestion.description}
+            </Typography>
+            {!isReadOnly && renderRecommendedCptActions(pickAsSuggestion)}
+          </Box>
+          <Typography variant="body2" color="text.secondary">
+            {pick.justification}
+          </Typography>
+        </Box>
+      );
+    }
+    const openCandidatesSummary = codingAssist.suggestion?.openCandidatesSummary;
+    if (openCandidatesSummary) {
+      return (
+        <Typography variant="body2" data-testid={dataTestIds.documentProcedurePage.openCandidatesLine}>
+          {openCandidatesSummary}
+        </Typography>
+      );
+    }
+    return null;
+  };
+
   const recommendedCptCodesContent = (): ReactNode => {
+    const deterministicContent = deterministicSuggestionContent();
+
     if (loadingSuggestions) {
-      return null;
+      return deterministicContent;
     }
 
     if (!formValues.procedureType) {
@@ -657,27 +732,89 @@ export default function ProceduresNew(): ReactElement {
 
     // Suggestions not fetched yet.
     if (!recommendedBillingCodes) {
-      return null;
+      return deterministicContent;
     }
 
-    if (recommendedBillingCodes.length === 0) {
+    // The AI list renders beneath the deterministic pick, deduped against it.
+    const deterministicCode = codingAssist.suggestion?.suggestion?.code;
+    const aiSuggestions = recommendedBillingCodes.filter((suggestion) => suggestion.code !== deterministicCode);
+
+    if (recommendedBillingCodes.length === 0 && deterministicContent == null) {
       return <Typography color="secondary.light">No suggestions</Typography>;
     }
 
     return (
-      <ActionsList
-        data={recommendedBillingCodes}
-        getKey={(value) => value.code}
-        renderItem={(value) => (
-          <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
-            <strong>{value.code}</strong> &ndash; {value.description}
-          </Typography>
+      <>
+        {deterministicContent}
+        {aiSuggestions.length > 0 && (
+          <ActionsList
+            data={aiSuggestions}
+            getKey={(value) => value.code}
+            renderItem={(value) => (
+              <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
+                <strong>{value.code}</strong> &ndash; {value.description}
+              </Typography>
+            )}
+            renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
+            divider
+          />
         )}
-        renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
-        divider
-      />
+      </>
     );
   };
+
+  // ── Documentation defense (amber box) — driven by defendCodes, preserving the legacy
+  // laceration suggestionNote exactly as-is (requirement B6). ────────────────────────────
+  const legacySuggestionNoteVisible =
+    suggestionNote != null && suggestionNote.suggestions?.[0] !== 'Procedure details are included';
+  const defense = codingAssist.defense;
+  const defenseFindings = defense?.findings ?? [];
+  const actionableFindings = defenseFindings.filter((finding) => finding.level !== 'bestPractice');
+  const entryLevelFindings = actionableFindings.filter((finding) => finding.cptCode == null);
+  const findingCodes = [
+    ...new Set(actionableFindings.map((finding) => finding.cptCode).filter((code): code is string => code != null)),
+  ];
+  const firstBestPracticeFinding = defenseFindings.find((finding) => finding.level === 'bestPractice');
+  const payerNotes = [
+    ...(defense?.payerNotes ?? []),
+    ...defenseFindings.map((finding) => finding.payerNote).filter((note): note is string => note != null),
+  ].filter((note, index, notes) => notes.indexOf(note) === index);
+  const amberBoxVisible = legacySuggestionNoteVisible || actionableFindings.length > 0;
+  // Positive state (§8.5): every selected code the engine understands is fully supported.
+  // Best-practice findings render only inside the amber box, so they don't block affirmation.
+  const positiveStateVisible =
+    !amberBoxVisible && defense != null && defense.supportedCodes.length > 0 && actionableFindings.length === 0;
+  const deterministicSuggestionVisible =
+    codingAssist.suggestion?.suggestion != null || codingAssist.suggestion?.openCandidatesSummary != null;
+  // Not-assessed codes render one neutral line, but only when some other coding-assist
+  // element is visible — unrelated procedures with no findings render nothing new (B7).
+  const notAssessedLineVisible =
+    defense != null &&
+    defense.notAssessedCodes.length > 0 &&
+    (amberBoxVisible || positiveStateVisible || deterministicSuggestionVisible);
+
+  const defenseFindingLine = (finding: Finding, key: number | string): ReactElement => (
+    <Typography key={key} variant="body2">
+      {finding.message}
+      {finding.level === 'contradiction' && finding.sourceText && (
+        <Typography component="span" variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
+          {' '}
+          (&ldquo;{finding.sourceText}&rdquo;)
+        </Typography>
+      )}
+    </Typography>
+  );
+
+  const payerNotesContent = (): ReactNode =>
+    payerNotes.length > 0 ? (
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+        {payerNotes.map((note) => (
+          <Typography key={note} variant="caption" color="text.secondary">
+            {note}
+          </Typography>
+        ))}
+      </Box>
+    ) : null;
 
   const cptWidget = (): ReactElement => {
     return (
@@ -1173,6 +1310,23 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => (state.bodySide = value),
               dataTestIds.documentProcedurePage.sideOfBody
             )}
+            {codingAssist.showLengthInput && (
+              <TextField
+                label="Wound/lesion size (cm)"
+                size="small"
+                type="number"
+                inputProps={{ min: 0, step: 0.1 }}
+                value={state.lengthCm ?? ''}
+                onChange={(e: any) =>
+                  updateState((state) => {
+                    const parsed = parseFloat(e.target.value);
+                    state.lengthCm = Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+                  })
+                }
+                disabled={isReadOnly}
+                data-testid={dataTestIds.documentProcedurePage.lengthCmInput}
+              />
+            )}
             {multiSelect(
               'Technique',
               selectOptions?.techniques,
@@ -1267,7 +1421,7 @@ export default function ProceduresNew(): ReactElement {
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
             <AiSectionContainer isLoading={loadingSuggestions}>{recommendedCptCodesContent()}</AiSectionContainer>
-            {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
+            {amberBoxVisible && (
               <Container
                 style={{
                   background: '#FFF3E0',
@@ -1281,8 +1435,54 @@ export default function ProceduresNew(): ReactElement {
                   </Typography>
                   {loadingSuggestionNote && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
                 </Container>
-                <Typography variant="body1">{suggestionNote?.suggestions?.join(', ')}</Typography>
+                {legacySuggestionNoteVisible && (
+                  <Typography variant="body1">{suggestionNote?.suggestions?.join(', ')}</Typography>
+                )}
+                {actionableFindings.length > 0 && (
+                  <Box
+                    sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, paddingTop: '4px' }}
+                    data-testid={dataTestIds.documentProcedurePage.codingDefenseFindings}
+                  >
+                    {entryLevelFindings.map((finding, index) => defenseFindingLine(finding, `entry-${index}`))}
+                    {findingCodes.map((code) => (
+                      <Box key={code}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {code}
+                        </Typography>
+                        {actionableFindings
+                          .filter((finding) => finding.cptCode === code)
+                          .map((finding, index) => defenseFindingLine(finding, index))}
+                      </Box>
+                    ))}
+                    {firstBestPracticeFinding && (
+                      <Typography variant="body2" color="text.secondary">
+                        {firstBestPracticeFinding.message}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+                {payerNotesContent()}
               </Container>
+            )}
+            {positiveStateVisible && (
+              <Box data-testid={dataTestIds.documentProcedurePage.codingDefenseSupported}>
+                <Typography variant="body2" sx={{ color: 'success.main' }}>
+                  Documentation supports {defense.supportedCodes.join(', ')}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Checks current as of {codingAssist.rulesVintage}
+                </Typography>
+                {payerNotesContent()}
+              </Box>
+            )}
+            {notAssessedLineVisible && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                data-testid={dataTestIds.documentProcedurePage.codingDefenseNotAssessed}
+              >
+                {defense?.notAssessedCodes.join(', ')} &mdash; not assessed by documentation checks
+              </Typography>
             )}
             {cptWidget()}
             <Divider orientation="horizontal" />

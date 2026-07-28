@@ -62,6 +62,11 @@ export interface FamilyEvaluation {
   suggestion?: CodeSuggestion;
   /** Present when determinants are missing: the genuinely open options (requirement A2). */
   openCandidates?: CodeCandidate[];
+  /**
+   * Compact engine-composed line for the open set, present only when the candidates narrow to a
+   * single code table (e.g. "12041–12047 — length determines the code"). The UI renders it verbatim.
+   */
+  openCandidatesSummary?: string;
   findings: Finding[];
   /** Selected codes whose [D]/[R] elements are all documented with no contradictions. */
   supportedCodes: string[];
@@ -110,6 +115,8 @@ export interface ProcedureFactsInput {
 export interface ProcedureFamilyModel {
   id: string;
   displayName: string;
+  /** True when this family's code selection uses the structured length/size (cm) input (design §6). */
+  usesStructuredLength?: boolean;
   /** Family detection from the procedureType string and/or selected CPT codes. */
   detect(input: ProcedureFactsInput): boolean;
   /** Deterministic fact extraction (structured fields first, then details-text patterns). */

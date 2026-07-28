@@ -588,6 +588,8 @@ export interface ProcedureDTO extends SaveableDTO {
   technique?: string[];
   suppliesUsed?: string;
   procedureDetails?: string;
+  /** Structured wound/lesion size in cm (conditional input for length-banded families, design §6). */
+  lengthCm?: number;
   specimenSent?: boolean;
   complications?: string;
   patientResponse?: string;

@@ -497,6 +497,15 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
   if (missingDeterminants.length > 0) {
     findings.push(...missingDeterminants);
     evaluation.openCandidates = candidatesFor(repairClass, entrySite);
+    // Class + group known, only length missing: the open set narrows to one code table,
+    // so surface the compact range line the UI shows above the AI list (design §5).
+    if (repairClass !== undefined && entrySite !== undefined && totals.totalCm === undefined) {
+      const series = SERIES_BY_GROUP[lacerationSiteGroup(repairClass, entrySite)];
+      const bands = series.bands;
+      evaluation.openCandidatesSummary = `${bands[0].code}–${
+        bands[bands.length - 1].code
+      } — length determines the code`;
+    }
     return evaluation;
   }
 
@@ -719,6 +728,7 @@ const LACERATION_TYPE_PATTERN = /lacerat|wound\s*(closure|repair)|sutur|stapl/i;
 export const lacerationFamily: ProcedureFamilyModel = {
   id: 'laceration',
   displayName: 'Laceration Repair (Wound Closure)',
+  usesStructuredLength: true,
   detect(input: ProcedureFactsInput): boolean {
     const procedureType = input.procedureType ?? '';
     const typeMatches = LACERATION_TYPE_PATTERN.test(procedureType) && !/removal/i.test(procedureType);

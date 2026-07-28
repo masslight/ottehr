@@ -254,6 +254,15 @@ describe('laceration forward: missing determinants', () => {
     expect(result.openCandidates?.map((c) => c.code)).toEqual(['12001', '12002', '12004', '12005', '12006', '12007']);
   });
 
+  it('missing length with class+group known ⇒ compact open-set summary for the single code table', () => {
+    const result = lacerationFamily.suggestCode(input({ bodySite: 'Arm', procedureDetails: SIMPLE_CLOSURE_TEXT }));
+    expect(result.openCandidatesSummary).toBe('12001–12007 — length determines the code');
+    const intermediate = lacerationFamily.suggestCode(
+      input({ bodySite: 'Hand', procedureDetails: LAYERED_CLOSURE_TEXT })
+    );
+    expect(intermediate.openCandidatesSummary).toBe('12041–12047 — length determines the code');
+  });
+
   it('missing depth ⇒ [D] finding and candidates spanning both classes for the site', () => {
     const result = lacerationFamily.suggestCode(
       input({ bodySite: 'Hand', lengthCm: 3.0, procedureDetails: 'Closed with 4-0 Ethilon, total stitch count: 5.' })
@@ -265,11 +274,18 @@ describe('laceration forward: missing determinants', () => {
     expect(codes).toContain('12042'); // intermediate: hand → 1204x
   });
 
-  it('nothing documented ⇒ all determinants asked for, full open set', () => {
+  it('nothing documented ⇒ all determinants asked for, full open set, no compact summary', () => {
     const result = lacerationFamily.suggestCode(input({}));
     expect(result.suggestion).toBeUndefined();
     expect(result.findings.filter((f) => f.level === 'determines')).toHaveLength(3);
     expect(result.openCandidates).toHaveLength(31);
+    expect(result.openCandidatesSummary).toBeUndefined();
+  });
+});
+
+describe('laceration family metadata', () => {
+  it('uses the structured length input (drives the conditional cm field)', () => {
+    expect(lacerationFamily.usesStructuredLength).toBe(true);
   });
 });
 
