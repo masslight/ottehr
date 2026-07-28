@@ -256,6 +256,16 @@ export interface ClaimRemitAdjustment {
   amount: number;
 }
 
+export interface ClaimPatientPayment {
+  paymentNoticeId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  description: string;
+  checkNumber?: string;
+  status: string;
+}
+
 // One ERA payment (PaymentReconciliation) behind a claim's remits.
 export interface ClaimInsurancePayment {
   paymentReconciliationId: string;
