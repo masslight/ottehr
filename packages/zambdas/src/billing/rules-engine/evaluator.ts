@@ -1,6 +1,8 @@
 import {
   BillingRule,
   CLAIM_TAG_SYSTEM,
+  getRuleFieldDef,
+  getServiceLinePropertyDef,
   HOLD_TAG_NAME,
   resourceHasTag,
   RULE_ACTION_TYPE,
@@ -43,20 +45,37 @@ const valueExists = (actual: string | string[] | undefined): boolean => {
 const asScalar = (v: string | string[] | undefined): string | undefined =>
   Array.isArray(v) ? undefined : v ?? undefined;
 
+const asFiniteNumber = (value: string): number | undefined => {
+  if (value.trim() === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 export const evaluateOperator = (
   operator: RuleOperator,
   actual: string | string[] | undefined,
-  expected?: RuleConditionValue
+  expected?: RuleConditionValue,
+  // numeric: eq/neq/in/notIn compare numerically when both sides parse ('100' matches '100.00' —
+  // readers normalize amounts but rule values keep the author's formatting). Only number-typed
+  // properties opt in: ids like member IDs must stay distinct strings ('00123' ≠ '123').
+  opts?: { numeric?: boolean }
 ): boolean => {
   const expectedScalar = Array.isArray(expected) ? expected[0] : expected;
 
+  const scalarsEqual = (a: string, e: string): boolean => {
+    if (a === e) return true;
+    if (!opts?.numeric) return false;
+    const aNum = asFiniteNumber(a);
+    const eNum = asFiniteNumber(e);
+    return aNum != null && eNum != null && aNum === eNum;
+  };
   const equals = (): boolean => {
     const a = asScalar(actual);
-    return a != null && expectedScalar != null && a === expectedScalar;
+    return a != null && expectedScalar != null && scalarsEqual(a, expectedScalar);
   };
   const includedIn = (): boolean => {
     const a = asScalar(actual);
-    return a != null && asArray(expected).includes(a);
+    return a != null && asArray(expected).some((e) => scalarsEqual(a, e));
   };
   const contains = (): boolean => {
     if (expectedScalar == null) return false;
@@ -130,7 +149,9 @@ export function evaluateCondition(condition: RuleCondition, model: RulesEngineCl
       return condition.logic === 'and' ? results.every(Boolean) : results.some(Boolean);
     }
     case RULE_CONDITION_TYPE.field:
-      return evaluateOperator(condition.operator, readField(model, condition.field), condition.value);
+      return evaluateOperator(condition.operator, readField(model, condition.field), condition.value, {
+        numeric: getRuleFieldDef(condition.field)?.valueType === 'number',
+      });
     default:
       return false;
   }
@@ -169,7 +190,9 @@ export const isHoldAction = (action: RuleAction): boolean =>
 // mean the same thing in line matches as in rule conditions.
 export const serviceLineMatches = (line: ClaimServiceLine, match: ServiceLineMatch): boolean => {
   if (match.type === SERVICE_LINE_MATCH_TYPE.all) return true;
-  return evaluateOperator(match.operator, readServiceLineProperty(line, match.property), match.value);
+  return evaluateOperator(match.operator, readServiceLineProperty(line, match.property), match.value, {
+    numeric: getServiceLinePropertyDef(match.property)?.valueType === 'number',
+  });
 };
 
 // Resolve the diagnosis pointers for a new line: explicit pointers are validated strictly against

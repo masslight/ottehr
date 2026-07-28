@@ -313,6 +313,36 @@ describe('ConditionalEditor', () => {
     expect(onValid).not.toHaveBeenCalled();
   });
 
+  it('resets the value when the operator arity changes (is one of -> equals)', async () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'field', field: 'insurance.memberId', operator: 'in', value: ['A1', 'B2'] },
+          outcome: { type: 'noop' },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    expect(screen.getByLabelText('Values (comma-separated)')).toHaveValue('A1, B2');
+
+    fireEvent.mouseDown(screen.getByText('is one of'));
+    fireEvent.click(await screen.findByRole('option', { name: 'equals' }));
+
+    // The stale list must not survive to be silently compared as its first entry.
+    expect(screen.getByLabelText('Value')).toHaveValue('');
+
+    // Same-arity switches keep the value. (The closed menu stays mounted, so scope the reopen
+    // to the combobox display rather than any text match.)
+    fireEvent.change(screen.getByLabelText('Value'), { target: { value: 'A1' } });
+    const operatorDisplay = screen
+      .getAllByText('equals')
+      .find((element) => element.getAttribute('role') === 'combobox');
+    fireEvent.mouseDown(operatorDisplay!);
+    fireEvent.click(await screen.findByRole('option', { name: 'does not equal' }));
+    expect(screen.getByLabelText('Value')).toHaveValue('A1');
+  });
+
   it('clears a stale value error when the condition property changes', async () => {
     const conditional: RuleConditional = {
       branches: [

@@ -193,6 +193,28 @@ describe('rules-engine evaluator', () => {
     expect(evaluateOperator('gt', '100', undefined)).toBe(false);
   });
 
+  it('eq/neq/in/notIn compare numerically for number-typed properties only', () => {
+    // Amounts: readers normalize ('125.5') while rule values keep the author's formatting ('125.50').
+    expect(evaluateOperator('eq', '100', '100.00', { numeric: true })).toBe(true);
+    expect(evaluateOperator('neq', '100', '100.00', { numeric: true })).toBe(false);
+    expect(evaluateOperator('in', '30.5', ['20', '30.50'], { numeric: true })).toBe(true);
+    expect(evaluateOperator('notIn', '30.5', ['20', '30.50'], { numeric: true })).toBe(false);
+    // Ids stay exact strings even when they parse as numbers: member id '00123' is not '123'.
+    expect(evaluateOperator('eq', '00123', '123')).toBe(false);
+    expect(evaluateOperator('eq', '100', '100.00')).toBe(false);
+    // The numeric flag never weakens empty/missing semantics ('' is not 0).
+    expect(evaluateOperator('eq', '', '0', { numeric: true })).toBe(false);
+    expect(evaluateOperator('eq', '0', '', { numeric: true })).toBe(false);
+
+    // End to end: evaluateCondition passes the flag for the number-typed billed amount.
+    const m = makeModel();
+    expect(readField(m, 'billed')).toBe('125.5');
+    expect(evaluateCondition({ type: 'field', field: 'billed', operator: 'eq', value: '125.50' }, m)).toBe(true);
+    expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'MEM-123' }, m)).toBe(
+      true
+    );
+  });
+
   it('reads logical fields that span resources', () => {
     const m = makeModel();
     expect(readField(m, 'payerId')).toBe('123456');
@@ -313,6 +335,44 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'patient.firstName', 'Janet')).toBe(true);
     expect(m.patient?.name?.[0]?.given).toEqual(['Janet', 'Q']);
     expect(readField(m, 'patient.middleName')).toBe('Q');
+  });
+
+  it('clears provider last name and facility name to undefined, never a literal empty string', () => {
+    const m = makeModel();
+    expect(writeField(m, 'billingProvider.lastName', '')).toBe(true);
+    expect((m.billingProvider as Organization).name).toBeUndefined();
+    expect(writeField(m, 'renderingProvider.lastName', '')).toBe(true);
+    expect((m.renderingProvider as Practitioner).name?.[0]?.family).toBeUndefined();
+    expect(writeField(m, 'serviceFacility.name', '')).toBe(true);
+    expect(m.serviceFacility?.name).toBeUndefined();
+  });
+
+  it('fails positional name/address writes that would leave a leading empty slot', () => {
+    const m = makeModel();
+    // A middle name with no first name would store given: ['', 'M'] — invalid FHIR.
+    m.patient!.name = [{ family: 'Doe' }];
+    expect(writeField(m, 'patient.middleName', 'M')).toBe(false);
+    expect(m.patient?.name?.[0]?.given).toBeUndefined();
+
+    // Clearing the first name while a middle name remains is rejected; clearing back to front works.
+    m.patient!.name = [{ given: ['Jane', 'Q'], family: 'Doe' }];
+    expect(writeField(m, 'patient.firstName', '')).toBe(false);
+    expect(m.patient?.name?.[0]?.given).toEqual(['Jane', 'Q']);
+    expect(writeField(m, 'patient.middleName', '')).toBe(true);
+    expect(writeField(m, 'patient.firstName', '')).toBe(true);
+    expect(m.patient?.name?.[0]?.given).toBeUndefined();
+
+    // Same rule for address lines, on persons and the facility.
+    m.patient!.address = [{ line: ['1 Main St', 'Apt 2'], city: 'Oakland' }];
+    expect(writeField(m, 'patient.addressLine1', '')).toBe(false);
+    expect(m.patient?.address?.[0]?.line).toEqual(['1 Main St', 'Apt 2']);
+    expect(writeField(m, 'patient.addressLine2', '')).toBe(true);
+    expect(writeField(m, 'patient.addressLine1', '')).toBe(true);
+    expect(m.patient?.address?.[0]?.line).toBeUndefined();
+
+    m.serviceFacility!.address = {};
+    expect(writeField(m, 'serviceFacility.addressLine2', 'Suite 5')).toBe(false);
+    expect(m.serviceFacility?.address?.line).toBeUndefined();
   });
 
   it('rejects invalid written values (the same checks save-time validation runs)', () => {

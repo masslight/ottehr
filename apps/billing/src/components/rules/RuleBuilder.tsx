@@ -454,7 +454,12 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
           label="Operator"
           value={value.operator}
           onChange={(e) => {
-            replace({ ...value, operator: e.target.value as RuleOperator });
+            const operator = e.target.value as RuleOperator;
+            // The value survives same-shape switches (equals -> does not equal) but resets when the
+            // arity changes: a leftover list under a single-value operator would otherwise be
+            // silently compared as its first entry.
+            const sameShape = operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator);
+            replace(sameShape ? { ...value, operator } : { ...value, operator, value: '' });
             clearErrors(name);
           }}
         >
@@ -595,7 +600,10 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
               label="Operator"
               value={value.operator}
               onChange={(e) => {
-                replace({ ...value, operator: e.target.value as RuleOperator });
+                const operator = e.target.value as RuleOperator;
+                // Same arity-change reset as the condition editor's operator picker.
+                const sameShape = operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator);
+                replace(sameShape ? { ...value, operator } : { ...value, operator, value: '' });
                 clearErrors(name);
               }}
             >
@@ -748,7 +756,11 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
             label="Operation"
             value={operation}
             onChange={(e) => {
-              replace({ ...value, operation: e.target.value as ServiceLineSetOperation });
+              const next = e.target.value as ServiceLineSetOperation;
+              // "Set to" takes the whole comma-separated modifier list; add/remove take one code.
+              // Reset the value when the shape changes so a stale list isn't applied as one code.
+              const sameShape = (next === 'set') === (operation === 'set');
+              replace(sameShape ? { ...value, operation: next } : { ...value, operation: next, value: '' });
               clearErrors(name);
             }}
           >

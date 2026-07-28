@@ -375,25 +375,47 @@ const ensureName = (resource: NamedResource): HumanName => {
   return resource.name[0];
 };
 
-const setGivenAt = (name: HumanName, index: number, value: string | null): void => {
-  const given = [...(name.given ?? [])];
-  while (given.length <= index) given.push('');
-  given[index] = value ?? '';
-  while (given.length > 0 && given[given.length - 1] === '') given.pop();
-  name.given = given.length ? given : undefined;
+// Compute a positional given/line array update. Returns undefined when the result would keep a
+// leading empty slot (a middle name with no first name, or clearing address line 1 while line 2
+// remains) — empty strings are invalid FHIR, so such writes must fail the rule instead. Validates
+// before any mutation so a failed write leaves the resource untouched.
+const positionalEntries = (
+  current: readonly string[] | undefined,
+  index: number,
+  value: string | null
+): string[] | undefined => {
+  const entries = [...(current ?? [])];
+  while (entries.length <= index) entries.push('');
+  entries[index] = value ?? '';
+  while (entries.length > 0 && entries[entries.length - 1] === '') entries.pop();
+  return entries.some((entry) => entry === '') ? undefined : entries;
 };
 
-const setAddressLine = (address: Address, index: number, value: string | null): void => {
-  const line = [...(address.line ?? [])];
-  while (line.length <= index) line.push('');
-  line[index] = value ?? '';
-  while (line.length > 0 && line[line.length - 1] === '') line.pop();
-  address.line = line.length ? line : undefined;
+const setGivenAt = (resource: NamedResource, index: number, value: string | null): boolean => {
+  const entries = positionalEntries(resource.name?.[0]?.given, index, value);
+  if (!entries) return false;
+  if (entries.length === 0) {
+    if (resource.name?.[0]) resource.name[0].given = undefined;
+    return true;
+  }
+  ensureName(resource).given = entries;
+  return true;
 };
 
 const ensurePersonAddress = (person: Patient | RelatedPerson): Address => {
   if (!person.address || person.address.length === 0) person.address = [{}];
   return person.address[0];
+};
+
+const setPersonAddressLine = (person: Patient | RelatedPerson, index: number, value: string | null): boolean => {
+  const entries = positionalEntries(person.address?.[0]?.line, index, value);
+  if (!entries) return false;
+  if (entries.length === 0) {
+    if (person.address?.[0]) person.address[0].line = undefined;
+    return true;
+  }
+  ensurePersonAddress(person).line = entries;
+  return true;
 };
 
 const setPersonGender = (person: Patient | RelatedPerson | undefined, value: string | null): boolean => {
@@ -496,11 +518,12 @@ const setClaimResourceRef = (
 
 const setProviderFamily = (p: Provider | undefined, value: string | null): boolean => {
   if (!p) return false;
+  // `|| undefined`: an empty value clears the field — a literal '' is invalid FHIR.
   if (p.resourceType === 'Organization') {
-    p.name = value ?? undefined;
+    p.name = value || undefined;
     return true;
   }
-  ensureName(p).family = value ?? undefined;
+  ensureName(p).family = value || undefined;
   return true;
 };
 
@@ -572,8 +595,8 @@ const personWriters = (
       return write(person, value) ?? true;
     };
   return {
-    [`${prefix}.firstName`]: withPerson((p, v) => setGivenAt(ensureName(p), 0, v)),
-    [`${prefix}.middleName`]: withPerson((p, v) => setGivenAt(ensureName(p), 1, v)),
+    [`${prefix}.firstName`]: withPerson((p, v) => setGivenAt(p, 0, v)),
+    [`${prefix}.middleName`]: withPerson((p, v) => setGivenAt(p, 1, v)),
     [`${prefix}.lastName`]: withPerson((p, v) => {
       ensureName(p).family = v || undefined;
     }),
@@ -583,8 +606,8 @@ const personWriters = (
       return true;
     }),
     [`${prefix}.gender`]: (m, v) => setPersonGender(resolve(m), v),
-    [`${prefix}.addressLine1`]: withPerson((p, v) => setAddressLine(ensurePersonAddress(p), 0, v)),
-    [`${prefix}.addressLine2`]: withPerson((p, v) => setAddressLine(ensurePersonAddress(p), 1, v)),
+    [`${prefix}.addressLine1`]: withPerson((p, v) => setPersonAddressLine(p, 0, v)),
+    [`${prefix}.addressLine2`]: withPerson((p, v) => setPersonAddressLine(p, 1, v)),
     [`${prefix}.city`]: withPerson((p, v) => {
       ensurePersonAddress(p).city = v || undefined;
     }),
@@ -616,8 +639,7 @@ const providerWriters = (
     const p = resolve(m);
     // Only individual providers have a first name; setting one on an organization fails the rule.
     if (!p || p.resourceType !== 'Practitioner') return false;
-    setGivenAt(ensureName(p), 0, v);
-    return true;
+    return setGivenAt(p, 0, v);
   },
   [`${prefix}.lastName`]: (m, v) => setProviderFamily(resolve(m), v),
   [`${prefix}.taxonomy`]: (m, v) => {
@@ -647,6 +669,17 @@ const withFacility =
 const ensureFacilityAddress = (facility: Location): Address => {
   facility.address = facility.address ?? {};
   return facility.address;
+};
+
+const setFacilityAddressLine = (facility: Location, index: number, value: string | null): boolean => {
+  const entries = positionalEntries(facility.address?.line, index, value);
+  if (!entries) return false;
+  if (entries.length === 0) {
+    if (facility.address) facility.address.line = undefined;
+    return true;
+  }
+  ensureFacilityAddress(facility).line = entries;
+  return true;
 };
 
 const setFacilityPosCode = (facility: Location, value: string | null): void => {
@@ -695,7 +728,7 @@ const WRITERS: Record<string, FieldWriter> = {
 
   'serviceFacility.ref': (m, v) => setClaimResourceRef(m, 'serviceFacility', v),
   'serviceFacility.name': withFacility((f, v) => {
-    f.name = v ?? undefined;
+    f.name = v || undefined;
   }),
   'serviceFacility.npi': withFacility((f, v) => {
     if (!validOrEmpty(v, isNPIValidWithChecksum)) return false;
@@ -712,8 +745,8 @@ const WRITERS: Record<string, FieldWriter> = {
     setFacilityPosCode(f, v);
     return true;
   }),
-  'serviceFacility.addressLine1': withFacility((f, v) => setAddressLine(ensureFacilityAddress(f), 0, v)),
-  'serviceFacility.addressLine2': withFacility((f, v) => setAddressLine(ensureFacilityAddress(f), 1, v)),
+  'serviceFacility.addressLine1': withFacility((f, v) => setFacilityAddressLine(f, 0, v)),
+  'serviceFacility.addressLine2': withFacility((f, v) => setFacilityAddressLine(f, 1, v)),
   'serviceFacility.city': withFacility((f, v) => {
     ensureFacilityAddress(f).city = v || undefined;
   }),

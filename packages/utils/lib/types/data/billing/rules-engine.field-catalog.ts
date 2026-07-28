@@ -7,6 +7,7 @@ import { AllStates, stateCodeToFullName } from '../../common';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
+  operatorIsMultiValue,
   operatorNeedsValue,
   operatorTakesFragment,
   RuleAction,
@@ -922,6 +923,7 @@ export function addServiceLineFieldProblem(
 const DATE_VALUE_PROBLEM = 'Must be an ISO date (YYYY-MM-DD)';
 const NUMBER_VALUE_PROBLEM = 'Must be a number';
 const VALUE_REQUIRED_PROBLEM = 'Value is required';
+const SINGLE_VALUE_PROBLEM = 'This operator compares a single value, not a list';
 
 // FHIR resource ids are 1-64 chars of letters, digits, '-' and '.'.
 const PROVIDER_REF_REGEX = /^(Practitioner|Organization)\/[A-Za-z0-9.-]{1,64}$/;
@@ -957,6 +959,9 @@ export function ruleConditionValueProblem(
   value: RuleConditionValue | undefined
 ): string | undefined {
   if (!operatorNeedsValue(operator)) return undefined;
+  // A list value under a single-value operator would be silently truncated to its first entry by
+  // the evaluator (a leftover from switching "is one of" to "equals") — reject it instead.
+  if (Array.isArray(value) && !operatorIsMultiValue(operator)) return SINGLE_VALUE_PROBLEM;
   const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
   if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
   if (operatorTakesFragment(operator)) return undefined;
@@ -985,6 +990,7 @@ export function serviceLineMatchValueProblem(
   value: RuleConditionValue | undefined
 ): string | undefined {
   if (!operatorNeedsValue(operator)) return undefined;
+  if (Array.isArray(value) && !operatorIsMultiValue(operator)) return SINGLE_VALUE_PROBLEM;
   const values = (Array.isArray(value) ? value : [value ?? '']).map((v) => v.trim());
   if (values.length === 0 || values.some((v) => v === '')) return VALUE_REQUIRED_PROBLEM;
   if (operatorTakesFragment(operator)) return undefined;

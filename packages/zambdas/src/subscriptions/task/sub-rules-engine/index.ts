@@ -174,9 +174,27 @@ export async function performEffect(
     }
   }
 
+  // A change to a resource the engine may not write (a shared resource, not a per-claim working
+  // copy) can never be stored — persistModel skips it defensively. Completing the run anyway would
+  // submit/advance the claim as if the change had applied, so hold it and fail instead.
+  const unwritable = failure || heldBy ? [] : findUnwritableChanges(model, unchanged);
+  if (unwritable.length > 0) {
+    applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+  }
+
   // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
   const written = await persistModel(oystehr, model, unchanged, agent);
   console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
+
+  if (unwritable.length > 0) {
+    console.log(`[rules-engine] Claim/${claimId} held: rules changed unwritable shared resource(s)`);
+    return {
+      taskStatus: 'failed',
+      statusReason:
+        `Rules changed ${unwritable.join(', ')}, which the engine cannot write (shared resources, ` +
+        `not per-claim working copies). The claim was held for review.`,
+    };
+  }
 
   if (failure) {
     console.log(`[rules-engine] Claim/${claimId} held after rule "${failure.rule.name}" failed`);
@@ -269,6 +287,22 @@ function modelResources(model: RulesEngineClaimModel): ModelResource[] {
 // the `before` of each change's history record.
 export function snapshotModel(model: RulesEngineClaimModel): Map<string, ModelResource> {
   return new Map(modelResources(model).map((r) => [`${r.resourceType}/${r.id}`, structuredClone(r)]));
+}
+
+// Dirty model resources the engine is not allowed to write back: anything that is neither the claim
+// itself, nor a per-claim working copy, nor a copy minted by this run's writers. persistModel skips
+// such writes defensively; performEffect must fail the run when any exist, or the claim would
+// proceed — and possibly submit — with a silently dropped change.
+export function findUnwritableChanges(model: RulesEngineClaimModel, snapshot: Map<string, ModelResource>): string[] {
+  return modelResources(model)
+    .filter((resource) => {
+      if (resource.resourceType === 'Claim') return false;
+      if (resource.id && model.createdCopyIds?.has(resource.id)) return false;
+      if (hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)) return false;
+      const before = snapshot.get(`${resource.resourceType}/${resource.id}`);
+      return !before || JSON.stringify(before) !== JSON.stringify(resource);
+    })
+    .map((resource) => `${resource.resourceType}/${resource.id}`);
 }
 
 // Write back the resources a rule actually changed — each with its claim-history Provenance — in one

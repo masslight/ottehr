@@ -116,6 +116,38 @@ describe('sub-rules-engine performEffect', () => {
     expect(transaction).toHaveBeenCalled();
   });
 
+  it('fails and holds the claim instead of submitting when rules changed a shared (non-working-copy) resource', async () => {
+    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    // Legacy/imported claim graph: the patient is a shared resource, not a per-claim working copy.
+    model.patient!.meta = { versionId: '1' };
+    const rules = [
+      alwaysRule('r1', {
+        type: 'actions',
+        actions: [{ type: 'setField', field: 'patient.lastName', value: 'Corrected' }],
+      }),
+    ];
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules, model },
+      AGENT
+    );
+
+    // persistModel skips the shared-resource write; completing would submit the claim as if the
+    // change had applied, so the run must fail and hold instead.
+    expect(result.taskStatus).toBe('failed');
+    expect(result.statusReason).toContain('Patient/patient-1');
+    expect(result.statusReason).toContain('held');
+    expect(submitClaimRcm).not.toHaveBeenCalled();
+    const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+    const claimPut = requests.find(
+      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    );
+    expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
+    expect(requests.some((r: { url: string }) => r.url.startsWith('Patient/'))).toBe(false);
+  });
+
   it('lifts the Hold tag when a previously held claim passes and submits', async () => {
     const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
     const model = makeModel(AR_STAGE.insurancePayer);

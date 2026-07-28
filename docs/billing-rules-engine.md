@@ -48,7 +48,7 @@ Which operators a property supports depends on its type (see the property tables
 
 | Operator | Reads as | Value | Description |
 | --- | --- | --- | --- |
-| `eq` | equals | single value | The property exactly equals the value. |
+| `eq` | equals | single value | The property exactly equals the value. Number-typed properties compare numerically, so 100 matches 100.00. |
 | `neq` | does not equal | single value | The property does not exactly equal the value. |
 | `in` | is one of | list of values | The property equals one of the listed values. |
 | `notIn` | is not one of | list of values | The property equals none of the listed values. |

@@ -55,7 +55,11 @@ export interface RuleOperatorMetadata {
 }
 
 export const RULE_OPERATOR_METADATA: Record<RuleOperator, RuleOperatorMetadata> = {
-  eq: { label: 'equals', description: 'The property exactly equals the value.' },
+  eq: {
+    label: 'equals',
+    description:
+      'The property exactly equals the value. Number-typed properties compare numerically, so 100 matches 100.00.',
+  },
   neq: { label: 'does not equal', description: 'The property does not exactly equal the value.' },
   in: { label: 'is one of', description: 'The property equals one of the listed values.' },
   notIn: { label: 'is not one of', description: 'The property equals none of the listed values.' },

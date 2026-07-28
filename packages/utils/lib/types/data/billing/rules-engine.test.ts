@@ -195,6 +195,18 @@ describe('rule value validation', () => {
     expect(setFieldValueProblem(field('serviceDate'), '2026-02-02')).toBeUndefined();
   });
 
+  it('rejects a list value under a single-value operator (stale "is one of" leftovers)', () => {
+    const state = field('patient.state');
+    // The evaluator would silently compare only the first entry — save-time must reject instead.
+    expect(ruleConditionValueProblem(state, 'eq', ['CA', 'TX'])).toContain('single value');
+    expect(ruleConditionValueProblem(state, 'in', ['CA', 'TX'])).toBeUndefined();
+
+    const pos = getServiceLinePropertyDef('placeOfService');
+    if (!pos) throw new Error('missing placeOfService def');
+    expect(serviceLineMatchValueProblem(pos, 'eq', ['11', '12'])).toContain('single value');
+    expect(serviceLineMatchValueProblem(pos, 'in', ['11', '12'])).toBeUndefined();
+  });
+
   it('validates service line match and set values', () => {
     const pos = getServiceLinePropertyDef('placeOfService');
     const units = getServiceLinePropertyDef('units');
