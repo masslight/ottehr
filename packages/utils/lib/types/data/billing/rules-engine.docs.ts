@@ -137,7 +137,7 @@ function renderAddServiceLineFieldTable(): string {
 }
 
 function renderEnginesTable(): string {
-  const lines = ['| Engine | Runs automatically | When every rule passes |', '| --- | --- | --- |'];
+  const lines = ['| Rules | Run automatically | When every rule passes |', '| --- | --- | --- |'];
   for (const type of RULES_ENGINE_TYPES) {
     const engine = RULES_ENGINES[type];
     lines.push(`| ${cell(engine.label)} (\`${type}\`) | ${cell(engine.runsWhen)} | ${cell(engine.onPass)} |`);
@@ -151,34 +151,34 @@ export function generateRulesEngineDocumentation(): string {
   const sections: string[] = [];
 
   sections.push(`<!-- GENERATED FILE — DO NOT EDIT.
-     This document is rendered from the rules-engine field catalog and schemas in
+     This document is rendered from the billing rules field catalog and schemas in
      packages/utils/lib/types/data/billing/. To update it, change those sources and run
      \`npm run docs:billing-rules\`. A unit test fails when this file is out of date. -->
 
-# Billing rules engines
+# Billing rules
 
-The billing app runs several independent rules engines. Each engine has its own ordered rule set,
-its own automatic trigger, and its own on-success effect:
+The billing app runs several independent sets of rules. Each set has its own ordered rules, its own
+automatic trigger, and its own on-success effect:
 
 ${renderEnginesTable()}
 
-Engines run automatically only when a claim is created in their AR stage, and on demand from the
-claim detail page. All engines share the same rule shape and the semantics below — everything in
-this reference applies to every engine.
+Each set of rules runs automatically only when a claim is created in its AR stage, and on demand
+from the claim detail page. All of the sets share the same rule shape and the semantics below —
+everything in this reference applies to each of them.
 
 Rules run top to bottom; each rule is an **if / else-if / else** conditional whose branches end in a
-list of **actions**. When every rule has run without holding the claim, the engine performs its
-on-success effect.
+list of **actions**. When every rule has run without holding the claim, the on-success effect above
+is performed.
 
 - A rule that applies the **${HOLD_TAG_NAME}** tag stops the run and holds the claim for manual
-  review; the engine's on-success effect does not happen.
+  review; the on-success effect does not happen.
 - An action that cannot be applied (for example, setting a property whose target is missing from the
   claim) fails the rule: the run stops, the **${HOLD_TAG_NAME}** tag is applied, and the claim never
   proceeds with a silently skipped change.
 - Disabled rules are skipped.
 
 This reference lists every supported condition property, operator, and action. It is generated from
-the same catalog that drives the rule builder and the engines, so it always matches what the engines
+the same catalog that drives the rule builder and the rule runs, so it always matches what the rules
 actually support (${RULE_FIELD_CATALOG.length} properties, ${settableCount} of them settable).`);
 
   sections.push(`## Conditions
@@ -222,8 +222,8 @@ A matched branch's outcome is a list of actions, applied in order:
 
 | Action | Description |
 | --- | --- |
-| Set a property (\`setField\`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the rules engine. If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
-| Apply a tag (\`applyTag\`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **${HOLD_TAG_NAME}** tag holds the claim: the run stops and the engine's on-success effect does not happen. |
+| Set a property (\`setField\`) | Sets one of the settable claim properties above to a new value. Setting an empty value clears the property. The change is written to the claim's working-copy resources and recorded in the claim history, attributed to the automated rules. If the property cannot be set (unknown or read-only property, invalid value, or the target resource is missing from the claim), the rule fails and the claim is held. |
+| Apply a tag (\`applyTag\`) | Adds a tag to the claim (no-op if the claim already carries it). Applying the **${HOLD_TAG_NAME}** tag holds the claim: the run stops and the on-success effect does not happen. |
 | Add a service line (\`addServiceLine\`) | Appends a new service line built from the fields below and recomputes the claim's billed total. Blank optional fields use the claim editor's defaults, and the new line is tied to the claim's rendering provider when one is set. An invalid field value fails the rule and holds the claim. |
 | Update service lines (\`updateServiceLines\`) | Applies one change (an updatable service line property + value; for modifiers, a set/add/remove operation) to every line matching the action's line predicate. Zero matching lines is a no-op, not a failure — pair the action with a condition when a match must exist. An invalid value or an operation that doesn't apply to the property fails the rule and holds the claim. Changing charges recomputes the claim's billed total. |
 | Remove service lines (\`removeServiceLines\`) | Removes every line matching the action's line predicate (all lines when the predicate is "all service lines"). Surviving lines are re-sequenced and the claim's billed total is recomputed. Zero matching lines is a no-op. |
