@@ -14,6 +14,7 @@ import { getPatientInstructionQuickPicks } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
+import { isPermissionDeniedError } from 'src/helpers/apiErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -143,6 +144,12 @@ export const useGetMeetingData = (
 
 export type ExtractObjectType<T> = T extends (infer U)[] ? U : never;
 
+// The medication/allergen lookups are served by the eRx drug reference database, which not every role can
+// read. A 403 there is a role misconfiguration, not a transient failure, so say so rather than telling the
+// user to try again.
+export const MEDICATION_DATABASE_FORBIDDEN_MESSAGE =
+  'Your role does not have access to the medication database. Please contact an administrator.';
+
 export const useGetMedicationsSearch = (
   medicationSearchTerm: string
 ): UseQueryResult<ErxSearchMedicationsResponse, Error> => {
@@ -161,13 +168,20 @@ export const useGetMedicationsSearch = (
     enabled: Boolean(medicationSearchTerm),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
+    // A role without eRx access will be denied every time — retrying just multiplies the 403s.
+    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 3,
   });
 
   useEffect(() => {
     if (queryResult.error) {
-      enqueueSnackbar('An error occurred during the search. Please try again in a moment', {
-        variant: 'error',
-      });
+      enqueueSnackbar(
+        isPermissionDeniedError(queryResult.error)
+          ? MEDICATION_DATABASE_FORBIDDEN_MESSAGE
+          : 'An error occurred during the search. Please try again in a moment',
+        {
+          variant: 'error',
+        }
+      );
     }
   }, [queryResult.error]);
 
@@ -190,13 +204,20 @@ export const useGetMedicationDetails = (medicationId: number): UseQueryResult<Er
     enabled: Boolean(medicationId),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
+    // A role without eRx access will be denied every time — retrying just multiplies the 403s.
+    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 3,
   });
 
   useEffect(() => {
     if (queryResult.error) {
-      enqueueSnackbar(`An error occurred during looking up medication details: ${queryResult.error.message}`, {
-        variant: 'error',
-      });
+      enqueueSnackbar(
+        isPermissionDeniedError(queryResult.error)
+          ? MEDICATION_DATABASE_FORBIDDEN_MESSAGE
+          : `An error occurred during looking up medication details: ${queryResult.error.message}`,
+        {
+          variant: 'error',
+        }
+      );
     }
   }, [queryResult.error]);
 

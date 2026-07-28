@@ -23,9 +23,14 @@ vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: vi.fn(),
 }));
 
+const { FORBIDDEN_MESSAGE } = vi.hoisted(() => ({
+  FORBIDDEN_MESSAGE: 'Your role does not have access to the medication database. Please contact an administrator.',
+}));
+
 vi.mock('src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useGetMedicationsSearch: vi.fn(),
   useGetMedicationDetails: vi.fn(),
+  MEDICATION_DATABASE_FORBIDDEN_MESSAGE: FORBIDDEN_MESSAGE,
 }));
 
 import { useParams } from 'react-router-dom';
@@ -103,6 +108,39 @@ describe('UpdateMedicationPage', () => {
     vi.mocked(useParams).mockReturnValue({ 'medication-id': 'med-xyz' });
     render(<UpdateMedicationPage />, { wrapper: createWrapper() });
     await waitFor(() => expect(screen.getByRole('button', { name: /activate medication/i })).toBeInTheDocument());
+  });
+
+  // The drug details come from the eRx reference database, which not every role can read. Before, a failed
+  // lookup left the page on <Loading /> forever with only a raw-message snackbar to explain it.
+  it('explains a forbidden medication database lookup instead of loading forever', async () => {
+    vi.mocked(useGetMedicationDetails).mockReturnValue({
+      isFetching: false,
+      data: undefined,
+      error: Object.assign(new Error('Forbidden'), { code: 403 }),
+    } as any);
+
+    render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('medication-database-alert')).toBeInTheDocument());
+    expect(screen.getByTestId('medication-database-alert')).toHaveTextContent(FORBIDDEN_MESSAGE);
+    expect(screen.queryByText(/refreshing/i)).not.toBeInTheDocument();
+    // Submitting with no details loaded would clear the stored interactions Medispan ID.
+    expect(screen.getByRole('button', { name: /^update medication$/i })).toBeDisabled();
+    // The status change doesn't depend on the drug database, so it stays available.
+    expect(screen.getByRole('button', { name: /remove medication/i })).toBeEnabled();
+  });
+
+  it('reports a non-permission medication database failure as transient', async () => {
+    vi.mocked(useGetMedicationDetails).mockReturnValue({
+      isFetching: false,
+      data: undefined,
+      error: Object.assign(new Error('Service Unavailable'), { code: 503 }),
+    } as any);
+
+    render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+    await waitFor(() => expect(screen.getByTestId('medication-database-alert')).toBeInTheDocument());
+    expect(screen.getByTestId('medication-database-alert')).toHaveTextContent(/could not be reached/i);
   });
 
   it('submits the original medication data when typed text does not match any option', async () => {
