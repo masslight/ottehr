@@ -6,6 +6,7 @@ import {
   getSuffixFromProviderTypeExtension,
   makeProviderTypeExtension,
   makeQualificationForPractitioner,
+  RoleType,
   UpdateUserZambdaOutput,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
@@ -180,17 +181,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         updatedTelecom = updatedTelecom.filter((tel) => tel.system !== 'fax');
       }
 
-      if (npi) {
+      // NPI belongs to Providers only. If the user is not being (re)assigned the Provider role, never
+      // persist an NPI on their Practitioner — even if the client still sends a stale value (e.g. when an
+      // existing Provider is switched to Clinician and the hidden NPI field keeps its old value). This
+      // upholds the "a non-Provider (e.g. Clinician) has no NPI" invariant that the NPI-gated action
+      // checks rely on; otherwise such a user would keep an NPI and slip past every gate.
+      const effectiveNpi = selectedRoles?.includes(RoleType.Provider) ? npi : undefined;
+      if (effectiveNpi) {
         if (!existingPractitionerResource.identifier) {
           existingPractitionerResource.identifier = [];
         }
         const npiIndex = existingPractitionerResource.identifier.findIndex((id) => id.system === FHIR_IDENTIFIER_NPI);
         if (npiIndex >= 0) {
-          existingPractitionerResource.identifier[npiIndex].value = npi;
+          existingPractitionerResource.identifier[npiIndex].value = effectiveNpi;
         } else {
           existingPractitionerResource.identifier.push({
             system: FHIR_IDENTIFIER_NPI,
-            value: npi,
+            value: effectiveNpi,
           });
         }
       } else {
