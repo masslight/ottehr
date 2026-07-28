@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
+import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   asEraClaimStatusCode,
@@ -22,8 +22,11 @@ import {
   extractRemitAdjustments,
   fetchClaimEraLinks,
   fetchClaimResponsesByClaimIds,
+  fetchPatientPaymentsByEncounterIds,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
+  sumPatientPayments,
+  toClaimPatientPayment,
 } from '../claim-amounts';
 import { getCLIA } from '../service-facility.helpers';
 import {
@@ -61,7 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(
+export async function performEffect(
   oystehr: Oystehr,
   eraReadClient: Oystehr,
   params: GetClaimDetailParams
@@ -79,13 +82,25 @@ async function performEffect(
     : undefined;
   const policyHolder = extractPolicyHolder(subscriber);
 
-  // Other claims via Person lookup, plus this claim's ERA adjudications
-  const [otherClaims, claimResponsesByClaimId] = await Promise.all([
+  const encounterId =
+    claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '';
+
+  // Other claims via Person lookup, this claim's ERA adjudications, and its patient payments
+  const [otherClaims, claimResponsesByClaimId, paymentsByEncounter] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
     fetchClaimResponsesByClaimIds(eraReadClient, [claimId]),
+    encounterId
+      ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
+      : Promise.resolve(new Map<string, PaymentNotice[]>()),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, claimResponseByPrId } = await fetchClaimEraLinks(eraReadClient, claimResponses);
+
+  const patientPaymentNotices = paymentsByEncounter.get(encounterId) ?? [];
+  const patientPaid = sumPatientPayments(patientPaymentNotices);
+  const patientPayments = patientPaymentNotices
+    .map(toClaimPatientPayment)
+    .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
 
   // Resolve primary, secondary, remit, and insurance payment payers from the Oystehr payer list
   const payersByRef = await resolvePayersByRef(oystehr, [
@@ -100,7 +115,7 @@ async function performEffect(
     : undefined;
 
   const billed = claim.total?.value ?? 0;
-  const payments = summarizeClaimPayments(claimResponses, billed);
+  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid);
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
     const payer = cr.insurer?.reference ? payersByRef.get(cr.insurer.reference) : undefined;
@@ -142,7 +157,7 @@ async function performEffect(
 
   return {
     id: claim.id ?? '',
-    encounterId: claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '',
+    encounterId,
     appointmentId:
       claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-appointment-id'))?.value ?? '',
     type: getClaimType(claim),
@@ -228,8 +243,10 @@ async function performEffect(
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
     balance: payments.balance,
+    adjudicated: payments.adjudicated,
     remits,
     insurancePayments,
+    patientPayments,
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)
