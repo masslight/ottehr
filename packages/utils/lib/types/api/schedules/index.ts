@@ -121,6 +121,12 @@ export interface ToggleGroupActiveParams {
   active: boolean;
 }
 
+export interface ToggleScheduleActiveParams {
+  scheduleId: string;
+  /** `true` → active, `false` → inactive (this schedule drops out of booking). */
+  active: boolean;
+}
+
 export interface CreateProviderGroupParams {
   name: string;
   /** True → pool every active provider (`.location[]` left empty). */

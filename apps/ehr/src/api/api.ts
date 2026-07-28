@@ -220,6 +220,7 @@ import {
   SyncMailedStatementStatusesOutput,
   ToggleGroupActiveParams,
   ToggleLocationActiveParams,
+  ToggleScheduleActiveParams,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateAllergyQuickPickResponse,
@@ -308,6 +309,7 @@ const GET_LOCATION_ZAMBDA_ID = 'get-location';
 const UPDATE_LOCATION_ZAMBDA_ID = 'update-location';
 const TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID = 'toggle-location-active';
 const TOGGLE_GROUP_ACTIVE_ZAMBDA_ID = 'toggle-group-active';
+const TOGGLE_SCHEDULE_ACTIVE_ZAMBDA_ID = 'toggle-schedule-active';
 const ADMIN_CREATE_GROUP_ZAMBDA_ID = 'admin-create-group';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID = 'create-in-house-lab-order';
@@ -1039,6 +1041,14 @@ export const toggleGroupActive = async (
   oystehr: Oystehr
 ): Promise<{ id: string; active: boolean }> => {
   const response = await oystehr.zambda.execute({ id: TOGGLE_GROUP_ACTIVE_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const toggleScheduleActive = async (
+  params: ToggleScheduleActiveParams,
+  oystehr: Oystehr
+): Promise<{ id: string; active: boolean }> => {
+  const response = await oystehr.zambda.execute({ id: TOGGLE_SCHEDULE_ACTIVE_ZAMBDA_ID, ...params });
   return chooseJson(response);
 };
 

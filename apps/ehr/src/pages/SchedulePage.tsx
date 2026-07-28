@@ -14,7 +14,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -30,7 +29,7 @@ import {
   UpdateScheduleParams,
 } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
-import { getSchedule, updateSchedule } from '../api/api';
+import { getSchedule, toggleScheduleActive, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import Loading from '../components/Loading';
 import ScheduleComponent from '../components/schedule/ScheduleComponent';
@@ -40,7 +39,7 @@ import PageContainer from '../layout/PageContainer';
 const INTAKE_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 export default function SchedulePage(): ReactElement {
-  const { oystehr, oystehrZambda } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const scheduleId = useParams()['schedule-id'] as string;
   const queryClient = useQueryClient();
 
@@ -161,18 +160,14 @@ export default function SchedulePage(): ReactElement {
   // getSchedules filter honors Schedule.active) while leaving the owner and any
   // other schedules it owns intact.
   const setScheduleActive = async (nextActive: boolean): Promise<void> => {
-    if (!oystehr || !item?.id) {
+    if (!oystehrZambda || !item?.id) {
       enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
       return;
     }
     try {
       setStatusPatchLoading(true);
-      const patched = await oystehr.fhir.patch<Schedule>({
-        resourceType: 'Schedule',
-        id: item.id,
-        operations: [{ op: 'add', path: '/active', value: nextActive }],
-      });
-      setItem({ ...item, active: patched.active ?? nextActive });
+      const { active } = await toggleScheduleActive({ scheduleId: item.id, active: nextActive }, oystehrZambda);
+      setItem({ ...item, active });
       enqueueSnackbar(nextActive ? 'Schedule activated.' : 'Schedule deactivated.', { variant: 'success' });
     } catch {
       enqueueSnackbar('Oops. Something went wrong. Status update was not saved.', { variant: 'error' });
@@ -182,7 +177,7 @@ export default function SchedulePage(): ReactElement {
   };
 
   const saveGeneralFields = async (_event?: any): Promise<void> => {
-    if (!oystehr || !item?.id) {
+    if (!item?.id) {
       enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
       return;
     }

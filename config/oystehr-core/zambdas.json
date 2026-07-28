@@ -1034,6 +1034,13 @@
       "src": "src/ehr/schedules/list-provider-groups/index",
       "zip": ".dist/zips/list-provider-groups.zip"
     },
+    "TOGGLE-SCHEDULE-ACTIVE": {
+      "name": "toggle-schedule-active",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/schedules/toggle-schedule-active/index",
+      "zip": ".dist/zips/toggle-schedule-active.zip"
+    },
     "CREATE-SCHEDULE": {
       "name": "create-schedule",
       "type": "http_auth",
