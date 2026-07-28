@@ -1168,6 +1168,22 @@
       "src": "src/ehr/send-fax/index",
       "zip": ".dist/zips/send-fax.zip"
     },
+    "SEND-FAX-PACKET": {
+      "name": "send-fax-packet",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "memorySize": "3008",
+      "timeout": "27",
+      "src": "src/ehr/send-fax-packet/index",
+      "zip": ".dist/zips/send-fax-packet.zip"
+    },
+    "GET-FAX-PACKET-PREVIEW": {
+      "name": "get-fax-packet-preview",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-fax-packet-preview/index",
+      "zip": ".dist/zips/get-fax-packet-preview.zip"
+    },
     "CREATE-SLOT": {
       "name": "create-slot",
       "type": "http_open",

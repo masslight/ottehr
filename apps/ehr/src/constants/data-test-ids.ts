@@ -107,6 +107,27 @@ export const dataTestIds = {
   slots: {
     slot: 'slot',
   },
+  faxDialog: {
+    root: 'fax-dialog',
+    menuItem: 'fax-documents-menu-item',
+    docModeAll: 'fax-dialog-mode-all',
+    docModeSelected: 'fax-dialog-mode-selected',
+    docCheckbox: 'fax-dialog-document-checkbox',
+    recipientName: 'fax-dialog-recipient-name',
+    organization: 'fax-dialog-recipient-organization',
+    faxNumber: 'fax-dialog-recipient-fax-number',
+    phoneNumber: 'fax-dialog-recipient-phone-number',
+    saveAsPcp: 'fax-dialog-save-as-pcp',
+    addRecipient: 'fax-dialog-add-recipient',
+    removeRecipient: 'fax-dialog-remove-recipient',
+    sendButton: 'fax-dialog-send-button',
+    cancelButton: 'fax-dialog-cancel-button',
+  },
+  faxResultDialog: {
+    root: 'fax-result-dialog',
+    failedRecipient: 'fax-result-failed-recipient',
+    closeButton: 'fax-result-close-button',
+  },
   dialog: {
     closeButton: 'dialog-close-button',
     cancelButton: 'dialog-cancel-button',

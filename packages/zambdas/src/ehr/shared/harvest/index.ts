@@ -1223,7 +1223,7 @@ const resolveTelecomIntents = (
   return [{ op: 'replace', path: telecomPath, value: target }];
 };
 
-const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
+export const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Patient): Operation[] => {
   const isActive = flattenedItems.find((field) => field.linkId === 'pcp-active')?.answer?.[0]?.valueBoolean;
   const firstName = flattenedItems.find((field) => field.linkId === 'pcp-first')?.answer?.[0]?.valueString;
   const lastName = flattenedItems.find((field) => field.linkId === 'pcp-last')?.answer?.[0]?.valueString;
@@ -1347,6 +1347,31 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
     }
   }
   return operations;
+};
+
+export interface PcpContactDetails {
+  firstName?: string;
+  lastName?: string;
+  practiceName?: string;
+  phone?: string;
+  fax?: string;
+  active: boolean;
+}
+
+/**
+ * Patch ops that persist a PCP from plain contact fields, so callers outside the paperwork flow (e.g. the
+ * outbound fax dialog) don't have to know the `pcp-*` QuestionnaireResponse linkId contract.
+ */
+export const getPcpPatchOpsFromDetails = (details: PcpContactDetails, patient: Patient): Operation[] => {
+  const items: QuestionnaireResponseItem[] = [
+    { linkId: 'pcp-first', answer: details.firstName ? [{ valueString: details.firstName }] : undefined },
+    { linkId: 'pcp-last', answer: details.lastName ? [{ valueString: details.lastName }] : undefined },
+    { linkId: 'pcp-practice', answer: details.practiceName ? [{ valueString: details.practiceName }] : undefined },
+    { linkId: 'pcp-number', answer: details.phone ? [{ valueString: details.phone }] : undefined },
+    { linkId: 'pcp-fax', answer: details.fax ? [{ valueString: details.fax }] : undefined },
+    { linkId: 'pcp-active', answer: [{ valueBoolean: details.active }] },
+  ];
+  return getPCPPatchOps(items, patient);
 };
 
 export const createUpdatePharmacyPatchOps = (

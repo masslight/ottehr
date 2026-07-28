@@ -52,6 +52,7 @@ export * from './rcm-claims';
 export * from './recent-patients-report.types';
 export * from './save-followup-encounter.types';
 export * from './schedules';
+export * from './fax.types';
 export * from './send-fax.types';
 export * from './send-receipt-by-email.types';
 export * from './sign-appointment';
