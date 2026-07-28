@@ -55,8 +55,11 @@ export async function searchPatientArClaims(
   };
 }
 
-export async function fetchAllActivePatientArClaims(oystehr: Oystehr): Promise<PatientArClaimItem[]> {
-  const matches = await collectPatientArMatches({ oystehr });
+export async function fetchAllActivePatientArClaims(
+  oystehr: Oystehr,
+  patientId?: string
+): Promise<PatientArClaimItem[]> {
+  const matches = await collectPatientArMatches({ oystehr, patientId });
   return buildPatientArClaimItems(oystehr, matches);
 }
 
