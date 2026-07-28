@@ -58,9 +58,9 @@ export async function searchPatientArClaims(
 
 export async function fetchAllActivePatientArClaims(
   oystehr: Oystehr,
-  encounterIds?: string[]
+  options?: { encounterIds?: string[]; excludeFullyPaid?: boolean }
 ): Promise<PatientArClaimItem[]> {
-  const matches = await collectPatientArMatches({ oystehr, encounterIds });
+  const matches = await collectPatientArMatches({ oystehr, ...options });
   return buildPatientArClaimItems(oystehr, matches);
 }
 
@@ -70,8 +70,9 @@ async function collectPatientArMatches(params: {
   encounterIds?: string[];
   claimIds?: string[];
   includeZeroBalance?: boolean;
+  excludeFullyPaid?: boolean;
 }): Promise<PatientArMatch[]> {
-  const { oystehr, patientId, encounterIds, claimIds, includeZeroBalance } = params;
+  const { oystehr, patientId, encounterIds, claimIds, includeZeroBalance, excludeFullyPaid } = params;
 
   const claims = await fetchPatientArStageClaims({
     oystehr,
@@ -94,9 +95,10 @@ async function collectPatientArMatches(params: {
       payments: summarizeClaimPayments(claimResponsesByClaimId.get(claimId) ?? [], claim.total?.value ?? 0),
     };
   });
-  const matches = candidates.filter(({ statuses, payments }) =>
-    includeZeroBalance ? isInActivePatientArStage(statuses) : isActivePatientArClaim(statuses, payments)
-  );
+  const matches = candidates.filter(({ statuses, payments }) => {
+    if (excludeFullyPaid && statuses.patientPaidStatus === 'fully-paid') return false;
+    return includeZeroBalance ? isInActivePatientArStage(statuses) : isActivePatientArClaim(statuses, payments);
+  });
   matches.sort(
     (a, b) =>
       claimServiceDate(b.claim).localeCompare(claimServiceDate(a.claim)) ||

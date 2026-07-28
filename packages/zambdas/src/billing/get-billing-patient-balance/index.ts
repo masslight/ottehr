@@ -22,7 +22,11 @@ export async function performEffect(
   oystehr: Oystehr,
   params: GetBillingPatientBalanceParams
 ): Promise<GetBillingPatientBalanceResponse> {
-  const claims = await fetchAllActivePatientArClaims(oystehr, params.encounterIds);
+  const claims = await fetchAllActivePatientArClaims(oystehr, {
+    encounterIds: params.encounterIds,
+    // A biller can mark a claim fully paid by hand. Keep those out of the patient balance display.
+    excludeFullyPaid: true,
+  });
   return { claims, balance: summarizePatientBalance(claims) };
 }
 

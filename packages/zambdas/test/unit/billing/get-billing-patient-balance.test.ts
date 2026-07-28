@@ -57,6 +57,12 @@ describe('get-billing-patient-balance', () => {
         validateRequestParameters(createMockZambdaInput({ encounterIds: ['not-a-uuid'] }, { secrets }))
       ).toThrow();
     });
+
+    it('throws when encounterIds exceeds the request cap', () => {
+      const secrets = createMockSecrets();
+      const encounterIds = Array.from({ length: 1001 }, () => validUUID);
+      expect(() => validateRequestParameters(createMockZambdaInput({ encounterIds }, { secrets }))).toThrow();
+    });
   });
 
   describe('summarizePatientBalance', () => {
@@ -89,7 +95,10 @@ describe('get-billing-patient-balance', () => {
 
       const result = await performEffect(oystehr, { encounterIds: ['enc-1', 'enc-2'], secrets: {} });
 
-      expect(fetchAllActivePatientArClaims).toHaveBeenCalledWith(oystehr, ['enc-1', 'enc-2']);
+      expect(fetchAllActivePatientArClaims).toHaveBeenCalledWith(oystehr, {
+        encounterIds: ['enc-1', 'enc-2'],
+        excludeFullyPaid: true,
+      });
       expect(result).toEqual({
         claims,
         balance: { currentBalance: 95.5, claimsWithPatientBalance: 2 },

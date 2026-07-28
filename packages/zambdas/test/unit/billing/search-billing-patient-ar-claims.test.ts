@@ -436,40 +436,61 @@ describe('fetchPatientsById', () => {
 });
 
 describe('fetchAllActivePatientArClaims with encounter ids', () => {
-  const arClaim = (id: string, encounterId: string): Claim =>
+  const arClaim = (id: string, encounterId: string, statusOverrides: Partial<ClaimStatusValues> = {}): Claim =>
     claim({
       id,
-      meta: { tag: claimStatusValuesToTags(activeStatuses()) },
+      meta: { tag: claimStatusValuesToTags(activeStatuses(statusOverrides)) },
       total: { value: 100, currency: 'USD' },
       identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId }],
     });
 
-  it('batches the encounter-id filter into chunked claim searches and dedupes merged results', async () => {
-    const encounterIds = Array.from({ length: 120 }, (_, i) => `enc-${i}`);
+  const oystehrReturning = (claimsPerSearch: Claim[][]): Oystehr => {
     let claimSearchCount = 0;
     const search = vi.fn(async (args: { resourceType: string; params: { name: string; value: string }[] }) => {
       if (args.resourceType === 'Claim') {
+        const claims = claimsPerSearch[claimSearchCount] ?? [];
         claimSearchCount += 1;
-        const claims =
-          claimSearchCount === 1
-            ? [arClaim('c-shared', 'enc-0'), arClaim('c-1', 'enc-1')]
-            : [arClaim('c-shared', 'enc-0'), arClaim('c-2', 'enc-101')];
         return { link: [], unbundle: () => claims };
       }
       return { link: [], unbundle: () => [] };
     });
-    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    return { fhir: { search } } as unknown as Oystehr;
+  };
 
-    const items = await fetchAllActivePatientArClaims(oystehr, encounterIds);
+  it('batches the encounter-id filter into chunked claim searches and dedupes merged results', async () => {
+    const encounterIds = Array.from({ length: 120 }, (_, i) => `enc-${i}`);
+    const oystehr = oystehrReturning([
+      [arClaim('c-shared', 'enc-0'), arClaim('c-1', 'enc-1')],
+      [arClaim('c-shared', 'enc-0'), arClaim('c-2', 'enc-101')],
+    ]);
 
-    const identifierParams = search.mock.calls
+    const items = await fetchAllActivePatientArClaims(oystehr, { encounterIds });
+
+    const search = (oystehr.fhir.search as ReturnType<typeof vi.fn>).mock.calls;
+    const identifierParams = search
       .filter(([args]) => args.resourceType === 'Claim')
-      .map(([args]) => args.params.find((param) => param.name === 'identifier')?.value ?? '');
+      .map(([args]) => args.params.find((param: { name: string }) => param.name === 'identifier')?.value ?? '');
     expect(identifierParams).toHaveLength(2);
     expect(identifierParams[0].split(',')).toHaveLength(100);
     expect(identifierParams[1].split(',')).toHaveLength(20);
     expect(identifierParams[0]).toContain('|enc-0');
     expect(identifierParams[1]).toContain('|enc-100');
     expect(items.map((item) => item.claimId).sort()).toEqual(['c-1', 'c-2', 'c-shared']);
+  });
+
+  it('drops claims manually marked fully paid when excludeFullyPaid is set', async () => {
+    const fullyPaid = arClaim('c-paid', 'enc-0', { patientPaidStatus: 'fully-paid' });
+    const owing = arClaim('c-owing', 'enc-1');
+
+    const withFilter = await fetchAllActivePatientArClaims(oystehrReturning([[fullyPaid, owing]]), {
+      encounterIds: ['enc-0', 'enc-1'],
+      excludeFullyPaid: true,
+    });
+    expect(withFilter.map((item) => item.claimId)).toEqual(['c-owing']);
+
+    const withoutFilter = await fetchAllActivePatientArClaims(oystehrReturning([[fullyPaid, owing]]), {
+      encounterIds: ['enc-0', 'enc-1'],
+    });
+    expect(withoutFilter.map((item) => item.claimId).sort()).toEqual(['c-owing', 'c-paid']);
   });
 });
