@@ -88,7 +88,7 @@ const PaperworkFlowsAdminPage: FC = () => {
     setFlowDialog((d) => ({
       open: true,
       seed: { name: '', formsSelected: flow.forms, modes: flow.modes, services: [] },
-      editingSlug: undefined,
+      editingFlowId: undefined,
       nonce: d.nonce + 1,
     }));
 

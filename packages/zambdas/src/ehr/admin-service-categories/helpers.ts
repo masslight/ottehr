@@ -165,7 +165,7 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
   const configBlob: { reasonsForVisit?: typeof reasons; abbreviation?: string } = {};
   if (reasons.length > 0) configBlob.reasonsForVisit = reasons;
   if (abbreviation) configBlob.abbreviation = abbreviation;
-  const resource: HealthcareService = {
+  return {
     resourceType: 'HealthcareService',
     id: record.id,
     meta: { tag: [SERVICE_CATEGORY_TAG] },
@@ -183,5 +183,4 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
           ]
         : undefined,
   };
-  return resource;
 }
