@@ -10,9 +10,9 @@ import { useChartData, useSaveChartData } from 'src/features/visits/shared/store
 import { DiagnosisDTO } from 'utils';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import { RadiologyDiagnosis, RadiologyDiagnosisField } from '../components/RadiologyDiagnosisField';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
-import { RadiologyReportDiagnosis, RadiologyReportDiagnosisField } from '../components/RadiologyReportDiagnosisField';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
 import { RadiologyViewImageBtn } from '../components/RadiologyViewImageBtn';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
@@ -25,7 +25,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const theme = useTheme();
 
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
-  const [preliminaryReportDx, setPreliminaryReportDx] = useState<RadiologyReportDiagnosis[]>([]);
+  const [preliminaryReportDx, setPreliminaryReportDx] = useState<RadiologyDiagnosis[]>([]);
   const [missingPreliminaryReportDx, setMissingPreliminaryReportDx] = useState(false);
   const [finalReportByUser, setFinalReportByUser] = useState(false);
   const [finalReport, setFinalReport] = useState<string | undefined>();
@@ -70,7 +70,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   // Assessment (the billing/claims diagnosis list), mirroring what the order form does at order time.
   // The save-preliminary-report zambda separately stores it on the order's reasonCode; without this
   // step a diagnosis entered only at read time would never reach the Assessment.
-  const addReportDxToEncounter = async (dxList: RadiologyReportDiagnosis[]): Promise<void> => {
+  const addReportDxToEncounter = async (dxList: RadiologyDiagnosis[]): Promise<void> => {
     const existingDiagnoses = chartData?.diagnosis;
     const newDx: DiagnosisDTO[] = dxList
       .filter((dx) => !existingDiagnoses?.some((d) => d.code === dx.code))
@@ -229,12 +229,13 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               {order.status === 'performed' && !order.preliminaryReport && (
                 <>
                   <Box sx={{ mt: 2 }}>
-                    <RadiologyReportDiagnosisField
+                    <RadiologyDiagnosisField
                       value={preliminaryReportDx}
                       onChange={(dx) => {
                         setMissingPreliminaryReportDx(false);
                         setPreliminaryReportDx(dx);
                       }}
+                      quickPickOptions={chartData?.diagnosis}
                       disabled={isReadOnly}
                       error={missingPreliminaryReportDx}
                       helperText={missingPreliminaryReportDx ? 'Please enter a diagnosis to continue' : undefined}

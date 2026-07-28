@@ -3,26 +3,28 @@ import React, { useState } from 'react';
 import { useICD10SearchNew } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 
-export interface RadiologyReportDiagnosis {
+export interface RadiologyDiagnosis {
   code: string;
   display: string;
 }
 
 /**
- * Multi-select ICD-10 diagnosis picker used when saving a radiology preliminary read.
- * Diagnosis is optional at order time and captured here instead, so this field mirrors the
- * order form's Diagnosis autocomplete but sources its options purely from ICD-10 search.
+ * Multi-select ICD-10 diagnosis picker shared by the radiology order forms (diagnosis is optional at
+ * order time) and the preliminary-read entry on the order details page (where it is required). Owns
+ * its own ICD-10 search; pass `quickPickOptions` to surface a known set of diagnoses (e.g. the
+ * encounter's charted diagnoses) while the search box is empty.
  */
-export const RadiologyReportDiagnosisField: React.FC<{
-  value: RadiologyReportDiagnosis[];
-  onChange: (value: RadiologyReportDiagnosis[]) => void;
+export const RadiologyDiagnosisField: React.FC<{
+  value: RadiologyDiagnosis[];
+  onChange: (value: RadiologyDiagnosis[]) => void;
+  quickPickOptions?: RadiologyDiagnosis[];
   disabled?: boolean;
   error?: boolean;
   helperText?: string;
-}> = ({ value, onChange, disabled, error, helperText }) => {
+}> = ({ value, onChange, quickPickOptions, disabled, error, helperText }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const { isFetching, data } = useICD10SearchNew({ search: searchTerm });
-  const options = data?.codes ?? [];
+  const options: RadiologyDiagnosis[] = searchTerm === '' && quickPickOptions ? quickPickOptions : data?.codes ?? [];
   const { debounce } = useDebounce(800);
 
   const onInputChange = (input: string): void => {
@@ -36,7 +38,7 @@ export const RadiologyReportDiagnosisField: React.FC<{
     <Autocomplete
       multiple
       disableCloseOnSelect
-      id="report-select-dx"
+      id="select-dx"
       size="small"
       fullWidth
       filterOptions={(x) => x}
@@ -44,7 +46,7 @@ export const RadiologyReportDiagnosisField: React.FC<{
       noOptionsText={noOptionsText}
       value={value}
       isOptionEqualToValue={(option, selected) => selected.code === option.code}
-      onChange={(_event, selected) => onChange(selected as RadiologyReportDiagnosis[])}
+      onChange={(_event, selected) => onChange(selected as RadiologyDiagnosis[])}
       loading={isFetching}
       options={options}
       disabled={disabled}

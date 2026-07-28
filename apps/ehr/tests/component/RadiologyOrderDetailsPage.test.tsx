@@ -39,8 +39,8 @@ vi.mock('../../src/features/radiology/components/RadiologyOrderHistoryCard', () 
 
 // Stub the ICD-10 diagnosis picker (it uses react-query internally); expose a button that
 // selects a fixed diagnosis and surface the validation message so tests can drive the flow.
-vi.mock('../../src/features/radiology/components/RadiologyReportDiagnosisField', () => ({
-  RadiologyReportDiagnosisField: ({ onChange, error, helperText }: any) => (
+vi.mock('../../src/features/radiology/components/RadiologyDiagnosisField', () => ({
+  RadiologyDiagnosisField: ({ onChange, error, helperText }: any) => (
     <div data-testid="report-dx-field">
       <button type="button" onClick={() => onChange([{ code: 'A00', display: 'Cholera' }])}>
         mock-add-dx

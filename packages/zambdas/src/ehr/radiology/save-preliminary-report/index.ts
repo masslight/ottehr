@@ -9,7 +9,6 @@ import {
   createOurDiagnosticReport,
   fetchServiceRequestFromAdvaPACS,
   getSecret,
-  MISSING_REQUIRED_PARAMETERS,
   RADIOLOGY_ERROR,
   SaveRadiologyReportZambdaOutput,
   Secrets,
@@ -48,11 +47,8 @@ async function performEffect(
 ): Promise<SaveRadiologyReportZambdaOutput> {
   const { serviceRequestId, report: preliminaryReport, diagnosisCodes } = validatedInput.body;
 
-  // Diagnosis is captured here (it is optional at order time) and is required to save a preliminary read.
-  // Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
-  if (diagnosisCodes == null || diagnosisCodes.length === 0) {
-    throw MISSING_REQUIRED_PARAMETERS(['diagnosisCodes']);
-  }
+  // Diagnosis is optional at order time but required to save a preliminary read (enforced in
+  // validateInput). Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
   const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
 
   // Get the existing service request from Oystehr
