@@ -21,6 +21,8 @@ interface UploadComponentProps {
   isUploading?: boolean;
   submitAttachment: (attachment: Attachment) => Promise<void>;
   onScanClick?: () => void;
+  /** Overrides the accepted file types (the `accept` string). Defaults to images only. */
+  acceptedFileTypes?: string;
 }
 
 const FILE_TYPES_ACCEPTED = [
@@ -47,6 +49,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
   isUploading,
   submitAttachment,
   onScanClick,
+  acceptedFileTypes = FILE_TYPES_ACCEPTED,
 }): JSX.Element => {
   const theme = useTheme();
   const [pendingZ3Upload, setPendingZ3Upload] = useState<File | undefined>();
@@ -66,7 +69,8 @@ const UploadComponent: FC<UploadComponentProps> = ({
         const file = await convertHeicToJpegIfNeeded(rawFile);
         let finalFile = file;
         const fileSizeInMb = file.size / (1024 * 1024);
-        if (fileSizeInMb >= 5) {
+        // browser-image-compression only handles raster images; never run it on PDFs/other types.
+        if (fileSizeInMb >= 5 && file.type.startsWith('image/')) {
           setCompressingImage(true);
           const options = {
             maxSizeMB: 4.9,
@@ -178,7 +182,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
       )}
       <input
         type="file"
-        accept={FILE_TYPES_ACCEPTED}
+        accept={acceptedFileTypes}
         hidden
         ref={inputRef}
         onChange={async (e) => {

@@ -6,6 +6,9 @@ import viteTsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   plugins: [react(), viteTsconfigPaths(), svgr()],
+  resolve: {
+    preserveSymlinks: true,
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'lib/main.ts'),

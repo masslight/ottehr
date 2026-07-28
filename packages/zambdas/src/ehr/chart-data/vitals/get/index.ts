@@ -301,6 +301,7 @@ const parseVisionObservation = (
     leftEyeVisionText === undefined &&
     rightEyeVisionText === undefined &&
     bothEyesVisionText === undefined &&
+    (!visionOptions || visionOptions.length === 0) &&
     dotVisionScreening === undefined
   ) {
     return undefined;
@@ -326,7 +327,8 @@ type AllOtherFields =
   | VitalFieldNames.VitalTemperature
   | VitalFieldNames.VitalRespirationRate
   | VitalFieldNames.VitalHeight
-  | VitalFieldNames.VitalWeight;
+  | VitalFieldNames.VitalWeight
+  | VitalFieldNames.VitalBMI;
 
 const parseNumericValueObservation = (
   observation: Observation,

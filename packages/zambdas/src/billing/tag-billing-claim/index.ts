@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim } from 'fhir/r4b';
+import { Claim, Coding, ProvenanceAgent } from 'fhir/r4b';
+import { CLAIM_TAG_SYSTEM } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CLAIM_TAG_SYSTEM, createBillingClient, fetchById } from '../shared';
+import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
+import { createBillingClient, fetchById } from '../shared';
 import { TagBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -12,32 +14,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, params);
+  const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: TagBillingClaimParams): Promise<{ ok: true }> {
+async function performEffect(
+  oystehr: Oystehr,
+  params: TagBillingClaimParams,
+  agent: ProvenanceAgent
+): Promise<{ ok: true }> {
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
 
   const existingTags = claim.meta?.tag ?? [];
   const hasTag = existingTags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === params.tagName);
 
-  const versionId = claim.meta?.versionId;
-
+  let updatedTags: Coding[] | undefined;
   if (params.action === 'add' && !hasTag) {
-    const updated = [...existingTags, { system: CLAIM_TAG_SYSTEM, code: params.tagName }];
-    await oystehr.fhir.patch(
-      { resourceType: 'Claim', id: params.claimId, operations: [{ op: 'add', path: '/meta/tag', value: updated }] },
-      versionId ? { optimisticLockingVersionId: versionId } : undefined
-    );
+    updatedTags = [...existingTags, { system: CLAIM_TAG_SYSTEM, code: params.tagName }];
   } else if (params.action === 'remove' && hasTag) {
-    const updated = existingTags.filter((t) => !(t.system === CLAIM_TAG_SYSTEM && t.code === params.tagName));
-    await oystehr.fhir.patch(
-      { resourceType: 'Claim', id: params.claimId, operations: [{ op: 'add', path: '/meta/tag', value: updated }] },
-      versionId ? { optimisticLockingVersionId: versionId } : undefined
-    );
+    updatedTags = existingTags.filter((t) => !(t.system === CLAIM_TAG_SYSTEM && t.code === params.tagName));
   }
+  if (!updatedTags) return { ok: true };
+
+  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'tagChange', agent);
 
   return { ok: true };
 }

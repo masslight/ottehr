@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { TermsAndConditions } from 'src/components/TermsAndConditions';
+import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import {
   convertQRItemToLinkIdMap,
   evalEnableWhen,
@@ -15,6 +16,7 @@ import {
   uuidRegex,
   VisitType,
 } from 'utils';
+import { i18n } from 'utils/lib/frontend';
 import { ValidationError } from 'yup';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import api from '../api/ottehrApi';
@@ -22,7 +24,7 @@ import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
-import { FormValidationErrorObject, getFormValidationErrors, usePaperworkContext } from '../features/paperwork';
+import { FormValidationErrorObject, getFormValidationErrors } from '../features/paperwork';
 import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
 import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
@@ -32,7 +34,6 @@ import { useGetFullName } from '../hooks/useGetFullName';
 import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import i18n from '../lib/i18n';
 import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { ReviewItem } from '../types';

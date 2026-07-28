@@ -1,7 +1,7 @@
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { getAllFhirSearchPages, isLocationVirtual } from 'utils';
+import { getAllFhirSearchPages, isLocationInPerson, isLocationVirtual } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
 
 type Props = {
@@ -38,7 +38,7 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, multiple, re
         )
           .filter((location: Location) => {
             if (type === 'in-person') {
-              return !isLocationVirtual(location);
+              return isLocationInPerson(location);
             }
             if (type === 'virtual') {
               return isLocationVirtual(location);

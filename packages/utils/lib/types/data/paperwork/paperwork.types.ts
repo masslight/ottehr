@@ -94,6 +94,15 @@ export interface QuestionnaireItemExtension {
   disabledDisplay?: 'hidden' | 'protected';
   filterWhen?: QuestionnaireItemConditionDefinition[];
   groupType?: QuestionnaireItemGroupType;
+  /**
+   * Suppresses the "control label" — the bold-color heading rendered above
+   * the input in the intake paperwork UI. Optional-tri-state:
+   * `undefined` = no extension set (styler falls back to the hardcoded
+   * linkId list in `useStyleItems.tsx` for back-compat with pre-extension
+   * questionnaire archives); `true` = hide; `false` = force-show even if
+   * the linkId is on the legacy list.
+   */
+  hideControlLabel?: boolean;
   infoText?: string;
   inputWidth?: InputWidthOption;
   minRows?: number;
@@ -146,6 +155,7 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
 export interface QAndQRResponse {
   allItems: IntakeQuestionnaireItem[];
   questionnaireResponse: QuestionnaireResponse;
+  questionnaireTitle?: string;
 }
 
 export interface UCGetPaperworkResponse extends QAndQRResponse {

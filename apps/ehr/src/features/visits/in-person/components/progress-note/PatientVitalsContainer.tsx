@@ -22,6 +22,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
   const weight = encounterVitals?.[VitalFieldNames.VitalWeight] || [];
   const height = encounterVitals?.[VitalFieldNames.VitalHeight] || [];
   const vision = encounterVitals?.[VitalFieldNames.VitalVision] || [];
+  const bmi = encounterVitals?.[VitalFieldNames.VitalBMI] || [];
   const lastMenstrualPeriod = encounterVitals?.[VitalFieldNames.VitalLastMenstrualPeriod] || [];
 
   return (
@@ -122,6 +123,20 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
           <AssessmentTitle>Height</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {height?.map((item) => (
+              <VitalHistoryElement
+                dataTestId={dataTestIds.progressNotePage.vitalsItem}
+                historyEntry={item}
+                key={item.resourceId}
+              />
+            ))}
+          </Box>
+        </>
+      )}
+      {bmi && bmi.length > 0 && (
+        <>
+          <AssessmentTitle>BMI</AssessmentTitle>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {bmi?.map((item) => (
               <VitalHistoryElement
                 dataTestId={dataTestIds.progressNotePage.vitalsItem}
                 historyEntry={item}

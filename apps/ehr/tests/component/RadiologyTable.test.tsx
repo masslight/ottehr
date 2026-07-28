@@ -77,8 +77,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     mockNavigate.mockReturnValue(vi.fn());
@@ -166,8 +168,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();
@@ -193,8 +197,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();
@@ -218,8 +224,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();
@@ -262,8 +270,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: null,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();
@@ -291,8 +301,10 @@ describe('RadiologyTable - Cancel Radiology Order Tests', () => {
       DeleteOrderDialog: mockDialog,
       handleSaveReport: vi.fn(),
       handleSendForFinalRead: vi.fn(),
+      handleUpdateConsent: vi.fn(),
       isSavingReport: false,
       isSendingForFinalRead: false,
+      isUpdatingConsent: false,
     });
 
     renderComponent();

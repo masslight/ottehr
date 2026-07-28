@@ -5,7 +5,7 @@ import { PharmacyCollectionAnswerSetInput, PlacesResult, SearchPlacesInput, Sear
 
 interface PharmacySearchProps {
   handlePharmacySelection: (input: PharmacyCollectionAnswerSetInput) => void;
-  searchPlaces: (input: SearchPlacesInput) => Promise<SearchPlacesOutput>;
+  searchPlaces: ((input: SearchPlacesInput) => Promise<SearchPlacesOutput>) | undefined;
   dataTestId: string;
 }
 
@@ -64,6 +64,8 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
     }
 
     const handleSearchPlaces = async (): Promise<void> => {
+      if (!searchPlaces) return;
+
       try {
         setSearching(true);
         const searchResponse = await searchPlaces({ searchTerm: debouncedSearchTerm, locationBias: userLocation });
@@ -82,6 +84,7 @@ export const PharmacySearch: FC<PharmacySearchProps> = ({ handlePharmacySelectio
 
   const handlePharmSelect = async (placesId: string | undefined): Promise<void> => {
     if (!placesId) return;
+    if (!searchPlaces) return;
 
     try {
       setLoading(true);

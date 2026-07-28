@@ -33,12 +33,7 @@ vi.mock('src/hooks/useAppClients', () => ({
   }),
 }));
 
-// Mock the ChargeItemList component to keep tests focused
-vi.mock('../../src/features/visits/telemed/components/admin/ChargeItemList', () => ({
-  default: () => <div data-testid="fee-schedule-mock" />,
-}));
-
-import BillingConfiguration from '../../src/features/admin/BillingConfiguration';
+import { PaymentLocationsList } from '../../src/features/admin/BillingConfiguration';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,31 +73,22 @@ const createWrapper = () => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('BillingConfiguration', () => {
+describe('PaymentLocationsList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it('renders tab labels including Payment Locations', () => {
-    mockPaymentLocationsData.mockReturnValue({ data: [], isLoading: false });
-
-    render(<BillingConfiguration billingTab="payment-locations" />, { wrapper: createWrapper() });
-    expect(screen.getByRole('tab', { name: /fee schedules/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /charge masters/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /payment locations/i })).toBeInTheDocument();
   });
 
   it('shows loading spinner while locations are loading', () => {
     mockPaymentLocationsData.mockReturnValue({ data: undefined, isLoading: true });
 
-    render(<BillingConfiguration billingTab="payment-locations" />, { wrapper: createWrapper() });
+    render(<PaymentLocationsList />, { wrapper: createWrapper() });
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
   it('shows empty state when no payment locations exist', () => {
     mockPaymentLocationsData.mockReturnValue({ data: [], isLoading: false });
 
-    render(<BillingConfiguration billingTab="payment-locations" />, { wrapper: createWrapper() });
+    render(<PaymentLocationsList />, { wrapper: createWrapper() });
     expect(screen.getByText('No payment locations found.')).toBeInTheDocument();
   });
 
@@ -115,7 +101,7 @@ describe('BillingConfiguration', () => {
       isLoading: false,
     });
 
-    render(<BillingConfiguration billingTab="payment-locations" />, { wrapper: createWrapper() });
+    render(<PaymentLocationsList />, { wrapper: createWrapper() });
     expect(screen.getByText('Main Office')).toBeInTheDocument();
     expect(screen.getByText('Branch Office')).toBeInTheDocument();
   });
@@ -129,7 +115,7 @@ describe('BillingConfiguration', () => {
       isLoading: false,
     });
 
-    render(<BillingConfiguration billingTab="payment-locations" />, { wrapper: createWrapper() });
+    render(<PaymentLocationsList />, { wrapper: createWrapper() });
     expect(screen.getByText('Yes')).toBeInTheDocument();
     expect(screen.getByText('No')).toBeInTheDocument();
   });
@@ -141,7 +127,7 @@ describe('BillingConfiguration', () => {
       isLoading: false,
     });
 
-    render(<BillingConfiguration billingTab="payment-locations" />, { wrapper: createWrapper() });
+    render(<PaymentLocationsList />, { wrapper: createWrapper() });
     await user.click(screen.getByText('Main Office'));
     expect(mockNavigate).toHaveBeenCalledWith('/admin/billing/payments/locations/loc-1');
   });
@@ -156,22 +142,12 @@ describe('BillingConfiguration', () => {
       isLoading: false,
     });
 
-    render(<BillingConfiguration billingTab="payment-locations" />, { wrapper: createWrapper() });
+    render(<PaymentLocationsList />, { wrapper: createWrapper() });
 
     const searchInput = screen.getByLabelText(/search by location name/i);
     await user.type(searchInput, 'Alpha');
 
     expect(screen.getByText('Alpha Clinic')).toBeInTheDocument();
     expect(screen.queryByText('Beta Hospital')).not.toBeInTheDocument();
-  });
-
-  it('navigates to billing sub-tab URL when switching tabs', async () => {
-    const user = userEvent.setup();
-    mockPaymentLocationsData.mockReturnValue({ data: [], isLoading: false });
-
-    render(<BillingConfiguration billingTab="fee-schedules" />, { wrapper: createWrapper() });
-
-    await user.click(screen.getByRole('tab', { name: /payment locations/i }));
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/billing/payment-locations');
   });
 });

@@ -12,7 +12,7 @@ const typography: TypographyOptions = {
   h3: { fontSize: 32, fontWeight: '600 !important', fontFamily, lineHeight: '140%' },
   h4: { fontSize: 24, fontWeight: '600 !important', fontFamily, lineHeight: '140%' },
   h5: { fontSize: 18, fontWeight: '600 !important', fontFamily, lineHeight: '140%' },
-  h6: { fontSize: 16, fontWeight: '600 !important', fontFamily, lineHeight: '140%' },
+  h6: { fontSize: 16, fontWeight: '600 !important', fontFamily, lineHeight: '140%', color: palette.primary.dark },
   subtitle1: { fontSize: 20, fontWeight: 500, fontFamily, lineHeight: '140%' },
   subtitle2: { fontSize: 12, fontWeight: 500, fontFamily, lineHeight: '140%' },
   body1: { fontSize: 16, fontWeight: 400, fontFamily, lineHeight: '140%' },

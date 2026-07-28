@@ -1,3 +1,4 @@
+import { AddCircleOutline, CheckCircle, InfoOutlined } from '@mui/icons-material';
 import {
   Autocomplete,
   Backdrop,
@@ -14,12 +15,14 @@ import {
   FormControlLabel,
   FormHelperText,
   FormLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Radio,
   RadioGroup,
   Select,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
@@ -30,7 +33,7 @@ import { keepPreviousData, useQuery, useQueryClient, UseQueryResult } from '@tan
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createProcedureQuickPick, getProcedureQuickPicks, updateProcedureQuickPick } from 'src/api/api';
@@ -39,6 +42,7 @@ import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -48,19 +52,20 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import {
   AISuggestionNotes,
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
-  DiagnosisDTO,
   FHIR_CODE_REGEX,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
+  ProcedurePageState,
   ProcedureQuickPickData,
   PROCEDURES_CONFIG,
   ProcedureSuggestion,
@@ -70,6 +75,7 @@ import {
   TECHNIQUES_VALUE_SET_URL,
   TIME_SPENT_VALUE_SET_URL,
 } from 'utils';
+import { AiSectionContainer } from '../../shared/components/AiSection';
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
@@ -79,8 +85,12 @@ import {
   useGetCPTHCPCSSearch,
   useRecommendBillingCodes,
 } from '../../shared/stores/appointment/appointment.queries';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
-import AiSuggestion from '../components/AiSuggestion';
+import {
+  useAppointmentData,
+  useChartData,
+  useDeleteChartData,
+  useSaveChartData,
+} from '../../shared/stores/appointment/appointment.store';
 import { InfoAlert } from '../components/InfoAlert';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 import {
@@ -143,29 +153,9 @@ const mergeCptCodes = (
   return mergedCodes;
 };
 
-interface PageState {
-  consentObtained?: boolean;
-  cptCodes?: CPTCodeDTO[];
-  diagnoses?: DiagnosisDTO[];
+interface LocalPageState extends Omit<ProcedurePageState, 'procedureDate' | 'procedureTime'> {
   procedureDate?: DateTime | null;
   procedureTime?: DateTime | null;
-  performerType?: string;
-  medicationUsed?: string;
-  bodySite?: string;
-  otherBodySite?: string;
-  bodySide?: string;
-  technique?: string[];
-  suppliesUsed?: string[];
-  otherSuppliesUsed?: string;
-  procedureDetails?: string;
-  specimenSent?: boolean;
-  complications?: string;
-  otherComplications?: string;
-  patientResponse?: string;
-  postInstructions?: string[];
-  otherPostInstructions?: string;
-  timeSpent?: string;
-  documentedBy?: string;
 }
 
 interface ProcedureType {
@@ -196,6 +186,33 @@ interface SelectOptions {
   timeSpent: string[];
 }
 
+function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
+  return {
+    consentObtained: pageState.consentObtained,
+    cptCodes: pageState.cptCodes,
+    diagnoses: pageState.diagnoses,
+    procedureDate: pageState.procedureDate?.toISO() || undefined,
+    procedureTime: pageState.procedureTime?.toISO() || undefined,
+    performerType: pageState.performerType,
+    medicationUsed: pageState.medicationUsed,
+    bodySite: pageState.bodySite,
+    otherBodySite: pageState.otherBodySite,
+    bodySide: pageState.bodySide,
+    technique: pageState.technique,
+    suppliesUsed: pageState.suppliesUsed,
+    otherSuppliesUsed: pageState.otherSuppliesUsed,
+    procedureDetails: pageState.procedureDetails,
+    specimenSent: pageState.specimenSent,
+    complications: pageState.complications,
+    otherComplications: pageState.otherComplications,
+    patientResponse: pageState.patientResponse,
+    postInstructions: pageState.postInstructions,
+    otherPostInstructions: pageState.otherPostInstructions,
+    timeSpent: pageState.timeSpent,
+    documentedBy: pageState.documentedBy,
+  };
+}
+
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -212,6 +229,11 @@ export default function ProceduresNew(): ReactElement {
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
   const [loadingSuggestionNote, setLoadingSuggestionNote] = useState<boolean>(false);
 
+  const { encounter } = useAppointmentData();
+  const { setDraft, getDraft, clearDraft, hasDraft } = useProcedureStore();
+  useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
+  const draft = !procedureId && encounter.id ? getDraft(encounter.id) : {};
+
   const isReadOnly = useMemo(() => {
     return appointmentAccessibility.isAppointmentReadOnly;
   }, [appointmentAccessibility.isAppointmentReadOnly]);
@@ -222,15 +244,37 @@ export default function ProceduresNew(): ReactElement {
   const { mutateAsync: saveChartData } = useSaveChartData();
   const { mutateAsync: deleteChartData } = useDeleteChartData();
 
-  const methods = useForm();
+  const methods = useForm({
+    defaultValues: draft.procedureType ? { procedureType: draft.procedureType } : undefined,
+  });
   const formValues = methods.watch();
   const {
     formState: { errors },
   } = methods;
 
-  const [state, setState] = useState<PageState>({
-    procedureDate: DateTime.now(),
-    procedureTime: DateTime.now(),
+  const [state, setState] = useState<LocalPageState>({
+    procedureDate: draft.procedureDate ? DateTime.fromISO(draft.procedureDate) : DateTime.now(),
+    procedureTime: draft.procedureTime ? DateTime.fromISO(draft.procedureTime) : DateTime.now(),
+    consentObtained: draft.consentObtained,
+    cptCodes: draft.cptCodes,
+    diagnoses: draft.diagnoses,
+    performerType: draft.performerType,
+    medicationUsed: draft.medicationUsed,
+    bodySite: draft.bodySite,
+    otherBodySite: draft.otherBodySite,
+    bodySide: draft.bodySide,
+    technique: draft.technique,
+    suppliesUsed: draft.suppliesUsed,
+    otherSuppliesUsed: draft.otherSuppliesUsed,
+    procedureDetails: draft.procedureDetails,
+    specimenSent: draft.specimenSent,
+    complications: draft.complications,
+    otherComplications: draft.otherComplications,
+    patientResponse: draft.patientResponse,
+    postInstructions: draft.postInstructions,
+    otherPostInstructions: draft.otherPostInstructions,
+    timeSpent: draft.timeSpent,
+    documentedBy: draft.documentedBy,
   });
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
   const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
@@ -252,12 +296,24 @@ export default function ProceduresNew(): ReactElement {
     [mergedQuickPicks]
   );
 
-  const updateState = (stateMutator: (draft: PageState) => void): void => {
-    setState((prev) => {
-      const next = { ...prev };
-      stateMutator(next);
-      return next;
-    });
+  const updateState = useCallback(
+    (stateMutator: (draft: LocalPageState) => void): void => {
+      setState((prev) => {
+        const next = { ...prev };
+        stateMutator(next);
+        if (!procedureId && encounter.id) {
+          setDraft(encounter.id, pageStateToDraft(next));
+        }
+        return next;
+      });
+    },
+    [setDraft, encounter.id, procedureId]
+  );
+
+  const handleClearForm = (): void => {
+    if (encounter.id) clearDraft(encounter.id);
+    setState({ procedureDate: DateTime.now(), procedureTime: DateTime.now() });
+    methods.reset({ procedureType: '' });
   };
 
   const parseSuppliesUsed = (
@@ -365,6 +421,7 @@ export default function ProceduresNew(): ReactElement {
   }, [procedure, setState, initialValuesSet, isSelectOptionsLoading, selectOptions]);
 
   const onCancel = (): void => {
+    if (!procedureId && encounter.id) clearDraft(encounter.id);
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
@@ -457,6 +514,7 @@ export default function ProceduresNew(): ReactElement {
 
       setSaveInProgress(false);
       enqueueSnackbar('Procedure saved!', { variant: 'success' });
+      if (!procedureId && encounter.id) clearDraft(encounter.id);
       navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
     } catch {
       setSaveInProgress(false);
@@ -551,6 +609,74 @@ export default function ProceduresNew(): ReactElement {
     debounce(() => {
       setDebouncedSearchTerm(data);
     });
+  };
+
+  const existingCptCodeSet = useMemo(() => new Set(state.cptCodes?.map((cptCode) => cptCode.code)), [state.cptCodes]);
+
+  const addRecommendedCptCode = (suggestion: ProcedureSuggestion): void =>
+    updateState((state) => {
+      if (!state.cptCodes?.some((cptCode) => cptCode.code === suggestion.code)) {
+        state.cptCodes = [...(state.cptCodes ?? []), { code: suggestion.code, display: suggestion.description }];
+      }
+    });
+
+  const renderRecommendedCptActions = (value: ProcedureSuggestion): ReactElement => (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+      <Tooltip title={value.useWhen}>
+        <IconButton size="small" aria-label={`When to use CPT code ${value.code}`}>
+          <InfoOutlined sx={{ fontSize: '17px' }} />
+        </IconButton>
+      </Tooltip>
+      {existingCptCodeSet.has(value.code) ? (
+        <IconButton size="small" disabled aria-label={`CPT code ${value.code} already added`}>
+          <CheckCircle sx={{ fontSize: '17px', color: 'success.main' }} />
+        </IconButton>
+      ) : (
+        <Tooltip title="Add CPT code">
+          <IconButton
+            size="small"
+            aria-label={`Add CPT code ${value.code}`}
+            onClick={() => addRecommendedCptCode(value)}
+            data-testid={dataTestIds.documentProcedurePage.cptCodeQuickAddButton(value.code)}
+          >
+            <AddCircleOutline sx={{ fontSize: '17px' }} />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+
+  const recommendedCptCodesContent = (): ReactNode => {
+    if (loadingSuggestions) {
+      return null;
+    }
+
+    if (!formValues.procedureType) {
+      return <Typography color="secondary.light">Select a procedure type to see recommended CPT codes</Typography>;
+    }
+
+    // Suggestions not fetched yet.
+    if (!recommendedBillingCodes) {
+      return null;
+    }
+
+    if (recommendedBillingCodes.length === 0) {
+      return <Typography color="secondary.light">No suggestions</Typography>;
+    }
+
+    return (
+      <ActionsList
+        data={recommendedBillingCodes}
+        getKey={(value) => value.code}
+        renderItem={(value) => (
+          <Typography data-testid={dataTestIds.documentProcedurePage.recommendedCptCode(value.code)}>
+            <strong>{value.code}</strong> &ndash; {value.description}
+          </Typography>
+        )}
+        renderActions={isReadOnly ? undefined : renderRecommendedCptActions}
+        divider
+      />
+    );
   };
 
   const cptWidget = (): ReactElement => {
@@ -665,7 +791,7 @@ export default function ProceduresNew(): ReactElement {
     label: string,
     options: string[] | undefined,
     value: string | undefined,
-    stateMutator: (value: string, state: PageState) => void,
+    stateMutator: (value: string, state: LocalPageState) => void,
     dataTestId: string
   ): ReactElement => {
     return (
@@ -697,7 +823,7 @@ export default function ProceduresNew(): ReactElement {
     parentLabel: string,
     parentValue: string | string[] | undefined,
     value: string | undefined,
-    stateMutator: (value: string, state: PageState) => void
+    stateMutator: (value: string, state: LocalPageState) => void
   ): ReactElement => {
     const shouldShow = (Array.isArray(parentValue) && parentValue.includes(OTHER)) || parentValue === OTHER;
 
@@ -720,7 +846,7 @@ export default function ProceduresNew(): ReactElement {
     label: string,
     options: string[],
     value: string | undefined,
-    stateMutator: (value: string, state: PageState) => void,
+    stateMutator: (value: string, state: LocalPageState) => void,
     dataTestId: string,
     error = false
   ): ReactElement => {
@@ -754,7 +880,7 @@ export default function ProceduresNew(): ReactElement {
     label: string,
     options: string[] | undefined,
     values: string[] | undefined,
-    stateMutator: (values: string[], state: PageState) => void,
+    stateMutator: (values: string[], state: LocalPageState) => void,
     dataTestId: string
   ): ReactElement => {
     return (
@@ -792,6 +918,10 @@ export default function ProceduresNew(): ReactElement {
         values: true,
       },
       callback: ({ values }) => {
+        if (!values.procedureType) return;
+        if (!procedureId && encounter.id) {
+          setDraft(encounter.id, { procedureType: values.procedureType });
+        }
         updateState((state) => {
           const selected = selectOptions?.procedureTypes.find(
             (procedureType) => procedureType.name === values.procedureType
@@ -818,7 +948,7 @@ export default function ProceduresNew(): ReactElement {
       },
     });
     return () => callback();
-  }, [methods, selectOptions, procedureId, initialFormStateSet]);
+  }, [methods, selectOptions, procedureId, initialFormStateSet, encounter.id, setDraft, updateState]);
 
   useEffect(() => {
     if (procedure == null) {
@@ -907,6 +1037,15 @@ export default function ProceduresNew(): ReactElement {
           showIntakeNotesButton={false}
           dataTestId={dataTestIds.documentProcedurePage.title}
         />
+        {!procedureId && hasDraft(encounter.id ?? '') && (
+          <UnsavedDraftWarning
+            message={
+              draft.hasNavigatedAway
+                ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                : 'You have a procedure in progress. Your draft will be saved.'
+            }
+          />
+        )}
         <AccordionCard>
           <Stack spacing={2} style={{ padding: '24px' }}>
             <Box style={{ display: 'flex', alignItems: 'center' }}>
@@ -1127,13 +1266,7 @@ export default function ProceduresNew(): ReactElement {
             <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
               <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
             </TooltipWrapper>
-            {recommendedBillingCodes && (
-              <AiSuggestion
-                title="Recommended CPT Codes"
-                procedureSuggestions={recommendedBillingCodes}
-                loading={loadingSuggestions}
-              />
-            )}
+            <AiSectionContainer isLoading={loadingSuggestions}>{recommendedCptCodesContent()}</AiSectionContainer>
             {suggestionNote && suggestionNote.suggestions?.[0] !== 'Procedure details are included' && (
               <Container
                 style={{
@@ -1154,9 +1287,16 @@ export default function ProceduresNew(): ReactElement {
             {cptWidget()}
             <Divider orientation="horizontal" />
             <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <RoundedButton color="primary" onClick={onCancel}>
-                Cancel
-              </RoundedButton>
+              <Stack direction="row" spacing={2}>
+                <RoundedButton color="primary" onClick={onCancel}>
+                  Cancel
+                </RoundedButton>
+                {!procedureId && (
+                  <RoundedButton color="primary" onClick={handleClearForm}>
+                    Clear Form
+                  </RoundedButton>
+                )}
+              </Stack>
               <RoundedButton
                 color="primary"
                 variant="contained"

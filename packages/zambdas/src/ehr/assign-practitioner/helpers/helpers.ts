@@ -56,7 +56,7 @@ export const assignPractitionerIfPossible = async (
   });
 };
 
-const getAssignPractitionerToEncounterOperation = async (
+export const getAssignPractitionerToEncounterOperation = async (
   encounter: Encounter,
   practitionerId: string,
   userRole: Coding[]
@@ -85,10 +85,11 @@ const getAssignPractitionerToEncounterOperation = async (
   }
 
   // If participants exist, we need to check if someone already has this same role and remove them and add the new person.
-  const participantsExcludingThoseWithRoleWeAreTaking = participants?.filter((participant) => {
-    return participant.type?.some((type) => {
-      return type.coding?.some((coding) => coding.code !== userRole[0].code);
-    });
+  const participantsExcludingThoseWithRoleWeAreTaking = participants.filter((participant) => {
+    const holdsRoleWeAreTaking = participant.type?.some(
+      (type) => type.coding?.some((coding) => coding.code === userRole[0].code)
+    );
+    return !holdsRoleWeAreTaking;
   });
 
   return [

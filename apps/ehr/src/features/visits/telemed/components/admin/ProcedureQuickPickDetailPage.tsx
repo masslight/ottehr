@@ -65,7 +65,8 @@ export default function ProcedureQuickPickDetailPage(): ReactElement {
   ];
 
   const suppliesDisplay = [
-    ...(quickPick.suppliesUsed?.filter((item) => item && item !== 'Other') ?? []),
+    // other is already filtered out at the creation step (see splitOtherForQuickPick)
+    ...(quickPick.suppliesUsed ?? []),
     ...(quickPick.otherSuppliesUsed ? [`Other: ${quickPick.otherSuppliesUsed}`] : []),
   ] as string[];
 

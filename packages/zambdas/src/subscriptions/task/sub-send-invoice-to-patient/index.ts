@@ -25,6 +25,7 @@ import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
+  ensureStripeCustomerId,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
   resolveTemplatePlaceholders,
@@ -56,8 +57,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Fhir resources fetched');
 
     console.log('Getting stripe and candid ids');
-    const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
-    if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
+    let stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
+    if (!stripeCustomerId) {
+      console.log('No Stripe customer ID on account, creating one now');
+      const { customerId } = await ensureStripeCustomerId(
+        {
+          guarantorResource: patient,
+          account,
+          patientId: patient.id!,
+          stripeClient: stripe,
+          stripeAccount: stripeAccountId,
+        },
+        oystehr
+      );
+      stripeCustomerId = customerId;
+    }
+
+    const stripeCustomer = await stripe.customers.retrieve(stripeCustomerId, { stripeAccount: stripeAccountId });
+    if (stripeCustomer.deleted || !stripeCustomer.email) {
+      throw new Error(
+        'In order to create invoices that are sent to the customer, the responsible party must have a valid email.'
+      );
+    }
+
     const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
     if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
     console.log('Stripe and candid ids retrieved');

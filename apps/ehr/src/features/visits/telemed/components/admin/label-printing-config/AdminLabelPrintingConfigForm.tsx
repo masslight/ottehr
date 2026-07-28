@@ -5,7 +5,6 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  FormLabel,
   Grid,
   InputLabel,
   MenuItem,
@@ -64,16 +63,6 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
         <Grid container direction="row" alignItems="center" justifyContent="space-between">
           <Grid item xs={10} sm={10} md={10}>
             <Grid container direction="row" rowSpacing={2}>
-              <FormLabel
-                sx={{
-                  ...theme.typography.h4,
-                  color: theme.palette.primary.dark,
-                  mb: 2,
-                  display: 'block',
-                }}
-              >
-                Configure Print Settings
-              </FormLabel>
               <Typography
                 sx={{
                   ...theme.typography.body1,

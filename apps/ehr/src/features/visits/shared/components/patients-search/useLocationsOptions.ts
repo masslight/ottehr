@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { isLocationVirtual } from 'utils';
+import { isLocationInPerson } from 'utils';
 import { useApiClients } from '../../../../../hooks/useAppClients';
 import { Option } from '../../../in-person/components/medication-administration/medicationTypes';
 
@@ -30,7 +30,7 @@ export const useLocationsOptions = (): {
           params: [{ name: '_count', value: '1000' }],
         });
         const locationsResults = Array.from(new Set(locations.entry))
-          ?.filter((loc: any) => !isLocationVirtual(loc.resource))
+          ?.filter((loc: any) => isLocationInPerson(loc.resource))
           .map((loc: any) => ({
             value: loc.resource?.name as string,
             label: loc.resource?.name as string,

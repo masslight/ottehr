@@ -346,7 +346,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           Encounters - {totalCount}
         </Typography>
         {latestVisitDate && <Typography>Latest visit: {formatISOStringToDateAndTime(latestVisitDate)}</Typography>}
-        <RoundedButton to="/visits/add" target="_blank" variant="contained" startIcon={<AddIcon fontSize="small" />}>
+        <RoundedButton
+          to={patient?.id ? `/visits/add?patientId=${patient.id}` : '/visits/add'}
+          variant="contained"
+          startIcon={<AddIcon fontSize="small" />}
+        >
           New Visit
         </RoundedButton>
         <RoundedButton

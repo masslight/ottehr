@@ -1,5 +1,5 @@
 import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
-import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
+import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HL7_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
 import {
   AllergyInteraction,
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
@@ -30,6 +30,9 @@ import {
   UpdateMedicationOrderInput,
 } from '../types';
 import { getCoding } from './helpers';
+
+// Local const so that DEPRECATED system doesn't get imported from utils
+const CODE_SYSTEM_HCPCS = 'http://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets'; // formerly used by Ottehr clinical in-house meds
 
 export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application';
 export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
@@ -412,13 +415,22 @@ export function getCptCodeFromMedication(medication: Medication): string | undef
 
 export function getHcpcsCodeFromMedication(medication: Medication): string | undefined {
   const medicationCoding = medication.code;
-  return getCoding(medicationCoding, CODE_SYSTEM_HCPCS)?.code;
+  return (
+    getCoding(medicationCoding, CODE_SYSTEM_HL7_HCPCS)?.code ??
+    // Legacy coding system
+    getCoding(medicationCoding, CODE_SYSTEM_HCPCS)?.code
+  );
 }
 
 export function getAllHcpcsCodesFromInHouseMedication(medication: Medication): string[] {
   const resultCodes: string[] = [];
   medication.code?.coding?.forEach((coding) => {
-    if (coding.system === CODE_SYSTEM_HCPCS && coding.code) {
+    if (
+      (coding.system === CODE_SYSTEM_HL7_HCPCS ||
+        // Legacy coding system
+        coding.system === CODE_SYSTEM_HCPCS) &&
+      coding.code
+    ) {
       resultCodes.push(coding.code);
     }
   });

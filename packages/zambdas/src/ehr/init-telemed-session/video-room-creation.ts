@@ -29,7 +29,10 @@ const execCreateVideoRoomRequest = async (
 ): Promise<CreateTelemedVideoRoomResponse['encounter']> => {
   const token = await getAuth0Token(secrets);
   const response = await fetch(`${getSecret(SecretsKeys.PROJECT_API, secrets)}/telemed/v2/meeting`, {
-    body: JSON.stringify({ encounter: encounter }),
+    // recordAudio enables Oystehr's telemed audio recording. When the recording is ready Oystehr stores an
+    // audio/mp4 file in Z3 and creates a DocumentReference (LOINC 56444-3) on the Encounter, which the
+    // process-telemed-recording subscription picks up to power the Ambient Scribe AI chart recommendations.
+    body: JSON.stringify({ encounter: encounter, recordAudio: true }),
     headers: {
       Authorization: `Bearer ${token}`,
     },

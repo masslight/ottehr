@@ -134,7 +134,7 @@ describe('billing coverage CRUD', () => {
         firstName: 'Jane',
         lastName: 'Doe',
         dob: '1985-03-02',
-        birthSex: 'Female',
+        gender: 'female',
         address: { line1: '1 Main St', city: 'Boston', state: 'MA', postalCode: '02118' },
       },
     };

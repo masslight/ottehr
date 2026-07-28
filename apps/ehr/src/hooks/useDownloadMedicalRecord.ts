@@ -50,7 +50,10 @@ export const useDownloadMedicalRecord = (patientId: string | undefined): UseDown
       window.URL.revokeObjectURL(objectUrl);
     } catch (error) {
       console.error(error);
-      enqueueSnackbar('Failed to generate the medical record. Please try again.', { variant: 'error' });
+      // Surface a specific server message when provided (e.g. record too large); otherwise a generic one.
+      const message =
+        (error as { message?: string })?.message || 'Failed to generate the medical record. Please try again.';
+      enqueueSnackbar(message, { variant: 'error' });
     } finally {
       setIsDownloading(false);
     }

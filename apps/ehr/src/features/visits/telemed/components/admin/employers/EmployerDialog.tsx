@@ -29,8 +29,8 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/features/admin/adminRoutes';
 import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import {
   CreateEmployerInput,

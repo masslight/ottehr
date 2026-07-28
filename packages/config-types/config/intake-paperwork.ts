@@ -72,6 +72,7 @@ export const pageHarvestStrategy: Record<string, HarvestStrategy[]> = {
   'pharmacy-page': ['pharmacy'],
   'payment-option-page': ['account-coverage', 'payment-variant', 'documents'],
   'payment-option-occ-med-page': ['account-coverage', 'payment-variant'],
+  'card-payment-page': ['master-record'],
   'occupational-medicine-employer-information-page': ['account-coverage'],
   'responsible-party-page': ['account-coverage'],
   'employer-information-page': ['account-coverage'],

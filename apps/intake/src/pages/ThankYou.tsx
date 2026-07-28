@@ -21,6 +21,7 @@ import {
   UCGetPaperworkResponse,
   VisitType,
 } from 'utils';
+import { i18n } from 'utils/lib/frontend';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
@@ -33,7 +34,6 @@ import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import i18n from '../lib/i18n';
 import { breakpoints } from '../providers';
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };

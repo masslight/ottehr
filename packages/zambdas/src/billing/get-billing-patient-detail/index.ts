@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient, Person } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
+import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
 import {
   createBillingClient,
   fetchById,
@@ -28,7 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): Promise<PatientDetailResponse> {
   const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
 
-  const claims = await fetchPatientClaims(oystehr, params.patientId);
+  const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
 
   const ids = patient.identifier ?? [];
   const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
@@ -48,13 +49,18 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     addressParts: toAddressParts(addr),
     friendlyId,
     active: patient.active !== false,
-    // TODO: wire real balance from ClaimResponse/PaymentReconciliation
-    balance: { claimsWithPatientBalance: 0, pendingPayments: 0, currentBalance: 0 },
+    balance,
     claims,
   };
 }
 
-async function fetchPatientClaims(oystehr: Oystehr, patientId: string): Promise<PatientDetailResponse['claims']> {
+async function fetchPatientClaims(
+  oystehr: Oystehr,
+  patientId: string
+): Promise<{
+  claims: PatientDetailResponse['claims'];
+  balance: PatientDetailResponse['balance'];
+}> {
   let patientIds = [patientId];
   const personResult = await oystehr.fhir.search<Person>({
     resourceType: 'Person',
@@ -87,23 +93,44 @@ async function fetchPatientClaims(oystehr: Oystehr, patientId: string): Promise<
     return bundle;
   }, 100);
 
-  const payersByRef = await resolvePayersByRef(
-    oystehr,
-    claims.map((c) => c.insurer?.reference)
+  const [payersByRef, claimResponsesByClaimId] = await Promise.all([
+    resolvePayersByRef(
+      oystehr,
+      claims.map((c) => c.insurer?.reference)
+    ),
+    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+  ]);
+
+  const summaries = claims.map((c) =>
+    summarizeClaimPayments(claimResponsesByClaimId.get(c.id ?? '') ?? [], c.total?.value ?? 0)
   );
 
-  return claims.map((c) => {
+  const claimItems = claims.map((c, idx) => {
+    const payments = summaries[idx];
     return {
       id: c.id ?? '',
       status: getClaimStatus(c),
       serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
       payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
       billed: c.total?.value ?? 0,
-      // TODO: wire from ClaimResponse when available
-      allowed: 0,
-      insurancePaid: 0,
-      patientResp: 0,
-      patientPaid: 0,
+      allowed: payments.allowed,
+      insurancePaid: payments.insurancePaid,
+      patientResp: payments.patientResp,
+      patientPaid: payments.patientPaid,
     };
   });
+
+  // only adjudicated claims count toward the patient's balance. an un-adjudicated claim's billed
+  // amount is pending insurance, not patient-owed
+  const adjudicatedBalances = summaries.filter((s) => s.adjudicated).map((s) => s.balance);
+  const balance = {
+    claimsWithPatientBalance: adjudicatedBalances.filter((b) => b > 0).length,
+    pendingPayments: 0,
+    currentBalance: adjudicatedBalances.reduce((sum, b) => sum + b, 0),
+  };
+
+  return {
+    claims: claimItems,
+    balance,
+  };
 }

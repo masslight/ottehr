@@ -6,6 +6,8 @@ import {
   Closure,
   DailySchedule,
   getScheduleExtension,
+  LOCATION_IN_PERSON_CODE,
+  LOCATION_PHYSICAL_TYPE_SYSTEM,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
   MISSING_SCHEDULE_EXTENSION_ERROR,
   PUBLIC_EXTENSION_BASE_URL,
@@ -131,6 +133,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     timezone,
     ownerSlug,
     isVirtual,
+    isInPerson,
     stripeAccountId,
     advapacsLocationId,
     rooms,
@@ -186,6 +189,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
   const locationFieldsToUpdate =
     ownerIsLocation &&
     (isVirtual !== undefined ||
+      isInPerson !== undefined ||
       stripeAccountId !== undefined ||
       advapacsLocationId !== undefined ||
       rooms !== undefined ||
@@ -203,12 +207,22 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       if (timezone !== undefined && ext.url === TIMEZONE_EXTENSION_URL) {
         return false;
       }
-      // Only strip the 'vi' (virtual) coding; preserve any 'si' (facility group) coding on the same URL.
+      // Strip only the coding(s) the caller is explicitly rewriting; preserve any
+      // other coding on the same URL (e.g. a facility-group 'si', or the virtual
+      // coding when only the in-person flag is being changed, and vice versa).
       if (
         ownerIsLocation &&
         isVirtual !== undefined &&
         ext.url === LOCATION_FORM_EXTENSION_URL &&
         ext.valueCoding?.code === 'vi'
+      ) {
+        return false;
+      }
+      if (
+        ownerIsLocation &&
+        isInPerson !== undefined &&
+        ext.url === LOCATION_FORM_EXTENSION_URL &&
+        ext.valueCoding?.code === LOCATION_IN_PERSON_CODE
       ) {
         return false;
       }
@@ -252,9 +266,19 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
         ownerExtension.push({
           url: LOCATION_FORM_EXTENSION_URL,
           valueCoding: {
-            system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
+            system: LOCATION_PHYSICAL_TYPE_SYSTEM,
             code: 'vi',
             display: 'Virtual',
+          },
+        });
+      }
+      if (isInPerson === true) {
+        ownerExtension.push({
+          url: LOCATION_FORM_EXTENSION_URL,
+          valueCoding: {
+            system: LOCATION_PHYSICAL_TYPE_SYSTEM,
+            code: LOCATION_IN_PERSON_CODE,
+            display: 'In Person',
           },
         });
       }
@@ -350,6 +374,7 @@ interface EffectInput {
     closures?: Closure[];
     ownerSlug: string | undefined;
     isVirtual?: boolean;
+    isInPerson?: boolean;
     stripeAccountId?: string | null;
     advapacsLocationId?: string | null;
     rooms?: string[];
@@ -372,6 +397,7 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
     scheduleOverrides,
     closures,
     isVirtual,
+    isInPerson,
     stripeAccountId,
     advapacsLocationId,
     rooms,
@@ -418,6 +444,7 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
       closures,
       ownerSlug: input.slug,
       isVirtual,
+      isInPerson,
       stripeAccountId,
       advapacsLocationId,
       rooms,

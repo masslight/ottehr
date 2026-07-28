@@ -5,9 +5,9 @@ import { Box, Stack } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AiChatHistory } from 'ui-components/lib/components/paperwork/form-components/AiChatHistory';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
-import { AiChatHistory } from '../components/AiChatHistory';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
 

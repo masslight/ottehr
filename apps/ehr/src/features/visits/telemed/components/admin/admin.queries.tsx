@@ -22,6 +22,10 @@ import {
   getProcedureQuickPicks,
   getRadiologyQuickPicks,
   getSupportDialog,
+  practiceManagedQuestionnaireCreate,
+  practiceManagedQuestionnaireGet,
+  practiceManagedQuestionnaireList,
+  practiceManagedQuestionnaireUpdate,
   removeQuickPick,
   updateEmCode,
   updateImmunizationQuickPick,
@@ -51,6 +55,7 @@ import {
   CreateEmCodeInput,
   DeleteEmCodeInput,
   EmCodeOption,
+  getApiError,
   GetLabelPrintingConfigInput,
   GetLabelPrintingConfigOutput,
   GetSupportDialogOutput,
@@ -58,6 +63,13 @@ import {
   InHouseMedicationQuickPickData,
   isApiError,
   isLocationVirtual,
+  PracticeManagedQuestionnaireCreateInput,
+  PracticeManagedQuestionnaireCreateOutput,
+  PracticeManagedQuestionnaireGetInput,
+  PracticeManagedQuestionnaireGetOutput,
+  PracticeManagedQuestionnaireListOutput,
+  PracticeManagedQuestionnaireUpdateInput,
+  PracticeManagedQuestionnaireUpdateOutput,
   ProcedureQuickPickData,
   RadiologyQuickPickData,
   UpdateEmCodeInput,
@@ -558,7 +570,7 @@ export const useAdminUpdateLabSet = (labSetId: string): UseMutationResult<void, 
   return useMutation({
     mutationKey: ['admin-update-lab-set', labSetId],
     mutationFn: async (input: AdminUpdateLabSetInput) => {
-      console.log('mutation for update in house lab called');
+      console.log('mutation for update lab set called');
       if (!oystehrZambda) {
         throw new Error('oystehr client is undefined');
       }
@@ -700,6 +712,100 @@ export const useAdminUpdateLocationSupportPhones = (): UseMutationResult<
       safelyCaptureException(error);
       let message = 'Failed to update support phone numbers.';
       if (isApiError(error)) message = (error as APIError).message;
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const usePracticeManagedQuestionnaireCreate = (): UseMutationResult<
+  PracticeManagedQuestionnaireCreateOutput,
+  Error,
+  PracticeManagedQuestionnaireCreateInput
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['practice-managed-questionnaire-create'],
+    mutationFn: async (input: PracticeManagedQuestionnaireCreateInput) => {
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return practiceManagedQuestionnaireCreate(oystehrZambda!, input);
+    },
+    onSuccess: async (_data, _variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: ['practice-managed-questionnaire-list'],
+      });
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      const message = getApiError({ error, defaultError: 'Failed to create this Questionnaire.' });
+      enqueueSnackbar(message, { variant: 'error' });
+    },
+  });
+};
+
+export const useGetPracticeManagedQuestionnaireGet = (
+  input: PracticeManagedQuestionnaireGetInput
+): UseQueryResult<PracticeManagedQuestionnaireGetOutput, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['practice-managed-questionnaire-get', input.questionnaireId],
+    queryFn: async () => {
+      return practiceManagedQuestionnaireGet(oystehrZambda!, input);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec
+  });
+};
+
+export const usePracticeManagedQuestionnaireList = (): UseQueryResult<
+  PracticeManagedQuestionnaireListOutput,
+  Error
+> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useQuery({
+    queryKey: ['practice-managed-questionnaire-list'],
+    queryFn: async () => {
+      return practiceManagedQuestionnaireList(oystehrZambda!);
+    },
+    enabled: !!oystehrZambda,
+    staleTime: 30_000, // 30 sec
+  });
+};
+
+export const usePracticeManagedQuestionnaireUpdate = (
+  questionnaireId?: string
+): UseMutationResult<PracticeManagedQuestionnaireUpdateOutput, Error, PracticeManagedQuestionnaireUpdateInput> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['practice-managed-questionnaire-update', questionnaireId],
+    mutationFn: async (input: PracticeManagedQuestionnaireUpdateInput) => {
+      if (!oystehrZambda) {
+        throw new Error('oystehr client is undefined');
+      }
+      return practiceManagedQuestionnaireUpdate(oystehrZambda!, input);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['practice-managed-questionnaire-list'],
+        }),
+      ]);
+    },
+    onError: (error: any) => {
+      // send to sentry
+      safelyCaptureException(error);
+      let message = 'Failed to update questionnaire.';
+      if (isApiError(error)) {
+        message = (error as APIError).message;
+      }
       enqueueSnackbar(message, { variant: 'error' });
     },
   });

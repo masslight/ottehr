@@ -1,5 +1,5 @@
 import { Patient, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { PHARMACY_COLLECTION_LINK_IDS, PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
+import { PATIENT_HAS_MEDICAID_URL, PHARMACY_COLLECTION_LINK_IDS, PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
 import { describe, expect, test } from 'vitest';
 import {
   createMasterRecordPatchOperations,
@@ -827,6 +827,39 @@ describe('Patient Master Record Tests', () => {
       coverage: {},
       patient: {
         patchOpsForDirectUpdate: [{ op: 'remove', path: '/identifier/1' }],
+      },
+      relatedPerson: {},
+    });
+  });
+
+  test('harvests patient-has-medicaid from card-payment-page into the Patient extension', () => {
+    const patient: Patient = {
+      id: 'patient-no-medicaid-ext',
+      resourceType: 'Patient',
+      name: [{ given: ['Jane'], family: 'Smith' }],
+    };
+    const qrItems: QuestionnaireResponseItem[] = [
+      {
+        linkId: 'card-payment-page',
+        item: [{ linkId: 'patient-has-medicaid', answer: [{ valueBoolean: true }] }],
+      },
+    ];
+
+    const result = createMasterRecordPatchOperations(
+      { questionnaireResponseItems: qrItems, options: { includeSections: ['card-payment-page'] } },
+      patient
+    );
+
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        patchOpsForDirectUpdate: [
+          {
+            op: 'add',
+            path: '/extension',
+            value: [{ url: PATIENT_HAS_MEDICAID_URL, valueBoolean: true }],
+          },
+        ],
       },
       relatedPerson: {},
     });

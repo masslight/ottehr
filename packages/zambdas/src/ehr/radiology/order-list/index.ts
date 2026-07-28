@@ -1,6 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
+import {
+  Appointment,
+  DiagnosticReport,
+  DocumentReference,
+  Encounter,
+  Practitioner,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   FHIR_EXTENSION,
@@ -28,6 +36,7 @@ import {
   takeMostRecentPreliminaryReport,
   takeTheBestFinalDiagnosticReport,
 } from '../../../shared/radiology';
+import { isCurrentRadiologyResultDocRef } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -107,6 +116,7 @@ export const getRadiologyOrders = async (
     { name: '_sort', value: '-_lastUpdated' },
     { name: '_revinclude', value: 'Task:based-on' },
     { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+    { name: '_revinclude', value: 'DocumentReference:related' },
     { name: '_include', value: 'ServiceRequest:requester' },
     { name: '_include', value: 'ServiceRequest:encounter' },
     { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
@@ -135,9 +145,12 @@ export const getRadiologyOrders = async (
 
   const resources = (searchResponse.entry || [])
     .map((entry) => entry.resource)
-    .filter((res): res is ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter => Boolean(res));
+    .filter((res): res is ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter | DocumentReference =>
+      Boolean(res)
+    );
 
-  const { serviceRequests, tasks, diagnosticReports, practitioners, encounters } = extractResources(resources);
+  const { serviceRequests, tasks, diagnosticReports, practitioners, encounters, documentReferences } =
+    extractResources(resources);
 
   if (!serviceRequests.length) {
     return {
@@ -147,7 +160,7 @@ export const getRadiologyOrders = async (
   }
 
   const orders = serviceRequests.map((serviceRequest) =>
-    parseResultsToOrder(serviceRequest, tasks, diagnosticReports, practitioners, encounters)
+    parseResultsToOrder(serviceRequest, tasks, diagnosticReports, practitioners, encounters, documentReferences)
   );
 
   return {
@@ -161,7 +174,8 @@ const parseResultsToOrder = (
   tasks: Task[],
   diagnosticReports: DiagnosticReport[],
   practitioners: Practitioner[],
-  encounters: Encounter[]
+  encounters: Encounter[],
+  documentReferences: DocumentReference[]
 ): GetRadiologyOrderListZambdaOrder => {
   if (serviceRequest.id == null) {
     throw new Error('ServiceRequest ID is unexpectedly null');
@@ -254,15 +268,24 @@ const parseResultsToOrder = (
     throw new Error('Order is in an invalid state, could not determine status.');
   }
 
+  // External (print-only) orders never flow through AdvaPACS; they use a simplified lifecycle driven by
+  // manually-attached result DocumentReferences: `ordered` until a result exists, then `reviewed`. Deriving
+  // it here (rather than persisting on the SR) keeps the status and history in sync as results are added
+  // or deleted. The AdvaPACS-derived status/history above is overridden entirely for these orders.
+  const isExternal = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
+    ?.valueBoolean;
+  const resultDocRefs = documentReferences.filter((docRef) =>
+    isCurrentRadiologyResultDocRef(docRef, serviceRequest.id ?? '')
+  );
+  if (isExternal) {
+    status = resultDocRefs.length > 0 ? RadiologyOrderStatus.reviewed : RadiologyOrderStatus.ordered;
+  }
+
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(
-    serviceRequest,
-    bestFinalReport,
-    preliminaryDiagnosticReport,
-    providerName,
-    finalReviewTask
-  );
+  const history = isExternal
+    ? buildExternalHistory(serviceRequest, providerName, resultDocRefs)
+    : buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName, finalReviewTask);
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
@@ -282,6 +305,37 @@ const parseResultsToOrder = (
     task: formattedFinalReviewTask,
     consentObtained,
   };
+};
+
+// External (print-only) orders: a two-row history mirroring the ordered -> reviewed lifecycle.
+const buildExternalHistory = (
+  serviceRequest: ServiceRequest,
+  orderingProviderName: string,
+  resultDocRefs: DocumentReference[]
+): RadiologyOrderHistoryRow[] => {
+  const history: RadiologyOrderHistoryRow[] = [];
+
+  const orderedDate =
+    serviceRequest.extension?.find((ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL)?.valueDateTime ??
+    serviceRequest.authoredOn ??
+    '';
+  history.push({ status: RadiologyOrderStatus.ordered, performer: orderingProviderName, date: orderedDate });
+
+  const latestResultDocRef = resultDocRefs
+    .filter((docRef) => docRef.date ?? docRef.meta?.lastUpdated)
+    .sort((a, b) => (a.date ?? a.meta?.lastUpdated ?? '').localeCompare(b.date ?? b.meta?.lastUpdated ?? ''))
+    .pop();
+  if (latestResultDocRef) {
+    history.push({
+      status: RadiologyOrderStatus.reviewed,
+      // The provider reviews and signs the result before uploading it, so the uploader
+      // (recorded as the DocumentReference author) is the reviewer.
+      performer: latestResultDocRef.author?.[0]?.display ?? '',
+      date: latestResultDocRef.date ?? latestResultDocRef.meta?.lastUpdated ?? '',
+    });
+  }
+
+  return history;
 };
 
 const buildHistory = (
@@ -376,19 +430,21 @@ const buildHistory = (
 };
 
 const extractResources = (
-  resources: (ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter | Appointment)[]
+  resources: (ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter | Appointment | DocumentReference)[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   practitioners: Practitioner[];
   encounters: Encounter[];
+  documentReferences: DocumentReference[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
   const results: DiagnosticReport[] = [];
   const practitioners: Practitioner[] = [];
   const encounters: Encounter[] = [];
+  const documentReferences: DocumentReference[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -401,6 +457,8 @@ const extractResources = (
       practitioners.push(resource as Practitioner);
     } else if (resource.resourceType === 'Encounter') {
       encounters.push(resource as Encounter);
+    } else if (resource.resourceType === 'DocumentReference') {
+      documentReferences.push(resource as DocumentReference);
     }
   }
 
@@ -410,6 +468,7 @@ const extractResources = (
     diagnosticReports: results,
     practitioners,
     encounters,
+    documentReferences,
   };
 };
 

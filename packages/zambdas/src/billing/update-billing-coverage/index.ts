@@ -2,7 +2,7 @@ import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Coverage } from 'fhir/r4b';
-import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND } from 'utils';
+import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND, setCoveragePlanType } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   BillingFhirResource,
@@ -66,7 +66,8 @@ async function performEffect(
   params: UpdateBillingCoverageParams,
   cvo: ComplexValidationResult
 ): Promise<{ id: string | undefined }> {
-  const { patientId, coverage } = cvo;
+  const { patientId } = cvo;
+  let coverage = structuredClone(cvo.coverage);
   const accounts = params.insuranceType !== undefined ? await getPatientAccounts(oystehr, patientId) : [];
 
   // Coverage status is not part of the billing product model; keep every coverage active.
@@ -119,6 +120,10 @@ async function performEffect(
         coverage.subscriber = { reference: subscriberUrn };
       }
     }
+  }
+
+  if (params.planType) {
+    coverage = setCoveragePlanType(coverage, params.planType);
   }
 
   const requests: BatchInputRequest<BillingFhirResource>[] = [

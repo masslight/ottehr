@@ -13,7 +13,6 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -29,9 +28,9 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, ReactNode, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { deleteTemplate, listTemplates, renameTemplate } from 'src/api/api';
-import { GLOBAL_TEMPLATES_URL } from 'src/App';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { GLOBAL_TEMPLATES_URL } from 'src/features/admin/adminRoutes';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ListTemplatesZambdaOutput, TemplateInfo, TemplateVersionData } from 'utils';
 
@@ -209,7 +208,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
   };
 
   return (
-    <Paper sx={{ padding: 3 }}>
+    <Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Templates are created from the progress note. Use this page to manage existing templates.
       </Typography>
@@ -356,6 +355,6 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           </LoadingButton>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </Box>
   );
 }

@@ -5,14 +5,8 @@ import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
 } from 'utils';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getRecentlyAssignedTasksMap, resolveTaskRecipients } from '../../src/cron/notifications-updater';
-
-const mockOystehr = {
-  fhir: {
-    search: vi.fn(),
-  },
-};
+import { describe, expect, it } from 'vitest';
+import { buildRecentlyAssignedTasksMap, resolveTaskRecipients } from '../../src/cron/notifications-updater';
 
 const fromDate = DateTime.utc().minus({ hours: 1 });
 const recentDate = DateTime.utc().minus({ minutes: 5 }).toISO()!;
@@ -57,39 +51,25 @@ const makePractitioner = (id: string): Practitioner => ({
   id,
 });
 
-const mockSearch = (resources: (Task | Practitioner)[]): void => {
-  mockOystehr.fhir.search.mockResolvedValue({ unbundle: () => resources });
-};
-
-describe('getRecentlyAssignedTasksMap', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('includes a waiting-room Task with no owner when authoredOn is within the window', async () => {
-    mockSearch([waitingRoomTask()]);
-
-    const result = await getRecentlyAssignedTasksMap(mockOystehr as any, fromDate);
+describe('buildRecentlyAssignedTasksMap', () => {
+  it('includes a waiting-room Task with no owner when authoredOn is within the window', () => {
+    const result = buildRecentlyAssignedTasksMap([waitingRoomTask()], fromDate);
     expect(result['task-waiting']).toBeDefined();
     expect(result['task-waiting'].practitioner).toBeUndefined();
     expect(result['task-waiting'].task.id).toBe('task-waiting');
   });
 
-  it('excludes a waiting-room Task whose authoredOn is older than the window', async () => {
-    mockSearch([waitingRoomTask({ authoredOn: oldDate })]);
-
-    const result = await getRecentlyAssignedTasksMap(mockOystehr as any, fromDate);
+  it('excludes a waiting-room Task whose authoredOn is older than the window', () => {
+    const result = buildRecentlyAssignedTasksMap([waitingRoomTask({ authoredOn: oldDate })], fromDate);
     expect(result['task-waiting']).toBeUndefined();
   });
 
-  it('excludes a non-waiting-room Task that has no owner (existing behavior preserved)', async () => {
-    mockSearch([erxTask()]);
-
-    const result = await getRecentlyAssignedTasksMap(mockOystehr as any, fromDate);
+  it('excludes a non-waiting-room Task that has no owner (existing behavior preserved)', () => {
+    const result = buildRecentlyAssignedTasksMap([erxTask()], fromDate);
     expect(result['task-erx']).toBeUndefined();
   });
 
-  it('includes a non-waiting-room Task with an owner assigned within the window, attaching the practitioner', async () => {
+  it('includes a non-waiting-room Task with an owner assigned within the window, attaching the practitioner', () => {
     const practitioner = makePractitioner('practitioner-1');
     const task = erxTask({
       owner: {
@@ -102,14 +82,13 @@ describe('getRecentlyAssignedTasksMap', () => {
         ],
       },
     });
-    mockSearch([task, practitioner]);
 
-    const result = await getRecentlyAssignedTasksMap(mockOystehr as any, fromDate);
+    const result = buildRecentlyAssignedTasksMap([task, practitioner], fromDate);
     expect(result['task-erx']).toBeDefined();
     expect(result['task-erx'].practitioner?.id).toBe('practitioner-1');
   });
 
-  it('excludes a non-waiting-room Task whose owner was assigned before the window', async () => {
+  it('excludes a non-waiting-room Task whose owner was assigned before the window', () => {
     const practitioner = makePractitioner('practitioner-1');
     const task = erxTask({
       owner: {
@@ -122,9 +101,8 @@ describe('getRecentlyAssignedTasksMap', () => {
         ],
       },
     });
-    mockSearch([task, practitioner]);
 
-    const result = await getRecentlyAssignedTasksMap(mockOystehr as any, fromDate);
+    const result = buildRecentlyAssignedTasksMap([task, practitioner], fromDate);
     expect(result['task-erx']).toBeUndefined();
   });
 });

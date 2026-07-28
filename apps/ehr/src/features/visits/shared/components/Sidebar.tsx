@@ -12,6 +12,7 @@ import {
   ListItemIcon,
   ListItemText,
   styled,
+  useTheme,
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -25,14 +26,23 @@ import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPer
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 
-const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
-  <svg width="9" height="18" viewBox="0 0 9 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path
-      d={direction === 'right' ? 'M0 18V0H2V18H0ZM4 14V4L9 9L4 14Z' : 'M5 14V4L0 9L5 14ZM7 18H9V0H7V18Z'}
-      fill="#2169F5"
-    />
-  </svg>
-);
+export const ArrowIcon = ({
+  direction,
+  color,
+}: {
+  direction: 'left' | 'right';
+  color?: string;
+}): React.ReactElement => {
+  const theme = useTheme();
+  return (
+    <svg width="9" height="18" viewBox="0 0 9 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d={direction === 'right' ? 'M0 18V0H2V18H0ZM4 14V4L9 9L4 14Z' : 'M5 14V4L0 9L5 14ZM7 18H9V0H7V18Z'}
+        fill={color ?? theme.palette.primary.main}
+      />
+    </svg>
+  );
+};
 
 export const sidebarMenuIcons = {
   'Progress Note': (

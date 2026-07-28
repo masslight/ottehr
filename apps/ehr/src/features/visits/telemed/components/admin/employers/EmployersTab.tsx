@@ -9,7 +9,6 @@ import {
   InputLabel,
   MenuItem,
   OutlinedInput,
-  Paper,
   Select,
   SelectChangeEvent,
   Table,
@@ -20,12 +19,16 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Organization } from 'fhir/r4b';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { StatusChip } from 'src/components/StatusChip';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useEmployersQuery } from 'src/rcm/state/employers';
+import { CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM } from 'src/rcm/state/employers/employers.api';
 import EmployerDialog from './EmployerDialog';
 
 enum EmployerActiveStatus {
@@ -67,10 +70,24 @@ export default function EmployersTab(): ReactElement {
   }, [filteredEmployers.length, pageNumber, rowsPerPage]);
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2 }}>
+    <Box>
+      <AdminHeaderActionSlot>
+        <Button
+          color="primary"
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setSelectedEmployer(null);
+            setIsDialogOpen(true);
+          }}
+        >
+          Add new
+        </Button>
+      </AdminHeaderActionSlot>
+
       <TableContainer>
         <Grid container spacing={2} display="flex" alignItems="center">
-          <Grid item xs={12} sm={5}>
+          <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
               label="Employer"
@@ -82,7 +99,7 @@ export default function EmployersTab(): ReactElement {
               margin="dense"
             />
           </Grid>
-          <Grid item xs={12} sm={5}>
+          <Grid item xs={12} sm={6}>
             <FormControl fullWidth>
               <InputLabel id="select-employer-status-filter">Status</InputLabel>
               <Select
@@ -100,25 +117,6 @@ export default function EmployersTab(): ReactElement {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={2} display={'flex'}>
-            <Button
-              sx={{
-                borderRadius: 100,
-                textTransform: 'none',
-                width: '100%',
-                fontWeight: 600,
-              }}
-              color="primary"
-              variant="contained"
-              onClick={() => {
-                setSelectedEmployer(null);
-                setIsDialogOpen(true);
-              }}
-            >
-              <AddIcon />
-              <Typography fontWeight="bold">Add new</Typography>
-            </Button>
-          </Grid>
         </Grid>
 
         {isLoading ? (
@@ -130,10 +128,13 @@ export default function EmployersTab(): ReactElement {
             <Table sx={{ minWidth: 700 }} aria-label="Employers table">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', width: '45%' }}>Display name</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '35%' }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '40%' }}>Display name</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Category</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }} align="left">
                     Status
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="left">
+                    Candid
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -142,6 +143,10 @@ export default function EmployersTab(): ReactElement {
                   const isActive = employer.active !== false;
                   const isActiveLabel = isActive ? 'ACTIVE' : 'INACTIVE';
                   const category = employer.type?.[0]?.text || '—';
+
+                  const isCandidSynced = Boolean(
+                    employer.identifier?.find((id) => id.system === CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM)?.value
+                  );
 
                   return (
                     <TableRow
@@ -158,12 +163,23 @@ export default function EmployersTab(): ReactElement {
                       <TableCell align="left">
                         <BooleanStateChip label={isActiveLabel} state={isActive} />
                       </TableCell>
+                      <TableCell align="left">
+                        {isCandidSynced ? (
+                          <StatusChip status="Synced" style="green" />
+                        ) : (
+                          <Tooltip title="This employer has not been synced to Candid Health">
+                            <span>
+                              <StatusChip status="Not Synced" style="orange" />
+                            </span>
+                          </Tooltip>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {!isFetching && currentPageEmployers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} align="center">
+                    <TableCell colSpan={4} align="center">
                       <Typography color="text.secondary">No employers found.</Typography>
                     </TableCell>
                   </TableRow>
@@ -195,6 +211,6 @@ export default function EmployersTab(): ReactElement {
           setSelectedEmployer(null);
         }}
       />
-    </Paper>
+    </Box>
   );
 }

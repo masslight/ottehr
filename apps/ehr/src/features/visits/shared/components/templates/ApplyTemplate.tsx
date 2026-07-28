@@ -26,6 +26,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
 import { RoleType, TEMPLATE_SECTIONS_IN_ORDER, TemplatePreviewApplyOptions, TemplateSectionActions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
+import { GET_MEDICATION_ORDERS_QUERY_KEY } from '../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { resetExamObservationsStore } from '../../stores/appointment/reset-exam-observations';
 import { resetRosObservationsStore } from '../../stores/appointment/reset-ros-observations';
@@ -125,14 +126,17 @@ export const ApplyTemplate: React.FC = () => {
 
         // Reset exam observations store to force reload from server
         // This is necessary because exam observations are stored in Zustand (not React Query)
-        // and need to be cleared before React Query refetch triggers the update
-        resetExamObservationsStore();
-        resetRosObservationsStore();
+        // and need to be cleared before React Query refetch triggers the update.
+        // only reset when the sections have content to avoid clearing cache with no way to repopulate
+        if (sectionActions.examFindings !== 'skip') resetExamObservationsStore();
+
+        if (sectionActions.ros !== 'skip') resetRosObservationsStore();
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
           queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
+          queryClient.invalidateQueries({ queryKey: [GET_MEDICATION_ORDERS_QUERY_KEY] }),
         ]);
 
         enqueueSnackbar('Template applied successfully!', { variant: 'success' });

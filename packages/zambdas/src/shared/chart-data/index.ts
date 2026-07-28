@@ -42,6 +42,7 @@ import {
   BODY_SITE_SYSTEM,
   BooleanValueDTO,
   ClinicalImpressionDTO,
+  CODE_SYSTEM_ICD_10,
   CommunicationDTO,
   CPT_CODE_SYSTEM,
   CPTCodeDTO,
@@ -62,7 +63,6 @@ import {
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
-  ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
   isNoteEdited,
   isVitalObservation,
@@ -84,6 +84,7 @@ import {
   patientScreeningQuestionsConfig,
   PERFORMER_TYPE_SYSTEM,
   PrescribedMedicationDTO,
+  PRESCRIPTION_ERX_PHARMACY_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
   ProcedureDTO,
@@ -148,7 +149,7 @@ export function makeConditionResource(
       ? {
           coding: [
             {
-              system: ICD_10_CODE_SYSTEM,
+              system: CODE_SYSTEM_ICD_10,
               version: '2019',
               code: dto.code,
               display: dto.display,
@@ -344,6 +345,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
     isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
+    pharmacyId: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL)?.valueInteger?.toString(),
   };
 }
 
@@ -1137,7 +1139,7 @@ export function makeDiagnosisConditionResource(
     code: {
       coding: [
         {
-          system: ICD_10_CODE_SYSTEM,
+          system: CODE_SYSTEM_ICD_10,
           code: data.code,
           display: data.display,
         },

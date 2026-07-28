@@ -39,7 +39,7 @@ import {
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
-import { emailRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
+import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -145,11 +145,11 @@ export function getBucketAndObjectFromZ3URL(z3URL: string, projectAPI: string): 
   return { bucket, object };
 }
 
-export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
+export const isPostalCodeValid = (postalCode: string | undefined, requireFullZip?: boolean): boolean => {
   if (!postalCode) {
     return false;
   }
-  return zipRegex.test(postalCode);
+  return requireFullZip ? fullZipRegex.test(postalCode) : zipRegex.test(postalCode);
 };
 
 const tenDigitRegex = /^\d{10}$/;
@@ -1833,7 +1833,6 @@ export function resolveServiceCategoryAbbreviation(
 export function formatZipcodeForDisplay(addressOrZip: string): string {
   const regexPattern = /\b(\d{5})(\d{4})$/;
   const zipMatch = addressOrZip.match(regexPattern);
-  console.log(`This is zipMatch ${JSON.stringify(zipMatch)}`);
   if (!zipMatch) return addressOrZip;
   return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
 }

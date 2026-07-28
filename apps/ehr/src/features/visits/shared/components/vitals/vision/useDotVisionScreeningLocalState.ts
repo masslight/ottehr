@@ -16,6 +16,8 @@ export interface DotVisionScreeningLocalState {
   document?: VitalsDotVisionScreeningDocument;
   hasData: boolean;
   isValid: boolean;
+  horizontalFieldLeftInvalid: boolean;
+  horizontalFieldRightInvalid: boolean;
   handleHorizontalFieldLeftChange: (value: string) => void;
   handleHorizontalFieldRightChange: (value: string) => void;
   handleCanRecognizeColorsChange: (value: boolean) => void;
@@ -27,10 +29,24 @@ export interface DotVisionScreeningLocalState {
   getDTO: () => VitalsVisionObservationDTO | null;
 }
 
+// A horizontal field of vision is an angle in degrees; anything outside this range is a data-entry
+// error (negative angles, absurdly large numbers, or non-numeric input such as a lone "+").
+export const DOT_VISION_DEGREES_MIN = 0;
+export const DOT_VISION_DEGREES_MAX = 180;
+
+const isDegreesValueValid = (value: string): boolean => {
+  const trimmed = value.trim();
+  if (trimmed === '') return true;
+  const num = Number(trimmed);
+  return Number.isFinite(num) && num >= DOT_VISION_DEGREES_MIN && num <= DOT_VISION_DEGREES_MAX;
+};
+
 const parseDegrees = (value: string): number | undefined => {
-  if (value.trim() === '') return undefined;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : undefined;
+  const trimmed = value.trim();
+  if (trimmed === '') return undefined;
+  const num = Number(trimmed);
+  if (!Number.isFinite(num) || num < DOT_VISION_DEGREES_MIN || num > DOT_VISION_DEGREES_MAX) return undefined;
+  return num;
 };
 
 export function useDotVisionScreeningLocalState(): DotVisionScreeningLocalState {
@@ -88,6 +104,9 @@ export function useDotVisionScreeningLocalState(): DotVisionScreeningLocalState 
     referredToSpecialist !== null ||
     receivedDocumentation !== null;
 
+  const horizontalFieldLeftInvalid = !isDegreesValueValid(horizontalFieldLeft);
+  const horizontalFieldRightInvalid = !isDegreesValueValid(horizontalFieldRight);
+
   const getDTO = useCallback((): VitalsVisionObservationDTO | null => {
     const dot = buildDotData();
     const hasAnyValue = Object.values(dot).some((value) => value !== undefined);
@@ -109,10 +128,12 @@ export function useDotVisionScreeningLocalState(): DotVisionScreeningLocalState 
     receivedDocumentation,
     document,
     hasData,
+    horizontalFieldLeftInvalid,
+    horizontalFieldRightInvalid,
     // Reflect whether a saveable DTO actually exists, not merely that a field was touched: a
-    // non-numeric degrees entry leaves hasData true but produces no DTO, so the button must stay
-    // disabled rather than become a silent no-op on click.
-    isValid: getDTO() !== null,
+    // non-numeric or out-of-range degrees entry leaves hasData true but produces no DTO, so the
+    // button must stay disabled rather than become a silent no-op (or save a bogus angle) on click.
+    isValid: getDTO() !== null && !horizontalFieldLeftInvalid && !horizontalFieldRightInvalid,
     handleHorizontalFieldLeftChange: setHorizontalFieldLeft,
     handleHorizontalFieldRightChange: setHorizontalFieldRight,
     handleCanRecognizeColorsChange: setCanRecognizeColors,

@@ -46,6 +46,10 @@ export default defineConfig({
           include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
           exclude: [...configDefaults.exclude, 'test/integration/**'],
           testTimeout: 30000,
+          // Match testTimeout — unit tests that dynamic-import their handler
+          // inside beforeEach can occasionally exceed vitest's built-in 10s
+          // hook default under heavy transform load across the ~450 test files.
+          hookTimeout: 30000,
           // no globalSetup and no retry: unit tests must be deterministic and run offline.
           setupFiles: ['../test-utils/lib/no-network.setup.ts', './vitest.setup.ts'],
         },

@@ -4,9 +4,9 @@ import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { BasicDatePicker, FormGroupPharmacyCollection, FormSelect, FormTextField } from 'src/components/form';
-import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { InputMask } from 'ui-components';
 import {
   AnswerOptionSource,
   dedupeObjectsByKey,

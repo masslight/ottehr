@@ -3,6 +3,7 @@ import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResul
 import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   chooseJson,
@@ -198,6 +199,7 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
         queryKey: [GET_TASKS_KEY],
         exact: false,
       });
+      enqueueSnackbar('Task assigned successfully and moved to In Progress status.', { variant: 'success' });
     },
   });
 };
@@ -431,6 +433,42 @@ function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>):
     const patientReference = getInputReference(MANUAL_TASK.input.patient, task);
     const appointmentId = getInputString(MANUAL_TASK.input.appointmentId, task);
     const orderId = getInputString(MANUAL_TASK.input.orderId, task);
+    const documentReferenceId = getInputString(MANUAL_TASK.input.documentReferenceId, task);
+    // Follow-up tasks emitted by completed practice-managed forms carry a
+    // document-reference-id; use it as a signal to route to the patient docs
+    // page with the Paperwork folder preselected, rather than the default
+    // manual-task behaviour.
+    const patientIdFromRef = patientReference?.reference?.split('/')?.[1];
+    if (category === MANUAL_TASK.category.patientFollowUp && documentReferenceId && patientIdFromRef) {
+      title =
+        getInputString(MANUAL_TASK.input.title, task) ||
+        `Patient follow-up for ${patientReference?.display?.replaceAll(',', '') ?? ''}`;
+      subtitle = `Form completed / ${task.location?.display ?? ''}`;
+      details = '';
+      completable = true;
+      action = {
+        name: GO_TO_TASK,
+        link: `/patient/${patientIdFromRef}/docs?folder=Paperwork`,
+      };
+      return {
+        id: task.id ?? '',
+        category,
+        createdDate: task.authoredOn ?? '',
+        title,
+        subtitle,
+        details,
+        status: task.status,
+        action,
+        assignee: task.owner
+          ? {
+              id: task.owner?.reference?.split('/')?.[1] ?? '',
+              name: task.owner?.display ?? '',
+              date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
+            }
+          : undefined,
+        completable,
+      };
+    }
     title =
       getInputString(MANUAL_TASK.input.title, task) +
       (patientReference ? ' for ' + patientReference.display?.replaceAll(',', '') : '');

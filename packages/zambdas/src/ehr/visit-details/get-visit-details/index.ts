@@ -24,16 +24,20 @@ import {
   getEmailForIndividual,
   getFullestAvailableName,
   getNameFromScheduleResource,
+  getQuestionnaireForQR,
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
   isAnnotationFollowupEncounter,
   isValidUUID,
+  makeStandaloneFormDTO,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PersistedFhirResource,
+  qrSentManually,
   ScheduleOwnerFhirResource,
   Secrets,
   selectIntakeQuestionnaireResponse,
+  StandaloneFormDTO,
   Timezone,
   TIMEZONES,
 } from 'utils';
@@ -65,8 +69,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = (input: EffectInput): EHRVisitDetails => {
-  const { appointment, patient, encounter, flags, consents, qr, location, schedule, scheduleOwner, guarantorResource } =
-    input;
+  const {
+    appointment,
+    patient,
+    encounter,
+    flags,
+    consents,
+    qr,
+    location,
+    schedule,
+    scheduleOwner,
+    guarantorResource,
+    standAloneForms,
+  } = input;
 
   const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
 
@@ -100,6 +115,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     responsiblePartyName,
     responsiblePartyEmail,
     consentIsAttested,
+    standAloneForms,
   };
 
   if (schedule) {
@@ -127,6 +143,7 @@ interface EffectInput {
   scheduleOwner?: ScheduleOwnerFhirResource;
   location?: Location;
   guarantorResource?: Patient | RelatedPerson | undefined;
+  standAloneForms?: StandaloneFormDTO[];
 }
 
 const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
@@ -198,7 +215,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     }
   }
 
-  const [docRefsAndConsents, accountResources] = await Promise.all([
+  const [docRefsAndConsents, accountResources, standAloneForms] = await Promise.all([
     getConsentAndRelatedDocRefsForAppointment(
       {
         appointmentId,
@@ -207,6 +224,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
       oystehr
     ),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
+    getStandaloneFormsForAppointment(appointment, oystehr),
   ]);
   const { guarantorResource } = accountResources;
   return {
@@ -220,6 +238,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     scheduleOwner,
     guarantorResource,
     ...docRefsAndConsents,
+    standAloneForms,
   };
 };
 
@@ -292,4 +311,40 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     userToken,
     appointmentId,
   };
+};
+
+const getStandaloneFormsForAppointment = async (
+  appointment: Appointment,
+  oystehr: Oystehr
+): Promise<StandaloneFormDTO[] | undefined> => {
+  const appointmentId = appointment.id!;
+
+  const resources = (
+    await oystehr.fhir.search<Encounter | QuestionnaireResponse>({
+      resourceType: 'Encounter',
+      params: [
+        { name: 'appointment', value: `Appointment/${appointmentId}` },
+        { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
+      ],
+    })
+  ).unbundle();
+
+  const questionnaireResponses = resources
+    .filter((r) => r.resourceType === 'QuestionnaireResponse')
+    .filter((qr) => qrSentManually(qr));
+
+  if (!questionnaireResponses || questionnaireResponses.length === 0) return;
+
+  const results = await Promise.allSettled(
+    questionnaireResponses.map(async (qr) => {
+      const questionnaire = await getQuestionnaireForQR(qr, oystehr);
+      return makeStandaloneFormDTO(questionnaire, qr);
+    })
+  );
+
+  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
+
+  return results
+    .filter((r): r is PromiseFulfilledResult<StandaloneFormDTO> => r.status === 'fulfilled')
+    .map((r) => r.value);
 };

@@ -14,12 +14,12 @@ import {
   FEATURE_FLAGS_CONFIG,
   VisitType,
 } from 'utils';
+import { i18n } from 'utils/lib/frontend';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors, palette } from '../IntakeThemeProvider';
-import i18n from '../lib/i18n';
 
 const CheckIn = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
