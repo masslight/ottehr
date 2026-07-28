@@ -18,6 +18,7 @@ import {
   Person,
   Practitioner,
   Provenance,
+  Reference,
   RelatedPerson,
   Resource,
   Task,
@@ -44,6 +45,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   createCoverageMemberIdentifier,
@@ -244,22 +246,44 @@ export function isSystemTag(tag: Basic): boolean {
   return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
 }
 
-// Names of the tags defined in the tags feature (Basic resources; the name lives in code.text).
-// Used to validate tag references before they are written onto claims or into rules.
-export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
-  const result = await oystehr.fhir.search<Basic>({
+// All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
+// first. The one search behind both the Tags page (search-billing-tags) and the tag-existence
+// validations, so the two can't diverge.
+export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
+  const bundle = await oystehr.fhir.search<Basic>({
     resourceType: 'Basic',
     params: [
       { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+      { name: '_sort', value: '-_lastUpdated' },
       { name: '_count', value: '200' },
     ],
   });
-  return new Set(
-    result
-      .unbundle()
-      .map((tag) => tag.code?.text)
-      .filter((name): name is string => !!name)
-  );
+  return bundle.unbundle();
+}
+
+// Names of the defined tags — used to validate tag references before they are written onto claims
+// or into rules.
+export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
+  const basics = await searchTagBasics(oystehr);
+  return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
+}
+
+// Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
+// and point every service line at it. The one careTeam shape both the claim editor
+// (update-billing-claim) and the rules engine write.
+export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
+  claim.careTeam = [
+    {
+      sequence: 1,
+      provider,
+      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+    },
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+  ];
+  claim.item = claim.item?.map((item) => ({
+    ...item,
+    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+  }));
 }
 
 export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';

@@ -4,6 +4,7 @@ import { CMS_PLACE_OF_SERVICE_CODE_SET, CMS_PLACE_OF_SERVICE_CODES } from '../..
 import { VALUE_SETS } from '../../../ottehr-config/value-sets';
 import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { AllStates, stateCodeToFullName } from '../../common';
+import { PERSON_GENDER_OPTIONS } from './billing.constants';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
@@ -172,12 +173,7 @@ const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'exists', 'notExist
 // Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
 const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
 
-const GENDER_OPTIONS: RuleFieldOption[] = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'other', label: 'Other' },
-  { value: 'unknown', label: 'Unknown' },
-];
+const GENDER_OPTIONS: RuleFieldOption[] = PERSON_GENDER_OPTIONS;
 
 const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map((option) => ({
   value: option.candidCode,

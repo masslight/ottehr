@@ -20,7 +20,6 @@ import {
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   FHIR_RESOURCE_NOT_FOUND,
   getPayerUrl,
@@ -47,6 +46,7 @@ import {
   prepareWorkingCopy,
   resolvePayersByRef,
   resourceDisplayName,
+  setClaimRenderingProviderCareTeam,
   setClia,
   setCoverageRelationship,
   setTaxId,
@@ -237,18 +237,10 @@ async function attachClaimResources(
 
   if (fields.renderingProvider) {
     const copy = await createCopy(oystehr, fields.renderingProvider.type, fields.renderingProvider.id);
-    claim.careTeam = [
-      {
-        sequence: 1,
-        provider: { reference: `${fields.renderingProvider.type}/${copy.id}`, display: resourceDisplayName(copy) },
-        role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
-      },
-      ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
-    ];
-    claim.item = claim.item?.map((item) => ({
-      ...item,
-      careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
-    }));
+    setClaimRenderingProviderCareTeam(claim, {
+      reference: `${fields.renderingProvider.type}/${copy.id}`,
+      display: resourceDisplayName(copy),
+    });
   }
 
   if (fields.facilityId) {

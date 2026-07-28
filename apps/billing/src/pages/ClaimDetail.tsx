@@ -31,7 +31,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AR_STAGE,
@@ -65,8 +65,6 @@ import {
   getPatientCoverages,
   runBillingRulesEngine,
   saveBillingServiceFacility,
-  searchBillingProviders,
-  searchBillingServiceFacilities,
   searchBillingTags,
   tagBillingClaim,
   updateBillingCoverage,
@@ -93,6 +91,7 @@ import {
   defaultCoverageFormValues,
 } from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';
+import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
@@ -774,9 +773,8 @@ function RenderingProviderSection({
     onError: setError,
   });
 
-  const [options, setOptions] = useState<BillingProviderOption[]>([]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('rendering');
   const [selectedProvider, setSelectedProvider] = useState<BillingProviderOption | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelectedProvider(null);
@@ -787,21 +785,6 @@ function RenderingProviderSection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const searchProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingProviders(oystehrZambda, {
-          providerType: 'rendering',
-          ...(query ? { name: query } : {}),
-        });
-        setOptions(res.providers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
 
   const handleSave = async (
     payload: CreateBillingProviderInput | UpdateBillingProviderInput
@@ -877,9 +860,8 @@ function FacilitySection({
     id: claim.serviceFacilityId,
   });
 
-  const [options, setOptions] = useState<ServiceFacilityItem[]>([]);
+  const { options, search: searchServiceFacilities } = useFacilityOptionsSearch();
   const [selected, setSelected] = useState<ServiceFacilityItem | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelected(null);
@@ -888,18 +870,6 @@ function FacilitySection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const searchServiceFacilities = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingServiceFacilities(oystehrZambda, query ? { name: query } : {});
-        setOptions(res.facilities ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
 
   const handleSave = async (payload: SaveServiceFacilityInput): Promise<string | null> => {
     if (!oystehrZambda) return null;
@@ -970,9 +940,8 @@ function BillingProviderSection({
     onError: setError,
   });
 
-  const [options, setOptions] = useState<BillingProviderOption[]>([]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('billing');
   const [selectedProvider, setSelectedProvider] = useState<BillingProviderOption | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelectedProvider(null);
@@ -983,21 +952,6 @@ function BillingProviderSection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const searchProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingProviders(oystehrZambda, {
-          providerType: 'billing',
-          ...(query ? { name: query } : {}),
-        });
-        setOptions(res.providers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
 
   const handleSave = async (
     payload: CreateBillingProviderInput | UpdateBillingProviderInput

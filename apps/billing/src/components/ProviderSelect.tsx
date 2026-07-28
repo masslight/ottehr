@@ -1,9 +1,9 @@
 import { Autocomplete, AutocompleteInputChangeReason, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useEffect, useRef, useState } from 'react';
+import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { BillingProviderOption } from 'utils';
 import { searchBillingProviders } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
-import { useDebounce } from '../hooks/useDebounce';
+import { useProviderOptionsSearch } from '../hooks/useOptionSearch';
 
 // Searchable provider picker over the rendering/billing provider reference resources (the ones the
 // provider management pages list). It stores the encoded FHIR reference "Practitioner/<id>" /
@@ -43,9 +43,9 @@ const toOption = (provider: BillingProviderOption): ProviderRefOption => ({
 const optionLabel = (option: ProviderRefOption): string =>
   option.name ? (option.npi ? `${option.name} (NPI ${option.npi})` : option.name) : option.ref;
 
-// Debounced server-side search plus a memory of providers we've seen, so a selected provider keeps
-// its label after the option list changes. Stored refs the search hasn't surfaced (an edited rule)
-// are resolved by id once, so they render readably instead of as a bare reference.
+// The shared debounced provider search plus a memory of providers we've seen, so a selected
+// provider keeps its label after the option list changes. Stored refs the search hasn't surfaced
+// (an edited rule) are resolved by id once, so they render readably instead of as a bare reference.
 function useProviderSearch(
   providerRole: 'rendering' | 'billing',
   value: string | string[] | null | undefined
@@ -55,34 +55,21 @@ function useProviderSearch(
   search: (query?: string) => void;
 } {
   const { oystehrZambda } = useApiClients();
-  const { debounce } = useDebounce(300);
-  const [options, setOptions] = useState<ProviderRefOption[]>([]);
+  const { options: searched, search } = useProviderOptionsSearch(providerRole);
   const [known, setKnown] = useState<Record<string, ProviderRefOption>>({});
   // Refs we've already tried to resolve by id — a deleted resource must not be re-fetched forever.
   const attempted = useRef(new Set<string>());
 
-  const absorb = (providers: BillingProviderOption[]): ProviderRefOption[] => {
-    const mapped = providers.map(toOption);
+  const options = useMemo(() => searched.map(toOption), [searched]);
+
+  useEffect(() => {
+    if (options.length === 0) return;
     setKnown((prev) => {
       const next = { ...prev };
-      mapped.forEach((option) => (next[option.ref] = option));
+      options.forEach((option) => (next[option.ref] = option));
       return next;
     });
-    return mapped;
-  };
-
-  const runSearch = async (query?: string): Promise<void> => {
-    if (!oystehrZambda) return;
-    try {
-      const res = await searchBillingProviders(oystehrZambda, {
-        providerType: providerRole,
-        ...(query ? { name: query } : {}),
-      });
-      setOptions(absorb(res.providers ?? []));
-    } catch {
-      setOptions([]);
-    }
-  };
+  }, [options]);
 
   useEffect(() => {
     if (!oystehrZambda) return;
@@ -95,14 +82,14 @@ function useProviderSearch(
       searchBillingProviders(oystehrZambda, { providerType: providerRole, providerId: id })
         .then((res) => {
           const match = (res.providers ?? []).find((provider) => toRef(provider) === ref);
-          if (match) absorb([match]);
+          if (match) setKnown((prev) => ({ ...prev, [toRef(match)]: toOption(match) }));
         })
         .catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, known, oystehrZambda, providerRole]);
 
-  return { options, known, search: (query?: string) => debounce(() => void runSearch(query)) };
+  return { options, known, search };
 }
 
 // Resolve a stored ref to a display option, falling back to a synthetic option showing the raw ref.

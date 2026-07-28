@@ -21,7 +21,6 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   extractPayerIdFromUrl,
   getClaimStatusFieldValue,
@@ -35,6 +34,7 @@ import {
   isNPIValidWithChecksum,
   isoDateRegex,
   isValidClaimStatusValue,
+  PERSON_GENDER_OPTIONS,
   ServiceLineSetOperation,
   setCoveragePlanType,
   setNpi,
@@ -54,6 +54,7 @@ import {
   getTaxonomy,
   prepareWorkingCopy,
   resourceDisplayName,
+  setClaimRenderingProviderCareTeam,
   setClia,
   setTaxId,
   setTaxonomy,
@@ -368,7 +369,7 @@ export const readField = (model: RulesEngineClaimModel, fieldId: string): string
 // reviews the claim between the rules run and submission. Writers accept an empty value as "clear
 // the property" wherever the underlying resource allows it.
 
-const PERSON_GENDERS: NonNullable<Patient['gender']>[] = ['male', 'female', 'other', 'unknown'];
+const PERSON_GENDERS = PERSON_GENDER_OPTIONS.map((option) => option.value);
 
 const ensureName = (resource: NamedResource): HumanName => {
   if (!resource.name || resource.name.length === 0) resource.name = [{}];
@@ -499,20 +500,8 @@ const setClaimResourceRef = (
     model.claim.provider = { reference, display: resourceDisplayName(copy) };
     return true;
   }
-  // The rendering provider rides on careTeam sequence 1, and every item must point at it — the
-  // same rebuild update-billing-claim performs.
-  model.claim.careTeam = [
-    {
-      sequence: 1,
-      provider: { reference, display: resourceDisplayName(copy) },
-      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
-    },
-    ...(model.claim.careTeam ?? []).filter((member) => member.sequence !== 1),
-  ];
-  model.claim.item = model.claim.item?.map((item) => ({
-    ...item,
-    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
-  }));
+  // The rendering provider rides on careTeam sequence 1, and every item must point at it.
+  setClaimRenderingProviderCareTeam(model.claim, { reference, display: resourceDisplayName(copy) });
   return true;
 };
 

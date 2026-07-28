@@ -1,9 +1,9 @@
 import { Autocomplete, AutocompleteInputChangeReason, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useEffect, useRef, useState } from 'react';
+import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { ServiceFacilityItem } from 'utils';
 import { searchBillingServiceFacilities } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
-import { useDebounce } from '../hooks/useDebounce';
+import { useFacilityOptionsSearch } from '../hooks/useOptionSearch';
 
 // Searchable picker over the service facility reference resources (the Service Facilities page's
 // list). It stores the encoded FHIR reference "Location/<id>" — the value the rules engine's
@@ -37,8 +37,8 @@ const toOption = (facility: ServiceFacilityItem): FacilityRefOption => ({
 const optionLabel = (option: FacilityRefOption): string =>
   option.name ? (option.npi ? `${option.name} (NPI ${option.npi})` : option.name) : option.ref;
 
-// Debounced server-side search plus a memory of facilities we've seen; stored refs the search
-// hasn't surfaced are resolved by id once (that lookup also finds inactive facilities, so an
+// The shared debounced facility search plus a memory of facilities we've seen; stored refs the
+// search hasn't surfaced are resolved by id once (that lookup also finds inactive facilities, so an
 // existing rule renders faithfully).
 function useFacilitySearch(value: string | string[] | null | undefined): {
   options: FacilityRefOption[];
@@ -46,31 +46,21 @@ function useFacilitySearch(value: string | string[] | null | undefined): {
   search: (query?: string) => void;
 } {
   const { oystehrZambda } = useApiClients();
-  const { debounce } = useDebounce(300);
-  const [options, setOptions] = useState<FacilityRefOption[]>([]);
+  const { options: searched, search } = useFacilityOptionsSearch();
   const [known, setKnown] = useState<Record<string, FacilityRefOption>>({});
   // Refs we've already tried to resolve by id — a deleted facility must not be re-fetched forever.
   const attempted = useRef(new Set<string>());
 
-  const absorb = (facilities: ServiceFacilityItem[]): FacilityRefOption[] => {
-    const mapped = facilities.filter((facility) => facility.id).map(toOption);
+  const options = useMemo(() => searched.filter((facility) => facility.id).map(toOption), [searched]);
+
+  useEffect(() => {
+    if (options.length === 0) return;
     setKnown((prev) => {
       const next = { ...prev };
-      mapped.forEach((option) => (next[option.ref] = option));
+      options.forEach((option) => (next[option.ref] = option));
       return next;
     });
-    return mapped;
-  };
-
-  const runSearch = async (query?: string): Promise<void> => {
-    if (!oystehrZambda) return;
-    try {
-      const res = await searchBillingServiceFacilities(oystehrZambda, query ? { name: query } : {});
-      setOptions(absorb(res.facilities ?? []));
-    } catch {
-      setOptions([]);
-    }
-  };
+  }, [options]);
 
   useEffect(() => {
     if (!oystehrZambda) return;
@@ -83,14 +73,14 @@ function useFacilitySearch(value: string | string[] | null | undefined): {
       searchBillingServiceFacilities(oystehrZambda, { facilityId: id })
         .then((res) => {
           const match = (res.facilities ?? []).find((facility) => `Location/${facility.id}` === ref);
-          if (match) absorb([match]);
+          if (match) setKnown((prev) => ({ ...prev, [`Location/${match.id}`]: toOption(match) }));
         })
         .catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, known, oystehrZambda]);
 
-  return { options, known, search: (query?: string) => debounce(() => void runSearch(query)) };
+  return { options, known, search };
 }
 
 // Resolve a stored ref to a display option, falling back to a synthetic option showing the raw ref.
