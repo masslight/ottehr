@@ -987,16 +987,16 @@ export async function tagEraResources({
   return untagged.size;
 }
 
-// Links notices the stripe webhook stored before the claim existed. Oystehr matches
-// request:identifier by value only, the system|value form returns nothing.
+// Links notices the stripe webhook stored before the claim existed.
 export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
-  const encounterId = claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value;
+  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
   if (!claim.id || !encounterId) return;
 
   const notices = (
     await oystehr.fhir.search<PaymentNotice>({
       resourceType: 'PaymentNotice',
-      params: [{ name: 'request:identifier', value: encounterId }],
+      params: [{ name: 'request:identifier', value: `${encounterIdSystem}|${encounterId}` }],
     })
   ).unbundle();
 
