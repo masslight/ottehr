@@ -18,6 +18,7 @@ import { fhirName } from '../shared';
 
 const CLAIM_SCAN_PAGE_SIZE = 200;
 const PATIENT_BATCH = 100;
+const ENCOUNTER_ID_BATCH = 100;
 const DEFAULT_PAGE_SIZE = 25;
 
 export interface SearchPatientArClaimsParams {
@@ -57,23 +58,25 @@ export async function searchPatientArClaims(
 
 export async function fetchAllActivePatientArClaims(
   oystehr: Oystehr,
-  patientId?: string
+  encounterIds?: string[]
 ): Promise<PatientArClaimItem[]> {
-  const matches = await collectPatientArMatches({ oystehr, patientId });
+  const matches = await collectPatientArMatches({ oystehr, encounterIds });
   return buildPatientArClaimItems(oystehr, matches);
 }
 
 async function collectPatientArMatches(params: {
   oystehr: Oystehr;
   patientId?: string;
+  encounterIds?: string[];
   claimIds?: string[];
   includeZeroBalance?: boolean;
 }): Promise<PatientArMatch[]> {
-  const { oystehr, patientId, claimIds, includeZeroBalance } = params;
+  const { oystehr, patientId, encounterIds, claimIds, includeZeroBalance } = params;
 
   const claims = await fetchPatientArStageClaims({
     oystehr,
     patientId,
+    encounterIds,
     claimIds,
   });
   const claimResponsesByClaimId = await fetchClaimResponsesByClaimIds(
@@ -184,9 +187,10 @@ function claimServiceDate(claim: Claim): string {
 async function fetchPatientArStageClaims(params: {
   oystehr: Oystehr;
   patientId?: string;
+  encounterIds?: string[];
   claimIds?: string[];
 }): Promise<Claim[]> {
-  const { oystehr, patientId, claimIds } = params;
+  const { oystehr, patientId, encounterIds, claimIds } = params;
   const searchParams = [
     {
       name: '_tag',
@@ -208,6 +212,39 @@ async function fetchPatientArStageClaims(params: {
       name: '_id',
       value: claimIds.join(','),
     });
+  }
+
+  if (encounterIds && encounterIds.length > 0) {
+    const byId = new Map<string, Claim>();
+    await Promise.all(
+      chunkThings([...new Set(encounterIds)], ENCOUNTER_ID_BATCH).map((chunk) =>
+        fetchAllPages(async (offset, count) => {
+          const bundle = await oystehr.fhir.search<Claim>({
+            resourceType: 'Claim',
+            params: [
+              ...searchParams,
+              {
+                name: 'identifier',
+                value: chunk.map((id) => `${ottehrIdentifierSystem('claim-encounter-id')}|${id}`).join(','),
+              },
+              {
+                name: '_count',
+                value: String(count),
+              },
+              {
+                name: '_offset',
+                value: String(offset),
+              },
+            ],
+          });
+          for (const claim of bundle.unbundle()) {
+            if (claim.id) byId.set(claim.id, claim);
+          }
+          return bundle;
+        }, CLAIM_SCAN_PAGE_SIZE)
+      )
+    );
+    return Array.from(byId.values());
   }
 
   const claims: Claim[] = [];

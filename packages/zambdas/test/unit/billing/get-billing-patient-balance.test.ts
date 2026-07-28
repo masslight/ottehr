@@ -10,7 +10,9 @@ vi.mock('../../../src/billing/search-billing-patient-ar-claims/handler', () => (
   fetchAllActivePatientArClaims: vi.fn(),
 }));
 
-const item = (balance: number): PatientArClaimItem => ({
+const oystehr = {} as unknown as Oystehr;
+
+const claim = (overrides: Partial<PatientArClaimItem>): PatientArClaimItem => ({
   claimId: 'claim-1',
   patientId: 'pat-1',
   patientName: 'Test, Katie',
@@ -24,8 +26,9 @@ const item = (balance: number): PatientArClaimItem => ({
   insurancePaid: 150,
   patientResp: 50,
   patientPaid: 0,
-  balance,
+  balance: 50,
   adjudicated: true,
+  ...overrides,
 });
 
 describe('get-billing-patient-balance', () => {
@@ -34,8 +37,8 @@ describe('get-billing-patient-balance', () => {
 
     it('returns validated params for a valid request', () => {
       const secrets = createMockSecrets();
-      const result = validateRequestParameters(createMockZambdaInput({ patientId: validUUID }, { secrets }));
-      expect(result).toEqual({ patientId: validUUID, secrets });
+      const result = validateRequestParameters(createMockZambdaInput({ encounterIds: [validUUID] }, { secrets }));
+      expect(result).toEqual({ encounterIds: [validUUID], secrets });
     });
 
     it('throws when body is missing', () => {
@@ -43,14 +46,15 @@ describe('get-billing-patient-balance', () => {
     });
 
     it('throws when secrets are missing', () => {
-      expect(() => validateRequestParameters(createMockZambdaInput({ patientId: validUUID }))).toThrow();
+      expect(() => validateRequestParameters(createMockZambdaInput({ encounterIds: [validUUID] }))).toThrow();
     });
 
-    it('throws when patientId is missing or not a uuid', () => {
+    it('throws when encounterIds is missing, empty, or not uuids', () => {
       const secrets = createMockSecrets();
       expect(() => validateRequestParameters(createMockZambdaInput({}, { secrets }))).toThrow();
+      expect(() => validateRequestParameters(createMockZambdaInput({ encounterIds: [] }, { secrets }))).toThrow();
       expect(() =>
-        validateRequestParameters(createMockZambdaInput({ patientId: 'not-a-uuid' }, { secrets }))
+        validateRequestParameters(createMockZambdaInput({ encounterIds: ['not-a-uuid'] }, { secrets }))
       ).toThrow();
     });
   });
@@ -64,14 +68,14 @@ describe('get-billing-patient-balance', () => {
     });
 
     it('sums claim balances and counts claims with a positive balance', () => {
-      expect(summarizePatientBalance([item(50), item(25.5)])).toEqual({
+      expect(summarizePatientBalance([claim({ balance: 50 }), claim({ balance: 25.5 })])).toEqual({
         currentBalance: 75.5,
         claimsWithPatientBalance: 2,
       });
     });
 
     it('does not count zero-balance claims', () => {
-      expect(summarizePatientBalance([item(50), item(0)])).toEqual({
+      expect(summarizePatientBalance([claim({ balance: 50 }), claim({ balance: 0 })])).toEqual({
         currentBalance: 50,
         claimsWithPatientBalance: 1,
       });
@@ -79,20 +83,16 @@ describe('get-billing-patient-balance', () => {
   });
 
   describe('performEffect', () => {
-    it('fetches the patient active AR claims and returns them with a balance summary', async () => {
-      const claims = [item(50), item(25.5)];
-      vi.mocked(fetchAllActivePatientArClaims).mockResolvedValueOnce(claims);
-      const oystehr = {} as unknown as Oystehr;
+    it('fetches active AR claims for the encounters and returns them with a balance summary', async () => {
+      const claims = [claim({ claimId: 'claim-1', balance: 75.5 }), claim({ claimId: 'claim-2', balance: 20 })];
+      vi.mocked(fetchAllActivePatientArClaims).mockReset().mockResolvedValueOnce(claims);
 
-      const result = await performEffect(oystehr, {
-        patientId: 'pat-1',
-        secrets: {},
-      });
+      const result = await performEffect(oystehr, { encounterIds: ['enc-1', 'enc-2'], secrets: {} });
 
-      expect(fetchAllActivePatientArClaims).toHaveBeenCalledWith(oystehr, 'pat-1');
+      expect(fetchAllActivePatientArClaims).toHaveBeenCalledWith(oystehr, ['enc-1', 'enc-2']);
       expect(result).toEqual({
         claims,
-        balance: { currentBalance: 75.5, claimsWithPatientBalance: 2 },
+        balance: { currentBalance: 95.5, claimsWithPatientBalance: 2 },
       });
     });
   });

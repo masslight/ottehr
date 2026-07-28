@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ClaimPaymentSummary } from '../../../src/billing/claim-amounts';
 import {
   deriveFinalizationDate,
+  fetchAllActivePatientArClaims,
   fetchPatientsById,
   isActivePatientArClaim,
   isInActivePatientArStage,
@@ -431,5 +432,44 @@ describe('fetchPatientsById', () => {
 
     expect(search).not.toHaveBeenCalled();
     expect(result.size).toBe(0);
+  });
+});
+
+describe('fetchAllActivePatientArClaims with encounter ids', () => {
+  const arClaim = (id: string, encounterId: string): Claim =>
+    claim({
+      id,
+      meta: { tag: claimStatusValuesToTags(activeStatuses()) },
+      total: { value: 100, currency: 'USD' },
+      identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId }],
+    });
+
+  it('batches the encounter-id filter into chunked claim searches and dedupes merged results', async () => {
+    const encounterIds = Array.from({ length: 120 }, (_, i) => `enc-${i}`);
+    let claimSearchCount = 0;
+    const search = vi.fn(async (args: { resourceType: string; params: { name: string; value: string }[] }) => {
+      if (args.resourceType === 'Claim') {
+        claimSearchCount += 1;
+        const claims =
+          claimSearchCount === 1
+            ? [arClaim('c-shared', 'enc-0'), arClaim('c-1', 'enc-1')]
+            : [arClaim('c-shared', 'enc-0'), arClaim('c-2', 'enc-101')];
+        return { link: [], unbundle: () => claims };
+      }
+      return { link: [], unbundle: () => [] };
+    });
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+    const items = await fetchAllActivePatientArClaims(oystehr, encounterIds);
+
+    const identifierParams = search.mock.calls
+      .filter(([args]) => args.resourceType === 'Claim')
+      .map(([args]) => args.params.find((param) => param.name === 'identifier')?.value ?? '');
+    expect(identifierParams).toHaveLength(2);
+    expect(identifierParams[0].split(',')).toHaveLength(100);
+    expect(identifierParams[1].split(',')).toHaveLength(20);
+    expect(identifierParams[0]).toContain('|enc-0');
+    expect(identifierParams[1]).toContain('|enc-100');
+    expect(items.map((item) => item.claimId).sort()).toEqual(['c-1', 'c-2', 'c-shared']);
   });
 });

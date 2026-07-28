@@ -22,7 +22,7 @@ export async function performEffect(
   oystehr: Oystehr,
   params: GetBillingPatientBalanceParams
 ): Promise<GetBillingPatientBalanceResponse> {
-  const claims = await fetchAllActivePatientArClaims(oystehr, params.patientId);
+  const claims = await fetchAllActivePatientArClaims(oystehr, params.encounterIds);
   return { claims, balance: summarizePatientBalance(claims) };
 }
 

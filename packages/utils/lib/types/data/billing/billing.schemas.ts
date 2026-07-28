@@ -149,7 +149,7 @@ export const SearchBillingPatientARClaimsInputSchema = z.object({
 });
 
 export const GetBillingPatientBalanceInputSchema = z.object({
-  patientId: z.string().uuid(),
+  encounterIds: z.array(z.string().uuid()).min(1),
 });
 
 export const SearchBillingProvidersInputSchema = z.object({
