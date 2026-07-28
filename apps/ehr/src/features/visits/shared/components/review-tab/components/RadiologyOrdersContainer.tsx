@@ -12,7 +12,10 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
   const { radiologyOrders } = props;
   const { ordersWithReads, pendingPerformedOrders } = radiologyOrders.reduce(
     (acc: { ordersWithReads: RadiologyDTO[]; pendingPerformedOrders: RadiologyDTO[] }, order) => {
-      if (order.preliminaryReport || order.finalReport) {
+      // External orders never produce reads; they're resulted once their upload sets externalResultReviewed.
+      const hasReads = Boolean(order.preliminaryReport || order.finalReport);
+      const externalResulted = Boolean(order.external && order.externalResultReviewed);
+      if (hasReads || externalResulted) {
         acc.ordersWithReads.push(order);
       } else {
         acc.pendingPerformedOrders.push(order);
@@ -65,11 +68,15 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
               <span style={{ fontWeight: 'bold' }}>Clinical History: </span>
               {order.clinicalHistory}
             </Typography>
-            {renderReport(order)}
+            {/* External orders have no read to render — the study heading above is the result. */}
+            {!order.external && renderReport(order)}
           </Box>
-          <Box width="30%">
-            <RadiologyViewImageBtn serviceRequestId={order.serviceRequestId} disabled={false} displaySmall={true} />
-          </Box>
+          {/* AdvaPACS viewer doesn't apply to external orders. */}
+          {!order.external && (
+            <Box width="30%">
+              <RadiologyViewImageBtn serviceRequestId={order.serviceRequestId} disabled={false} displaySmall={true} />
+            </Box>
+          )}
           {idx + 1 < ordersWithReads.length && <Divider />}
         </Box>
       ))}
