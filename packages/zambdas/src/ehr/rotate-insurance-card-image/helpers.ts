@@ -1,7 +1,7 @@
 import { Attachment, DocumentReference } from 'fhir/r4b';
 import { DocumentType, INSURANCE_CARD_CODE, INVALID_INPUT_ERROR, LOINC_SYSTEM } from 'utils';
-import { NORMALIZABLE_CONTENT_TYPES } from '../../subscriptions/document-reference/extract-insurance-card/normalize-image';
-import { CARD_IMAGE_TITLES } from '../../subscriptions/document-reference/extract-insurance-card/validateRequestParameters';
+import { NORMALIZABLE_CONTENT_TYPES } from '../extract-insurance-card/normalize-image';
+import { CARD_IMAGE_TITLES } from '../extract-insurance-card/validateRequestParameters';
 
 /**
  * Confirms the DocumentReference is a current insurance-card *image* that can be manually rotated:

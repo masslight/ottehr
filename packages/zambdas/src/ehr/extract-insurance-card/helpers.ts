@@ -7,7 +7,7 @@ import {
   buildExtractionPatchOperation as buildGenericExtractionPatchOperation,
   extractFieldsWithAllNullFold,
   getExistingExtraction as getGenericExistingExtraction,
-} from '../shared/extraction-helpers';
+} from '../card-extraction-shared/extraction-helpers';
 
 export const EXTRACTION_PROMPT = `You are extracting data from an image for a healthcare record system.
 

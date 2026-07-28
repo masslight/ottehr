@@ -1,27 +1,21 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  getPresignedURL,
-  INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
-  InsuranceCardExtraction,
-} from 'utils';
+import { createOystehrClient, getPresignedURL, PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAuth0Token, ZambdaInput } from '../../../../shared';
-import { invokeChatbotVertexAI } from '../../../../shared/ai';
-import { EXTRACTION_PROMPT, parseModelResponse } from '../helpers';
+import { getAuth0Token, ZambdaInput } from '../../../shared';
+import { invokeChatbotVertexAI } from '../../../shared/ai';
+import { EXTRACTION_PROMPT, parseModelResponse, photoIdResponseSchema } from '../helpers';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
-import { makePlainJpeg } from './image-fixtures';
 
-vi.mock('../../../../shared/ai', () => ({
+vi.mock('../../../shared/ai', () => ({
   invokeChatbotVertexAI: vi.fn(),
   VERTEX_AI_MODEL: 'gemini-3.1-flash-lite',
 }));
 
-vi.mock('../../../../shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../../shared')>();
+vi.mock('../../../shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared')>();
   return {
     ...actual,
     getAuth0Token: vi.fn(),
@@ -37,9 +31,10 @@ vi.mock('utils', async (importOriginal) => {
   };
 });
 
-const Z3_URL = 'https://project-api.zapehr.com/v1/z3/insurance-cards-bucket/patient-1/insurance-card-front.jpg';
-const PRESIGNED_URL = 'https://signed.example.com/insurance-card-front.jpg';
-const IMAGE_BYTES = await makePlainJpeg(40, 24);
+const Z3_URL = 'https://project-api.zapehr.com/v1/z3/photo-id-cards-bucket/patient-1/photo-id-front.jpg';
+const PRESIGNED_URL = 'https://signed.example.com/photo-id-front.jpg';
+// no image normalization on this pipeline, so the bytes are never decoded — plain fake bytes suffice
+const IMAGE_BYTES = Buffer.from('fake-photo-id-image-bytes');
 
 const SECRETS = {
   FHIR_API: 'https://fhir-api.example.com',
@@ -48,18 +43,34 @@ const SECRETS = {
 };
 
 const HAPPY_MODEL_RESPONSE = {
-  isInsuranceCard: true,
-  payer: 'Aetna',
-  memberName: 'JOHN Q SAMPLE',
-  memberId: 'W123456789',
-  groupNumber: 'GRP-0001',
-  payerId: '60054',
-  rxBin: '610502',
-  rxPcn: 'ADV',
-  rxGroup: 'RX1234',
-  insuranceType: 'PPO',
-  effectiveDate: '2024-01-01',
-  readable: true,
+  isPhotoId: true,
+  firstName: 'JOHN',
+  middleName: 'QUINCY',
+  lastName: 'SAMPLE',
+  suffix: 'JR',
+  dateOfBirth: '1990-02-14',
+  sex: 'Male',
+  addressLine1: '123 MAIN ST',
+  addressCity: 'SPRINGFIELD',
+  addressState: 'MA',
+  addressZip: '01101',
+  licenseNumber: 'S12345678',
+  expirationDate: '2028-02-14',
+};
+
+const HAPPY_FIELDS = {
+  firstName: 'JOHN',
+  middleName: 'QUINCY',
+  lastName: 'SAMPLE',
+  suffix: 'JR',
+  dateOfBirth: '1990-02-14',
+  sex: 'Male',
+  addressLine1: '123 MAIN ST',
+  addressCity: 'SPRINGFIELD',
+  addressState: 'MA',
+  addressZip: '01101',
+  licenseNumber: 'S12345678',
+  expirationDate: '2028-02-14',
 };
 
 function makeDocRef(overrides: Partial<DocumentReference> = {}): DocumentReference {
@@ -67,8 +78,8 @@ function makeDocRef(overrides: Partial<DocumentReference> = {}): DocumentReferen
     resourceType: 'DocumentReference',
     id: 'docref-1',
     status: 'current',
-    type: { coding: [{ system: 'http://loinc.org', code: '64290-0' }] },
-    content: [{ attachment: { url: Z3_URL, title: 'insurance-card-front', contentType: 'image/jpeg' } }],
+    type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] },
+    content: [{ attachment: { url: Z3_URL, title: 'photo-id-front', contentType: 'image/jpeg' } }],
     ...overrides,
   } as DocumentReference;
 }
@@ -81,23 +92,11 @@ function makeInput(docRef: DocumentReference): ZambdaInput {
   } as unknown as ZambdaInput;
 }
 
-function makeStoredExtraction(overrides: Partial<InsuranceCardExtraction> = {}): InsuranceCardExtraction {
+function makeStoredExtraction(overrides: Partial<PhotoIdExtraction> = {}): PhotoIdExtraction {
   return {
     version: 1,
-    isInsuranceCard: true,
-    fields: {
-      payer: 'Aetna',
-      memberName: 'JOHN Q SAMPLE',
-      memberId: 'W123456789',
-      groupNumber: 'GRP-0001',
-      payerId: '60054',
-      rxBin: '610502',
-      rxPcn: 'ADV',
-      rxGroup: 'RX1234',
-      insuranceType: 'PPO',
-      effectiveDate: '2024-01-01',
-    },
-    readable: true,
+    isPhotoId: true,
+    fields: { ...HAPPY_FIELDS },
     sourceDocRefId: 'docref-1',
     sourceAttachmentUrl: Z3_URL,
     model: 'gemini-3.1-flash-lite',
@@ -125,22 +124,22 @@ function imageFetchResponse(bytes: Buffer, contentType = 'image/jpeg'): Record<s
   };
 }
 
-function setupHappyMocks(docRefInFhir: DocumentReference, imageBytes: Buffer = IMAGE_BYTES): void {
+function setupHappyMocks(docRefInFhir: DocumentReference): void {
   mockSearch.mockResolvedValue({ unbundle: () => [docRefInFhir] });
   mockPatch.mockResolvedValue(docRefInFhir);
   vi.mocked(getPresignedURL).mockResolvedValue(PRESIGNED_URL);
-  fetchMock.mockResolvedValue(imageFetchResponse(imageBytes));
+  fetchMock.mockResolvedValue(imageFetchResponse(IMAGE_BYTES));
   vi.mocked(invokeChatbotVertexAI).mockResolvedValue(JSON.stringify(HAPPY_MODEL_RESPONSE));
 }
 
-/** Finds the patch call that writes the extraction extension. */
-function getPatchedExtraction(): InsuranceCardExtraction {
+/** Finds the single patch call and returns the extraction it writes. */
+function getPatchedExtraction(): PhotoIdExtraction {
   expect(mockPatch).toHaveBeenCalledTimes(1);
   const { operations } = mockPatch.mock.calls[0][0];
   expect(operations).toHaveLength(1);
   const extension =
     operations[0].op === 'add' && operations[0].path === '/extension' ? operations[0].value[0] : operations[0].value;
-  expect(extension.url).toBe(INSURANCE_CARD_EXTRACTION_EXTENSION_URL);
+  expect(extension.url).toBe(PHOTO_ID_EXTRACTION_EXTENSION_URL);
   return JSON.parse(extension.valueString);
 }
 
@@ -151,7 +150,7 @@ beforeEach(() => {
   vi.mocked(createOystehrClient).mockReturnValue(mockOystehr as any);
 });
 
-describe('extract-insurance-card validateRequestParameters', () => {
+describe('extract-photo-id validateRequestParameters', () => {
   it('throws MISSING_REQUEST_BODY when there is no body', () => {
     expect(() => validateRequestParameters({ headers: {}, secrets: null } as unknown as ZambdaInput)).toThrow();
   });
@@ -177,14 +176,13 @@ describe('extract-insurance-card validateRequestParameters', () => {
   });
 
   it('returns the documentReferenceId and secrets on success', () => {
-    const docRef = makeDocRef();
-    const result = validateRequestParameters(makeInput(docRef));
+    const result = validateRequestParameters(makeInput(makeDocRef()));
     expect(result).toEqual({ documentReferenceId: 'docref-1', secrets: SECRETS });
   });
 });
 
-describe('extract-insurance-card handler', () => {
-  it('extracts and stores a well-formed InsuranceCardExtraction on the DocumentReference (happy path)', async () => {
+describe('extract-photo-id handler', () => {
+  it('extracts and stores a well-formed PhotoIdExtraction on the DocumentReference (happy path)', async () => {
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
 
@@ -199,33 +197,19 @@ describe('extract-insurance-card handler', () => {
     expect(parts[0]).toEqual({ text: EXTRACTION_PROMPT });
     expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
     expect((parts[1] as any).inlineData.data).toBe(IMAGE_BYTES.toString('base64'));
-    expect((schema as any).properties.isInsuranceCard).toEqual({ type: 'boolean' });
-    // schema regression guard: the orientation signal must be requested on every call
-    expect((schema as any).properties.readable).toEqual({ type: 'boolean', nullable: true });
-    expect((schema as any).required).toContain('readable');
+    expect(schema).toBe(photoIdResponseSchema);
+    expect((schema as any).properties.isPhotoId).toEqual({ type: 'boolean' });
 
     const stored = getPatchedExtraction();
     expect(stored).toMatchObject({
       version: 1,
-      isInsuranceCard: true,
-      fields: {
-        payer: 'Aetna',
-        memberName: 'JOHN Q SAMPLE',
-        memberId: 'W123456789',
-        groupNumber: 'GRP-0001',
-        payerId: '60054',
-        rxBin: '610502',
-        rxPcn: 'ADV',
-        rxGroup: 'RX1234',
-        insuranceType: 'PPO',
-        effectiveDate: '2024-01-01',
-      },
-      readable: true,
+      isPhotoId: true,
+      fields: HAPPY_FIELDS,
       sourceDocRefId: 'docref-1',
       sourceAttachmentUrl: Z3_URL,
       model: 'gemini-3.1-flash-lite',
     });
-    expect(stored.notACard).toBeUndefined();
+    expect(stored.notAPhotoId).toBeUndefined();
     expect(typeof stored.extractedAt).toBe('string');
 
     // patch shape: DocRef had no extensions -> add /extension
@@ -234,21 +218,6 @@ describe('extract-insurance-card handler', () => {
       id: 'docref-1',
       operations: [expect.objectContaining({ op: 'add', path: '/extension' })],
     });
-  });
-
-  it('stores readable=false when the model judges the card mis-oriented but still extracts fields', async () => {
-    const docRef = makeDocRef();
-    setupHappyMocks(docRef);
-    vi.mocked(invokeChatbotVertexAI).mockResolvedValue(JSON.stringify({ ...HAPPY_MODEL_RESPONSE, readable: false }));
-
-    const result = await invokeHandler(makeInput(docRef));
-
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ extracted: true });
-    const stored = getPatchedExtraction();
-    expect(stored.readable).toBe(false);
-    expect(stored.fields).toMatchObject({ memberId: 'W123456789' });
-    expect(stored.notACard).toBeUndefined();
   });
 
   it('appends to an existing extension array with add /extension/-', async () => {
@@ -261,44 +230,58 @@ describe('extract-insurance-card handler', () => {
     expect(mockPatch.mock.calls[0][0].operations[0]).toMatchObject({ op: 'add', path: '/extension/-' });
   });
 
-  it('writes the notACard marker (fields null) and no-ops when isInsuranceCard is false', async () => {
+  it('writes the notAPhotoId marker (fields null) and no-ops when isPhotoId is false', async () => {
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
     vi.mocked(invokeChatbotVertexAI).mockResolvedValue(
       JSON.stringify({
-        isInsuranceCard: false,
-        payer: null,
-        memberName: null,
-        memberId: null,
-        groupNumber: null,
-        payerId: null,
-        rxBin: null,
-        rxPcn: null,
-        rxGroup: null,
-        insuranceType: null,
-        effectiveDate: null,
-        readable: null,
+        isPhotoId: false,
+        firstName: null,
+        middleName: null,
+        lastName: null,
+        suffix: null,
+        dateOfBirth: null,
+        sex: null,
+        addressLine1: null,
+        addressCity: null,
+        addressState: null,
+        addressZip: null,
+        licenseNumber: null,
+        expirationDate: null,
       })
     );
 
     const result = await invokeHandler(makeInput(docRef));
 
     expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ extracted: false, notACard: true });
+    expect(JSON.parse(result.body)).toMatchObject({ extracted: false, notAPhotoId: true });
 
     const stored = getPatchedExtraction();
-    expect(stored.notACard).toBe(true);
-    expect(stored.isInsuranceCard).toBe(false);
+    expect(stored.notAPhotoId).toBe(true);
+    expect(stored.isPhotoId).toBe(false);
     expect(stored.fields).toBeNull();
-    expect(stored.readable).toBeNull();
     expect(stored.sourceAttachmentUrl).toBe(Z3_URL);
+  });
+
+  it('writes the notAPhotoId marker when isPhotoId is true but every field is null (all-null fold)', async () => {
+    const docRef = makeDocRef();
+    setupHappyMocks(docRef);
+    vi.mocked(invokeChatbotVertexAI).mockResolvedValue(JSON.stringify({ isPhotoId: true }));
+
+    const result = await invokeHandler(makeInput(docRef));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({ extracted: false, notAPhotoId: true });
+    const stored = getPatchedExtraction();
+    expect(stored.notAPhotoId).toBe(true);
+    expect(stored.fields).toBeNull();
   });
 
   it('is idempotent: a repeat fire with the same attachment no-ops without calling the model', async () => {
     const docRef = makeDocRef({
       extension: [
         {
-          url: INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
+          url: PHOTO_ID_EXTRACTION_EXTENSION_URL,
           valueString: JSON.stringify(makeStoredExtraction()),
         },
       ],
@@ -314,12 +297,12 @@ describe('extract-insurance-card handler', () => {
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it('is idempotent for a stored notACard marker too', async () => {
+  it('is idempotent for a stored notAPhotoId marker too', async () => {
     const docRef = makeDocRef({
       extension: [
         {
-          url: INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
-          valueString: JSON.stringify(makeStoredExtraction({ isInsuranceCard: false, fields: null, notACard: true })),
+          url: PHOTO_ID_EXTRACTION_EXTENSION_URL,
+          valueString: JSON.stringify(makeStoredExtraction({ isPhotoId: false, fields: null, notAPhotoId: true })),
         },
       ],
     });
@@ -336,7 +319,7 @@ describe('extract-insurance-card handler', () => {
     const docRef = makeDocRef({
       extension: [
         {
-          url: INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
+          url: PHOTO_ID_EXTRACTION_EXTENSION_URL,
           valueString: JSON.stringify(
             makeStoredExtraction({ sourceAttachmentUrl: 'https://project-api.zapehr.com/v1/z3/old-image.jpg' })
           ),
@@ -365,20 +348,9 @@ describe('extract-insurance-card handler', () => {
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it('no-ops when the DocumentReference has no attachment URL', async () => {
-    const docRef = makeDocRef({ content: [{ attachment: { title: 'insurance-card-front' } }] });
-    setupHappyMocks(docRef);
-
-    const result = await invokeHandler(makeInput(docRef));
-
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ skipped: true });
-    expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
-  });
-
-  it('propagates a retryable error (not a 200 no-op) when the card image fails to download', async () => {
+  it('propagates a retryable error (not a 200 no-op) when the ID image fails to download', async () => {
     // A download failure is often transient (network blip, presigned url race); returning 200
-    // would tell the caller "handled" and permanently strand the card unprocessed, so this must
+    // would tell the caller "handled" and permanently strand the ID unprocessed, so this must
     // surface as a non-200 a retrying caller can act on.
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
@@ -394,18 +366,10 @@ describe('extract-insurance-card handler', () => {
 
   it("falls back to the attachment's own contentType when Z3 returns application/octet-stream", async () => {
     // Z3 returns the generic application/octet-stream when the object's content type wasn't
-    // recorded at upload time; a real card image must not be marked unsupported because of that.
-    const docRef = makeDocRef({
-      content: [{ attachment: { url: Z3_URL, title: 'insurance-card-front', contentType: 'image/jpeg' } }],
-    });
+    // recorded at upload time; a real ID image must not be marked unsupported because of that.
+    const docRef = makeDocRef();
     setupHappyMocks(docRef);
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/octet-stream' : null) },
-      arrayBuffer: async () =>
-        IMAGE_BYTES.buffer.slice(IMAGE_BYTES.byteOffset, IMAGE_BYTES.byteOffset + IMAGE_BYTES.byteLength),
-    });
+    fetchMock.mockResolvedValue(imageFetchResponse(IMAGE_BYTES, 'application/octet-stream'));
 
     const result = await invokeHandler(makeInput(docRef));
 
@@ -415,26 +379,19 @@ describe('extract-insurance-card handler', () => {
     expect((parts[1] as any).inlineData.mimeType).toBe('image/jpeg');
   });
 
-  it('writes a permanent notACard marker for unsupported (non-image, non-pdf) content', async () => {
+  it('writes a permanent notAPhotoId marker for unsupported (non-image, non-pdf) content', async () => {
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/html; charset=utf-8' : null) },
-      arrayBuffer: async () =>
-        IMAGE_BYTES.buffer.slice(IMAGE_BYTES.byteOffset, IMAGE_BYTES.byteOffset + IMAGE_BYTES.byteLength),
-    });
+    fetchMock.mockResolvedValue(imageFetchResponse(IMAGE_BYTES, 'text/html; charset=utf-8'));
 
     const result = await invokeHandler(makeInput(docRef));
 
     expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ skipped: true, notACard: true });
+    expect(JSON.parse(result.body)).toMatchObject({ skipped: true, notAPhotoId: true });
     expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
     const stored = getPatchedExtraction();
-    expect(stored.notACard).toBe(true);
+    expect(stored.notAPhotoId).toBe(true);
     expect(stored.fields).toBeNull();
-    expect(stored.readable).toBeNull();
   });
 
   it('returns 500 (retryable) and reports when the model returns unparseable JSON', async () => {
@@ -449,10 +406,21 @@ describe('extract-insurance-card handler', () => {
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it('returns 200 skipped for a DocumentReference whose title is not a card image slot', async () => {
+  it('returns 200 skipped for a photo-id-back DocumentReference', async () => {
     const docRef = makeDocRef({
-      content: [{ attachment: { url: Z3_URL, title: 'fullInsuranceCard', contentType: 'application/pdf' } }],
+      content: [{ attachment: { url: Z3_URL, title: 'photo-id-back', contentType: 'image/jpeg' } }],
     });
+    setupHappyMocks(docRef);
+
+    const result = await invokeHandler(makeInput(docRef));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({ skipped: true });
+    expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
+  });
+
+  it('no-ops when the DocumentReference has no attachment URL', async () => {
+    const docRef = makeDocRef({ content: [{ attachment: { title: 'photo-id-front' } }] });
     setupHappyMocks(docRef);
 
     const result = await invokeHandler(makeInput(docRef));
@@ -463,67 +431,58 @@ describe('extract-insurance-card handler', () => {
   });
 });
 
-describe('extract-insurance-card helpers', () => {
-  it('EXTRACTION_PROMPT carries the 80840 and no-guessing instructions and asks for isInsuranceCard', () => {
-    expect(EXTRACTION_PROMPT).toContain('80840');
-    expect(EXTRACTION_PROMPT).toContain('isInsuranceCard');
+describe('extract-photo-id helpers', () => {
+  it('EXTRACTION_PROMPT asks for the isPhotoId classifier and forbids guessing', () => {
+    expect(EXTRACTION_PROMPT).toContain('isPhotoId');
     expect(EXTRACTION_PROMPT.toLowerCase()).toContain('do not guess');
-    expect(EXTRACTION_PROMPT.toLowerCase()).toContain('not part of the insurance card');
+    expect(EXTRACTION_PROMPT.toLowerCase()).toContain('not part of the id card');
   });
 
-  it('EXTRACTION_PROMPT asks for the readable orientation judgment (right-side-up)', () => {
-    expect(EXTRACTION_PROMPT).toContain('readable');
-    expect(EXTRACTION_PROMPT.toLowerCase()).toContain('right-side-up');
-    expect(EXTRACTION_PROMPT.toLowerCase()).toContain('upside-down');
+  it('EXTRACTION_PROMPT carries the LAST, FIRST MIDDLE name-splitting rule', () => {
+    expect(EXTRACTION_PROMPT).toContain('LAST, FIRST MIDDLE');
+    expect(EXTRACTION_PROMPT.toLowerCase()).toContain('split');
   });
 
   it('parseModelResponse normalizes empty strings to null and folds an all-null result into fields=null', () => {
     const allEmpty = parseModelResponse(
       JSON.stringify({
-        isInsuranceCard: true,
-        payer: '',
-        memberName: '  ',
-        memberId: null,
-        groupNumber: null,
-        payerId: null,
-        rxBin: null,
-        rxPcn: null,
-        rxGroup: null,
-        insuranceType: null,
-        effectiveDate: null,
+        isPhotoId: true,
+        firstName: '',
+        lastName: '  ',
+        middleName: null,
+        suffix: null,
+        dateOfBirth: null,
+        sex: null,
+        addressLine1: null,
+        addressCity: null,
+        addressState: null,
+        addressZip: null,
+        licenseNumber: null,
+        expirationDate: null,
       })
     );
-    expect(allEmpty.isInsuranceCard).toBe(true);
+    expect(allEmpty.isPhotoId).toBe(true);
     expect(allEmpty.fields).toBeNull();
 
-    const some = parseModelResponse(JSON.stringify({ isInsuranceCard: true, memberId: ' W1 ' }));
-    expect(some.fields).toMatchObject({ memberId: 'W1', payer: null });
+    const some = parseModelResponse(JSON.stringify({ isPhotoId: true, lastName: ' SAMPLE ' }));
+    expect(some.fields).toMatchObject({ lastName: 'SAMPLE', firstName: null });
   });
 
-  it('parseModelResponse passes through a boolean readable and nulls it on the notACard / all-null paths', () => {
-    // boolean readable is preserved alongside extracted fields
-    const sideways = parseModelResponse(JSON.stringify({ isInsuranceCard: true, memberId: 'W1', readable: false }));
-    expect(sideways.readable).toBe(false);
-    const upright = parseModelResponse(JSON.stringify({ isInsuranceCard: true, memberId: 'W1', readable: true }));
-    expect(upright.readable).toBe(true);
-
-    // a missing / non-boolean readable is never fabricated
-    const missing = parseModelResponse(JSON.stringify({ isInsuranceCard: true, memberId: 'W1' }));
-    expect(missing.readable).toBeNull();
-    const junk = parseModelResponse(JSON.stringify({ isInsuranceCard: true, memberId: 'W1', readable: 'yes' }));
-    expect(junk.readable).toBeNull();
-
-    // notACard -> null even if the model volunteered a boolean
-    const notACard = parseModelResponse(JSON.stringify({ isInsuranceCard: false, readable: true }));
-    expect(notACard.readable).toBeNull();
-
-    // all-null extraction folds to fields=null and readable is nulled with it
-    const allNull = parseModelResponse(JSON.stringify({ isInsuranceCard: true, readable: false }));
-    expect(allNull.fields).toBeNull();
-    expect(allNull.readable).toBeNull();
+  it('parseModelResponse normalizes sex to Male/Female when clear and passes other values through', () => {
+    expect(parseModelResponse(JSON.stringify({ isPhotoId: true, sex: 'M' })).fields?.sex).toBe('Male');
+    expect(parseModelResponse(JSON.stringify({ isPhotoId: true, sex: 'f' })).fields?.sex).toBe('Female');
+    expect(parseModelResponse(JSON.stringify({ isPhotoId: true, sex: 'Female' })).fields?.sex).toBe('Female');
+    expect(parseModelResponse(JSON.stringify({ isPhotoId: true, sex: 'X' })).fields?.sex).toBe('X');
   });
 
-  it('parseModelResponse throws on a response missing the boolean isInsuranceCard', () => {
-    expect(() => parseModelResponse(JSON.stringify({ memberId: 'W1' }))).toThrow();
+  it('parseModelResponse returns null fields when isPhotoId is false, ignoring any volunteered values', () => {
+    const result = parseModelResponse(JSON.stringify({ isPhotoId: false, firstName: 'JOHN' }));
+    expect(result.isPhotoId).toBe(false);
+    expect(result.fields).toBeNull();
+  });
+
+  it('parseModelResponse throws on a response missing the boolean isPhotoId', () => {
+    expect(() => parseModelResponse(JSON.stringify({ firstName: 'JOHN' }))).toThrow();
+    expect(() => parseModelResponse('this is not json')).toThrow();
   });
 });

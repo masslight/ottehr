@@ -21,11 +21,8 @@ import {
   buildAttachmentMetadataOperations,
   buildExtractionPatchOperation,
   getExistingExtraction,
-} from '../../subscriptions/document-reference/extract-insurance-card/helpers';
-import {
-  RotatedInsuranceCardImage,
-  rotateImageClockwise,
-} from '../../subscriptions/document-reference/extract-insurance-card/normalize-image';
+} from '../extract-insurance-card/helpers';
+import { RotatedInsuranceCardImage, rotateImageClockwise } from '../extract-insurance-card/normalize-image';
 import { assertRotatableCardImage } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -11,10 +11,7 @@ import {
   uploadObjectToZ3,
   ZambdaInput,
 } from '../../../shared';
-import {
-  isRedAt,
-  makeOrientedSceneJpeg,
-} from '../../../subscriptions/document-reference/extract-insurance-card/test/image-fixtures';
+import { isRedAt, makeOrientedSceneJpeg } from '../../extract-insurance-card/test/image-fixtures';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
 

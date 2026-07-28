@@ -3,47 +3,44 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createOystehrClient, DocumentType, getSecret, PhotoIdExtraction, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
-import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../../shared/ai';
-import { downloadOcrSourceImage } from '../shared/extraction-helpers';
+import { createOystehrClient, DocumentType, getSecret, InsuranceCardExtraction, Secrets, SecretsKeys } from 'utils';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
+import { downloadOcrSourceImage } from '../card-extraction-shared/extraction-helpers';
 import {
   buildExtractionPatchOperation,
   EXTRACTION_PROMPT,
   getExistingExtraction,
+  insuranceCardResponseSchema,
   parseModelResponse,
-  photoIdResponseSchema,
 } from './helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+import { CARD_IMAGE_TITLES, validateRequestParameters } from './validateRequestParameters';
 
-// Only the FRONT image is extracted. Other titles sharing the 55188-7 type code (the
-// 'photo-id-back' image and the 'fullPhotoIDCard' PDFs) are skipped, not errored.
-
-const ZAMBDA_NAME = 'extract-photo-id';
+const ZAMBDA_NAME = 'extract-insurance-card';
 
 let oystehrToken: string;
 
-export interface PhotoIdExtractionResult {
+export interface InsuranceCardExtractionResult {
   documentReferenceId: string;
   skipped?: boolean;
   skipReason?: string;
   alreadyProcessed?: boolean;
   extracted?: boolean;
-  notAPhotoId?: boolean;
-  fields?: PhotoIdExtraction['fields'];
+  notACard?: boolean;
+  fields?: InsuranceCardExtraction['fields'];
 }
 
 // The reusable core: takes a caller-provided Oystehr client + token rather than making its own,
 // so index() (below) is a thin wrapper and any future caller can reuse an already-warm client.
-export async function runPhotoIdExtraction(
+export async function runInsuranceCardExtraction(
   docRefId: string,
   oystehr: Oystehr,
   oystehrToken: string,
   secrets: Secrets | null
-): Promise<PhotoIdExtractionResult> {
+): Promise<InsuranceCardExtractionResult> {
   // The caller only has an id, not the resource — fetch it to get the title, attachment url, and
   // any existing extension. This also doubles as a freshness check: a search by _id returns
-  // nothing for deleted resources, so an ID deleted between upload and extraction is a clean
+  // nothing for deleted resources, so a card deleted between upload and extraction is a clean
   // no-op rather than a retry loop.
   const current = (
     await oystehr.fhir.search<DocumentReference>({
@@ -61,9 +58,9 @@ export async function runPhotoIdExtraction(
     return { documentReferenceId: docRefId, skipped: true };
   }
 
-  const title = current.content?.[0]?.attachment?.title;
-  if (title !== DocumentType.PhotoIdFront) {
-    const skipReason = `attachment title '${title ?? '<none>'}' is not the photo ID front image slot`;
+  const cardSlot = current.content?.[0]?.attachment?.title;
+  if (!cardSlot || !CARD_IMAGE_TITLES.includes(cardSlot as DocumentType)) {
+    const skipReason = `attachment title '${cardSlot ?? '<none>'}' is not an insurance card image slot`;
     console.log(`[${ZAMBDA_NAME}] DocumentReference/${docRefId}: ${skipReason}`);
     return { documentReferenceId: docRefId, skipped: true, skipReason };
   }
@@ -87,7 +84,7 @@ export async function runPhotoIdExtraction(
     };
   }
 
-  // Fetch the ID image via presigned Z3 URL. A download failure is often transient (network
+  // Fetch the card image via presigned Z3 URL. A download failure is often transient (network
   // blip, presigned url race); a caller that treats a thrown error as "try again" gets another
   // attempt (same pattern as the parseModelResponse failure below).
   const startedAt = Date.now();
@@ -100,33 +97,36 @@ export async function runPhotoIdExtraction(
       fallbackContentType: current.content?.[0]?.attachment?.contentType,
     }));
   } catch (error) {
-    console.error(`[${ZAMBDA_NAME}] failed to fetch photo ID image for DocumentReference/${docRefId}:`, error);
+    console.error(`[${ZAMBDA_NAME}] failed to fetch card image for DocumentReference/${docRefId}:`, error);
     captureException(error);
     throw error;
   }
 
-  console.log(`[${ZAMBDA_NAME}] DocumentReference/${docRefId} mimeType=${mimeType} bytes=${bytes.length}`);
+  console.log(
+    `[${ZAMBDA_NAME}] DocumentReference/${docRefId} slot=${cardSlot} mimeType=${mimeType} bytes=${bytes.length}`
+  );
 
   if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') {
     // unprocessable content is a permanent condition — write the marker so retries stop
-    console.log(`[${ZAMBDA_NAME}] unsupported content type '${mimeType}'; writing notAPhotoId marker`);
+    console.log(`[${ZAMBDA_NAME}] unsupported content type '${mimeType}'; writing notACard marker`);
     await writeExtraction(oystehr, current, extensionIndex, {
       version: 1,
-      isPhotoId: false,
+      isInsuranceCard: false,
       fields: null,
-      notAPhotoId: true,
+      readable: null,
+      notACard: true,
       sourceDocRefId: docRefId,
       sourceAttachmentUrl: attachmentUrl,
       model: 'none',
       extractedAt: DateTime.now().toISO()!,
     });
-    return { documentReferenceId: docRefId, skipped: true, notAPhotoId: true };
+    return { documentReferenceId: docRefId, skipped: true, notACard: true };
   }
 
   const rawModelResponse = await invokeChatbotVertexAI(
     [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
     secrets,
-    photoIdResponseSchema
+    insuranceCardResponseSchema
   );
 
   let parsed;
@@ -140,12 +140,15 @@ export async function runPhotoIdExtraction(
     throw error;
   }
 
-  const notAPhotoId = !parsed.isPhotoId || parsed.fields === null;
-  const extraction: PhotoIdExtraction = {
+  const notACard = !parsed.isInsuranceCard || parsed.fields === null;
+  const extraction: InsuranceCardExtraction = {
     version: 1,
-    isPhotoId: parsed.isPhotoId,
-    fields: notAPhotoId ? null : parsed.fields,
-    ...(notAPhotoId ? { notAPhotoId: true } : {}),
+    isInsuranceCard: parsed.isInsuranceCard,
+    fields: notACard ? null : parsed.fields,
+    // orientation signal from the same model call; parseModelResponse already nulls it on the
+    // notACard / all-null paths so nothing is fabricated
+    readable: notACard ? null : parsed.readable,
+    ...(notACard ? { notACard: true } : {}),
     sourceDocRefId: docRefId,
     sourceAttachmentUrl: attachmentUrl,
     model: VERTEX_AI_MODEL,
@@ -155,20 +158,20 @@ export async function runPhotoIdExtraction(
   await writeExtraction(oystehr, current, extensionIndex, extraction);
 
   console.log(
-    `[${ZAMBDA_NAME}] stored extraction for DocumentReference/${docRefId}: extracted=${!notAPhotoId} notAPhotoId=${notAPhotoId} elapsedMs=${
-      Date.now() - startedAt
-    }`
+    `[${ZAMBDA_NAME}] stored extraction for DocumentReference/${docRefId}: extracted=${!notACard} notACard=${notACard} readable=${
+      extraction.readable
+    } elapsedMs=${Date.now() - startedAt}`
   );
 
   return {
     documentReferenceId: docRefId,
-    extracted: !notAPhotoId,
-    ...(notAPhotoId && { notAPhotoId }),
+    extracted: !notACard,
+    ...(notACard && { notACard }),
     fields: extraction.fields,
   };
 }
 
-// Called directly by the EHR frontend with the id of a just-created photo ID DocumentReference;
+// Called directly by the EHR frontend with the id of a just-created card DocumentReference;
 // runs OCR and returns the suggestions synchronously.
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -184,7 +187,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
 
-    const result = await runPhotoIdExtraction(documentReferenceId, oystehr, oystehrToken, secrets);
+    const result = await runInsuranceCardExtraction(documentReferenceId, oystehr, oystehrToken, secrets);
     return { statusCode: 200, body: JSON.stringify(result) };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -196,7 +199,7 @@ async function writeExtraction(
   oystehr: Oystehr,
   documentReference: DocumentReference,
   extensionIndex: number,
-  extraction: PhotoIdExtraction
+  extraction: InsuranceCardExtraction
 ): Promise<void> {
   await oystehr.fhir.patch({
     resourceType: 'DocumentReference',

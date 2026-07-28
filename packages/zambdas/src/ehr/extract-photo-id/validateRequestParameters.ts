@@ -1,5 +1,5 @@
 import { ExtractCardInput, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../shared';
 
 interface Input extends ExtractCardInput {
   secrets: Secrets | null;
