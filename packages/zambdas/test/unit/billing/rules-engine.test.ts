@@ -209,7 +209,6 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'serviceDate')).toBe('2026-01-05');
     expect(readField(m, 'billed')).toBe('125.5');
     expect(readField(m, 'billingType')).toBe('Insurance Pay');
-    expect(readField(m, 'billableStatus')).toBe('Billable');
     expect(readField(m, 'diagnosisCodes')).toEqual(['J06.9']);
     expect(readField(m, 'cptCodes')).toEqual(['99213']);
     expect(readField(m, 'placeOfServiceCodes')).toEqual(['20']);
@@ -218,7 +217,6 @@ describe('rules-engine evaluator', () => {
   it('reads insurance, policy holder, secondary insurance, and billing provider fields', () => {
     const m = makeModel();
     expect(readField(m, 'insurance.memberId')).toBe('MEM-123');
-    expect(readField(m, 'insurance.status')).toBe('active');
     expect(readField(m, 'policyHolder.firstName')).toBe('Pat');
     expect(readField(m, 'policyHolder.birthDate')).toBe('1980-05-05');
     expect(readField(m, 'secondaryInsurance.payerId')).toBe('222222');
@@ -261,12 +259,10 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'serviceDate', '2026-02-02')).toBe(false);
   });
 
-  it('writes coverage fields (member id, status, plan type) and the secondary payer', () => {
+  it('writes coverage fields (member id, plan type) and the secondary payer', () => {
     const m = makeModel();
     expect(writeField(m, 'insurance.memberId', 'NEW-MEM')).toBe(true);
     expect(m.coverages[0].subscriberId).toBe('NEW-MEM');
-    expect(writeField(m, 'insurance.status', 'cancelled')).toBe(true);
-    expect(writeField(m, 'insurance.status', 'bogus')).toBe(false);
     expect(writeField(m, 'insurance.planType', '12')).toBe(true);
     expect(readField(m, 'insurance.planType')).toBe('12');
     expect(writeField(m, 'insurance.planType', 'not-a-plan-type')).toBe(false);

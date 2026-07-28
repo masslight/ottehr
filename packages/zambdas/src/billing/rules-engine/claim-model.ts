@@ -311,7 +311,6 @@ const READERS: Record<string, FieldReader> = {
   serviceDate: (m) => m.claim.item?.[0]?.servicedPeriod?.start ?? m.claim.item?.[0]?.servicedDate,
   created: (m) => m.claim.created,
   billingType: (m) => (claimHasRealCoverage(m.claim.insurance) ? 'Insurance Pay' : 'Self Pay'),
-  billableStatus: (m) => (m.claim.status === 'entered-in-error' ? 'Not Billable' : 'Billable'),
   encounterId: (m) => claimIdentifier(m.claim, 'claim-encounter-id'),
   appointmentId: (m) => claimIdentifier(m.claim, 'claim-appointment-id'),
   billed: (m) => (m.claim.total?.value != null ? String(m.claim.total.value) : undefined),
@@ -330,7 +329,6 @@ const READERS: Record<string, FieldReader> = {
   ...personReaders('patient', (m) => m.patient),
 
   'insurance.memberId': (m) => primaryCoverage(m)?.subscriberId,
-  'insurance.status': (m) => primaryCoverage(m)?.status,
   'insurance.planType': (m) => getCoveragePlanType(primaryCoverage(m)),
   'insurance.relationship': (m) => readRelationship(primaryCoverage(m)),
 
@@ -545,8 +543,6 @@ const writeStatusField = (claim: Claim, key: ClaimStatusFieldKey, value: string 
   return true;
 };
 
-const COVERAGE_STATUSES: NonNullable<Coverage['status']>[] = ['active', 'cancelled', 'draft', 'entered-in-error'];
-
 const writePlanType = (model: RulesEngineClaimModel, value: string | null): boolean => {
   const coverage = primaryCoverage(model);
   if (!coverage || !value || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(value)) return false;
@@ -673,13 +669,6 @@ const WRITERS: Record<string, FieldWriter> = {
     const coverage = primaryCoverage(m);
     if (!coverage) return false;
     coverage.subscriberId = v || undefined;
-    return true;
-  },
-  'insurance.status': (m, v) => {
-    const coverage = primaryCoverage(m);
-    const status = COVERAGE_STATUSES.find((s) => s === v);
-    if (!coverage || !status) return false;
-    coverage.status = status;
     return true;
   },
   'insurance.planType': (m, v) => writePlanType(m, v),

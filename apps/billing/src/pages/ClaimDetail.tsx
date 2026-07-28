@@ -708,7 +708,6 @@ export function InsuranceSection({
               value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()}
             />
           )}
-          <Row label="Coverage Status" value={claim.coverageStatus} />
           <Row label="Plan type" value={planTypeLabel(claim.planType)} hideBorder />
         </>
       ) : (

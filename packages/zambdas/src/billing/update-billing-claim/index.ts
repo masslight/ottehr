@@ -103,7 +103,6 @@ export async function performEffect(
       const before = structuredClone(coverage);
       const { fields } = params;
       if (fields.subscriberId !== undefined) coverage.subscriberId = fields.subscriberId;
-      if (fields.status !== undefined) coverage.status = fields.status;
       if (fields.relationship === undefined) {
         return commitClaimResourceChange(oystehr, { resource: coverage, before, agent, claimReference });
       }

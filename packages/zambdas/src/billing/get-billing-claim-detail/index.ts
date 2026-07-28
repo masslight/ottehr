@@ -27,7 +27,6 @@ import {
 } from '../claim-amounts';
 import { getCLIA } from '../service-facility.helpers';
 import {
-  claimHasRealCoverage,
   createBillingClient,
   createEraReadClient,
   ERA_STATUS_CODE_EXTENSION,
@@ -149,8 +148,6 @@ async function performEffect(
     status,
     statuses: getClaimStatusValues(claim),
     created: claim.created ?? '',
-    billingType: claimHasRealCoverage(claim.insurance) ? 'Insurance Pay' : 'Self Pay',
-    billableStatus: claim.status === 'entered-in-error' ? 'Not Billable' : 'Billable',
     service: getClaimService(claim),
     patientName: fhirName(patient),
     patientDob: patient?.birthDate ?? '',
@@ -168,7 +165,6 @@ async function performEffect(
     payerId: getPayerId(insurer) ?? '',
     memberId: coverage?.subscriberId ?? '',
     subscriberId: coverage?.subscriberId ?? '',
-    coverageStatus: coverage?.status ?? '',
     planType: getCoveragePlanType(coverage) ?? '',
     relationship: (coverage?.relationship?.coding?.[0]?.display as SubscriberRelationship) ?? '',
     policyHolder,

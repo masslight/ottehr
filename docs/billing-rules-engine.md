@@ -31,7 +31,7 @@ on-success effect.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the engines, so it always matches what the engines
-actually support (71 properties, 58 of them settable).
+actually support (69 properties, 57 of them settable).
 
 ## Conditions
 
@@ -75,7 +75,6 @@ Which operators a property supports depends on its type (see the property tables
 | Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The date of service (read from the first service line). Setting it applies the one date to every service line, matching the claim editor. Cannot be cleared — setting it requires a value. |
 | Created date | `created` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | no | The date the claim was created. Read-only. |
 | Billing type | `billingType` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | no | Whether the claim bills insurance or the patient. Derived from whether the claim carries a real coverage, so it is read-only (attach or remove a coverage to change it). Allowed values: `Insurance Pay`, `Self Pay`. |
-| Billable status | `billableStatus` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | no | Whether the claim is billable. Derived from the claim's lifecycle status (entered-in-error claims are not billable), so it is read-only. Allowed values: `Billable`, `Not Billable`. |
 | Encounter ID | `encounterId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | no | The clinical encounter this claim was generated from. Read-only. |
 | Appointment ID | `appointmentId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | no | The clinical appointment this claim was generated from. Read-only. |
 | Billed amount | `billed` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The claim total in dollars. Derived from the sum of service line charges, so it is read-only — it is recomputed when a rule updates line charges or removes lines. |
@@ -118,7 +117,6 @@ Which operators a property supports depends on its type (see the property tables
 | Property | ID | Type | Operators | Settable | Description |
 | --- | --- | --- | --- | --- | --- |
 | Member ID | `insurance.memberId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | yes | The primary coverage's member/subscriber ID. |
-| Coverage status | `insurance.status` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The primary coverage's status. Allowed values: `active` (Active), `cancelled` (Cancelled), `draft` (Draft), `entered-in-error` (Entered in error). Cannot be cleared — setting it requires a value. |
 | Plan type | `insurance.planType` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | yes | The primary coverage's plan type (X12 insurance type code). Allowed values: `09` (09 - Self Pay), `11` (11 - Other Non-Federal Programs), `12` (12 - PPO), `13` (13 - POS), `14` (14 - EPO), `15` (15 - Indemnity Insurance), `16` (16 - HMO Medicare Risk), `17` (17 - DMO), `AM` (AM - Auto), `BL` (BL - BlueCross BlueShield), `CH` (CH - Champus), `CI` (CI - Commercial Insurance Co), `DS` (DS - Disability), `FI` (FI - Federal Employees), `HM` (HM - HMO), `LM` (LM - Liability), `MA` (MA - Medicare Part A), `MB` (MB - Medicare Part B), `MC` (MC - Medicaid), `OF` (OF - Other Federal Program), `TV` (TV - Title V), `VA` (VA - Veterans Affairs Plan), `WC` (WC - Workers Comp Health Claim), `ZZ` (ZZ - Mutually Defined). Cannot be cleared — setting it requires a value. |
 | Relationship to subscriber | `insurance.relationship` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | no | The patient's relationship to the primary policy holder. Read-only: changing it restructures the policy-holder record, which rules cannot do — edit the claim's insurance instead. Allowed values: `Self`, `Child`, `Parent`, `Spouse`, `Common Law Spouse`, `Injured Party`, `Other`. |
 

@@ -143,7 +143,7 @@ export interface RuleFieldDef {
   // builder's input dispatch (tag/cpt pickers).
   format?: RuleValueFormat;
   // setField normally treats an empty value as "clear the property"; fields whose writers reject
-  // empty (the payer, claim type, service date, coverage status, plan type) require a value instead.
+  // empty (the payer, claim type, service date, plan type) require a value instead.
   requiredOnSet?: boolean;
   // Docs: a short phrase rendered instead of enumerating a huge options list (states, POS codes).
   optionsDocNote?: string;
@@ -176,13 +176,6 @@ const GENDER_OPTIONS: RuleFieldOption[] = [
   { value: 'female', label: 'Female' },
   { value: 'other', label: 'Other' },
   { value: 'unknown', label: 'Unknown' },
-];
-
-const COVERAGE_STATUS_OPTIONS: RuleFieldOption[] = [
-  { value: 'active', label: 'Active' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'entered-in-error', label: 'Entered in error' },
 ];
 
 const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map((option) => ({
@@ -458,20 +451,6 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     ],
   },
   {
-    id: 'billableStatus',
-    label: 'Billable status',
-    group: 'claim',
-    valueType: 'select',
-    operators: ENUM_OPS,
-    settable: false,
-    description:
-      "Whether the claim is billable. Derived from the claim's lifecycle status (entered-in-error claims are not billable), so it is read-only.",
-    options: [
-      { value: 'Billable', label: 'Billable' },
-      { value: 'Not Billable', label: 'Not Billable' },
-    ],
-  },
-  {
     id: 'encounterId',
     label: 'Encounter ID',
     group: 'claim',
@@ -566,17 +545,6 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: "The primary coverage's member/subscriber ID.",
-  },
-  {
-    id: 'insurance.status',
-    label: 'Coverage status',
-    group: 'insurance',
-    valueType: 'select',
-    operators: ENUM_OPS,
-    settable: true,
-    description: "The primary coverage's status.",
-    requiredOnSet: true,
-    options: COVERAGE_STATUS_OPTIONS,
   },
   {
     id: 'insurance.planType',
