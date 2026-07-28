@@ -132,6 +132,8 @@ export const SearchBillingClaimsInputSchema = z.object({
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
+  serviceDateFrom: nonEmptyString.optional(),
+  serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
   service: nonEmptyString.optional(),
