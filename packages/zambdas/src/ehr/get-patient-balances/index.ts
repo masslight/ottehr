@@ -3,12 +3,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { chunkThings, getOrCreateCandidApiClient, GetPatientBalancesZambdaOutput } from 'utils';
+import {
+  chooseJson,
+  chunkThings,
+  GetBillingPatientBalanceResponse,
+  getOrCreateCandidApiClient,
+  GetPatientBalancesZambdaOutput,
+} from 'utils';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
+  fetchAllPages,
   lambdaResponse,
+  shouldUseOttehrBillingForPatientBalances,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -29,6 +37,8 @@ let m2mToken: string;
 
 const CANDID_BATCH_SIZE = 3;
 
+const ENCOUNTER_SCAN_PAGE_SIZE = 100;
+
 const ZAMBDA_NAME = 'get-patient-balances';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -39,12 +49,79 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
+  if (shouldUseOttehrBillingForPatientBalances(secrets)) {
+    const response = await performBillingEffect(validatedInput, oystehr);
+    return lambdaResponse(200, response);
+  }
+
   const candidApiClient = await getOrCreateCandidApiClient(oystehr, secrets);
 
   const response = await performEffect(validatedInput, oystehr, candidApiClient);
 
   return lambdaResponse(200, response);
 });
+
+export async function performBillingEffect(
+  validatedInput: ValidatedInput,
+  oystehr: Oystehr
+): Promise<GetPatientBalancesZambdaOutput> {
+  const noData = { encounters: [], totalBalanceCents: 0, pendingPaymentCents: 0 };
+
+  const { encounters, appointments } = await getAllFhirEncountersAndAppointmentsForPatient(
+    oystehr,
+    validatedInput.body.patientId
+  );
+
+  const encounterDataMap = new Map<string, { encounterDate: string; appointmentId: string }>();
+  encounters.forEach((encounter) => {
+    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const encounterDate = appointments.find((app) => app.id === appointmentId)?.start;
+    if (!appointmentId || !encounterDate) {
+      console.warn(
+        `Encounter ${encounter.id} is missing required data, skipping it. appointmentId: ${appointmentId}, encounterDate: ${encounterDate}`
+      );
+      return;
+    }
+    encounterDataMap.set(encounter.id!, { encounterDate, appointmentId });
+  });
+  if (encounterDataMap.size === 0) {
+    return noData;
+  }
+
+  const { claims } = chooseJson<GetBillingPatientBalanceResponse>(
+    await oystehr.zambda.execute({
+      id: 'get-billing-patient-balance',
+      encounterIds: Array.from(encounterDataMap.keys()),
+    })
+  );
+
+  const rows = new Map<string, GetPatientBalancesZambdaOutput['encounters'][number]>();
+  for (const claim of claims) {
+    const encounterData = claim.encounterId ? encounterDataMap.get(claim.encounterId) : undefined;
+    if (!claim.encounterId || !encounterData) {
+      console.warn(`Claim ${claim.claimId} has no linked clinical encounter, skipping it.`);
+      continue;
+    }
+    if (rows.has(claim.encounterId)) {
+      // first claim per encounter wins, matching create-invoice-tasks-for-billing-claims
+      console.warn(`Encounter ${claim.encounterId} has multiple active AR claims; skipping claim ${claim.claimId}`);
+      continue;
+    }
+    rows.set(claim.encounterId, {
+      encounterId: claim.encounterId,
+      encounterDate: encounterData.encounterDate,
+      appointmentId: encounterData.appointmentId,
+      patientBalanceCents: Math.round(claim.balance * 100),
+    });
+  }
+
+  const balances = Array.from(rows.values());
+  return {
+    encounters: balances,
+    totalBalanceCents: balances.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
+    pendingPaymentCents: 0, // patient payments are not wired into billing claim balances yet (OTR-3094)
+  };
+}
 
 export async function performEffect(
   validatedInput: ValidatedInput,
@@ -143,6 +220,50 @@ export async function performEffect(
     encounters: returnData,
     totalBalanceCents: returnData.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
     pendingPaymentCents: pendingPatientPayments || 0,
+  };
+}
+
+// Same search as getFhirEncountersAndAppointmentsForPatient but pages through every encounter.
+async function getAllFhirEncountersAndAppointmentsForPatient(
+  oystehr: Oystehr,
+  patientId: string
+): Promise<{ encounters: Encounter[]; appointments: Appointment[] }> {
+  const resources: (Encounter | Appointment)[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const bundle = await oystehr.fhir.search<Encounter | Appointment>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: 'subject',
+          value: `Patient/${patientId}`,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: 'appointment:missing',
+          value: 'false',
+        },
+        {
+          name: '_count',
+          value: String(count),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    resources.push(...bundle.unbundle());
+    return bundle;
+  }, ENCOUNTER_SCAN_PAGE_SIZE);
+  const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
+  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+  console.log(`Found ${encounters.length} encounters for patient ${patientId}`);
+  return {
+    encounters,
+    appointments,
   };
 }
 
