@@ -88,7 +88,7 @@ function makeDocRef(overrides: Partial<DocumentReference> = {}): DocumentReferen
 
 function makeInput(docRef: DocumentReference): ZambdaInput {
   return {
-    body: JSON.stringify(docRef),
+    body: JSON.stringify({ documentReferenceId: docRef.id }),
     headers: {},
     secrets: SECRETS,
   } as unknown as ZambdaInput;
@@ -158,58 +158,29 @@ describe('extract-photo-id validateRequestParameters', () => {
     expect(() => validateRequestParameters({ headers: {}, secrets: null } as unknown as ZambdaInput)).toThrow();
   });
 
-  it('rejects a non-DocumentReference resource', () => {
-    const input = { body: JSON.stringify({ resourceType: 'Communication', id: 'c1' }), headers: {}, secrets: null };
+  it('rejects a body missing documentReferenceId', () => {
+    const input = { body: JSON.stringify({}), headers: {}, secrets: null };
     try {
       validateRequestParameters(input as unknown as ZambdaInput);
       expect.unreachable('should have thrown');
     } catch (error: any) {
-      expect(error.message).toContain('Expected DocumentReference');
+      expect(error.message).toContain('documentReferenceId');
     }
   });
 
-  it('rejects a DocumentReference without the photo ID type coding', () => {
-    const docRef = makeDocRef({ type: { coding: [{ system: 'http://loinc.org', code: '64290-0' }] } });
+  it('rejects a non-string documentReferenceId', () => {
+    const input = { body: JSON.stringify({ documentReferenceId: 42 }), headers: {}, secrets: null };
     try {
-      validateRequestParameters(makeInput(docRef));
+      validateRequestParameters(input as unknown as ZambdaInput);
       expect.unreachable('should have thrown');
     } catch (error: any) {
-      expect(error.message).toContain('55188-7');
+      expect(error.message).toContain('documentReferenceId');
     }
   });
 
-  it('rejects a non-current DocumentReference', () => {
-    const docRef = makeDocRef({ status: 'superseded' });
-    try {
-      validateRequestParameters(makeInput(docRef));
-      expect.unreachable('should have thrown');
-    } catch (error: any) {
-      expect(error.message).toContain('Expected current status');
-    }
-  });
-
-  it('rejects a DocumentReference with no attachment url', () => {
-    const docRef = makeDocRef({ content: [{ attachment: { title: 'photo-id-front' } }] });
-    try {
-      validateRequestParameters(makeInput(docRef));
-      expect.unreachable('should have thrown');
-    } catch (error: any) {
-      expect(error.message).toContain('has no attachment URL');
-    }
-  });
-
-  it.each(['photo-id-back', 'fullPhotoIDCard'])('gracefully skips (not error) the %s title', (title) => {
-    const docRef = makeDocRef({ content: [{ attachment: { url: Z3_URL, title } }] });
-    const result = validateRequestParameters(makeInput(docRef));
-    expect(result.skip).toBe(true);
-  });
-
-  it('accepts the photo-id-front title', () => {
+  it('returns the documentReferenceId and secrets on success', () => {
     const result = validateRequestParameters(makeInput(makeDocRef()));
-    expect(result.skip).toBe(false);
-    if (!result.skip) {
-      expect(result.attachmentUrl).toBe(Z3_URL);
-    }
+    expect(result).toEqual({ documentReferenceId: 'docref-1', secrets: SECRETS });
   });
 });
 
@@ -439,16 +410,27 @@ describe('extract-photo-id handler', () => {
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it('returns 200 skipped for a photo-id-back DocumentReference without touching FHIR', async () => {
+  it('returns 200 skipped for a photo-id-back DocumentReference', async () => {
     const docRef = makeDocRef({
       content: [{ attachment: { url: Z3_URL, title: 'photo-id-back', contentType: 'image/jpeg' } }],
     });
+    setupHappyMocks(docRef);
 
     const result = await invokeHandler(makeInput(docRef));
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toMatchObject({ skipped: true });
-    expect(mockSearch).not.toHaveBeenCalled();
+    expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
+  });
+
+  it('no-ops when the DocumentReference has no attachment URL', async () => {
+    const docRef = makeDocRef({ content: [{ attachment: { title: 'photo-id-front' } }] });
+    setupHappyMocks(docRef);
+
+    const result = await invokeHandler(makeInput(docRef));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({ skipped: true });
     expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
   });
 });

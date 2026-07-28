@@ -1,9 +1,16 @@
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Attachment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { Dispatch, SetStateAction, useState } from 'react';
-import { createZ3Object, deleteVisitFiles, getPatientVisitFiles, updateVisitFiles } from 'src/api/api';
+import {
+  createZ3Object,
+  deleteVisitFiles,
+  extractInsuranceCard,
+  extractPhotoId,
+  getPatientVisitFiles,
+  updateVisitFiles,
+} from 'src/api/api';
 import { DocumentInfo, DocumentType, UpdateVisitFilesInput, VisitDocuments } from 'utils';
 import { downscaleImageForUpload } from 'utils/lib/frontend';
 import { useApiClients } from './useAppClients';
@@ -57,6 +64,7 @@ export interface UseVisitCardsResult {
  */
 export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput): UseVisitCardsResult => {
   const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
 
   const [scannerModalOpen, setScannerModalOpen] = useState<boolean>(false);
   const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
@@ -140,7 +148,24 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
   const filesMutation = useMutation({
     mutationFn: async (input: UpdateVisitFilesInput) => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
-      await updateVisitFiles(oystehrZambda, input);
+      const { documentReferenceId } = await updateVisitFiles(oystehrZambda, input);
+
+      // Run OCR synchronously right after the DocumentReference is created. Failures here are
+      // logged but never block the upload itself from succeeding — the suggestion chips just
+      // won't be populated.
+      const isInsuranceCard = input.fileType.startsWith('insurance-card');
+      const extract = isInsuranceCard ? extractInsuranceCard : extractPhotoId;
+      try {
+        await extract(oystehrZambda, { documentReferenceId });
+        // useInsuranceCardExtraction / usePhotoIdExtraction cache the extraction under their own
+        // query key, separate from the visit-files query refetched below — without this the AI
+        // suggestion chips stay stale until something else happens to refetch them.
+        await queryClient.invalidateQueries({
+          queryKey: [isInsuranceCard ? 'insurance-card-extraction' : 'photo-id-extraction', patientId],
+        });
+      } catch (error) {
+        console.error('error extracting card suggestions', error);
+      }
     },
     onSuccess: async () => {
       await refetchFileData();

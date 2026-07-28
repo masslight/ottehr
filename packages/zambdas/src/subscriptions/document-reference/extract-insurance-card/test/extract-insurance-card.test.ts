@@ -85,7 +85,7 @@ function makeDocRef(overrides: Partial<DocumentReference> = {}): DocumentReferen
 
 function makeInput(docRef: DocumentReference): ZambdaInput {
   return {
-    body: JSON.stringify(docRef),
+    body: JSON.stringify({ documentReferenceId: docRef.id }),
     headers: {},
     secrets: SECRETS,
   } as unknown as ZambdaInput;
@@ -179,66 +179,31 @@ describe('extract-insurance-card validateRequestParameters', () => {
     expect(() => validateRequestParameters({ headers: {}, secrets: null } as unknown as ZambdaInput)).toThrow();
   });
 
-  it('rejects a non-DocumentReference resource', () => {
-    const input = { body: JSON.stringify({ resourceType: 'Communication', id: 'c1' }), headers: {}, secrets: null };
+  it('rejects a body missing documentReferenceId', () => {
+    const input = { body: JSON.stringify({}), headers: {}, secrets: null };
     try {
       validateRequestParameters(input as unknown as ZambdaInput);
       expect.unreachable('should have thrown');
     } catch (error: any) {
-      expect(error.message).toContain('Expected DocumentReference');
+      expect(error.message).toContain('documentReferenceId');
     }
   });
 
-  it('rejects a DocumentReference without the insurance-card type coding', () => {
-    const docRef = makeDocRef({ type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] } });
+  it('rejects a non-string documentReferenceId', () => {
+    const input = { body: JSON.stringify({ documentReferenceId: 42 }), headers: {}, secrets: null };
     try {
-      validateRequestParameters(makeInput(docRef));
+      validateRequestParameters(input as unknown as ZambdaInput);
       expect.unreachable('should have thrown');
     } catch (error: any) {
-      expect(error.message).toContain('64290-0');
+      expect(error.message).toContain('documentReferenceId');
     }
   });
 
-  it('rejects a non-current DocumentReference', () => {
-    const docRef = makeDocRef({ status: 'superseded' });
-    try {
-      validateRequestParameters(makeInput(docRef));
-      expect.unreachable('should have thrown');
-    } catch (error: any) {
-      expect(error.message).toContain('Expected current status');
-    }
-  });
-
-  it('rejects a DocumentReference with no attachment url', () => {
-    const docRef = makeDocRef({ content: [{ attachment: { title: 'insurance-card-front' } }] });
-    try {
-      validateRequestParameters(makeInput(docRef));
-      expect.unreachable('should have thrown');
-    } catch (error: any) {
-      expect(error.message).toContain('has no attachment URL');
-    }
-  });
-
-  it('gracefully skips (not error) the fullInsuranceCard PDF title', () => {
-    const docRef = makeDocRef({
-      content: [{ attachment: { url: Z3_URL, title: 'fullInsuranceCard', contentType: 'application/pdf' } }],
-    });
+  it('returns the documentReferenceId and secrets on success', () => {
+    const docRef = makeDocRef();
     const result = validateRequestParameters(makeInput(docRef));
-    expect(result.skip).toBe(true);
+    expect(result).toEqual({ documentReferenceId: 'docref-1', secrets: SECRETS });
   });
-
-  it.each(['insurance-card-front', 'insurance-card-back', 'insurance-card-front-2', 'insurance-card-back-2'])(
-    'accepts card image title %s',
-    (title) => {
-      const docRef = makeDocRef({ content: [{ attachment: { url: Z3_URL, title } }] });
-      const result = validateRequestParameters(makeInput(docRef));
-      expect(result.skip).toBe(false);
-      if (!result.skip) {
-        expect(result.cardSlot).toBe(title);
-        expect(result.attachmentUrl).toBe(Z3_URL);
-      }
-    }
-  );
 });
 
 describe('extract-insurance-card handler', () => {
@@ -422,6 +387,17 @@ describe('extract-insurance-card handler', () => {
     expect(getPresignedURL).not.toHaveBeenCalled();
     expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
     expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  it('no-ops when the DocumentReference has no attachment URL', async () => {
+    const docRef = makeDocRef({ content: [{ attachment: { title: 'insurance-card-front' } }] });
+    setupHappyMocks(docRef);
+
+    const result = await invokeHandler(makeInput(docRef));
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body)).toMatchObject({ skipped: true });
+    expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
   });
 
   it('propagates a retryable error (not a 200 no-op) when the card image fails to download', async () => {
@@ -618,12 +594,12 @@ describe('extract-insurance-card handler', () => {
     const docRef = makeDocRef({
       content: [{ attachment: { url: Z3_URL, title: 'fullInsuranceCard', contentType: 'application/pdf' } }],
     });
+    setupHappyMocks(docRef);
 
     const result = await invokeHandler(makeInput(docRef));
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toMatchObject({ skipped: true });
-    expect(mockSearch).not.toHaveBeenCalled();
     expect(invokeChatbotVertexAI).not.toHaveBeenCalled();
   });
 });
