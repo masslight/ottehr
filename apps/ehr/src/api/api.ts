@@ -173,10 +173,9 @@ import {
   OnDemandLabelXmlRequestOutput,
   PaginatedResponse,
   PaperworkFlowCreateInput,
-  PaperworkFlowCreateOutput,
+  PaperworkFlowDeleteInput,
   PaperworkFlowListOutput,
   PaperworkFlowUpdateInput,
-  PaperworkFlowUpdateOutput,
   PaperworkToPDFInput,
   PatientInstructionQuickPickData,
   PendingSupervisorApprovalInput,
@@ -365,6 +364,7 @@ const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-c
 const PAPERWORK_FLOW_LIST_ZAMBDA_ID = 'paperwork-flow-list';
 const PAPERWORK_FLOW_CREATE_ZAMBDA_ID = 'paperwork-flow-create';
 const PAPERWORK_FLOW_UPDATE_ZAMBDA_ID = 'paperwork-flow-update';
+const PAPERWORK_FLOW_DELETE_ZAMBDA_ID = 'paperwork-flow-delete';
 const SEND_PATIENT_FORM = 'send-patient-form';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -2970,10 +2970,7 @@ export async function listPaperworkFlows(oystehr: Oystehr): Promise<PaperworkFlo
   }
 }
 
-export const createPaperworkFlow = async (
-  oystehr: Oystehr,
-  parameters: PaperworkFlowCreateInput
-): Promise<PaperworkFlowCreateOutput> => {
+export const createPaperworkFlow = async (oystehr: Oystehr, parameters: PaperworkFlowCreateInput): Promise<void> => {
   try {
     const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_CREATE_ZAMBDA_ID, ...parameters });
     return chooseJson(response);
@@ -2983,12 +2980,19 @@ export const createPaperworkFlow = async (
   }
 };
 
-export const updatePaperworkFlow = async (
-  oystehr: Oystehr,
-  parameters: PaperworkFlowUpdateInput
-): Promise<PaperworkFlowUpdateOutput> => {
+export const updatePaperworkFlow = async (oystehr: Oystehr, parameters: PaperworkFlowUpdateInput): Promise<void> => {
   try {
     const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_UPDATE_ZAMBDA_ID, ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const deletePaperworkFlow = async (oystehr: Oystehr, parameters: PaperworkFlowDeleteInput): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: PAPERWORK_FLOW_DELETE_ZAMBDA_ID, ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
@@ -3035,9 +3039,6 @@ export interface ServiceCategory {
   code: string;
   /** Short abbreviation (2-3 chars) shown on the Tracking Board and patient visit lists — e.g. 'UC', 'WC'. */
   abbreviation?: string;
-  /** Paperwork-flow Questionnaire canonicals (OTR-2309) stamped per visit mode, if assigned. Round-tripped so an edit here never clobbers a flow assignment. */
-  inPersonFlowCanonical?: string;
-  virtualFlowCanonical?: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
 }

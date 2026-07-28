@@ -644,6 +644,11 @@ export enum ServiceMode {
   'virtual' = 'virtual',
 }
 
+export const SERVICE_MODE_LABEL: Record<ServiceMode, string> = {
+  [ServiceMode['in-person']]: 'In-Person',
+  [ServiceMode.virtual]: 'Virtual',
+};
+
 /**
  * Booking-flow capability a service supports. Narrower than the appointment-
  * lifecycle `VisitType` enum elsewhere in the codebase — this enum is the

@@ -480,18 +480,18 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
-/**
- * meta.tag marking a Questionnaire as a practice paperwork flow (OTR-2309): an ordered bundle of
- * practice-managed forms assignable to service categories by visit mode.
- */
-export const PAPERWORK_FLOW_TYPE_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/flow-type`;
-export const SERVICE_FLOW_TAG_CODE = 'service-paperwork-flow';
-
 /** meta.tag identifying a paperwork flow Questionnaire. */
-export const SERVICE_FLOW_TAG = {
-  system: PAPERWORK_FLOW_TYPE_SYSTEM,
-  code: SERVICE_FLOW_TAG_CODE,
+export const PAPERWORK_FLOW_TAG = {
+  system: `${PRIVATE_EXTENSION_BASE_URL}/flow-type`,
+  code: 'paperwork-flow',
 };
+
+/**
+ * meta.tag system stamped on a paperwork flow Questionnaire for each service it's applied to that
+ * doesn't (yet) exist as a HealthcareService resource — code is the service id. Lets a flow target a
+ * service before its catalog entry is created, without a HealthcareService to stamp.
+ */
+export const SYSTEM_MANAGED_SERVICE_TAG_SYSTEM = ottehrCodeSystemUrl('system-managed-service');
 
 /**
  * Extension on a paperwork flow Questionnaire recording a visit mode it targets (valueCode
@@ -504,8 +504,8 @@ export const PAPERWORK_FLOW_MODE_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/
  * Questionnaire to present for a given visit mode (valueCanonical `url|version`). At most one of each
  * per HealthcareService; a booking resolves the extension matching its visit mode.
  */
-export const HEALTHCARE_SERVICE_QUESTIONNAIRE_INPERSON_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/healthcareService-questionnaire-inperson`;
-export const HEALTHCARE_SERVICE_QUESTIONNAIRE_VIRTUAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/healthcareService-questionnaire-virtual`;
+export const PAPERWORK_FLOW_INPERSON_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/paperwork-flow-questionnaire-inperson`;
+export const PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/paperwork-flow-questionnaire-virtual`;
 
 /** meta.tag identifying how a one off QR was triggered */
 export const QR_DISTRIBUTION_TAG = {

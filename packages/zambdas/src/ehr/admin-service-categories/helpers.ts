@@ -8,14 +8,12 @@ import {
   getServiceCategoryVisitTypes,
   parseReasonsForVisit,
   parseServiceCategoryAbbreviation,
-  readFlowStamp,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
   serviceCategoryCharacteristics,
   ServiceMode,
   ServiceVisitType,
-  withFlowStamp,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, ZambdaInput } from '../../shared';
 
@@ -54,12 +52,6 @@ export interface ServiceCategory {
    * visit lists — e.g. 'UC', 'WC'. Stored in the JSON-blob config extension.
    */
   abbreviation?: string;
-  /**
-   * Paperwork-flow Questionnaire canonicals (OTR-2309) stamped on this service per visit mode, if
-   * assigned. Round-tripped here so an admin edit through this path never clobbers a flow assignment.
-   */
-  inPersonFlowCanonical?: string;
-  virtualFlowCanonical?: string;
   active: boolean;
   config: ServiceCategoryRuntimeConfig;
   /**
@@ -131,8 +123,6 @@ export function toRecord(resource: HealthcareService): ServiceCategory {
     name: resource.name,
     code,
     abbreviation: parseServiceCategoryAbbreviation(resource),
-    inPersonFlowCanonical: readFlowStamp(resource, 'in-person'),
-    virtualFlowCanonical: readFlowStamp(resource, 'virtual'),
     active: resource.active !== false,
     config: {
       durationMinutes: getServiceCategoryDurationMinutes(resource) ?? DEFAULT_SERVICE_CATEGORY_DURATION_MINUTES,
@@ -175,7 +165,7 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
   const configBlob: { reasonsForVisit?: typeof reasons; abbreviation?: string } = {};
   if (reasons.length > 0) configBlob.reasonsForVisit = reasons;
   if (abbreviation) configBlob.abbreviation = abbreviation;
-  let resource: HealthcareService = {
+  const resource: HealthcareService = {
     resourceType: 'HealthcareService',
     id: record.id,
     meta: { tag: [SERVICE_CATEGORY_TAG] },
@@ -193,8 +183,5 @@ export function toFhirResource(record: ServiceCategory): HealthcareService {
           ]
         : undefined,
   };
-  // Preserve per-mode paperwork-flow stamps (OTR-2309) so a service-category edit never drops them.
-  if (record.inPersonFlowCanonical) resource = withFlowStamp(resource, 'in-person', record.inPersonFlowCanonical);
-  if (record.virtualFlowCanonical) resource = withFlowStamp(resource, 'virtual', record.virtualFlowCanonical);
   return resource;
 }

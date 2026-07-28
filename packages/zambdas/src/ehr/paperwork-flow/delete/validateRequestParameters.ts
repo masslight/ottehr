@@ -1,8 +1,8 @@
 import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
-  PaperworkFlowCreateInput,
-  PaperworkFlowCreateInputSchema,
+  PaperworkFlowDeleteInput,
+  PaperworkFlowDeleteInputSchema,
   Secrets,
 } from 'utils';
 import { safeValidate, ZambdaInput } from '../../../shared';
@@ -11,24 +11,25 @@ type BaseContext = {
   secrets: Secrets | null;
 };
 
-type ValidatedRequest = BaseContext & PaperworkFlowCreateInput;
+type ValidatedRequest = BaseContext & PaperworkFlowDeleteInput;
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
+  if (!input.body) throw MISSING_REQUEST_BODY;
 
   const secrets = input.secrets;
 
-  let parsed: PaperworkFlowCreateInput;
+  let parsed: PaperworkFlowDeleteInput;
   try {
     parsed = JSON.parse(input.body);
   } catch {
     throw INVALID_INPUT_ERROR('Unable to parse request body. Invalid JSON.');
   }
 
-  const validated = safeValidate(PaperworkFlowCreateInputSchema, parsed);
-  const { flow, flowServices } = validated;
+  const validated = safeValidate(PaperworkFlowDeleteInputSchema, parsed);
+  const { flowId } = validated;
 
-  return { flow, flowServices, secrets };
+  return {
+    flowId,
+    secrets,
+  };
 }
