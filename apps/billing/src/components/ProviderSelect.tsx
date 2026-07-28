@@ -1,5 +1,15 @@
 import { Autocomplete, AutocompleteInputChangeReason, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  HTMLAttributes,
+  ReactElement,
+  ReactNode,
+  Ref,
+  SyntheticEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { BillingProviderOption } from 'utils';
 import { searchBillingProviders } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
