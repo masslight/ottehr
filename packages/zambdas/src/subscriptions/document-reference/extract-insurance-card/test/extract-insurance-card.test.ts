@@ -1,8 +1,6 @@
-import { createHash } from 'node:crypto';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { Jimp } from 'jimp';
 import {
   createOystehrClient,
   getPresignedURL,
@@ -10,12 +8,12 @@ import {
   InsuranceCardExtraction,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPresignedUrl, getAuth0Token, uploadObjectToZ3, ZambdaInput } from '../../../../shared';
+import { getAuth0Token, ZambdaInput } from '../../../../shared';
 import { invokeChatbotVertexAI } from '../../../../shared/ai';
 import { EXTRACTION_PROMPT, parseModelResponse } from '../helpers';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
-import { makeOrientedSceneJpeg, makePlainJpeg } from './image-fixtures';
+import { makePlainJpeg } from './image-fixtures';
 
 vi.mock('../../../../shared/ai', () => ({
   invokeChatbotVertexAI: vi.fn(),
@@ -27,8 +25,6 @@ vi.mock('../../../../shared', async (importOriginal) => {
   return {
     ...actual,
     getAuth0Token: vi.fn(),
-    createPresignedUrl: vi.fn(),
-    uploadObjectToZ3: vi.fn(),
   };
 });
 
@@ -43,13 +39,7 @@ vi.mock('utils', async (importOriginal) => {
 
 const Z3_URL = 'https://project-api.zapehr.com/v1/z3/insurance-cards-bucket/patient-1/insurance-card-front.jpg';
 const PRESIGNED_URL = 'https://signed.example.com/insurance-card-front.jpg';
-const PRESIGNED_UPLOAD_URL = 'https://signed.example.com/insurance-card-front.jpg?upload';
-// a real, already-normalized (small, upright, EXIF-less) JPEG so the mainline tests exercise the
-// normalization no-op path rather than the graceful-fallback path
 const IMAGE_BYTES = await makePlainJpeg(40, 24);
-const IMAGE_SHA256 = createHash('sha256').update(new Uint8Array(IMAGE_BYTES)).digest('hex');
-
-const sha256Of = (bytes: Buffer): string => createHash('sha256').update(new Uint8Array(bytes)).digest('hex');
 
 const SECRETS = {
   FHIR_API: 'https://fhir-api.example.com',
@@ -110,7 +100,6 @@ function makeStoredExtraction(overrides: Partial<InsuranceCardExtraction> = {}):
     readable: true,
     sourceDocRefId: 'docref-1',
     sourceAttachmentUrl: Z3_URL,
-    imageHash: IMAGE_SHA256,
     model: 'gemini-3.1-flash-lite',
     extractedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -140,31 +129,19 @@ function setupHappyMocks(docRefInFhir: DocumentReference, imageBytes: Buffer = I
   mockSearch.mockResolvedValue({ unbundle: () => [docRefInFhir] });
   mockPatch.mockResolvedValue(docRefInFhir);
   vi.mocked(getPresignedURL).mockResolvedValue(PRESIGNED_URL);
-  vi.mocked(createPresignedUrl).mockResolvedValue(PRESIGNED_UPLOAD_URL);
-  vi.mocked(uploadObjectToZ3).mockResolvedValue(undefined);
   fetchMock.mockResolvedValue(imageFetchResponse(imageBytes));
   vi.mocked(invokeChatbotVertexAI).mockResolvedValue(JSON.stringify(HAPPY_MODEL_RESPONSE));
 }
 
-/** Finds the patch call that writes the extraction extension (there may also be an attachment-metadata patch). */
+/** Finds the patch call that writes the extraction extension. */
 function getPatchedExtraction(): InsuranceCardExtraction {
-  const extensionCalls = mockPatch.mock.calls.filter(([arg]) =>
-    (arg.operations as { path: string }[]).some((op) => op.path.startsWith('/extension'))
-  );
-  expect(extensionCalls).toHaveLength(1);
-  const { operations } = extensionCalls[0][0];
+  expect(mockPatch).toHaveBeenCalledTimes(1);
+  const { operations } = mockPatch.mock.calls[0][0];
   expect(operations).toHaveLength(1);
   const extension =
     operations[0].op === 'add' && operations[0].path === '/extension' ? operations[0].value[0] : operations[0].value;
   expect(extension.url).toBe(INSURANCE_CARD_EXTRACTION_EXTENSION_URL);
   return JSON.parse(extension.valueString);
-}
-
-/** Finds the patch calls that update the attachment metadata after a re-store. */
-function getAttachmentMetadataPatches(): { path: string; op: string; value: unknown }[][] {
-  return mockPatch.mock.calls
-    .filter(([arg]) => (arg.operations as { path: string }[]).some((op) => op.path.startsWith('/content/')))
-    .map(([arg]) => arg.operations);
 }
 
 beforeEach(() => {
@@ -246,7 +223,6 @@ describe('extract-insurance-card handler', () => {
       readable: true,
       sourceDocRefId: 'docref-1',
       sourceAttachmentUrl: Z3_URL,
-      imageHash: IMAGE_SHA256,
       model: 'gemini-3.1-flash-lite',
     });
     expect(stored.notACard).toBeUndefined();
@@ -402,8 +378,8 @@ describe('extract-insurance-card handler', () => {
 
   it('propagates a retryable error (not a 200 no-op) when the card image fails to download', async () => {
     // A download failure is often transient (network blip, presigned url race); returning 200
-    // would tell the subscription "handled" and permanently strand the card unprocessed, so this
-    // must surface as a non-200 the subscription's retry semantics can act on.
+    // would tell the caller "handled" and permanently strand the card unprocessed, so this must
+    // surface as a non-200 a retrying caller can act on.
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
     fetchMock.mockResolvedValue({ ok: false, status: 403, headers: { get: () => null } });
@@ -471,123 +447,6 @@ describe('extract-insurance-card handler', () => {
     expect(result.statusCode).toBe(500);
     expect(captureException).toHaveBeenCalled();
     expect(mockPatch).not.toHaveBeenCalled();
-  });
-
-  it('normalizes a rotated card: re-stores to the same Z3 url, patches metadata, and OCRs the normalized bytes', async () => {
-    const docRef = makeDocRef();
-    const rotated = await makeOrientedSceneJpeg(6, 32, 16); // stored 16x32, EXIF orientation 6
-    setupHappyMocks(docRef, rotated);
-
-    const result = await invokeHandler(makeInput(docRef));
-
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ documentReferenceId: 'docref-1', extracted: true });
-
-    // re-store goes to the SAME attachment url (idempotency key unchanged)
-    expect(createPresignedUrl).toHaveBeenCalledWith('mock-m2m-token', Z3_URL, 'upload');
-    expect(uploadObjectToZ3).toHaveBeenCalledTimes(1);
-    const [uploadedBytes, uploadUrl, uploadedMime] = vi.mocked(uploadObjectToZ3).mock.calls[0];
-    expect(uploadUrl).toBe(PRESIGNED_UPLOAD_URL);
-    expect(uploadedMime).toBe('image/jpeg');
-
-    // the stored object is now upright: dimensions back to the 32x16 scene
-    const uploadedBuffer = Buffer.from(uploadedBytes as Uint8Array);
-    const uprightImage = await Jimp.read(uploadedBuffer);
-    expect(uprightImage.width).toBe(32);
-    expect(uprightImage.height).toBe(16);
-
-    // OCR ran on the NORMALIZED bytes, not the original upload
-    const [parts] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
-    expect((parts[1] as any).inlineData.data).toBe(uploadedBuffer.toString('base64'));
-    expect((parts[1] as any).inlineData.data).not.toBe(rotated.toString('base64'));
-
-    // stored imageHash covers the normalized (stored) bytes
-    expect(getPatchedExtraction().imageHash).toBe(sha256Of(uploadedBuffer));
-
-    // attachment metadata patch: contentType already image/jpeg, so only size is added
-    const metadataPatches = getAttachmentMetadataPatches();
-    expect(metadataPatches).toHaveLength(1);
-    expect(metadataPatches[0]).toEqual([
-      { op: 'add', path: '/content/0/attachment/size', value: uploadedBuffer.length },
-    ]);
-  });
-
-  it('still succeeds when the attachment-metadata patch fails after the re-store (non-fatal branch)', async () => {
-    const docRef = makeDocRef();
-    const rotated = await makeOrientedSceneJpeg(6, 32, 16);
-    setupHappyMocks(docRef, rotated);
-    // fail ONLY the attachment-metadata patch; the extraction-extension patch still succeeds
-    mockPatch.mockImplementation(async (arg: { operations: { path: string }[] }) => {
-      if (arg.operations.some((op) => op.path.startsWith('/content/'))) {
-        throw new Error('metadata patch failed');
-      }
-      return docRef;
-    });
-
-    const result = await invokeHandler(makeInput(docRef));
-
-    // the zambda still succeeds: the stored object IS already the normalized image
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ documentReferenceId: 'docref-1', extracted: true });
-    expect(captureException).toHaveBeenCalled(); // the swallowed patch failure is still reported
-
-    // pipeline continued on the NORMALIZED bytes (they were re-stored before the patch attempt)
-    expect(uploadObjectToZ3).toHaveBeenCalledTimes(1);
-    const uploadedBuffer = Buffer.from(vi.mocked(uploadObjectToZ3).mock.calls[0][0] as Uint8Array);
-    const [parts] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
-    expect((parts[1] as any).inlineData.data).toBe(uploadedBuffer.toString('base64'));
-    expect(getPatchedExtraction().imageHash).toBe(sha256Of(uploadedBuffer));
-  });
-
-  it('does not re-store an already-normalized (small, upright) card', async () => {
-    const docRef = makeDocRef();
-    setupHappyMocks(docRef); // IMAGE_BYTES is a small upright EXIF-less JPEG
-
-    const result = await invokeHandler(makeInput(docRef));
-
-    expect(result.statusCode).toBe(200);
-    expect(createPresignedUrl).not.toHaveBeenCalled();
-    expect(uploadObjectToZ3).not.toHaveBeenCalled();
-    expect(getAttachmentMetadataPatches()).toHaveLength(0);
-    expect(mockPatch).toHaveBeenCalledTimes(1); // the extraction write only
-    expect(getPatchedExtraction().imageHash).toBe(IMAGE_SHA256);
-  });
-
-  it('falls back to OCR on the original bytes when normalization fails (undecodable image)', async () => {
-    const docRef = makeDocRef();
-    const junkBytes = Buffer.from('fake-insurance-card-image-bytes'); // labeled image/jpeg, not decodable
-    setupHappyMocks(docRef, junkBytes);
-
-    const result = await invokeHandler(makeInput(docRef));
-
-    // card processing must never crash over a normalize failure
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ extracted: true });
-    expect(captureException).toHaveBeenCalled();
-    expect(uploadObjectToZ3).not.toHaveBeenCalled();
-
-    const [parts] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
-    expect((parts[1] as any).inlineData.data).toBe(junkBytes.toString('base64'));
-    expect(getPatchedExtraction().imageHash).toBe(sha256Of(junkBytes));
-  });
-
-  it('falls back to the original bytes when the Z3 re-store fails (hash must match the stored object)', async () => {
-    const docRef = makeDocRef();
-    const rotated = await makeOrientedSceneJpeg(6, 32, 16);
-    setupHappyMocks(docRef, rotated);
-    vi.mocked(uploadObjectToZ3).mockRejectedValue(new Error('z3 unavailable'));
-
-    const result = await invokeHandler(makeInput(docRef));
-
-    expect(result.statusCode).toBe(200);
-    expect(JSON.parse(result.body)).toMatchObject({ extracted: true });
-    expect(captureException).toHaveBeenCalled();
-    expect(getAttachmentMetadataPatches()).toHaveLength(0);
-
-    // the stored object is still the original upload, so OCR + hash use the original bytes
-    const [parts] = vi.mocked(invokeChatbotVertexAI).mock.calls[0];
-    expect((parts[1] as any).inlineData.data).toBe(rotated.toString('base64'));
-    expect(getPatchedExtraction().imageHash).toBe(sha256Of(rotated));
   });
 
   it('returns 200 skipped for a DocumentReference whose title is not a card image slot', async () => {

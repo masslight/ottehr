@@ -74,10 +74,8 @@ export interface InsuranceCardExtraction {
   notACard?: boolean;
   /** DocumentReference.id the extraction was performed against. */
   sourceDocRefId: string;
-  /** z3 url of the extracted attachment — the cheap idempotency key for subscription re-fires. */
+  /** z3 url of the extracted attachment — the cheap idempotency key for re-extraction. */
   sourceAttachmentUrl: string;
-  /** sha256 hex of the image bytes — durable audit key. */
-  imageHash: string;
   /** Model used for the extraction, e.g. 'gemini-3.1-flash-lite'. */
   model: string;
   /** ISO instant the extraction was stored. */
@@ -125,10 +123,8 @@ export interface PhotoIdExtraction {
   notAPhotoId?: boolean;
   /** DocumentReference.id the extraction was performed against. */
   sourceDocRefId: string;
-  /** z3 url of the extracted attachment — the cheap idempotency key for subscription re-fires. */
+  /** z3 url of the extracted attachment — the cheap idempotency key for re-extraction. */
   sourceAttachmentUrl: string;
-  /** sha256 hex of the image bytes — durable audit key. */
-  imageHash: string;
   /** Model used for the extraction, e.g. 'gemini-3.1-flash-lite'. */
   model: string;
   /** ISO instant the extraction was stored. */

@@ -116,12 +116,6 @@ export async function makePlainJpeg(width: number, height: number): Promise<Buff
   return Buffer.from((await image.getBuffer(JimpMime.jpeg, { quality: 90 })) as unknown as Uint8Array);
 }
 
-/** Plain white PNG. */
-export async function makePlainPng(width: number, height: number): Promise<Buffer> {
-  const image = new Jimp({ width, height, color: WHITE });
-  return Buffer.from((await image.getBuffer(JimpMime.png)) as unknown as Uint8Array);
-}
-
 /** True when the pixel at (x, y) is red-ish (tolerant of JPEG lossiness). */
 // structural param type: Jimp.read's return type and new Jimp()'s instance type are unrelated generics
 export function isRedAt(image: { getPixelColor(x: number, y: number): number }, x: number, y: number): boolean {

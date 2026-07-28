@@ -13,7 +13,6 @@ import {
   getExistingExtraction,
   parseModelResponse,
   photoIdResponseSchema,
-  sha256Hex,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -22,7 +21,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'extract-photo-id';
 
-// warm-invocation cache, persisted across warm Lambda invocations
 let oystehrToken: string;
 
 export interface PhotoIdExtractionResult {
@@ -43,9 +41,10 @@ export async function runPhotoIdExtraction(
   oystehrToken: string,
   secrets: Secrets | null
 ): Promise<PhotoIdExtractionResult> {
-  // Idempotency, phase 1 (cheap): re-read the DocumentReference (a caller-supplied id can be
-  // stale). A search by _id returns nothing for deleted resources, so an ID deleted between
-  // upload and extraction is a clean no-op rather than a retry loop.
+  // The caller only has an id, not the resource — fetch it to get the title, attachment url, and
+  // any existing extension. This also doubles as a freshness check: a search by _id returns
+  // nothing for deleted resources, so an ID deleted between upload and extraction is a clean
+  // no-op rather than a retry loop.
   const current = (
     await oystehr.fhir.search<DocumentReference>({
       resourceType: 'DocumentReference',
@@ -106,10 +105,7 @@ export async function runPhotoIdExtraction(
     throw error;
   }
 
-  const imageHash = sha256Hex(bytes);
-  console.log(
-    `[${ZAMBDA_NAME}] DocumentReference/${docRefId} mimeType=${mimeType} bytes=${bytes.length} sha256=${imageHash}`
-  );
+  console.log(`[${ZAMBDA_NAME}] DocumentReference/${docRefId} mimeType=${mimeType} bytes=${bytes.length}`);
 
   if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') {
     // unprocessable content is a permanent condition — write the marker so retries stop
@@ -121,7 +117,6 @@ export async function runPhotoIdExtraction(
       notAPhotoId: true,
       sourceDocRefId: docRefId,
       sourceAttachmentUrl: attachmentUrl,
-      imageHash,
       model: 'none',
       extractedAt: DateTime.now().toISO()!,
     });
@@ -153,7 +148,6 @@ export async function runPhotoIdExtraction(
     ...(notAPhotoId ? { notAPhotoId: true } : {}),
     sourceDocRefId: docRefId,
     sourceAttachmentUrl: attachmentUrl,
-    imageHash,
     model: VERTEX_AI_MODEL,
     extractedAt: DateTime.now().toISO()!,
   };

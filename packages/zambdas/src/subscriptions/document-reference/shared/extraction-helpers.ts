@@ -4,7 +4,7 @@ import { Extension } from 'fhir/r4b';
 import { getPresignedURL } from 'utils';
 
 /**
- * Generic helpers shared by the OCR-extraction subscriptions (extract-insurance-card,
+ * Generic helpers shared by the OCR-extraction endpoints (extract-insurance-card,
  * extract-photo-id, and any future one): reading/writing a stored extraction on a
  * DocumentReference's extension array, folding a parsed model response's fields, and
  * downloading the source image. Each feature keeps its own extension URL, field list, and
@@ -21,7 +21,7 @@ export interface ExistingExtraction<T> {
 /**
  * Reads a previously-stored OCR extraction off a DocumentReference's extension array. A malformed
  * valueString is reported (captureException) and treated as absent so re-extraction can overwrite
- * it rather than crashing the subscription.
+ * it rather than crashing the caller.
  */
 export function getExistingExtraction<T>(
   extensions: Extension[] | undefined,
@@ -115,15 +115,15 @@ export function extractFieldsWithAllNullFold<TFields>(
 }
 
 /**
- * Downloads an OCR subscription's source image via its presigned Z3 URL and resolves its mimeType.
+ * Downloads an OCR endpoint's source image via its presigned Z3 URL and resolves its mimeType.
  * Z3 reports the generic application/octet-stream when the object's content type wasn't recorded
  * at upload time — that tells us nothing about the actual image, so it (and a missing header) falls
  * back to the DocumentReference attachment's own recorded contentType before defaulting to
  * image/jpeg, rather than treating a real image as unsupported.
  *
  * Throws on any failure — a download failure is often transient (network blip, presigned url
- * race), so callers should let this propagate to the subscription's retry semantics instead of
- * swallowing it into a 200 that would strand the DocumentReference unprocessed.
+ * race), so callers should let this propagate rather than swallowing it into a 200 that would
+ * strand the DocumentReference unprocessed.
  */
 export async function downloadOcrSourceImage(input: {
   attachmentUrl: string;

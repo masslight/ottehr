@@ -9,9 +9,6 @@ import {
   getExistingExtraction as getGenericExistingExtraction,
 } from '../shared/extraction-helpers';
 
-// same hashing helper the insurance-card pipeline uses — the two extractions share the audit-key format
-export { sha256Hex } from '../extract-insurance-card/helpers';
-
 export const EXTRACTION_PROMPT = `You are extracting data from an image for a healthcare record system.
 
 First, decide whether the image is a US driver's license or state-issued photo identification card and set "isPhotoId" accordingly. If the image is anything other than a driver's license or state photo ID (an insurance card, a passport, a photo of a person, a blank page, an unrelated document, etc.), set "isPhotoId" to false and set every other field to null.
@@ -127,7 +124,7 @@ export interface ExistingExtraction {
 /**
  * Reads a previously-stored extraction off the DocumentReference's extension array.
  * A malformed valueString is reported (captureException) and treated as absent so
- * re-extraction can overwrite it rather than crashing the subscription.
+ * re-extraction can overwrite it rather than crashing the caller.
  */
 export function getExistingExtraction(extensions: Extension[] | undefined): ExistingExtraction {
   return getGenericExistingExtraction<PhotoIdExtraction>(

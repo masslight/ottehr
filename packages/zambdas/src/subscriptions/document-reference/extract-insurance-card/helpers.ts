@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, Extension } from 'fhir/r4b';
 import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction, InsuranceCardExtractionFields } from 'utils';
@@ -9,13 +8,6 @@ import {
   extractFieldsWithAllNullFold,
   getExistingExtraction as getGenericExistingExtraction,
 } from '../shared/extraction-helpers';
-
-/** sha256 hex of a Buffer. Uint8Array view (no copy): this workspace's @types/node rejects Buffer for BinaryLike. */
-export function sha256Hex(data: Buffer): string {
-  return createHash('sha256')
-    .update(new Uint8Array(data.buffer, data.byteOffset, data.byteLength))
-    .digest('hex');
-}
 
 export const EXTRACTION_PROMPT = `You are extracting data from an image for a healthcare record system.
 
@@ -129,7 +121,7 @@ export interface ExistingExtraction {
 /**
  * Reads a previously-stored extraction off the DocumentReference's extension array.
  * A malformed valueString is reported (captureException) and treated as absent so
- * re-extraction can overwrite it rather than crashing the subscription.
+ * re-extraction can overwrite it rather than crashing the caller.
  */
 export function getExistingExtraction(extensions: Extension[] | undefined): ExistingExtraction {
   return getGenericExistingExtraction<InsuranceCardExtraction>(
@@ -141,7 +133,7 @@ export function getExistingExtraction(extensions: Extension[] | undefined): Exis
 
 /**
  * Builds the JSON-patch operations that keep the attachment metadata honest after the stored
- * image has been normalized (re-encoded / resized) in place: contentType and size are updated
+ * image has been re-encoded in place (e.g. a manual rotate): contentType and size are updated
  * only when they actually differ from what the DocumentReference already carries.
  */
 export function buildAttachmentMetadataOperations(

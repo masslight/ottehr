@@ -1,9 +1,4 @@
-/**
- * Longest allowed side (px) of an uploaded card image; anything larger is downscaled in the browser
- * before upload. Mirrors MAX_DIMENSION in the server-side normalizer
- * (packages/zambdas/src/subscriptions/document-reference/extract-insurance-card/normalize-image.ts,
- * not importable from the frontend) — keep the two values in sync.
- */
+/** Longest allowed side (px) of an uploaded card image; anything larger is downscaled in the browser before upload. */
 export const UPLOAD_IMAGE_MAX_DIMENSION = 2000;
 
 /** JPEG quality for the client-side re-encode (canvas.toBlob's 0-1 scale). */

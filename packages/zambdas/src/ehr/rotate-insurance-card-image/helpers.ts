@@ -6,7 +6,7 @@ import { CARD_IMAGE_TITLES } from '../../subscriptions/document-reference/extrac
 /**
  * Confirms the DocumentReference is a current insurance-card *image* that can be manually rotated:
  * status current, the 64290-0 insurance-card type coding, an attachment url, one of the four card
- * image slot titles (the same allowlist the extraction subscription uses — this excludes the
+ * image slot titles (the same allowlist extract-insurance-card uses — this excludes the
  * fullInsuranceCard PDFs), and a jimp-decodable image contentType when one is recorded.
  *
  * Throws structured INVALID_INPUT_ERRORs; these surface to the staff member who clicked rotate.

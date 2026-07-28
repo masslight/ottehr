@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
@@ -36,7 +35,6 @@ const Z3_URL = 'https://project-api.zapehr.com/v1/z3/photo-id-cards-bucket/patie
 const PRESIGNED_URL = 'https://signed.example.com/photo-id-front.jpg';
 // no image normalization on this pipeline, so the bytes are never decoded — plain fake bytes suffice
 const IMAGE_BYTES = Buffer.from('fake-photo-id-image-bytes');
-const IMAGE_SHA256 = createHash('sha256').update(new Uint8Array(IMAGE_BYTES)).digest('hex');
 
 const SECRETS = {
   FHIR_API: 'https://fhir-api.example.com',
@@ -101,7 +99,6 @@ function makeStoredExtraction(overrides: Partial<PhotoIdExtraction> = {}): Photo
     fields: { ...HAPPY_FIELDS },
     sourceDocRefId: 'docref-1',
     sourceAttachmentUrl: Z3_URL,
-    imageHash: IMAGE_SHA256,
     model: 'gemini-3.1-flash-lite',
     extractedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -210,7 +207,6 @@ describe('extract-photo-id handler', () => {
       fields: HAPPY_FIELDS,
       sourceDocRefId: 'docref-1',
       sourceAttachmentUrl: Z3_URL,
-      imageHash: IMAGE_SHA256,
       model: 'gemini-3.1-flash-lite',
     });
     expect(stored.notAPhotoId).toBeUndefined();
@@ -354,8 +350,8 @@ describe('extract-photo-id handler', () => {
 
   it('propagates a retryable error (not a 200 no-op) when the ID image fails to download', async () => {
     // A download failure is often transient (network blip, presigned url race); returning 200
-    // would tell the subscription "handled" and permanently strand the ID unprocessed, so this
-    // must surface as a non-200 the subscription's retry semantics can act on.
+    // would tell the caller "handled" and permanently strand the ID unprocessed, so this must
+    // surface as a non-200 a retrying caller can act on.
     const docRef = makeDocRef();
     setupHappyMocks(docRef);
     fetchMock.mockResolvedValue({ ok: false, status: 403, headers: { get: () => null } });
