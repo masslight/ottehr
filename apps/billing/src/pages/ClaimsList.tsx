@@ -212,6 +212,7 @@ export default function ClaimsList(): ReactElement {
     },
     [oystehrZambda]
   );
+  useEffect(() => searchServices(''), [searchServices]);
 
   const searchPayers = useCallback(
     (query: string): void => {
@@ -224,6 +225,7 @@ export default function ClaimsList(): ReactElement {
     },
     [oystehrZambda]
   );
+  useEffect(() => searchPayers(''), [searchPayers]);
 
   const searchPatients = useCallback(
     (query: string): void => {
@@ -236,6 +238,7 @@ export default function ClaimsList(): ReactElement {
     },
     [oystehrZambda]
   );
+  useEffect(() => searchPatients(''), [searchPatients]);
 
   const initialLoadDone = useRef(false);
   useEffect(() => {
