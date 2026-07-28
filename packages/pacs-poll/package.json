@@ -1,6 +1,6 @@
 {
   "name": "pacs-poll",
-  "version": "1.39.4",
+  "version": "1.39.6",
   "private": true,
   "scripts": {
     "start": "NODE_OPTIONS='--preserve-symlinks' tsx src/index.ts",
