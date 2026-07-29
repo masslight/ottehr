@@ -5,6 +5,7 @@ import {
   Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
   OpenInNew as OpenInNewIcon,
+  WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -28,6 +29,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
@@ -464,7 +466,12 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Billed" value={claim.billed} />
             <Amount label="Allowed" value={claim.allowed} />
             <Amount label="Payments" sublabel="Primary Ins Paid" value={claim.insurancePaid} />
-            <Amount label="Balance" value={claim.balance} />
+            <Amount label="Patient Paid" value={claim.patientPaid} />
+            <Amount
+              label="Balance"
+              value={claim.balance}
+              hint={claim.adjudicated ? undefined : 'No remittance received yet, balance is provisional'}
+            />
             <Box>
               <Typography variant="caption" color="text.secondary">
                 Responsible Party
@@ -517,7 +524,7 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
             <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
-            <ReadOnlySection title="Patient payments">No patient payments</ReadOnlySection>
+            <PatientPaymentsSection payments={claim.patientPayments} />
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
@@ -1406,6 +1413,45 @@ function InsurancePaymentsSection({
   );
 }
 
+function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['patientPayments'] }): ReactElement {
+  return (
+    <ReadOnlySection title="Patient payments">
+      {payments.length === 0 ? (
+        'No patient payments yet'
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>Date</TableCell>
+                <TableCell sx={thSx}>Method</TableCell>
+                <TableCell sx={thSx}>Description</TableCell>
+                <TableCell sx={thSx}>Check Number</TableCell>
+                <TableCell sx={thSx}>Status</TableCell>
+                <TableCell sx={thSx} align="right">
+                  Amount
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment.paymentNoticeId}>
+                  <TableCell>{formatDate(payment.paymentDate) || '-'}</TableCell>
+                  <TableCell>{payment.method || '-'}</TableCell>
+                  <TableCell>{payment.description || '-'}</TableCell>
+                  <TableCell>{payment.checkNumber || '-'}</TableCell>
+                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </ReadOnlySection>
+  );
+}
+
 function ReadOnlySection({ title, children }: { title: string; children: React.ReactNode }): ReactElement {
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -1450,7 +1496,17 @@ export function Meta({ label, value, copyable }: { label: string; value: string;
   );
 }
 
-function Amount({ label, sublabel, value }: { label: string; sublabel?: string; value: number }): ReactElement {
+function Amount({
+  label,
+  sublabel,
+  value,
+  hint,
+}: {
+  label: string;
+  sublabel?: string;
+  value: number;
+  hint?: string;
+}): ReactElement {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 48 }}>
       <Box>
@@ -1463,9 +1519,16 @@ function Amount({ label, sublabel, value }: { label: string; sublabel?: string; 
           </Typography>
         )}
       </Box>
-      <Typography variant="body1" fontWeight={600}>
-        {formatCurrency(value)}
-      </Typography>
+      <Stack direction="row" alignItems="center" gap={0.5}>
+        <Typography variant="body1" fontWeight={600}>
+          {formatCurrency(value)}
+        </Typography>
+        {hint && (
+          <Tooltip title={hint}>
+            <WarningAmberIcon titleAccess={hint} sx={{ fontSize: 16, color: 'warning.main' }} />
+          </Tooltip>
+        )}
+      </Stack>
     </Box>
   );
 }

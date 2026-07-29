@@ -328,3 +328,90 @@ describe('ClaimDetail — run rules engine button', () => {
     );
   });
 });
+
+const PROVISIONAL_HINT = 'No remittance received yet, balance is provisional';
+
+describe('ClaimDetail — patient payments', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('lists patient payments, including a negative refund', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      patientPayments: [
+        {
+          paymentNoticeId: 'pn-1',
+          paymentDate: '2026-07-10',
+          amount: 60,
+          method: 'check',
+          description: 'check collected at front desk',
+          checkNumber: '1234',
+          status: 'active',
+        },
+        {
+          paymentNoticeId: 'pn-2',
+          paymentDate: '2026-07-11',
+          amount: -20,
+          method: 'card',
+          description: 'partial refund',
+          status: 'active',
+        },
+      ],
+    });
+    renderDetail();
+
+    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    fireEvent.click(paymentsTab);
+
+    const paymentRow = (await screen.findByText('check collected at front desk')).closest('tr');
+    expect(paymentRow).not.toBeNull();
+    const paymentCells = within(paymentRow as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(paymentCells).toEqual(['07/10/2026', 'check', 'check collected at front desk', '1234', 'active', '$60.00']);
+
+    const refundRow = (await screen.findByText('partial refund')).closest('tr');
+    const refundCells = within(refundRow as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'active', '$-20.00']);
+  });
+
+  it('shows the empty state when the claim has no patient payments', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
+    renderDetail();
+
+    const paymentsTab = await screen.findByRole('tab', { name: 'Write offs & Patient payments' });
+    fireEvent.click(paymentsTab);
+
+    expect(await screen.findByText('No patient payments yet')).toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail — provisional balance indicator', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('flags the balance as provisional when the claim is not adjudicated', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      adjudicated: false,
+    });
+    renderDetail();
+
+    expect(await screen.findByTitle(PROVISIONAL_HINT)).toBeInTheDocument();
+  });
+
+  it('does not flag the balance once the claim is adjudicated', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      adjudicated: true,
+    });
+    renderDetail();
+
+    await screen.findAllByText('Jane Doe');
+    expect(screen.queryByTitle(PROVISIONAL_HINT)).not.toBeInTheDocument();
+  });
+});
