@@ -8,6 +8,7 @@ import {
   PAPERWORK_FLOW_TAG,
   PaperworkFlowBase,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
+  Secrets,
   ServiceMode,
   slugify,
 } from 'utils';
@@ -17,6 +18,7 @@ import {
   BuildFlowQuestionnaireInput,
   getCanonicalUrlFromQ,
   getFormCanonicals,
+  getOttehrManagedQuestionnaires,
   getPatchOperationForExtensionUpsert,
   healthcareServiceExtensionUrlMap,
   PAPERWORK_FLOW_BASE_VERSION,
@@ -35,7 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const resources = await getResources(oystehr);
+  const resources = await getResources(oystehr, secrets);
   const slug = await makeUniqueFlowSlug(oystehr, slugify(flow.name));
 
   console.log('configuring questionnaire resource');
@@ -91,14 +93,17 @@ interface ResourceConfig {
   services: HealthcareService[];
 }
 
-async function getResources(oystehr: Oystehr): Promise<ResourceConfig> {
+async function getResources(oystehr: Oystehr, secrets: Secrets | null): Promise<ResourceConfig> {
   console.log('searching questionnaire and service resources');
-  const [formQuestionnaires, services] = await Promise.all([
+  const [formQuestionnaires, ottehrManagedQuestionnaires, services] = await Promise.all([
     searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG),
+    getOttehrManagedQuestionnaires(oystehr, secrets),
     searchServiceCategoryHealthcareServices(oystehr),
   ]);
 
-  return { formQuestionnaires, services };
+  const allFormQuestionnaires = [...formQuestionnaires, ...ottehrManagedQuestionnaires];
+
+  return { formQuestionnaires: allFormQuestionnaires, services };
 }
 
 function configFlowQuestionnaire(

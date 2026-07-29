@@ -29,6 +29,13 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'paperwork-flow-list';
 
+const INTAKE_URL = IN_PERSON_INTAKE_PAPERWORK_CANONICAL.url as string;
+const VIRTUAL_URL = VIRTUAL_INTAKE_PAPERWORK_CANONICAL.url as string;
+const MANAGED_Q_LABEL_MAP = {
+  [INTAKE_URL]: 'In-Person Intake Paperwork (system managed)',
+  [VIRTUAL_URL]: 'Virtual Intake Paperwork (system managed)',
+};
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started`);
   const { secrets } = validateRequestParameters(input);
@@ -82,7 +89,7 @@ async function listPaperworkFlows(oystehr: Oystehr, secrets: Secrets | null): Pr
       })
       .filter((flow): flow is PaperworkFlow => flow !== undefined) ?? [];
 
-  const ottehrQsFormatted = formatManagedQs(ottehrManagedQuestionnaires);
+  const ottehrQsFormatted = managedQToFlowForm(ottehrManagedQuestionnaires);
 
   return { flows, ottehrManagedQuestionnaires: ottehrQsFormatted };
 }
@@ -165,11 +172,27 @@ function toFlowForm(q: Questionnaire, forms: Map<string, Questionnaire>): FlowFo
           id: formQ.id,
           label: formQ.title ?? 'form',
         };
+
+        const customLabel = MANAGED_Q_LABEL_MAP[formQ.url];
+        if (customLabel) flowForm.label = customLabel;
+
         return flowForm;
       })
       .filter((form): form is FlowForm => form !== undefined) ?? []
   );
 }
+
+const managedQToFlowForm = (questionnaires: Questionnaire[]): FlowForm[] => {
+  return questionnaires.map((q) => {
+    const formatted = { id: q.id ?? '', label: q.title ?? '' };
+    const url = q.url;
+    if (!url) return formatted;
+    const customLabel = MANAGED_Q_LABEL_MAP[url];
+    if (customLabel) formatted.label = customLabel;
+
+    return formatted;
+  });
+};
 
 function ottehrManagedServicesFromQ(questionnaire: Questionnaire): FlowService[] {
   const ottehrManagedServiceIds: FlowService[] = [];
@@ -184,22 +207,3 @@ function ottehrManagedServicesFromQ(questionnaire: Questionnaire): FlowService[]
 
   return ottehrManagedServiceIds;
 }
-
-const formatManagedQs = (questionnaires: Questionnaire[]): { id: string; label: string }[] => {
-  const intakeUrl = IN_PERSON_INTAKE_PAPERWORK_CANONICAL.url as string;
-  const virtualUrl = VIRTUAL_INTAKE_PAPERWORK_CANONICAL.url as string;
-  const managedQNameMap = {
-    [intakeUrl]: 'In-Person Intake Paperwork (system managed)',
-    [virtualUrl]: 'Virtual Intake Paperwork (system managed)',
-  };
-
-  return questionnaires.map((q) => {
-    const formatted = { id: q.id ?? '', label: q.title ?? '' };
-    const url = q.url;
-    if (!url) return formatted;
-    const customLabel = managedQNameMap[url];
-    if (customLabel) formatted.label = customLabel;
-
-    return formatted;
-  });
-};
