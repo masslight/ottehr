@@ -138,6 +138,21 @@ export function summarizeClaimPayments(
   };
 }
 
+// only adjudicated claims count toward the patient's balance. an un-adjudicated claim's billed
+// amount is pending insurance, not patient-owed
+export function summarizePatientBalance(summaries: ClaimPaymentSummary[]): {
+  claimsWithPatientBalance: number;
+  pendingPayments: number;
+  currentBalance: number;
+} {
+  const claimBalances = summaries.map((summary) => (summary.adjudicated ? summary.balance : -summary.patientPaid));
+  return {
+    claimsWithPatientBalance: claimBalances.filter((balance) => balance > 0).length,
+    pendingPayments: 0,
+    currentBalance: claimBalances.reduce((sum, balance) => sum + balance, 0),
+  };
+}
+
 export function sumPatientPayments(notices: PaymentNotice[]): number {
   return notices.reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
 }

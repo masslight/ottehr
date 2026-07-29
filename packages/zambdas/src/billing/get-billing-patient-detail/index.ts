@@ -8,6 +8,7 @@ import {
   fetchClaimResponsesByClaimIds,
   fetchPatientPaymentsByEncounterIds,
   summarizeClaimPayments,
+  summarizePatientBalance,
   sumPatientPayments,
 } from '../claim-amounts';
 import {
@@ -143,14 +144,7 @@ async function fetchPatientClaims(
     };
   });
 
-  // only adjudicated claims count toward the patient's balance. an un-adjudicated claim's billed
-  // amount is pending insurance, not patient-owed
-  const adjudicatedBalances = summaries.filter((s) => s.adjudicated).map((s) => s.balance);
-  const balance = {
-    claimsWithPatientBalance: adjudicatedBalances.filter((b) => b > 0).length,
-    pendingPayments: 0,
-    currentBalance: adjudicatedBalances.reduce((sum, b) => sum + b, 0),
-  };
+  const balance = summarizePatientBalance(summaries);
 
   return {
     claims: claimItems,

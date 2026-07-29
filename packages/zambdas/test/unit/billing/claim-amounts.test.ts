@@ -5,6 +5,7 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, vi } from 'vitest';
 import {
   ADJUDICATION_CODES,
+  ClaimPaymentSummary,
   countEraClaims,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
@@ -13,6 +14,7 @@ import {
   OYSTEHR_ADJUDICATION_SYSTEM,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
+  summarizePatientBalance,
   sumPatientPayments,
   toClaimPatientPayment,
   X12_ADJUSTMENT_GROUP_SYSTEM,
@@ -516,6 +518,68 @@ describe('summarizeClaimPayments', () => {
     // responsibility stays allowed - insurancePaid (80 - 70); only the balance nets out the payment
     expect(summary.patientResp).toBe(10);
     expect(summary.balance).toBe(6);
+  });
+});
+
+const summary = (over: Partial<ClaimPaymentSummary>): ClaimPaymentSummary => ({
+  allowed: 0,
+  insurancePaid: 0,
+  patientResp: 0,
+  patientPaid: 0,
+  balance: 0,
+  adjudicated: false,
+  ...over,
+});
+
+describe('summarizePatientBalance', () => {
+  it('counts a payment on an un-adjudicated claim as a credit, not a balance owed', () => {
+    const result = summarizePatientBalance([
+      summary({
+        adjudicated: false,
+        patientPaid: 14.69,
+        balance: -14.69,
+      }),
+    ]);
+    expect(result.currentBalance).toBe(-14.69);
+    expect(result.claimsWithPatientBalance).toBe(0);
+    expect(result.pendingPayments).toBe(0);
+  });
+
+  it('counts an adjudicated claim with an outstanding patient balance', () => {
+    const result = summarizePatientBalance([
+      summary({
+        adjudicated: true,
+        patientResp: 20,
+        patientPaid: 5,
+        balance: 15,
+      }),
+    ]);
+    expect(result.currentBalance).toBe(15);
+    expect(result.claimsWithPatientBalance).toBe(1);
+  });
+
+  it('ignores un-adjudicated billed amounts but nets payments across claims', () => {
+    const result = summarizePatientBalance([
+      // billed pending insurance, no payment, must not count toward the patient
+      summary({
+        adjudicated: false,
+        balance: 200,
+      }),
+      // prepaid credit on an un-adjudicated claim
+      summary({
+        adjudicated: false,
+        patientPaid: 30,
+        balance: -30,
+      }),
+      // adjudicated amount the patient still owes
+      summary({
+        adjudicated: true,
+        patientResp: 40,
+        balance: 40,
+      }),
+    ]);
+    expect(result.currentBalance).toBe(10);
+    expect(result.claimsWithPatientBalance).toBe(1);
   });
 });
 
