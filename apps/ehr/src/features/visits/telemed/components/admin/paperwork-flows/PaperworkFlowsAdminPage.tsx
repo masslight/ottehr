@@ -163,10 +163,10 @@ const PaperworkFlowsAdminPage: FC = () => {
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: '15%' }}>Flow</TableCell>
-              <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: '20%' }}>Forms</TableCell>
+              <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: '25%' }}>Forms</TableCell>
               <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: '35%' }}>Applied to Services</TableCell>
               <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: '18%' }}>Visit Modality</TableCell>
-              <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: '12%' }} align="right">
+              <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap', width: '10%' }} align="right">
                 Actions
               </TableCell>
             </TableRow>
