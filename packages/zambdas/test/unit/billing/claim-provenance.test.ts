@@ -1,10 +1,19 @@
 import Oystehr from '@oystehr/sdk';
-import { Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
-import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils';
+import { Operation } from 'fast-json-patch';
+import { Claim, Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import {
+  AR_STAGE,
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_STATUS_DATE_EXTENSION_URLS,
+  ClaimFieldChange,
+  ClaimStatusValues,
+  claimStatusValuesToTags,
+} from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import {
   claimProvenanceRequest,
   claimResourceChangeRequests,
+  commitClaimMetaTagsWithProvenance,
   commitClaimResourceChange,
   diffResources,
 } from '../../../src/billing/provenance';
@@ -218,5 +227,75 @@ describe('claim resource change guts (shared by all mutation endpoints)', () => 
     expect(transaction).toHaveBeenCalledTimes(1);
     const requests = transaction.mock.calls[0][0].requests;
     expect(requests.map((r: { method: string }) => r.method)).toEqual(['POST', 'PUT', 'POST', 'DELETE']);
+  });
+});
+
+describe('commitClaimMetaTagsWithProvenance patient-AR date extensions', () => {
+  const claim = (values: Partial<ClaimStatusValues>): Claim =>
+    ({
+      resourceType: 'Claim',
+      id: 'c1',
+      meta: {
+        versionId: '2',
+        tag: claimStatusValuesToTags(values),
+      },
+    }) as Claim;
+
+  const commitAndReadPatchOps = async (
+    before: Claim,
+    afterValues: Partial<ClaimStatusValues>
+  ): Promise<Operation[]> => {
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
+    const oystehr = {
+      fhir: {
+        transaction,
+      },
+    } as unknown as Oystehr;
+    await commitClaimMetaTagsWithProvenance(
+      oystehr,
+      before,
+      claimStatusValuesToTags(afterValues),
+      'statusChange',
+      agent
+    );
+    const requests = transaction.mock.calls[0][0].requests;
+    const patch = requests.find((r: { method: string }) => r.method === 'PATCH');
+    return JSON.parse(Buffer.from(patch.resource.data, 'base64').toString());
+  };
+
+  it('adds an /extension patch recording the entered-patient-AR date on entering patient AR', async () => {
+    const ops = await commitAndReadPatchOps(
+      claim({
+        arStage: AR_STAGE.insurancePayer,
+      }),
+      {
+        arStage: AR_STAGE.patient,
+      }
+    );
+    const extensionOp = ops.find((op) => op.path === '/extension') as
+      | {
+          value: {
+            url: string;
+          }[];
+        }
+      | undefined;
+    expect(extensionOp?.value).toContainEqual({
+      url: CLAIM_STATUS_DATE_EXTENSION_URLS.enteredPatientAr,
+      valueDateTime: expect.any(String),
+    });
+  });
+
+  it('does not add an /extension patch for a status change that is not a tracked transition', async () => {
+    const ops = await commitAndReadPatchOps(
+      claim({
+        arStage: AR_STAGE.patient,
+        patientArStatus: 'not-invoiced',
+      }),
+      {
+        arStage: AR_STAGE.patient,
+        patientArStatus: 'ready-to-invoice',
+      }
+    );
+    expect(ops.some((op) => op.path === '/extension')).toBe(false);
   });
 });

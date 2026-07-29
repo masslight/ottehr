@@ -32,6 +32,7 @@ import {
   formatChargeItemDefinitionDefault,
 } from '../constants/chargeItemDefinition';
 import { useApiClients } from '../hooks/useAppClients';
+import { BulkImportProcedureCodes } from './BulkImportProcedureCodes';
 import { EditableSection } from './claim/EditableSection';
 import { Field } from './Field';
 import { Row } from './Row';
@@ -210,6 +211,7 @@ export function ChargeItemDefinitionDetailSection({
             }}
             sx={{ flex: 1 }}
           />
+          <BulkImportProcedureCodes type={type} cid={cid} onSaved={onSaved} />
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddDialogOpen(true)}>
             Add procedure code
           </Button>

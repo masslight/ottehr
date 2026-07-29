@@ -42,7 +42,13 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
       <Controller
         name="city"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        rules={{
+          required: REQUIRED_FIELD_ERROR_MESSAGE,
+          validate: (value) => {
+            if (value.length < 2) return 'Must be least 2 chars long';
+            return true;
+          },
+        }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <TextField
             label="City *"
