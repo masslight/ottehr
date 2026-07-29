@@ -1921,6 +1921,7 @@ export type ProcedureFormFields = Pick<
   | 'suppliesUsed'
   | 'procedureDetails'
   | 'lengthCm'
+  | 'repairDepth'
   | 'specimenSent'
   | 'complications'
   | 'patientResponse'
@@ -1950,6 +1951,7 @@ export const readProcedureFormFieldsFromServiceRequest = (sr: ServiceRequest): P
   suppliesUsed: getExtension(sr, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
   procedureDetails: getExtension(sr, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
   lengthCm: getExtension(sr, FHIR_EXTENSION.ServiceRequest.lengthCm.url)?.valueDecimal,
+  repairDepth: getExtension(sr, FHIR_EXTENSION.ServiceRequest.repairDepth.url)?.valueString,
   specimenSent: getExtension(sr, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
   complications: getExtension(sr, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
   patientResponse: getExtension(sr, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
@@ -1990,6 +1992,10 @@ export const createProcedureServiceRequest = (
     {
       url: FHIR_EXTENSION.ServiceRequest.lengthCm.url,
       valueDecimal: procedure.lengthCm,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.repairDepth.url,
+      valueString: procedure.repairDepth,
     },
     {
       url: FHIR_EXTENSION.ServiceRequest.specimenSent.url,

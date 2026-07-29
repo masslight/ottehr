@@ -11,6 +11,7 @@ import {
   Finding,
   ProcedureFactsInput,
   ProcedureFamilyModel,
+  RepairDepthSelection,
   WhereToDocument,
   whereToDocumentClause,
 } from '../model.types';
@@ -142,6 +143,34 @@ export function isComplexRepairCode(code: string): boolean {
 export const LACERATION_TISSUE_ADHESIVE_PAYER_NOTE =
   'Payer note: when tissue adhesive is the only closure, Medicare is billed with HCPCS code G0168 instead of a CPT repair code; handling by commercial insurers varies.';
 
+// ── Structured "Repair depth" select (design §6) ───────────────────────────────
+
+/** The Repair depth select options, in display order (single-sourced for the UI and the engine). */
+export const REPAIR_DEPTH_OPTIONS: Array<{ value: RepairDepthSelection; label: string }> = [
+  { value: 'superficial-single', label: 'Superficial — single-layer closure' },
+  { value: 'subcutaneous-single', label: 'Subcutaneous — single-layer closure' },
+  { value: 'subcutaneous-layered', label: 'Subcutaneous — layered closure' },
+  { value: 'fascia-muscle-layered', label: 'Fascia/muscle involved — layered closure' },
+  { value: 'tissue-adhesive-only', label: 'Tissue adhesive only (e.g. Dermabond)' },
+  { value: 'strips-only', label: 'Adhesive strips only' },
+];
+
+/** Narrows a persisted string (DTO/page state) to a known Repair depth selection. */
+export function isRepairDepthSelection(value: string | undefined): value is RepairDepthSelection {
+  return REPAIR_DEPTH_OPTIONS.some((option) => option.value === value);
+}
+
+/** Repair class each non-adhesive selection determines. */
+const REPAIR_DEPTH_SELECTION_CLASS: Record<
+  Exclude<RepairDepthSelection, 'tissue-adhesive-only' | 'strips-only'>,
+  LacerationRepairClass
+> = {
+  'superficial-single': 'simple',
+  'subcutaneous-single': 'simple',
+  'subcutaneous-layered': 'intermediate',
+  'fascia-muscle-layered': 'intermediate',
+};
+
 const OUTSIDE_SCOPE_MESSAGE =
   'The note documents debridement, undermining, or tissue rearrangement — that points to a complex repair (CPT 13100–13160), which these documentation checks do not cover; not assessed.';
 
@@ -150,6 +179,7 @@ const OUTSIDE_SCOPE_MESSAGE =
 // the messages and the mismatch finding name the same fields.
 
 const LENGTH_FIELD_LABEL = 'Wound/lesion size (cm)';
+const REPAIR_DEPTH_FIELD_LABEL = 'Repair depth';
 const DETAILS_FIELD_LABEL = 'Procedure details';
 const TO_DETAILS = `to ${DETAILS_FIELD_LABEL}`;
 
@@ -158,7 +188,10 @@ const WHERE_TO_DOCUMENT = {
   site: { destination: 'in the Site/location field' },
   laterality: { destination: 'in the Side of body field' },
   length: { destination: `in the ${LENGTH_FIELD_LABEL} field` },
-  depth: { destination: TO_DETAILS, example: '"Layered closure" or "Single-layer closure"' },
+  depth: {
+    destination: `in the ${REPAIR_DEPTH_FIELD_LABEL} field, or describe the closure in ${DETAILS_FIELD_LABEL}`,
+    example: '"Layered closure" or "Single-layer closure"',
+  },
   sutureClosure: { destination: TO_DETAILS, example: '"5 x 4-0 nylon, simple interrupted"' },
   stapleClosure: { destination: TO_DETAILS, example: '"4 staples"' },
   extensiveCleaning: { destination: TO_DETAILS, example: '"copiously irrigated with 500 mL saline"' },
@@ -209,7 +242,23 @@ const LATERALIZABLE_SITES: AnatomicSite[] = ['extremity', 'hand', 'foot', 'ear',
 
 // ── Repair class resolution ────────────────────────────────────────────────────
 
-type RepairBasis = 'layered' | 'single-layer' | 'contaminated' | 'adhesive';
+type RepairBasis =
+  | 'layered'
+  | 'single-layer'
+  | 'contaminated'
+  | 'adhesive'
+  | 'structured-layered'
+  | 'structured-single'
+  | 'structured-adhesive'
+  | 'structured-strips';
+
+/** Bases established by the structured Repair depth field (vs the details text or supplies). */
+const STRUCTURED_BASES: RepairBasis[] = [
+  'structured-layered',
+  'structured-single',
+  'structured-adhesive',
+  'structured-strips',
+];
 
 interface RepairClassResolution {
   repairClass?: LacerationRepairClass | 'outside-scope';
@@ -247,6 +296,35 @@ function adhesiveStripsOnly(facts: LacerationFacts): boolean {
 export function resolveRepairClass(facts: LacerationFacts): RepairClassResolution {
   if (facts.outsideScope) {
     return { repairClass: 'outside-scope', sourceText: facts.outsideScope.sourceText, confidence: 'text' };
+  }
+  // Structured Repair depth selection wins over the text-derived class/adhesive facts below;
+  // disagreements with the text surface as a reconcile finding (repairDepthMismatchFinding).
+  const selection = facts.structuredRepairDepth;
+  if (selection === 'tissue-adhesive-only') {
+    // Tissue adhesive as the only closure: by definition a simple repair (Medicare's G0168
+    // redirection is a payer footnote, matching the text-driven tissue-adhesive path).
+    return { repairClass: 'simple', basis: 'structured-adhesive', confidence: 'structured' };
+  }
+  if (selection === 'strips-only') {
+    // Strips support no repair code (the callers early-return on that); the class is still
+    // resolved so the field satisfies the repair-depth [D] ask.
+    return { repairClass: 'simple', basis: 'structured-strips', confidence: 'structured' };
+  }
+  if (selection !== undefined) {
+    if (REPAIR_DEPTH_SELECTION_CLASS[selection] === 'intermediate') {
+      return { repairClass: 'intermediate', basis: 'structured-layered', confidence: 'structured' };
+    }
+    // Single-layer selection: heavy contamination + extensive cleaning still upgrades to
+    // intermediate (the same rule as text-documented single-layer closures below).
+    if (facts.contaminationDocumented && facts.extensiveCleaningDocumented) {
+      return {
+        repairClass: 'intermediate',
+        basis: 'contaminated',
+        sourceText: facts.contaminationDocumented.sourceText,
+        confidence: 'text',
+      };
+    }
+    return { repairClass: 'simple', basis: 'structured-single', confidence: 'structured' };
   }
   if (facts.depth?.value === 'layered') {
     return {
@@ -290,6 +368,14 @@ function classBasisDescription(basis: RepairBasis | undefined): string {
   switch (basis) {
     case 'layered':
       return 'layered closure documented';
+    case 'structured-layered':
+      return `layered closure selected in the ${REPAIR_DEPTH_FIELD_LABEL} field`;
+    case 'structured-single':
+      return `single-layer closure selected in the ${REPAIR_DEPTH_FIELD_LABEL} field`;
+    case 'structured-adhesive':
+      return `tissue-adhesive-only closure selected in the ${REPAIR_DEPTH_FIELD_LABEL} field`;
+    case 'structured-strips':
+      return `adhesive-strips-only closure selected in the ${REPAIR_DEPTH_FIELD_LABEL} field`;
     case 'contaminated':
       return 'single-layer closure of a heavily contaminated wound with extensive cleaning documented (together these qualify as an intermediate repair)';
     case 'adhesive':
@@ -297,6 +383,56 @@ function classBasisDescription(basis: RepairBasis | undefined): string {
     default:
       return 'single-layer closure documented';
   }
+}
+
+// ── Structured Repair depth vs details-text reconciliation ─────────────────────
+
+/**
+ * The structured Repair depth selection vs details-text disagreement, when both are present:
+ * either the two disagree on repair class, or the field says an adhesive-only closure
+ * (tissue adhesive or strips) while the text documents sutures/staples. Modeled on the
+ * length mismatch finding — plain language, names both fields, and says the checks use
+ * the field's value.
+ */
+function repairDepthMismatchFinding(facts: LacerationFacts): Finding | undefined {
+  const selection = facts.structuredRepairDepth;
+  if (selection === undefined) return undefined;
+  const reconcileClause = `— please reconcile them; the checks use the value from the field.`;
+  if (selection === 'tissue-adhesive-only' || selection === 'strips-only') {
+    const sutures = sutureEvidence(facts);
+    const staples = stapleEvidence(facts);
+    if (!sutures && !staples) return undefined;
+    const closureEvidence = sutures && staples ? 'sutures and staples' : staples ? 'staples' : 'sutures';
+    const fieldClosure =
+      selection === 'tissue-adhesive-only'
+        ? 'a tissue-adhesive-only closure (no sutures or staples)'
+        : 'closure with adhesive strips only (no sutures or staples)';
+    return {
+      level: 'contradiction',
+      message: `The ${REPAIR_DEPTH_FIELD_LABEL} field documents ${fieldClosure}, but the ${DETAILS_FIELD_LABEL} text documents ${closureEvidence} ${reconcileClause}`,
+      sourceText:
+        facts.suturesDocumented?.sourceText ??
+        facts.staplesDocumented?.sourceText ??
+        facts.closureMethod?.sourceText ??
+        facts.closureMaterial?.sourceText ??
+        facts.closureCount?.sourceText,
+      confidence: 'text',
+    };
+  }
+  if (facts.depth === undefined) return undefined;
+  const fieldClass = REPAIR_DEPTH_SELECTION_CLASS[selection];
+  const textClass: LacerationRepairClass = facts.depth.value === 'layered' ? 'intermediate' : 'simple';
+  if (fieldClass === textClass) return undefined;
+  const classDescription = (repairClass: LacerationRepairClass): string =>
+    repairClass === 'intermediate' ? 'a layered closure' : 'a single-layer closure';
+  return {
+    level: 'contradiction',
+    message: `The ${REPAIR_DEPTH_FIELD_LABEL} field documents ${classDescription(
+      fieldClass
+    )}, but the ${DETAILS_FIELD_LABEL} text documents ${classDescription(textClass)} ${reconcileClause}`,
+    sourceText: facts.depth.sourceText,
+    confidence: 'text',
+  };
 }
 
 // ── Length totals (multi-wound sum rule) ───────────────────────────────────────
@@ -444,8 +580,12 @@ function otherGroupAdvisories(
 }
 
 function missingClosureElements(facts: LacerationFacts): string[] {
-  // Tissue adhesive documented as the closure: method is known and material/count do not apply.
-  if (facts.closureMethod?.value === 'tissue adhesive' || tissueAdhesiveOnly(facts)) {
+  // Adhesive documented as the closure: method is known and material/count do not apply.
+  if (
+    facts.structuredRepairDepth === 'tissue-adhesive-only' ||
+    facts.closureMethod?.value === 'tissue adhesive' ||
+    tissueAdhesiveOnly(facts)
+  ) {
     return [];
   }
   const missing: string[] = [];
@@ -484,7 +624,22 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
     return evaluation;
   }
 
-  if (adhesiveStripsOnly(facts)) {
+  const depthMismatch = repairDepthMismatchFinding(facts);
+  if (depthMismatch) findings.push(depthMismatch);
+
+  // Adhesive strips selected in the Repair depth field: no repair code, per the same rule as the
+  // text-driven adhesive-strips path below. (A tissue-adhesive-only selection is different — it
+  // resolves to a simple repair and the suggestion proceeds normally, with the G0168 payer note.)
+  if (facts.structuredRepairDepth === 'strips-only') {
+    findings.push({
+      level: 'contradiction',
+      message: `The ${REPAIR_DEPTH_FIELD_LABEL} field documents closure with adhesive strips only — adhesive strips alone do not support a wound-repair code; that care is part of the visit (E/M) charge instead.`,
+      confidence: 'structured',
+    });
+    return evaluation;
+  }
+
+  if (facts.structuredRepairDepth === undefined && adhesiveStripsOnly(facts)) {
     findings.push({
       level: 'contradiction',
       message:
@@ -515,7 +670,8 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
     missingDeterminants.push({
       level: 'determines',
       message: `Repair depth is not documented — a single-layer closure codes as a simple repair and a layered closure as an intermediate repair. ${whereClause(
-        'depth'
+        'depth',
+        'Select it'
       )}`,
     });
   }
@@ -553,7 +709,7 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
       SITE_LABELS[entrySite as AnatomicSite]
     } (${series.groupLabel}); total ${formatCm(totals.totalCm as number)} cm → ${band.code}.`,
   };
-  if (classResolution.basis === 'adhesive') {
+  if (classResolution.basis === 'adhesive' || classResolution.basis === 'structured-adhesive') {
     evaluation.payerNotes = [LACERATION_TISSUE_ADHESIVE_PAYER_NOTE];
   }
   return evaluation;
@@ -582,7 +738,11 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
     return evaluation;
   }
 
-  const stripsOnly = adhesiveStripsOnly(facts);
+  const depthMismatch = repairDepthMismatchFinding(facts);
+  if (depthMismatch) findings.push(depthMismatch);
+
+  const stripsSelected = facts.structuredRepairDepth === 'strips-only';
+  const stripsOnly = stripsSelected || (facts.structuredRepairDepth === undefined && adhesiveStripsOnly(facts));
   const entrySite = facts.site?.value;
   const inScopeSelected = selected.filter((c) => isLacerationRepairCode(c.code));
 
@@ -599,28 +759,38 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
       codeFindings.push({
         level: 'contradiction',
         cptCode: selectedCode.code,
-        message: `${selectedCode.code} is selected, but the note documents closure with adhesive strips only — adhesive strips alone do not support a wound-repair code.`,
-        sourceText: facts.adhesiveStripsDocumented?.sourceText,
-        confidence: facts.adhesiveStripsDocumented?.confidence,
+        message: `${selectedCode.code} is selected, but ${
+          stripsSelected ? `the ${REPAIR_DEPTH_FIELD_LABEL} field` : 'the note'
+        } documents closure with adhesive strips only — adhesive strips alone do not support a wound-repair code.`,
+        sourceText: stripsSelected ? undefined : facts.adhesiveStripsDocumented?.sourceText,
+        confidence: stripsSelected ? 'structured' : facts.adhesiveStripsDocumented?.confidence,
       });
     }
 
     // Repair class: [C] when contradicted, [D] ask when undocumented.
     if (classResolution.repairClass !== undefined && classResolution.repairClass !== impliedClass) {
       const documentedClassDescription =
-        classResolution.basis === 'layered'
+        classResolution.basis === 'layered' || classResolution.basis === 'structured-layered'
           ? 'a layered closure (an intermediate repair)'
           : classResolution.basis === 'contaminated'
           ? 'a heavily contaminated wound with extensive cleaning (which qualifies as an intermediate repair)'
-          : classResolution.basis === 'adhesive'
+          : classResolution.basis === 'adhesive' || classResolution.basis === 'structured-adhesive'
           ? 'closure with tissue adhesive alone (a simple repair)'
+          : classResolution.basis === 'structured-strips'
+          ? 'closure with adhesive strips only (a simple repair)'
+          : classResolution.basis === 'structured-single'
+          ? 'a single-layer closure (a simple repair)'
           : 'a single-layer superficial closure (a simple repair)';
+      const documentedIn =
+        classResolution.basis !== undefined && STRUCTURED_BASES.includes(classResolution.basis)
+          ? `the ${REPAIR_DEPTH_FIELD_LABEL} field`
+          : 'the note';
       codeFindings.push({
         level: 'contradiction',
         cptCode: selectedCode.code,
         message: `${selectedCode.code} is ${
           impliedClass === 'simple' ? 'a simple' : 'an intermediate'
-        }-repair code, but the note documents ${documentedClassDescription}.`,
+        }-repair code, but ${documentedIn} documents ${documentedClassDescription}.`,
         sourceText: classResolution.sourceText,
         confidence: classResolution.confidence,
       });
@@ -631,7 +801,8 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
         message: `Repair depth is not documented for ${
           selectedCode.code
         } — a single-layer closure codes as a simple repair and a layered closure as an intermediate repair. ${whereClause(
-          'depth'
+          'depth',
+          'Select it'
         )}`,
       });
       // Contamination claimed as the basis for an intermediate code upgrades irrigation/cleaning to [R].
@@ -760,7 +931,7 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
         message: `Tetanus status is not documented. ${whereClause('tetanus')}`,
       });
     }
-    if (tissueAdhesiveOnly(facts)) {
+    if (facts.structuredRepairDepth === 'tissue-adhesive-only' || tissueAdhesiveOnly(facts)) {
       evaluation.payerNotes = [LACERATION_TISSUE_ADHESIVE_PAYER_NOTE];
     }
   }
@@ -781,6 +952,7 @@ export const lacerationFamily: ProcedureFamilyModel = {
   id: 'laceration',
   displayName: 'Laceration Repair (Wound Closure)',
   usesStructuredLength: true,
+  usesStructuredRepairDepth: true,
   detect(input: ProcedureFactsInput): boolean {
     const procedureType = input.procedureType ?? '';
     const typeMatches = LACERATION_TYPE_PATTERN.test(procedureType) && !/removal/i.test(procedureType);

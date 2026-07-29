@@ -28,6 +28,7 @@ export interface ProcedurePageState {
   otherSuppliesUsed?: string;
   procedureDetails?: string;
   lengthCm?: number;
+  repairDepth?: string;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;

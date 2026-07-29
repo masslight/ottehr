@@ -5,9 +5,10 @@
 //
 // vi.mock calls must come before any component imports (Vitest hoists them).
 
-const { recommendBillingCodesMock, aiSuggestionNotesMock } = vi.hoisted(() => ({
+const { recommendBillingCodesMock, aiSuggestionNotesMock, saveChartDataMock } = vi.hoisted(() => ({
   recommendBillingCodesMock: vi.fn(),
   aiSuggestionNotesMock: vi.fn(),
+  saveChartDataMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -55,7 +56,7 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ encounter: { id: 'enc-coding-assist-test' } }),
   useChartData: () => ({ chartData: {}, setPartialChartData: vi.fn() }),
-  useSaveChartData: () => ({ mutateAsync: vi.fn().mockResolvedValue({}) }),
+  useSaveChartData: () => ({ mutateAsync: saveChartDataMock }),
   useDeleteChartData: () => ({ mutateAsync: vi.fn().mockResolvedValue({}) }),
 }));
 
@@ -112,6 +113,7 @@ vi.mock('../../src/api/api', () => ({
 // Component and store imports come after all vi.mock calls.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -151,6 +153,7 @@ describe('ProceduresNew — deterministic coding assist', () => {
     vi.clearAllMocks();
     recommendBillingCodesMock.mockResolvedValue([]);
     aiSuggestionNotesMock.mockResolvedValue(undefined);
+    saveChartDataMock.mockResolvedValue({});
     useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
     // Stub fetch so the PDF-check useEffect does not trigger the no-network guard.
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, headers: { get: () => '' } }));
@@ -297,5 +300,66 @@ describe('ProceduresNew — deterministic coding assist', () => {
     renderComponent();
     const input = (await screen.findByTestId('length-cm-input')).querySelector('input');
     expect(input).toHaveValue(3.2);
+  });
+
+  // --- Conditional structured Repair depth select ---
+
+  it('shows the Repair depth select for a laceration-family procedure type', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Laceration Repair' });
+    renderComponent();
+    expect(await screen.findByTestId('repair-depth-select')).toBeVisible();
+  });
+
+  it('hides the Repair depth select for a procedure type outside repair-depth families', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG' });
+    renderComponent();
+    await waitFor(() => {
+      expect(screen.queryByTestId('repair-depth-select')).not.toBeInTheDocument();
+    });
+  });
+
+  it('flows a Repair depth selection into the best-match row: hand + 3.2 cm + layered ⇒ 12042', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Laceration Repair',
+      bodySite: 'Hand',
+      lengthCm: 3.2,
+      // Closure elements without depth language — the field is the only depth source.
+      procedureDetails: 'Closed with 5 simple interrupted 4-0 Ethilon sutures.',
+    });
+    renderComponent();
+    const select = await screen.findByTestId('repair-depth-select');
+    await user.click(select.querySelector('[role="combobox"]') as Element);
+    await user.click(await screen.findByText('Subcutaneous — layered closure'));
+    const bestMatch = await screen.findByTestId('best-match-cpt-code', undefined, { timeout: 3000 });
+    expect(bestMatch).toHaveTextContent('12042');
+    expect(bestMatch).toHaveTextContent(/Repair depth field/i);
+  });
+
+  it('restores a saved Repair depth value into the select', async () => {
+    useProcedureStore
+      .getState()
+      .setDraft(ENCOUNTER_ID, { procedureType: 'Laceration Repair', repairDepth: 'subcutaneous-layered' });
+    renderComponent();
+    const select = await screen.findByTestId('repair-depth-select');
+    expect(select).toHaveTextContent('Subcutaneous — layered closure');
+  });
+
+  it('round-trips the Repair depth value through the save payload', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Laceration Repair',
+      repairDepth: 'fascia-muscle-layered',
+    });
+    renderComponent();
+    await screen.findByTestId('repair-depth-select');
+    await user.click(screen.getByText('Save'));
+    await waitFor(() => {
+      expect(saveChartDataMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          procedures: [expect.objectContaining({ repairDepth: 'fascia-muscle-layered' })],
+        })
+      );
+    });
   });
 });

@@ -26,6 +26,8 @@ export interface UseProcedureCodingResult {
   rulesVintage: string;
   /** True when the detected procedure family uses the structured length/size (cm) input. */
   showLengthInput: boolean;
+  /** True when the detected procedure family uses the structured Repair depth select. */
+  showRepairDepthSelect: boolean;
 }
 
 /**
@@ -50,14 +52,17 @@ export function useProcedureCoding(facts: ProcedureFactsInput): UseProcedureCodi
     return () => clearTimeout(timeoutId);
   }, [factsKey]);
 
-  // Family detection is cheap, so it runs synchronously: the conditional length input
-  // appears as soon as the selected procedure type maps to a family that uses it.
-  const showLengthInput = detectProcedureFamily(facts)?.usesStructuredLength === true;
+  // Family detection is cheap, so it runs synchronously: the conditional length and repair-depth
+  // inputs appear as soon as the selected procedure type maps to a family that uses them.
+  const family = detectProcedureFamily(facts);
+  const showLengthInput = family?.usesStructuredLength === true;
+  const showRepairDepthSelect = family?.usesStructuredRepairDepth === true;
 
   return {
     suggestion: evaluations?.suggestion,
     defense: evaluations?.defense,
     rulesVintage: CPT_RULES_VINTAGE,
     showLengthInput,
+    showRepairDepthSelect,
   };
 }

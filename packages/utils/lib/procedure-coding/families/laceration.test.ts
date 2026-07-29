@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Finding, ProcedureFactsInput } from '../model.types';
+import { Finding, ProcedureFactsInput, RepairDepthSelection } from '../model.types';
 import { lacerationFamily } from './laceration';
 
 function input(overrides: Partial<ProcedureFactsInput>): ProcedureFactsInput {
@@ -246,6 +246,128 @@ describe('laceration forward: structured length preferred over text', () => {
   });
 });
 
+describe('laceration forward: structured Repair depth field', () => {
+  // Closure elements documented without any depth/layer language, so the field is the only depth source.
+  const NO_DEPTH_CLOSURE_TEXT = 'Closed with 5 simple interrupted 4-0 Ethilon sutures.';
+
+  it.each<[RepairDepthSelection, string]>([
+    ['superficial-single', '12002'], // simple: hand sits with trunk/extremities
+    ['subcutaneous-single', '12002'],
+    ['subcutaneous-layered', '12042'], // intermediate: hand moves to neck/hands/feet/genitalia
+    ['fascia-muscle-layered', '12042'],
+  ])('%s determines the class: hand + 3.2 cm → %s, with no depth ask', (repairDepth, expectedCode) => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Hand', lengthCm: 3.2, repairDepth, procedureDetails: NO_DEPTH_CLOSURE_TEXT })
+    );
+    expect(result.suggestion?.code).toBe(expectedCode);
+    expect(result.suggestion?.justification).toContain('Repair depth field');
+    expect(hasFinding(result.findings, 'determines', /depth/i)).toBe(false);
+  });
+
+  it('tissue-adhesive-only ⇒ simple repair suggested normally, with the G0168 payer footnote', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Face', lengthCm: 1.5, repairDepth: 'tissue-adhesive-only', procedureDetails: 'Wound closed.' })
+    );
+    expect(result.suggestion?.code).toBe('12011'); // simple face table, ≤2.5 cm
+    expect(result.suggestion?.justification).toContain('Repair depth field');
+    expect(result.payerNotes?.some((n) => n.includes('G0168'))).toBe(true);
+    expect(hasFinding(result.findings, 'determines', /depth/i)).toBe(false);
+  });
+
+  it('strips-only ⇒ no repair code supported, no depth ask', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Hand', lengthCm: 1.5, repairDepth: 'strips-only', procedureDetails: 'Wound closed.' })
+    );
+    expect(result.suggestion).toBeUndefined();
+    expect(
+      hasFinding(
+        result.findings,
+        'contradiction',
+        'The Repair depth field documents closure with adhesive strips only — adhesive strips alone do not support a wound-repair code; that care is part of the visit (E/M) charge instead.'
+      )
+    ).toBe(true);
+    expect(hasFinding(result.findings, 'determines', /depth/i)).toBe(false);
+  });
+
+  it('field says single-layer but the text documents a layered closure ⇒ reconcile [C], field wins', () => {
+    const result = lacerationFamily.suggestCode(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 3.2,
+        repairDepth: 'subcutaneous-single',
+        procedureDetails: LAYERED_CLOSURE_TEXT,
+      })
+    );
+    expect(result.suggestion?.code).toBe('12002'); // simple per the field, not intermediate per the text
+    const mismatch = result.findings.find((f) => f.level === 'contradiction');
+    expect(mismatch?.message).toBe(
+      'The Repair depth field documents a single-layer closure, but the Procedure details text documents a layered closure — please reconcile them; the checks use the value from the field.'
+    );
+  });
+
+  it('field says layered but the text documents a single-layer closure ⇒ reconcile [C], field wins', () => {
+    const result = lacerationFamily.suggestCode(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 3.2,
+        repairDepth: 'fascia-muscle-layered',
+        procedureDetails: SIMPLE_CLOSURE_TEXT,
+      })
+    );
+    expect(result.suggestion?.code).toBe('12042'); // intermediate per the field, not simple per the text
+    const mismatch = result.findings.find((f) => f.level === 'contradiction');
+    expect(mismatch?.message).toBe(
+      'The Repair depth field documents a layered closure, but the Procedure details text documents a single-layer closure — please reconcile them; the checks use the value from the field.'
+    );
+  });
+
+  it('field says tissue-adhesive-only but the text documents sutures ⇒ reconcile [C], field wins', () => {
+    const result = lacerationFamily.suggestCode(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 1.5,
+        repairDepth: 'tissue-adhesive-only',
+        procedureDetails: NO_DEPTH_CLOSURE_TEXT,
+      })
+    );
+    expect(result.suggestion?.code).toBe('12001'); // simple per the field; the suggestion still proceeds
+    expect(
+      hasFinding(
+        result.findings,
+        'contradiction',
+        'The Repair depth field documents a tissue-adhesive-only closure (no sutures or staples), but the Procedure details text documents sutures — please reconcile them; the checks use the value from the field.'
+      )
+    ).toBe(true);
+  });
+
+  it('field says strips-only but the text documents sutures ⇒ the same reconcile [C]', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Hand', lengthCm: 1.5, repairDepth: 'strips-only', procedureDetails: NO_DEPTH_CLOSURE_TEXT })
+    );
+    expect(result.suggestion).toBeUndefined();
+    expect(
+      hasFinding(
+        result.findings,
+        'contradiction',
+        'The Repair depth field documents closure with adhesive strips only (no sutures or staples), but the Procedure details text documents sutures — please reconcile them; the checks use the value from the field.'
+      )
+    ).toBe(true);
+  });
+
+  it('field matching the text depth ⇒ no reconcile finding', () => {
+    const result = lacerationFamily.suggestCode(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 3.2,
+        repairDepth: 'subcutaneous-layered',
+        procedureDetails: LAYERED_CLOSURE_TEXT,
+      })
+    );
+    expect(result.suggestion?.code).toBe('12042');
+    expect(result.findings.filter((f) => f.level === 'contradiction')).toHaveLength(0);
+  });
+});
+
 describe('laceration forward: missing determinants', () => {
   it('missing length ⇒ open candidate set for the known class+group, with a [D] finding', () => {
     const result = lacerationFamily.suggestCode(input({ bodySite: 'Arm', procedureDetails: SIMPLE_CLOSURE_TEXT }));
@@ -286,6 +408,156 @@ describe('laceration forward: missing determinants', () => {
 describe('laceration family metadata', () => {
   it('uses the structured length input (drives the conditional cm field)', () => {
     expect(lacerationFamily.usesStructuredLength).toBe(true);
+  });
+
+  it('uses the structured Repair depth select (drives the conditional depth field)', () => {
+    expect(lacerationFamily.usesStructuredRepairDepth).toBe(true);
+  });
+});
+
+describe('laceration: missing-depth asks point first at the Repair depth field', () => {
+  const NO_DEPTH_TEXT = 'Closed with 4-0 Ethilon, total stitch count: 5.';
+
+  it('forward ask names the Repair depth field, with details text as the fallback', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Hand', lengthCm: 3.0, procedureDetails: NO_DEPTH_TEXT })
+    );
+    const ask = result.findings.find((f) => f.level === 'determines' && /depth/i.test(f.message));
+    expect(ask?.message).toContain('Select it in the Repair depth field, or describe the closure in Procedure details');
+  });
+
+  it('inverse ask names the Repair depth field, with details text as the fallback', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 3.0,
+        cptCodes: [{ code: '12041', display: 'Intermediate repair 2.5 cm or less' }],
+        procedureDetails: NO_DEPTH_TEXT,
+      })
+    );
+    const ask = result.findings.find((f) => f.level === 'determines' && /depth/i.test(f.message));
+    expect(ask?.message).toContain('Select it in the Repair depth field, or describe the closure in Procedure details');
+  });
+});
+
+describe('laceration inverse: structured Repair depth field', () => {
+  const NO_DEPTH_CLOSURE_TEXT = 'Closed with 5 simple interrupted 4-0 Ethilon sutures.';
+
+  it('field set ⇒ no depth ask; the field-determined class defends the matching code', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Arm',
+        bodySide: 'Left',
+        lengthCm: 3.0,
+        medicationUsed: '1% lidocaine',
+        repairDepth: 'superficial-single',
+        cptCodes: [{ code: '12002', display: 'Simple repair 2.6-7.5 cm' }],
+        procedureDetails: NO_DEPTH_CLOSURE_TEXT + ' Wound irrigated with normal saline. Tetanus status up to date.',
+      })
+    );
+    expect(hasFinding(result.findings, 'determines', /depth/i)).toBe(false);
+    expect(result.supportedCodes).toEqual(['12002']);
+  });
+
+  it('field-determined class contradicts the selected code ⇒ [C] naming the field', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Arm',
+        lengthCm: 3.0,
+        repairDepth: 'subcutaneous-layered',
+        cptCodes: [{ code: '12002', display: 'Simple repair 2.6-7.5 cm' }],
+        procedureDetails: NO_DEPTH_CLOSURE_TEXT,
+      })
+    );
+    expect(
+      hasFinding(
+        result.findings,
+        'contradiction',
+        '12002 is a simple-repair code, but the Repair depth field documents a layered closure (an intermediate repair).',
+        '12002'
+      )
+    ).toBe(true);
+    expect(result.supportedCodes).toHaveLength(0);
+  });
+
+  it('tissue-adhesive-only selected ⇒ the matching simple code is supported, with the G0168 payer note', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Arm',
+        bodySide: 'Left',
+        lengthCm: 2.0,
+        medicationUsed: '1% lidocaine',
+        repairDepth: 'tissue-adhesive-only',
+        cptCodes: [{ code: '12001', display: 'Simple repair 2.5 cm or less' }],
+        procedureDetails: 'Wound irrigated with normal saline and closed. Tetanus status up to date.',
+      })
+    );
+    expect(result.supportedCodes).toEqual(['12001']);
+    expect(hasFinding(result.findings, 'determines', /depth/i)).toBe(false);
+    expect(result.payerNotes?.some((n) => n.includes('G0168'))).toBe(true);
+  });
+
+  it('tissue-adhesive-only selected + an intermediate code ⇒ [C] naming the field', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Torso',
+        lengthCm: 3.0,
+        repairDepth: 'tissue-adhesive-only',
+        cptCodes: [{ code: '12032', display: 'Intermediate repair 2.6-7.5 cm' }],
+        procedureDetails: 'Wound closed.',
+      })
+    );
+    expect(
+      hasFinding(
+        result.findings,
+        'contradiction',
+        '12032 is an intermediate-repair code, but the Repair depth field documents closure with tissue adhesive alone (a simple repair).',
+        '12032'
+      )
+    ).toBe(true);
+    expect(result.supportedCodes).toHaveLength(0);
+  });
+
+  it('strips-only selected + a repair code ⇒ [C] per code naming the field, no supported codes', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Arm',
+        lengthCm: 2.0,
+        repairDepth: 'strips-only',
+        cptCodes: [{ code: '12001', display: 'Simple repair 2.5 cm or less' }],
+        procedureDetails: 'Wound closed.',
+      })
+    );
+    expect(
+      hasFinding(
+        result.findings,
+        'contradiction',
+        '12001 is selected, but the Repair depth field documents closure with adhesive strips only — adhesive strips alone do not support a wound-repair code.',
+        '12001'
+      )
+    ).toBe(true);
+    expect(result.supportedCodes).toHaveLength(0);
+    expect(hasFinding(result.findings, 'determines', /depth/i)).toBe(false);
+  });
+
+  it('field-vs-text class disagreement ⇒ the entry-level reconcile [C] clears supported codes', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 3.2,
+        repairDepth: 'fascia-muscle-layered',
+        cptCodes: [{ code: '12042', display: 'Intermediate repair 2.6-7.5 cm' }],
+        procedureDetails: SIMPLE_CLOSURE_TEXT,
+      })
+    );
+    expect(
+      hasFinding(
+        result.findings,
+        'contradiction',
+        /Repair depth field documents a layered closure, but the Procedure details text/
+      )
+    ).toBe(true);
+    expect(result.supportedCodes).toHaveLength(0);
   });
 });
 

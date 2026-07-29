@@ -62,6 +62,7 @@ import {
   FHIR_CODE_REGEX,
   Finding,
   IcdSearchResponse,
+  isRepairDepthSelection,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
@@ -71,6 +72,7 @@ import {
   ProcedureQuickPickData,
   PROCEDURES_CONFIG,
   ProcedureSuggestion,
+  REPAIR_DEPTH_OPTIONS,
   REQUIRED_FIELD_ERROR_MESSAGE,
   RoleType,
   SUPPLIES_VALUE_SET_URL,
@@ -211,6 +213,7 @@ function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
     otherSuppliesUsed: pageState.otherSuppliesUsed,
     procedureDetails: pageState.procedureDetails,
     lengthCm: pageState.lengthCm,
+    repairDepth: pageState.repairDepth,
     specimenSent: pageState.specimenSent,
     complications: pageState.complications,
     otherComplications: pageState.otherComplications,
@@ -277,6 +280,7 @@ export default function ProceduresNew(): ReactElement {
     otherSuppliesUsed: draft.otherSuppliesUsed,
     procedureDetails: draft.procedureDetails,
     lengthCm: draft.lengthCm,
+    repairDepth: draft.repairDepth,
     specimenSent: draft.specimenSent,
     complications: draft.complications,
     otherComplications: draft.otherComplications,
@@ -359,6 +363,7 @@ export default function ProceduresNew(): ReactElement {
       cptCodes: state.cptCodes,
       diagnoses: state.diagnoses,
       lengthCm: state.lengthCm,
+      repairDepth: isRepairDepthSelection(state.repairDepth) ? state.repairDepth : undefined,
     }),
     [formValues.procedureType, state]
   );
@@ -440,6 +445,7 @@ export default function ProceduresNew(): ReactElement {
       otherSuppliesUsed: parsedSupplies.otherSuppliesUsed,
       procedureDetails: procedure.procedureDetails,
       lengthCm: procedure.lengthCm,
+      repairDepth: procedure.repairDepth,
       specimenSent: procedure.specimenSent,
       complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
       otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
@@ -505,6 +511,7 @@ export default function ProceduresNew(): ReactElement {
             suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
             lengthCm: state.lengthCm,
+            repairDepth: state.repairDepth,
             specimenSent: state.specimenSent,
             complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
             patientResponse: state.patientResponse,
@@ -1326,6 +1333,27 @@ export default function ProceduresNew(): ReactElement {
                 disabled={isReadOnly}
                 data-testid={dataTestIds.documentProcedurePage.lengthCmInput}
               />
+            )}
+            {codingAssist.showRepairDepthSelect && (
+              <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isReadOnly}>
+                <InputLabel id="Repair depth">Repair depth</InputLabel>
+                <Select
+                  label="Repair depth"
+                  labelId="Repair depth"
+                  variant="outlined"
+                  value={state.repairDepth ?? ''}
+                  onChange={(e) => updateState((state) => (state.repairDepth = e.target.value))}
+                  data-testid={dataTestIds.documentProcedurePage.repairDepthSelect}
+                >
+                  {REPAIR_DEPTH_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
+                        {option.label}
+                      </Typography>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             )}
             {multiSelect(
               'Technique',

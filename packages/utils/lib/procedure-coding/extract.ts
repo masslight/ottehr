@@ -2,7 +2,7 @@
 // structured fields first, then details-text patterns). No AI in this layer.
 // Every text-derived fact carries the verbatim sourceText snippet it was read from.
 
-import { FactConfidence, FactValue, ProcedureFactsInput } from './model.types';
+import { FactConfidence, FactValue, ProcedureFactsInput, RepairDepthSelection } from './model.types';
 
 // ── Anatomy normalization ──────────────────────────────────────────────────────
 
@@ -91,6 +91,8 @@ export interface LacerationFacts {
   wounds: LacerationWound[];
   /** The structured length input, when present — preferred over text lengths. */
   structuredLengthCm?: number;
+  /** The structured Repair depth selection, when present — preferred over text-derived class/adhesive facts. */
+  structuredRepairDepth?: RepairDepthSelection;
   /** Explicit depth/layer language only; closure method (e.g. subcuticular) is never depth proof. */
   depth?: FactValue<'layered' | 'single-layer'>;
   /** Debridement/undermining/tissue-rearrangement language ⇒ outside this model's scope. */
@@ -358,6 +360,7 @@ export function extractLacerationFacts(input: ProcedureFactsInput): LacerationFa
     site: extractSite(input, text),
     wounds: extractWounds(text),
     structuredLengthCm: input.lengthCm,
+    structuredRepairDepth: input.repairDepth,
     depth: extractDepth(text),
     outsideScope: textFlag(text, OUTSIDE_SCOPE_PATTERN),
     closureMethod: extractClosureMethod(text),

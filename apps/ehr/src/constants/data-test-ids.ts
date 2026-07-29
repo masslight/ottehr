@@ -478,6 +478,7 @@ export const dataTestIds = {
     bestMatchCptCode: 'best-match-cpt-code',
     openCandidatesLine: 'open-candidates-line',
     lengthCmInput: 'length-cm-input',
+    repairDepthSelect: 'repair-depth-select',
     codingDefenseFindings: 'coding-defense-findings',
     codingDefenseSupported: 'coding-defense-supported',
     codingDefenseNotAssessed: 'coding-defense-not-assessed',

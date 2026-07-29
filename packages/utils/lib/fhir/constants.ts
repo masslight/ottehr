@@ -210,6 +210,9 @@ export const FHIR_EXTENSION = {
     lengthCm: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/length-cm`,
     },
+    repairDepth: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/repair-depth`,
+    },
     specimenSent: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/specimen-sent`,
     },

@@ -13,6 +13,21 @@ export type RequirementLevel = 'determines' | 'required' | 'contradiction' | 'be
 /** How a fact was established: a structured form field, deterministic text parsing, or AI extraction. */
 export type FactConfidence = 'structured' | 'text' | 'ai';
 
+/**
+ * Stored codes for the structured "Repair depth" select (conditional input for
+ * repair-class-banded families, design §6). The first four determine the repair class
+ * (simple vs intermediate); the adhesive selections mean no sutures/staples were used —
+ * tissue adhesive alone still bills as a simple repair, adhesive strips alone do not
+ * support a repair code.
+ */
+export type RepairDepthSelection =
+  | 'superficial-single'
+  | 'subcutaneous-single'
+  | 'subcutaneous-layered'
+  | 'fascia-muscle-layered'
+  | 'tissue-adhesive-only'
+  | 'strips-only';
+
 /** A single fact with its provenance: where it came from and (for text) the verbatim snippet it cites. */
 export interface FactValue<T> {
   value: T;
@@ -124,6 +139,8 @@ export interface ProcedureFactsInput {
   diagnoses?: CptCodeRef[];
   /** Structured wound length in cm (conditional input); extraction prefers it over text-derived lengths. */
   lengthCm?: number;
+  /** Structured repair depth (conditional select); extraction prefers it over text-derived class/adhesive facts. */
+  repairDepth?: RepairDepthSelection;
 }
 
 /**
@@ -135,6 +152,8 @@ export interface ProcedureFamilyModel {
   displayName: string;
   /** True when this family's code selection uses the structured length/size (cm) input (design §6). */
   usesStructuredLength?: boolean;
+  /** True when this family's code selection uses the structured Repair depth select (design §6). */
+  usesStructuredRepairDepth?: boolean;
   /** Family detection from the procedureType string and/or selected CPT codes. */
   detect(input: ProcedureFactsInput): boolean;
   /** Deterministic fact extraction (structured fields first, then details-text patterns). */
