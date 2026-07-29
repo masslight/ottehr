@@ -11,14 +11,8 @@ import {
   getPayerId,
   getPayerUrl,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import {
-  fetchClaimResponsesByClaimIds,
-  fetchPatientPaymentsByEncounterIds,
-  summarizeClaimPayments,
-  sumPatientPayments,
-} from '../claim-amounts';
+import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from '../claim-amounts';
 import {
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -110,26 +104,17 @@ async function performEffect(
     coverages = covResult.unbundle();
   }
 
-  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
-  const encounterIdByClaimId = new Map<string, string>();
-  for (const claim of claims) {
-    const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
-    if (claim.id && encounterId) encounterIdByClaimId.set(claim.id, encounterId);
-  }
-
-  const [payersByRef, claimResponsesByClaimId, paymentsByEncounter] = await Promise.all([
+  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
     ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
-    fetchPatientPaymentsByEncounterIds(oystehr, [...encounterIdByClaimId.values()]),
+    fetchPatientPaidByClaimId({
+      oystehr,
+      claims,
+    }),
   ]);
-
-  const patientPaidByClaimId = new Map<string, number>();
-  for (const [claimId, encounterId] of encounterIdByClaimId) {
-    patientPaidByClaimId.set(claimId, sumPatientPayments(paymentsByEncounter.get(encounterId) ?? []));
-  }
 
   const lookups = {
     patients,

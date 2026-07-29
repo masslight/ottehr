@@ -1,14 +1,15 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
+import { Claim, ClaimResponse, ClaimResponseItemAdjudication, PaymentNotice } from 'fhir/r4b';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, Mock, vi } from 'vitest';
 import {
   ADJUDICATION_CODES,
   ClaimPaymentSummary,
   countEraClaims,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
+  fetchPatientPaidByClaimId,
   fetchPatientPaymentsByEncounterIds,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
@@ -744,6 +745,107 @@ describe('fetchPatientPaymentsByEncounterIds', () => {
     });
     expect(result.get('enc-1')?.map((notice) => notice.id)).toEqual(['pn-1', 'pn-3']);
     expect(result.get('enc-2')?.map((notice) => notice.id)).toEqual(['pn-2']);
+  });
+});
+
+describe('fetchPatientPaidByClaimId', () => {
+  const claimForEncounter = (id: string, encounterId?: string): Claim =>
+    ({
+      resourceType: 'Claim',
+      id,
+      ...(encounterId
+        ? {
+            identifier: [
+              {
+                system: ottehrIdentifierSystem('claim-encounter-id'),
+                value: encounterId,
+              },
+            ],
+          }
+        : {}),
+    }) as Claim;
+
+  const clientReturning = (
+    notices: PaymentNotice[]
+  ): {
+    oystehr: Oystehr;
+    search: Mock;
+  } => {
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => notices,
+      link: [],
+    });
+    return {
+      oystehr: {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr,
+      search,
+    };
+  };
+
+  it('totals each claim payments via its encounter identifier', async () => {
+    const { oystehr } = clientReturning([
+      paymentNotice({
+        id: 'pn-1',
+        encounterId: 'enc-1',
+        amount: 40,
+      }),
+      paymentNotice({
+        id: 'pn-2',
+        encounterId: 'enc-1',
+        amount: 10,
+      }),
+      paymentNotice({
+        id: 'pn-3',
+        encounterId: 'enc-2',
+        amount: 25,
+      }),
+    ]);
+
+    const result = await fetchPatientPaidByClaimId({
+      oystehr,
+      claims: [claimForEncounter('claim-1', 'enc-1'), claimForEncounter('claim-2', 'enc-2')],
+    });
+
+    expect(result.get('claim-1')).toBe(50);
+    expect(result.get('claim-2')).toBe(25);
+  });
+
+  it('skips claims without an encounter identifier and never searches when none have one', async () => {
+    const { oystehr, search } = clientReturning([]);
+
+    const result = await fetchPatientPaidByClaimId({
+      oystehr,
+      claims: [claimForEncounter('claim-1')],
+    });
+
+    expect(search).not.toHaveBeenCalled();
+    expect(result.has('claim-1')).toBe(false);
+  });
+
+  it('excludes cancelled notices from the per-claim total', async () => {
+    const { oystehr } = clientReturning([
+      paymentNotice({
+        id: 'pn-charge',
+        encounterId: 'enc-1',
+        amount: 100,
+      }),
+      paymentNotice({
+        id: 'pn-refund-failed',
+        encounterId: 'enc-1',
+        amount: -40,
+        status: 'cancelled',
+      }),
+    ]);
+
+    const result = await fetchPatientPaidByClaimId({
+      oystehr,
+      claims: [claimForEncounter('claim-1', 'enc-1')],
+    });
+
+    expect(result.get('claim-1')).toBe(100);
   });
 });
 

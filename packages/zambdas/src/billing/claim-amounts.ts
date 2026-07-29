@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  Claim,
   ClaimResponse,
   ClaimResponseItemAdjudication,
   FhirResource,
@@ -277,6 +278,29 @@ export async function fetchPatientPaymentsByEncounterIds(
     (notice) => notice.request?.identifier?.value,
     PATIENT_PAYMENT_ENCOUNTER_BATCH
   );
+}
+
+export async function fetchPatientPaidByClaimId({
+  oystehr,
+  claims,
+}: {
+  oystehr: Oystehr;
+  claims: Claim[];
+}): Promise<Map<string, number>> {
+  const system = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterIdByClaimId = new Map<string, string>();
+  for (const claim of claims) {
+    const encounterId = claim.identifier?.find((identifier) => identifier.system === system)?.value;
+    if (claim.id && encounterId) encounterIdByClaimId.set(claim.id, encounterId);
+  }
+
+  const paymentsByEncounter = await fetchPatientPaymentsByEncounterIds(oystehr, [...encounterIdByClaimId.values()]);
+
+  const patientPaidByClaimId = new Map<string, number>();
+  for (const [claimId, encounterId] of encounterIdByClaimId) {
+    patientPaidByClaimId.set(claimId, sumPatientPayments(paymentsByEncounter.get(encounterId) ?? []));
+  }
+  return patientPaidByClaimId;
 }
 
 // Fetch the era-processing Provenances (one per ERA, targeting its PR + ClaimResponses) that point
