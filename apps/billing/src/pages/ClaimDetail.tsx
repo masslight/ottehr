@@ -56,8 +56,10 @@ import {
   UpdateBillingPatientInput,
   UpdateBillingProviderInput,
   UpdateBillingResourceInput,
+  UpdateBillingResourceInputSchema,
   VALUE_SETS,
 } from 'utils';
+import z from 'zod';
 import {
   createBillingCoverage,
   createBillingProvider,
@@ -99,7 +101,11 @@ import { otherColors } from '../themes/ottehr/colors';
 import { formatCurrency, formatDate } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
-type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;
+type UpdateFn = (
+  resourceType: string,
+  resourceId: string,
+  fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+) => Promise<string | null>;
 
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
   const arStage = claim.statuses.arStage;
@@ -150,7 +156,11 @@ export default function ClaimDetail(): ReactElement {
   }, [fetchDetail]);
 
   const updateResource = useCallback(
-    async (resourceType: string, resourceId: string, fields: Record<string, unknown>): Promise<string | null> => {
+    async (
+      resourceType: string,
+      resourceId: string,
+      fields: z.input<typeof UpdateBillingResourceInputSchema>['fields']
+    ): Promise<string | null> => {
       if (!oystehrZambda || !id) return 'Client not ready';
       try {
         await updateBillingResource(oystehrZambda, {
@@ -271,8 +281,8 @@ export default function ClaimDetail(): ReactElement {
   };
 
   const saveHeader = async (): Promise<void> => {
-    const fields: { type?: string; service?: string; serviceDate?: string } = {};
-    if (claimType && claimType !== claim.type) fields.type = claimType;
+    const fields: { type?: 'professional' | 'institutional'; service?: string; serviceDate?: string } = {};
+    if (claimType && claimType !== claim.type) fields.type = claimType as 'professional' | 'institutional';
     if (service && service !== claim.service) fields.service = service;
     if (serviceDate && serviceDate !== dos) fields.serviceDate = serviceDate;
     if (Object.keys(fields).length === 0) {
@@ -395,9 +405,18 @@ export default function ClaimDetail(): ReactElement {
             </>
           )}
         </Box>
-        {runEngine && (
-          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
-            {runEngine.runButtonLabel}
+
+        {EHR_URL && claim.appointmentId && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<OpenInNewIcon />}
+            href={`${EHR_URL}/visit/${claim.appointmentId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ mt: 0.5, flexShrink: 0 }}
+          >
+            View in EHR
           </Button>
         )}
         <Button
@@ -409,20 +428,12 @@ export default function ClaimDetail(): ReactElement {
         >
           Export X12
         </Button>
+        {runEngine && (
+          <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
+            {runEngine.runButtonLabel}
+          </Button>
+        )}
       </Box>
-      {EHR_URL && claim.appointmentId && (
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<OpenInNewIcon />}
-          href={`${EHR_URL}/visit/${claim.appointmentId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{ mt: 0.5, flexShrink: 0 }}
-        >
-          View in EHR
-        </Button>
-      )}
 
       <ExportX12Dialog
         open={exportOpen}
@@ -561,7 +572,7 @@ function PatientSection({ claim }: { claim: ClaimDetailResponse }): ReactElement
     return <EditableSectionSkeleton title="Patient" />;
   }
 
-  return <PatientDemographicsSection title="Patient" patient={patient} onSave={handleSave} />;
+  return <PatientDemographicsSection title="Patient" patient={patient} onSave={handleSave} showSourceLink />;
 }
 
 const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
@@ -843,6 +854,7 @@ function RenderingProviderSection({
         onSelectOption: setSelectedProvider,
         fetchOptions: searchProviders,
       }}
+      showSourceLink
     />
   );
 }
@@ -881,9 +893,7 @@ function FacilitySection({
         if (selected?.id) {
           // Selected from some base, add it to claim and update below
           await updateResource('Claim', claim.id, {
-            serviceFacility: {
-              id: selected.id,
-            },
+            facilityId: selected.id,
           });
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           facilityId = updatedClaim.serviceFacilityId;
@@ -891,9 +901,7 @@ function FacilitySection({
           // No base selected, make a new one and attach it, returning early
           const result = await saveBillingServiceFacility(oystehrZambda, payload);
           return updateResource('Claim', claim.id, {
-            serviceFacility: {
-              id: result.id,
-            },
+            facilityId: result.id,
           });
         }
       }
@@ -918,6 +926,7 @@ function FacilitySection({
         onSelectOption: setSelected,
         fetchOptions: searchServiceFacilities,
       }}
+      showSourceLink
     />
   );
 }
@@ -1010,6 +1019,7 @@ function BillingProviderSection({
         onSelectOption: setSelectedProvider,
         fetchOptions: searchProviders,
       }}
+      showSourceLink
     />
   );
 }

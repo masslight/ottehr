@@ -471,7 +471,7 @@ describe('sub-rules-engine ensureClaimHeld', () => {
     const claim = makeModel().claim;
     search.mockResolvedValue({ unbundle: () => [claim] });
 
-    await ensureClaimHeld(oystehr, 'claim-1', AGENT);
+    await ensureClaimHeld(oystehr, claim, AGENT);
 
     expect(transaction).toHaveBeenCalledTimes(1);
     const requests = transaction.mock.calls[0][0].requests;
@@ -484,15 +484,8 @@ describe('sub-rules-engine ensureClaimHeld', () => {
     claim.meta!.tag = [...(claim.meta?.tag ?? []), { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME }];
     search.mockResolvedValue({ unbundle: () => [claim] });
 
-    await ensureClaimHeld(oystehr, 'claim-1', AGENT);
+    await ensureClaimHeld(oystehr, claim, AGENT);
 
     expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('never throws — a tagging failure must not mask the original engine error', async () => {
-    const { oystehr, search } = makeOystehrMock();
-    search.mockRejectedValue(new Error('fhir down'));
-
-    await expect(ensureClaimHeld(oystehr, 'claim-1', AGENT)).resolves.toBeUndefined();
   });
 });

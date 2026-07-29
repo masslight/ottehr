@@ -35,7 +35,7 @@ vi.mock('notistack', () => ({
 }));
 
 vi.mock('../../src/components/BillingDataGrid', () => ({
-  dataGridSlots: {},
+  dataGridSlots: () => ({}),
   dataGridSx: {},
 }));
 

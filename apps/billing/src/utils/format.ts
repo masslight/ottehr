@@ -45,3 +45,10 @@ export function buildAddressInput(
   };
   return Object.keys(address).length ? address : undefined;
 }
+
+export function formatTaxId(taxId: string): string {
+  if (taxId.length < 3) {
+    return taxId;
+  }
+  return taxId.substring(0, 2) + '-' + taxId.substring(2);
+}

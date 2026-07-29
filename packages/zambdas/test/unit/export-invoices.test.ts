@@ -99,6 +99,32 @@ describe('export-invoices', () => {
       );
     });
 
+    it('passes filter-source input when source is provided', async () => {
+      mockOystehrClient.fhir.create.mockResolvedValue({
+        resourceType: 'Task',
+        id: 'task-source',
+      } as FhirTask);
+
+      await handler(makeInput({ source: 'ottehr-billing' }));
+
+      const createCall = mockOystehrClient.fhir.create.mock.calls[0][0] as FhirTask;
+      expect(createCall.input).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: {
+              coding: [
+                {
+                  system: EXPORT_INVOICES_CSV_TASK_SYSTEM,
+                  code: 'filter-source',
+                },
+              ],
+            },
+            valueString: 'ottehr-billing',
+          }),
+        ])
+      );
+    });
+
     it('omits input array when no filters provided', async () => {
       mockOystehrClient.fhir.create.mockResolvedValue({ resourceType: 'Task', id: 'task-no-filters' } as FhirTask);
 

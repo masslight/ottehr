@@ -30,6 +30,7 @@ import {
   InvoiceablePatientReport,
   InvoiceSortDirectionValues,
   InvoiceSortFieldValues,
+  invoiceTaskSourceSearchParam,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
   mapGenderToLabel,
   parseInvoiceTaskInput,
@@ -158,7 +159,7 @@ async function getFhirResourcesGrouped(
   oystehr: Oystehr,
   complexValidatedInput: GetInvoicesTasksInput
 ): Promise<{ taskGroups: TaskGroup[]; bundleTotal: number }> {
-  const { page, status, patientId, sortField, sortDirection, hideZeroBalance } = complexValidatedInput;
+  const { page, status, patientId, sortField, sortDirection, hideZeroBalance, source } = complexValidatedInput;
   const resolvedSortField = sortField ?? InvoiceSortFieldValues.finalizationDate;
   const resolvedSortDirection = sortDirection ?? InvoiceSortDirectionValues.desc;
   const sortPrefix = resolvedSortDirection === InvoiceSortDirectionValues.desc ? '-' : '';
@@ -245,6 +246,10 @@ async function getFhirResourcesGrouped(
       name: 'business-status:not',
       value: `${INVOICE_TASK_BUSINESS_STATUS_SYSTEM}|${ZERO_BALANCE_BUSINESS_STATUS_CODE}`,
     });
+  }
+  const sourceParam = invoiceTaskSourceSearchParam(source);
+  if (sourceParam) {
+    params.push(sourceParam);
   }
   const bundle = await oystehr.fhir.search({
     resourceType: 'Task',

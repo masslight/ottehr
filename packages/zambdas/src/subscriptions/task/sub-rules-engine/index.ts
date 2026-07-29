@@ -26,6 +26,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
+  addErrorProvenanceForClaimSubmission,
   claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimMetaTagsWithProvenance,
@@ -80,11 +81,20 @@ export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr)
     const validated = await complexValidation(oystehr, engine, claimId, env);
     return await performEffect(oystehr, validated, agent);
   } catch (error) {
-    // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
-    // the claim context, and make sure the claim ends up held — a failed run must never leave the
-    // claim looking ready to proceed.
-    console.error(`[rules-engine] ${engine} failed for Claim/${claimId}:`, error);
-    await ensureClaimHeld(oystehr, claimId, agent);
+    try {
+      // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
+      // the claim context, and make sure the claim ends up held — a failed run must never leave the
+      // claim looking ready to proceed.
+      console.error(`[rules-engine] ${engine} failed for Claim/${claimId}:`, error);
+      const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
+      await addErrorProvenanceForClaimSubmission(oystehr, claim, error as Error, agent);
+      await ensureClaimHeld(oystehr, claim, agent);
+    } catch (handleErrorError) {
+      console.error(
+        `[rules-engine] could not add error or apply Hold tag to Claim/${claimId} after failure:`,
+        handleErrorError
+      );
+    }
     throw error;
   }
 });
@@ -220,15 +230,14 @@ export async function performEffect(
 // Backstop for the catch path: whatever went wrong (load, persist, finalize), the claim must end
 // up carrying the Hold tag so the failure is visible on the claim itself, not just the Task. Never
 // throws — the original error is the one that matters.
-export async function ensureClaimHeld(oystehr: Oystehr, claimId: string, agent: ProvenanceAgent): Promise<void> {
+export async function ensureClaimHeld(oystehr: Oystehr, claim: Claim, agent: ProvenanceAgent): Promise<void> {
   try {
-    const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
     if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME })) return;
     const updatedTags = [...(claim.meta?.tag ?? []), { system: CLAIM_TAG_SYSTEM, code: HOLD_TAG_NAME }];
     await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'tagChange', agent);
-    console.log(`[rules-engine] applied Hold tag to Claim/${claimId} after failure`);
+    console.log(`[rules-engine] applied Hold tag to Claim/${claim.id} after failure`);
   } catch (holdError) {
-    console.error(`[rules-engine] could not apply Hold tag to Claim/${claimId} after failure:`, holdError);
+    console.error(`[rules-engine] could not apply Hold tag to Claim/${claim.id} after failure:`, holdError);
   }
 }
 

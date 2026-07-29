@@ -1,10 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ChargeItemDefinition, ChargeItemDefinitionPropertyGroup, Coding } from 'fhir/r4b';
-import { BillingChargeItemDefinition, CPT_CODE_SYSTEM, EXTENSION_URL_CPT_MODIFIER } from 'utils';
+import { ChargeItemDefinition, Coding } from 'fhir/r4b';
+import { BillingChargeItemDefinition } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { transformChargeItemDefinition } from '../get-charge-item-definition';
-import { CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, chargeItemDefinitionNameToUrl, createBillingClient } from '../shared';
+import {
+  CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  chargeItemDefinitionNameToUrl,
+  createBillingClient,
+  procedureCodesToPropertyGroups,
+} from '../shared';
 import {
   complexValidation,
   UpdateChargeItemDefinitionParams,
@@ -57,20 +62,7 @@ export async function performEffect(
       status: params.status ?? cvo.definition.status,
       description: params.description === null ? undefined : params.description ?? cvo.definition.description,
       propertyGroup: params.procedureCodes
-        ? params.procedureCodes.map<ChargeItemDefinitionPropertyGroup>((pc) => ({
-            priceComponent: [
-              {
-                type: 'base',
-                code: {
-                  coding: [
-                    { system: CPT_CODE_SYSTEM, code: pc.code, ...(pc.description ? { display: pc.description } : {}) },
-                  ],
-                },
-                amount: { value: pc.amount, currency: 'USD' },
-                ...(pc.modifier ? { extension: [{ url: EXTENSION_URL_CPT_MODIFIER, valueCode: pc.modifier }] } : {}),
-              },
-            ],
-          }))
+        ? procedureCodesToPropertyGroups(params.procedureCodes)
         : cvo.definition.propertyGroup,
       meta: {
         tag: tags,
