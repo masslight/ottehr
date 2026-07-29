@@ -26,7 +26,7 @@ import { deletePaperworkFlow, listPaperworkFlows, listServiceCategories } from '
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { BOOKING_CONFIG, FlowForm, PaperworkFlow, PaperworkFlowListOutput, SERVICE_MODE_LABEL } from 'utils';
-import { usePracticeManagedQuestionnaireList } from '../admin.queries';
+import { usePracticeManagedQuestionnaires } from '../../../hooks/usePracticeManagedQuestionnaires';
 import { DraftFlow, PaperworkFlowDialog } from './components/PaperworkFlowDialog';
 
 const BLANK_DRAFT: DraftFlow = { name: '', formsSelected: [], modes: [], services: [] };
@@ -110,9 +110,9 @@ const PaperworkFlowsAdminPage: FC = () => {
   );
 
   // all forms available to bundle into a form
-  const { data: formsData } = usePracticeManagedQuestionnaireList();
+  const { active: formsData } = usePracticeManagedQuestionnaires();
   const formOptions: FlowForm[] = useMemo(() => {
-    const practiceManagedForms = (formsData?.practiceManagedQuestionnaires ?? [])
+    const practiceManagedForms = (formsData ?? [])
       .filter((q) => !!q.id && q.status !== 'retired')
       .map((q) => ({ id: q.id, label: q.title || q.id }))
       .sort((a, b) => a.label.localeCompare(b.label));
