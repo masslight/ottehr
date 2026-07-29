@@ -54,6 +54,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   getCandidPlanTypeCodeFromCoverage,
   getCoding,
   getDefaultClaimSubmissionExtensions,
@@ -104,6 +105,7 @@ import {
   PROVIDER_ROLE_TAG,
   reconcilePaymentNoticesForClaim,
   resourceDisplayName,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
@@ -204,12 +206,12 @@ export async function performEffect(
   // Create or update main billing patient from clinical patient
   let mainPatient = billingResources.mainPatient;
   if (!mainPatient) {
-    mainPatient = prepareCopy<Patient>(clinicalResources.patient, clinicalResources.patient.id!);
+    mainPatient = copyPatient(clinicalResources.patient);
     mainPatient.id = 'urn:uuid:main-patient';
     requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatient.id });
     order.push('patient');
   } else {
-    const updatedMainPatient = prepareCopy<Patient>(clinicalResources.patient, clinicalResources.patient.id!);
+    const updatedMainPatient = copyPatient(clinicalResources.patient);
     updatedMainPatient.id = mainPatient.id;
     try {
       deepStrictEqual(mainPatient, updatedMainPatient);
@@ -222,7 +224,7 @@ export async function performEffect(
   }
 
   // Create working copy from main patient
-  const claimPatient = prepareWorkingCopy(mainPatient, mainPatient.id!);
+  const claimPatient = copyPatient(mainPatient, true);
   claimPatient.id = 'urn:uuid:claim-patient';
   requests.push({ method: 'POST', url: '/Patient', resource: claimPatient, fullUrl: claimPatient.id });
   order.push('patient');
@@ -643,6 +645,19 @@ export function getClaimCoveragesForEncounter(
       return [];
     }
   }
+}
+
+function copyPatient(patient: Patient, workingCopy?: boolean): Patient {
+  const copy = workingCopy
+    ? prepareWorkingCopy<Patient>(patient, patient.id!)
+    : prepareCopy<Patient>(patient, patient.id!);
+  let friendlyId = patient.identifier?.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value;
+  friendlyId ??= patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+  if (friendlyId) {
+    copy.extension ??= [];
+    copy.extension.push({ url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: friendlyId });
+  }
+  return copy;
 }
 
 export function copyAccount(account: Account, patientId: string, billingCoverages?: Coverage[]): Account {

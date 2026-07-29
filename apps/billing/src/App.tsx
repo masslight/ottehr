@@ -17,7 +17,6 @@ import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/Ch
 import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
-import Dashboard from './pages/Dashboard';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
@@ -67,7 +66,8 @@ export default function App(): ReactElement {
                 />
               }
             >
-              <Route path="/" element={<Dashboard />} />
+              {/* <Route path="/" element={<Dashboard />} /> */}
+              <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />

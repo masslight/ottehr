@@ -25,6 +25,7 @@ import {
   TaskIndicator,
   TIMEZONES,
 } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   createClinicalOystehrClient,
   getAuth0Token,
@@ -40,6 +41,12 @@ import {
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'post-patient-payment';
+
+// Dedup identifier for patient-payment-post calls: value is the caller's idempotency key.
+// A replayed request (same key) resolves to the already-written PaymentNotice instead of
+// creating a duplicate — see finalize-payment, which does the equivalent keyed on the Stripe
+// PaymentIntent id.
+export const PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('patient-payment-idempotency-key');
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -99,22 +106,55 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return lambdaResponse(200, { notice, patientId, encounterId });
 });
 
+const findPaymentNoticeByIdempotencyKey = async (
+  oystehrClient: Oystehr,
+  encounterId: string,
+  idempotencyKey: string
+): Promise<PaymentNotice | undefined> => {
+  const paymentNotices = (
+    await oystehrClient.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [
+        { name: 'request', value: `Encounter/${encounterId}` },
+        { name: 'identifier', value: `${PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|${idempotencyKey}` },
+      ],
+    })
+  ).unbundle();
+
+  return paymentNotices[0];
+};
+
 const performEffect = async (
   input: ComplexValidationOutput,
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
 ): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
   const { encounterId, patientId, paymentDetails, organizationId, userProfile, stripeAccount } = input;
-  const { paymentMethod, amountInCents, description } = paymentDetails;
+  const { paymentMethod, amountInCents, description, idempotencyKey } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
   console.log('dateTimeIso', dateTimeIso);
+
+  // Idempotency guard: if this logical payment was already recorded (e.g. the client re-sent the
+  // request after a response was lost on a flaky connection), return the existing PaymentNotice
+  // instead of writing a duplicate — and, for card payments, before charging Stripe again.
+  if (idempotencyKey) {
+    const existingNotice = await findPaymentNoticeByIdempotencyKey(oystehrClient, encounterId, idempotencyKey);
+    if (existingNotice) {
+      console.log('idempotent replay detected; returning existing PaymentNotice', existingNotice.id);
+      // Guard against a first attempt that wrote the notice but died before scheduling the Task.
+      await ensurePaymentTaskForNotice(oystehrClient, existingNotice, encounterId);
+      return { notice: existingNotice };
+    }
+  }
+
   const paymentNoticeInput: PaymentNoticeInput = {
     encounterId,
     paymentDetails,
     submitterRef: { reference: userProfile },
     dateTimeIso,
     recipientId: organizationId,
+    idempotencyKey,
   };
 
   if (input.cardInput && paymentMethod === 'card') {
@@ -141,6 +181,9 @@ const performEffect = async (
     try {
       paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput, {
         stripeAccount, // Connected account ID if any
+        // Reusing the client's idempotency key means a retried request returns the same
+        // PaymentIntent rather than charging the card a second time.
+        ...(idempotencyKey ? { idempotencyKey } : {}),
       });
     } catch (e) {
       throw parseStripeError(e);
@@ -156,17 +199,51 @@ const performEffect = async (
     // here's where we might set a candidPayment id once candid stuff has been added
   }
 
-  // Write Payment Notice
+  // Write Payment Notice. The conditional create closes the narrow window where two requests
+  // race past the search guard above: only one PaymentNotice is written for a given idempotency
+  // key; a concurrent duplicate resolves to that same resource.
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
-  const paymentNotice = await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
+  const paymentNotice = await oystehrClient.fhir.create<PaymentNotice>(
+    noticeToWrite,
+    idempotencyKey
+      ? {
+          // Scope the match to this encounter, mirroring the search guard: the idempotency key is
+          // client-supplied, so without the encounter constraint a reused/colliding key could match
+          // a PaymentNotice from a different encounter and return the wrong resource.
+          ifNoneExist: [
+            { name: 'request', value: `Encounter/${encounterId}` },
+            { name: 'identifier', value: `${PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM}|${idempotencyKey}` },
+          ],
+        }
+      : undefined
+  );
 
-  // Write Task that will kick off subscription to perform Candid sync and create receipt PDF
+  // Kick off the subscription that performs Candid sync and creates the receipt PDF. Done
+  // idempotently (and again on replay above) so a first attempt that wrote the PaymentNotice but
+  // died before this point still gets its downstream work scheduled on retry.
+  await ensurePaymentTaskForNotice(oystehrClient, paymentNotice, encounterId);
+
+  return { notice: paymentNotice, paymentIntent };
+};
+
+// Creates the Candid-sync / receipt Task for a PaymentNotice, unless one already exists. Matches on
+// the Task's focus + code via a conditional create, so it is safe to call on an idempotent replay:
+// the subscription only marks the Task completed (never deletes it), so a finished Task still blocks
+// a duplicate, while a missing Task (previous attempt died before creating it) is (re)created.
+const ensurePaymentTaskForNotice = async (
+  oystehrClient: Oystehr,
+  paymentNotice: PaymentNotice,
+  encounterId: string
+): Promise<void> => {
   if (!paymentNotice.id) {
     throw new Error('PaymentNotice ID is required to create task');
   }
+  const { system, code } = TaskIndicator.patientPaymentCandidSyncAndReceipt;
+  const amountInDollars = paymentNotice.amount?.value ?? 0;
+
   const paymentTaskResource = getTaskResource(
     TaskIndicator.patientPaymentCandidSyncAndReceipt,
-    `Payment notice for $${(amountInCents / 100).toFixed(2)}`,
+    `Payment notice for $${amountInDollars.toFixed(2)}`,
     paymentNotice.id,
     encounterId
   );
@@ -175,10 +252,13 @@ const performEffect = async (
     type: 'PaymentNotice',
     reference: `PaymentNotice/${paymentNotice.id}`,
   };
-  const taskCreationResult = await oystehrClient.fhir.create(paymentTaskResource);
+  const taskCreationResult = await oystehrClient.fhir.create(paymentTaskResource, {
+    ifNoneExist: [
+      { name: 'focus', value: `PaymentNotice/${paymentNotice.id}` },
+      { name: 'code', value: `${system}|${code}` },
+    ],
+  });
   console.log('Task creation result:', taskCreationResult);
-
-  return { notice: paymentNotice, paymentIntent };
 };
 
 const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput => {
@@ -242,6 +322,10 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
   }
   if (description && typeof description !== 'string') {
     throw INVALID_INPUT_ERROR('"paymentDetails.description" must be a string if provided.');
+  }
+  const { idempotencyKey } = paymentDetails;
+  if (idempotencyKey !== undefined && (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '')) {
+    throw INVALID_INPUT_ERROR('"paymentDetails.idempotencyKey" must be a non-empty string if provided.');
   }
 
   return {
@@ -319,6 +403,7 @@ interface PaymentNoticeInput extends Omit<PostPatientPaymentInput, 'patientId'> 
   candidPaymentId?: string;
   recipientId: string;
   dateTimeIso: string;
+  idempotencyKey?: string;
 }
 
 const makePaymentNotice = (input: PaymentNoticeInput): PaymentNotice => {
@@ -330,16 +415,22 @@ const makePaymentNotice = (input: PaymentNoticeInput): PaymentNotice => {
     candidPaymentId,
     dateTimeIso,
     recipientId,
+    idempotencyKey,
   } = input;
 
   const { paymentMethod, amountInCents } = paymentDetails;
 
-  let identifier: Identifier | undefined;
+  const identifiers: Identifier[] = [];
 
   if (paymentMethod === 'card' && stripePaymentIntentId) {
-    identifier = makeBusinessIdentifierForStripePayment(stripePaymentIntentId);
+    identifiers.push(makeBusinessIdentifierForStripePayment(stripePaymentIntentId));
   } else if (candidPaymentId) {
-    identifier = makeBusinessIdentifierForCandidPayment(candidPaymentId);
+    identifiers.push(makeBusinessIdentifierForCandidPayment(candidPaymentId));
+  }
+
+  // The idempotency key doubles as the dedup identifier the conditional create matches on.
+  if (idempotencyKey) {
+    identifiers.push({ system: PATIENT_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, value: idempotencyKey });
   }
 
   // the created timestamp is in UTC and the exact date in any timezone can always be derived from there
@@ -397,8 +488,8 @@ const makePaymentNotice = (input: PaymentNoticeInput): PaymentNotice => {
     },
     recipient: { reference: `Organization/${recipientId}` },
   };
-  if (identifier) {
-    notice.identifier = [identifier];
+  if (identifiers.length > 0) {
+    notice.identifier = identifiers;
   }
   return notice;
 };
