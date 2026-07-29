@@ -41,11 +41,13 @@ describe('InsuranceSection — plan type', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Plan type' }));
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Plan Type *' }));
     fireEvent.click(await screen.findByRole('option', { name: 'PPO' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(updateResource).toHaveBeenCalledWith('Claim', 'claim-1', { planType: '12' }));
+    await waitFor(() =>
+      expect(updateResource).toHaveBeenCalledWith('Claim', 'claim-1', { payerId: 'ACME', planType: '12' })
+    );
   });
 });

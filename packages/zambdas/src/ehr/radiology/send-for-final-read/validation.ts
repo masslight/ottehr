@@ -1,5 +1,5 @@
-import { Secrets, SendForFinalReadZambdaInput } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets, SendForFinalReadZambdaInput, SendForFinalReadZambdaInputSchema } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
   body: SendForFinalReadZambdaInput;
@@ -7,7 +7,7 @@ export interface ValidatedInput {
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const body = validateBody(input);
+  const body = safeValidate(SendForFinalReadZambdaInputSchema, validateJsonBody(input));
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
@@ -17,22 +17,6 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   return {
     body,
     callerAccessToken,
-  };
-};
-
-const validateBody = (input: ZambdaInput): SendForFinalReadZambdaInput => {
-  const { serviceRequestId } = validateJsonBody(input);
-
-  if (!serviceRequestId) {
-    throw new Error('serviceRequestId is required');
-  }
-
-  if (typeof serviceRequestId !== 'string') {
-    throw new Error('serviceRequestId must be a string');
-  }
-
-  return {
-    serviceRequestId,
   };
 };
 

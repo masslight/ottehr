@@ -263,6 +263,22 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     }
     schemaTemp = schema;
   }
+  if (item.type === 'date' && item.dataType !== 'DOB') {
+    let stringSchema = Yup.string().typeError(DATE_ERROR_MESSAGE).matches(isoDateRegex, DATE_ERROR_MESSAGE);
+
+    if (required) {
+      stringSchema = stringSchema.required(DATE_ERROR_MESSAGE);
+    }
+    let schema: Yup.AnySchema = Yup.object({
+      valueString: stringSchema,
+    });
+    if (required) {
+      schema = schema.required(DATE_ERROR_MESSAGE);
+    } else {
+      schema = schema.optional().default(undefined);
+    }
+    schemaTemp = schema;
+  }
   if (item.type === 'attachment') {
     let objSchema: any;
     if (required) {

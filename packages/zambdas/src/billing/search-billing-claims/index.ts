@@ -1,20 +1,24 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   BillingClaimItem,
   CLAIM_STATUS_TAG_SYSTEMS,
+  CLAIM_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  getAllFhirSearchPages,
   getClaimStatusValues,
   getPayerId,
   getPayerUrl,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
 import {
-  CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  determineRulesEngineForClaim,
   fhirName,
   findRef,
   getClaimService,
@@ -55,38 +59,98 @@ async function performEffect(
     insurerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
   }
 
-  const searchParams: { name: string; value: string }[] = [
+  const filterParams: { name: string; value: string }[] = [
     { name: '_include', value: 'Claim:patient' },
     { name: '_include', value: 'Claim:facility' },
     { name: '_sort', value: '-_lastUpdated' },
-    { name: '_count', value: String(pageSize) },
-    { name: '_offset', value: String(offset) },
-    { name: '_total', value: 'accurate' },
   ];
 
-  if (params.type) searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
-  if (params.status) searchParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.status}` });
+  if (params.type) filterParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
+  if (params.status) filterParams.push({ name: '_tag', value: `${CURRENT_STATUS_TAG_SYSTEM}|${params.status}` });
   if (params.arStage)
-    searchParams.push({ name: '_tag', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}` });
-  if (params.createdFrom) searchParams.push({ name: 'created', value: `ge${params.createdFrom}` });
-  if (params.createdTo) searchParams.push({ name: 'created', value: `le${params.createdTo}` });
-  if (params.patientId) searchParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
+    filterParams.push({ name: '_tag', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}` });
+  if (params.createdFrom) filterParams.push({ name: 'created', value: `ge${params.createdFrom}` });
+  if (params.createdTo) filterParams.push({ name: 'created', value: `le${params.createdTo}` });
+  if (params.patientId) filterParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
   if (params.service)
-    searchParams.push({ name: '_tag', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}` });
-  if (params.searchText) searchParams.push({ name: 'patient.name', value: params.searchText });
-  if (insurerFilter) searchParams.push({ name: 'insurer', value: insurerFilter });
-  if (params.tag) searchParams.push({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${params.tag}` });
+    filterParams.push({ name: '_tag', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}` });
+  if (params.searchText) filterParams.push({ name: 'patient.name', value: params.searchText });
+  if (insurerFilter) filterParams.push({ name: 'insurer', value: insurerFilter });
+  if (params.tag) filterParams.push({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${params.tag}` });
 
-  // Use fhir.search directly to access Bundle.total for real pagination
-  const bundle = await oystehr.fhir.search<Claim>({ resourceType: 'Claim', params: searchParams });
-  const total = bundle.total ?? 0;
+  const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
 
-  const resources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
-  const claims = resources.filter((r) => r.resourceType === 'Claim') as Claim[];
-  const patients = resources.filter((r) => r.resourceType === 'Patient') as Patient[];
-  const locations = resources.filter((r) => r.resourceType === 'Location') as Location[];
-  const practitioners = resources.filter((r) => r.resourceType === 'Practitioner') as Practitioner[];
+  let pageClaims: Claim[];
+  let includedResources: Resource[];
+  let total: number;
 
+  if (filteringByServiceDate) {
+    includedResources = await getAllFhirSearchPages<Claim | Patient | Location | Practitioner>(
+      {
+        resourceType: 'Claim',
+        params: filterParams,
+      },
+      oystehr
+    );
+    const matching = includedResources
+      .filter((r): r is Claim => r.resourceType === 'Claim')
+      .filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo));
+    total = matching.length;
+    pageClaims = matching.slice(offset, offset + pageSize);
+  } else {
+    const bundle = await oystehr.fhir.search<Claim>({
+      resourceType: 'Claim',
+      params: [
+        ...filterParams,
+        { name: '_count', value: String(pageSize) },
+        { name: '_offset', value: String(offset) },
+        { name: '_total', value: 'accurate' },
+      ],
+    });
+    total = bundle.total ?? 0;
+    includedResources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
+    pageClaims = includedResources.filter((r) => r.resourceType === 'Claim') as Claim[];
+  }
+
+  const patients = includedResources.filter((r) => r.resourceType === 'Patient') as Patient[];
+  const locations = includedResources.filter((r) => r.resourceType === 'Location') as Location[];
+  const practitioners = includedResources.filter((r) => r.resourceType === 'Practitioner') as Practitioner[];
+
+  const items = await enrichAndMapClaims(oystehr, pageClaims, {
+    patients,
+    locations,
+    practitioners,
+  });
+
+  return {
+    claims: items,
+    total,
+    offset,
+    pageSize,
+  };
+}
+
+export const getClaimServiceDate = (claim: Claim): string =>
+  claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '';
+
+const toServiceDay = (value?: string): string | null =>
+  value ? DateTime.fromISO(value, { setZone: true }).toISODate() : null;
+
+export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: string): boolean => {
+  const day = toServiceDay(getClaimServiceDate(claim));
+  if (!day) return false;
+  const fromDay = toServiceDay(from);
+  const toDay = toServiceDay(to);
+  if (fromDay && day < fromDay) return false;
+  if (toDay && day > toDay) return false;
+  return true;
+};
+
+async function enrichAndMapClaims(
+  oystehr: Oystehr,
+  claims: Claim[],
+  included: { patients: Patient[]; locations: Location[]; practitioners: Practitioner[] }
+): Promise<BillingClaimItem[]> {
   // Batch-fetch coverages for the current page
   const coverageIds = claims
     .map((c) => sortClaimInsurance(c)[0]?.coverage?.reference?.replace('Coverage/', ''))
@@ -102,15 +166,23 @@ async function performEffect(
     coverages = covResult.unbundle();
   }
 
-  const payersByRef = await resolvePayersByRef(
-    oystehr,
-    claims.map((c) => c.insurer?.reference)
-  );
+  const [payersByRef, claimResponsesByClaimId] = await Promise.all([
+    resolvePayersByRef(
+      oystehr,
+      claims.map((c) => c.insurer?.reference)
+    ),
+    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+  ]);
 
-  const lookups = { patients, payersByRef, locations, practitioners, coverages };
-  const items = claims.map((claim) => mapClaimToItem(claim, lookups));
-
-  return { claims: items, total, offset, pageSize };
+  const lookups: ClaimLookups = {
+    patients: included.patients,
+    payersByRef,
+    locations: included.locations,
+    practitioners: included.practitioners,
+    coverages,
+    claimResponsesByClaimId,
+  };
+  return claims.map((claim) => mapClaimToItem(claim, lookups));
 }
 
 interface ClaimLookups {
@@ -119,6 +191,7 @@ interface ClaimLookups {
   locations: Location[];
   practitioners: Practitioner[];
   coverages: Coverage[];
+  claimResponsesByClaimId: Map<string, ClaimResponse[]>;
 }
 
 function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
@@ -134,13 +207,15 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const practName = fhirName(pract);
   const patientName = fhirName(patient);
 
-  const serviceDate = claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '';
+  const serviceDate = getClaimServiceDate(claim);
+  const payments = summarizeClaimPayments(lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [], billed);
 
   return {
     id: claim.id ?? '',
     type: getClaimType(claim),
     status: getClaimStatus(claim),
     statuses: getClaimStatusValues(claim),
+    rulesEngine: determineRulesEngineForClaim(claim),
     patientName,
     patientDob: patient?.birthDate ?? '',
     payerName: insurer?.name ?? '',
@@ -151,12 +226,11 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     facility: facility?.name ?? '',
     renderingProvider: practName,
     billed,
-    // TODO: wire payment data from ClaimResponse/PaymentReconciliation
-    allowed: 0,
-    insurancePaid: 0,
-    patientResp: 0,
-    patientPaid: 0,
-    claimBalance: billed,
+    allowed: payments.allowed,
+    insurancePaid: payments.insurancePaid,
+    patientResp: payments.patientResp,
+    patientPaid: payments.patientPaid,
+    claimBalance: payments.balance,
     responsibleParty: 'Primary',
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

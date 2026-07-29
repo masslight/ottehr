@@ -21,6 +21,7 @@ import {
   getPatchOperationForNewMetaTag,
   isAnnotationFollowupEncounter,
   isLocationVirtual,
+  locationSupportsServiceMode,
   makeBookingOriginExtensionEntry,
   makeSlotAtLocationExtensionEntry,
   makeSlotBookedViaGroupExtensionEntry,
@@ -2164,6 +2165,42 @@ export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr
   });
 };
 
+/**
+ * Whether a schedule owner can fulfill a booking in the given service mode —
+ * the predicate the get-schedule surfacing filter uses to prune member
+ * schedules a group offers in a mode their Location can't serve.
+ *
+ * - Location owner: checked directly via the location.ts capability seam.
+ * - PractitionerRole owner: kept if ANY paired Location can fulfill the mode
+ *   (the qualifying-Location gate downstream then admits only the mode-capable
+ *   Location(s), and create-appointment backstops the specific-Location case).
+ *   Paired Locations are supplied via `pairedLocationById` because the PR only
+ *   carries references; the caller resolves them once.
+ * - Practitioner / HealthcareService owner: no Location of its own → passes
+ *   through (rare in the current model; downstream narrowing handles it).
+ *
+ * Extracted from the handler so the mode-pruning decision is unit-testable
+ * without a live FHIR backend. All mode reasoning still funnels through the
+ * locationSupportsServiceMode seam.
+ */
+export const scheduleOwnerSupportsServiceMode = (
+  owner: ScheduleOwnerFhirResource,
+  mode: ServiceMode,
+  pairedLocationById: Map<string, Location>
+): boolean => {
+  if (owner.resourceType === 'Location') {
+    return locationSupportsServiceMode(owner as Location, mode);
+  }
+  if (owner.resourceType === 'PractitionerRole') {
+    return ((owner as PractitionerRole).location ?? []).some((ref) => {
+      const id = ref.reference?.split('/')[1];
+      const loc = id ? pairedLocationById.get(id) : undefined;
+      return !!loc && locationSupportsServiceMode(loc, mode);
+    });
+  }
+  return true;
+};
+
 export const getSlotServiceCategoryCodingFromScheduleOwner = (
   owner: ScheduleOwnerFhirResource,
   additionalServiceCategories: Coding[] = []
@@ -2416,6 +2453,55 @@ export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType'])
     return ScheduleType.provider;
   }
   return ScheduleType.group;
+};
+
+export interface PrebookModeLink {
+  mode: ServiceMode;
+  /** Stable key for React lists / copy-button state, e.g. `prebook-virtual`. */
+  key: string;
+  /** Human label; disambiguated by mode only when both modes are offered. */
+  label: string;
+  /** Path + query relative to the intake app base URL. */
+  relativeUrl: string;
+}
+
+/**
+ * Prebook booking links for a schedule owner — one per enabled service mode.
+ * A Location may be tagged both virtual and in-person (see isLocationVirtual /
+ * isLocationInPerson), so each enabled mode gets its own `/prebook/{mode}` link;
+ * the intake prebook route derives the mode from that path segment. An owner
+ * with neither flag set falls back to in-person, matching the back-compat
+ * default get-schedule applies to legacy Locations that predate the in-person
+ * modifier.
+ */
+export const buildPrebookModeLinks = (params: {
+  fhirType?: FhirResource['resourceType'];
+  slug?: string;
+  isVirtual?: boolean;
+  isInPerson?: boolean;
+}): PrebookModeLink[] => {
+  const { fhirType, slug, isVirtual, isInPerson } = params;
+  if (!slug || !fhirType) {
+    return [];
+  }
+  const scheduleType = scheduleTypeFromFHIRType(fhirType);
+  const modes: ServiceMode[] = [];
+  if (isInPerson) {
+    modes.push(ServiceMode['in-person']);
+  }
+  if (isVirtual) {
+    modes.push(ServiceMode.virtual);
+  }
+  if (modes.length === 0) {
+    modes.push(ServiceMode['in-person']);
+  }
+  const disambiguate = modes.length > 1;
+  return modes.map((mode) => ({
+    mode,
+    key: `prebook-${mode}`,
+    label: disambiguate ? `Prebook (${mode === ServiceMode.virtual ? 'Virtual' : 'In person'})` : 'Prebook',
+    relativeUrl: `/prebook/${mode}?bookingOn=${slug}&scheduleType=${scheduleType}`,
+  }));
 };
 
 export const getAppointmentDurationFromSlot = (slot: Slot, unit: 'minutes' | 'hours' = 'minutes'): number => {

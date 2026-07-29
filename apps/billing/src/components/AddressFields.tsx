@@ -42,7 +42,13 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
       <Controller
         name="city"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        rules={{
+          required: REQUIRED_FIELD_ERROR_MESSAGE,
+          validate: (value) => {
+            if (value.length < 2) return 'Must be least 2 chars long';
+            return true;
+          },
+        }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <TextField
             label="City *"
@@ -76,7 +82,9 @@ export function AddressFields({ requireFullZip }: { requireFullZip?: boolean }):
                 error={!!fieldError}
               >
                 {AllStates.map((state) => (
-                  <MenuItem value={state.value}>{stateCodeToFullName[state.value]}</MenuItem>
+                  <MenuItem value={state.value} key={state.value}>
+                    {stateCodeToFullName[state.value]}
+                  </MenuItem>
                 ))}
               </Select>
               {fieldError ? (

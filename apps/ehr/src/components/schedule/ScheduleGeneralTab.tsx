@@ -20,7 +20,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RoleType, ScheduleDTO, scheduleTypeFromFHIRType, UpdateScheduleParams } from 'utils';
+import { buildPrebookModeLinks, RoleType, ScheduleDTO, UpdateScheduleParams } from 'utils';
 import { setScheduleOwnerActive } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';
@@ -81,7 +81,7 @@ export default function ScheduleGeneralTab({
   const [telecomFax, setTelecomFax] = useState<string>(initialTelecomValue('fax'));
   const [reviewLink, setReviewLink] = useState<string>(item.owner.reviewLink ?? '');
   const [statusPatchLoading, setStatusPatchLoading] = useState(false);
-  const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [copiedLinkKey, setCopiedLinkKey] = useState<string | null>(null);
 
   useEffect(() => {
     setIsVirtual(Boolean(item.owner.isVirtual));
@@ -100,17 +100,17 @@ export default function ScheduleGeneralTab({
     setReviewLink(item.owner.reviewLink ?? '');
   }, [item, toRoomEntries]);
 
-  const defaultIntakeUrl = useMemo(() => {
-    const fhirType = item.owner.type;
-    const locationType = item.owner.isVirtual ? 'virtual' : 'in-person';
-    const ownerSlug = item.owner.slug;
-    if (ownerSlug && fhirType) {
-      return `${INTAKE_URL}/prebook/${locationType}?bookingOn=${ownerSlug}&scheduleType=${scheduleTypeFromFHIRType(
-        fhirType
-      )}`;
-    }
-    return '';
-  }, [item.owner.type, item.owner.isVirtual, item.owner.slug]);
+  // One prebook link per enabled service mode — a Location may be both.
+  const defaultIntakeUrls = useMemo(
+    () =>
+      buildPrebookModeLinks({
+        fhirType: item.owner.type,
+        slug: item.owner.slug,
+        isVirtual: item.owner.isVirtual,
+        isInPerson: item.owner.isInPerson,
+      }).map((link) => ({ ...link, url: `${INTAKE_URL}${link.relativeUrl}` })),
+    [item.owner.type, item.owner.slug, item.owner.isVirtual, item.owner.isInPerson]
+  );
 
   // What (if anything) keeps this Location out of the patient booking selects.
   // Mirrors the hard requirements enforced by the list-bookables zambda:
@@ -286,34 +286,57 @@ export default function ScheduleGeneralTab({
           />
           <br />
 
-          <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600 }}>
-            Share booking link to this schedule:
+          <Typography
+            variant="body2"
+            sx={{ pt: 1, pb: 0.5, fontWeight: 600, display: defaultIntakeUrls.length > 0 ? 'block' : 'none' }}
+          >
+            {defaultIntakeUrls.length > 1
+              ? 'Share booking links to this schedule:'
+              : 'Share booking link to this schedule:'}
           </Typography>
-          <Box sx={{ display: defaultIntakeUrl ? 'flex' : 'none', alignItems: 'center', gap: 0.5, mb: 3 }}>
-            <Tooltip
-              title={isCopied ? 'Link copied!' : 'Copy link'}
-              placement="top"
-              arrow
-              onClose={() => {
-                setTimeout(() => {
-                  setIsCopied(false);
-                }, 200);
-              }}
-            >
-              <Button
-                aria-label="Copy booking link"
-                onClick={() => {
-                  void navigator.clipboard.writeText(defaultIntakeUrl);
-                  setIsCopied(true);
-                }}
-                sx={{ p: 0, minWidth: 0 }}
-              >
-                <ContentCopyRoundedIcon fontSize="small" />
-              </Button>
-            </Tooltip>
-            <Link to={defaultIntakeUrl} target="_blank">
-              <Typography variant="body2">{defaultIntakeUrl}</Typography>
-            </Link>
+          <Box
+            sx={{
+              display: defaultIntakeUrls.length > 0 ? 'flex' : 'none',
+              flexDirection: 'column',
+              gap: 0.5,
+              mb: 3,
+            }}
+          >
+            {defaultIntakeUrls.map((link) => (
+              <Box key={link.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Tooltip
+                  title={copiedLinkKey === link.key ? 'Link copied!' : 'Copy link'}
+                  placement="top"
+                  arrow
+                  onClose={() => {
+                    setTimeout(() => {
+                      setCopiedLinkKey((prev) => (prev === link.key ? null : prev));
+                    }, 200);
+                  }}
+                >
+                  <Button
+                    aria-label="Copy booking link"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(link.url);
+                      setCopiedLinkKey(link.key);
+                    }}
+                    sx={{ p: 0, minWidth: 0 }}
+                  >
+                    <ContentCopyRoundedIcon fontSize="small" />
+                  </Button>
+                </Tooltip>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                  {defaultIntakeUrls.length > 1 && (
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      {link.label}
+                    </Typography>
+                  )}
+                  <Link to={link.url} target="_blank" rel="noopener noreferrer">
+                    <Typography variant="body2">{link.url}</Typography>
+                  </Link>
+                </Box>
+              </Box>
+            ))}
           </Box>
 
           {isLocation && (

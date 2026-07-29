@@ -53,7 +53,7 @@ export const VideoControls: FC = () => {
     // the provider stays connected and can retry, instead of being told the call ended for everyone while the
     // patient is in fact still in the room.
     await oystehr.telemed.endMeeting({ encounterId: encounter.id });
-    useVideoCallStore.setState({ wasMeetingEnded: true });
+    useVideoCallStore.setState((state) => ({ endedCallCount: state.endedCallCount + 1 }));
     await cleanup();
   };
 

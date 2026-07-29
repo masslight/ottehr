@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { OystehrAPIClient } from 'ui-components';
-import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
+import { isNullOrUndefined, PromiseReturnType } from 'utils';
 import { useSuccessQuery } from 'utils/lib/frontend';
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
@@ -61,55 +61,6 @@ export const useUpdatePaperworkMutation = () => {
       });
     },
   });
-};
-
-export const useAnswerOptionsQuery = (
-  queryKey: string,
-  enabled = true,
-  params: GetAnswerOptionsRequest | undefined,
-  onSuccess?: (data: QuestionnaireItemAnswerOption[] | null) => void
-): UseQueryResult<QuestionnaireItemAnswerOption[], Error> => {
-  const apiClient = useOystehrAPIClient();
-
-  const queryResult = useQuery({
-    queryKey: [queryKey, { apiClient }],
-
-    queryFn: async () => {
-      if (!apiClient) {
-        throw new Error('App client is not provided');
-      }
-
-      if (params && params.answerSource) {
-        let f:
-          | typeof apiClient.getAnswerOptions
-          | typeof apiClient.getAllInsuranceOptions
-          | typeof apiClient.getPatientInsuranceOptions;
-        switch (params.answerSource.zambdaId) {
-          case 'get-answer-options':
-            f = apiClient.getAnswerOptions;
-            break;
-          case 'get-all-insurance-payers':
-            f = apiClient.getAllInsuranceOptions;
-            break;
-          case 'get-patient-insurance-payers':
-            f = apiClient.getPatientInsuranceOptions;
-            break;
-          default:
-            // @ts-expect-error this is handling a failure of the type system
-            throw new Error(`Unknown zambdaId "${params.answerSource.zambdaId}" for queryKey "${queryKey}"`);
-        }
-        const resources = await f(params);
-        return resources;
-      }
-      throw new Error(`Missing params or answerSource for queryKey "${queryKey}"`);
-    },
-
-    enabled: !!apiClient && enabled && params !== undefined,
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
 };
 
 interface GetPaymentMethodsParams {
@@ -198,48 +149,5 @@ export const useDeletePaymentMethod = (
 
       throw new Error('api client not defined or patient id is not provided');
     },
-  });
-};
-
-export interface SetDefaultPaymentMethodParams {
-  paymentMethodId: string;
-  onSuccess?: () => void | Promise<void>;
-  onError?: (error: unknown) => void;
-}
-export const useSetDefaultPaymentMethod = (
-  beneficiaryPatientId: string | undefined,
-  appointmentId: string | undefined
-): UseMutationResult<
-  PromiseReturnType<ReturnType<OystehrAPIClient['setDefaultPaymentMethod']>>,
-  Error,
-  SetDefaultPaymentMethodParams
-> => {
-  const apiClient = useOystehrAPIClient();
-
-  return useMutation({
-    mutationFn: ({ paymentMethodId, onSuccess, onError }: SetDefaultPaymentMethodParams) => {
-      if (apiClient && beneficiaryPatientId && appointmentId) {
-        return apiClient
-          .setDefaultPaymentMethod({
-            beneficiaryPatientId,
-            paymentMethodId,
-            appointmentId,
-          })
-          .then(async () => {
-            if (onSuccess) {
-              await onSuccess();
-            }
-          })
-          .catch((error) => {
-            if (onError) {
-              onError(error);
-            }
-          });
-      }
-
-      throw new Error('api client not defined or patient id is not provided');
-    },
-    retry: 2,
-    retryDelay: 1000,
   });
 };

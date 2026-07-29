@@ -6,6 +6,7 @@ import {
   OVERRIDE_DATE_FORMAT,
   ScheduleListItem,
   ScheduleType,
+  ServiceMode,
   TelemedLocation,
   TIMEZONES,
 } from '../types';
@@ -81,6 +82,28 @@ export const isLocationVirtual = (location: Location | Schedule): location is Lo
  */
 export const isLocationInPerson = (location: Location | Schedule): boolean => {
   return hasLocationFormCoding(location, LOCATION_IN_PERSON_CODE) || !isLocationVirtual(location);
+};
+
+/**
+ * The single capability seam for "can this Location fulfill this service mode?"
+ *
+ * Today capability is read straight off the Location's mode codings
+ * (isLocationVirtual / isLocationInPerson). This is deliberately the ONLY place
+ * booking reconciles a requested service mode against a Location: both the
+ * get-schedule surfacing filter (which prunes member schedules a group offers
+ * in a mode their Location can't serve) and the create-appointment guard call
+ * through here.
+ *
+ * It is intentionally a chokepoint. The known-flawed part of the current model
+ * is that virtual capability + state licensure are proxied through virtual
+ * Location resources rather than owned by the provider. When that moves to a
+ * provider-credentialing model, booking's mode-capability rule should be
+ * changeable by replacing this function's body (and, for virtual, threading the
+ * patient's jurisdiction), without hunting the check across the surfacing and
+ * validation paths. Keep new mode-vs-Location checks funneled through here.
+ */
+export const locationSupportsServiceMode = (location: Location, mode: ServiceMode): boolean => {
+  return mode === ServiceMode.virtual ? isLocationVirtual(location) : isLocationInPerson(location);
 };
 
 export const filterVirtualLocations = (resources: Resource[]): Location[] => {

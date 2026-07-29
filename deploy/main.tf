@@ -5,10 +5,11 @@ terraform {
   #   path = "terraform.tfstate"
   # }
   backend "s3" {
-    bucket  = "YOUR_TF_BUCKET_NAME"
-    region  = "us-east-1"
-    profile = "YOUR_AWS_PROFILE_NAME"
-    key     = "terraform.tfstate"
+    bucket       = "YOUR_TF_BUCKET_NAME"
+    region       = "us-east-1"
+    profile      = "YOUR_AWS_PROFILE_NAME"
+    key          = "terraform.tfstate"
+    use_lockfile = true
   }
   required_version = ">= 1.12.0"
   required_providers {

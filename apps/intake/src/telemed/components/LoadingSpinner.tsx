@@ -5,8 +5,11 @@ import { IntakeThemeContext } from '../../contexts';
 
 interface LoadingSpinnerProps {
   transparent?: boolean;
+  // Render the spinner white for use over dark backgrounds (e.g. the video-call screen), where the default
+  // primary (blue) spinner is invisible against the dark-blue background.
+  white?: boolean;
 }
-export const LoadingSpinner: FC<LoadingSpinnerProps> = ({ transparent }) => {
+export const LoadingSpinner: FC<LoadingSpinnerProps> = ({ transparent, white }) => {
   const { otherColors } = useContext(IntakeThemeContext);
   const theme = useTheme();
   return (
@@ -24,7 +27,7 @@ export const LoadingSpinner: FC<LoadingSpinnerProps> = ({ transparent }) => {
         zIndex: 9999,
       }}
     >
-      <CircularProgress />
+      <CircularProgress sx={white ? { color: '#fff' } : undefined} />
     </Box>
   );
 };

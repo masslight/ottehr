@@ -7,6 +7,7 @@ import {
   CancelRadiologyOrderZambdaInput,
   createCancellationTagOperations,
   fetchServiceRequestFromAdvaPACS,
+  FHIR_EXTENSION,
   getSecret,
   Secrets,
   SecretsKeys,
@@ -47,6 +48,15 @@ const performEffect = async (validatedInput: ValidatedInput, secrets: Secrets, o
     validatedInput.body.serviceRequestId,
     oystehr
   );
+
+  // External (print-only) orders are never transmitted to AdvaPACS, so there is nothing to revoke there.
+  const isExternal =
+    oystehrServiceRequest.extension?.find((ext) => ext.url === FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
+      ?.valueBoolean === true;
+  if (isExternal) {
+    return;
+  }
+
   await updateServiceRequestToRevokedInAdvaPacs(oystehrServiceRequest, secrets);
 };
 

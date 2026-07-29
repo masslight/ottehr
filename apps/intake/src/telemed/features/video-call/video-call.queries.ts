@@ -20,6 +20,10 @@ export const useJoinCall = (
       throw new Error('api client not defined or appointmentID not provided');
     },
     enabled: isJoinCallEnabled(apiClient, appointmentId),
+    // A join token is single-use and room-specific. When the provider ends a call and starts a new one on
+    // the same appointment, the encounter gets a fresh Chime room; caching would replay the previous room's
+    // (now dead) MeetingData on re-entry, so drop it as soon as the video page unmounts and always fetch fresh.
+    gcTime: 0,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

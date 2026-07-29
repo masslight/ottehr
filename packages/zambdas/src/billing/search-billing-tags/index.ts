@@ -1,9 +1,9 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Bundle } from 'fhir/r4b';
-import { BillingTag } from 'utils';
+import { BillingTag, CLAIM_TAG_SYSTEM } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CLAIM_TAG_SYSTEM, createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
+import { createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-tags';

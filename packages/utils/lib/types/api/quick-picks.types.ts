@@ -213,11 +213,28 @@ export type GetPatientInstructionQuickPicksResponse = QuickPickListResponse<Pati
 
 // ── Insurance Quick Picks ──
 
+/** Optional free-form key/value pair stored on an insurance quick pick (store-only for now). */
+export interface InsuranceQuickPickMetadataEntry {
+  key: string;
+  value: string;
+}
+
 export interface InsuranceQuickPickData {
   id?: string;
+  /** Arbitrary display name for the quick pick, e.g. "Nomastin PPO" (stored as ActivityDefinition.title). */
   name: string;
+  /** Selected payer identifier. */
   payerId: string;
+  /** Selected payer Organization/<id> reference. */
   organizationReference: string;
+  /** Selected payer display ("<payerId> - <name>"); used as the carrier display when the pick is applied. */
+  organizationDisplay?: string;
+  /** candidCode from VALUE_SETS.insuranceTypeOptions; when unset the insurance type field is left unchanged. */
+  insuranceType?: string;
+  /** Value from VALUE_SETS.relationshipToInsuredOptions; when unset the relationship field is left unchanged. */
+  relationship?: string;
+  /** Optional free-form metadata (store-only). */
+  metadata?: InsuranceQuickPickMetadataEntry[];
 }
 
 export type CreateInsuranceQuickPickInput = QuickPickCreateInput<InsuranceQuickPickData>;

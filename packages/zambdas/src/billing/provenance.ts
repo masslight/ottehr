@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 import {
   Claim,
   Coding,
@@ -16,6 +17,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  buildClaimStatusDateExtensions,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
@@ -24,6 +26,7 @@ import {
   CLAIM_STATUS_FIELDS,
   CLAIM_SYSTEM_DEVICE_IDENTIFIER,
   CLAIM_SYSTEM_DEVICE_NAME,
+  CLAIM_TAG_SYSTEM,
   ClaimFieldChange,
   ClaimProvenanceActivityKey,
   ClaimStatusFieldKey,
@@ -34,13 +37,13 @@ import {
   getNPI,
   getPatchBinary,
   getTaxID,
+  HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
   Secrets,
   userMe,
 } from 'utils';
 import {
   buildUpdatedClaimStatusTags,
-  CLAIM_TAG_SYSTEM,
   fhirName,
   formatAddress,
   getClaimType,
@@ -458,6 +461,9 @@ export interface ClaimResourceChange {
   activity?: ClaimProvenanceActivityKey;
   // Change entries the projection diff can't see (e.g. policy-holder edits folded into the Coverage).
   extraChanges?: ClaimFieldChange[];
+  // Optimistic-locking header for the PUT; a concurrent edit then fails the transaction instead of
+  // being clobbered.
+  ifMatch?: string;
 }
 
 /**
@@ -465,7 +471,7 @@ export interface ClaimResourceChange {
  * when composing a larger transaction; use commitClaimResourceChange to commit directly.
  */
 export function claimResourceChangeRequests(change: ClaimResourceChange): BatchInputRequest<FhirResource>[] {
-  const { resource, before, agent, claimReference, activity, extraChanges } = change;
+  const { resource, before, agent, claimReference, activity, extraChanges, ifMatch } = change;
   const provenance = claimProvenanceRequest({
     targetReference: `${resource.resourceType}/${resource.id}`,
     claimReference,
@@ -478,7 +484,7 @@ export function claimResourceChangeRequests(change: ClaimResourceChange): BatchI
     extraChanges,
   });
   return [
-    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource },
+    { method: 'PUT', url: `${resource.resourceType}/${resource.id}`, resource, ...(ifMatch ? { ifMatch } : {}) },
     ...(provenance ? [provenance as BatchInputRequest<FhirResource>] : []),
   ];
 }
@@ -516,6 +522,7 @@ export async function commitClaimMetaTagsWithProvenance(
 ): Promise<void> {
   const claimReference = `Claim/${claim.id}`;
   const afterClaim: Claim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
+  const recorded = recordedNow();
   const provenance = claimProvenanceRequest({
     targetReference: claimReference,
     claimReference,
@@ -523,23 +530,66 @@ export async function commitClaimMetaTagsWithProvenance(
     after: afterClaim,
     agent,
     activity,
-    recorded: recordedNow(),
+    recorded,
     priorVersionReference: versionedReference(claim),
   });
+  const patchOperations: Operation[] = [
+    {
+      op: 'add',
+      path: '/meta/tag',
+      value: updatedTags,
+    },
+  ];
+  const dateExtensions = buildClaimStatusDateExtensions(claim, getClaimStatusValues(afterClaim), recorded);
+  if (dateExtensions) {
+    patchOperations.push({
+      op: 'add',
+      path: '/extension',
+      value: dateExtensions,
+    });
+  }
   const patch = getPatchBinary({
     resourceType: 'Claim',
     resourceId: claim.id!,
-    patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
+    patchOperations,
     ifMatch: makeOptimisticLockIfMatchHeader(claim),
   });
   const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
   await oystehr.fhir.transaction<FhirResource>({ requests });
 }
 
+export async function addErrorProvenanceForClaimSubmission(
+  oystehr: Oystehr,
+  claim: Claim,
+  error: Error,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const claimReference = `Claim/${claim.id}`;
+  const recorded = recordedNow();
+  const provenance = claimProvenanceRequest({
+    targetReference: claimReference,
+    claimReference,
+    extraChanges: [
+      {
+        field: 'error',
+        label: 'Error',
+        previousValue: null,
+        newValue: error.message,
+      },
+    ],
+    activity: 'submit',
+    agent,
+    recorded,
+    priorVersionReference: versionedReference(claim),
+  });
+  if (!provenance) throw new Error('Error provenance unexpectedly null');
+  await oystehr.fhir.transaction<FhirResource>({ requests: [provenance] });
+}
+
 /**
  * Set (or clear) one claim-status field and record the change, atomically. The provenance-aware
  * counterpart of shared.ts#buildUpdatedClaimStatusTags, used by every endpoint that moves a claim's
- * status (set-billing-claim-status, submit-billing-claim, ...).
+ * status (set-billing-claim-status, the rules engine's claim submission, ...).
  */
 export async function applyClaimStatusField(
   oystehr: Oystehr,
@@ -549,5 +599,23 @@ export async function applyClaimStatusField(
   agent: ProvenanceAgent
 ): Promise<void> {
   const updatedTags = buildUpdatedClaimStatusTags(claim, field, value);
+  await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
+}
+
+/**
+ * applyClaimStatusField variant for a passing rules-engine run: moves the status field and lifts the
+ * Hold tag in the same commit (one write, one history record). The rules just passed, so a hold left
+ * by an earlier run or an AR stage change no longer applies.
+ */
+export async function applyClaimStatusFieldClearingHold(
+  oystehr: Oystehr,
+  claim: Claim,
+  field: ClaimStatusFieldKey,
+  value: string,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const updatedTags = buildUpdatedClaimStatusTags(claim, field, value).filter(
+    (t) => !(t.system === CLAIM_TAG_SYSTEM && t.code === HOLD_TAG_NAME)
+  );
   await commitClaimMetaTagsWithProvenance(oystehr, claim, updatedTags, 'statusChange', agent);
 }

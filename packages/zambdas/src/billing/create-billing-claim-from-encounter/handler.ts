@@ -39,6 +39,7 @@ import {
   BILLING_RESOURCE_TAG,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   ChargeItemDefinitionDefault,
+  CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
@@ -53,6 +54,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
   getCandidPlanTypeCodeFromCoverage,
   getCoding,
   getDefaultClaimSubmissionExtensions,
@@ -89,18 +91,21 @@ import {
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
-  CLAIM_TAG_SYSTEM,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
+  determineRulesEngineForClaim,
   ensureClaimInsurance,
   findRef,
   getClaimTypeCoding,
+  kickOffRulesEngine,
   payerDisplay,
   prepareCopy,
   prepareWorkingCopy,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
+  reconcilePaymentNoticesForClaim,
   resourceDisplayName,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
   TAG_DESCRIPTION_URL,
@@ -151,6 +156,8 @@ interface ClaimResources {
   // Only patient is required, everything else will prompt for data before claim submission in the UI
   /** Ordered list of coverages. First entry is the target of the claim. */
   coverageRefs: CoverageRefs;
+  // The per-claim working copies (their ids are urn:uuid placeholders the transaction resolves), so
+  // the claim references the copies and later edits (UI, rules engine) never touch the shared originals.
   serviceFacility?: Location;
   // Only rendering and billing providers handled now
   renderingProvider?: Practitioner;
@@ -180,15 +187,17 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
   const agent = await resolveClaimActor('system', billingOystehr, undefined, params.secrets);
 
-  const response = await performEffect(billingOystehr, cvo, agent);
-  return { statusCode: 200, body: JSON.stringify(response) };
+  const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
+  const engine = determineRulesEngineForClaim(claim);
+  if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, params.secrets);
+  return { statusCode: 200, body: JSON.stringify({ claimId }) };
 }
 
 export async function performEffect(
   billingOystehr: Oystehr,
   cvo: ComplexValidationOutput,
   agent: ProvenanceAgent
-): Promise<{ claimId: string }> {
+): Promise<{ claimId: string; claim: Claim }> {
   const { clinicalResources, billingResources } = cvo;
 
   const requests: CreateClaimFromEncounterRequests = [];
@@ -197,12 +206,12 @@ export async function performEffect(
   // Create or update main billing patient from clinical patient
   let mainPatient = billingResources.mainPatient;
   if (!mainPatient) {
-    mainPatient = prepareCopy<Patient>(clinicalResources.patient, clinicalResources.patient.id!);
+    mainPatient = copyPatient(clinicalResources.patient);
     mainPatient.id = 'urn:uuid:main-patient';
     requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatient.id });
     order.push('patient');
   } else {
-    const updatedMainPatient = prepareCopy<Patient>(clinicalResources.patient, clinicalResources.patient.id!);
+    const updatedMainPatient = copyPatient(clinicalResources.patient);
     updatedMainPatient.id = mainPatient.id;
     try {
       deepStrictEqual(mainPatient, updatedMainPatient);
@@ -215,7 +224,7 @@ export async function performEffect(
   }
 
   // Create working copy from main patient
-  const claimPatient = prepareWorkingCopy(mainPatient, mainPatient.id!);
+  const claimPatient = copyPatient(mainPatient, true);
   claimPatient.id = 'urn:uuid:claim-patient';
   requests.push({ method: 'POST', url: '/Patient', resource: claimPatient, fullUrl: claimPatient.id });
   order.push('patient');
@@ -369,8 +378,9 @@ export async function performEffect(
   order.push('person');
 
   // Create working copy from rendering provider
+  let claimRenderingProvider: Practitioner | undefined;
   if (billingResources.renderingProvider) {
-    const claimRenderingProvider = prepareWorkingCopy(
+    claimRenderingProvider = prepareWorkingCopy<Practitioner>(
       billingResources.renderingProvider,
       billingResources.renderingProvider.id!
     );
@@ -385,8 +395,9 @@ export async function performEffect(
   }
 
   // Create working copy from billing provider
+  let claimBillingProvider: Organization | undefined;
   if (billingResources.billingProvider) {
-    const claimBillingProvider = prepareWorkingCopy(
+    claimBillingProvider = prepareWorkingCopy<Organization>(
       billingResources.billingProvider,
       billingResources.billingProvider.id!
     );
@@ -401,8 +412,9 @@ export async function performEffect(
   }
 
   // Create working copy from service facility
+  let claimServiceFacility: Location | undefined;
   if (billingResources.serviceFacility) {
-    const claimServiceFacility = prepareWorkingCopy(
+    claimServiceFacility = prepareWorkingCopy<Location>(
       billingResources.serviceFacility,
       billingResources.serviceFacility.id!
     );
@@ -459,9 +471,9 @@ export async function performEffect(
     diagnoses: clinicalResources.diagnoses,
     procedures: clinicalResources.procedures,
     coverageRefs: getClaimCoveragesForEncounter(appointmentService, mainPatientAccounts, claimCoverages),
-    renderingProvider: billingResources.renderingProvider,
-    serviceFacility: billingResources.serviceFacility,
-    billingProvider: billingResources.billingProvider,
+    renderingProvider: claimRenderingProvider,
+    serviceFacility: claimServiceFacility,
+    billingProvider: claimBillingProvider,
     billingTags,
     chargeMaster: billingResources.chargeMaster,
   });
@@ -534,7 +546,14 @@ export async function performEffect(
     throw InternalError;
   }
 
-  return { claimId: createdClaim.id };
+  // Adopt any payments the stripe webhook recorded before this claim existed
+  try {
+    await reconcilePaymentNoticesForClaim(billingOystehr, createdClaim);
+  } catch (err) {
+    console.error('Failed to reconcile PaymentNotices for new claim', err);
+  }
+
+  return { claimId: createdClaim.id, claim: createdClaim };
 }
 
 function uuidOrUrnReference(resourceType: BillingFhirResource['resourceType'], uuidOrUrn: string): Reference {
@@ -626,6 +645,19 @@ export function getClaimCoveragesForEncounter(
       return [];
     }
   }
+}
+
+function copyPatient(patient: Patient, workingCopy?: boolean): Patient {
+  const copy = workingCopy
+    ? prepareWorkingCopy<Patient>(patient, patient.id!)
+    : prepareCopy<Patient>(patient, patient.id!);
+  let friendlyId = patient.identifier?.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value;
+  friendlyId ??= patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+  if (friendlyId) {
+    copy.extension ??= [];
+    copy.extension.push({ url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: friendlyId });
+  }
+  return copy;
 }
 
 export function copyAccount(account: Account, patientId: string, billingCoverages?: Coverage[]): Account {
@@ -867,7 +899,9 @@ async function getClinicalResources(
       })
     ).unbundle();
   }
-  if (coverageIds.length && !coverages.length) throw FHIR_RESOURCE_NOT_FOUND('Coverage');
+  coverages = coverages.filter(
+    (c) => c.payor?.[0]?.reference && c.payor[0].reference !== oystehr.rcm.constructPayerUrl({ id: '00000' })
+  );
 
   // Manually look up payors because they may be internal Organization resources or Oystehr RCM payer URLs
   const payors = await Promise.all(
@@ -1181,13 +1215,13 @@ function buildClaim(resources: ClaimResources): Claim {
     patient: uuidOrUrnReference('Patient', resources.patientId),
     provider: resources.billingProvider?.id
       ? {
-          reference: `Organization/${resources.billingProvider.id}`,
+          ...uuidOrUrnReference('Organization', resources.billingProvider.id),
           display: resourceDisplayName(resources.billingProvider),
         }
       : { display: 'Unknown' },
-    facility: resources.serviceFacility
+    facility: resources.serviceFacility?.id
       ? {
-          reference: `Location/${resources.serviceFacility.id}`,
+          ...uuidOrUrnReference('Location', resources.serviceFacility.id),
           display: resourceDisplayName(resources.serviceFacility),
         }
       : undefined,
@@ -1203,12 +1237,12 @@ function buildClaim(resources: ClaimResources): Claim {
         coverage: cov.coverageRef,
       }))
     ),
-    careTeam: resources.renderingProvider
+    careTeam: resources.renderingProvider?.id
       ? [
           {
             sequence: 1,
             provider: {
-              reference: `Practitioner/${resources.renderingProvider.id}`,
+              ...uuidOrUrnReference('Practitioner', resources.renderingProvider.id),
               display: resourceDisplayName(resources.renderingProvider),
             },
             role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },

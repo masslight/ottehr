@@ -142,8 +142,8 @@ export default function Tags(): ReactElement {
             Reusable labels for organizing claims.
           </Typography>
         </Box>
-        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
-          New tag
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+          Add Tag
         </Button>
       </Box>
 

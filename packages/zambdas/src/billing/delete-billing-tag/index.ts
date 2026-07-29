@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils';
+import { CLAIM_TAG_SYSTEM, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CLAIM_TAG_SYSTEM, createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
+import { createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
 import { DeleteBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

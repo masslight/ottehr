@@ -13,43 +13,16 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { CreateBillingPatientInput, getApiError } from 'utils';
+import { getApiError } from 'utils';
 import { createBillingPatient } from '../api/api';
+import { emptyPatientForm, PatientForm, patientToCreateInput } from '../constants/patient';
 import { useApiClients } from '../hooks/useAppClients';
-import { buildAddressInput } from '../utils/format';
 import { AddressFields } from './AddressFields';
 import { DemographicFields } from './DemographicFields';
 
 // The create screen only picks references — patient, coverage, and providers are chosen as-is.
 // Tweaking their underlying details (names, NPIs, addresses, etc.) is done afterward in the claim
 // editing UI, which keeps this screen focused on assembling a claim from existing resources.
-interface AddPatientForm {
-  firstName: string | null;
-  lastName: string | null;
-  dob: string | null;
-  gender: string | null;
-  phone: string | null;
-  email: string | null;
-  line1: string | null;
-  line2: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-}
-
-const defaultValues: AddPatientForm = {
-  firstName: null,
-  lastName: null,
-  dob: null,
-  gender: null,
-  phone: null,
-  email: null,
-  line1: null,
-  line2: null,
-  city: null,
-  state: null,
-  zip: null,
-};
 
 interface AddPatientDialogProps {
   open: boolean;
@@ -59,7 +32,7 @@ interface AddPatientDialogProps {
 
 export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const methods = useForm<AddPatientForm>({ defaultValues });
+  const methods = useForm<PatientForm>({ defaultValues: emptyPatientForm() });
   const {
     handleSubmit,
     reset,
@@ -74,21 +47,11 @@ export function AddPatientDialog({ open, onClose, onCreated }: AddPatientDialogP
     reset();
   }, [open, reset]);
 
-  const handleSave = async (data: AddPatientForm): Promise<void> => {
+  const handleSave = async (data: PatientForm): Promise<void> => {
     if (!oystehrZambda) return;
     setError(null);
     try {
-      const address = buildAddressInput(data.line1, data.line2, data.city, data.state, data.zip);
-      const payload: CreateBillingPatientInput = {
-        firstName: data.firstName!.trim(),
-        lastName: data.lastName!.trim(),
-        ...(data.dob ? { dob: data.dob } : {}),
-        ...(data.gender ? { gender: data.gender as CreateBillingPatientInput['gender'] } : {}),
-        ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
-        ...(data.email?.trim() ? { phone: data.email.trim() } : {}),
-        ...(address ? { address } : {}),
-      };
-      const result = await createBillingPatient(oystehrZambda, payload);
+      const result = await createBillingPatient(oystehrZambda, patientToCreateInput(data));
       if (!result.id) throw new Error('Patient was not created');
       onCreated();
       onClose();

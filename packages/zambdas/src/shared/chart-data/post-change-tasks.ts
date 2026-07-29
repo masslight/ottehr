@@ -1,15 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { Encounter, Task } from 'fhir/r4b';
-import {
-  FreeTextNoteDTO,
-  getTaskResource,
-  NOTE_TYPE,
-  NoteDTO,
-  TASK_INPUT_TYPE_CODES,
-  TASK_INPUT_TYPE_SYSTEM,
-  TaskIndicator,
-} from 'utils';
+import { FreeTextNoteDTO, getSkipEmailTaskInput, getTaskResource, NOTE_TYPE, NoteDTO, TaskIndicator } from 'utils';
 
 interface ChangedFields {
   addendumNote?: FreeTextNoteDTO;
@@ -40,14 +32,7 @@ export function getChartDataPostChangeTasks(
   if (hasAddendumNoteChange(changedFields) && encounter.status === 'finished' && appointmentId) {
     tasks.push({
       ...getTaskResource(TaskIndicator.visitNotePDFAndEmail, 'Regenerate visit note PDF', appointmentId, encounter.id),
-      input: [
-        {
-          type: {
-            coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.SKIP_EMAIL }],
-          },
-          valueString: 'true',
-        },
-      ],
+      input: [getSkipEmailTaskInput()],
     });
   }
 

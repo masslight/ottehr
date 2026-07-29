@@ -1,0 +1,24 @@
+{
+  "quickTexts": [
+    {
+      "name": "Complete AI HPI Intake",
+      "english": "Please complete a brief AI chat session for {{patient-first-name}} to help your provider prepare for your visit: {{ai-interview-url}}",
+      "spanish": "Por favor complete una breve sesión de chat con IA para {{patient-first-name}} para ayudar a su proveedor a prepararse para su visita: {{ai-interview-url}}"
+    },
+    {
+      "name": "Complete Paperwork",
+      "english": "Please complete the paperwork and sign consent forms to avoid a delay in check-in. For {{patient-first-name}}, click here: {{paperwork-url}}",
+      "spanish": "Complete la documentación y firme los formularios de consentimiento para evitar demoras en el registro. Para {{patient-first-name}}, haga clic aquí: {{paperwork-url}}"
+    },
+    {
+      "name": "Ready to be seen",
+      "english": "We are ready for the patient to be seen, please enter the facility.",
+      "spanish": "Estamos listos para atender al paciente; ingrese al centro."
+    },
+    {
+      "name": "Trying to reach you",
+      "english": "{{practice-name}} is trying to get a hold of you. Please call us at {{office-phone}} or respond to this text message.",
+      "spanish": "{{practice-name}} está intentando comunicarse con usted. Llámenos al {{office-phone}} o responda a este mensaje de texto."
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import {
   getFileNameFromUrl,
   GetPatientMedicalRecordOutput,
   MEDICAL_RECORD_EXPORT_CODE,
+  MEDICAL_RECORD_TOO_LARGE_ERROR,
   MIME_TYPES,
   OTTEHR_CODE_SYSTEM_BASE_URL,
   PATIENT_FOLDERS_CODE,
@@ -247,7 +248,7 @@ const buildMedicalRecordZip = async (
       totalBytes += buffer.length;
       if (totalBytes > MAX_MEDICAL_RECORD_BYTES) {
         aborted = true;
-        throw new Error(`Medical record exceeds the maximum supported size of ${MAX_MEDICAL_RECORD_BYTES} bytes`);
+        throw MEDICAL_RECORD_TOO_LARGE_ERROR(Math.floor(MAX_MEDICAL_RECORD_BYTES / (1024 * 1024)));
       }
 
       archive.append(buffer, { name });

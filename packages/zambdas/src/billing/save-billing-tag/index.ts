@@ -1,16 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
-import { getPatchBinary, INVALID_INPUT_ERROR } from 'utils';
+import { CLAIM_TAG_SYSTEM, getPatchBinary, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import {
-  CLAIM_TAG_SYSTEM,
-  createBillingClient,
-  fetchById,
-  isSystemTag,
-  TAG_CODE_SYSTEM,
-  TAG_DESCRIPTION_URL,
-} from '../shared';
+import { createBillingClient, fetchById, isSystemTag, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
 import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

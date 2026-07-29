@@ -1,11 +1,12 @@
 import { Edit as EditIcon } from '@mui/icons-material';
-import { Alert, Box, Button, Card, CardContent, Collapse, Typography } from '@mui/material';
-import { ReactElement, ReactNode, useState } from 'react';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Collapse, Typography } from '@mui/material';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
 import { DefaultValues, FieldValues, FormProvider, useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { getApiError } from 'utils';
 
 interface EditableSectionProps<T> {
-  title: string;
+  title: string | ReactElement;
   children: ReactNode;
   editForm?: ReactNode;
   defaultValues?: DefaultValues<T>;
@@ -30,6 +31,10 @@ export const EditableSection = <T extends FieldValues>({
     formState: { isSubmitting },
   } = methods;
 
+  useEffect(() => {
+    reset(defaultValues);
+  }, [reset, defaultValues]);
+
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +55,7 @@ export const EditableSection = <T extends FieldValues>({
   const handleCancel = (): void => {
     setEditing(false);
     setError(null);
-    reset();
+    reset(defaultValues);
     onCancel?.();
   };
 
@@ -58,9 +63,13 @@ export const EditableSection = <T extends FieldValues>({
     <Card variant="outlined" sx={{ mb: 2 }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: editing ? 0 : 1.5 }}>
-          <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
-            {title}
-          </Typography>
+          {typeof title === 'string' ? (
+            <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
+              {title}
+            </Typography>
+          ) : (
+            title
+          )}
           {editForm && !editing && (
             <Button size="small" startIcon={<EditIcon fontSize="small" />} onClick={() => setEditing(true)}>
               Edit
@@ -84,11 +93,64 @@ export const EditableSection = <T extends FieldValues>({
         )}
         <Collapse in={!editing}>{children}</Collapse>
         <Collapse in={editing}>
+          {/* {defaultValues ? ( */}
           <FormProvider {...methods}>
             <Box sx={{ mt: 2 }}>{editForm}</Box>
           </FormProvider>
+          {/* ) : ( */}
+          {/* <></> */}
+          {/* )} */}
         </Collapse>
       </CardContent>
     </Card>
   );
 };
+
+export function EditableSectionSkeleton({ title }: { title: string }): ReactElement {
+  return (
+    <Card variant="outlined" sx={{ mb: 2 }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
+            {title}
+          </Typography>
+          <Button size="small" startIcon={<EditIcon fontSize="small" />} disabled={true}>
+            Edit
+          </Button>
+        </Box>
+        <Collapse in={true}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <CircularProgress />
+          </Box>
+        </Collapse>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function TitleWithSourceLink({
+  title,
+  sourceId,
+  sourceRouteBase,
+}: {
+  title: string;
+  sourceId?: string;
+  sourceRouteBase?: string;
+}): ReactElement {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
+      <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
+        {title}
+      </Typography>
+      {sourceId ? (
+        <Link to={`${sourceRouteBase}${sourceId}`}>
+          <Typography variant="caption" ml={1}>
+            Go to source
+          </Typography>
+        </Link>
+      ) : (
+        <></>
+      )}
+    </Box>
+  );
+}

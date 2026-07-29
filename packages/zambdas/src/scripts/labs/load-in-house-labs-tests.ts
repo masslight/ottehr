@@ -14,7 +14,7 @@ import {
 } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
-import { pathToFileURL } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import {
   CODE_SYSTEM_CPT,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
@@ -359,6 +359,85 @@ const getUrlAndVersion = (
   return { url, version: updatedVersion.toString() };
 };
 
+/**
+ * Builds the in-house lab ActivityDefinition resources from test-item definitions.
+ * Shared by the `make-in-house-test-items` loader (destructive re-sync) and the
+ * `recreate-in-house-labs` one-shot seed. Versions default to 1; pass a populated
+ * `adUrlVersionMap` (canonical url -> current version) to bump versions of tests
+ * that already exist.
+ */
+export const buildInHouseLabActivityDefinitions = (
+  testItems: TestItem[],
+  adUrlVersionMap: { [url: string]: string } = {}
+): ActivityDefinition[] => {
+  const activityDefinitions: ActivityDefinition[] = [];
+
+  for (const testItem of testItems) {
+    const { obsDefReferences, contained } = getObservationRequirement(testItem);
+
+    // this will default to version 1 at the onset which is fine, but if running in API mode, we need to figure out the current version and increment
+    const { url: activityDefUrl, version: activityDefVersion } = getUrlAndVersion(testItem, adUrlVersionMap);
+
+    const activityDef: ActivityDefinition = {
+      resourceType: 'ActivityDefinition',
+      status: 'active',
+      kind: 'ServiceRequest',
+      code: {
+        coding: [
+          {
+            system: IN_HOUSE_TEST_CODE_SYSTEM,
+            code: testItem.name,
+          },
+          ...testItem.cptCode.map((cptCode: CptCode) => {
+            return {
+              system: CODE_SYSTEM_CPT,
+              code: cptCode.code,
+              ...(cptCode.modifier ? { extension: [makeCptModifierExtension(cptCode.modifier)] } : {}),
+            };
+          }),
+        ],
+      },
+      title: testItem.name,
+      name: testItem.name,
+      participant: [
+        {
+          type: 'device',
+          role: {
+            coding: [
+              ...Object.entries(testItem.methods)
+                .filter((entry): entry is [string, { device: string }] => entry[1] !== undefined)
+                .map(([key, value]) => ({
+                  system: IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
+                  code: key,
+                  display: value.device,
+                })),
+            ],
+          },
+        },
+      ],
+      // specimenRequirement -- nothing in the test requirements describes this
+      observationRequirement: obsDefReferences,
+      contained: contained,
+      url: activityDefUrl,
+      version: activityDefVersion,
+      meta: {
+        tag: [
+          {
+            system: IN_HOUSE_TAG_DEFINITION.system,
+            code: IN_HOUSE_TAG_DEFINITION.code,
+          },
+        ],
+      },
+      relatedArtifact: makeRelatedArtifact(testItem),
+      extension: makeActivityExtension(testItem),
+    };
+
+    activityDefinitions.push(activityDef);
+  }
+
+  return activityDefinitions;
+};
+
 async function loadData(filePath: string): Promise<TestItem[]> {
   if (filePath === 'default') {
     return baseTestItems;
@@ -445,70 +524,7 @@ async function main(): Promise<void> {
   const requests: BatchInputRequest<ActivityDefinition>[] = [];
   const adUrlVersionMap: { [url: string]: string } = {};
 
-  const activityDefinitions: ActivityDefinition[] = [];
-
-  for (const testItem of testItems) {
-    const { obsDefReferences, contained } = getObservationRequirement(testItem);
-
-    // this will default to version 1 at the onset which is fine, but if running in API mode, we need to figure out the current version and increment
-    const { url: activityDefUrl, version: activityDefVersion } = getUrlAndVersion(testItem, adUrlVersionMap);
-
-    const activityDef: ActivityDefinition = {
-      resourceType: 'ActivityDefinition',
-      status: 'active',
-      kind: 'ServiceRequest',
-      code: {
-        coding: [
-          {
-            system: IN_HOUSE_TEST_CODE_SYSTEM,
-            code: testItem.name,
-          },
-          ...testItem.cptCode.map((cptCode: CptCode) => {
-            return {
-              system: CODE_SYSTEM_CPT,
-              code: cptCode.code,
-              ...(cptCode.modifier ? { extension: [makeCptModifierExtension(cptCode.modifier)] } : {}),
-            };
-          }),
-        ],
-      },
-      title: testItem.name,
-      name: testItem.name,
-      participant: [
-        {
-          type: 'device',
-          role: {
-            coding: [
-              ...Object.entries(testItem.methods)
-                .filter((entry): entry is [string, { device: string }] => entry[1] !== undefined)
-                .map(([key, value]) => ({
-                  system: IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
-                  code: key,
-                  display: value.device,
-                })),
-            ],
-          },
-        },
-      ],
-      // specimenRequirement -- nothing in the test requirements describes this
-      observationRequirement: obsDefReferences,
-      contained: contained,
-      url: activityDefUrl,
-      version: activityDefVersion,
-      meta: {
-        tag: [
-          {
-            system: IN_HOUSE_TAG_DEFINITION.system,
-            code: IN_HOUSE_TAG_DEFINITION.code,
-          },
-        ],
-      },
-      relatedArtifact: makeRelatedArtifact(testItem),
-      extension: makeActivityExtension(testItem),
-    };
-
-    activityDefinitions.push(activityDef);
-  }
+  const activityDefinitions: ActivityDefinition[] = buildInHouseLabActivityDefinitions(testItems, adUrlVersionMap);
 
   console.log('ActivityDefinitions: ', JSON.stringify(activityDefinitions, undefined, 2));
 
@@ -582,10 +598,14 @@ async function main(): Promise<void> {
   console.error(`write mode not recognized: ${writeMode}`);
 }
 
-main().catch((error) => {
-  console.error('Script failed:', error);
-  process.exit(1);
-});
+// Only run as a CLI when this file is the entry point, so importing the shared
+// builder (e.g. from recreate-in-house-labs.ts) does not trigger the loader's CLI.
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch((error) => {
+    console.error('Script failed:', error);
+    process.exit(1);
+  });
+}
 
 // types - there are separated types and seed object which is used for the creation script only:
 interface QuantityRange {

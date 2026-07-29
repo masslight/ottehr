@@ -14,13 +14,13 @@ import {
   PROJECT_WEBSITE,
   SlotListItem,
 } from 'utils';
+import { i18n } from 'utils/lib/frontend';
 import ottehrApi from '../api/ottehrApi';
 import { getPrimaryIconContainerProps, PRIMARY_ICON_PAGE } from '../branding/primaryIconVisibility';
 import { PageContainer, Schedule } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
-import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
 
 const Reschedule = (): JSX.Element => {

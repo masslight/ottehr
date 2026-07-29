@@ -523,3 +523,8 @@ export const setCoveragePlanType = (coverage: Coverage, candidCode: string): Cov
     ],
   };
 };
+
+export function commaFormattedName(resource?: { firstName: string; lastName: string } | null): string {
+  if (!resource) return '';
+  return `${resource.lastName}, ${resource.firstName}`.trim();
+}

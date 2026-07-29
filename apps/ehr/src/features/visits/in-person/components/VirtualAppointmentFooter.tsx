@@ -47,9 +47,12 @@ const FooterButton = styled(LoadingButton)(({ theme }) => ({
 export const VirtualAppointmentFooter: FC = () => {
   const theme = useTheme();
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
+  // True while onConnect is provisioning/joining the room, so the confirmation dialog's proceed button
+  // (and the footer button) can show a loader until the video call is ready.
+  const [isConnecting, setIsConnecting] = useState(false);
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { appointment, encounter, mappedData, questionnaireResponse, appointmentRefetch } = useAppointmentData();
-  const { meetingData, wasMeetingEnded } = getSelectors(useVideoCallStore, ['meetingData', 'wasMeetingEnded']);
+  const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
   const appointmentStatus = (appointment && getInPersonVisitStatus(appointment, encounter)) ?? 'unknown';
   const isActiveVisitStatus = ['arrived', 'ready', 'intake', 'ready for provider', 'provider'].includes(
     appointmentStatus
@@ -80,16 +83,44 @@ export const VirtualAppointmentFooter: FC = () => {
   const user = useEvolveUser();
   const { getAccessTokenSilently } = useAuth0();
   const initTelemedSession = useInitTelemedSessionMutation();
+  // Errors are handled inside onConnect's own try/catch (so we can transparently re-provision a dead
+  // room instead of surfacing a toast); keep this a no-op to avoid a duplicate error snackbar.
   const getMeetingData = useGetMeetingData(
     getAccessTokenSilently,
     () => {},
-    () => {
-      enqueueSnackbar('Error trying to connect to a patient.', {
-        variant: 'error',
-      });
-    }
+    () => {}
   );
   const { oystehrZambda } = useApiClients();
+
+  const reprovisionRoomAndConnect = useCallback(async (): Promise<void> => {
+    if (!apiClient || !user || !appointment?.id || !encounter.id) {
+      throw new Error('apiClient or user or appointment.id or encounter.id is undefined');
+    }
+    const encounterId = encounter.id;
+    const statusAlreadyProvider = appointmentStatus === 'provider';
+    // init-telemed-session always creates a fresh Chime room and Oystehr replaces the addressString on
+    // the encounter, so this both starts the first call and restarts one after hang-up / room timeout.
+    const response = await initTelemedSession.mutateAsync({
+      apiClient,
+      appointmentId: appointment.id,
+      userId: user.id,
+    });
+    useVideoCallStore.setState({ meetingData: response.meetingData });
+    if (!statusAlreadyProvider) {
+      await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'provider' }, oystehrZambda);
+    }
+    await appointmentRefetch();
+  }, [
+    apiClient,
+    appointment?.id,
+    appointmentRefetch,
+    appointmentStatus,
+    encounter.id,
+    initTelemedSession,
+    oystehrZambda,
+    user,
+  ]);
+
   const onConnect = useCallback(async (): Promise<void> => {
     // Self-heal: status can advance to 'provider' without a provisioned Chime room
     // (e.g., when set via ChangeStatusDropdown). If addressString is missing we
@@ -100,54 +131,31 @@ export const VirtualAppointmentFooter: FC = () => {
       (ext) => ext.url === 'addressString' && typeof ext.valueString === 'string' && ext.valueString.length > 0
     );
 
-    if (appointmentStatus === 'provider' && hasRoom) {
-      const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
-      useVideoCallStore.setState({
-        meetingData: meetingDataResponse.data,
-      });
-    } else {
-      if (!apiClient || !user || !appointment?.id || !encounter.id) {
-        throw new Error('apiClient or user or appointment.id or encounter.id is undefined');
-      }
-      const encounterId = encounter.id;
-      const statusAlreadyProvider = appointmentStatus === 'provider';
-      initTelemedSession.mutate(
-        { apiClient, appointmentId: appointment.id, userId: user?.id },
-        {
-          onSuccess: async (response) => {
-            useVideoCallStore.setState({
-              meetingData: response.meetingData,
-            });
-            if (!statusAlreadyProvider) {
-              await handleChangeInPersonVisitStatus(
-                {
-                  encounterId: encounterId,
-                  updatedStatus: 'provider',
-                },
-                oystehrZambda
-              );
-            }
-            await appointmentRefetch();
-          },
-          onError: () => {
-            enqueueSnackbar('Error trying to connect to a patient.', {
-              variant: 'error',
-            });
-          },
+    setIsConnecting(true);
+    try {
+      // If a room already exists, first try to reuse it (e.g. the provider reloaded mid-call and the
+      // Chime meeting is still alive). If the meeting is gone — the previous call was ended, or the room
+      // auto-destroyed after ~15 min idle — join returns "not found or expired"; re-provision a new one.
+      if (appointmentStatus === 'provider' && hasRoom) {
+        try {
+          const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
+          useVideoCallStore.setState({ meetingData: meetingDataResponse.data });
+          return;
+        } catch (error) {
+          if (!isMeetingNotFoundOrExpired(error)) {
+            throw error;
+          }
+          // meeting no longer exists — fall through to re-provision a fresh room
         }
-      );
+      }
+      await reprovisionRoomAndConnect();
+    } catch (error) {
+      console.error('Error connecting to patient video call:', error);
+      enqueueSnackbar('Error trying to connect to a patient.', { variant: 'error' });
+    } finally {
+      setIsConnecting(false);
     }
-  }, [
-    apiClient,
-    appointment?.id,
-    appointmentRefetch,
-    appointmentStatus,
-    encounter,
-    getMeetingData,
-    initTelemedSession,
-    oystehrZambda,
-    user,
-  ]);
+  }, [appointmentStatus, encounter, getMeetingData, reprovisionRoomAndConnect]);
 
   const providerAllowedToConnect =
     appointmentAccessibility.isPractitionerLicensedInState &&
@@ -174,7 +182,7 @@ export const VirtualAppointmentFooter: FC = () => {
           spacing={3}
           divider={<Divider variant="middle" orientation="vertical" sx={{ borderColor: '#FFFFFF4D' }} flexItem />}
         >
-          {isActiveVisitStatus && !meetingData && !wasMeetingEnded && (
+          {isActiveVisitStatus && !meetingData && (
             <Box>
               <Typography variant="body1" style={{ fontWeight: 500 }}>
                 {mappedData.firstName} {mappedData.lastName} is waiting
@@ -202,7 +210,7 @@ export const VirtualAppointmentFooter: FC = () => {
           </Box>
         </Stack>
         <Stack direction="row" spacing={2} alignItems="center">
-          {isActiveVisitStatus && providerAllowedToConnect && !wasMeetingEnded && (
+          {isActiveVisitStatus && providerAllowedToConnect && (
             <FooterButton
               onClick={() => setIsInviteParticipantOpen(true)}
               variant="contained"
@@ -211,10 +219,7 @@ export const VirtualAppointmentFooter: FC = () => {
               Invite participant
             </FooterButton>
           )}
-          {isActiveVisitStatus && wasMeetingEnded && (
-            <Typography variant="body1">Video call ended. The call cannot be started again.</Typography>
-          )}
-          {isActiveVisitStatus && providerAllowedToConnect && !meetingData && !wasMeetingEnded && (
+          {isActiveVisitStatus && providerAllowedToConnect && !meetingData && (
             <Box sx={{ display: 'flex', gap: 1 }}>
               <ConfirmationDialog
                 title="Do you want to connect to the patient?"
@@ -223,13 +228,14 @@ export const VirtualAppointmentFooter: FC = () => {
                 actionButtons={{
                   proceed: {
                     text: 'Connect to Patient',
+                    loading: isConnecting,
                   },
                   back: { text: 'Cancel' },
                 }}
               >
                 {(showDialog) => (
                   <FooterButton
-                    loading={initTelemedSession.isPending || getMeetingData.isLoading}
+                    loading={isConnecting}
                     onClick={showDialog}
                     variant="contained"
                     data-testid={dataTestIds.telemedEhrFlow.footerButtonConnectToPatient}
@@ -251,6 +257,14 @@ export const VirtualAppointmentFooter: FC = () => {
 
 function isSpanish(language: string): boolean {
   return language.toLowerCase() === 'Spanish'.toLowerCase();
+}
+
+// A dead or timed-out Chime meeting surfaces from the join endpoint as e.g.
+// "Meeting associated with encounter ID <...> not found or expired". When that happens we re-provision
+// a fresh room rather than treating it as a hard error.
+function isMeetingNotFoundOrExpired(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  return message.includes('not found or expired');
 }
 
 function statusDurationMillis(statusEntry: VisitStatusHistoryEntry): number {

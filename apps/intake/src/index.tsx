@@ -1,5 +1,5 @@
 import './index.css';
-import './lib/i18n';
+import 'utils/lib/frontend/i18n-lib/i18n';
 import { Auth0Provider } from '@auth0/auth0-react';
 import hasOwn from 'object.hasown';
 import React from 'react';

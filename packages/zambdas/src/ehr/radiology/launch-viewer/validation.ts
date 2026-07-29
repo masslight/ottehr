@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
-import { isValidUUID, Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { RadiologyLaunchViewerZambdaInputSchema, Secrets } from 'utils';
+import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 import { ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
@@ -19,11 +19,7 @@ export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promi
 };
 
 const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<ServiceRequest> => {
-  const { serviceRequestId } = validateJsonBody(input);
-
-  if (!isValidUUID(serviceRequestId)) {
-    throw new Error('serviceRequestId is required and must be a uuid');
-  }
+  const { serviceRequestId } = safeValidate(RadiologyLaunchViewerZambdaInputSchema, validateJsonBody(input));
 
   let serviceRequest: ServiceRequest;
   try {
