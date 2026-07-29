@@ -72,10 +72,12 @@ moved {
 # create and never again. The seeder is idempotent (it skips any file whose resources
 # already exist), so a provisioner re-run — and migrating an environment that already
 # had these resources via Terraform — is a harmless no-op. The depends_on only orders
-# this after the FHIR API/provider is known-ready (via the global-template seed); it
-# is not a data dependency.
+# this after the FHIR API/provider is known-ready (via the seed module, whose global-
+# template bootstrap is the readiness gate); it is not a data dependency. The seed
+# resources live in module.seed, so we depend on the whole module — the root can't
+# reference a resource nested inside a child module.
 resource "terraform_data" "seed_runtime_resources" {
-  depends_on       = [terraform_data.seed_global_templates]
+  depends_on       = [module.seed]
   triggers_replace = "runtime-resources-v1"
 
   provisioner "local-exec" {
