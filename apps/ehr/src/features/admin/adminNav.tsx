@@ -79,6 +79,12 @@ export const adminNavGroups: AdminNavGroup[] = [
     label: 'Practice',
     items: [
       {
+        label: 'Locations',
+        path: '/admin/locations',
+        icon: <ApartmentOutlinedIcon />,
+        render: () => <LocationsListPage />,
+      },
+      {
         label: 'Services',
         path: '/admin/services',
         icon: <MedicalInformationOutlinedIcon />,
@@ -95,12 +101,6 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/provider-groups',
         icon: <Groups2OutlinedIcon />,
         render: () => <ProviderGroupsPage />,
-      },
-      {
-        label: 'Locations',
-        path: '/admin/locations',
-        icon: <ApartmentOutlinedIcon />,
-        render: () => <LocationsListPage />,
       },
     ],
   },

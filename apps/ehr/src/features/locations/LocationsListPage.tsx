@@ -3,7 +3,6 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -23,6 +22,7 @@ import {
 import { Address } from 'fhir/r4b';
 import { ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { useCreateLocationMutation, useLocationsListQuery } from './location.queries';
 
 const addressString = (address: Address): string =>
@@ -139,10 +139,9 @@ export default function LocationsListPage(): ReactElement {
                 </TableCell>
                 <TableCell>{location.address ? addressString(location.address) : '—'}</TableCell>
                 <TableCell>
-                  <Chip
-                    size="small"
+                  <BooleanStateChip
+                    state={location.status === 'active'}
                     label={location.status === 'active' ? 'Active' : 'Inactive'}
-                    color={location.status === 'active' ? 'success' : 'default'}
                   />
                 </TableCell>
               </TableRow>

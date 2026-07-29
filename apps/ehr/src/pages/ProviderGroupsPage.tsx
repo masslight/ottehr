@@ -117,7 +117,7 @@ export default function ProviderGroupsPage(): ReactElement {
                 <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Pool</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Services</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Active</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -146,7 +146,7 @@ export default function ProviderGroupsPage(): ReactElement {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <BooleanStateChip state={group.active} label={group.active ? 'Yes' : 'No'} />
+                    <BooleanStateChip state={group.active} label={group.active ? 'Active' : 'Inactive'} />
                   </TableCell>
                 </TableRow>
               ))}

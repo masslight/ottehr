@@ -190,7 +190,7 @@ export function SchedulesTable(): ReactElement {
               <TableCell sx={{ width: 48 }} />
               <TableCell sx={{ fontWeight: 'bold', width: '45%' }}>Owner</TableCell>
               <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Today&apos;s hours</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Active</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Status</TableCell>
               <TableCell sx={{ width: 96 }} />
             </TableRow>
           </TableHead>
@@ -214,7 +214,7 @@ export function SchedulesTable(): ReactElement {
                     </TableCell>
                     <TableCell>{hoursText(item.schedules[0])}</TableCell>
                     <TableCell>
-                      <BooleanStateChip state={active} label={active ? 'Yes' : 'No'} />
+                      <BooleanStateChip state={active} label={active ? 'Active' : 'Inactive'} />
                     </TableCell>
                     <TableCell />
                   </TableRow>
@@ -295,7 +295,7 @@ export function SchedulesTable(): ReactElement {
                           </TableCell>
                           <TableCell>{hoursText(child)}</TableCell>
                           <TableCell>
-                            <BooleanStateChip state={childActive} label={childActive ? 'Yes' : 'No'} />
+                            <BooleanStateChip state={childActive} label={childActive ? 'Active' : 'Inactive'} />
                           </TableCell>
                           <TableCell />
                         </TableRow>

@@ -16,12 +16,15 @@ const theme = {
       primary: '#1B5E20',
     },
   },
+  // Inactive is a neutral, archived state — not an error — so it reads as an
+  // understated grey rather than an alarming red. Green (active) vs grey
+  // (inactive) carries the distinction with plenty of contrast.
   off: {
     background: {
-      primary: '#FECDD2',
+      primary: '#E0E0E0',
     },
     color: {
-      primary: '#B71C1C',
+      primary: '#616161',
     },
   },
 };
@@ -38,11 +41,16 @@ export function BooleanStateChip({ state, label, dataTestId }: BooleanStateChip)
         border: 'none',
         fontWeight: 500,
         fontSize: '12px',
+        // Tight line-height so the caps center in the chip: the default leaves
+        // descender space at the bottom that uppercase never fills, which reads
+        // as the text being shifted up.
+        lineHeight: 1,
         textTransform: 'uppercase',
         background: colors.background.primary,
         color: colors.color.primary,
         padding: '0 2px',
         height: '18px',
+        '& .MuiChip-label': { lineHeight: 1 },
       }}
       variant="outlined"
     />
