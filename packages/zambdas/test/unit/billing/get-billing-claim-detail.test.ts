@@ -60,11 +60,18 @@ const patient = {
   address: [],
 } as unknown as Patient;
 
-const paymentNotice = (id: string, amount: number, paymentDate: string, method = 'cash'): PaymentNotice =>
-  ({
+const paymentNotice = (opts: {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  method?: string;
+  status?: PaymentNotice['status'];
+}): PaymentNotice => {
+  const { id, amount, paymentDate, method = 'cash', status = 'active' } = opts;
+  return {
     resourceType: 'PaymentNotice',
     id,
-    status: 'active',
+    status,
     created: `${paymentDate}T12:00:00Z`,
     paymentDate,
     amount: {
@@ -98,7 +105,8 @@ const paymentNotice = (id: string, amount: number, paymentDate: string, method =
         disposition: `${method} collected from patient`,
       },
     ],
-  }) as PaymentNotice;
+  } as PaymentNotice;
+};
 
 const makeBillingClient = (notices: PaymentNotice[]): Oystehr => {
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
@@ -140,7 +148,19 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
   });
 
   it('sums patient payments into patientPaid, nets the balance, and lists them newest-first', async () => {
-    const notices = [paymentNotice('pn-old', 30, '2026-07-01'), paymentNotice('pn-new', 60, '2026-07-10', 'check')];
+    const notices = [
+      paymentNotice({
+        id: 'pn-old',
+        amount: 30,
+        paymentDate: '2026-07-01',
+      }),
+      paymentNotice({
+        id: 'pn-new',
+        amount: 60,
+        paymentDate: '2026-07-10',
+        method: 'check',
+      }),
+    ];
     const oystehr = makeBillingClient(notices);
 
     const response = await performEffect(
@@ -179,5 +199,38 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     expect(response.patientPaid).toBe(0);
     expect(response.balance).toBe(200);
     expect(response.patientPayments).toEqual([]);
+  });
+
+  it('lists a cancelled refund for the audit trail but keeps it out of patientPaid and the balance', async () => {
+    const notices = [
+      paymentNotice({
+        id: 'pn-charge',
+        amount: 100,
+        paymentDate: '2026-07-01',
+        method: 'card',
+      }),
+      paymentNotice({
+        id: 'pn-refund-failed',
+        amount: -40,
+        paymentDate: '2026-07-12',
+        method: 'card',
+        status: 'cancelled',
+      }),
+    ];
+    const oystehr = makeBillingClient(notices);
+
+    const response = await performEffect(
+      oystehr,
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {},
+      } as never
+    );
+
+    expect(response.patientPaid).toBe(100);
+    expect(response.balance).toBe(100);
+    expect(response.patientPayments.map((p) => p.paymentNoticeId)).toEqual(['pn-refund-failed', 'pn-charge']);
+    expect(response.patientPayments[0].status).toBe('cancelled');
   });
 });

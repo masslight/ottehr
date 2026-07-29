@@ -153,8 +153,12 @@ export function summarizePatientBalance(summaries: ClaimPaymentSummary[]): {
   };
 }
 
+function movesPatientAr(notice: PaymentNotice): boolean {
+  return notice.status === 'active';
+}
+
 export function sumPatientPayments(notices: PaymentNotice[]): number {
-  return notices.reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
+  return notices.filter(movesPatientAr).reduce((sum, notice) => sum + (notice.amount?.value ?? 0), 0);
 }
 
 export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPayment {

@@ -202,11 +202,12 @@ const paymentNotice = (opts: {
   disposition?: string;
   checkNumber?: string;
   withReconciliation?: boolean;
+  status?: PaymentNotice['status'];
 }): PaymentNotice =>
   ({
     resourceType: 'PaymentNotice',
     id: opts.id,
-    status: 'active',
+    status: opts.status ?? 'active',
     created: opts.created ?? '2026-07-01T12:00:00Z',
     amount: {
       value: opts.amount,
@@ -618,6 +619,46 @@ describe('sumPatientPayments', () => {
 
   it('returns 0 for no payments', () => {
     expect(sumPatientPayments([])).toBe(0);
+  });
+
+  it('ignores a cancelled refund, which the webhook writes for a refund that never went through', () => {
+    const notices = [
+      paymentNotice({
+        id: 'a',
+        encounterId: 'e',
+        amount: 100,
+      }),
+      paymentNotice({
+        id: 'r-failed',
+        encounterId: 'e',
+        amount: -40,
+        status: 'cancelled',
+      }),
+    ];
+    expect(sumPatientPayments(notices)).toBe(100);
+  });
+
+  it('ignores draft and entered-in-error notices', () => {
+    const notices = [
+      paymentNotice({
+        id: 'a',
+        encounterId: 'e',
+        amount: 25,
+      }),
+      paymentNotice({
+        id: 'b',
+        encounterId: 'e',
+        amount: 15,
+        status: 'draft',
+      }),
+      paymentNotice({
+        id: 'c',
+        encounterId: 'e',
+        amount: 10,
+        status: 'entered-in-error',
+      }),
+    ];
+    expect(sumPatientPayments(notices)).toBe(25);
   });
 });
 
