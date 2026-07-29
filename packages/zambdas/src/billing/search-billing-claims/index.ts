@@ -11,8 +11,14 @@ import {
   getPayerId,
   getPayerUrl,
 } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
+import {
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaymentsByEncounterIds,
+  summarizeClaimPayments,
+  sumPatientPayments,
+} from '../claim-amounts';
 import {
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -104,13 +110,26 @@ async function performEffect(
     coverages = covResult.unbundle();
   }
 
-  const [payersByRef, claimResponsesByClaimId] = await Promise.all([
+  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterIdByClaimId = new Map<string, string>();
+  for (const claim of claims) {
+    const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
+    if (claim.id && encounterId) encounterIdByClaimId.set(claim.id, encounterId);
+  }
+
+  const [payersByRef, claimResponsesByClaimId, paymentsByEncounter] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
     ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchPatientPaymentsByEncounterIds(oystehr, [...encounterIdByClaimId.values()]),
   ]);
+
+  const patientPaidByClaimId = new Map<string, number>();
+  for (const [claimId, encounterId] of encounterIdByClaimId) {
+    patientPaidByClaimId.set(claimId, sumPatientPayments(paymentsByEncounter.get(encounterId) ?? []));
+  }
 
   const lookups = {
     patients,
@@ -119,6 +138,7 @@ async function performEffect(
     practitioners,
     coverages,
     claimResponsesByClaimId,
+    patientPaidByClaimId,
   };
   const items = claims.map((claim) => mapClaimToItem(claim, lookups));
 
@@ -132,9 +152,10 @@ interface ClaimLookups {
   practitioners: Practitioner[];
   coverages: Coverage[];
   claimResponsesByClaimId: Map<string, ClaimResponse[]>;
+  patientPaidByClaimId: Map<string, number>;
 }
 
-function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
+export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patient = findRef<Patient>(lookups.patients, claim.patient?.reference);
   const insurer = claim.insurer?.reference ? lookups.payersByRef.get(claim.insurer.reference) : undefined;
   const facility = findRef<Location>(lookups.locations, claim.facility?.reference);
@@ -148,7 +169,12 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patientName = fhirName(patient);
 
   const serviceDate = claim.item?.[0]?.servicedPeriod?.start ?? claim.item?.[0]?.servicedDate ?? claim.created ?? '';
-  const payments = summarizeClaimPayments(lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [], billed);
+  const patientPaid = lookups.patientPaidByClaimId.get(claim.id ?? '') ?? 0;
+  const payments = summarizeClaimPayments(
+    lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [],
+    billed,
+    patientPaid
+  );
 
   return {
     id: claim.id ?? '',

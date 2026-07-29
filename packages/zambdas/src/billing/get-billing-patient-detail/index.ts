@@ -2,8 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient, Person } from 'fhir/r4b';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
+import {
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaymentsByEncounterIds,
+  summarizeClaimPayments,
+  sumPatientPayments,
+} from '../claim-amounts';
 import {
   createBillingClient,
   fetchById,
@@ -93,16 +99,33 @@ async function fetchPatientClaims(
     return bundle;
   }, 100);
 
-  const [payersByRef, claimResponsesByClaimId] = await Promise.all([
+  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterIdByClaimId = new Map<string, string>();
+  for (const c of claims) {
+    const encounterId = c.identifier?.find((i) => i.system === encounterIdSystem)?.value;
+    if (c.id && encounterId) encounterIdByClaimId.set(c.id, encounterId);
+  }
+
+  const [payersByRef, claimResponsesByClaimId, paymentsByEncounter] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
     ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchPatientPaymentsByEncounterIds(oystehr, [...encounterIdByClaimId.values()]),
   ]);
 
+  const patientPaidForClaim = (claimId: string): number => {
+    const encounterId = encounterIdByClaimId.get(claimId);
+    return encounterId ? sumPatientPayments(paymentsByEncounter.get(encounterId) ?? []) : 0;
+  };
+
   const summaries = claims.map((c) =>
-    summarizeClaimPayments(claimResponsesByClaimId.get(c.id ?? '') ?? [], c.total?.value ?? 0)
+    summarizeClaimPayments(
+      claimResponsesByClaimId.get(c.id ?? '') ?? [],
+      c.total?.value ?? 0,
+      patientPaidForClaim(c.id ?? '')
+    )
   );
 
   const claimItems = claims.map((c, idx) => {
