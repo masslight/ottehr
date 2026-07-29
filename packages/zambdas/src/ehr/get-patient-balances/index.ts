@@ -121,22 +121,16 @@ export async function performEffect(
     return noData;
   }
 
-  console.log(`Patient id: ${patientId}`);
-
   // Save the balances in the map
   console.group('saveBalancesInMap');
   saveBalancesInMap(claims, claimIdToEncounterIdMap, encounterDataMap);
   console.groupEnd();
   console.debug('saveBalancesInMap success');
 
-  console.log(`Patient id: ${patientId}`);
-
   console.group('getPendingPatientPayments');
   const pendingPatientPayments = await getPendingPatientPayments(candidApiClient, patientId);
   console.groupEnd();
   console.debug('getPendingPatientPayments success');
-
-  console.log(`Patient id: ${patientId}`);
 
   console.group('getPatientCreditCents');
   const patientCreditCents = await getPatientCreditCents(candidApiClient, patientId);
