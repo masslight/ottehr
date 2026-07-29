@@ -134,6 +134,9 @@ export interface RadiologyDTO {
   studyName?: string;
   // External (print-only) order fields — populated only for external orders.
   external?: boolean;
+  /** External orders only: true once a result file is uploaded (order `reviewed`); progress note uses this
+   * instead of `preliminaryReport`/`finalReport`, which external orders never have. */
+  externalResultReviewed?: boolean;
   performingOrganization?: RadiologyPerformingOrganization;
   timeWindow?: string;
   safetyFlags?: RadiologySafetyFlag[];

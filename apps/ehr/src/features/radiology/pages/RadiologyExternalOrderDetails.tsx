@@ -6,7 +6,7 @@ import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Chip, IconButton, Stack, Typography } from '@mui/material';
+import { Box, Button, IconButton, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +30,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { getRadiologyExternalOrderEditUrl } from '../../visits/in-person/routing/helpers';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import { RadiologyExternalOrderChip } from '../components/RadiologyExternalOrderChip';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
@@ -196,17 +197,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
       <div style={{ maxWidth: '714px', margin: '0 auto' }}>
         <Stack spacing={2} sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip
-              size="small"
-              label="EXTERNAL"
-              sx={{
-                borderRadius: '4px',
-                fontWeight: 900,
-                fontSize: '12px',
-                background: theme.palette.info.main,
-                color: 'white',
-              }}
-            />
+            <RadiologyExternalOrderChip />
             {order.timeWindow && (
               <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 'bold' }}>
                 {order.timeWindow}

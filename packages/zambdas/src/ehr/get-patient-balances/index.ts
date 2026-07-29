@@ -57,6 +57,7 @@ export async function performEffect(
     encounters: [],
     totalBalanceCents: 0,
     pendingPaymentCents: 0,
+    patientCreditCents: 0,
   };
 
   console.group('getFhirEncountersAndAppointmentsForPatient');
@@ -131,6 +132,11 @@ export async function performEffect(
   console.groupEnd();
   console.debug('getPendingPatientPayments success');
 
+  console.group('getPatientCreditCents');
+  const patientCreditCents = await getPatientCreditCents(candidApiClient, patientId);
+  console.groupEnd();
+  console.debug('getPatientCreditCents success');
+
   console.log('encounterDataMap', encounterDataMap);
 
   const returnData = Array.from(encounterDataMap.entries()).map(([encounterId, mapValue]) => ({
@@ -143,6 +149,7 @@ export async function performEffect(
     encounters: returnData,
     totalBalanceCents: returnData.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
     pendingPaymentCents: pendingPatientPayments || 0,
+    patientCreditCents,
   };
 }
 
@@ -283,6 +290,21 @@ async function getPendingPatientPayments(candidApiClient: CandidApiClient, patie
   });
 
   return pendingPayments.reduce((acc, amount) => acc + amount, 0);
+}
+
+async function getPatientCreditCents(candidApiClient: CandidApiClient, patientId: string): Promise<number> {
+  try {
+    const response = await candidApiClient.fetch(`/api/patients/v1/${patientId}`);
+    if (!response.ok) {
+      console.warn(`Candid patients v1 request failed with status ${response.status} for patient ${patientId}`);
+      return 0;
+    }
+    const data = (await response.json()) as { patient_balance_total_cents: number };
+    return data.patient_balance_total_cents < 0 ? Math.abs(data.patient_balance_total_cents) : 0;
+  } catch (error) {
+    console.warn(`Failed to fetch Candid patient credit for patient ${patientId}:`, error);
+    return 0;
+  }
 }
 
 async function retryWithBackoff<T, E>(

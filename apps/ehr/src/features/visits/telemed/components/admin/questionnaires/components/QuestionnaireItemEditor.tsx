@@ -168,14 +168,24 @@ const ItemFields: FC<{ item: PracticeManagedQuestionnaireItem; dispatch: React.D
                   label="Max Length"
                   type="number"
                   value={item.maxLength || ''}
-                  onChange={(e) =>
+                  inputProps={{ min: 1 }}
+                  onKeyDown={(e) => {
+                    if (['-', '+', 'e', 'E', '.'].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onChange={(e) => {
+                    const parsed = e.target.value ? parseInt(e.target.value) : undefined;
+                    if (parsed !== undefined && parsed < 1) {
+                      return;
+                    }
                     dispatch({
                       type: 'UPDATE_ITEM',
                       key: item._key,
                       field: 'maxLength',
-                      value: e.target.value ? parseInt(e.target.value) : undefined,
-                    })
-                  }
+                      value: parsed,
+                    });
+                  }}
                   sx={{ width: 120 }}
                 />
               )}

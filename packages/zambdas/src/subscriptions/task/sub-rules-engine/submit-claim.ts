@@ -17,7 +17,15 @@ export async function submitClaim(input: FinalizeRunInput): Promise<FinalizeRunR
     return { statusReason: 'Rules passed; claim was not submitted because it is not in Insurance Payer AR.' };
   }
 
-  await oystehr.rcm.submitClaim({ claimId });
+  const claimResponse = await oystehr.rcm.submitClaim({ claimId });
+  if (claimResponse.outcome === 'error') {
+    throw new Error(
+      claimResponse.error
+        ?.map((e) => e.code.text ?? '')
+        .filter(Boolean)
+        .join(', ') ?? 'An unknown error occurred'
+    );
+  }
 
   const value = assertValidClaimStatusField('insuranceArStatus', 'submitted');
   // Re-fetch so the status patch locks against the version the engine just wrote.

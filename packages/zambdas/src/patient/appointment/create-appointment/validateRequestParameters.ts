@@ -18,6 +18,7 @@ import {
   getSlotIsWalkin,
   INVALID_INPUT_ERROR,
   isLocationVirtual,
+  isPhoneNumberValid,
   locationSupportsServiceMode,
   makeSlotAtLocationExtensionEntry,
   MISSING_REQUIRED_PARAMETERS,
@@ -42,7 +43,6 @@ import { resolveFlowCanonicalForServiceMode } from '../../../ehr/paperwork-flow/
 import {
   checkIsEHRUser,
   isTestUser,
-  phoneRegex,
   resolveBookingLocationId,
   safeJsonParse,
   safeValidate,
@@ -120,7 +120,11 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     (patient as Record<string, unknown>).emailUser = undefined;
   }
 
-  if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber as string)) {
+  // Accept any format the downstream storage step (formatPhoneNumber) can normalize.
+  // formatPhoneNumber strips separators before validating, so the gate must do the same —
+  // otherwise formatted values like "(202) 123-4567" or "202-123-4567" are rejected here
+  // even though they'd store fine as "+12021234567".
+  if (patient?.phoneNumber && !isPhoneNumberValid((patient.phoneNumber as string).replace(/[^0-9+]/g, ''))) {
     throw INVALID_INPUT_ERROR('patient phone number is not valid');
   }
 
