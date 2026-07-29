@@ -112,27 +112,44 @@ describe('radiology get-order-pdf integration tests', () => {
     );
     expect(docRef.content?.[0]?.attachment?.url).toBeDefined();
 
-    // A reprint supersedes the previous order-form PDF and returns a fresh current docRef.
-    const secondPdfOutput = (
+    // A reprint of an unchanged order hands back the form already on file.
+    const reprintOutput = (
       await oystehrTestUserM2M.zambda.execute({
         id: 'RADIOLOGY-GET-ORDER-PDF',
         serviceRequestId: orderOutput.serviceRequestId,
       })
     ).output as GetRadiologyOrderPdfZambdaOutput;
-    expect(secondPdfOutput.documentReferenceId).toBeDefined();
+    expect(reprintOutput.documentReferenceId).toBe(docRef.id);
+    expect(reprintOutput.presignedURL).toMatch(/^https?:\/\//);
 
-    const secondDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
-      resourceType: 'DocumentReference',
-      id: secondPdfOutput.documentReferenceId,
+    // Editing invalidates that copy, so the next print regenerates it.
+    const { encounterId: _encounterId, ...editableFields } = createOrderInput;
+    await oystehrTestUserM2M.zambda.execute({
+      id: 'RADIOLOGY-UPDATE-ORDER',
+      serviceRequestId: orderOutput.serviceRequestId,
+      consentObtained: false,
+      edit: { ...editableFields, clinicalHistory: 'Took a second arrow to the knee' },
     });
-    if (secondDocRef.id !== docRef.id) {
-      resourcesToCleanup.push(secondDocRef);
-      const supersededDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
-        resourceType: 'DocumentReference',
-        id: docRef.id!,
-      });
-      expect(supersededDocRef.status).toBe('superseded');
-    }
-    expect(secondDocRef.status).toBe('current');
+
+    const afterEditOutput = (
+      await oystehrTestUserM2M.zambda.execute({
+        id: 'RADIOLOGY-GET-ORDER-PDF',
+        serviceRequestId: orderOutput.serviceRequestId,
+      })
+    ).output as GetRadiologyOrderPdfZambdaOutput;
+    expect(afterEditOutput.documentReferenceId).not.toBe(docRef.id);
+
+    const regeneratedDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
+      resourceType: 'DocumentReference',
+      id: afterEditOutput.documentReferenceId,
+    });
+    resourcesToCleanup.push(regeneratedDocRef);
+    expect(regeneratedDocRef.status).toBe('current');
+
+    const supersededDocRef = await oystehrAdmin.fhir.get<DocumentReference>({
+      resourceType: 'DocumentReference',
+      id: docRef.id!,
+    });
+    expect(supersededDocRef.status).toBe('superseded');
   }, 120_000);
 });
