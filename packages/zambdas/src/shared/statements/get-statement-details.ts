@@ -195,7 +195,8 @@ function getBillerName(billingResource: Organization): string {
 }
 
 function formatMoney(cents: number | undefined): string {
-  return `$${((cents ?? 0) / 100).toFixed(2)}`;
+  const dollars = (cents ?? 0) / 100;
+  return dollars < 0 ? `-$${Math.abs(dollars).toFixed(2)}` : `$${dollars.toFixed(2)}`;
 }
 
 async function getServiceLines(

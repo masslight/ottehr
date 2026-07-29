@@ -9,6 +9,11 @@ describe('formatCurrency', () => {
     expect(formatCurrency(12.5)).toBe('$12.50');
     expect(formatCurrency(12.345)).toBe('$12.35');
   });
+
+  it('puts the minus sign before the dollar sign for negative amounts', () => {
+    expect(formatCurrency(-14.69)).toBe('-$14.69');
+    expect(formatCurrency(-0.5)).toBe('-$0.50');
+  });
 });
 
 describe('splitDisplayName', () => {

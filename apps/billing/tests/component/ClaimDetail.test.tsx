@@ -375,7 +375,7 @@ describe('ClaimDetail — patient payments', () => {
     const refundCells = within(refundRow as HTMLElement)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'active', '$-20.00']);
+    expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'active', '-$20.00']);
   });
 
   it('shows the empty state when the claim has no patient payments', async () => {
