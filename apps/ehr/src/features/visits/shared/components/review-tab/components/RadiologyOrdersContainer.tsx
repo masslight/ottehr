@@ -62,7 +62,7 @@ export const RadiologyOrdersContainer: FC<RadiologyOrdersContainerProps> = (prop
       {ordersWithReads.map((order, idx) => (
         <Box key={`radiology-order-${order.serviceRequestId}`}>
           <Box display="flex" flexDirection="column" gap={0.5}>
-            <AssessmentTitle>{order.cptCodeDisplay}</AssessmentTitle>
+            <AssessmentTitle>{order.studyType}</AssessmentTitle>
             <Typography>{order.diagnosis}</Typography>
             <Typography>
               <span style={{ fontWeight: 'bold' }}>Clinical History: </span>

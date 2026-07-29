@@ -455,7 +455,7 @@ export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
 }
 
-export interface SearchBillingProcedureCodesResponse {
+export interface SearchCodeResponse {
   codes: BillingCodeOption[];
 }
 
