@@ -1,5 +1,5 @@
 // Core types for the procedure coding model (see procedure-coding-assist-design.md §2/§3).
-// Pure data types — no React, no FHIR SDK, no network.
+// Pure data types (plus one message-composition helper) — no React, no FHIR SDK, no network.
 
 /**
  * Requirement level of a documentation element, per the functional requirements §4:
@@ -19,6 +19,24 @@ export interface FactValue<T> {
   confidence: FactConfidence;
   /** Verbatim snippet from the provider's documentation that establishes this fact (requirement C1). */
   sourceText?: string;
+}
+
+/**
+ * Where a documentation element belongs on the procedure form: a named form field, or the
+ * free-text Procedure details with a micro-example of what to write. Each family keeps a
+ * table of these so every missing-element finding tells the provider where to record the
+ * element (folded into the finding message — the UI renders a single string).
+ */
+export interface WhereToDocument {
+  /** Destination phrase with its preposition, e.g. 'in the Site/location field' or 'to Procedure details'. */
+  destination: string;
+  /** Micro-example of what to write there, e.g. `"Layered closure" or "Single-layer closure"`. */
+  example?: string;
+}
+
+/** Composes the "where to record it" sentence appended to a missing-element finding message. */
+export function whereToDocumentClause(where: WhereToDocument, verb = 'Add it'): string {
+  return `${verb} ${where.destination}${where.example ? `, e.g. ${where.example}` : ''}.`;
 }
 
 /** One evaluation finding, shown in either the suggestion or the defense section. */
@@ -64,7 +82,7 @@ export interface FamilyEvaluation {
   openCandidates?: CodeCandidate[];
   /**
    * Compact engine-composed line for the open set, present only when the candidates narrow to a
-   * single code table (e.g. "12041–12047 — length determines the code"). The UI renders it verbatim.
+   * single code table (e.g. "12041–12047 — wound length (cm) determines the exact code"). The UI renders it verbatim.
    */
   openCandidatesSummary?: string;
   findings: Finding[];

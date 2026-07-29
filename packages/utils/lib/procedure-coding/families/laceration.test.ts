@@ -163,7 +163,7 @@ describe('laceration forward: repair class paths', () => {
       })
     );
     expect(result.suggestion?.code).toBe('12032');
-    expect(result.suggestion?.justification).toContain('contamination path');
+    expect(result.suggestion?.justification).toContain('heavily contaminated');
   });
 
   it('tissue-adhesive-only closure ⇒ simple, with the Medicare G0168 payer footnote', () => {
@@ -256,11 +256,11 @@ describe('laceration forward: missing determinants', () => {
 
   it('missing length with class+group known ⇒ compact open-set summary for the single code table', () => {
     const result = lacerationFamily.suggestCode(input({ bodySite: 'Arm', procedureDetails: SIMPLE_CLOSURE_TEXT }));
-    expect(result.openCandidatesSummary).toBe('12001–12007 — length determines the code');
+    expect(result.openCandidatesSummary).toBe('12001–12007 — wound length (cm) determines the exact code');
     const intermediate = lacerationFamily.suggestCode(
       input({ bodySite: 'Hand', procedureDetails: LAYERED_CLOSURE_TEXT })
     );
-    expect(intermediate.openCandidatesSummary).toBe('12041–12047 — length determines the code');
+    expect(intermediate.openCandidatesSummary).toBe('12041–12047 — wound length (cm) determines the exact code');
   });
 
   it('missing depth ⇒ [D] finding and candidates spanning both classes for the site', () => {

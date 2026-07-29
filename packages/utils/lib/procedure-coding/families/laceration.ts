@@ -11,6 +11,8 @@ import {
   Finding,
   ProcedureFactsInput,
   ProcedureFamilyModel,
+  WhereToDocument,
+  whereToDocumentClause,
 } from '../model.types';
 
 export type LacerationRepairClass = 'simple' | 'intermediate';
@@ -138,10 +140,36 @@ export function isComplexRepairCode(code: string): boolean {
 }
 
 export const LACERATION_TISSUE_ADHESIVE_PAYER_NOTE =
-  'Payer note: for tissue-adhesive-only closure, Medicare bills HCPCS G0168 instead of a CPT repair code; commercial payer handling varies.';
+  'Payer note: when tissue adhesive is the only closure, Medicare is billed with HCPCS code G0168 instead of a CPT repair code; handling by commercial insurers varies.';
 
 const OUTSIDE_SCOPE_MESSAGE =
-  'The note documents debridement, undermining, or tissue rearrangement — complex-repair territory (131xx-133xx) outside these documentation checks; not assessed.';
+  'The note documents debridement, undermining, or tissue rearrangement — that points to a complex repair (CPT 13100–13160), which these documentation checks do not cover; not assessed.';
+
+// ── Where each missing element belongs on the procedure form ───────────────────
+// Form-field labels as they appear on the Document Procedure page; single-sourced so
+// the messages and the mismatch finding name the same fields.
+
+const LENGTH_FIELD_LABEL = 'Wound/lesion size (cm)';
+const DETAILS_FIELD_LABEL = 'Procedure details';
+const TO_DETAILS = `to ${DETAILS_FIELD_LABEL}`;
+
+/** Destination for every element a finding can report missing, folded into the message text. */
+const WHERE_TO_DOCUMENT = {
+  site: { destination: 'in the Site/location field' },
+  laterality: { destination: 'in the Side of body field' },
+  length: { destination: `in the ${LENGTH_FIELD_LABEL} field` },
+  depth: { destination: TO_DETAILS, example: '"Layered closure" or "Single-layer closure"' },
+  sutureClosure: { destination: TO_DETAILS, example: '"5 x 4-0 nylon, simple interrupted"' },
+  stapleClosure: { destination: TO_DETAILS, example: '"4 staples"' },
+  extensiveCleaning: { destination: TO_DETAILS, example: '"copiously irrigated with 500 mL saline"' },
+  anesthesia: { destination: 'in the Anaesthesia / medication used field', example: '"3 mL 1% lidocaine"' },
+  irrigation: { destination: TO_DETAILS, example: '"irrigated with 250 mL normal saline"' },
+  tetanus: { destination: TO_DETAILS, example: '"tetanus up to date"' },
+} satisfies Record<string, WhereToDocument>;
+
+function whereClause(element: keyof typeof WHERE_TO_DOCUMENT, verb?: string): string {
+  return whereToDocumentClause(WHERE_TO_DOCUMENT[element], verb);
+}
 
 // ── Site grouping (differs per repair class: hands/feet move groups) ───────────
 
@@ -263,7 +291,7 @@ function classBasisDescription(basis: RepairBasis | undefined): string {
     case 'layered':
       return 'layered closure documented';
     case 'contaminated':
-      return 'single-layer closure of a heavily contaminated wound with extensive cleaning documented (intermediate via the contamination path)';
+      return 'single-layer closure of a heavily contaminated wound with extensive cleaning documented (together these qualify as an intermediate repair)';
     case 'adhesive':
       return 'tissue-adhesive closure documented';
     default:
@@ -318,11 +346,11 @@ function computeWoundTotals(
     if (textSum !== undefined && Math.abs(textSum - facts.structuredLengthCm) > 0.05) {
       result.mismatchFinding = {
         level: 'contradiction',
-        message: `The structured length field documents ${formatCm(
+        message: `The ${LENGTH_FIELD_LABEL} field documents ${formatCm(
           facts.structuredLengthCm
-        )} cm, but the details text documents ${formatCm(
+        )} cm, but the ${DETAILS_FIELD_LABEL} text documents ${formatCm(
           textSum
-        )} cm — please reconcile; the structured value is used for the checks.`,
+        )} cm — please reconcile them; the checks use the value from the field.`,
         sourceText: textSourceText,
         confidence: 'text',
       };
@@ -407,9 +435,9 @@ function otherGroupAdvisories(
     level: 'bestPractice' as const,
     message: `The note also documents a ${formatCm(wound.lengthCm)} cm wound on the ${
       wound.site ? SITE_LABELS[wound.site] : 'documented site'
-    } — a different site group${
-      repairClass ? ` for ${repairClass} repairs` : ''
-    }. Lengths in different site groups are not summed; a wound in a different group needs its own procedure entry.`,
+    } — ${
+      repairClass ? `for ${repairClass} repairs, ` : ''
+    }that site is coded separately from this entry's site, so the lengths are not added together. That wound needs its own procedure entry.`,
     sourceText: wound.sourceText,
     confidence: wound.confidence,
   }));
@@ -460,7 +488,7 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
     findings.push({
       level: 'contradiction',
       message:
-        'The note documents wound closure with adhesive strips only — adhesive strips alone do not support a wound-repair code (the encounter is captured under E/M).',
+        'The note documents wound closure with adhesive strips only — adhesive strips alone do not support a wound-repair code; that care is part of the visit (E/M) charge instead.',
       sourceText: facts.adhesiveStripsDocumented?.sourceText,
       confidence: facts.adhesiveStripsDocumented?.confidence,
     });
@@ -477,20 +505,27 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
   if (entrySite === undefined) {
     missingDeterminants.push({
       level: 'determines',
-      message: 'Body site is not documented — the site group determines which laceration-repair code table applies.',
+      message: `Body site is not documented — which repair codes apply depends on where on the body the wound is. ${whereClause(
+        'site',
+        'Select it'
+      )}`,
     });
   }
   if (repairClass === undefined) {
     missingDeterminants.push({
       level: 'determines',
-      message:
-        'Repair depth is not documented — single-layer versus layered closure determines whether a simple (12001-12018) or intermediate (12031-12057) code applies.',
+      message: `Repair depth is not documented — a single-layer closure codes as a simple repair and a layered closure as an intermediate repair. ${whereClause(
+        'depth'
+      )}`,
     });
   }
   if (totals.totalCm === undefined) {
     missingDeterminants.push({
       level: 'determines',
-      message: 'Wound length is not documented — the total repaired length (cm) determines the code within its table.',
+      message: `Wound length is not documented — the exact code depends on the total repaired length in cm. ${whereClause(
+        'length',
+        'Enter it'
+      )}`,
     });
   }
 
@@ -504,7 +539,7 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
       const bands = series.bands;
       evaluation.openCandidatesSummary = `${bands[0].code}–${
         bands[bands.length - 1].code
-      } — length determines the code`;
+      } — wound length (cm) determines the exact code`;
     }
     return evaluation;
   }
@@ -576,7 +611,7 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
         classResolution.basis === 'layered'
           ? 'a layered closure (an intermediate repair)'
           : classResolution.basis === 'contaminated'
-          ? 'a heavily contaminated wound with extensive cleaning (an intermediate repair via the contamination path)'
+          ? 'a heavily contaminated wound with extensive cleaning (which qualifies as an intermediate repair)'
           : classResolution.basis === 'adhesive'
           ? 'closure with tissue adhesive alone (a simple repair)'
           : 'a single-layer superficial closure (a simple repair)';
@@ -593,14 +628,20 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
       codeFindings.push({
         level: 'determines',
         cptCode: selectedCode.code,
-        message: `Repair depth is not documented for ${selectedCode.code} — single-layer versus layered closure determines whether a simple or intermediate code applies.`,
+        message: `Repair depth is not documented for ${
+          selectedCode.code
+        } — a single-layer closure codes as a simple repair and a layered closure as an intermediate repair. ${whereClause(
+          'depth'
+        )}`,
       });
       // Contamination claimed as the basis for an intermediate code upgrades irrigation/cleaning to [R].
       if (impliedClass === 'intermediate' && facts.contaminationDocumented && !facts.extensiveCleaningDocumented) {
         codeFindings.push({
           level: 'required',
           cptCode: selectedCode.code,
-          message: `${selectedCode.code} via the contaminated-wound path requires the extensive cleaning/irrigation to be documented alongside the contamination.`,
+          message: `The note documents heavy contamination but not the extensive cleaning/irrigation — ${
+            selectedCode.code
+          } as an intermediate repair on that basis needs both documented. ${whereClause('extensiveCleaning')}`,
           sourceText: facts.contaminationDocumented.sourceText,
           confidence: facts.contaminationDocumented.confidence,
         });
@@ -612,7 +653,9 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
       codeFindings.push({
         level: 'determines',
         cptCode: selectedCode.code,
-        message: `Body site is not documented for ${selectedCode.code} — the site group determines the code table.`,
+        message: `Body site is not documented for ${
+          selectedCode.code
+        } — which repair codes apply depends on where on the body the wound is. ${whereClause('site', 'Select it')}`,
       });
     } else {
       const entryGroup = lacerationSiteGroup(impliedClass, entrySite);
@@ -635,9 +678,9 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
             cptCode: selectedCode.code,
             message: `Wound length is not documented for ${
               selectedCode.code
-            } — the total repaired length determines the code within the ${indexed.series.groupLabel} table; ${
-              selectedCode.code
-            } covers ${bandLabel(indexed.band)}.`,
+            } — the exact code depends on the total repaired length; ${selectedCode.code} covers ${bandLabel(
+              indexed.band
+            )}. ${whereClause('length', 'Enter it')}`,
           });
         } else if (!lengthFitsBand(indexed, totals.totalCm)) {
           codeFindings.push({
@@ -662,7 +705,10 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
           cptCode: selectedCode.code,
           message: `Closure documentation for ${
             selectedCode.code
-          } is incomplete — not documented: ${missingClosure.join(', ')}.`,
+          } is incomplete — not documented: ${missingClosure.join(', ')}. ${whereClause(
+            stapleEvidence(facts) ? 'stapleClosure' : 'sutureClosure',
+            missingClosure.length > 1 ? 'Add these' : 'Add it'
+          )}`,
         });
       }
     }
@@ -686,26 +732,32 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
     if (!facts.lateralityDocumented && entrySite !== undefined && LATERALIZABLE_SITES.includes(entrySite)) {
       findings.push({
         level: 'bestPractice',
-        message: `Laterality is not documented for this ${SITE_LABELS[entrySite]} wound — noting left/right helps disambiguate, especially with multiple wounds.`,
+        message: `Laterality is not documented for this ${
+          SITE_LABELS[entrySite]
+        } wound — noting left or right avoids ambiguity, especially with multiple wounds. ${whereClause(
+          'laterality',
+          'Select it'
+        )}`,
       });
     }
     if (!facts.anesthesiaDocumented) {
       findings.push({
         level: 'bestPractice',
-        message:
-          'Anesthesia is not documented — local anesthesia is bundled into repair codes, but noting it is expected.',
+        message: `Anesthesia is not noted — it does not affect the code (local anesthesia is included in the repair), but a complete note records what was used. ${whereClause(
+          'anesthesia'
+        )}`,
       });
     }
     if (!facts.irrigationDocumented) {
       findings.push({
         level: 'bestPractice',
-        message: 'Wound irrigation is not documented.',
+        message: `Wound irrigation is not documented. ${whereClause('irrigation')}`,
       });
     }
     if (!facts.tetanusDocumented) {
       findings.push({
         level: 'bestPractice',
-        message: 'Tetanus status is not documented.',
+        message: `Tetanus status is not documented. ${whereClause('tetanus')}`,
       });
     }
     if (tissueAdhesiveOnly(facts)) {

@@ -199,7 +199,7 @@ describe('ProceduresNew — deterministic coding assist', () => {
     });
     renderComponent();
     expect(
-      await screen.findByText('12041–12047 — length determines the code', undefined, { timeout: 3000 })
+      await screen.findByText('12041–12047 — wound length (cm) determines the exact code', undefined, { timeout: 3000 })
     ).toBeVisible();
     expect(screen.queryByTestId('best-match-cpt-code')).not.toBeInTheDocument();
   });
