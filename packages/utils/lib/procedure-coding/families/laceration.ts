@@ -1,11 +1,18 @@
 // Laceration repair (wound closure) coding model — functional requirements §6.1.
-// Simple repairs 12001-12018, intermediate repairs 12031-12057.
-// Complex repairs (131xx-133xx) and debridement/undermining/tissue-rearrangement
-// wounds are outside scope and are reported "not assessed", never guessed.
+// Simple repairs 12001-12018, intermediate repairs 12031-12057, complex repairs 13100-13153.
+// Tissue-rearrangement wounds (adjacent tissue transfer, CPT 14xxx) and unmodeled 13xxx codes
+// (e.g. 13160) are outside scope and are reported "not assessed", never guessed.
 
-import { AnatomicSite, extractLacerationFacts, LacerationFacts, LacerationWound } from '../extract';
+import {
+  AnatomicSite,
+  ComplexRepairElement,
+  extractLacerationFacts,
+  LacerationFacts,
+  LacerationWound,
+} from '../extract';
 import {
   CodeCandidate,
+  CodeSuggestion,
   FactConfidence,
   FamilyEvaluation,
   Finding,
@@ -16,7 +23,7 @@ import {
   whereToDocumentClause,
 } from '../model.types';
 
-export type LacerationRepairClass = 'simple' | 'intermediate';
+export type LacerationRepairClass = 'simple' | 'intermediate' | 'complex';
 
 export type LacerationSiteGroup =
   | 'simple-trunk-extremities'
@@ -24,6 +31,13 @@ export type LacerationSiteGroup =
   | 'intermediate-trunk-extremities'
   | 'intermediate-neck-hands-feet-genitalia'
   | 'intermediate-face-mm';
+
+/** Complex repairs group sites differently from both the simple and intermediate tables. */
+export type ComplexRepairSiteGroup =
+  | 'complex-trunk'
+  | 'complex-scalp-arms-legs'
+  | 'complex-forehead-neck-hands-feet'
+  | 'complex-eyelids-nose-ears-lips';
 
 interface CodeBand {
   code: string;
@@ -135,9 +149,85 @@ export function isLacerationRepairCode(code: string): boolean {
   return Boolean(LACERATION_CODE_INDEX[code]);
 }
 
-/** Complex repair range (131xx-133xx) — adjacent to this family but outside its scope. */
+/** Complex repair range (131xx-133xx) — 13100-13153 are modeled; the rest stay not assessed. */
 export function isComplexRepairCode(code: string): boolean {
   return /^13[123]\d{2}$/.test(code);
+}
+
+// ── Complex repair code tables (CPT 13100-13153) ───────────────────────────────
+// Per site group: a base code (1.1-2.5 cm), a second code (2.6-7.5 cm), and an add-on
+// code for each additional 5 cm or part thereof beyond 7.5 cm. Lengths under 1.1 cm
+// cannot be billed as a complex repair at all.
+
+export const COMPLEX_REPAIR_MIN_CM = 1.1;
+
+interface ComplexCodeSeries {
+  group: ComplexRepairSiteGroup;
+  groupLabel: string;
+  /** 1.1–2.5 cm. */
+  baseCode: string;
+  /** 2.6–7.5 cm. */
+  secondCode: string;
+  /** Add-on: each additional 5 cm or part thereof beyond 7.5 cm, billed with the second code. */
+  addOnCode: string;
+}
+
+const COMPLEX_CODE_SERIES: ComplexCodeSeries[] = [
+  { group: 'complex-trunk', groupLabel: 'trunk', baseCode: '13100', secondCode: '13101', addOnCode: '13102' },
+  {
+    group: 'complex-scalp-arms-legs',
+    groupLabel: 'scalp/arms/legs',
+    baseCode: '13120',
+    secondCode: '13121',
+    addOnCode: '13122',
+  },
+  {
+    group: 'complex-forehead-neck-hands-feet',
+    groupLabel: 'forehead/cheeks/chin/mouth/neck/axillae/genitalia/hands/feet',
+    baseCode: '13131',
+    secondCode: '13132',
+    addOnCode: '13133',
+  },
+  {
+    group: 'complex-eyelids-nose-ears-lips',
+    groupLabel: 'eyelids/nose/ears/lips',
+    baseCode: '13151',
+    secondCode: '13152',
+    addOnCode: '13153',
+  },
+];
+
+type ComplexCodeRole = 'base' | 'second' | 'addOn';
+
+interface IndexedComplexCode {
+  series: ComplexCodeSeries;
+  role: ComplexCodeRole;
+}
+
+const COMPLEX_CODE_INDEX: Record<string, IndexedComplexCode> = {};
+const COMPLEX_SERIES_BY_GROUP = {} as Record<ComplexRepairSiteGroup, ComplexCodeSeries>;
+for (const series of COMPLEX_CODE_SERIES) {
+  COMPLEX_SERIES_BY_GROUP[series.group] = series;
+  COMPLEX_CODE_INDEX[series.baseCode] = { series, role: 'base' };
+  COMPLEX_CODE_INDEX[series.secondCode] = { series, role: 'second' };
+  COMPLEX_CODE_INDEX[series.addOnCode] = { series, role: 'addOn' };
+}
+
+const COMPLEX_ELEMENT_LABELS: Record<ComplexRepairElement, string> = {
+  'extensive-undermining': 'extensive undermining',
+  'retention-sutures': 'retention sutures',
+  stents: 'stent placement',
+  debridement: 'debridement of wound edges/devitalized tissue',
+  'exposed-structure': 'exposed bone/cartilage/tendon/neurovascular structure',
+  'free-margin': 'free-margin involvement',
+};
+
+/** The qualifying-element menu, spelled out in plain language for findings. */
+const COMPLEX_ELEMENT_MENU =
+  'extensive undermining, retention sutures, stents, debridement, exposed bone/cartilage/tendon, or free-margin involvement';
+
+function complexElementList(facts: LacerationFacts): string {
+  return facts.complexElements.map((element) => COMPLEX_ELEMENT_LABELS[element.value]).join(', ');
 }
 
 export const LACERATION_TISSUE_ADHESIVE_PAYER_NOTE =
@@ -172,7 +262,7 @@ const REPAIR_DEPTH_SELECTION_CLASS: Record<
 };
 
 const OUTSIDE_SCOPE_MESSAGE =
-  'The note documents debridement, undermining, or tissue rearrangement — that points to a complex repair (CPT 13100–13160), which these documentation checks do not cover; not assessed.';
+  'The note documents tissue rearrangement (e.g. a flap or Z-plasty) — that points to an adjacent tissue transfer (CPT 14000-series), which these documentation checks do not cover; not assessed.';
 
 // ── Where each missing element belongs on the procedure form ───────────────────
 // Form-field labels as they appear on the Document Procedure page; single-sourced so
@@ -193,6 +283,7 @@ const WHERE_TO_DOCUMENT = {
     example: '"Layered closure" or "Single-layer closure"',
   },
   sutureClosure: { destination: TO_DETAILS, example: '"5 x 4-0 nylon, simple interrupted"' },
+  complexElement: { destination: TO_DETAILS, example: '"extensive undermining performed; retention sutures placed"' },
   stapleClosure: { destination: TO_DETAILS, example: '"4 staples"' },
   extensiveCleaning: { destination: TO_DETAILS, example: '"copiously irrigated with 500 mL saline"' },
   anesthesia: { destination: 'in the Anaesthesia / medication used field', example: '"3 mL 1% lidocaine"' },
@@ -204,12 +295,33 @@ function whereClause(element: keyof typeof WHERE_TO_DOCUMENT, verb?: string): st
   return whereToDocumentClause(WHERE_TO_DOCUMENT[element], verb);
 }
 
-// ── Site grouping (differs per repair class: hands/feet move groups) ───────────
+// ── Site grouping (differs per repair class: each class has its own mapping) ───
 
 const FACE_MM_SITES: AnatomicSite[] = ['face', 'ear', 'eyelid', 'nose', 'lip', 'mucous-membrane'];
 const INTERMEDIATE_NHFG_SITES: AnatomicSite[] = ['neck', 'hand', 'foot', 'genitalia'];
+const COMPLEX_ENEL_SITES: AnatomicSite[] = ['eyelid', 'nose', 'ear', 'lip'];
 
-export function lacerationSiteGroup(repairClass: LacerationRepairClass, site: AnatomicSite): LacerationSiteGroup {
+/** Complex repairs split sites differently again: eyelids/nose/ears/lips get their own table. */
+export function complexRepairSiteGroup(site: AnatomicSite): ComplexRepairSiteGroup {
+  if (COMPLEX_ENEL_SITES.includes(site)) return 'complex-eyelids-nose-ears-lips';
+  if (site === 'trunk') return 'complex-trunk';
+  if (site === 'scalp' || site === 'extremity') return 'complex-scalp-arms-legs';
+  // Forehead/cheeks/chin (face), mouth, neck, axillae, genitalia, hands, feet.
+  return 'complex-forehead-neck-hands-feet';
+}
+
+export function lacerationSiteGroup(repairClass: 'simple' | 'intermediate', site: AnatomicSite): LacerationSiteGroup;
+export function lacerationSiteGroup(
+  repairClass: LacerationRepairClass,
+  site: AnatomicSite
+): LacerationSiteGroup | ComplexRepairSiteGroup;
+export function lacerationSiteGroup(
+  repairClass: LacerationRepairClass,
+  site: AnatomicSite
+): LacerationSiteGroup | ComplexRepairSiteGroup {
+  if (repairClass === 'complex') {
+    return complexRepairSiteGroup(site);
+  }
   if (FACE_MM_SITES.includes(site)) {
     return repairClass === 'simple' ? 'simple-face-mm' : 'intermediate-face-mm';
   }
@@ -247,6 +359,7 @@ type RepairBasis =
   | 'single-layer'
   | 'contaminated'
   | 'adhesive'
+  | 'complex-element'
   | 'structured-layered'
   | 'structured-single'
   | 'structured-adhesive'
@@ -310,8 +423,19 @@ export function resolveRepairClass(facts: LacerationFacts): RepairClassResolutio
     // resolved so the field satisfies the repair-depth [D] ask.
     return { repairClass: 'simple', basis: 'structured-strips', confidence: 'structured' };
   }
+  const complexElement = facts.complexElements[0];
   if (selection !== undefined) {
     if (REPAIR_DEPTH_SELECTION_CLASS[selection] === 'intermediate') {
+      // A layered selection is compatible with a complex repair: a documented qualifying
+      // element (CPT 2020 complex definition) upgrades the class to complex.
+      if (complexElement) {
+        return {
+          repairClass: 'complex',
+          basis: 'complex-element',
+          sourceText: complexElement.sourceText,
+          confidence: 'text',
+        };
+      }
       return { repairClass: 'intermediate', basis: 'structured-layered', confidence: 'structured' };
     }
     // Single-layer selection: heavy contamination + extensive cleaning still upgrades to
@@ -324,7 +448,18 @@ export function resolveRepairClass(facts: LacerationFacts): RepairClassResolutio
         confidence: 'text',
       };
     }
+    // An explicit single-layer selection wins even over a documented qualifying element —
+    // a single-layer closure is not a complex repair (the inverse still flags complex codes).
     return { repairClass: 'simple', basis: 'structured-single', confidence: 'structured' };
+  }
+  // Text path: a qualifying element upgrades to complex unless the text pins single-layer.
+  if (complexElement && facts.depth?.value !== 'single-layer') {
+    return {
+      repairClass: 'complex',
+      basis: 'complex-element',
+      sourceText: complexElement.sourceText,
+      confidence: 'text',
+    };
   }
   if (facts.depth?.value === 'layered') {
     return {
@@ -378,6 +513,8 @@ function classBasisDescription(basis: RepairBasis | undefined): string {
       return `adhesive-strips-only closure selected in the ${REPAIR_DEPTH_FIELD_LABEL} field`;
     case 'contaminated':
       return 'single-layer closure of a heavily contaminated wound with extensive cleaning documented (together these qualify as an intermediate repair)';
+    case 'complex-element':
+      return 'complex-repair element documented';
     case 'adhesive':
       return 'tissue-adhesive closure documented';
     default:
@@ -541,10 +678,39 @@ function codeCandidate(series: CodeSeries, band: CodeBand): CodeCandidate {
   };
 }
 
+// ── Complex band helpers ───────────────────────────────────────────────────────
+
+/** Add-on units for a complex repair: one per additional 5 cm (or part) beyond 7.5 cm. */
+function complexAddOnUnits(totalCm: number): number {
+  return Math.max(0, Math.ceil((totalCm - 7.5) / 5 - 1e-9));
+}
+
+function complexBandLabel(role: ComplexCodeRole): string {
+  if (role === 'base') return `${formatCm(COMPLEX_REPAIR_MIN_CM)}–2.5 cm`;
+  if (role === 'second') return '2.6–7.5 cm';
+  return 'each additional 5 cm (or part) beyond 7.5 cm';
+}
+
+function complexCodeForRole(series: ComplexCodeSeries, role: ComplexCodeRole): string {
+  return role === 'base' ? series.baseCode : role === 'second' ? series.secondCode : series.addOnCode;
+}
+
+function complexCodeCandidate(series: ComplexCodeSeries, role: ComplexCodeRole): CodeCandidate {
+  const code = complexCodeForRole(series, role);
+  return { code, display: `${code} — Complex repair, ${series.groupLabel}, ${complexBandLabel(role)}` };
+}
+
 function candidatesFor(
   repairClass: LacerationRepairClass | undefined,
   entrySite: AnatomicSite | undefined
 ): CodeCandidate[] {
+  if (repairClass === 'complex') {
+    const complexSeriesList =
+      entrySite !== undefined ? [COMPLEX_SERIES_BY_GROUP[complexRepairSiteGroup(entrySite)]] : COMPLEX_CODE_SERIES;
+    return complexSeriesList.flatMap((series) =>
+      (['base', 'second', 'addOn'] as ComplexCodeRole[]).map((role) => complexCodeCandidate(series, role))
+    );
+  }
   let seriesList: CodeSeries[];
   if (repairClass !== undefined && entrySite !== undefined) {
     seriesList = [SERIES_BY_GROUP[lacerationSiteGroup(repairClass, entrySite)]];
@@ -651,10 +817,29 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
   }
 
   const entrySite = facts.site?.value;
-  const repairClass = classResolution.repairClass;
+  let repairClass = classResolution.repairClass;
+  let repairBasis = classResolution.basis;
   const totals = computeWoundTotals(facts, repairClass, entrySite);
   if (totals.mismatchFinding) findings.push(totals.mismatchFinding);
   findings.push(...otherGroupAdvisories(totals.otherGroupWounds, repairClass));
+
+  // Complex repairs are reported starting at 1.1 cm: a shorter wound falls back to the
+  // class its closure alone would establish (layered ⇒ intermediate).
+  if (repairClass === 'complex' && totals.totalCm !== undefined && totals.totalCm < COMPLEX_REPAIR_MIN_CM - 1e-9) {
+    findings.push({
+      level: 'bestPractice',
+      message: `The note documents a complex-repair element (${complexElementList(
+        facts
+      )}), but complex repair codes start at ${formatCm(COMPLEX_REPAIR_MIN_CM)} cm — a ${formatCm(
+        totals.totalCm
+      )} cm wound is coded as a simple or intermediate repair by its closure depth.`,
+      sourceText: classResolution.sourceText,
+      confidence: 'text',
+    });
+    const fallback = complexFallbackClass(facts);
+    repairClass = fallback?.repairClass;
+    repairBasis = fallback?.basis;
+  }
 
   const missingDeterminants: Finding[] = [];
   if (entrySite === undefined) {
@@ -691,31 +876,282 @@ function suggestLacerationCode(input: ProcedureFactsInput): FamilyEvaluation {
     // Class + group known, only length missing: the open set narrows to one code table,
     // so surface the compact range line the UI shows above the AI list (design §5).
     if (repairClass !== undefined && entrySite !== undefined && totals.totalCm === undefined) {
-      const series = SERIES_BY_GROUP[lacerationSiteGroup(repairClass, entrySite)];
-      const bands = series.bands;
-      evaluation.openCandidatesSummary = `${bands[0].code}–${
-        bands[bands.length - 1].code
-      } — wound length (cm) determines the exact code`;
+      if (repairClass === 'complex') {
+        const series = COMPLEX_SERIES_BY_GROUP[complexRepairSiteGroup(entrySite)];
+        evaluation.openCandidatesSummary = `${series.baseCode}–${series.addOnCode} — wound length (cm) determines the exact code`;
+      } else {
+        const series = SERIES_BY_GROUP[lacerationSiteGroup(repairClass, entrySite)];
+        const bands = series.bands;
+        evaluation.openCandidatesSummary = `${bands[0].code}–${
+          bands[bands.length - 1].code
+        } — wound length (cm) determines the exact code`;
+      }
     }
     return evaluation;
   }
 
-  const series = SERIES_BY_GROUP[lacerationSiteGroup(repairClass as LacerationRepairClass, entrySite as AnatomicSite)];
+  if (repairClass === 'complex') {
+    evaluation.suggestion = complexSuggestion(facts, entrySite as AnatomicSite, totals.totalCm as number);
+    return evaluation;
+  }
+
+  const series =
+    SERIES_BY_GROUP[lacerationSiteGroup(repairClass as 'simple' | 'intermediate', entrySite as AnatomicSite)];
   const band = bandForLength(series, totals.totalCm as number);
   evaluation.suggestion = {
     code: band.code,
     display: codeCandidate(series, band).display,
-    justification: `${series.classLabel} repair — ${classBasisDescription(classResolution.basis)}; ${
+    justification: `${series.classLabel} repair — ${classBasisDescription(repairBasis)}; ${
       SITE_LABELS[entrySite as AnatomicSite]
     } (${series.groupLabel}); total ${formatCm(totals.totalCm as number)} cm → ${band.code}.`,
   };
-  if (classResolution.basis === 'adhesive' || classResolution.basis === 'structured-adhesive') {
+  if (repairBasis === 'adhesive' || repairBasis === 'structured-adhesive') {
     evaluation.payerNotes = [LACERATION_TISSUE_ADHESIVE_PAYER_NOTE];
   }
   return evaluation;
 }
 
+/** The class a complex-element wound falls back to when complex cannot be billed (<1.1 cm). */
+function complexFallbackClass(
+  facts: LacerationFacts
+): { repairClass: LacerationRepairClass; basis: RepairBasis } | undefined {
+  // Only layered selections resolve to complex, so a structured field means intermediate.
+  if (facts.structuredRepairDepth !== undefined) {
+    return { repairClass: 'intermediate', basis: 'structured-layered' };
+  }
+  if (facts.depth?.value === 'layered') {
+    return { repairClass: 'intermediate', basis: 'layered' };
+  }
+  return undefined;
+}
+
+/** Forward suggestion for a determined complex repair: base/second code, plus add-on units beyond 7.5 cm. */
+function complexSuggestion(facts: LacerationFacts, entrySite: AnatomicSite, totalCm: number): CodeSuggestion {
+  const series = COMPLEX_SERIES_BY_GROUP[complexRepairSiteGroup(entrySite)];
+  const elements = complexElementList(facts);
+  const siteClause = `${SITE_LABELS[entrySite]} (${series.groupLabel})`;
+  if (totalCm <= 7.5 + 1e-9) {
+    const role: ComplexCodeRole = totalCm <= 2.5 + 1e-9 ? 'base' : 'second';
+    const code = complexCodeForRole(series, role);
+    return {
+      code,
+      display: complexCodeCandidate(series, role).display,
+      justification: `Complex repair — ${elements} documented; ${siteClause}; total ${formatCm(totalCm)} cm → ${code}.`,
+    };
+  }
+  const units = complexAddOnUnits(totalCm);
+  return {
+    code: series.secondCode,
+    // The display string carries the add-on so the single suggestion row reads as the full billing.
+    display: `${series.secondCode} — Complex repair, ${series.groupLabel}, ${formatCm(totalCm)} cm total (with add-on ${
+      series.addOnCode
+    } × ${units} for the length beyond 7.5 cm)`,
+    justification: `Complex repair — ${elements} documented; ${siteClause}; total ${formatCm(totalCm)} cm → ${
+      series.secondCode
+    } + ${series.addOnCode} × ${units} (${series.secondCode} covers the first 7.5 cm; ${
+      series.addOnCode
+    } each additional 5 cm or part).`,
+    addOns: [
+      {
+        code: series.addOnCode,
+        units,
+        display: complexCodeCandidate(series, 'addOn').display,
+        justification: `${formatCm(totalCm - 7.5)} cm beyond the first 7.5 cm → ${series.addOnCode} × ${units}.`,
+      },
+    ],
+  };
+}
+
 // ── Inverse: selected codes → gaps and contradictions ──────────────────────────
+
+/** Where the resolved class was documented and how to describe it, for class-contradiction findings. */
+function documentedClassClause(
+  facts: LacerationFacts,
+  classResolution: RepairClassResolution
+): { documentedIn: string; description: string } {
+  const { basis } = classResolution;
+  const documentedIn =
+    basis !== undefined && STRUCTURED_BASES.includes(basis) ? `the ${REPAIR_DEPTH_FIELD_LABEL} field` : 'the note';
+  const description =
+    basis === 'layered' || basis === 'structured-layered'
+      ? 'a layered closure (an intermediate repair)'
+      : basis === 'contaminated'
+      ? 'a heavily contaminated wound with extensive cleaning (which qualifies as an intermediate repair)'
+      : basis === 'complex-element'
+      ? `a complex-repair qualifying element (${complexElementList(facts)}), which supports a complex repair`
+      : basis === 'adhesive' || basis === 'structured-adhesive'
+      ? 'closure with tissue adhesive alone (a simple repair)'
+      : basis === 'structured-strips'
+      ? 'closure with adhesive strips only (a simple repair)'
+      : basis === 'structured-single'
+      ? 'a single-layer closure (a simple repair)'
+      : 'a single-layer superficial closure (a simple repair)';
+  return { documentedIn, description };
+}
+
+function repairClassArticle(repairClass: LacerationRepairClass): string {
+  return repairClass === 'simple' ? 'a simple' : repairClass === 'intermediate' ? 'an intermediate' : 'a complex';
+}
+
+/**
+ * Findings for a selected complex repair code (13100-13153): the qualifying-element rule
+ * (CPT 2020), the 1.1 cm minimum, the complex site-group/band tables, and add-on pairing.
+ * The shared closure [R] check runs in the caller.
+ */
+function complexCodeFindings(
+  code: string,
+  indexed: IndexedComplexCode,
+  facts: LacerationFacts,
+  classResolution: RepairClassResolution,
+  entrySite: AnatomicSite | undefined,
+  selected: { code: string }[],
+  entryFindings: Finding[]
+): Finding[] {
+  const codeFindings: Finding[] = [];
+  const { series, role } = indexed;
+  const resolvedClass = classResolution.repairClass as LacerationRepairClass | undefined;
+  const hasElement = facts.complexElements.length > 0;
+
+  // Qualifying element / repair class (a resolved 'complex' class implies an element).
+  if (resolvedClass === 'simple') {
+    // Single-layer or adhesive-only documentation actively contradicts a complex repair.
+    const { documentedIn, description } = documentedClassClause(facts, classResolution);
+    codeFindings.push({
+      level: 'contradiction',
+      cptCode: code,
+      message: `${code} is a complex-repair code, but ${documentedIn} documents ${description}.`,
+      sourceText: classResolution.sourceText,
+      confidence: classResolution.confidence,
+    });
+  } else if (!hasElement) {
+    const elementAsk = whereClause('complexElement', 'If it was performed, add the qualifying element');
+    if (resolvedClass === 'intermediate') {
+      const { documentedIn } = documentedClassClause(facts, classResolution);
+      const closureDescription =
+        classResolution.basis === 'contaminated'
+          ? 'a heavily contaminated wound with extensive cleaning'
+          : 'a layered closure';
+      codeFindings.push({
+        level: 'contradiction',
+        cptCode: code,
+        message: `${code} is selected, but ${documentedIn} documents ${closureDescription} without any complex-repair element (${COMPLEX_ELEMENT_MENU}) — as documented this supports ${intermediateEquivalentRef(
+          facts,
+          entrySite
+        )}. ${elementAsk}`,
+        sourceText: classResolution.sourceText,
+        confidence: classResolution.confidence,
+      });
+    } else {
+      codeFindings.push({
+        level: 'contradiction',
+        cptCode: code,
+        message: `${code} is selected, but the note does not document any complex-repair element (${COMPLEX_ELEMENT_MENU}) — a complex repair needs at least one. ${elementAsk}`,
+      });
+    }
+  }
+
+  // Site group and length band per the complex tables.
+  if (entrySite === undefined) {
+    codeFindings.push({
+      level: 'determines',
+      cptCode: code,
+      message: `Body site is not documented for ${code} — which repair codes apply depends on where on the body the wound is. ${whereClause(
+        'site',
+        'Select it'
+      )}`,
+    });
+  } else if (complexRepairSiteGroup(entrySite) !== series.group) {
+    codeFindings.push({
+      level: 'contradiction',
+      cptCode: code,
+      message: `${code} covers ${series.groupLabel}, but the note documents a ${SITE_LABELS[entrySite]} wound.`,
+      sourceText: facts.site?.sourceText,
+      confidence: facts.site?.confidence,
+    });
+  } else {
+    const totals = computeWoundTotals(facts, 'complex', entrySite);
+    if (totals.mismatchFinding && !entryFindings.some((f) => f.message === totals.mismatchFinding?.message)) {
+      entryFindings.push(totals.mismatchFinding);
+    }
+    if (totals.totalCm === undefined) {
+      codeFindings.push({
+        level: 'determines',
+        cptCode: code,
+        message: `Wound length is not documented for ${code} — the exact code depends on the total repaired length; ${code} covers ${complexBandLabel(
+          role
+        )}. ${whereClause('length', 'Enter it')}`,
+      });
+    } else if (totals.totalCm < COMPLEX_REPAIR_MIN_CM - 1e-9) {
+      codeFindings.push({
+        level: 'contradiction',
+        cptCode: code,
+        message: `${code} is a complex-repair code — complex repairs are reported starting at ${formatCm(
+          COMPLEX_REPAIR_MIN_CM
+        )} cm, but the note documents a total repaired length of ${formatCm(
+          totals.totalCm
+        )} cm; a wound that size is coded as a simple or intermediate repair.`,
+        sourceText: totals.totalSourceText,
+        confidence: totals.totalConfidence,
+      });
+    } else {
+      const bandMismatch =
+        role === 'base'
+          ? totals.totalCm > 2.5 + 1e-9
+          : role === 'second'
+          ? totals.totalCm <= 2.5 + 1e-9
+          : totals.totalCm <= 7.5 + 1e-9;
+      if (bandMismatch) {
+        codeFindings.push({
+          level: 'contradiction',
+          cptCode: code,
+          message: `${code} covers ${complexBandLabel(role)} for ${
+            series.groupLabel
+          }, but the note documents a total repaired length of ${formatCm(totals.totalCm)} cm.`,
+          sourceText: totals.totalSourceText,
+          confidence: totals.totalConfidence,
+        });
+      }
+    }
+  }
+
+  // Add-on pairing: an add-on is billed alongside its own site group's second code.
+  if (role === 'addOn' && !selected.some((c) => c.code === series.secondCode)) {
+    const foreignPrimary = selected.find((c) => {
+      const other = COMPLEX_CODE_INDEX[c.code];
+      return other !== undefined && other.role !== 'addOn' && other.series.group !== series.group;
+    });
+    if (foreignPrimary) {
+      codeFindings.push({
+        level: 'contradiction',
+        cptCode: code,
+        message: `${code} is the add-on for complex repairs of ${series.groupLabel} (${series.baseCode}/${
+          series.secondCode
+        }), but the selected complex-repair code ${foreignPrimary.code} covers ${
+          COMPLEX_CODE_INDEX[foreignPrimary.code].series.groupLabel
+        } — an add-on must come from the same site group as its primary code.`,
+      });
+    } else {
+      codeFindings.push({
+        level: 'contradiction',
+        cptCode: code,
+        message: `${code} is an add-on code for each additional 5 cm beyond 7.5 cm — it is billed alongside ${series.secondCode} (complex repair, ${series.groupLabel}, 2.6–7.5 cm), but ${series.secondCode} is not selected.`,
+      });
+    }
+  }
+
+  return codeFindings;
+}
+
+/** Names the intermediate repair the documentation supports instead of a complex code, as exactly as the facts allow. */
+function intermediateEquivalentRef(facts: LacerationFacts, entrySite: AnatomicSite | undefined): string {
+  if (entrySite === undefined) return 'an intermediate repair';
+  const series = SERIES_BY_GROUP[lacerationSiteGroup('intermediate', entrySite)];
+  const totals = computeWoundTotals(facts, 'intermediate', entrySite);
+  if (totals.totalCm === undefined) {
+    return `an intermediate repair (${series.bands[0].code}–${series.bands[series.bands.length - 1].code})`;
+  }
+  return `an intermediate repair (${bandForLength(series, totals.totalCm).code})`;
+}
 
 function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
   const facts = extractLacerationFacts(input);
@@ -744,16 +1180,18 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
   const stripsSelected = facts.structuredRepairDepth === 'strips-only';
   const stripsOnly = stripsSelected || (facts.structuredRepairDepth === undefined && adhesiveStripsOnly(facts));
   const entrySite = facts.site?.value;
-  const inScopeSelected = selected.filter((c) => isLacerationRepairCode(c.code));
+  const inScopeSelected = selected.filter(
+    (c) => isLacerationRepairCode(c.code) || COMPLEX_CODE_INDEX[c.code] !== undefined
+  );
 
   for (const selectedCode of selected) {
     const indexed = LACERATION_CODE_INDEX[selectedCode.code];
-    if (!indexed) {
+    const complexIndexed = COMPLEX_CODE_INDEX[selectedCode.code];
+    if (!indexed && !complexIndexed) {
       notAssessedCodes.push(selectedCode.code);
       continue;
     }
     const codeFindings: Finding[] = [];
-    const impliedClass = indexed.series.repairClass;
 
     if (stripsOnly) {
       codeFindings.push({
@@ -767,102 +1205,95 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
       });
     }
 
-    // Repair class: [C] when contradicted, [D] ask when undocumented.
-    if (classResolution.repairClass !== undefined && classResolution.repairClass !== impliedClass) {
-      const documentedClassDescription =
-        classResolution.basis === 'layered' || classResolution.basis === 'structured-layered'
-          ? 'a layered closure (an intermediate repair)'
-          : classResolution.basis === 'contaminated'
-          ? 'a heavily contaminated wound with extensive cleaning (which qualifies as an intermediate repair)'
-          : classResolution.basis === 'adhesive' || classResolution.basis === 'structured-adhesive'
-          ? 'closure with tissue adhesive alone (a simple repair)'
-          : classResolution.basis === 'structured-strips'
-          ? 'closure with adhesive strips only (a simple repair)'
-          : classResolution.basis === 'structured-single'
-          ? 'a single-layer closure (a simple repair)'
-          : 'a single-layer superficial closure (a simple repair)';
-      const documentedIn =
-        classResolution.basis !== undefined && STRUCTURED_BASES.includes(classResolution.basis)
-          ? `the ${REPAIR_DEPTH_FIELD_LABEL} field`
-          : 'the note';
-      codeFindings.push({
-        level: 'contradiction',
-        cptCode: selectedCode.code,
-        message: `${selectedCode.code} is ${
-          impliedClass === 'simple' ? 'a simple' : 'an intermediate'
-        }-repair code, but ${documentedIn} documents ${documentedClassDescription}.`,
-        sourceText: classResolution.sourceText,
-        confidence: classResolution.confidence,
-      });
-    } else if (classResolution.repairClass === undefined) {
-      codeFindings.push({
-        level: 'determines',
-        cptCode: selectedCode.code,
-        message: `Repair depth is not documented for ${
-          selectedCode.code
-        } — a single-layer closure codes as a simple repair and a layered closure as an intermediate repair. ${whereClause(
-          'depth',
-          'Select it'
-        )}`,
-      });
-      // Contamination claimed as the basis for an intermediate code upgrades irrigation/cleaning to [R].
-      if (impliedClass === 'intermediate' && facts.contaminationDocumented && !facts.extensiveCleaningDocumented) {
-        codeFindings.push({
-          level: 'required',
-          cptCode: selectedCode.code,
-          message: `The note documents heavy contamination but not the extensive cleaning/irrigation — ${
-            selectedCode.code
-          } as an intermediate repair on that basis needs both documented. ${whereClause('extensiveCleaning')}`,
-          sourceText: facts.contaminationDocumented.sourceText,
-          confidence: facts.contaminationDocumented.confidence,
-        });
-      }
-    }
+    if (complexIndexed) {
+      codeFindings.push(
+        ...complexCodeFindings(selectedCode.code, complexIndexed, facts, classResolution, entrySite, selected, findings)
+      );
+    } else if (indexed) {
+      const impliedClass = indexed.series.repairClass;
 
-    // Site group and length band.
-    if (entrySite === undefined) {
-      codeFindings.push({
-        level: 'determines',
-        cptCode: selectedCode.code,
-        message: `Body site is not documented for ${
-          selectedCode.code
-        } — which repair codes apply depends on where on the body the wound is. ${whereClause('site', 'Select it')}`,
-      });
-    } else {
-      const entryGroup = lacerationSiteGroup(impliedClass, entrySite);
-      if (entryGroup !== indexed.series.group) {
+      // Repair class: [C] when contradicted, [D] ask when undocumented.
+      if (classResolution.repairClass !== undefined && classResolution.repairClass !== impliedClass) {
+        const { documentedIn, description } = documentedClassClause(facts, classResolution);
         codeFindings.push({
           level: 'contradiction',
           cptCode: selectedCode.code,
-          message: `${selectedCode.code} covers ${indexed.series.groupLabel}, but the note documents a ${SITE_LABELS[entrySite]} wound.`,
-          sourceText: facts.site?.sourceText,
-          confidence: facts.site?.confidence,
+          message: `${selectedCode.code} is ${repairClassArticle(
+            impliedClass
+          )}-repair code, but ${documentedIn} documents ${description}.`,
+          sourceText: classResolution.sourceText,
+          confidence: classResolution.confidence,
+        });
+      } else if (classResolution.repairClass === undefined) {
+        codeFindings.push({
+          level: 'determines',
+          cptCode: selectedCode.code,
+          message: `Repair depth is not documented for ${
+            selectedCode.code
+          } — a single-layer closure codes as a simple repair and a layered closure as an intermediate repair. ${whereClause(
+            'depth',
+            'Select it'
+          )}`,
+        });
+        // Contamination claimed as the basis for an intermediate code upgrades irrigation/cleaning to [R].
+        if (impliedClass === 'intermediate' && facts.contaminationDocumented && !facts.extensiveCleaningDocumented) {
+          codeFindings.push({
+            level: 'required',
+            cptCode: selectedCode.code,
+            message: `The note documents heavy contamination but not the extensive cleaning/irrigation — ${
+              selectedCode.code
+            } as an intermediate repair on that basis needs both documented. ${whereClause('extensiveCleaning')}`,
+            sourceText: facts.contaminationDocumented.sourceText,
+            confidence: facts.contaminationDocumented.confidence,
+          });
+        }
+      }
+
+      // Site group and length band.
+      if (entrySite === undefined) {
+        codeFindings.push({
+          level: 'determines',
+          cptCode: selectedCode.code,
+          message: `Body site is not documented for ${
+            selectedCode.code
+          } — which repair codes apply depends on where on the body the wound is. ${whereClause('site', 'Select it')}`,
         });
       } else {
-        const totals = computeWoundTotals(facts, impliedClass, entrySite);
-        if (totals.mismatchFinding && !findings.some((f) => f.message === totals.mismatchFinding?.message)) {
-          findings.push(totals.mismatchFinding);
-        }
-        if (totals.totalCm === undefined) {
-          codeFindings.push({
-            level: 'determines',
-            cptCode: selectedCode.code,
-            message: `Wound length is not documented for ${
-              selectedCode.code
-            } — the exact code depends on the total repaired length; ${selectedCode.code} covers ${bandLabel(
-              indexed.band
-            )}. ${whereClause('length', 'Enter it')}`,
-          });
-        } else if (!lengthFitsBand(indexed, totals.totalCm)) {
+        const entryGroup = lacerationSiteGroup(impliedClass, entrySite);
+        if (entryGroup !== indexed.series.group) {
           codeFindings.push({
             level: 'contradiction',
             cptCode: selectedCode.code,
-            message: `${selectedCode.code} covers ${bandLabel(indexed.band)} for ${
-              indexed.series.groupLabel
-            }, but the note documents a total repaired length of ${formatCm(totals.totalCm)} cm.`,
-            sourceText: totals.totalSourceText,
-            confidence: totals.totalConfidence,
+            message: `${selectedCode.code} covers ${indexed.series.groupLabel}, but the note documents a ${SITE_LABELS[entrySite]} wound.`,
+            sourceText: facts.site?.sourceText,
+            confidence: facts.site?.confidence,
           });
+        } else {
+          const totals = computeWoundTotals(facts, impliedClass, entrySite);
+          if (totals.mismatchFinding && !findings.some((f) => f.message === totals.mismatchFinding?.message)) {
+            findings.push(totals.mismatchFinding);
+          }
+          if (totals.totalCm === undefined) {
+            codeFindings.push({
+              level: 'determines',
+              cptCode: selectedCode.code,
+              message: `Wound length is not documented for ${
+                selectedCode.code
+              } — the exact code depends on the total repaired length; ${selectedCode.code} covers ${bandLabel(
+                indexed.band
+              )}. ${whereClause('length', 'Enter it')}`,
+            });
+          } else if (!lengthFitsBand(indexed, totals.totalCm)) {
+            codeFindings.push({
+              level: 'contradiction',
+              cptCode: selectedCode.code,
+              message: `${selectedCode.code} covers ${bandLabel(indexed.band)} for ${
+                indexed.series.groupLabel
+              }, but the note documents a total repaired length of ${formatCm(totals.totalCm)} cm.`,
+              sourceText: totals.totalSourceText,
+              confidence: totals.totalConfidence,
+            });
+          }
         }
       }
     }

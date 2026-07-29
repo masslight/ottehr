@@ -95,8 +95,10 @@ export interface LacerationFacts {
   structuredRepairDepth?: RepairDepthSelection;
   /** Explicit depth/layer language only; closure method (e.g. subcuticular) is never depth proof. */
   depth?: FactValue<'layered' | 'single-layer'>;
-  /** Debridement/undermining/tissue-rearrangement language ⇒ outside this model's scope. */
+  /** Tissue-rearrangement/adjacent-tissue-transfer language (14xxx) ⇒ outside this model's scope. */
   outsideScope?: FactValue<true>;
+  /** Complex-repair qualifying elements documented in the text (CPT 2020 complex definition). */
+  complexElements: FactValue<ComplexRepairElement>[];
   closureMethod?: FactValue<string>;
   closureMaterial?: FactValue<string>;
   closureCount?: FactValue<number>;
@@ -230,8 +232,54 @@ function extractWounds(text: string): LacerationWound[] {
 const LAYERED_PATTERN =
   /\blayered\b|\btwo[-\s]layer|\bmulti[-\s]?layer|deep\s+dermal\s+sutur|deep\s+sutur|subcutaneous\s+sutur/i;
 const SINGLE_LAYER_PATTERN = /single[-\s]layer|\bsuperficial\b/i;
+// Tissue-rearrangement language points to adjacent tissue transfer (CPT 14xxx), which stays
+// outside this model's scope. Debridement/undermining are complex-repair elements, not scope exits.
 const OUTSIDE_SCOPE_PATTERN =
-  /debrid\w*|undermin\w*|tissue\s+rearrangement|advancement\s+flap|rotation\s+flap|z-?plasty|complex\s+repair/i;
+  /tissue\s+rearrangement|adjacent\s+tissue\s+transfer|advancement\s+flap|rotation\s+flap|z-?plasty/i;
+
+/**
+ * Qualifying elements of a complex repair (CPT 2020 definition): at least one must be
+ * documented for a complex repair code (13100–13153) to be supported.
+ */
+export type ComplexRepairElement =
+  | 'extensive-undermining'
+  | 'retention-sutures'
+  | 'stents'
+  | 'debridement'
+  | 'exposed-structure'
+  | 'free-margin';
+
+// Plain "undermining" is deliberately NOT enough — CPT requires the undermining to be
+// extensive (distance ≥ the maximum defect width), so the note must say so.
+const COMPLEX_ELEMENT_PATTERNS: Array<[ComplexRepairElement, RegExp]> = [
+  [
+    'extensive-undermining',
+    /(?:extensive(?:ly)?|wide(?:ly)?|broad(?:ly)?)\s+undermin\w*|undermin\w*\s+(?:extensive|wide|broad)ly/i,
+  ],
+  ['retention-sutures', /retention\s+sutur\w*/i],
+  ['stents', /\bstent(?:s|ed|ing)?\b/i],
+  ['debridement', /debrid\w*/i],
+  [
+    'exposed-structure',
+    /\bexposed?\s+(?:the\s+)?(?:bone|cartilage|tendon|nerve|arter\w*|vessel\w*|vein\w*)|\b(?:bone|cartilage|tendon|nerve|arter\w*|vessel|vein)s?\s+(?:was\s+|were\s+|is\s+|are\s+)?exposed\b|exposure\s+of\s+(?:the\s+)?(?:bone|cartilage|tendon|nerve|arter\w*|vessel|vein)/i,
+  ],
+  ['free-margin', /free\s+margin|helical\s+rim|vermill?ion\s+border|nostril\s+rim/i],
+];
+
+function extractComplexElements(text: string): FactValue<ComplexRepairElement>[] {
+  const elements: FactValue<ComplexRepairElement>[] = [];
+  for (const [element, pattern] of COMPLEX_ELEMENT_PATTERNS) {
+    const found = firstMatch(text, pattern);
+    if (found) {
+      elements.push({
+        value: element,
+        confidence: 'text',
+        sourceText: snippetAround(text, found.index, found.match.length),
+      });
+    }
+  }
+  return elements;
+}
 
 const CONTAMINATION_PATTERN =
   /heavil?y\s+contaminated|grossly\s+contaminated|heavy\s+contamination|gross\s+contamination/i;
@@ -363,6 +411,7 @@ export function extractLacerationFacts(input: ProcedureFactsInput): LacerationFa
     structuredRepairDepth: input.repairDepth,
     depth: extractDepth(text),
     outsideScope: textFlag(text, OUTSIDE_SCOPE_PATTERN),
+    complexElements: extractComplexElements(text),
     closureMethod: extractClosureMethod(text),
     closureMaterial: extractClosureMaterial(text),
     closureCount: extractClosureCount(text),

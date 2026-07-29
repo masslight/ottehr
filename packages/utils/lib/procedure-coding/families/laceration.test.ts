@@ -9,6 +9,7 @@ function input(overrides: Partial<ProcedureFactsInput>): ProcedureFactsInput {
 const SIMPLE_CLOSURE_TEXT = 'Single-layer closure with 4-0 Ethilon, total stitch count: 5.';
 const LAYERED_CLOSURE_TEXT =
   'Layered closure: deep dermal 4-0 Vicryl, skin closed with running 5-0 nylon, total stitch count: 8.';
+const COMPLEX_CLOSURE_TEXT = 'Extensive undermining performed. ' + LAYERED_CLOSURE_TEXT;
 
 function hasFinding(
   findings: Finding[],
@@ -190,12 +191,12 @@ describe('laceration forward: repair class paths', () => {
     expect(hasFinding(result.findings, 'contradiction', 'adhesive strips')).toBe(true);
   });
 
-  it('debridement/undermining language ⇒ not assessed, never guessed', () => {
+  it('tissue-rearrangement language ⇒ not assessed, never guessed', () => {
     const result = lacerationFamily.suggestCode(
       input({
         bodySite: 'Arm',
         lengthCm: 3.0,
-        procedureDetails: 'Wound edges debrided and undermined prior to closure. ' + SIMPLE_CLOSURE_TEXT,
+        procedureDetails: 'Advancement flap created for closure of the defect. ' + LAYERED_CLOSURE_TEXT,
       })
     );
     expect(result.suggestion).toBeUndefined();
@@ -654,17 +655,17 @@ describe('laceration inverse: missing elements', () => {
     expect(hasFinding(result.findings, 'required', /cleaning|irrigation/i, '12032')).toBe(true);
   });
 
-  it('complex-repair code (13120) ⇒ not assessed, never guessed', () => {
+  it('unmodeled 13xxx code (13160, secondary closure) ⇒ not assessed, never guessed', () => {
     const result = lacerationFamily.defendCodes(
       input({
         bodySite: 'Arm',
         lengthCm: 3.0,
-        cptCodes: [{ code: '13120', display: 'Complex repair, scalp/arms/legs' }],
+        cptCodes: [{ code: '13160', display: 'Secondary closure of surgical wound' }],
         procedureDetails: SIMPLE_CLOSURE_TEXT,
       })
     );
-    expect(result.notAssessedCodes).toContain('13120');
-    expect(result.findings.filter((f) => f.cptCode === '13120')).toHaveLength(0);
+    expect(result.notAssessedCodes).toContain('13160');
+    expect(result.findings.filter((f) => f.cptCode === '13160')).toHaveLength(0);
   });
 });
 
@@ -698,5 +699,284 @@ describe('laceration inverse: supported state', () => {
       })
     );
     expect(result.supportedCodes).toEqual(['12032']);
+  });
+});
+
+describe('laceration forward: complex repairs (CPT 13100-13153)', () => {
+  describe('band and add-on boundaries (trunk: 13100/13101/+13102)', () => {
+    it.each<[number, string, number | undefined]>([
+      [1.1, '13100', undefined],
+      [2.5, '13100', undefined],
+      [2.6, '13101', undefined],
+      [7.5, '13101', undefined],
+      [7.6, '13101', 1],
+      [12.5, '13101', 1],
+      [12.6, '13101', 2],
+    ])('%s cm → %s (add-on units: %s)', (lengthCm, expectedCode, addOnUnits) => {
+      const result = lacerationFamily.suggestCode(
+        input({ bodySite: 'Torso', lengthCm, procedureDetails: COMPLEX_CLOSURE_TEXT })
+      );
+      expect(result.suggestion?.code).toBe(expectedCode);
+      if (addOnUnits === undefined) {
+        expect(result.suggestion?.addOns).toBeUndefined();
+      } else {
+        expect(result.suggestion?.addOns).toHaveLength(1);
+        expect(result.suggestion?.addOns?.[0]).toMatchObject({ code: '13102', units: addOnUnits });
+      }
+    });
+  });
+
+  it.each([
+    ['Torso', '13100'],
+    ['Head', '13120'], // scalp
+    ['Arm', '13120'],
+    ['Hand', '13131'],
+    ['Foot', '13131'],
+    ['Neck', '13131'],
+    ['Forehead', '13131'],
+    ['Nose', '13151'],
+    ['Ear', '13151'],
+  ])('complex site groups differ from simple and intermediate: %s at 2.0 cm → %s', (bodySite, expectedCode) => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite, lengthCm: 2.0, procedureDetails: COMPLEX_CLOSURE_TEXT })
+    );
+    expect(result.suggestion?.code).toBe(expectedCode);
+  });
+
+  it.each([
+    ['extensive undermining', 'Extensive undermining performed prior to closure.'],
+    ['retention sutures', 'Retention sutures placed given wound tension.'],
+    ['stents', 'Stent placed to support the closure.'],
+    ['debridement', 'Wound edges debrided of devitalized tissue.'],
+    ['exposed structure', 'Extensor tendon exposed at the wound base.'],
+    ['free margin', 'Laceration crossing the vermilion border.'],
+  ])('qualifying element (%s) supports a complex suggestion', (_label, elementText) => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Hand', lengthCm: 2.0, procedureDetails: elementText + ' ' + LAYERED_CLOSURE_TEXT })
+    );
+    expect(result.suggestion?.code).toBe('13131');
+    expect(result.suggestion?.justification).toContain('Complex repair');
+  });
+
+  it('layered closure alone stays intermediate — a complex code is never suggested without a qualifying element', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Hand', lengthCm: 2.0, procedureDetails: LAYERED_CLOSURE_TEXT })
+    );
+    expect(result.suggestion?.code).toBe('12041');
+  });
+
+  it('plain (non-extensive) undermining is not a qualifying element', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Hand', lengthCm: 3.0, procedureDetails: 'Wound edges undermined. ' + LAYERED_CLOSURE_TEXT })
+    );
+    expect(result.suggestion?.code).toBe('12042');
+  });
+
+  it('pinned compound suggestion: 16 cm forehead-group wound ⇒ 13132 + 13133 × 2, carried in the display', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Forehead', lengthCm: 16, procedureDetails: COMPLEX_CLOSURE_TEXT })
+    );
+    expect(result.suggestion?.code).toBe('13132');
+    expect(result.suggestion?.addOns).toHaveLength(1);
+    expect(result.suggestion?.addOns?.[0]).toMatchObject({ code: '13133', units: 2 });
+    expect(result.suggestion?.display).toContain('13133 × 2');
+    expect(result.suggestion?.justification).toContain('13132 + 13133 × 2');
+  });
+
+  it('sub-1.1 cm with a complex element falls back to the closure class, with an advisory', () => {
+    const result = lacerationFamily.suggestCode(
+      input({ bodySite: 'Torso', lengthCm: 1.0, procedureDetails: COMPLEX_CLOSURE_TEXT })
+    );
+    expect(result.suggestion?.code).toBe('12031');
+    expect(hasFinding(result.findings, 'bestPractice', 'complex repair codes start at 1.1 cm')).toBe(true);
+  });
+
+  it('complex class + site known, length missing ⇒ compact open-set summary over the complex table', () => {
+    const result = lacerationFamily.suggestCode(input({ bodySite: 'Hand', procedureDetails: COMPLEX_CLOSURE_TEXT }));
+    expect(result.suggestion).toBeUndefined();
+    expect(result.openCandidatesSummary).toBe('13131–13133 — wound length (cm) determines the exact code');
+    expect(result.openCandidates?.map((c) => c.code)).toEqual(['13131', '13132', '13133']);
+  });
+});
+
+describe('laceration inverse: complex repairs (CPT 13100-13153)', () => {
+  const COMPLEX_ELEMENT_DETAILS =
+    'Extensive undermining performed. Closed with 5 simple interrupted 4-0 Ethilon sutures. Wound irrigated with normal saline. Tetanus status up to date.';
+
+  it('pinned live case: 13131 + hand + 2.0 cm + layered field + empty details ⇒ supports-intermediate [C] naming 12041', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 2.0,
+        repairDepth: 'subcutaneous-layered',
+        cptCodes: [{ code: '13131', display: 'Complex repair 1.1-2.5 cm' }],
+        procedureDetails: '',
+      })
+    );
+    const contradiction = result.findings.find((f) => f.level === 'contradiction' && f.cptCode === '13131');
+    expect(contradiction?.message).toBe(
+      '13131 is selected, but the Repair depth field documents a layered closure without any complex-repair element (extensive undermining, retention sutures, stents, debridement, exposed bone/cartilage/tendon, or free-margin involvement) — as documented this supports an intermediate repair (12041). If it was performed, add the qualifying element to Procedure details, e.g. "extensive undermining performed; retention sutures placed".'
+    );
+    expect(result.supportedCodes).toHaveLength(0);
+  });
+
+  it('13131 + extensive undermining documented ⇒ supported', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        bodySide: 'Left',
+        lengthCm: 2.0,
+        medicationUsed: '1% lidocaine',
+        repairDepth: 'subcutaneous-layered',
+        cptCodes: [{ code: '13131', display: 'Complex repair 1.1-2.5 cm' }],
+        procedureDetails: COMPLEX_ELEMENT_DETAILS,
+      })
+    );
+    expect(result.supportedCodes).toEqual(['13131']);
+  });
+
+  it('no qualifying element and no depth documented ⇒ [C] naming the missing element', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 2.0,
+        cptCodes: [{ code: '13131', display: 'Complex repair 1.1-2.5 cm' }],
+        procedureDetails: 'Closed with 5 simple interrupted 4-0 Ethilon sutures.',
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', 'does not document any complex-repair element', '13131')).toBe(
+      true
+    );
+    expect(result.supportedCodes).toHaveLength(0);
+  });
+
+  it('single-layer Repair depth selection contradicts a complex code ⇒ [C] naming the field', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 2.0,
+        repairDepth: 'subcutaneous-single',
+        cptCodes: [{ code: '13131', display: 'Complex repair 1.1-2.5 cm' }],
+        procedureDetails: COMPLEX_ELEMENT_DETAILS,
+      })
+    );
+    expect(
+      hasFinding(
+        result.findings,
+        'contradiction',
+        '13131 is a complex-repair code, but the Repair depth field documents a single-layer closure (a simple repair).',
+        '13131'
+      )
+    ).toBe(true);
+    expect(result.supportedCodes).toHaveLength(0);
+  });
+
+  it('sub-1.1 cm + complex code ⇒ [C] below the complex minimum', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 0.8,
+        repairDepth: 'subcutaneous-layered',
+        cptCodes: [{ code: '13131', display: 'Complex repair 1.1-2.5 cm' }],
+        procedureDetails: COMPLEX_ELEMENT_DETAILS,
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', 'reported starting at 1.1 cm', '13131')).toBe(true);
+    expect(result.supportedCodes).toHaveLength(0);
+  });
+
+  it('documented length outside the selected complex band ⇒ [C]', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 5.0,
+        cptCodes: [{ code: '13131', display: 'Complex repair 1.1-2.5 cm' }],
+        procedureDetails: COMPLEX_ELEMENT_DETAILS,
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', '5.0', '13131')).toBe(true);
+    expect(result.supportedCodes).toHaveLength(0);
+  });
+
+  it('documented site group contradicts the selected complex code table ⇒ [C]', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 2.0,
+        cptCodes: [{ code: '13100', display: 'Complex repair, trunk, 1.1-2.5 cm' }],
+        procedureDetails: COMPLEX_ELEMENT_DETAILS,
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', 'hand', '13100')).toBe(true);
+  });
+
+  it('add-on from the wrong site-group family ⇒ [C]; the matching primary stays supported', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        bodySide: 'Left',
+        lengthCm: 2.0,
+        medicationUsed: '1% lidocaine',
+        cptCodes: [
+          { code: '13131', display: 'Complex repair 1.1-2.5 cm' },
+          { code: '13102', display: 'Complex repair, trunk, each additional 5 cm' },
+        ],
+        procedureDetails: COMPLEX_ELEMENT_DETAILS,
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', 'same site group', '13102')).toBe(true);
+    expect(result.supportedCodes).toEqual(['13131']);
+  });
+
+  it('add-on without its base code ⇒ [C]', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Forehead',
+        lengthCm: 16,
+        cptCodes: [{ code: '13133', display: 'Complex repair, each additional 5 cm' }],
+        procedureDetails: COMPLEX_ELEMENT_DETAILS,
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', 'but 13132 is not selected', '13133')).toBe(true);
+  });
+
+  it('add-on selected with a total length that never exceeds 7.5 cm ⇒ [C]', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Forehead',
+        lengthCm: 5.0,
+        cptCodes: [
+          { code: '13132', display: 'Complex repair 2.6-7.5 cm' },
+          { code: '13133', display: 'Complex repair, each additional 5 cm' },
+        ],
+        procedureDetails: COMPLEX_ELEMENT_DETAILS,
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', 'each additional 5 cm', '13133')).toBe(true);
+  });
+
+  it('intermediate code selected while the note documents a complex-repair element ⇒ [C]', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 2.0,
+        cptCodes: [{ code: '12041', display: 'Intermediate repair 2.5 cm or less' }],
+        procedureDetails: COMPLEX_CLOSURE_TEXT,
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', 'complex-repair qualifying element', '12041')).toBe(true);
+  });
+
+  it('tissue-rearrangement language keeps complex codes not assessed', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Hand',
+        lengthCm: 2.0,
+        cptCodes: [{ code: '13131', display: 'Complex repair 1.1-2.5 cm' }],
+        procedureDetails: 'Z-plasty performed for closure of the defect.',
+      })
+    );
+    expect(result.notAssessed).toBe(true);
+    expect(result.notAssessedCodes).toContain('13131');
   });
 });

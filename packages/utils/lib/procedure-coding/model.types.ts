@@ -81,12 +81,26 @@ export interface CodeCandidate {
   display: string;
 }
 
+/** An add-on code billed alongside a primary suggestion (e.g. +13133 × 2 for length beyond 7.5 cm). */
+export interface CodeSuggestionAddOn {
+  code: string;
+  /** How many units of the add-on code the documented facts support. */
+  units: number;
+  display: string;
+  justification: string;
+}
+
 /** A determined code suggestion with its plain-language justification (requirement A1). */
 export interface CodeSuggestion {
   code: string;
   display: string;
   /** Names the determinants, e.g. "Intermediate repair — layered closure documented; hand; 3.2 cm → 12042". */
   justification: string;
+  /**
+   * Add-on codes billed alongside `code` (compound suggestions, e.g. 13132 + 13133 × 2).
+   * The primary `display` string also carries the add-on so a single suggestion row reads complete.
+   */
+  addOns?: CodeSuggestionAddOn[];
 }
 
 /** The family-agnostic result of one evaluation direction (forward suggest / inverse defend). */

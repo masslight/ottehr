@@ -211,3 +211,44 @@ describe('extractLacerationFacts: closure-evidence and negation', () => {
     expect(facts.wounds[0].lengthCm).toBe(8);
   });
 });
+
+describe('extractLacerationFacts: complex-repair qualifying elements', () => {
+  it.each([
+    ['extensive-undermining', 'Extensive undermining performed around the wound.'],
+    ['extensive-undermining', 'Wound edges undermined extensively.'],
+    ['retention-sutures', 'Retention sutures placed given wound tension.'],
+    ['stents', 'Stent placed to support the repair.'],
+    ['debridement', 'Devitalized wound edges debrided.'],
+    ['exposed-structure', 'Bone exposed at the base of the wound.'],
+    ['exposed-structure', 'Exploration revealed exposed tendon.'],
+    ['free-margin', 'Laceration crosses the vermilion border of the lip.'],
+    ['free-margin', 'Wound involves the helical rim.'],
+  ])('reads %s from "%s" with a sourceText citation', (element, text) => {
+    const facts = extractLacerationFacts(input({ procedureDetails: text }));
+    expect(facts.complexElements.map((e) => e.value)).toContain(element);
+    expect(facts.complexElements[0].sourceText).toBeDefined();
+  });
+
+  it('plain undermining is NOT extensive undermining (CPT requires the extent to be documented)', () => {
+    const facts = extractLacerationFacts(input({ procedureDetails: 'Wound edges gently undermined before closure.' }));
+    expect(facts.complexElements).toHaveLength(0);
+  });
+
+  it('negated elements are not read', () => {
+    const facts = extractLacerationFacts(input({ procedureDetails: 'No debridement required.' }));
+    expect(facts.complexElements).toHaveLength(0);
+  });
+
+  it('debridement/undermining no longer trip the outside-scope flag; tissue rearrangement still does', () => {
+    expect(
+      extractLacerationFacts(input({ procedureDetails: 'Wound edges debrided and extensively undermined.' }))
+        .outsideScope
+    ).toBeUndefined();
+    expect(
+      extractLacerationFacts(input({ procedureDetails: 'Z-plasty performed for closure.' })).outsideScope?.value
+    ).toBe(true);
+    expect(
+      extractLacerationFacts(input({ procedureDetails: 'Rotation flap raised and inset.' })).outsideScope?.value
+    ).toBe(true);
+  });
+});
