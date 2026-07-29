@@ -571,7 +571,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
-      <InsuranceCarrierQuickPicks fieldKey={FormFields.insuranceCarrier.key} />
+      <InsuranceCarrierQuickPicks
+        fieldKey={FormFields.insuranceCarrier.key}
+        planTypeFieldKey={FormFields.insurancePlanType.key}
+        relationshipFieldKey={FormFields.relationship.key}
+      />
       <PatientRecordFormField
         item={FormFields.insuranceCarrier}
         isLoading={false}

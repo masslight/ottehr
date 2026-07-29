@@ -134,6 +134,13 @@
       "src": "src/billing/search-billing-claims/index",
       "zip": ".dist/zips/search-billing-claims.zip"
     },
+    "SEARCH-BILLING-PATIENT-AR-CLAIMS": {
+      "name": "search-billing-patient-ar-claims",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-patient-ar-claims/index",
+      "zip": ".dist/zips/search-billing-patient-ar-claims.zip"
+    },
     "GET-BILLING-CLAIM-DETAIL": {
       "name": "get-billing-claim-detail",
       "type": "http_auth",
@@ -280,6 +287,17 @@
       "runtime": "nodejs22.x",
       "src": "src/billing/create-billing-claim-from-encounter/index",
       "zip": ".dist/zips/create-billing-claim-from-encounter.zip"
+    },
+    "CREATE-BILLING-INVOICES-TASKS": {
+      "name": "create-billing-invoices-tasks",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "300",
+      "src": "src/cron/create-billing-invoices-tasks/index",
+      "zip": ".dist/zips/create-billing-invoices-tasks.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
     },
     "SEARCH-CHARGE-ITEM-DEFINITIONS": {
       "name": "search-charge-item-definitions",

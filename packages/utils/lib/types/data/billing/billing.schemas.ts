@@ -132,10 +132,20 @@ export const SearchBillingClaimsInputSchema = z.object({
   tag: nonEmptyString.optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
+  serviceDateFrom: nonEmptyString.optional(),
+  serviceDateTo: nonEmptyString.optional(),
   payerName: nonEmptyString.optional(),
   payerId: nonEmptyString.optional(),
   service: nonEmptyString.optional(),
   patientId: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
+export const SearchBillingPatientARClaimsInputSchema = z.object({
+  patientId: nonEmptyString.optional(),
+  claimIds: z.array(nonEmptyString).optional(),
+  includeZeroBalance: z.boolean().optional(),
   offset: nonNegativeInt.optional(),
   pageSize: nonNegativeInt.optional(),
 });
@@ -629,6 +639,7 @@ export type GetPatientDetailInput = z.output<typeof GetPatientDetailInputSchema>
 export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputSchema>;
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
+export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;
 export type SearchBillingPatientsInput = z.output<typeof SearchBillingPatientsInputSchema>;
 export type SearchBillingLocationsInput = z.output<typeof SearchBillingLocationsInputSchema>;
