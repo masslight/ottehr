@@ -15,6 +15,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   findOrgMatchingReference,
+  formatCurrencyFromCents,
   formatDateToMDYWithTime,
   getMemberIdFromCoverage,
   getPayerId,
@@ -194,11 +195,6 @@ function getBillerName(billingResource: Organization): string {
   return billingResource.name ?? UNKNOWN_BILLER_VALUE;
 }
 
-function formatMoney(cents: number | undefined): string {
-  const dollars = (cents ?? 0) / 100;
-  return dollars < 0 ? `-$${Math.abs(dollars).toFixed(2)}` : `$${dollars.toFixed(2)}`;
-}
-
 async function getServiceLines(
   encounter: Encounter,
   candid: CandidApiClient,
@@ -243,10 +239,10 @@ async function getServiceLines(
       return {
         cpt: serviceLine.procedureCode,
         description: await getProcedureCodeTitle(serviceLine.procedureCode, oystehr),
-        charged: formatMoney(chargeAfterAdjustments),
-        insurancePaid: formatMoney(insurancePaid),
-        patientPaid: formatMoney(patientPaid),
-        patientOwes: formatMoney(patientOwes),
+        charged: formatCurrencyFromCents(chargeAfterAdjustments),
+        insurancePaid: formatCurrencyFromCents(insurancePaid),
+        patientPaid: formatCurrencyFromCents(patientPaid),
+        patientOwes: formatCurrencyFromCents(patientOwes),
       };
     })
   );
@@ -274,11 +270,11 @@ async function getServiceLines(
   return {
     serviceLines,
     totals: {
-      charged: formatMoney(totalsCents.charged),
-      insurancePaid: formatMoney(totalsCents.insurancePaid),
-      patientPaid: formatMoney(totalsCents.patientPaid),
-      deductible: formatMoney(totalsCents.deductible),
-      balanceDue: formatMoney(totalsCents.balanceDue),
+      charged: formatCurrencyFromCents(totalsCents.charged),
+      insurancePaid: formatCurrencyFromCents(totalsCents.insurancePaid),
+      patientPaid: formatCurrencyFromCents(totalsCents.patientPaid),
+      deductible: formatCurrencyFromCents(totalsCents.deductible),
+      balanceDue: formatCurrencyFromCents(totalsCents.balanceDue),
     },
   };
 }

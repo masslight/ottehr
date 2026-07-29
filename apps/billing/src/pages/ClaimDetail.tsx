@@ -50,6 +50,7 @@ import {
   ERA_CLAIM_STATUS_CODE,
   EraClaimStatusCode,
   formatClaimStatusValue,
+  formatCurrency,
   getApiError,
   RULES_ENGINES,
   RulesEngineDef,
@@ -99,7 +100,7 @@ import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatDate } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
 type UpdateFn = (resourceType: string, resourceId: string, fields: Record<string, unknown>) => Promise<string | null>;

@@ -21,6 +21,7 @@ import {
   BillingCoverageOption,
   BillingInsuranceType,
   commaFormattedName,
+  formatCurrency,
   getApiError,
   PatientDetailResponse,
   UpdateBillingPatientInput,
@@ -40,7 +41,6 @@ import { defaultPatientFormValues, PatientForm, patientToUpdateInput } from '../
 import { useApiClients } from '../hooks/useAppClients';
 import { usePatient } from '../hooks/usePatient';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency } from '../utils/format';
 
 const INSURANCE_TYPE_ORDER: BillingInsuranceType[] = BILLING_INSURANCE_TYPE_OPTIONS.map((o) => o.value);
 const insuranceTypeRank = (type: BillingInsuranceType | undefined): number => {

@@ -1,20 +1,6 @@
 import { ServiceFacilityItem } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { buildAddressInput, formatCurrency, formatFacilityAddress, splitDisplayName } from '../../src/utils/format';
-
-describe('formatCurrency', () => {
-  it('formats whole and fractional amounts to two decimals', () => {
-    expect(formatCurrency(0)).toBe('$0.00');
-    expect(formatCurrency(12)).toBe('$12.00');
-    expect(formatCurrency(12.5)).toBe('$12.50');
-    expect(formatCurrency(12.345)).toBe('$12.35');
-  });
-
-  it('puts the minus sign before the dollar sign for negative amounts', () => {
-    expect(formatCurrency(-14.69)).toBe('-$14.69');
-    expect(formatCurrency(-0.5)).toBe('-$0.50');
-  });
-});
+import { buildAddressInput, formatFacilityAddress, splitDisplayName } from '../../src/utils/format';
 
 describe('splitDisplayName', () => {
   it('splits a "Last, First" display name', () => {

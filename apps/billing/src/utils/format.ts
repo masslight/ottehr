@@ -1,8 +1,6 @@
 import { DateTime } from 'luxon';
 import { CMS_PLACE_OF_SERVICE_CODES, formatZipcodeForDisplay, ServiceFacilityItem } from 'utils';
 
-export const formatCurrency = (v: number): string => (v < 0 ? `-$${Math.abs(v).toFixed(2)}` : `$${v.toFixed(2)}`);
-
 export function formatDate(iso: string): string {
   const date = DateTime.fromISO(iso, { zone: 'utc' });
   return date.isValid ? date.toFormat('MM/dd/yyyy') : iso;

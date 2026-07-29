@@ -27,6 +27,7 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
+  formatCurrency,
   getApiError,
   MAX_RUN_RULES_ENGINE_CLAIMS,
   SearchBillingClaimsInput,
@@ -43,7 +44,6 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { formatCurrency } from '../utils/format';
 
 interface Filters {
   searchText?: string;
