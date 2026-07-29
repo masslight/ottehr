@@ -88,6 +88,7 @@ describe('get-patient-balances - performBillingEffect', () => {
       ],
       totalBalanceCents: 9550,
       pendingPaymentCents: 0,
+      patientCreditCents: 0,
     });
   });
 
@@ -97,7 +98,7 @@ describe('get-patient-balances - performBillingEffect', () => {
     const result = await performBillingEffect(validatedInput, oystehr);
 
     expect(oystehr.zambda.execute).not.toHaveBeenCalled();
-    expect(result).toEqual({ encounters: [], totalBalanceCents: 0, pendingPaymentCents: 0 });
+    expect(result).toEqual({ encounters: [], totalBalanceCents: 0, pendingPaymentCents: 0, patientCreditCents: 0 });
   });
 
   it('keeps the first claim per encounter, matching the invoicing pipeline', async () => {

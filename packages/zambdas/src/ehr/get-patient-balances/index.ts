@@ -65,7 +65,7 @@ export async function performBillingEffect(
   validatedInput: ValidatedInput,
   oystehr: Oystehr
 ): Promise<GetPatientBalancesZambdaOutput> {
-  const noData = { encounters: [], totalBalanceCents: 0, pendingPaymentCents: 0 };
+  const noData = { encounters: [], totalBalanceCents: 0, pendingPaymentCents: 0, patientCreditCents: 0 };
 
   const { encounters, appointments } = await getAllFhirEncountersAndAppointmentsForPatient(
     oystehr,
@@ -119,7 +119,9 @@ export async function performBillingEffect(
   return {
     encounters: balances,
     totalBalanceCents: balances.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
-    pendingPaymentCents: 0, // patient payments are not wired into billing claim balances yet (OTR-3094)
+    // patient payments and credits are not wired into billing claim balances yet (OTR-3094)
+    pendingPaymentCents: 0,
+    patientCreditCents: 0,
   };
 }
 
