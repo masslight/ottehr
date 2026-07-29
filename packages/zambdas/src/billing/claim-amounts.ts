@@ -10,6 +10,7 @@ import {
 import {
   ClaimPatientPayment,
   ClaimRemitAdjustment,
+  getContainedReconciliation,
   PAYMENT_METHOD_EXTENSION_URL,
   X12_ADJUSTMENT_GROUP_CODE,
   X12AdjustmentGroupCode,
@@ -162,9 +163,7 @@ export function sumPatientPayments(notices: PaymentNotice[]): number {
 }
 
 export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPayment {
-  const reconciliation = notice.contained?.find(
-    (resource): resource is PaymentReconciliation => resource.resourceType === 'PaymentReconciliation'
-  );
+  const reconciliation = getContainedReconciliation(notice);
   return {
     paymentNoticeId: notice.id ?? '',
     paymentDate: notice.paymentDate ?? reconciliation?.paymentDate ?? notice.created ?? '',
