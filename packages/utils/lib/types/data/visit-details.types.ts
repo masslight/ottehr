@@ -15,6 +15,8 @@ export interface EHRVisitDetails {
   visitLocationName?: string;
   visitLocationId?: string;
   standAloneForms?: StandaloneFormDTO[];
+  /** Custom (practice-managed) forms bundled into the visit's paperwork flow, shaped like standAloneForms. */
+  intakePaperworkFlowForms?: StandaloneFormDTO[];
 }
 
 export interface ConsentDetails {

@@ -8,6 +8,7 @@ import {
   Flag,
   Location,
   Patient,
+  Questionnaire,
   QuestionnaireResponse,
   RelatedPerson,
   Schedule,
@@ -20,6 +21,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   flattenQuestionnaireAnswers,
   getAttestedConsentFromEncounter,
+  getCanonicalQuestionnaire,
   getConsentAndRelatedDocRefsForAppointment,
   getEmailForIndividual,
   getFullestAvailableName,
@@ -28,6 +30,8 @@ import {
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
   isAnnotationFollowupEncounter,
+  isPaperworkFlowQuestionnaire,
+  isPracticeManagedQ,
   isValidUUID,
   makeStandaloneFormDTO,
   MISSING_REQUEST_BODY,
@@ -81,6 +85,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     scheduleOwner,
     guarantorResource,
     standAloneForms,
+    intakePaperworkFlowForms,
   } = input;
 
   const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
@@ -116,6 +121,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     responsiblePartyEmail,
     consentIsAttested,
     standAloneForms,
+    intakePaperworkFlowForms,
   };
 
   if (schedule) {
@@ -144,6 +150,7 @@ interface EffectInput {
   location?: Location;
   guarantorResource?: Patient | RelatedPerson | undefined;
   standAloneForms?: StandaloneFormDTO[];
+  intakePaperworkFlowForms?: StandaloneFormDTO[];
 }
 
 const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
@@ -215,7 +222,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     }
   }
 
-  const [docRefsAndConsents, accountResources, standAloneForms] = await Promise.all([
+  const [docRefsAndConsents, accountResources, standAloneForms, intakePaperworkFlowForms] = await Promise.all([
     getConsentAndRelatedDocRefsForAppointment(
       {
         appointmentId,
@@ -225,6 +232,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     ),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
     getStandaloneFormsForAppointment(appointment, oystehr),
+    getIntakePaperworkFlowForms(qr, oystehr),
   ]);
   const { guarantorResource } = accountResources;
   return {
@@ -239,6 +247,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     guarantorResource,
     ...docRefsAndConsents,
     standAloneForms,
+    intakePaperworkFlowForms,
   };
 };
 
@@ -347,4 +356,37 @@ const getStandaloneFormsForAppointment = async (
   return results
     .filter((r): r is PromiseFulfilledResult<StandaloneFormDTO> => r.status === 'fulfilled')
     .map((r) => r.value);
+};
+
+// Builds one StandaloneFormDTO per custom (practice-managed) form bundled in the visit's paperwork
+// flow, so those responses render in the Custom Paperwork area alongside standalone forms. The flow's
+// custom-form answers live inside the single intake QR passed here; the system-managed questionnaires
+// (in-person / virtual pre-visit, consent-only) carry no practice-managed tag and are excluded — their
+// data is already surfaced elsewhere on visit details / the patient profile.
+const getIntakePaperworkFlowForms = async (
+  qr: QuestionnaireResponse,
+  oystehr: Oystehr
+): Promise<StandaloneFormDTO[] | undefined> => {
+  const flowQuestionnaire = await getQuestionnaireForQR(qr, oystehr);
+  if (!isPaperworkFlowQuestionnaire(flowQuestionnaire)) return;
+
+  const results = await Promise.allSettled(
+    (flowQuestionnaire.derivedFrom ?? []).map(async (canonical) => {
+      const [url, version] = canonical.split('|');
+      if (!url || !version) {
+        throw new Error(`Malformed derivedFrom canonical on flow ${flowQuestionnaire.url}: ${canonical}`);
+      }
+      return getCanonicalQuestionnaire({ url, version }, oystehr);
+    })
+  );
+
+  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
+
+  const forms = results
+    .filter((r): r is PromiseFulfilledResult<Questionnaire> => r.status === 'fulfilled')
+    .map((r) => r.value)
+    .filter((form) => isPracticeManagedQ(form))
+    .map((form) => makeStandaloneFormDTO(form, qr));
+
+  return forms.length > 0 ? forms : undefined;
 };
