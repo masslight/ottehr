@@ -24,6 +24,7 @@ import {
   getCanonicalQuestionnaire,
   isIntakePaperworkQuestionnaireResponse,
   OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
+  resolveEffectiveQuestionnaire,
 } from '../../fhir';
 import {
   AnswerLoadingOptions,
@@ -484,13 +485,17 @@ export const getQuestionnaireItemsAndProgress = async (
   }
 
   const [questionnaireURL, questionnaireVersion] = qr.questionnaire.split('|');
-  const questionnaire = await getCanonicalQuestionnaire(
+  const rawQuestionnaire = await getCanonicalQuestionnaire(
     {
       url: questionnaireURL,
       version: questionnaireVersion,
     },
     oystehr
   );
+  // If the QR points at a paperwork flow, assemble its constituent forms so items[] reflects the
+  // flattened pages (a non-flow questionnaire is returned unchanged). Without this, a flow QR yields
+  // empty items[], so page-index lookups in the paperwork validators resolve to -1 and PATCH fails.
+  const questionnaire = await resolveEffectiveQuestionnaire(rawQuestionnaire, oystehr);
 
   const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr?.questionnaire?.split('|') ?? [null, null];
 
