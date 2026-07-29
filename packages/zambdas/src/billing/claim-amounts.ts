@@ -204,14 +204,21 @@ const BATCH = 100;
 const PAGE_SIZE = 200;
 const PATIENT_PAYMENT_ENCOUNTER_BATCH = 50;
 
-async function fetchResourcesGrouped<T extends FhirResource>(
-  oystehr: Oystehr,
-  resourceType: T['resourceType'],
-  ids: string[],
-  buildParam: (batch: string[]) => { name: string; value: string },
-  groupKeyOf: (resource: T) => string | undefined,
-  batchSize: number = BATCH
-): Promise<Map<string, T[]>> {
+async function fetchResourcesGrouped<T extends FhirResource>({
+  oystehr,
+  resourceType,
+  ids,
+  buildParam,
+  groupKeyOf,
+  batchSize = BATCH,
+}: {
+  oystehr: Oystehr;
+  resourceType: T['resourceType'];
+  ids: string[];
+  buildParam: (batch: string[]) => { name: string; value: string };
+  groupKeyOf: (resource: T) => string | undefined;
+  batchSize?: number;
+}): Promise<Map<string, T[]>> {
   const grouped = new Map<string, T[]>();
   const uniqueIds = [...new Set(ids)];
   for (let i = 0; i < uniqueIds.length; i += batchSize) {
@@ -250,16 +257,16 @@ export async function fetchClaimResponsesByClaimIds(
   oystehr: Oystehr,
   claimIds: string[]
 ): Promise<Map<string, ClaimResponse[]>> {
-  return fetchResourcesGrouped<ClaimResponse>(
+  return fetchResourcesGrouped<ClaimResponse>({
     oystehr,
-    'ClaimResponse',
-    claimIds,
-    (batch) => ({
+    resourceType: 'ClaimResponse',
+    ids: claimIds,
+    buildParam: (batch) => ({
       name: 'request',
       value: batch.map((id) => `Claim/${id}`).join(','),
     }),
-    (claimResponse) => claimResponse.request?.reference?.replace('Claim/', '')
-  );
+    groupKeyOf: (claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''),
+  });
 }
 
 export async function fetchPatientPaymentsByEncounterIds(
@@ -267,17 +274,17 @@ export async function fetchPatientPaymentsByEncounterIds(
   encounterIds: string[]
 ): Promise<Map<string, PaymentNotice[]>> {
   const system = ottehrIdentifierSystem('claim-encounter-id');
-  return fetchResourcesGrouped<PaymentNotice>(
+  return fetchResourcesGrouped<PaymentNotice>({
     oystehr,
-    'PaymentNotice',
-    encounterIds,
-    (batch) => ({
+    resourceType: 'PaymentNotice',
+    ids: encounterIds,
+    buildParam: (batch) => ({
       name: 'request:identifier',
       value: batch.map((id) => `${system}|${id}`).join(','),
     }),
-    (notice) => notice.request?.identifier?.value,
-    PATIENT_PAYMENT_ENCOUNTER_BATCH
-  );
+    groupKeyOf: (notice) => notice.request?.identifier?.value,
+    batchSize: PATIENT_PAYMENT_ENCOUNTER_BATCH,
+  });
 }
 
 export async function fetchPatientPaidByClaimId({
@@ -399,16 +406,16 @@ export async function fetchClaimResponsesFromEraProvenances(
     }
   }
 
-  const claimResponsesById = await fetchResourcesGrouped<ClaimResponse>(
+  const claimResponsesById = await fetchResourcesGrouped<ClaimResponse>({
     oystehr,
-    'ClaimResponse',
-    [...new Set([...claimResponseIdsByPrId.values()].flat())],
-    (batch) => ({
+    resourceType: 'ClaimResponse',
+    ids: [...new Set([...claimResponseIdsByPrId.values()].flat())],
+    buildParam: (batch) => ({
       name: '_id',
       value: batch.join(','),
     }),
-    (claimResponse) => claimResponse.id
-  );
+    groupKeyOf: (claimResponse) => claimResponse.id,
+  });
 
   const grouped = new Map<string, ClaimResponse[]>();
   for (const [prId, claimResponseIds] of claimResponseIdsByPrId) {
