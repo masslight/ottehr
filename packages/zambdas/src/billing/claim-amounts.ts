@@ -13,6 +13,7 @@ import {
   ClaimRemitAdjustment,
   getContainedReconciliation,
   PAYMENT_METHOD_EXTENSION_URL,
+  roundNumberToDecimalPlaces,
   X12_ADJUSTMENT_GROUP_CODE,
   X12AdjustmentGroupCode,
 } from 'utils';
@@ -147,11 +148,16 @@ export function summarizePatientBalance(summaries: ClaimPaymentSummary[]): {
   pendingPayments: number;
   currentBalance: number;
 } {
-  const claimBalances = summaries.map((summary) => (summary.adjudicated ? summary.balance : -summary.patientPaid));
+  const claimBalances = summaries.map((summary) =>
+    roundNumberToDecimalPlaces(summary.adjudicated ? summary.balance : -summary.patientPaid, 2)
+  );
   return {
     claimsWithPatientBalance: claimBalances.filter((balance) => balance > 0).length,
     pendingPayments: 0,
-    currentBalance: claimBalances.reduce((sum, balance) => sum + balance, 0),
+    currentBalance: roundNumberToDecimalPlaces(
+      claimBalances.reduce((sum, balance) => sum + balance, 0),
+      2
+    ),
   };
 }
 

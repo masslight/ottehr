@@ -583,6 +583,34 @@ describe('summarizePatientBalance', () => {
     expect(result.currentBalance).toBe(10);
     expect(result.claimsWithPatientBalance).toBe(1);
   });
+
+  it('does not count a fully paid claim as outstanding when its balance is float residue', () => {
+    const patientResp = 0.1 + 0.2;
+    const result = summarizePatientBalance([
+      summary({
+        adjudicated: true,
+        patientResp,
+        patientPaid: 0.3,
+        balance: patientResp - 0.3,
+      }),
+    ]);
+    expect(result.claimsWithPatientBalance).toBe(0);
+    expect(result.currentBalance).toBe(0);
+  });
+
+  it('keeps the running total at cent precision', () => {
+    const result = summarizePatientBalance([
+      summary({
+        adjudicated: true,
+        balance: 0.1,
+      }),
+      summary({
+        adjudicated: true,
+        balance: 0.2,
+      }),
+    ]);
+    expect(result.currentBalance).toBe(0.3);
+  });
 });
 
 describe('sumPatientPayments', () => {
