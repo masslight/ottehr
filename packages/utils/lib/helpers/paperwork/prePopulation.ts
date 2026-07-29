@@ -363,7 +363,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         });
       }
 
-      return [];
+      // No page-specific pre-fill logic (e.g. a custom form inside a paperwork flow): keep the page's
+      // child structure so the response mirrors the questionnaire, just without pre-filled answers.
+      return buildEmptyResponseItemSkeleton(itemItems);
     })();
     return {
       linkId: item.linkId,
@@ -375,6 +377,18 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
 
   return item;
 };
+
+// Builds an empty QuestionnaireResponse skeleton (linkIds only, no answers) mirroring the given
+// questionnaire items — recursing into nested groups and skipping display items. Used for a page with
+// no specific pre-fill logic (e.g. a practice-managed form bundled into a paperwork flow) so the
+// pre-populated response still mirrors the questionnaire's page -> item structure rather than an empty page.
+const buildEmptyResponseItemSkeleton = (items: QuestionnaireItem[]): QuestionnaireResponseItem[] =>
+  items
+    .filter((item) => item.type !== 'display')
+    .map((item) => {
+      const childItems = item.item ? buildEmptyResponseItemSkeleton(item.item) : [];
+      return childItems.length > 0 ? { linkId: item.linkId, item: childItems } : { linkId: item.linkId };
+    });
 
 const getPatientDOB = (patient?: Patient, newPatientDob?: string): string | undefined => {
   const dobStringToUse = patient?.birthDate ?? newPatientDob;
@@ -520,7 +534,9 @@ export const makePrepopulatedItemsFromPatientRecord = (
           attorneyRelatedPerson,
         });
       }
-      return [];
+      // No page-specific pre-fill logic (e.g. a custom form inside a paperwork flow): keep the page's
+      // child structure so the response mirrors the questionnaire, just without pre-filled answers.
+      return buildEmptyResponseItemSkeleton(itemItems);
     })();
     return {
       linkId: item.linkId,
