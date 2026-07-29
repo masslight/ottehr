@@ -15,6 +15,7 @@ vi.mock('../../src/api/api', () => ({
   runBillingRulesEngine: runBillingRulesEngineMock,
   searchBillingPatients: vi.fn().mockResolvedValue({ patients: [] }),
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
+  searchBillingServices: vi.fn().mockResolvedValue({ services: [] }),
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
 }));
 
