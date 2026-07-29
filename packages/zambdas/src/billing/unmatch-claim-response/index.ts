@@ -2,6 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CLAIM_TYPE,
+  codeableConcept,
   getPatchBinary,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
@@ -10,6 +12,10 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, safeValidate, validateJsonBody, wrapHandler, ZambdaInput } from '../../shared';
 import { createBillingClient } from '../shared';
+
+const UNKNOWN_REFERENCE = {
+  display: 'Unknown',
+};
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'unmatch-claim-response';
@@ -32,6 +38,9 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
     resourceType: 'ClaimResponse',
     id: params.claimResponseId,
   });
+  const containedClaim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
+  const containedPatient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
+
   const bundle = await oystehr.fhir.transaction({
     requests: [
       getPatchBinary({
@@ -41,28 +50,30 @@ async function performEffect(oystehr: Oystehr, params: Params): Promise<ClaimRes
           {
             op: 'replace',
             path: '/request',
-            value: {
-              reference: 'Claim/' + claim.id,
-            },
+            value: containedClaim
+              ? {
+                  reference: '#' + containedClaim?.id,
+                }
+              : UNKNOWN_REFERENCE,
           },
           {
             op: 'replace',
             path: '/insurer',
-            value: claim.insurer,
+            value: containedClaim?.insurer ?? UNKNOWN_REFERENCE,
           },
           {
             op: 'replace',
             path: '/patient',
-            value: claim.patient,
+            value: containedClaim
+              ? {
+                  reference: '#' + containedPatient?.id,
+                }
+              : UNKNOWN_REFERENCE,
           },
           {
             op: 'replace',
             path: '/type',
-            value: claim.type,
-          },
-          {
-            op: 'remove',
-            path: '/contained',
+            value: codeableConcept('unknown', CODE_SYSTEM_CLAIM_TYPE, 'Unknown'),
           },
         ],
       }),
