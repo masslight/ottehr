@@ -825,9 +825,9 @@ export const pruneEmptySections = (qr: QuestionnaireResponse): QuestionnaireResp
 };
 
 export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(resource: T): boolean {
-  // A QuestionnaireResponse is "paperwork" when it is the intake paperwork response — recognized by
-  // the INTAKE_PAPERWORK_QR_TAG meta.tag (covers paperwork-flow QRs) or a legacy intake-paperwork
-  // canonical url. Everything else that is a QuestionnaireResponse is non-paperwork.
+  // A QuestionnaireResponse is "paperwork" when it is the intake paperwork response — recognized by the
+  // INTAKE_PAPERWORK_QR_TAG meta.tag and is set at creation when the QR is created in tandem with the appointment
+  // Everything else that is a QuestionnaireResponse is non-paperwork.
   return resource.resourceType === 'QuestionnaireResponse' && !isIntakePaperworkQuestionnaireResponse(resource);
 }
 

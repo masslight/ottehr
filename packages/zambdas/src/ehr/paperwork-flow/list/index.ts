@@ -5,6 +5,7 @@ import {
   FlowForm,
   FlowService,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
+  isPaperworkFlowQuestionnaire,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
@@ -144,7 +145,7 @@ function toPaperworkFlowQuestionnaire(
   flow: Questionnaire,
   forms: Map<string, Questionnaire>
 ): PaperworkFlowQuestionnaire | null {
-  if (!isPaperworkFlow(flow)) return null;
+  if (!isPaperworkFlowQuestionnaire(flow)) return null;
 
   return {
     qId: flow.id ?? '',
@@ -155,10 +156,6 @@ function toPaperworkFlowQuestionnaire(
     forms: toFlowForm(flow, forms),
     modes: getFlowModes(flow),
   };
-}
-
-function isPaperworkFlow(q: Questionnaire): boolean {
-  return (q.meta?.tag ?? []).some((t) => t.system === PAPERWORK_FLOW_TAG.system && t.code === PAPERWORK_FLOW_TAG.code);
 }
 
 function toFlowForm(q: Questionnaire, forms: Map<string, Questionnaire>): FlowForm[] {

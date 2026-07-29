@@ -103,6 +103,8 @@ const PaperworkFlowsAdminPage: FC = () => {
   });
   const flows = flowsData?.flows ?? [];
 
+  console.log('flows', flows);
+
   // ottehr managed forms (intake pre-visit, consent only)
   const ottehrManagedQuestionnaires = useMemo(
     () => flowsData?.ottehrManagedQuestionnaires ?? [],
