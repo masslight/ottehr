@@ -1,5 +1,6 @@
 import { Box, Button, TextField, Typography } from '@mui/material';
 import { ReactElement } from 'react';
+import { DiagnosisCodeAutocomplete } from '../DiagnosisCodeAutocomplete';
 
 export interface DiagnosisRow {
   code: string;
@@ -19,8 +20,8 @@ interface DiagnosesEditorProps {
  * `diagnosisSequence` that service lines point at — see {@link ServiceLinesEditor}.
  */
 export function DiagnosesEditor({ value, onChange }: DiagnosesEditorProps): ReactElement {
-  const setRow = (index: number, field: keyof DiagnosisRow, fieldValue: string): void =>
-    onChange(value.map((row, i) => (i === index ? { ...row, [field]: fieldValue } : row)));
+  const setRow = (index: number, fields: Record<keyof DiagnosisRow, string>): void =>
+    onChange(value.map((row, i) => (i === index ? { ...row, ...fields } : row)));
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, maxWidth: 680 }}>
@@ -29,19 +30,21 @@ export function DiagnosesEditor({ value, onChange }: DiagnosesEditorProps): Reac
           <Typography variant="body2" color="text.secondary" sx={{ width: 16 }}>
             {i + 1}
           </Typography>
-          <TextField
-            size="small"
+          <DiagnosisCodeAutocomplete
             label="ICD-10"
             value={row.code}
-            onChange={(e) => setRow(i, 'code', e.target.value)}
-            sx={{ width: 140 }}
+            onChange={(v) => {
+              setRow(i, { display: v.display, code: v.code });
+            }}
+            onInputChange={(v) => setRow(i, { code: v, display: row.display })}
+            width={300}
           />
           <TextField
             size="small"
             label="Description"
             fullWidth
             value={row.display}
-            onChange={(e) => setRow(i, 'display', e.target.value)}
+            onChange={(e) => setRow(i, { code: row.code, display: e.target.value })}
           />
           <Button size="small" color="error" onClick={() => onChange(value.filter((_, j) => j !== i))}>
             Remove

@@ -238,6 +238,8 @@ function activityDisplay(code: string, resourceType: string): string {
       return 'Status change';
     case CLAIM_PROVENANCE_ACTIVITY_CODES.tagChange:
       return 'Tag change';
+    case CLAIM_PROVENANCE_ACTIVITY_CODES.submit:
+      return `Submit ${label}`;
     default:
       return label;
   }

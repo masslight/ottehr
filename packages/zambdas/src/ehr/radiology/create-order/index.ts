@@ -34,6 +34,7 @@ import {
   ORDER_TYPE_CODE_SYSTEM,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
+  RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM,
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
   Secrets,
@@ -269,6 +270,8 @@ export const buildRadiologyOrderContent = (input: RadiologyOrderContentInput): R
     performingOrg = {
       resourceType: 'Organization',
       id: RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
+      // Satisfies org-1 even when only phone/fax (no name) was supplied.
+      identifier: [{ system: RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM, value: 'external' }],
       name: performingOrganization.name,
       address: performingOrganization.address ? [{ text: performingOrganization.address }] : undefined,
       telecom: telecom.length > 0 ? telecom : undefined,
