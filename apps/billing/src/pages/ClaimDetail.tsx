@@ -5,7 +5,6 @@ import {
   Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
   OpenInNew as OpenInNewIcon,
-  WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -29,7 +28,6 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
@@ -88,7 +86,8 @@ import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
-import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
+import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
   CoverageForm,
   coverageToCreateInput,
@@ -471,7 +470,7 @@ export default function ClaimDetail(): ReactElement {
             <Amount
               label="Balance"
               value={claim.balance}
-              hint={claim.adjudicated ? undefined : 'No remittance received yet, balance is provisional'}
+              hint={claim.adjudicated ? undefined : PROVISIONAL_BALANCE_HINT}
             />
             <Box>
               <Typography variant="caption" color="text.secondary">
@@ -1524,13 +1523,7 @@ function Amount({
         <Typography variant="body1" fontWeight={600}>
           {formatCurrency(value)}
         </Typography>
-        {hint && (
-          <Tooltip title={hint}>
-            <Box component="span" role="img" aria-label={hint} sx={{ display: 'inline-flex', color: 'warning.main' }}>
-              <WarningAmberIcon sx={{ fontSize: 16 }} />
-            </Box>
-          </Tooltip>
-        )}
+        {hint && <WarningIconWithTooltip tooltipText={hint} />}
       </Stack>
     </Box>
   );

@@ -115,6 +115,7 @@ const makeRow = (
   patientResp: 0,
   patientPaid: 0,
   claimBalance: 0,
+  adjudicated: true,
   responsibleParty: '',
   tags: [],
 });

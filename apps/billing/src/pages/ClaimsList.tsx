@@ -10,6 +10,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Stack,
   TextField,
   Tooltip,
   Typography,
@@ -42,7 +43,8 @@ import {
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
+import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 
 interface Filters {
@@ -110,7 +112,15 @@ const columns: GridColDef[] = [
   currencyCol('insurancePaid', 'Insurance Paid', 120),
   currencyCol('patientResp', 'Patient Resp', 110),
   currencyCol('patientPaid', 'Patient Paid', 110),
-  currencyCol('claimBalance', 'Claim Balance', 120),
+  {
+    ...currencyCol('claimBalance', 'Claim Balance', 120),
+    renderCell: ({ value, row }) => (
+      <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={0.5} sx={{ width: '100%' }}>
+        {!(row as BillingClaimItem).adjudicated && <WarningIconWithTooltip tooltipText={PROVISIONAL_BALANCE_HINT} />}
+        <span>{formatCurrency(value as number)}</span>
+      </Stack>
+    ),
+  },
   { field: 'facility', headerName: 'Facility', width: 140 },
   { field: 'renderingProvider', headerName: 'Provider', width: 140 },
   { field: 'responsibleParty', headerName: 'Responsible Party', width: 140 },

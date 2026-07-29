@@ -3,6 +3,7 @@ import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AR_STAGE, ClaimDetailResponse, emptyClaimStatusValues } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
 import ClaimDetail from '../../src/pages/ClaimDetail';
 
 const { getBillingClaimDetailMock, runBillingRulesEngineMock } = vi.hoisted(() => ({
@@ -329,8 +330,6 @@ describe('ClaimDetail — run rules engine button', () => {
   });
 });
 
-const PROVISIONAL_HINT = 'No remittance received yet, balance is provisional';
-
 describe('ClaimDetail — patient payments', () => {
   beforeEach(() => {
     getBillingClaimDetailMock.mockReset();
@@ -401,7 +400,7 @@ describe('ClaimDetail — provisional balance indicator', () => {
     });
     renderDetail();
 
-    expect(await screen.findByRole('img', { name: PROVISIONAL_HINT })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: PROVISIONAL_BALANCE_HINT })).toBeInTheDocument();
   });
 
   it('does not flag the balance once the claim is adjudicated', async () => {
@@ -412,6 +411,6 @@ describe('ClaimDetail — provisional balance indicator', () => {
     renderDetail();
 
     await screen.findAllByText('Jane Doe');
-    expect(screen.queryByRole('img', { name: PROVISIONAL_HINT })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: PROVISIONAL_BALANCE_HINT })).not.toBeInTheDocument();
   });
 });

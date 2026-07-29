@@ -182,6 +182,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
     claimBalance: payments.balance,
+    adjudicated: payments.adjudicated,
     responsibleParty: 'Primary',
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

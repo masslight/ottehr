@@ -207,6 +207,7 @@ export interface BillingClaimItem {
   patientResp: number;
   patientPaid: number;
   claimBalance: number;
+  adjudicated: boolean;
   responsibleParty: string;
   tags: string[];
 }

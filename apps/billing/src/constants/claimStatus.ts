@@ -1,5 +1,7 @@
 import { AR_STAGE } from 'utils';
 
+export const PROVISIONAL_BALANCE_HINT = 'No remittance received yet, balance is provisional';
+
 export const CLAIM_STATUS_COLORS: Record<string, 'warning' | 'info' | 'error' | 'success' | 'primary' | 'default'> = {
   open: 'warning',
   sent: 'info',
