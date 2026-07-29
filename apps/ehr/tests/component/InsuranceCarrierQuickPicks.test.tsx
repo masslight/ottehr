@@ -13,26 +13,65 @@ vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
 
 import { InsuranceCarrierQuickPicks } from '../../src/features/visits/shared/components/patient/InsuranceCarrierQuickPicks';
 
-const PICKS: InsuranceQuickPickData[] = [
-  { id: '1', name: 'BLU-001 - Blue Cross', payerId: 'BLU-001', organizationReference: 'Organization/BLU-001' },
-  { id: '2', name: 'AET-002 - Aetna', payerId: 'AET-002', organizationReference: 'Organization/AET-002' },
-];
+const CARRIER_KEY = 'insurance-carrier';
+const PLAN_TYPE_KEY = 'insurance-plan-type';
+const RELATIONSHIP_KEY = 'patient-relationship-to-insured';
 
-const FIELD_KEY = 'insurance-carrier';
+const PICKS: InsuranceQuickPickData[] = [
+  {
+    id: '1',
+    name: 'Nomastin Medicaid',
+    payerId: 'BLU-001',
+    organizationReference: 'Organization/BLU-001',
+    organizationDisplay: 'BLU-001 - Blue Cross',
+    insuranceType: '10',
+    relationship: 'Self',
+  },
+  {
+    id: '2',
+    name: 'Nomastin PPO',
+    payerId: 'AET-002',
+    organizationReference: 'Organization/AET-002',
+    organizationDisplay: 'AET-002 - Aetna',
+    insuranceType: '12',
+  },
+];
 
 const FormValueProbe: FC = () => {
   const { watch } = useFormContext();
-  const value = watch(FIELD_KEY);
-  return <div data-testid="form-value">{value ? JSON.stringify(value) : 'null'}</div>;
+  const carrier = watch(CARRIER_KEY);
+  const planType = watch(PLAN_TYPE_KEY);
+  const relationship = watch(RELATIONSHIP_KEY);
+  return (
+    <>
+      <div data-testid="carrier-value">{carrier ? JSON.stringify(carrier) : 'null'}</div>
+      <div data-testid="plan-type-value">{planType ?? 'null'}</div>
+      <div data-testid="relationship-value">{relationship ?? 'null'}</div>
+    </>
+  );
 };
 
 const Harness: FC<{ children: ReactNode }> = ({ children }) => {
-  const methods = useForm({ defaultValues: { [FIELD_KEY]: null } });
+  const methods = useForm({
+    defaultValues: { [CARRIER_KEY]: null, [PLAN_TYPE_KEY]: 'existing-type', [RELATIONSHIP_KEY]: 'existing-rel' },
+  });
   return (
     <FormProvider {...methods}>
       {children}
       <FormValueProbe />
     </FormProvider>
+  );
+};
+
+const renderComponent = (): void => {
+  render(
+    <Harness>
+      <InsuranceCarrierQuickPicks
+        fieldKey={CARRIER_KEY}
+        planTypeFieldKey={PLAN_TYPE_KEY}
+        relationshipFieldKey={RELATIONSHIP_KEY}
+      />
+    </Harness>
   );
 };
 
@@ -42,30 +81,38 @@ describe('InsuranceCarrierQuickPicks', () => {
   });
 
   it('renders nothing when there are no insurance quick picks configured', () => {
-    render(
-      <Harness>
-        <InsuranceCarrierQuickPicks fieldKey={FIELD_KEY} />
-      </Harness>
-    );
-
+    renderComponent();
     expect(screen.queryByRole('button', { name: /insurance carrier quick picks/i })).not.toBeInTheDocument();
   });
 
-  it('sets the carrier field to a Reference when a quick pick is selected', async () => {
+  it('sets carrier (from the payer display), insurance type, and relationship when a full pick is selected', async () => {
     mockedQuickPicks = PICKS;
     const user = userEvent.setup();
-
-    render(
-      <Harness>
-        <InsuranceCarrierQuickPicks fieldKey={FIELD_KEY} />
-      </Harness>
-    );
+    renderComponent();
 
     await user.click(screen.getByRole('button', { name: /insurance carrier quick picks/i }));
-    await user.click(screen.getByRole('menuitem', { name: 'AET-002 - Aetna' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Nomastin Medicaid' }));
 
-    expect(screen.getByTestId('form-value').textContent).toBe(
+    expect(screen.getByTestId('carrier-value').textContent).toBe(
+      JSON.stringify({ reference: 'Organization/BLU-001', display: 'BLU-001 - Blue Cross' })
+    );
+    expect(screen.getByTestId('plan-type-value').textContent).toBe('10');
+    expect(screen.getByTestId('relationship-value').textContent).toBe('Self');
+  });
+
+  it('leaves the relationship field untouched when the pick does not specify one', async () => {
+    mockedQuickPicks = PICKS;
+    const user = userEvent.setup();
+    renderComponent();
+
+    await user.click(screen.getByRole('button', { name: /insurance carrier quick picks/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Nomastin PPO' }));
+
+    expect(screen.getByTestId('carrier-value').textContent).toBe(
       JSON.stringify({ reference: 'Organization/AET-002', display: 'AET-002 - Aetna' })
     );
+    expect(screen.getByTestId('plan-type-value').textContent).toBe('12');
+    // Relationship was not specified on the pick, so the existing value remains.
+    expect(screen.getByTestId('relationship-value').textContent).toBe('existing-rel');
   });
 });

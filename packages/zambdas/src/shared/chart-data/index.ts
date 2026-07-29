@@ -106,7 +106,12 @@ import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
-import { makeRadiologyDTO, takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
+import {
+  isCurrentRadiologyResultDocRef,
+  makeRadiologyDTO,
+  takeMostRecentPreliminaryReport,
+  takeTheBestFinalDiagnosticReport,
+} from '../radiology';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
 const hasValue = (data: unknown): boolean => {
@@ -1701,6 +1706,12 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
       const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
       const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
       const radiologyDTO = makeRadiologyDTO(sr, preliminaryDiagnosticReport, bestFinalReport);
+      // External orders have no DiagnosticReports; an uploaded result DocumentReference marks them reviewed.
+      if (radiologyDTO.external) {
+        radiologyDTO.externalResultReviewed =
+          resources.some((r) => r.resourceType === 'DocumentReference' && isCurrentRadiologyResultDocRef(r, id)) ||
+          undefined;
+      }
       data.radiologyOrders?.push(radiologyDTO);
     });
   }

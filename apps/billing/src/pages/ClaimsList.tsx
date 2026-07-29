@@ -43,6 +43,7 @@ import {
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DateRangeInput } from '../components/DateRangeInput';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
 import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
@@ -53,6 +54,8 @@ interface Filters {
   tag?: string;
   createdFrom?: string;
   createdTo?: string;
+  serviceDateFrom?: string;
+  serviceDateTo?: string;
   payerId?: string;
   patientId?: string;
   type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
@@ -148,8 +151,10 @@ export default function ClaimsList(): ReactElement {
   const [arStageFilter, setArStageFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
-  const [createdFrom, setDosFrom] = useState('');
-  const [createdTo, setDosTo] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [serviceDateFrom, setServiceDateFrom] = useState('');
+  const [serviceDateTo, setServiceDateTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
   const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
@@ -185,6 +190,8 @@ export default function ClaimsList(): ReactElement {
         if (filters.tag) params.tag = filters.tag;
         if (filters.createdFrom) params.createdFrom = filters.createdFrom;
         if (filters.createdTo) params.createdTo = filters.createdTo;
+        if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;
+        if (filters.serviceDateTo) params.serviceDateTo = filters.serviceDateTo;
         if (filters.payerId) params.payerId = filters.payerId;
         if (filters.patientId) params.patientId = filters.patientId;
         if (filters.type) params.type = filters.type;
@@ -267,6 +274,8 @@ export default function ClaimsList(): ReactElement {
       tag: overrides?.tag ?? tagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
+      serviceDateFrom: overrides?.serviceDateFrom ?? serviceDateFrom,
+      serviceDateTo: overrides?.serviceDateTo ?? serviceDateTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
       type: overrides?.type ?? typeFilter,
@@ -278,6 +287,8 @@ export default function ClaimsList(): ReactElement {
       tagFilter,
       createdFrom,
       createdTo,
+      serviceDateFrom,
+      serviceDateTo,
       selectedPayer,
       selectedPatient,
       typeFilter,
@@ -308,8 +319,10 @@ export default function ClaimsList(): ReactElement {
     setSearchText('');
     setArStageFilter('');
     setTagFilter('');
-    setDosFrom('');
-    setDosTo('');
+    setCreatedFrom('');
+    setCreatedTo('');
+    setServiceDateFrom('');
+    setServiceDateTo('');
     setSelectedPayer(null);
     setSelectedPatient(null);
     setTypeFilter('');
@@ -325,6 +338,8 @@ export default function ClaimsList(): ReactElement {
     tagFilter ||
     createdFrom ||
     createdTo ||
+    serviceDateFrom ||
+    serviceDateTo ||
     selectedPayer ||
     selectedPatient ||
     typeFilter ||
@@ -526,30 +541,32 @@ export default function ClaimsList(): ReactElement {
           sx={{ minWidth: 200 }}
         />
 
-        <TextField
-          size="small"
-          type="date"
-          label="Service Date From"
-          value={createdFrom}
-          onChange={(e) => {
-            setDosFrom(e.target.value);
-            applyFilters({ createdFrom: e.target.value });
+        <DateRangeInput
+          label="Service Date"
+          valueFrom={serviceDateFrom}
+          valueTo={serviceDateTo}
+          onChange={(from, to) => {
+            setServiceDateFrom(from);
+            setServiceDateTo(to);
+            applyFilters({
+              serviceDateFrom: from,
+              serviceDateTo: to,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
 
-        <TextField
-          size="small"
-          type="date"
-          label="Service Date To"
-          value={createdTo}
-          onChange={(e) => {
-            setDosTo(e.target.value);
-            applyFilters({ createdTo: e.target.value });
+        <DateRangeInput
+          label="Claim Creation Date"
+          valueFrom={createdFrom}
+          valueTo={createdTo}
+          onChange={(from, to) => {
+            setCreatedFrom(from);
+            setCreatedTo(to);
+            applyFilters({
+              createdFrom: from,
+              createdTo: to,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
 
         {hasFilters && (
@@ -581,7 +598,7 @@ export default function ClaimsList(): ReactElement {
         isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
         rowSelectionModel={selected}
         onRowSelectionModelChange={setSelected}
-        slots={dataGridSlots}
+        slots={dataGridSlots({ showCsvExport: true, csvFileName: 'claims' })}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />

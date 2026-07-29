@@ -61,6 +61,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       valueBoolean: validatedParams.hideZeroBalance,
     });
   }
+  if ('source' in validatedParams && validatedParams.source) {
+    filterInputs.push({
+      type: {
+        coding: [
+          {
+            system: EXPORT_INVOICES_CSV_TASK_SYSTEM,
+            code: 'filter-source',
+          },
+        ],
+      },
+      valueString: validatedParams.source,
+    });
+  }
 
   const task = await oystehr.fhir.create<FhirTask>({
     resourceType: 'Task',

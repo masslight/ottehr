@@ -43,7 +43,8 @@ export interface BillingPatientOption {
   dob: string;
   gender: string;
   address: string;
-  friendlyId: string;
+  clinicalId: string;
+  clinicalFriendlyId: string;
 }
 
 export interface BillingPolicyHolderSummary {
@@ -96,6 +97,7 @@ export interface ServiceFacilityItem {
   clia: string;
   posCode: string;
   status: 'active' | 'inactive';
+  workingCopyReferenceResourceId?: string;
 }
 
 export interface SearchServiceFacilitiesResponse {
@@ -128,6 +130,7 @@ export interface BillingProviderOption {
   renders: boolean;
   bills: boolean;
   isWorkingCopy: boolean;
+  workingCopyReferenceResourceId?: string;
 }
 
 // Payer option from the Oystehr RCM service. id is the RCM payer id (used in payer URLs);
@@ -228,7 +231,9 @@ export interface PatientDetailResponse {
     state: string;
     postalCode: string;
   };
-  friendlyId: string;
+  clinicalId: string;
+  clinicalFriendlyId: string;
+  workingCopyReferenceResourceId?: string;
   active: boolean;
   balance: {
     claimsWithPatientBalance: number;
@@ -410,6 +415,29 @@ export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
 }
 
+// amounts in dollars
+export interface PatientArClaimItem {
+  claimId: string;
+  patientId: string;
+  patientName: string;
+  patientDob: string;
+  encounterId: string | null;
+  appointmentId: string | null;
+  serviceDate: string;
+  finalizationDate: string;
+  billed: number;
+  allowed: number;
+  insurancePaid: number;
+  patientResp: number;
+  patientPaid: number;
+  balance: number;
+  adjudicated: boolean;
+}
+
+export interface SearchBillingPatientARClaimsResponse extends Paginated {
+  claims: PatientArClaimItem[];
+}
+
 export interface SearchBillingProvidersResponse extends Paginated {
   providers: BillingProviderOption[];
 }
@@ -430,7 +458,7 @@ export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
 }
 
-export interface SearchBillingProcedureCodesResponse {
+export interface SearchCodeResponse {
   codes: BillingCodeOption[];
 }
 
