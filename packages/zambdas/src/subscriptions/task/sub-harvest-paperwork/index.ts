@@ -1,6 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient, Questionnaire, QuestionnaireResponse, Task } from 'fhir/r4b';
-import { getCanonicalQuestionnaire, TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils';
+import {
+  getCanonicalQuestionnaire,
+  resolveEffectiveQuestionnaire,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
+} from 'utils';
 import { wrapTaskHandler } from '../helpers';
 import { executePageHarvest, HarvestContext } from './page-handlers';
 
@@ -114,7 +119,9 @@ async function fetchQuestionnaire(qr: QuestionnaireResponse, oystehr: Oystehr): 
   const parts = qr.questionnaire.split('|');
   if (parts.length !== 2 || !parts[0] || !parts[1]) return undefined;
   try {
-    return await getCanonicalQuestionnaire({ url: parts[0], version: parts[1] }, oystehr);
+    const questionnaire = await getCanonicalQuestionnaire({ url: parts[0], version: parts[1] }, oystehr);
+    // Assemble the flow into a concrete item[] so enableWhen-based harvest filtering works for flow QRs.
+    return await resolveEffectiveQuestionnaire(questionnaire, oystehr);
   } catch (error) {
     console.warn(`Failed to fetch questionnaire ${qr.questionnaire}:`, error);
     return undefined;

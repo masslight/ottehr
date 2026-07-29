@@ -1,13 +1,16 @@
 import Oystehr from '@oystehr/sdk';
-import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import { FhirResource, Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
 import {
   IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  IN_PERSON_INTAKE_PAPERWORK_URL,
   PATIENT_RECORD_QUESTIONNAIRE,
   VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
+  VIRTUAL_INTAKE_PAPERWORK_URL,
 } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
+import { CONSENT_FORMS_PAGE_LINK_ID, INTAKE_PAPERWORK_QR_TAG, PAPERWORK_FLOW_TAG } from './constants';
 
 // todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
 const getQuestionnaires = (): Array<Questionnaire> => [
@@ -69,20 +72,33 @@ export const getCanonicalQuestionnaire = async (
   return questionnaire;
 };
 
+/**
+ * True when a QuestionnaireResponse is the patient's intake paperwork response. Recognized either by
+ * the INTAKE_PAPERWORK_QR_TAG meta.tag (stamped at booking — this is what identifies a paperwork-flow
+ * QR, whose canonical is the flow url rather than an intake-paperwork url) or, for QRs created before
+ * the tag existed, by a canonical matching the in-person / virtual intake paperwork Questionnaire urls.
+ */
+export const isIntakePaperworkQuestionnaireResponse = (qr: QuestionnaireResponse): boolean => {
+  const hasIntakeTag = (qr.meta?.tag ?? []).some(
+    (tag) => tag.system === INTAKE_PAPERWORK_QR_TAG.system && tag.code === INTAKE_PAPERWORK_QR_TAG.code
+  );
+  if (hasIntakeTag) {
+    return true;
+  }
+  const questionnaireUrl = qr.questionnaire;
+  if (!questionnaireUrl) {
+    return false;
+  }
+  return (
+    questionnaireUrl.startsWith(IN_PERSON_INTAKE_PAPERWORK_URL) ||
+    questionnaireUrl.startsWith(VIRTUAL_INTAKE_PAPERWORK_URL)
+  );
+};
+
 export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): QuestionnaireResponse | undefined => {
-  return resources.find((res) => {
-    if (res.resourceType !== 'QuestionnaireResponse') {
-      return false;
-    }
-    const qr = res as QuestionnaireResponse;
-    const questionnaireUrl = qr.questionnaire;
-    if (!questionnaireUrl) {
-      return false;
-    }
-    return [IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE(), VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE()].some(
-      (questionnaire: Questionnaire) => questionnaireUrl.startsWith(questionnaire.url!)
-    );
-  }) as QuestionnaireResponse | undefined;
+  return resources.find(
+    (res) => res.resourceType === 'QuestionnaireResponse' && isIntakePaperworkQuestionnaireResponse(res)
+  ) as QuestionnaireResponse | undefined;
 };
 
 /** uses the canonical url (QuestionnaireResponse.questionnaire) to fetch the related Questionnaire resource */
@@ -102,4 +118,80 @@ export const getQuestionnaireForQR = async (qr: QuestionnaireResponse, oystehr: 
   );
 
   return questionnaire;
+};
+
+/** True when a Questionnaire is a paperwork flow (bundles other Questionnaires via derivedFrom, tagged PAPERWORK_FLOW_TAG). */
+export const isPaperworkFlowQuestionnaire = (questionnaire: Questionnaire): boolean => {
+  return (questionnaire.meta?.tag ?? []).some(
+    (tag) => tag.system === PAPERWORK_FLOW_TAG.system && tag.code === PAPERWORK_FLOW_TAG.code
+  );
+};
+
+/**
+ * Assembles a paperwork flow's constituent forms into a single ordered top-level item list. For each
+ * canonical in `flowQuestionnaire.derivedFrom` (in order) the referenced form Questionnaire is resolved
+ * and its top-level items are concatenated. The consent-forms page is de-duplicated keeping only its
+ * last occurrence, so consent always renders at the end of the flow.
+ *
+ * Assumes non-consent top-level linkIds are unique across the flow's forms; that invariant is enforced
+ * when the flow is created/updated (paperwork-flow create/update validation).
+ */
+export const assembleFlowQuestionnaireItems = async (
+  flowQuestionnaire: Questionnaire,
+  oystehr: Oystehr
+): Promise<QuestionnaireItem[]> => {
+  const derivedFrom = flowQuestionnaire.derivedFrom ?? [];
+
+  const formItemLists = await Promise.all(
+    derivedFrom.map(async (canonical) => {
+      const [url, version] = canonical.split('|');
+      if (!url || !version) {
+        throw new Error(`Malformed derivedFrom canonical "${canonical}" on paperwork flow ${flowQuestionnaire.url}`);
+      }
+      const form = await getCanonicalQuestionnaire({ url, version }, oystehr);
+      return form.item ?? [];
+    })
+  );
+
+  const assembledItems = formItemLists.flat();
+
+  // Consent should always come at the end: when more than one form contributes a consent-forms page,
+  // keep only the last occurrence and drop the earlier ones.
+  const consentPageCount = assembledItems.filter((item) => item.linkId === CONSENT_FORMS_PAGE_LINK_ID).length;
+  if (consentPageCount <= 1) {
+    return assembledItems;
+  }
+  let consentPagesRemaining = consentPageCount;
+  return assembledItems.filter((item) => {
+    if (item.linkId !== CONSENT_FORMS_PAGE_LINK_ID) {
+      return true;
+    }
+    consentPagesRemaining -= 1;
+    return consentPagesRemaining === 0;
+  });
+};
+
+/**
+ * Returns the effective Questionnaire to render / pre-fill against. A paperwork flow has no `item` of
+ * its own (only derivedFrom), so this returns a copy with `item` assembled from its constituent forms
+ * in derivedFrom order. Non-flow questionnaires are returned unchanged.
+ */
+export const resolveEffectiveQuestionnaire = async (
+  questionnaire: Questionnaire,
+  oystehr: Oystehr
+): Promise<Questionnaire> => {
+  if (!isPaperworkFlowQuestionnaire(questionnaire)) {
+    return questionnaire;
+  }
+  const item = await assembleFlowQuestionnaireItems(questionnaire, oystehr);
+  return { ...questionnaire, item };
+};
+
+/** getQuestionnaireForQR + flow assembly: resolves the QR's Questionnaire, assembling it when it's a paperwork flow. */
+export const getEffectiveQuestionnaireForQR = async (
+  qr: QuestionnaireResponse,
+  oystehr: Oystehr
+): Promise<Questionnaire> => {
+  const questionnaire = await getQuestionnaireForQR(qr, oystehr);
+  return resolveEffectiveQuestionnaire(questionnaire, oystehr);
 };

@@ -20,6 +20,7 @@ import {
   mapQuestionnaireAndValueSetsToItemsList,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PaperworkSupportingInfo,
+  resolveEffectiveQuestionnaire,
   Secrets,
   UCGetPaperworkResponse,
 } from 'utils';
@@ -201,10 +202,12 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
   );
   console.timeEnd('get-booking-questionnaire');
 
-  if (!questionnaire.item) {
-    questionnaire.item = [];
-  }
-  const allItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item, valueSets);
+  // If the QR points at a paperwork flow, assemble its constituent forms into a flattened item[]
+  // (in derivedFrom order) so the patient gets one continuous paperwork experience; a non-flow
+  // questionnaire is returned unchanged.
+  const effectiveQuestionnaire = await resolveEffectiveQuestionnaire(questionnaire, oystehr);
+
+  const allItems = mapQuestionnaireAndValueSetsToItemsList(effectiveQuestionnaire.item ?? [], valueSets);
 
   console.log('checking user access to patient');
   console.time('check-user-access');

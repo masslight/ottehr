@@ -47,12 +47,14 @@ import {
   getGroupAssignmentMode,
   getSlotBookedViaGroupId,
   getTaskResource,
+  INTAKE_PAPERWORK_QR_TAG,
   isValidUUID,
   makePrepopulatedItemsForPatient,
   OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
   PRIVATE_EXTENSION_BASE_URL,
+  resolveEffectiveQuestionnaire,
   RETURNING_PATIENT_META_TAG,
   ScheduleOwnerFhirResource,
   Secrets,
@@ -276,7 +278,12 @@ export async function createAppointment(
 
   console.log('getting questionnaire ID to create blank questionnaire response');
 
-  const currentQuestionnaire = await getCanonicalQuestionnaire(questionnaireUrl, oystehr);
+  // If the resolved questionnaire is a paperwork flow, assemble its constituent forms into a concrete
+  // item[] so pre-fill runs against the flattened pages; a non-flow questionnaire is returned as-is.
+  const currentQuestionnaire = await resolveEffectiveQuestionnaire(
+    await getCanonicalQuestionnaire(questionnaireUrl, oystehr),
+    oystehr
+  );
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
   if (!patient.id && !verifiedPhoneNumber) {
@@ -843,6 +850,9 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     resourceType: 'QuestionnaireResponse',
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
     status: 'in-progress',
+    // Marks this as the intake paperwork QR so readers recognize it even when it points at a
+    // paperwork flow (whose canonical is the flow url, not an intake-paperwork url).
+    meta: { tag: [INTAKE_PAPERWORK_QR_TAG] },
     subject: { reference: patientRef },
     encounter: { reference: encUrl },
     item, // contains the pre-populated answers for the Patient

@@ -10,7 +10,13 @@ import {
   QuestionnaireResponseItemAnswer,
   Schedule,
 } from 'fhir/r4b';
-import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire, getPatientFriendlyId } from 'utils';
+import {
+  formatDateToMDYWithTime,
+  getAppointmentType,
+  getCanonicalQuestionnaire,
+  getPatientFriendlyId,
+  resolveEffectiveQuestionnaire,
+} from 'utils';
 import { assertDefined, resolveTimezone } from '../../shared';
 
 export interface Document {
@@ -69,7 +75,12 @@ export async function createDocument(
     throw new Error(`Invalid canonical URL format: ${canonicalUrl}. Expected format: "url|version"`);
   }
 
-  const questionnaire = await getCanonicalQuestionnaire({ url, version }, oystehr);
+  // Assemble the flow into a concrete item[] so section titles, labels, and image detection resolve
+  // for flow-backed paperwork; a non-flow questionnaire is returned unchanged.
+  const questionnaire = await resolveEffectiveQuestionnaire(
+    await getCanonicalQuestionnaire({ url, version }, oystehr),
+    oystehr
+  );
 
   const [subjectType, subjectId] = (questionnaireResponse.subject?.reference ?? '').split('/');
   if (subjectType !== 'Patient') {

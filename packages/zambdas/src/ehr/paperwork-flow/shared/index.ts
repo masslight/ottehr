@@ -3,17 +3,25 @@ import { Operation } from 'fast-json-patch';
 import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import {
+  CanonicalUrl,
+  CONSENT_FORMS_PAGE_LINK_ID,
   FlowForm,
   FlowService,
   getAllFhirSearchPages,
+  getCanonicalQuestionnaire,
+  getCoding,
   getSecret,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
+  isBookingConfigServiceCategoryCode,
+  PAPERWORK_FLOW_ERROR,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
+  parseQuestionnaireCanonicalExtension,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
   ServiceMode,
   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
@@ -213,4 +221,80 @@ export function getFlowModes(q: Questionnaire): ServiceMode[] {
     .map((e) => e.valueCode)
     .filter((c): c is ServiceMode => c === ServiceMode['in-person'] || c === ServiceMode.virtual);
   return Object.values(ServiceMode).filter((m) => modes.includes(m));
+}
+
+/**
+ * Resolves the active paperwork flow canonical assigned to a (service category, visit mode), or
+ * undefined when none is assigned. Mirrors resolveServiceCategory's precedence:
+ * - A BOOKING_CONFIG (ottehr-managed) service category is matched against the flow Questionnaire's
+ *   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM meta.tag (same slug identifier space as the slot's serviceCategory).
+ * - Any other (FHIR-backed) service category is matched to its HealthcareService via the
+ *   SERVICE_CATEGORY_SYSTEM coding on HealthcareService.type[] (NOT the resource id), and the flow
+ *   canonical is read from that service's per-mode paperwork-flow extension.
+ * Only active flows are considered (searchActiveQuestionnairesByTag filters status=active; the HS
+ * extension is maintained by flow create/update to point at the active flow).
+ */
+export async function resolveFlowCanonicalForServiceMode(input: {
+  serviceCategoryCode: string;
+  serviceMode: ServiceMode;
+  oystehr: Oystehr;
+}): Promise<CanonicalUrl | undefined> {
+  const { serviceCategoryCode, serviceMode, oystehr } = input;
+  if (!serviceCategoryCode) return undefined;
+
+  if (isBookingConfigServiceCategoryCode(serviceCategoryCode)) {
+    // Ottehr-managed service category: the assignment lives as a meta.tag on the flow Questionnaire.
+    const flows = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
+    const match = flows.find(
+      (flow) =>
+        (flow.meta?.tag ?? []).some(
+          (tag) => tag.system === SYSTEM_MANAGED_SERVICE_TAG_SYSTEM && tag.code === serviceCategoryCode
+        ) && getFlowModes(flow).includes(serviceMode)
+    );
+    const canonical = match ? getCanonicalUrlFromQ(match) : undefined;
+    return canonical ? parseQuestionnaireCanonicalExtension(canonical) : undefined;
+  }
+
+  // FHIR-backed service category: the assignment lives as a per-mode extension on the HealthcareService.
+  const services = await searchServiceCategoryHealthcareServices(oystehr);
+  const service = services.find((hs) => getCoding(hs.type, SERVICE_CATEGORY_SYSTEM)?.code === serviceCategoryCode);
+  if (!service) return undefined;
+  const extensionUrl = healthcareServiceExtensionUrlMap[serviceMode];
+  const valueCanonical = service.extension?.find((ext) => ext.url === extensionUrl)?.valueCanonical;
+  return valueCanonical ? parseQuestionnaireCanonicalExtension(valueCanonical) : undefined;
+}
+
+/**
+ * Validates that assembling the given form canonicals into a flow won't produce duplicate top-level
+ * page linkIds — the patient paperwork experience keys pages by top-level linkId, so a collision would
+ * break navigation, review, and pre-fill. The consent-forms page (CONSENT_FORMS_PAGE_LINK_ID) is
+ * exempt: it may appear in more than one form and is de-duplicated (keep-last) at assembly. Throws
+ * PAPERWORK_FLOW_ERROR naming any other duplicated linkId so the admin fixes the bundle before saving.
+ */
+export async function validateFlowFormLinkIds(formCanonicals: string[], oystehr: Oystehr): Promise<void> {
+  const seenLinkIds = new Set<string>();
+  const duplicateLinkIds = new Set<string>();
+
+  for (const canonical of formCanonicals) {
+    const [url, version] = canonical.split('|');
+    if (!url || !version) continue;
+    const form = await getCanonicalQuestionnaire({ url, version }, oystehr);
+    for (const item of form.item ?? []) {
+      const { linkId } = item;
+      if (!linkId || linkId === CONSENT_FORMS_PAGE_LINK_ID) continue;
+      if (seenLinkIds.has(linkId)) {
+        duplicateLinkIds.add(linkId);
+      } else {
+        seenLinkIds.add(linkId);
+      }
+    }
+  }
+
+  if (duplicateLinkIds.size > 0) {
+    throw PAPERWORK_FLOW_ERROR(
+      `Forms in this paperwork flow contain duplicate page linkId(s): ${[...duplicateLinkIds].join(
+        ', '
+      )}. Each page must have a unique linkId across the flow's forms (the consent page is the only exception).`
+    );
+  }
 }

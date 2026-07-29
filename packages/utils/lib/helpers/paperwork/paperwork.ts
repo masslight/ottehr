@@ -20,7 +20,11 @@ import {
 } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
-import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
+import {
+  getCanonicalQuestionnaire,
+  isIntakePaperworkQuestionnaireResponse,
+  OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS,
+} from '../../fhir';
 import {
   AnswerLoadingOptions,
   ConditionKeyObject,
@@ -816,11 +820,10 @@ export const pruneEmptySections = (qr: QuestionnaireResponse): QuestionnaireResp
 };
 
 export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(resource: T): boolean {
-  return (
-    resource.resourceType === 'QuestionnaireResponse' &&
-    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') &&
-    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
-  );
+  // A QuestionnaireResponse is "paperwork" when it is the intake paperwork response — recognized by
+  // the INTAKE_PAPERWORK_QR_TAG meta.tag (covers paperwork-flow QRs) or a legacy intake-paperwork
+  // canonical url. Everything else that is a QuestionnaireResponse is non-paperwork.
+  return resource.resourceType === 'QuestionnaireResponse' && !isIntakePaperworkQuestionnaireResponse(resource);
 }
 
 export const getPaperworkResources = async (
