@@ -11,6 +11,7 @@ export const CLAIM_PROVENANCE_ACTIVITY_CODES = {
   delete: 'DELETE',
   statusChange: 'STATUS CHANGE',
   tagChange: 'TAG CHANGE',
+  submit: 'SUBMIT',
 } as const;
 
 export type ClaimProvenanceActivityKey = keyof typeof CLAIM_PROVENANCE_ACTIVITY_CODES;
@@ -27,6 +28,7 @@ export const CLAIM_PROVENANCE_ACTIVITY: Record<ClaimProvenanceActivityKey, Codin
   delete: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.delete, 'Delete'),
   statusChange: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.statusChange, 'Status change'),
   tagChange: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.tagChange, 'Tag change'),
+  submit: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.submit, 'Submit'),
 };
 
 // Distinguishes a human user from an automated software actor (e.g. the rules engine)

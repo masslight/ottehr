@@ -228,6 +228,15 @@ export const FHIR_EXTENSION = {
     consentObtained: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
     },
+    externalRadiologyOrder: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/external-radiology-order`,
+    },
+    radiologyTimeWindow: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/radiology-time-window`,
+    },
+    radiologySafetyFlag: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/radiology-safety-flag`,
+    },
   },
   RelatedPerson: {
     responsiblePartyRelationship: {
@@ -397,6 +406,12 @@ export const ServiceModeCoding = {
 };
 
 export const SCHEDULE_NUM_DAYS = 2;
+
+// Default for BookingConfig.prebookMaxMonthsAhead — how many months ahead the
+// prebook "Other dates" calendar lets you select a date. Consumers fall back to
+// this when the active booking config doesn't set an explicit value, preserving
+// the historical ~1-month window.
+export const DEFAULT_PREBOOK_MAX_MONTHS_AHEAD = 1;
 
 export enum ScheduleStrategy {
   owns = 'owns',

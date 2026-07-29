@@ -69,6 +69,8 @@ type MedicationCardViewProps = {
   onInteractionsMessageClick: () => void;
   onDelete?: () => void;
   isReadOnly?: boolean;
+  onBack?: () => void;
+  onClearForm?: () => void;
   onQuickPickSelect?: (quickPick: (typeof MEDICAL_HISTORY_CONFIG.inHouseMedications.quickPicks)[number]) => void;
   fhirQuickPicks?: InHouseMedicationQuickPickData[];
   fhirQuickPicksLoading?: boolean;
@@ -100,6 +102,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   onInteractionsMessageClick,
   onDelete,
   isReadOnly,
+  onBack,
+  onClearForm,
   onQuickPickSelect,
   fhirQuickPicks,
   fhirQuickPicksLoading = false,
@@ -230,13 +234,18 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           <ButtonRounded
             data-testid={dataTestIds.orderMedicationPage.backButton}
             variant="outlined"
-            onClick={() => navigate(getInHouseMedicationMARUrl(appointmentId!))}
+            onClick={() => (onBack ? onBack() : navigate(getInHouseMedicationMARUrl(appointmentId!)))}
             color="primary"
             size="large"
             startIcon={<ArrowBackIcon />}
           >
             Back
           </ButtonRounded>
+          {onClearForm && (
+            <ButtonRounded variant="outlined" color="primary" size="large" onClick={onClearForm}>
+              Clear Form
+            </ButtonRounded>
+          )}
           {!isReadOnly && onDelete && type !== 'order-new' && (
             <ButtonRounded onClick={onDelete} variant="outlined" color="error" size="large">
               Delete Order

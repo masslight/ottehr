@@ -50,10 +50,11 @@ export class CreateRadiologyOrderPage {
     // Use role='combobox' to specifically target the input field, avoiding strict mode violation
     const diagnosisField = this.#page.getByRole('combobox', { name: 'Diagnosis' });
 
-    // Check if diagnosis is already selected (it might be auto-filled from Assessment)
-    const currentValue = await diagnosisField.inputValue();
-    if (currentValue.includes(diagnosis)) {
-      // Diagnosis already selected, no need to select again
+    // Diagnosis is a multi-select autocomplete: selected values render as chips, not input text
+    // (it may be auto-filled from Assessment). If a chip already matches, skip re-selecting —
+    // re-clicking an already-selected option in a multi-select would toggle it off.
+    const existingChip = this.#page.locator('.MuiChip-label', { hasText: diagnosis });
+    if ((await existingChip.count()) > 0) {
       return;
     }
 

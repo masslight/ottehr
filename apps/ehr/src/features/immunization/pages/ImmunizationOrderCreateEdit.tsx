@@ -17,11 +17,12 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { CustomDialog } from 'src/components/dialogs';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
@@ -33,7 +34,8 @@ import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { ImmunizationQuickPickData, RoleType } from 'utils';
+import { useImmunizationOrderStore, useMarkDraftNavigatedAway } from 'src/state/draft-data.store';
+import { ImmunizationQuickPickData, InputImmunizationOrderDetails, RoleType } from 'utils';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
   useCancelImmunizationOrder,
@@ -51,6 +53,12 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     resources: { encounter, patient },
   } = useAppointmentData(appointmentId);
 
+  const isCreating = !orderId;
+  const encounterId = encounter?.id ?? '';
+
+  const { setDraft, clearDraft, hasDraft, getDraft } = useImmunizationOrderStore();
+  const draft = getDraft(encounterId);
+
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const [isOrderSaved, setIsOrderSaved] = useState(false);
@@ -64,6 +72,8 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
   const defaultProviderId = currentUserHasProviderRole ? currentUserProviderId : undefined;
 
+  useMarkDraftNavigatedAway({ encounterId, setDraft, hasDraft });
+
   const onSubmit = async (data: any): Promise<void> => {
     await createUpdateOrder({
       encounterId: encounter?.id ?? '',
@@ -71,6 +81,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       ...(await cleanupProperties(data)),
     });
     setIsOrderSaved(true);
+    if (isCreating && encounterId) clearDraft(encounterId);
     navigate(getImmunizationMARUrl(appointmentId!));
   };
 
@@ -87,11 +98,43 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     }
   };
 
+  const handleBack = (): void => {
+    if (isCreating && encounterId) clearDraft(encounterId);
+    navigate(getImmunizationMARUrl(appointmentId!));
+  };
+
   const { data: ordersResponse, isLoading: isOrderLoading } = useGetImmunizationOrders({
     orderId: orderId,
   });
 
-  const methods = useForm();
+  const methods = useForm<FieldValues>({
+    defaultValues: {
+      details: {
+        orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : undefined,
+        ...(draft ? draft : undefined),
+      },
+    },
+  });
+
+  const handleClearForm = (): void => {
+    clearDraft(encounterId);
+
+    // set these fields explicitly, including to null, because under the hood, reset does comparisons where undefined
+    // is not sufficient and it will default to the original values in defaultValues
+    methods.reset({
+      details: {
+        medication: null,
+        associatedDx: null,
+        dose: '',
+        units: null,
+        route: '',
+        manufacturer: '',
+        location: null,
+        instructions: '',
+        orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : null,
+      },
+    });
+  };
 
   const {
     mergedQuickPicks,
@@ -110,12 +153,13 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   } = useImmunizationQuickPickManagement({ methods, applyOrderDetails: true });
 
   useEffect(() => {
+    if (!orderId) return;
     const order = ordersResponse?.orders?.find((order) => order.id === orderId);
     methods.reset(order);
   }, [methods, ordersResponse, orderId]);
 
   useEffect(() => {
-    if (!orderId && defaultProviderId) {
+    if (!orderId && defaultProviderId && !getDraft(encounterId)) {
       methods.reset({
         details: {
           ...methods.getValues('details'),
@@ -126,10 +170,33 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
         },
       });
     }
-  }, [methods, defaultProviderId, orderId, currentUser]);
+  }, [methods, defaultProviderId, orderId, currentUser, encounterId, getDraft]);
 
-  const onQuickPickSelectRef = useRef(onQuickPickSelect);
-  onQuickPickSelectRef.current = onQuickPickSelect;
+  useEffect(() => {
+    if (!isCreating || !encounterId) return;
+    const unsubscribe = methods.subscribe({
+      formState: { values: true, isDirty: true },
+      callback: ({ values, isDirty }) => {
+        if (!isDirty) return;
+        setDraft(encounterId, { ...(values.details as InputImmunizationOrderDetails) });
+      },
+    });
+    return unsubscribe;
+  }, [isCreating, encounterId, methods, setDraft]);
+
+  const handleQuickPickSelect = useCallback(
+    (quickPick: ImmunizationQuickPickData): void => {
+      onQuickPickSelect(quickPick);
+      if (isCreating && encounterId) {
+        const { details } = methods.getValues();
+        setDraft(encounterId, { ...(details as InputImmunizationOrderDetails) });
+      }
+    },
+    [onQuickPickSelect, isCreating, encounterId, methods, setDraft]
+  );
+
+  const onQuickPickSelectRef = useRef(handleQuickPickSelect);
+  onQuickPickSelectRef.current = handleQuickPickSelect;
 
   const commandPaletteItems = useMemo(
     () =>
@@ -175,12 +242,22 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
             dataTestId={dataTestIds.orderVaccinePage.title}
           />
 
+          {isCreating && hasDraft(encounterId) && (
+            <UnsavedDraftWarning
+              message={
+                draft.hasNavigatedAway
+                  ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                  : 'You have an immunization order in progress. Your draft will be saved.'
+              }
+            />
+          )}
+
           {!orderId && (
             <QuickPicksButton
               quickPicks={mergedQuickPicks}
               loading={mergedQuickPicksLoading}
               getLabel={(qp) => qp.name}
-              onSelect={onQuickPickSelect}
+              onSelect={handleQuickPickSelect}
               showAddOption
               isAdmin={isAdmin}
               onAddOrUpdate={() => void openQuickPickDialog()}
@@ -202,14 +279,14 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" spacing={1}>
-                    <ButtonRounded
-                      variant="outlined"
-                      color="primary"
-                      size="large"
-                      onClick={() => navigate(getImmunizationMARUrl(appointmentId!))}
-                    >
+                    <ButtonRounded variant="outlined" color="primary" size="large" onClick={handleBack}>
                       Back
                     </ButtonRounded>
+                    {isCreating && hasDraft(encounterId) && (
+                      <ButtonRounded variant="outlined" color="primary" size="large" onClick={handleClearForm}>
+                        Clear Form
+                      </ButtonRounded>
+                    )}
                     {orderId && (
                       <>
                         <LoadingButton

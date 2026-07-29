@@ -134,6 +134,13 @@
       "src": "src/billing/search-billing-claims/index",
       "zip": ".dist/zips/search-billing-claims.zip"
     },
+    "SEARCH-BILLING-PATIENT-AR-CLAIMS": {
+      "name": "search-billing-patient-ar-claims",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/search-billing-patient-ar-claims/index",
+      "zip": ".dist/zips/search-billing-patient-ar-claims.zip"
+    },
     "GET-BILLING-CLAIM-DETAIL": {
       "name": "get-billing-claim-detail",
       "type": "http_auth",
@@ -281,6 +288,17 @@
       "src": "src/billing/create-billing-claim-from-encounter/index",
       "zip": ".dist/zips/create-billing-claim-from-encounter.zip"
     },
+    "CREATE-BILLING-INVOICES-TASKS": {
+      "name": "create-billing-invoices-tasks",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "300",
+      "src": "src/cron/create-billing-invoices-tasks/index",
+      "zip": ".dist/zips/create-billing-invoices-tasks.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    },
     "SEARCH-CHARGE-ITEM-DEFINITIONS": {
       "name": "search-charge-item-definitions",
       "type": "http_auth",
@@ -316,12 +334,26 @@
       "src": "src/billing/delete-charge-item-definition/index",
       "zip": ".dist/zips/delete-charge-item-definition.zip"
     },
+    "BULK-ADD-CHARGE-ITEM-DEFINITION-PROCEDURE-CODES": {
+      "name": "bulk-add-charge-item-definition-procedure-codes",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/bulk-add-charge-item-definition-procedure-codes/index",
+      "zip": ".dist/zips/bulk-add-charge-item-definition-procedure-codes.zip"
+    },
     "BILLING-STRIPE-WEBHOOK": {
       "name": "billing-stripe-webhook",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/billing/billing-stripe-webhook/index",
       "zip": ".dist/zips/billing-stripe-webhook.zip"
+    },
+    "RECORD-BILLING-MANUAL-PAYMENT": {
+      "name": "record-billing-manual-payment",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/record-billing-manual-payment/index",
+      "zip": ".dist/zips/record-billing-manual-payment.zip"
     },
     "SUB-RULES-ENGINE": {
       "name": "sub-rules-engine",

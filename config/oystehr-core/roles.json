@@ -20,6 +20,7 @@
             "Zambda:Function:get-schedule",
             "Zambda:Function:intake-get-appointments",
             "Zambda:Function:get-paperwork",
+            "Zambda:Function:get-standalone-paperwork",
             "Zambda:Function:update-paperwork-in-progress",
             "Zambda:Function:get-presigned-file-url",
             "Zambda:Function:get-appointment-details",
@@ -309,11 +310,13 @@
             "Zambda:Function:search-charge-item-definitions",
             "Zambda:Function:delete-charge-item-definition",
             "Zambda:Function:update-charge-item-definition",
+            "Zambda:Function:bulk-add-charge-item-definition-procedure-codes",
             "Zambda:Function:get-billing-era-detail",
             "Zambda:Function:create-billing-provider",
             "Zambda:Function:get-billing-patient-detail",
             "Zambda:Function:delete-billing-tag",
-            "Zambda:Function:import-era"
+            "Zambda:Function:import-era",
+            "Zambda:Function:record-billing-manual-payment"
           ]
         }
       ]

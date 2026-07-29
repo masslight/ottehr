@@ -45,7 +45,7 @@ describe('radiology integration tests', () => {
     it('should create a radiology order -- success', async () => {
       const createOrderInput: CreateRadiologyZambdaOrderInput = {
         encounterId: baseResources.encounter.id!,
-        diagnosisCode: 'W21.89XA',
+        diagnosisCodes: ['W21.89XA'],
         cptCode: '73562',
         lateralityModifier: undefined,
         stat: true,

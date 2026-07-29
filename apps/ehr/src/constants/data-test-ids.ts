@@ -710,8 +710,11 @@ export const dataTestIds = {
   radiologyPage: {
     title: 'radiology-page-title',
     orderButton: 'radiology-order-button',
+    orderMenuButton: 'radiology-order-menu-button',
+    externalOrderMenuItem: 'radiology-external-order-menu-item',
     submitOrderButton: 'radiology-submit-order-button',
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
+    externalOrderLabel: (serviceRequestId: string) => `radiology-external-order-label-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
   },
 

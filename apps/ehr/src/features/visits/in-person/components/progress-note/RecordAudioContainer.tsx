@@ -1,10 +1,14 @@
 import { Close, Pause, PlayArrow, Stop } from '@mui/icons-material';
 import { Grid, IconButton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement, useEffect, useRef, useState } from 'react';
-import { createResourcesFromAudioRecording, uploadAudioRecording } from 'src/api/api';
+import { ReactElement, useEffect, useRef } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import {
+  audioRecordingActions,
+  AudioRecordingStatus,
+  useAudioRecordingStore,
+} from 'src/features/visits/shared/stores/audioRecording.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { AIChatDetails, getFormatDuration } from 'utils';
@@ -20,41 +24,42 @@ interface RecordAudioContainerProps {
   setRecordingAnchorElement: ((value: React.SetStateAction<HTMLButtonElement | null>) => void) | undefined;
 }
 
-enum RecordingStatus {
-  NOT_STARTED = 'NOT_STARTED',
-  RECORDING = 'RECORDING',
-  PAUSED = 'PAUSED',
-  STOPPED = 'STOPPED',
-}
+type LocalStatus = 'NOT_STARTED' | AudioRecordingStatus;
 
 export function RecordAudioContainer(props: RecordAudioContainerProps): ReactElement {
   const { visitID, width = '400px', aiChat, setRecordingAnchorElement } = props;
-  const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>(RecordingStatus.NOT_STARTED);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [duration, setDuration] = useState<number>(0);
   const { oystehrZambda: oystehr } = useApiClients();
   const evolveUser = useEvolveUser();
   const providerName = evolveUser?.profileResource?.name?.[0]
     ? oystehr?.fhir.formatHumanName(evolveUser.profileResource.name?.[0])
     : 'Unknown';
-
-  const waveformRef = useRef<HTMLDivElement | null>(null);
-  const wavesurferRef = useRef<WaveSurfer | null>(null);
-  const recordPluginRef = useRef<ReturnType<typeof RecordPlugin.create> | null>(null);
   const { refetch } = useChartData();
 
+  // The recording lives in the store so it survives this component remounting on rotation; this is just
+  // the view/controller. Selectors stay granular so the duration tick only re-renders the recording row.
+  const isActiveHere = useAudioRecordingStore((state) => state.session?.visitID === visitID);
+  const recordingStatus: LocalStatus = useAudioRecordingStore((state) =>
+    state.session?.visitID === visitID ? state.session.status : 'NOT_STARTED'
+  );
+  const duration = useAudioRecordingStore((state) => (state.session?.visitID === visitID ? state.session.duration : 0));
+  const uploading = useAudioRecordingStore((state) => state.uploadingVisitID === visitID);
+  // From the store (not local state) so the "uploading" chip survives a rotation remount mid-upload.
+  const uploadedDuration = useAudioRecordingStore((state) => state.uploadingDuration);
+
+  const waveformRef = useRef<HTMLDivElement | null>(null);
+
+  // View-only waveform: renderMicStream visualises the store's stream without capturing, so destroying
+  // this on unmount only tears down the drawing — the store's MediaRecorder keeps running.
   useEffect(() => {
-    if (!waveformRef.current) return;
+    if (!isActiveHere || !waveformRef.current) return;
+    const stream = audioRecordingActions.getStream();
+    if (!stream) return;
 
     const recordPlugin = RecordPlugin.create({
       scrollingWaveform: true,
       scrollingWaveformWindow: 10,
-      // continuousWaveform: true,
-      // continuousWaveformDuration: 0,
       renderRecordedAudio: false,
-      mediaRecorderTimeslice: 1000,
     });
-
     const ws = WaveSurfer.create({
       container: waveformRef.current,
       waveColor: '#29B6F6',
@@ -62,92 +67,47 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
       height: 80,
       plugins: [recordPlugin],
     });
-
-    wavesurferRef.current = ws;
-    recordPluginRef.current = recordPlugin;
-
-    recordPlugin.on('record-progress', async (durationTemp: number) => {
-      setDuration(durationTemp);
-    });
-
-    recordPlugin.on('record-end', async (blob: Blob) => {
-      setRecordingStatus(RecordingStatus.NOT_STARTED);
-      setLoading(true);
-      if (!oystehr) {
-        console.error('Oystehr client is undefined');
-        return;
-      }
-      const file = new File([blob], `${visitID}.webm`, { type: 'audio/webm' });
-      const { z3URL, presignedUploadUrl } = await uploadAudioRecording(oystehr, { visitID });
-      const uploadResponse = await fetch(presignedUploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: file,
-      });
-      console.log(uploadResponse);
-      await createResourcesFromAudioRecording(oystehr, {
-        visitID,
-        duration: recordPluginRef.current?.getDuration(),
-        z3URL,
-      });
-      await refetch();
-      setDuration(0);
-      setLoading(false);
-    });
+    const micStream = recordPlugin.renderMicStream(stream);
 
     return () => {
+      micStream.onDestroy();
       ws.destroy();
-      recordPlugin.destroy();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oystehr, visitID]);
+  }, [isActiveHere]);
 
   const startOrResumeRecording = async (): Promise<void> => {
-    const plugin = recordPluginRef.current;
-    if (!plugin) return;
-
-    if (recordingStatus === RecordingStatus.NOT_STARTED) {
-      // Start recording
-      setRecordingStatus(RecordingStatus.RECORDING);
-      const devices = await RecordPlugin.getAvailableAudioDevices();
-      const deviceId = devices[0]?.deviceId;
-      await plugin.startRecording({ deviceId });
-    } else {
-      // Resume after pause
-      plugin.resumeRecording();
+    if (recordingStatus === 'PAUSED') {
+      audioRecordingActions.resume();
+      return;
     }
-
-    setRecordingStatus(RecordingStatus.RECORDING);
+    if (!oystehr) {
+      console.error('Oystehr client is undefined');
+      return;
+    }
+    await audioRecordingActions.startRecording({ visitID, oystehr, onComplete: refetch });
   };
 
   const pauseRecording = (): void => {
-    recordPluginRef.current?.pauseRecording();
-    setRecordingStatus(RecordingStatus.PAUSED);
+    audioRecordingActions.pause();
   };
 
   const endRecording = (): void => {
-    recordPluginRef.current?.stopRecording();
+    audioRecordingActions.stop(); // freezes the duration into the store for the "uploading" chip
   };
 
-  function getButtonLabel(status: RecordingStatus): string {
+  function getButtonLabel(status: LocalStatus): string {
     switch (status) {
-      case RecordingStatus.NOT_STARTED:
+      case 'NOT_STARTED':
         return 'Start Recording';
-      case RecordingStatus.RECORDING:
+      case 'RECORDING':
         return 'Pause';
-      case RecordingStatus.PAUSED:
+      case 'PAUSED':
         return 'Continue';
       default:
         console.log(`Unknown recording status ${status}`);
         throw new Error('Unknown recording status');
     }
   }
-
-  // if (loading) {
-  //   return <Typography variant="body1">Loading...</Typography>;
-  // }
 
   return (
     <Grid container style={{ padding: 25, width: width, alignItems: 'center' }}>
@@ -163,7 +123,7 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
           </IconButton>
         </Grid>
       )}
-      {recordingStatus === RecordingStatus.NOT_STARTED && (
+      {recordingStatus === 'NOT_STARTED' && (
         <>
           {aiChat?.documents
             .filter((item) => item.resourceType === 'DocumentReference')
@@ -181,9 +141,9 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
               const audioSource = getSource(item, oystehr, aiChat.providers);
               return <RecordedAudio duration={audioDuration} status="ready" source={audioSource} />;
             })}
-          {loading && (
+          {uploading && (
             <RecordedAudio
-              duration={getFormatDuration(duration)}
+              duration={getFormatDuration(uploadedDuration)}
               status="loading"
               source={getSourceFormat(providerName, DateTime.now())}
             />
@@ -198,36 +158,32 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
         </>
       )}
 
-      {recordingStatus !== RecordingStatus.STOPPED && (
-        <>
-          <Grid item xs={2} sx={{ ...(recordingStatus === RecordingStatus.NOT_STARTED && { display: 'none' }) }}>
-            <Typography sx={{ fontWeight: 'bold' }}>{getFormatDuration(duration)}</Typography>
-          </Grid>
-          <Grid item xs={10}>
-            <div
-              ref={waveformRef}
-              style={{ width: '100%', ...(recordingStatus === RecordingStatus.NOT_STARTED && { display: 'none' }) }}
-            />
-          </Grid>
-          <RoundedButton
-            variant="contained"
-            startIcon={recordingStatus === RecordingStatus.RECORDING ? <Pause /> : <PlayArrow />}
-            onClick={recordingStatus === RecordingStatus.RECORDING ? pauseRecording : startOrResumeRecording}
-          >
-            {getButtonLabel(recordingStatus)}
-          </RoundedButton>
-          {(recordingStatus === RecordingStatus.PAUSED || recordingStatus === RecordingStatus.RECORDING) && (
-            <RoundedButton
-              variant="contained"
-              startIcon={<Stop />}
-              onClick={endRecording}
-              color="error"
-              sx={{ marginLeft: 1 }}
-            >
-              End
-            </RoundedButton>
-          )}
-        </>
+      <Grid item xs={2} sx={{ ...(recordingStatus === 'NOT_STARTED' && { display: 'none' }) }}>
+        <Typography sx={{ fontWeight: 'bold' }}>{getFormatDuration(duration)}</Typography>
+      </Grid>
+      <Grid item xs={10}>
+        <div
+          ref={waveformRef}
+          style={{ width: '100%', ...(recordingStatus === 'NOT_STARTED' && { display: 'none' }) }}
+        />
+      </Grid>
+      <RoundedButton
+        variant="contained"
+        startIcon={recordingStatus === 'RECORDING' ? <Pause /> : <PlayArrow />}
+        onClick={recordingStatus === 'RECORDING' ? pauseRecording : startOrResumeRecording}
+      >
+        {getButtonLabel(recordingStatus)}
+      </RoundedButton>
+      {(recordingStatus === 'PAUSED' || recordingStatus === 'RECORDING') && (
+        <RoundedButton
+          variant="contained"
+          startIcon={<Stop />}
+          onClick={endRecording}
+          color="error"
+          sx={{ marginLeft: 1 }}
+        >
+          End
+        </RoundedButton>
       )}
     </Grid>
   );

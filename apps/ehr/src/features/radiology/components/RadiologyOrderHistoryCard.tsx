@@ -3,18 +3,21 @@ import { DateTime } from 'luxon';
 import React, { useState } from 'react';
 import { RadiologyOrderHistoryRow } from 'utils';
 import { AccordionCard } from '../../../components/AccordionCard';
+import { RadiologyTableStatusChip } from './RadiologyTableStatusChip';
 
 interface RadiologyOrderHistoryProps {
   isLoading?: boolean;
   isCollapsed?: boolean;
   orderHistory?: RadiologyOrderHistoryRow[];
   timezone?: string;
+  label?: string;
 }
 
 export const RadiologyOrderHistoryCard: React.FC<RadiologyOrderHistoryProps> = ({
   isCollapsed = false,
   orderHistory = [],
   timezone,
+  label = 'Procedure History',
 }) => {
   const [collapsed, setCollapsed] = useState(isCollapsed);
 
@@ -26,7 +29,7 @@ export const RadiologyOrderHistoryCard: React.FC<RadiologyOrderHistoryProps> = (
   return (
     <>
       <AccordionCard
-        label={'Procedure History'}
+        label={label}
         collapsed={collapsed}
         withBorder={false}
         onSwitch={() => {
@@ -37,7 +40,9 @@ export const RadiologyOrderHistoryCard: React.FC<RadiologyOrderHistoryProps> = (
           {orderHistory.map((row) => {
             return (
               <TableRow key={`${row.status}-${row.performer}-${row.date}`}>
-                <TableCell>{row.status.toUpperCase()}</TableCell>
+                <TableCell>
+                  <RadiologyTableStatusChip status={row.status} />
+                </TableCell>
                 <TableCell>{row.performer}</TableCell>
                 <TableCell>{formatDate(row.date)}</TableCell>
               </TableRow>

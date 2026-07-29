@@ -4,6 +4,7 @@ import {
   Address,
   Basic,
   ChargeItemDefinition,
+  ChargeItemDefinitionPropertyGroup,
   Claim,
   Coding,
   Coverage,
@@ -27,6 +28,7 @@ import {
   AR_STAGE,
   BILLING_INSURANCE_TYPE_LABELS,
   BILLING_RESOURCE_TAG,
+  BillingChargeItemDefinitionProcedureCode,
   BillingInsuranceType,
   BillingPolicyHolderInput,
   BillingProviderOption,
@@ -46,7 +48,9 @@ import {
   CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
+  CPT_CODE_SYSTEM,
   createCoverageMemberIdentifier,
+  EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
@@ -215,6 +219,8 @@ export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billi
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
+export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
+  'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
 export const ERA_CHECK_SYSTEM = 'https://identifiers.fhir.oystehr.com/era-check-number';
 // CLP02 claim status code from the ERA, stamped on ClaimResponses by both Oystehr converters
 export const ERA_STATUS_CODE_EXTENSION = 'https://extensions.fhir.oystehr.com/era-status-code';
@@ -963,6 +969,23 @@ export function getDefaultSettingForChargeItemDefinition(
   return defaultValue;
 }
 
+export function procedureCodesToPropertyGroups(
+  procedureCodes: BillingChargeItemDefinitionProcedureCode[]
+): ChargeItemDefinitionPropertyGroup[] {
+  return procedureCodes.map<ChargeItemDefinitionPropertyGroup>((pc) => ({
+    priceComponent: [
+      {
+        type: 'base',
+        code: {
+          coding: [{ system: CPT_CODE_SYSTEM, code: pc.code, ...(pc.description ? { display: pc.description } : {}) }],
+        },
+        amount: { value: pc.amount, currency: 'USD' },
+        ...(pc.modifier ? { extension: [{ url: EXTENSION_URL_CPT_MODIFIER, valueCode: pc.modifier }] } : {}),
+      },
+    ],
+  }));
+}
+
 export async function tagEraResources({
   oystehr,
   resources,
@@ -1020,6 +1043,13 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
 }
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
+  let workingCopyReferenceResourceId: string | undefined;
+  if (isWorkingCopy(resource)) {
+    workingCopyReferenceResourceId = resource.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Practitioner/', '')
+      ?.replace('Organization/', '');
+  }
   const addr = resource.address?.[0];
   const common = {
     id: resource.id ?? '',
@@ -1038,6 +1068,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
     bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
     isWorkingCopy: hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code),
+    workingCopyReferenceResourceId,
   };
   if (resource.resourceType === 'Practitioner') {
     return {

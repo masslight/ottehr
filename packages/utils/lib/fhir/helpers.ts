@@ -54,6 +54,8 @@ import {
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
+  TASK_INPUT_TYPE_CODES,
+  TASK_INPUT_TYPE_SYSTEM,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
   User,
@@ -719,6 +721,18 @@ export function getTaskResource(coding: TaskCoding, title: string, appointmentID
     code: {
       coding: [coding],
     },
+  };
+}
+
+// Task.input that tells the visit-note-pdf-and-email subscription handler to regenerate the PDF but
+// skip the patient completion email (used when the email was already sent on an earlier sign/save).
+// The producer contract here is the counterpart to `resolveSkipEmail` in the subscription handler.
+export function getSkipEmailTaskInput(): TaskInput {
+  return {
+    type: {
+      coding: [{ system: TASK_INPUT_TYPE_SYSTEM, code: TASK_INPUT_TYPE_CODES.SKIP_EMAIL }],
+    },
+    valueString: 'true',
   };
 }
 export const getStartTimeFromEncounterStatusHistory = (encounter: Encounter): string | undefined => {

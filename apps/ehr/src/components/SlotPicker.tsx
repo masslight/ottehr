@@ -7,7 +7,13 @@ import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useMemo, useState } from 'react';
 import { getLocations } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { nextAvailableFrom, ScheduleType, ServiceCategoryCode } from 'utils';
+import {
+  BOOKING_CONFIG,
+  DEFAULT_PREBOOK_MAX_MONTHS_AHEAD,
+  nextAvailableFrom,
+  ScheduleType,
+  ServiceCategoryCode,
+} from 'utils';
 import { Slots } from './Slots';
 interface TabPanelProps {
   children?: ReactNode;
@@ -78,6 +84,11 @@ const SlotPicker = ({
 }: SlotPickerProps): JSX.Element => {
   const { oystehrZambda } = useApiClients();
   const theme = useTheme();
+  // How far into the future the "Other dates" calendar lets you book, from the
+  // per-project booking config (falls back to the historical ~1-month window).
+  // Picking a date fetches that day's slots on demand (handleSelectOtherDate),
+  // so widening this alone extends the range — no extra preloading needed.
+  const bookableMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead ?? DEFAULT_PREBOOK_MAX_MONTHS_AHEAD;
   const [currentTab, setCurrentTab] = useState(0);
   const [nextDay, setNextDay] = useState<boolean>(false);
   const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);
@@ -349,8 +360,10 @@ const SlotPicker = ({
                       }}
                       // Minus one day for timezone shenanigans
                       minDate={firstAvailableDay?.minus({ days: 1 })}
-                      // Plus one month for month picker dropdown
-                      maxDate={DateTime.fromISO(slotsList[slotsList.length - 1].start)?.plus({ months: 1 })}
+                      // Allow booking up to bookableMonthsAhead out. Only the
+                      // preloaded slots (2 days) are in slotsList; slots for any
+                      // later date are fetched on demand when it's picked.
+                      maxDate={firstAvailableDay?.plus({ months: bookableMonthsAhead })}
                     />
                   </LocalizationProvider>
                   {selectedOtherDate && (
