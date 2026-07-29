@@ -67,6 +67,7 @@ import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
+import ProviderDetailPage from './pages/ProviderDetailPage';
 import Reports from './pages/Reports';
 import {
   AiAssistedEncounters,
@@ -260,6 +261,7 @@ function App(): ReactElement {
                   />
                   <Route path="/admin/employees/add" element={<AddEmployeePage />} />
                   <Route path="/admin/employee/:id" element={<EditEmployeePage />} />
+                  <Route path="/admin/provider/:practitionerId" element={<ProviderDetailPage />} />
                   <Route path="/admin/schedule/add" element={<CreateSchedulePage />} />
                   <Route path="/admin/provider-groups/add" element={<CreateProviderGroupPage />} />
                   <Route path="/admin/group/id/:group-id" element={<GroupPage />} />

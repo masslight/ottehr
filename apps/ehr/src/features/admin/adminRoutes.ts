@@ -17,6 +17,9 @@ export const ROUTE_ALIASES: { prefix: string; itemPath: string }[] = [
   { prefix: '/admin/schedule/', itemPath: '/admin/schedules' },
   { prefix: '/admin/group/', itemPath: '/admin/provider-groups' },
   { prefix: '/admin/employee/', itemPath: '/admin/employees' },
+  // The provider route resolves to the employee editor, so it belongs to the
+  // same sidebar item as /admin/employee/.
+  { prefix: '/admin/provider/', itemPath: '/admin/employees' },
   { prefix: '/admin/medication/', itemPath: '/admin/medications' },
   { prefix: `${INSURANCES_URL}/`, itemPath: BILLING_INSURANCE_URL },
   { prefix: `${FEE_SCHEDULES_URL}/`, itemPath: '/admin/billing/fee-schedules' },

@@ -66,28 +66,32 @@ export function SchedulesTable(): ReactElement {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const locationQuery = useQuery({
-    queryKey: ['schedule-list', 'Location'],
-    queryFn: () => (oystehrZambda ? listScheduleOwners({ ownerType: 'Location' }, oystehrZambda) : null),
-    enabled: !!oystehrZambda,
-  });
-  const providerQuery = useQuery({
-    queryKey: ['schedule-list', 'Practitioner'],
-    queryFn: () => (oystehrZambda ? listScheduleOwners({ ownerType: 'Practitioner' }, oystehrZambda) : null),
+  // Location- and provider-owned schedules are fetched in parallel but resolved
+  // as ONE query, so the table paints the full list in a single pass instead of
+  // popping in providers first, then locations.
+  const { data, error, isLoading, isFetching } = useQuery({
+    queryKey: ['schedule-list', 'combined'],
+    queryFn: async () => {
+      if (!oystehrZambda) return null;
+      const [locations, providers] = await Promise.all([
+        listScheduleOwners({ ownerType: 'Location' }, oystehrZambda),
+        listScheduleOwners({ ownerType: 'Practitioner' }, oystehrZambda),
+      ]);
+      return { locations, providers };
+    },
     enabled: !!oystehrZambda,
   });
 
-  useErrorQuery(locationQuery.error ?? providerQuery.error, (error) => {
-    if (error) {
+  useErrorQuery(error, (err) => {
+    if (err) {
       enqueueSnackbar({
-        message: isApiError(error) ? (error as APIError).message : 'Error fetching schedules',
+        message: isApiError(err) ? (err as APIError).message : 'Error fetching schedules',
         variant: 'error',
       });
     }
   });
 
-  const loading =
-    locationQuery.isLoading || locationQuery.isFetching || providerQuery.isLoading || providerQuery.isFetching;
+  const loading = isLoading || isFetching;
 
   const toggleExpanded = (id: string): void => {
     setExpanded((prev) => {
@@ -107,7 +111,7 @@ export function SchedulesTable(): ReactElement {
     const result: Row[] = [];
 
     if (ownerTypeFilter !== 'provider') {
-      for (const item of locationQuery.data?.list ?? []) {
+      for (const item of data?.locations.list ?? []) {
         // The list is per-schedule: a Location with no schedule isn't a row (same
         // as a provider with none). Create one via "Add schedule" → Location.
         if (item.schedules.length === 0) continue;
@@ -119,7 +123,7 @@ export function SchedulesTable(): ReactElement {
     }
 
     if (ownerTypeFilter !== 'location') {
-      for (const item of providerQuery.data?.list ?? []) {
+      for (const item of data?.providers.list ?? []) {
         const ownerMatch = matches(item.owner.name);
         const anyLocationMatch = item.schedules.some((s) => matches(s.locationName));
         if (!ownerMatch && !anyLocationMatch) continue;
@@ -132,7 +136,7 @@ export function SchedulesTable(): ReactElement {
     }
 
     return result.sort((a, b) => a.sortName.localeCompare(b.sortName));
-  }, [locationQuery.data, providerQuery.data, search, ownerTypeFilter, activeFilter]);
+  }, [data, search, ownerTypeFilter, activeFilter]);
 
   // Location rows always have a schedule now (schedule-less ones are filtered out
   // above), so this always links to the schedule's page.
@@ -253,7 +257,10 @@ export function SchedulesTable(): ReactElement {
                             aria-label={`manage ${item.owner.name}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/admin/employee/${item.owner.id}#schedule`);
+                              // owner.id is the Practitioner id; the provider
+                              // route resolves it to the User id on the way to
+                              // the employee editor's schedule section.
+                              navigate(`/admin/provider/${item.owner.id}#schedule`);
                             }}
                           >
                             <EditOutlinedIcon fontSize="small" />

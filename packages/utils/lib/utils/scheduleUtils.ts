@@ -303,10 +303,6 @@ export function getWaitingMinutes(now: DateTime, encounters: Encounter[]): numbe
 export function getScheduleExtension(
   scheduleResource: Location | Practitioner | PractitionerRole | HealthcareService | Schedule
 ): ScheduleExtension | undefined {
-  console.log(
-    `extracting schedule and possible overrides from extension on ${scheduleResource.resourceType}`,
-    scheduleResource.id
-  );
   const scheduleExtension = scheduleResource?.extension?.find(function (extensionTemp) {
     return extensionTemp.url === SCHEDULE_EXTENSION_URL;
   })?.valueString;
@@ -326,7 +322,6 @@ export function getTimezone(
   const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
     ?.valueString;
   if (!timezone) {
-    console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
   }
   return timezone;
