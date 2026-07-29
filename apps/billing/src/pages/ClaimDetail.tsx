@@ -1525,7 +1525,9 @@ function Amount({
         </Typography>
         {hint && (
           <Tooltip title={hint}>
-            <WarningAmberIcon titleAccess={hint} sx={{ fontSize: 16, color: 'warning.main' }} />
+            <Box component="span" role="img" aria-label={hint} sx={{ display: 'inline-flex', color: 'warning.main' }}>
+              <WarningAmberIcon sx={{ fontSize: 16 }} />
+            </Box>
           </Tooltip>
         )}
       </Stack>

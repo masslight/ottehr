@@ -401,7 +401,7 @@ describe('ClaimDetail — provisional balance indicator', () => {
     });
     renderDetail();
 
-    expect(await screen.findByTitle(PROVISIONAL_HINT)).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: PROVISIONAL_HINT })).toBeInTheDocument();
   });
 
   it('does not flag the balance once the claim is adjudicated', async () => {
@@ -412,6 +412,6 @@ describe('ClaimDetail — provisional balance indicator', () => {
     renderDetail();
 
     await screen.findAllByText('Jane Doe');
-    expect(screen.queryByTitle(PROVISIONAL_HINT)).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: PROVISIONAL_HINT })).not.toBeInTheDocument();
   });
 });
