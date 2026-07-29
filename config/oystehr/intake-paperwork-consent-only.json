@@ -1,0 +1,207 @@
+{
+  "schema-version": "2025-09-25",
+  "fhirResources": {
+    "intake-paperwork-consent-only-1_0_0": {
+      "resource": {
+        "resourceType": "Questionnaire",
+        "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-consent-only",
+        "version": "1.0.0",
+        "name": "intake-paperwork-consent-only",
+        "title": "Consent Page",
+        "status": "active",
+        "item": [
+          {
+            "linkId": "consent-forms-page",
+            "type": "group",
+            "text": "Complete consent forms",
+            "item": [
+              {
+                "linkId": "consent-forms-checkbox-group",
+                "type": "group",
+                "item": [
+                  {
+                    "linkId": "hipaa-acknowledgement",
+                    "type": "boolean",
+                    "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
+                    "required": true,
+                    "enableWhen": [
+                      {
+                        "question": "$status",
+                        "operator": "!=",
+                        "answerString": "completed"
+                      },
+                      {
+                        "question": "$status",
+                        "operator": "!=",
+                        "answerString": "amended"
+                      }
+                    ],
+                    "enableBehavior": "all",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                        "valueString": "protected"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                        "valueBoolean": true
+                      }
+                    ]
+                  },
+                  {
+                    "linkId": "consent-to-treat",
+                    "type": "boolean",
+                    "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
+                    "required": true,
+                    "enableWhen": [
+                      {
+                        "question": "$status",
+                        "operator": "!=",
+                        "answerString": "completed"
+                      },
+                      {
+                        "question": "$status",
+                        "operator": "!=",
+                        "answerString": "amended"
+                      }
+                    ],
+                    "enableBehavior": "all",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                        "valueString": "protected"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                        "valueBoolean": true
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "linkId": "signature",
+                "type": "string",
+                "text": "Signature",
+                "required": true,
+                "enableWhen": [
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "completed"
+                  },
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "amended"
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Signature"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  }
+                ]
+              },
+              {
+                "linkId": "full-name",
+                "type": "string",
+                "text": "Full name",
+                "required": true,
+                "enableWhen": [
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "completed"
+                  },
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "amended"
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+                    "valueString": "section-consent-forms shipping name"
+                  }
+                ]
+              },
+              {
+                "linkId": "consent-form-signer-relationship",
+                "type": "choice",
+                "text": "Relationship to the patient",
+                "required": true,
+                "answerOption": [
+                  {
+                    "valueString": "Self"
+                  },
+                  {
+                    "valueString": "Spouse"
+                  },
+                  {
+                    "valueString": "Parent"
+                  },
+                  {
+                    "valueString": "Legal Guardian"
+                  },
+                  {
+                    "valueString": "Other"
+                  }
+                ],
+                "enableWhen": [
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "completed"
+                  },
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "amended"
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  }
+                ]
+              }
+            ],
+            "enableWhen": [
+              {
+                "question": "$status",
+                "operator": "!=",
+                "answerString": "completed"
+              },
+              {
+                "question": "$status",
+                "operator": "!=",
+                "answerString": "amended"
+              }
+            ],
+            "enableBehavior": "all",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/review-text",
+                "valueString": "Consent forms"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

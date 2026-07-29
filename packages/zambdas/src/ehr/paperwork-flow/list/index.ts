@@ -19,6 +19,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
+  CONSENT_ONLY_QUESTIONNAIRE_URL,
   getCanonicalUrlFromQ,
   getFlowModes,
   getOttehrManagedQuestionnaires,
@@ -35,6 +36,7 @@ const VIRTUAL_URL = VIRTUAL_INTAKE_PAPERWORK_CANONICAL.url as string;
 const MANAGED_Q_LABEL_MAP = {
   [INTAKE_URL]: 'In-Person Intake Paperwork (system managed)',
   [VIRTUAL_URL]: 'Virtual Intake Paperwork (system managed)',
+  [CONSENT_ONLY_QUESTIONNAIRE_URL]: 'Consent Page (system managed)',
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

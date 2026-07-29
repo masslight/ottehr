@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
@@ -33,6 +33,9 @@ export const healthcareServiceExtensionUrlMap = {
   [ServiceMode['in-person']]: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   [ServiceMode['virtual']]: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
 };
+
+// matches url defined in config/oystehr/intake-paperwork-consent-only.json
+export const CONSENT_ONLY_QUESTIONNAIRE_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-consent-only';
 
 // Version minted for a brand-new flow (bumped on every subsequent edit).
 export const PAPERWORK_FLOW_BASE_VERSION = '1.0.0';
@@ -74,37 +77,37 @@ export const getOttehrManagedQuestionnaires = async (
   const questionnaires = await Promise.all([
     makeQuestionnaireSearchRequest(IN_PERSON_INTAKE_PAPERWORK_CANONICAL, oystehr, secrets),
     makeQuestionnaireSearchRequest(VIRTUAL_INTAKE_PAPERWORK_CANONICAL, oystehr, secrets),
+    makeQuestionnaireSearchRequest({ url: CONSENT_ONLY_QUESTIONNAIRE_URL }, oystehr, secrets),
   ]);
 
   return questionnaires.filter((q) => q !== undefined);
 };
 
 const makeQuestionnaireSearchRequest = async (
-  qConfig: { url: string; version: string },
+  qConfig: { url: string; version?: string },
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<Questionnaire | undefined> => {
   const { url, version } = qConfig;
 
+  const params: SearchParam[] = [{ name: 'url', value: url }];
+  if (version) {
+    params.push({ name: 'version', value: version });
+  } else {
+    params.push({ name: 'status', value: 'active' });
+  }
+
   const qSearch = (
     await oystehr.fhir.search<Questionnaire>({
       resourceType: 'Questionnaire',
-      params: [
-        {
-          name: 'url',
-          value: url,
-        },
-        {
-          name: 'version',
-          value: version,
-        },
-      ],
+      params,
     })
   ).unbundle();
 
   if (qSearch.length !== 1) {
-    console.log('qSearch len:', qSearch.length);
-    const errorMessage = `Unexpected number of questionnaires returned for ${url}|${version}`;
+    const returned = qSearch.map((q) => `Questionnaire/${q.id}`);
+    console.log('questionnaires returned', returned);
+    const errorMessage = `Unexpected number of questionnaires returned for ${url}|${version}: ${returned.length}`;
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     await sendErrors(errorMessage, ENVIRONMENT);
     return;
