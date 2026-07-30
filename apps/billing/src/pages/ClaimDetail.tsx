@@ -852,7 +852,7 @@ function RenderingProviderSection({
   return (
     <ProviderDetailForm
       provider={selectedProvider ?? claimProvider}
-      role="billing"
+      role="rendering"
       onSave={handleSave}
       onCancel={resetFields}
       selector={{
