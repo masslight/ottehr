@@ -13,7 +13,12 @@ import {
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { fetchAllPages } from '../../shared';
-import { ClaimPaymentSummary, fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
+import {
+  ClaimPaymentSummary,
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaidByClaimId,
+  summarizeClaimPayments,
+} from '../claim-amounts';
 import { fhirName } from '../shared';
 
 const CLAIM_SCAN_PAGE_SIZE = 200;
@@ -80,10 +85,10 @@ async function collectPatientArMatches(params: {
     encounterIds,
     claimIds,
   });
-  const claimResponsesByClaimId = await fetchClaimResponsesByClaimIds(
-    oystehr,
-    claims.map((c) => c.id).filter(Boolean) as string[]
-  );
+  const [claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
+    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchPatientPaidByClaimId({ oystehr, claims }),
+  ]);
 
   const candidates: PatientArMatch[] = claims.map((claim) => {
     const claimId = claim.id ?? '';
@@ -92,7 +97,11 @@ async function collectPatientArMatches(params: {
       claimId,
       patientId: claimPatientId(claim),
       statuses: getClaimStatusValues(claim),
-      payments: summarizeClaimPayments(claimResponsesByClaimId.get(claimId) ?? [], claim.total?.value ?? 0),
+      payments: summarizeClaimPayments(
+        claimResponsesByClaimId.get(claimId) ?? [],
+        claim.total?.value ?? 0,
+        patientPaidByClaimId.get(claimId) ?? 0
+      ),
     };
   });
   const matches = candidates.filter(({ statuses, payments }) => {

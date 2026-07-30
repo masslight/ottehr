@@ -119,7 +119,7 @@ export async function performBillingEffect(
   return {
     encounters: balances,
     totalBalanceCents: balances.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
-    // patient payments and credits are not wired into billing claim balances yet (OTR-3094)
+    // payments already reduce each claim balance, billing has no pending payment or credit source yet
     pendingPaymentCents: 0,
     patientCreditCents: 0,
   };

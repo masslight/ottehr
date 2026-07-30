@@ -444,13 +444,23 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
       identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId }],
     });
 
-  const oystehrReturning = (claimsPerSearch: Claim[][]): Oystehr => {
+  const notice = (encounterId: string, amount: number): unknown => ({
+    resourceType: 'PaymentNotice',
+    status: 'active',
+    amount: { value: amount },
+    request: { identifier: { value: encounterId } },
+  });
+
+  const oystehrReturning = (claimsPerSearch: Claim[][], notices: unknown[] = []): Oystehr => {
     let claimSearchCount = 0;
     const search = vi.fn(async (args: { resourceType: string; params: { name: string; value: string }[] }) => {
       if (args.resourceType === 'Claim') {
         const claims = claimsPerSearch[claimSearchCount] ?? [];
         claimSearchCount += 1;
         return { link: [], unbundle: () => claims };
+      }
+      if (args.resourceType === 'PaymentNotice') {
+        return { link: [], unbundle: () => notices };
       }
       return { link: [], unbundle: () => [] };
     });
@@ -476,6 +486,20 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
     expect(identifierParams[0]).toContain('|enc-0');
     expect(identifierParams[1]).toContain('|enc-100');
     expect(items.map((item) => item.claimId).sort()).toEqual(['c-1', 'c-2', 'c-shared']);
+  });
+
+  it('subtracts patient payments from balances and drops settled claims', async () => {
+    const settled = arClaim('c-settled', 'enc-0');
+    const partial = arClaim('c-partial', 'enc-1');
+    const notices = [notice('enc-0', 100), notice('enc-1', 40)];
+
+    const items = await fetchAllActivePatientArClaims(oystehrReturning([[settled, partial]], notices), {
+      encounterIds: ['enc-0', 'enc-1'],
+    });
+
+    expect(items.map((item) => item.claimId)).toEqual(['c-partial']);
+    expect(items[0].patientPaid).toBe(40);
+    expect(items[0].balance).toBe(60);
   });
 
   it('drops claims manually marked fully paid when excludeFullyPaid is set', async () => {
