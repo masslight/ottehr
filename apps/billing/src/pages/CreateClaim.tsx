@@ -27,17 +27,12 @@ import {
   REQUIRED_FIELD_ERROR_MESSAGE,
   withArStageInitialization,
 } from 'utils';
-import {
-  createBillingClaim,
-  getPatientCoverages,
-  searchBillingLocations,
-  searchBillingPatients,
-  searchBillingProviders as searchBillingProvidersApi,
-} from '../api/api';
+import { createBillingClaim, getPatientCoverages, searchBillingLocations, searchBillingPatients } from '../api/api';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor, DiagnosisRow } from '../components/claim/DiagnosesEditor';
 import { emptyServiceLineRow, ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { useApiClients } from '../hooks/useAppClients';
+import { useProviderOptionsSearch } from '../hooks/useOptionSearch';
 
 // The create screen only picks references — patient, coverage, and providers are chosen as-is.
 // Tweaking their underlying details (names, NPIs, addresses, etc.) is done afterward in the claim
@@ -68,9 +63,7 @@ export default function CreateClaim(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const renderingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const locTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const billingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const methods = useForm<CreateClaimForm>({ defaultValues });
   const {
@@ -92,9 +85,9 @@ export default function CreateClaim(): ReactElement {
   // Autocomplete search results — UI state, not form values.
   const [patients, setPatients] = useState<BillingPatientOption[]>([]);
   const [coverages, setCoverages] = useState<BillingCoverageOption[]>([]);
-  const [renderingProviders, setRenderingProviders] = useState<BillingProviderOption[]>([]);
   const [locations, setLocations] = useState<BillingLocationOption[]>([]);
-  const [billingProviders, setBillingProviders] = useState<BillingProviderOption[]>([]);
+  const { options: renderingProviders, search: searchRenderingProviders } = useProviderOptionsSearch('rendering');
+  const { options: billingProviders, search: searchBillingProviders } = useProviderOptionsSearch('billing');
 
   // Watched values used to drive conditional sections / disabled states.
   const selectedPatient = watch('patient');
@@ -106,9 +99,7 @@ export default function CreateClaim(): ReactElement {
   useEffect(() => {
     return (): void => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
-      if (renderingTimer.current) clearTimeout(renderingTimer.current);
       if (locTimer.current) clearTimeout(locTimer.current);
-      if (billingTimer.current) clearTimeout(billingTimer.current);
     };
   }, []);
 
@@ -137,21 +128,6 @@ export default function CreateClaim(): ReactElement {
     [oystehrZambda]
   );
 
-  const searchRenderingProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (renderingTimer.current) clearTimeout(renderingTimer.current);
-      renderingTimer.current = setTimeout(async () => {
-        const res = await searchBillingProvidersApi(oystehrZambda, {
-          providerType: 'rendering',
-          ...(query ? { name: query } : {}),
-        });
-        setRenderingProviders(res.providers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-
   const searchLocations = useCallback(
     (query?: string): void => {
       if (!oystehrZambda) return;
@@ -159,21 +135,6 @@ export default function CreateClaim(): ReactElement {
       locTimer.current = setTimeout(async () => {
         const res = await searchBillingLocations(oystehrZambda, query ? { name: query } : {});
         setLocations(res.locations ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-
-  const searchBillingProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (billingTimer.current) clearTimeout(billingTimer.current);
-      billingTimer.current = setTimeout(async () => {
-        const res = await searchBillingProvidersApi(oystehrZambda, {
-          providerType: 'billing',
-          ...(query ? { name: query } : {}),
-        });
-        setBillingProviders(res.providers ?? []);
       }, 300);
     },
     [oystehrZambda]

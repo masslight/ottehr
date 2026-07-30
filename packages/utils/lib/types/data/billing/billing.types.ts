@@ -297,8 +297,6 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
-  billingType: string;
-  billableStatus: string;
   service?: string;
   patientName: string;
   patientDob: string;
@@ -320,7 +318,6 @@ export interface ClaimDetailResponse {
   payerId: string;
   memberId: string;
   subscriberId: string;
-  coverageStatus: string;
   planType: string;
   relationship: SubscriberRelationship;
   policyHolder: BillingPolicyHolderSummary | null;
