@@ -92,6 +92,28 @@ describe('CopyButton', () => {
     expect(screen.getByTestId('ContentCopyIcon')).toBeInTheDocument();
   });
 
+  it('restarts the confirmation window when the value is copied again', async () => {
+    vi.useFakeTimers();
+    stubClipboard();
+    render(<CopyButton value={CLAIM_ID} label="Claim ID" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Claim ID' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(COPIED_FEEDBACK_MS / 2);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copied Claim ID' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(COPIED_FEEDBACK_MS / 2);
+    });
+    expect(screen.getByRole('button', { name: 'Copied Claim ID' })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(COPIED_FEEDBACK_MS / 2);
+    });
+    expect(screen.getByRole('button', { name: 'Copy Claim ID' })).toBeInTheDocument();
+  });
+
   it('surfaces an error and keeps the copy icon when the clipboard write fails', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const user = userEvent.setup();
