@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { ChargeItemDefinition, Claim, Organization, ProvenanceAgent, Resource } from 'fhir/r4b';
+import { ChargeItemDefinition, Claim, Organization, ProvenanceAgent } from 'fhir/r4b';
 import {
   AR_STAGE,
   BillingRule,
+  CLAIM_PROVENANCE_CHANGE_REF_URL,
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
   CPT_CODE_SYSTEM,
@@ -552,7 +554,7 @@ describe('sub-rules-engine persistModel', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('creates writer-minted working copies first, then PUTs the claim with the real reference', async () => {
+  it('creates writer-minted working copies and updates the claim in a single transaction', async () => {
     const { oystehr, transaction } = makeOystehrMock();
     const model = makeModel();
     // The claim already carries an old billing-provider working copy that the swap replaces.
@@ -574,51 +576,70 @@ describe('sub-rules-engine persistModel', () => {
     model.referenceResources = new Map([['Organization/org-new', original]]);
     expect(writeField(model, 'billingProvider.ref', 'Organization/org-new')).toBe(true);
     const localId = model.billingProvider.id!;
-
-    // The create transaction echoes each POSTed resource back with a server id (order-matched).
-    transaction.mockImplementation(({ requests }: { requests: { method: string; resource?: Resource }[] }) =>
-      Promise.resolve({
-        entry: requests.map((request) => ({
-          resource:
-            request.method === 'POST' && request.resource?.resourceType === 'Organization'
-              ? { ...request.resource, id: 'copy-real-1' }
-              : request.resource,
-        })),
-      })
-    );
+    const urn = `urn:uuid:${localId}`;
 
     const written = await persistModel(oystehr, model, snapshot, AGENT);
 
     expect(written).toBe(2); // the new copy + the claim
-    expect(transaction).toHaveBeenCalledTimes(2);
+    // One atomic transaction: the copy's POST, its create-Provenance, the claim PUT, and the
+    // claim's change-Provenance commit or fail together — no orphaned copies on a partial failure.
+    expect(transaction).toHaveBeenCalledTimes(1);
+    const requests = transaction.mock.calls[0][0].requests;
 
-    // Phase 1: POST with no id, a urn fullUrl, the working-copy tag, and a create-Provenance
+    // The copy: POST with no id, a urn fullUrl, the working-copy tag, and a create-Provenance
     // targeting that urn (rewritten by the server inside the transaction).
-    const phase1 = transaction.mock.calls[0][0].requests;
-    const post = phase1.find((r: { method: string; url: string }) => r.method === 'POST' && r.url === '/Organization');
-    expect(post.fullUrl).toBe(`urn:uuid:${localId}`);
+    const post = requests.find(
+      (r: { method: string; url: string }) => r.method === 'POST' && r.url === '/Organization'
+    );
+    expect(post.fullUrl).toBe(urn);
     expect(post.resource.id).toBeUndefined();
     expect(post.resource.meta.tag).toContainEqual(workingCopyTag);
-    const provenance = phase1.find((r: { url: string }) => r.url === '/Provenance');
-    expect(provenance.resource.target[0].reference).toBe(`urn:uuid:${localId}`);
+    const provenances = requests.filter((r: { url: string }) => r.url === '/Provenance');
+    const createProvenance = provenances.find(
+      (r: { resource: { activity: { coding: { code: string }[] } } }) => r.resource.activity.coding[0].code === 'CREATE'
+    );
+    expect(createProvenance.resource.target[0].reference).toBe(urn);
 
-    // Phase 2: the claim PUT carries the created id — never the urn — and the new copy is not PUT.
-    const phase2 = transaction.mock.calls[1][0].requests;
-    const claimPut = phase2.find(
+    // The claim PUT still references the urn — matching the POST's fullUrl is the contract; the
+    // server rewrites it to the created id inside the transaction (the mock cannot emulate that).
+    const claimPut = requests.find(
       (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
     );
-    expect(claimPut.resource.provider).toEqual({
-      reference: 'Organization/copy-real-1',
-      display: 'New Billing Group',
-    });
+    expect(claimPut.resource.provider).toEqual({ reference: urn, display: 'New Billing Group' });
     expect(
-      phase2.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url.startsWith('Organization/'))
+      requests.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url.startsWith('Organization/'))
     ).toBe(false);
-    // The model object itself now carries the created id, and the superseded old copy was left
-    // untouched (orphaned) — no request in either phase mentions it.
-    expect(model.billingProvider.id).toBe('copy-real-1');
-    const allRequests = [...phase1, ...phase2];
-    expect(allRequests.some((r: { url: string }) => r.url.includes('old-copy-1'))).toBe(false);
+
+    // The claim's change-Provenance: the diff JSON carries no refs (and so no urns) — the urn lives
+    // in a Reference-typed entity the server rewrites, tied to its change by the linking extension.
+    const changeProvenance = provenances.find(
+      (r: { resource: { activity: { coding: { code: string }[] } } }) => r.resource.activity.coding[0].code === 'UPDATE'
+    );
+    const diffString = changeProvenance.resource.extension.find(
+      (e: { url: string }) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL
+    ).valueString;
+    expect(diffString).not.toContain('urn:uuid');
+    expect(JSON.parse(diffString)).toContainEqual({
+      field: 'billingProvider',
+      label: 'Billing Provider',
+      previousValue: 'Old Billing Group',
+      newValue: 'New Billing Group',
+    });
+    expect(changeProvenance.resource.entity).toContainEqual({
+      role: 'derivation',
+      what: { reference: urn },
+      extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'billingProvider|new|0' }],
+    });
+    expect(changeProvenance.resource.entity).toContainEqual({
+      role: 'source',
+      what: { reference: 'Organization/old-copy-1' },
+      extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'billingProvider|previous|0' }],
+    });
+
+    // The model keeps its placeholder id (nothing downstream needs the created id), and the
+    // superseded old copy was left untouched (orphaned) — no request writes to it.
+    expect(model.billingProvider.id).toBe(localId);
+    expect(requests.some((r: { url: string }) => r.url.includes('old-copy-1'))).toBe(false);
   });
 });
 

@@ -3,6 +3,7 @@ import { Operation } from 'fast-json-patch';
 import { Claim, Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import {
   AR_STAGE,
+  CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_STATUS_DATE_EXTENSION_URLS,
   ClaimFieldChange,
@@ -171,6 +172,116 @@ describe('claimProvenanceRequest', () => {
       role: 'revision',
       what: { reference: 'Coverage/1/_history/3' },
     });
+  });
+});
+
+// References are stored as Provenance.entity entries (rewritten by the server when a transaction
+// creates the referenced resource under a urn:uuid fullUrl), never inside the diff JSON.
+describe('claimProvenanceRequest reference storage', () => {
+  const withPayer = (reference: string, display?: string): Coverage => coverage({ payor: [{ reference, display }] });
+
+  it('moves refs out of the diff JSON into linked entities: previous=source, new=derivation', () => {
+    const req = claimProvenanceRequest({
+      targetReference: 'Coverage/cov1',
+      claimReference: CLAIM_REF,
+      before: withPayer('https://rcm.example/payer/1', 'Acme (1)'),
+      after: withPayer('https://rcm.example/payer/2', 'Zenith (2)'),
+      agent,
+      activity: 'update',
+      recorded: 't',
+      priorVersionReference: 'Coverage/cov1/_history/3',
+    });
+    const prov = req!.resource as Provenance;
+    expect(parseChanges(prov)).toEqual([
+      { field: 'payer', label: 'Payer', previousValue: 'Acme (1)', newValue: 'Zenith (2)' },
+    ]);
+    // 'revision' stays reserved for the prior-version entry, first in the list.
+    expect(prov.entity?.[0]).toEqual({ role: 'revision', what: { reference: 'Coverage/cov1/_history/3' } });
+    expect(prov.entity).toContainEqual({
+      role: 'source',
+      what: { reference: 'https://rcm.example/payer/1' },
+      extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'payer|previous|0' }],
+    });
+    expect(prov.entity).toContainEqual({
+      role: 'derivation',
+      what: { reference: 'https://rcm.example/payer/2' },
+      extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'payer|new|0' }],
+    });
+    expect(prov.entity).toHaveLength(3);
+  });
+
+  it('splits a multi-reference field (claim coverage) into one entity per reference, indexed', () => {
+    const claimWith = (insurance: Claim['insurance']): Claim =>
+      ({ resourceType: 'Claim', id: 'c1', type: { coding: [] }, insurance }) as unknown as Claim;
+    const req = claimProvenanceRequest({
+      targetReference: CLAIM_REF,
+      claimReference: CLAIM_REF,
+      before: claimWith([{ sequence: 1, focal: true, coverage: { reference: 'Coverage/a', display: 'Cov A' } }]),
+      after: claimWith([
+        { sequence: 1, focal: true, coverage: { reference: 'Coverage/a', display: 'Cov A' } },
+        { sequence: 2, focal: false, coverage: { reference: 'Coverage/b', display: 'Cov B' } },
+      ]),
+      agent,
+      activity: 'update',
+      recorded: 't',
+    });
+    const prov = req!.resource as Provenance;
+    expect(parseChanges(prov)).toEqual([
+      { field: 'coverage', label: 'Coverage', previousValue: 'Cov A', newValue: 'Cov A, Cov B' },
+    ]);
+    expect(prov.entity).toEqual([
+      {
+        role: 'source',
+        what: { reference: 'Coverage/a' },
+        extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'coverage|previous|0' }],
+      },
+      {
+        role: 'derivation',
+        what: { reference: 'Coverage/a' },
+        extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'coverage|new|0' }],
+      },
+      {
+        role: 'derivation',
+        what: { reference: 'Coverage/b' },
+        extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'coverage|new|1' }],
+      },
+    ]);
+  });
+
+  it('stores null instead of a value that merely repeats a display-less reference', () => {
+    // No display on the payor reference, so the projected value falls back to the raw reference —
+    // which may be a urn about to be rewritten. It must not be baked into the JSON.
+    const req = claimProvenanceRequest({
+      targetReference: 'Coverage/cov1',
+      claimReference: CLAIM_REF,
+      before: coverage(),
+      after: withPayer('urn:uuid:payer-copy'),
+      agent,
+      activity: 'update',
+      recorded: 't',
+    });
+    const prov = req!.resource as Provenance;
+    expect(parseChanges(prov)).toEqual([{ field: 'payer', label: 'Payer', previousValue: null, newValue: null }]);
+    expect(prov.entity).toEqual([
+      {
+        role: 'derivation',
+        what: { reference: 'urn:uuid:payer-copy' },
+        extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'payer|new|0' }],
+      },
+    ]);
+  });
+
+  it('emits no entities for changes without references', () => {
+    const req = claimProvenanceRequest({
+      targetReference: 'Coverage/1',
+      claimReference: CLAIM_REF,
+      before: coverage(),
+      after: coverage({ subscriberId: 'M2' }),
+      agent,
+      activity: 'update',
+      recorded: 't',
+    });
+    expect((req!.resource as Provenance).entity).toBeUndefined();
   });
 });
 

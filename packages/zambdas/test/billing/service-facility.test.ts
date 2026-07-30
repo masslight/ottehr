@@ -522,7 +522,7 @@ describe('save-billing-service-facility handler', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
-    ({ index: saveHandler } = (await import('../../src/billing/save-billing-service-facility/index')) as {
+    ({ index: saveHandler } = (await import('../../src/billing/save-billing-service-facility/index')) as unknown as {
       index: ZambdaHandler;
     });
   });

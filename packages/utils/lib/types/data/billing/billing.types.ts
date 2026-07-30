@@ -435,6 +435,16 @@ export interface SearchBillingPatientARClaimsResponse extends Paginated {
   claims: PatientArClaimItem[];
 }
 
+export interface PatientBalanceSummary {
+  currentBalance: number;
+  claimsWithPatientBalance: number;
+}
+
+export interface GetBillingPatientBalanceResponse {
+  claims: PatientArClaimItem[];
+  balance: PatientBalanceSummary;
+}
+
 export interface SearchBillingProvidersResponse extends Paginated {
   providers: BillingProviderOption[];
 }

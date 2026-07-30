@@ -24,6 +24,8 @@ import {
   EraDetailResponse,
   ExportClaimX12InputSchema,
   ExportClaimX12Response,
+  GetBillingPatientBalanceInputSchema,
+  GetBillingPatientBalanceResponse,
   GetBillingProviderInputSchema,
   GetBillingRulesInputSchema,
   GetChargeItemDefinitionInputSchema,
@@ -147,6 +149,12 @@ export const searchBillingPatientARClaims = (
   parameters: z.input<typeof SearchBillingPatientARClaimsInputSchema>
 ): Promise<SearchBillingPatientARClaimsResponse> =>
   executeBillingZambda(oystehr, 'search-billing-patient-ar-claims', parameters);
+
+export const getBillingPatientBalance = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingPatientBalanceInputSchema>
+): Promise<GetBillingPatientBalanceResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-patient-balance', parameters);
 
 export const getBillingClaimDetail = (
   oystehr: Oystehr,

@@ -141,6 +141,13 @@
       "src": "src/billing/search-billing-patient-ar-claims/index",
       "zip": ".dist/zips/search-billing-patient-ar-claims.zip"
     },
+    "GET-BILLING-PATIENT-BALANCE": {
+      "name": "get-billing-patient-balance",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-patient-balance/index",
+      "zip": ".dist/zips/get-billing-patient-balance.zip"
+    },
     "GET-BILLING-CLAIM-DETAIL": {
       "name": "get-billing-claim-detail",
       "type": "http_auth",
