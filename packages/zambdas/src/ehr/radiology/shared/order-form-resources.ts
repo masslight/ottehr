@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, Location, Observation, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
-import { TIMEZONE_EXTENSION_URL } from 'utils';
+import { getAttendingPractitionerId, TIMEZONE_EXTENSION_URL } from 'utils';
 import { RadiologyOrderFormInput } from '../../../shared/pdf/radiology-order-form-pdf';
 
 export interface RadiologyOrderFormResources {
@@ -23,13 +23,15 @@ export const gatherRadiologyOrderFormInput = async (
 
   const patientId = serviceRequest.subject?.reference?.split('/')[1];
   const encounterId = serviceRequest.encounter?.reference?.split('/')[1];
-  const practitionerId = serviceRequest.requester?.reference?.split('/')[1];
   if (!patientId || !encounterId) {
     throw new Error('ServiceRequest is missing subject or encounter reference');
   }
 
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
   const locationId = encounter.location?.[0]?.location?.reference?.split('/')[1];
+  // The ordering provider on the form is the provider assigned to the visit — orders are often placed
+  // by an MA on the provider's behalf, and the requester is whoever placed the order.
+  const practitionerId = getAttendingPractitionerId(encounter) ?? serviceRequest.requester?.reference?.split('/')[1];
 
   const [patient, practitioner, location, weight] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),

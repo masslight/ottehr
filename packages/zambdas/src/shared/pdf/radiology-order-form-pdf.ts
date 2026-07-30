@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { DocumentReference, Location, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BRANDING_CONFIG,
   BUCKET_NAMES,
   createFilesDocumentReferences,
   FHIR_IDENTIFIER_NPI,
@@ -32,6 +33,7 @@ export const RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE = {
 };
 
 interface OrganizationBlock {
+  projectName?: string;
   name?: string;
   address?: string;
   phone?: string;
@@ -90,6 +92,7 @@ const composeRadiologyOrderFormData: DataComposer<RadiologyOrderFormInput, Radio
       fax: dto.performingOrganization?.fax,
     },
     orderingClinic: {
+      projectName: BRANDING_CONFIG.projectName,
       name: location?.name,
       address: location?.address ? oystehr.fhir.formatAddress(location.address) : undefined,
       phone: location?.telecom?.find((t) => t.system === 'phone')?.value,
@@ -162,7 +165,9 @@ const drawOrganizationBlock = (
   org: OrganizationBlock
 ): void => {
   client.drawText(label, styles.textStyles.sectionLabel);
-  client.drawText(org.name || '—', styles.textStyles.orgName);
+  const nameLines = [org.projectName, org.name].filter(Boolean) as string[];
+  if (!nameLines.length) nameLines.push('—');
+  nameLines.forEach((line) => client.drawText(line, styles.textStyles.orgName));
   if (org.address) client.drawText(org.address, styles.textStyles.regular);
   if (org.fax) client.drawText(`Fax: ${org.fax}`, styles.textStyles.regular);
   if (org.phone) client.drawText(`Phone: ${org.phone}`, styles.textStyles.regular);
