@@ -314,11 +314,14 @@ export function findUnwritableChanges(model: RulesEngineClaimModel, snapshot: Ma
     .map((resource) => `${resource.resourceType}/${resource.id}`);
 }
 
-// Write back the resources a rule actually changed — each with its claim-history Provenance — in one
-// transaction, guarded by ifMatch so a concurrent edit fails the run (Task marked failed) instead of
-// being clobbered. Working copies minted by this run's writers (a provider/facility swap) are
-// created in a preceding transaction so the claim's own diff records real references. Returns the
-// number of resources written.
+// Write back the resources a rule actually changed — each with its claim-history Provenance — in a
+// single atomic transaction. Working copies minted by this run's writers (a provider/facility swap)
+// are POSTed under fullUrl urn:uuid:<placeholder id> alongside the claim's own PUT: the server
+// rewrites the claim's temporary urn references — and the Provenances' Reference-typed entries — to
+// the created ids, so the copies, their create-Provenances, and the claim update commit or fail
+// together (a partial failure can never leave orphaned copies behind). Updates are guarded by
+// ifMatch so a concurrent edit fails the run (Task marked failed) instead of being clobbered.
+// Returns the number of resources written.
 export async function persistModel(
   oystehr: Oystehr,
   model: RulesEngineClaimModel,
@@ -326,15 +329,33 @@ export async function persistModel(
   agent: ProvenanceAgent
 ): Promise<number> {
   const claimReference = `Claim/${model.claim.id}`;
-  const createdCopies = await createPendingCopies(oystehr, model, agent, claimReference);
   const requests: BatchInputRequest<FhirResource>[] = [];
-  let written = createdCopies.size;
+  let written = 0;
   for (const resource of modelResources(model)) {
-    // Just created with its final content — nothing further to write this run.
-    if (createdCopies.has(resource)) continue;
     const url = `${resource.resourceType}/${resource.id}`;
     const before = snapshot.get(url);
     if (before && JSON.stringify(before) === JSON.stringify(resource)) continue;
+    if (resource.id && model.createdCopyIds?.has(resource.id)) {
+      // A copy minted by this run's writers: POST it under its urn fullUrl so the claim's temporary
+      // urn references and the create-Provenance's target resolve to the created id inside the
+      // transaction. The model keeps the placeholder id afterwards — nothing downstream needs the
+      // created id (finalizeEngineRun only uses the claim id).
+      const urn = `urn:uuid:${resource.id}`;
+      const body = structuredClone(resource) as FhirResource;
+      delete body.id;
+      requests.push({ method: 'POST', url: `/${resource.resourceType}`, resource: body, fullUrl: urn });
+      const provenance = claimProvenanceRequest({
+        targetReference: urn,
+        claimReference,
+        after: resource,
+        agent,
+        activity: 'create',
+        recorded: recordedNow(),
+      });
+      if (provenance) requests.push(provenance as BatchInputRequest<FhirResource>);
+      written += 1;
+      continue;
+    }
     // Safety guard: the engine only ever edits the claim itself and its per-claim working copies.
     // Should a claim ever reference a shared (non-working-copy) resource, skip the write rather
     // than mutate a record other claims may share.
@@ -358,66 +379,4 @@ export async function persistModel(
   }
   if (requests.length) await oystehr.fhir.transaction({ requests });
   return written;
-}
-
-// Phase 1 of persistence: POST the working copies this run's writers minted (fullUrl urn:uuid:<local
-// placeholder id> so each copy's create-Provenance can target it), assign the created ids back onto
-// the very objects the model holds, and rewrite the claim's temporary urn references to the real
-// ids. Runs before the PUT/diff phase so the claim's history diff records real references, not
-// urns. Later mutations by subsequent rules are already on the copies when they are POSTed.
-async function createPendingCopies(
-  oystehr: Oystehr,
-  model: RulesEngineClaimModel,
-  agent: ProvenanceAgent,
-  claimReference: string
-): Promise<Set<ModelResource>> {
-  const created = new Set<ModelResource>();
-  const pendingIds = model.createdCopyIds;
-  if (!pendingIds?.size) return created;
-  const pending = modelResources(model).filter((r) => r.id && pendingIds.has(r.id));
-  if (!pending.length) return created;
-
-  const requests: BatchInputRequest<FhirResource>[] = [];
-  // Response entries are order-matched to requests, so remember where each copy's POST landed.
-  const copyRequestIndex: number[] = [];
-  for (const resource of pending) {
-    const urn = `urn:uuid:${resource.id}`;
-    const body = structuredClone(resource) as FhirResource;
-    delete body.id;
-    copyRequestIndex.push(requests.length);
-    requests.push({ method: 'POST', url: `/${resource.resourceType}`, resource: body, fullUrl: urn });
-    const provenance = claimProvenanceRequest({
-      targetReference: urn,
-      claimReference,
-      after: resource,
-      agent,
-      activity: 'create',
-      recorded: recordedNow(),
-    });
-    if (provenance) requests.push(provenance as BatchInputRequest<FhirResource>);
-  }
-
-  const txResult = await oystehr.fhir.transaction<FhirResource>({ requests });
-  const entries = txResult.entry ?? [];
-  pending.forEach((resource, i) => {
-    const createdResource = entries[copyRequestIndex[i]]?.resource;
-    if (!createdResource || createdResource.resourceType !== resource.resourceType || !createdResource.id) {
-      throw new Error(`create transaction did not return the ${resource.resourceType} working copy`);
-    }
-    const urn = `urn:uuid:${resource.id}`;
-    resource.id = createdResource.id;
-    resource.meta = createdResource.meta;
-    rewriteClaimReference(model.claim, urn, `${resource.resourceType}/${resource.id}`);
-    created.add(resource);
-  });
-  return created;
-}
-
-// Replace a temporary urn reference on the claim with the created working copy's real reference.
-function rewriteClaimReference(claim: Claim, urn: string, reference: string): void {
-  if (claim.provider?.reference === urn) claim.provider.reference = reference;
-  if (claim.facility?.reference === urn) claim.facility.reference = reference;
-  for (const member of claim.careTeam ?? []) {
-    if (member.provider?.reference === urn) member.provider.reference = reference;
-  }
 }
