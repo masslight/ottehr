@@ -99,6 +99,8 @@ import {
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
+  DeleteLocationParams,
+  DeleteLocationResponse,
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
   DeleteRadiologyResultZambdaInput,
@@ -318,6 +320,7 @@ const CREATE_LOCATION_ZAMBDA_ID = 'create-location';
 const GET_LOCATION_ZAMBDA_ID = 'get-location';
 const UPDATE_LOCATION_ZAMBDA_ID = 'update-location';
 const TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID = 'toggle-location-active';
+const DELETE_LOCATION_ZAMBDA_ID = 'delete-location';
 const TOGGLE_GROUP_ACTIVE_ZAMBDA_ID = 'toggle-group-active';
 const TOGGLE_SCHEDULE_ACTIVE_ZAMBDA_ID = 'toggle-schedule-active';
 const ADMIN_CREATE_GROUP_ZAMBDA_ID = 'admin-create-group';
@@ -1043,6 +1046,14 @@ export const toggleLocationActive = async (
   oystehr: Oystehr
 ): Promise<{ id: string; status: string }> => {
   const response = await oystehr.zambda.execute({ id: TOGGLE_LOCATION_ACTIVE_ZAMBDA_ID, ...params });
+  return chooseJson(response);
+};
+
+export const deleteLocation = async (
+  params: DeleteLocationParams,
+  oystehr: Oystehr
+): Promise<DeleteLocationResponse> => {
+  const response = await oystehr.zambda.execute({ id: DELETE_LOCATION_ZAMBDA_ID, ...params });
   return chooseJson(response);
 };
 

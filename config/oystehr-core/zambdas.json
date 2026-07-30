@@ -1055,6 +1055,13 @@
       "src": "src/ehr/locations/toggle-location-active/index",
       "zip": ".dist/zips/toggle-location-active.zip"
     },
+    "DELETE-LOCATION": {
+      "name": "delete-location",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/locations/delete-location/index",
+      "zip": ".dist/zips/delete-location.zip"
+    },
     "LIST-SCHEDULE-OWNERS": {
       "name": "list-schedule-owners",
       "type": "http_auth",

@@ -1,9 +1,17 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { createLocation, getLocation, toggleLocationActive, updateLocation } from 'src/api/api';
+import { createLocation, deleteLocation, getLocation, toggleLocationActive, updateLocation } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { APIError, CreateLocationParams, isApiError, LocationFieldsInput, ToggleLocationActiveParams } from 'utils';
+import {
+  APIError,
+  CreateLocationParams,
+  DeleteLocationParams,
+  DeleteLocationResponse,
+  isApiError,
+  LocationFieldsInput,
+  ToggleLocationActiveParams,
+} from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 
 const LOCATIONS_LIST_KEY = 'locations-list';
@@ -66,6 +74,22 @@ export const useUpdateLocationMutation = (
       enqueueSnackbar('Location saved', { variant: 'success' });
     },
     onError: (error) => surfaceError(error, 'Failed to save location.'),
+  });
+};
+
+/**
+ * Guarded hard-delete. Deliberately has no `onError` — the two-phase flow
+ * (force=false → RESOURCE_HAS_DEPENDENTS → confirm → force=true) needs the caller to
+ * branch on the error code, so it uses `mutateAsync` and handles errors itself.
+ */
+export const useDeleteLocationMutation = (): UseMutationResult<DeleteLocationResponse, Error, DeleteLocationParams> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: DeleteLocationParams) => deleteLocation(params, oystehrZambda!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [LOCATIONS_LIST_KEY] });
+    },
   });
 };
 

@@ -6,6 +6,11 @@ import {
   Button,
   Checkbox,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   FormControlLabel,
   IconButton,
@@ -16,11 +21,15 @@ import {
   Typography,
 } from '@mui/material';
 import { Location } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import LocationPaymentsSection from 'src/features/locations/LocationPaymentsSection';
 import {
+  APIError,
+  APIErrorCode,
+  isApiError,
   isLocationInPerson,
   isLocationVirtual,
   LOCATION_REVIEW_LINK_EXTENSION_URL,
@@ -35,7 +44,12 @@ import {
   TIMEZONES,
 } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
-import { useLocationQuery, useToggleLocationActiveMutation, useUpdateLocationMutation } from './location.queries';
+import {
+  useDeleteLocationMutation,
+  useLocationQuery,
+  useToggleLocationActiveMutation,
+  useUpdateLocationMutation,
+} from './location.queries';
 
 const extValue = (location: Location, url: string): string | undefined =>
   location.extension?.find((ext) => ext.url === url)?.valueString;
@@ -61,12 +75,21 @@ export default function LocationConfigPage(): ReactElement {
   const { data: location, isLoading } = useLocationQuery(locationId);
   const updateMutation = useUpdateLocationMutation(locationId);
   const toggleActiveMutation = useToggleLocationActiveMutation();
+  const deleteMutation = useDeleteLocationMutation();
+  const navigate = useNavigate();
 
   const currentUser = useEvolveUser();
   const isCustomerSupport = currentUser?.hasRole([RoleType.CustomerSupport]) ?? false;
   const isAdministrator = currentUser?.hasRole([RoleType.Administrator]) ?? false;
   const canEditPaymentFields = isCustomerSupport;
   const canSeePaymentFields = isCustomerSupport || isAdministrator;
+  // Same role gate the delete-location zambda enforces; the UI just hides the control.
+  const canDeleteLocation = isCustomerSupport || isAdministrator;
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  // null → first-level "are you sure?"; a string → the escalated destructive warning
+  // (the zambda's RESOURCE_HAS_DEPENDENTS message), which "Delete anyway" force-confirms.
+  const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [active, setActive] = useState(true);
@@ -140,6 +163,26 @@ export default function LocationConfigPage(): ReactElement {
       ...(canEditPaymentFields ? { advapacsLocationId: advapacsLocationId.trim() || null } : {}),
     };
     updateMutation.mutate(fields);
+  };
+
+  const runDelete = async (): Promise<void> => {
+    const force = deleteWarning !== null;
+    try {
+      await deleteMutation.mutateAsync({ locationId, force });
+      enqueueSnackbar('Location deleted', { variant: 'success' });
+      setDeleteDialogOpen(false);
+      navigate('/admin/locations');
+    } catch (error) {
+      if (!force && isApiError(error) && (error as APIError).code === APIErrorCode.RESOURCE_HAS_DEPENDENTS) {
+        // Not safe to delete → escalate the dialog to the destructive-action warning.
+        setDeleteWarning((error as APIError).message);
+      } else {
+        enqueueSnackbar(isApiError(error) ? (error as APIError).message : 'Failed to delete location.', {
+          variant: 'error',
+        });
+        setDeleteDialogOpen(false);
+      }
+    }
   };
 
   const breadcrumbs = useMemo(
@@ -358,8 +401,56 @@ export default function LocationConfigPage(): ReactElement {
               Save
             </LoadingButton>
           </Box>
+
+          {canDeleteLocation && (
+            <>
+              <Divider sx={{ mt: 2 }} />
+              <Typography variant="h6" color="error">
+                Danger zone
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Permanently delete this location. Prefer deactivating (the toggle above) unless it was created in error
+                — deletion cannot be undone.
+              </Typography>
+              <Box>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteOutlineIcon />}
+                  onClick={() => {
+                    setDeleteWarning(null);
+                    setDeleteDialogOpen(true);
+                  }}
+                >
+                  Delete location
+                </Button>
+              </Box>
+            </>
+          )}
         </Box>
       </Paper>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          if (!deleteMutation.isPending) setDeleteDialogOpen(false);
+        }}
+      >
+        <DialogTitle>{deleteWarning ? 'Delete anyway?' : 'Delete this location?'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteWarning ?? `“${name || 'This location'}” will be permanently deleted. This can't be undone.`}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteMutation.isPending}>
+            Cancel
+          </Button>
+          <LoadingButton color="error" onClick={runDelete} loading={deleteMutation.isPending}>
+            {deleteWarning ? 'Delete anyway' : 'Delete'}
+          </LoadingButton>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

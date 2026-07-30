@@ -27,6 +27,7 @@ export enum APIErrorCode {
   RESOURCE_INCOMPLETE_FOR_OPERATION = 4022,
   ALREADY_EXISTS = 4023,
   CONCURRENT_UPDATE = 4024,
+  RESOURCE_HAS_DEPENDENTS = 4025,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
@@ -129,6 +130,31 @@ export const MEDICAL_RECORD_TOO_LARGE_ERROR = (maxMb: number): APIError => ({
   message: `This medical record is too large to export as a single download (over ${maxMb} MB).`,
   statusCode: 413,
 });
+
+/**
+ * Returned by a guarded hard-delete when the target still has dependents and the
+ * caller didn't pass `force`. The message enumerates what's attached so the UI can
+ * show a specific destructive-action warning; a follow-up call with `force: true`
+ * proceeds.
+ */
+export const RESOURCE_HAS_DEPENDENTS_ERROR = (dependents: {
+  schedules: number;
+  practitionerRoles: number;
+  appointments: number;
+}): APIError => {
+  const parts: string[] = [];
+  const plural = (n: number, singular: string): string => `${n} ${singular}${n === 1 ? '' : 's'}`;
+  if (dependents.schedules) parts.push(plural(dependents.schedules, 'schedule'));
+  if (dependents.practitionerRoles) parts.push(plural(dependents.practitionerRoles, 'provider role'));
+  if (dependents.appointments) parts.push(plural(dependents.appointments, 'appointment'));
+  return {
+    code: APIErrorCode.RESOURCE_HAS_DEPENDENTS,
+    message:
+      `This location has ${parts.join(', ')} associated with it. Deleting it will also delete its ` +
+      `schedules and provider roles. Appointments will be kept but will reference a deleted location.`,
+    statusCode: 409,
+  };
+};
 
 export const CANT_UPDATE_CHECKED_IN_APT_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_MODIFIED,

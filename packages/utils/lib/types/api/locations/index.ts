@@ -41,3 +41,31 @@ export interface ToggleLocationActiveParams {
   /** `true` → active, `false` → inactive (archived; drops out of patient booking). */
   active: boolean;
 }
+
+export interface DeleteLocationParams {
+  locationId: string;
+  /**
+   * `false`/omitted → the delete is refused with `RESOURCE_HAS_DEPENDENTS` if the
+   * Location has dependent Schedules/PractitionerRoles or any Appointments, so the UI
+   * can warn first. `true` → proceed: dependent Schedules and PractitionerRoles are
+   * cascade-deleted and the Location is deleted; Appointments are never deleted
+   * (clinical history is kept — their location reference is orphaned).
+   */
+  force?: boolean;
+}
+
+/** Counts of what points at a Location — drives the pre-delete warning. */
+export interface LocationDependents {
+  schedules: number;
+  practitionerRoles: number;
+  appointments: number;
+}
+
+export interface DeleteLocationResponse {
+  deleted: true;
+  id: string;
+  /** Cascade-deleted alongside the Location. */
+  cascaded: { schedules: number; practitionerRoles: number };
+  /** Appointments left intact (their location reference is now orphaned). */
+  orphanedAppointments: number;
+}
