@@ -150,6 +150,10 @@ export const SearchBillingPatientARClaimsInputSchema = z.object({
   pageSize: nonNegativeInt.optional(),
 });
 
+export const GetBillingPatientBalanceInputSchema = z.object({
+  encounterIds: z.array(z.string().uuid()).min(1).max(1000),
+});
+
 export const SearchBillingProvidersInputSchema = z.object({
   providerType: z.enum(['rendering', 'billing']),
   providerId: nonEmptyString.optional(),
@@ -639,6 +643,7 @@ export type GetPatientCoveragesInput = z.output<typeof GetPatientCoveragesInputS
 export type GetBillingBillingProviderInput = z.output<typeof GetBillingProviderInputSchema>;
 export type SearchBillingClaimsInput = z.output<typeof SearchBillingClaimsInputSchema>;
 export type SearchBillingPatientARClaimsInput = z.output<typeof SearchBillingPatientARClaimsInputSchema>;
+export type GetBillingPatientBalanceInput = z.output<typeof GetBillingPatientBalanceInputSchema>;
 export type SearchBillingProvidersInput = z.output<typeof SearchBillingProvidersInputSchema>;
 export type SearchBillingPatientsInput = z.output<typeof SearchBillingPatientsInputSchema>;
 export type SearchBillingLocationsInput = z.output<typeof SearchBillingLocationsInputSchema>;

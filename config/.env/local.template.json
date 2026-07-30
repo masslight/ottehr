@@ -22,6 +22,7 @@
   "CANDID_CLIENT_ID": "",
   "CANDID_CLIENT_SECRET": "",
   "CANDID_ENV": "",
+  "PATIENT_BALANCE_SOURCE": "candid",
   "ANTHROPIC_API_KEY": "",
   "GOOGLE_CLOUD_API_KEY": "",
   "STRIPE_PUBLIC_KEY": "the_public_api_key_from_your_stripe_account",
