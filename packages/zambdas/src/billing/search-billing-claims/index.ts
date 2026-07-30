@@ -39,6 +39,7 @@ import {
   getClaimStatus,
   getClaimType,
   resolvePayersByRef,
+  resourceDisplayName,
   sortClaimInsurance,
 } from '../shared';
 import { SearchBillingClaimsParams, validateRequestParameters } from './validateRequestParameters';
@@ -54,6 +55,14 @@ export const CLAIM_LIST_INCLUDE_PARAMS: ClaimSearchParam[] = [
   {
     name: '_include',
     value: 'Claim:facility',
+  },
+  {
+    name: '_include',
+    value: 'Claim:care-team',
+  },
+  {
+    name: '_include',
+    value: 'Claim:provider',
   },
 ];
 
@@ -130,7 +139,7 @@ async function performEffect(
     pageClaims = page.claims;
     includedResources = page.includedResources;
   } else if (filteringByServiceDate) {
-    includedResources = await getAllFhirSearchPages<Claim | Patient | Location | Practitioner>(
+    includedResources = await getAllFhirSearchPages<Claim | Patient | Location | Practitioner | Organization>(
       {
         resourceType: 'Claim',
         params: [...CLAIM_LIST_INCLUDE_PARAMS, ...filterParams],
@@ -160,12 +169,14 @@ async function performEffect(
 
   const patients = includedResources.filter((r) => r.resourceType === 'Patient') as Patient[];
   const locations = includedResources.filter((r) => r.resourceType === 'Location') as Location[];
-  const practitioners = includedResources.filter((r) => r.resourceType === 'Practitioner') as Practitioner[];
+  const providers = includedResources.filter(
+    (r): r is Practitioner | Organization => r.resourceType === 'Practitioner' || r.resourceType === 'Organization'
+  );
 
   const items = await enrichAndMapClaims(oystehr, pageClaims, {
     patients,
     locations,
-    practitioners,
+    providers,
   });
 
   return {
@@ -418,7 +429,7 @@ export async function fetchClaimsPageByIds({
 async function enrichAndMapClaims(
   oystehr: Oystehr,
   claims: Claim[],
-  included: { patients: Patient[]; locations: Location[]; practitioners: Practitioner[] }
+  included: { patients: Patient[]; locations: Location[]; providers: (Practitioner | Organization)[] }
 ): Promise<BillingClaimItem[]> {
   // Batch-fetch coverages for the current page
   const coverageIds = claims
@@ -451,7 +462,7 @@ async function enrichAndMapClaims(
     patients: included.patients,
     payersByRef,
     locations: included.locations,
-    practitioners: included.practitioners,
+    providers: included.providers,
     coverages,
     claimResponsesByClaimId,
     patientPaidByClaimId,
@@ -463,7 +474,7 @@ interface ClaimLookups {
   patients: Patient[];
   payersByRef: Map<string, Organization>;
   locations: Location[];
-  practitioners: Practitioner[];
+  providers: (Practitioner | Organization)[];
   coverages: Coverage[];
   claimResponsesByClaimId: Map<string, ClaimResponse[]>;
   patientPaidByClaimId: Map<string, number>;
@@ -477,9 +488,8 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
   const coverage = findRef<Coverage>(lookups.coverages, sortedInsurance[0]?.coverage?.reference);
   const billed = claim.total?.value ?? 0;
 
-  const practRef = claim.careTeam?.[0]?.provider?.reference;
-  const pract = findRef<Practitioner>(lookups.practitioners, practRef);
-  const practName = fhirName(pract);
+  const renderingRef = claim.careTeam?.[0]?.provider?.reference;
+  const renderingProvider = findRef<Practitioner | Organization>(lookups.providers, renderingRef);
   const patientName = fhirName(patient);
 
   const serviceDate = getClaimServiceDate(claim);
@@ -504,7 +514,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     service: getClaimService(claim),
     serviceDate,
     facility: facility?.name ?? '',
-    renderingProvider: practName,
+    renderingProvider: resourceDisplayName(renderingProvider) ?? '',
     billed,
     allowed: payments.allowed,
     insurancePaid: payments.insurancePaid,
