@@ -854,6 +854,9 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
               });
             else if (next === RULE_ACTION_TYPE.removeServiceLines)
               replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
+            else if (next === RULE_ACTION_TYPE.applyChargeMasterPrices)
+              // Default to all lines: re-pricing the whole claim is the common case.
+              replace({ type: RULE_ACTION_TYPE.applyChargeMasterPrices, match: { type: SERVICE_LINE_MATCH_TYPE.all } });
             else replace({ type: RULE_ACTION_TYPE.noop });
             clearErrors(name);
           }}
@@ -863,6 +866,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <MenuItem value={RULE_ACTION_TYPE.addServiceLine}>Add a service line</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.updateServiceLines}>Update service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.removeServiceLines}>Remove service lines</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.applyChargeMasterPrices}>Apply charge master prices</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
         </Select>
       </FormControl>
@@ -922,6 +926,16 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
         </Box>
       )}
       {value.type === RULE_ACTION_TYPE.removeServiceLines && <ServiceLineMatchEditor name={`${name}.match`} />}
+      {value.type === RULE_ACTION_TYPE.applyChargeMasterPrices && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <ServiceLineMatchEditor name={`${name}.match`} />
+          <FormHelperText>
+            Prices each matched line from the best charge master for the claim's billing type (the insurance or self-pay
+            default, most recent effective date on or before the date of service). A matched line the charge master
+            cannot price fails the rule and holds the claim.
+          </FormHelperText>
+        </Box>
+      )}
       {value.type === RULE_ACTION_TYPE.applyTag && (
         <Controller
           name={`${name}.tag`}

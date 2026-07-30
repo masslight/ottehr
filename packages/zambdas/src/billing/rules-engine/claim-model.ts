@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import {
   Address,
+  ChargeItemDefinition,
   Claim,
   Coverage,
   HumanName,
@@ -80,6 +81,11 @@ export interface RulesEngineClaimModel {
   // "set provider/facility from list" actions, prefetched by the engine so the synchronous
   // writers can copy them. Keyed "ResourceType/id".
   referenceResources?: Map<string, Practitioner | Organization | Location>;
+  // The candidate charge masters (active billing ChargeItemDefinitions carrying an insurance or
+  // self-pay default tag), prefetched by the engine when the rule set applies charge master prices.
+  // Read-only reference data like referenceResources: shared resources, never persisted with the
+  // model — the applyChargeMasterPrices action only reads prices out of them.
+  chargeMasters?: ChargeItemDefinition[];
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model

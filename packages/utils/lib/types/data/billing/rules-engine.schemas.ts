@@ -108,6 +108,7 @@ export const RULE_ACTION_TYPE = {
   addServiceLine: 'addServiceLine',
   updateServiceLines: 'updateServiceLines',
   removeServiceLines: 'removeServiceLines',
+  applyChargeMasterPrices: 'applyChargeMasterPrices',
   noop: 'noop',
 } as const;
 export const RULE_OUTCOME_TYPE = { actions: 'actions', conditional: 'conditional', noop: 'noop' } as const;
@@ -196,6 +197,9 @@ export type RuleAction =
       set: { property: string; value: string; operation?: ServiceLineSetOperation };
     }
   | { type: 'removeServiceLines'; match: ServiceLineMatch }
+  // Re-prices the matching lines from the best applicable charge master (resolved by the engine at
+  // apply time from the claim's billing type and date of service).
+  | { type: 'applyChargeMasterPrices'; match: ServiceLineMatch }
   | { type: 'noop' };
 
 // Tags are free text in the UI, but the engine halts on an exact HOLD_TAG_NAME match — so
@@ -222,6 +226,7 @@ export const RuleActionSchema = z.discriminatedUnion('type', [
     }),
   }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.removeServiceLines), match: ServiceLineMatchSchema }),
+  z.object({ type: z.literal(RULE_ACTION_TYPE.applyChargeMasterPrices), match: ServiceLineMatchSchema }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.noop) }),
 ]);
 
