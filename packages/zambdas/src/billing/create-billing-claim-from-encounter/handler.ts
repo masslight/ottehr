@@ -85,6 +85,7 @@ import {
   sendErrors,
   ZambdaInput,
 } from '../../shared';
+import { getChargeMasterPrice } from '../charge-master.helpers';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
@@ -1360,35 +1361,15 @@ function getPriceForProcedure(procedure: Procedure, chargeMaster?: ChargeItemDef
     (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER
   );
   const procedureCodeModifier = procedureCodeModifierExt?.valueCodeableConcept?.coding?.find(
-    (coding) => (coding.system = CODE_SYSTEM_CPT_MODIFIER)
+    (coding) => coding.system === CODE_SYSTEM_CPT_MODIFIER
   )?.code;
   // Return early if nothing to check
   if (!procedureCode) {
     return 0;
   }
-  // Find price definition for CPT code
-  const priceDefinition = chargeMaster.propertyGroup?.find((pg) => {
-    const pc = pg.priceComponent?.[0];
-    // No price component, no match
-    if (!pc) return false;
-    // Not a base price component, no match
-    if (pc.type !== 'base') return false;
-    // Coding doesn't match, no match
-    if (!pc.code?.coding?.some((coding) => coding.system === CPT_CODE_SYSTEM && coding.code === procedureCode))
-      return false;
-    // If there's a modifier and it doesn't match, no match
-    if (
-      procedureCodeModifier &&
-      !pc.extension?.some((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER && ext.valueCode === procedureCodeModifier)
-    )
-      return false;
-    return true;
-  });
-  if (!priceDefinition) {
-    return 0;
-  }
-  const price = priceDefinition.priceComponent?.[0].amount?.value;
-  return price ?? 0;
+  // A claim built from an encounter carries a price on every line; a code the charge master doesn't
+  // cover is billed at 0 for the biller to fill in.
+  return getChargeMasterPrice(chargeMaster, procedureCode, procedureCodeModifier ? [procedureCodeModifier] : []) ?? 0;
 }
 
 export async function complexValidation(
