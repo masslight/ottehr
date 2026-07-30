@@ -19,7 +19,6 @@
     "cancel-telemed-appointments": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/cancel-telemed-appointments.ts",
     "charge-due-and-past-due-invoices": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/charge-due-and-past-due-invoices.ts",
     "report-daily-payments": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/report-daily-payments.ts",
-    "spike-provenance-entity-rewrite": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/spike-provenance-entity-rewrite.ts",
     "report-duplicate-payments": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/report-duplicate-payments.ts",
     "report-past-due-invoices": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/report-past-due-invoices.ts",
     "report-provider-visists": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/report-provider-visists.ts",
