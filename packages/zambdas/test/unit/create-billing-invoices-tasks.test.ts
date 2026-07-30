@@ -17,6 +17,10 @@ vi.mock('../../src/shared', async (importOriginal) => {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+    isOttehrBillingInvoicingEnabled: (secrets: unknown) =>
+      (
+        actual.isOttehrBillingInvoicingEnabled as (s: unknown, f: { ottehrBillingInvoicingEnabled: boolean }) => boolean
+      )(secrets, { ottehrBillingInvoicingEnabled: true }),
   };
 });
 
