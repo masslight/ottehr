@@ -46,6 +46,17 @@ import { SearchBillingClaimsParams, validateRequestParameters } from './validate
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-claims';
 
+export const CLAIM_LIST_INCLUDE_PARAMS: ClaimSearchParam[] = [
+  {
+    name: '_include',
+    value: 'Claim:patient',
+  },
+  {
+    name: '_include',
+    value: 'Claim:facility',
+  },
+];
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
@@ -73,10 +84,12 @@ async function performEffect(
     insurerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
   }
 
-  const filterParams: { name: string; value: string }[] = [
-    { name: '_include', value: 'Claim:patient' },
-    { name: '_include', value: 'Claim:facility' },
-    { name: '_sort', value: '-_lastUpdated' },
+  const filterParams: ClaimSearchParam[] = [
+    ...CLAIM_LIST_INCLUDE_PARAMS,
+    {
+      name: '_sort',
+      value: '-_lastUpdated',
+    },
   ];
 
   if (params.type) filterParams.push({ name: '_tag', value: `${CODE_SYSTEM_CLAIM_TYPE}|${params.type}` });
@@ -274,6 +287,46 @@ export function collectClaimSearchBatch({ batch, requestUrls }: { batch: Bundle;
   return {
     claims: deduplicated.sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a)),
     truncatedUrls,
+  };
+}
+
+export async function fetchClaimsPageByIds({
+  oystehr,
+  claimIds,
+}: {
+  oystehr: Oystehr;
+  claimIds: string[];
+}): Promise<{ claims: Claim[]; includedResources: Resource[] }> {
+  if (claimIds.length === 0) {
+    return {
+      claims: [],
+      includedResources: [],
+    };
+  }
+
+  const bundle = await oystehr.fhir.search<Claim>({
+    resourceType: 'Claim',
+    params: [
+      {
+        name: '_id',
+        value: claimIds.join(','),
+      },
+      ...CLAIM_LIST_INCLUDE_PARAMS,
+      {
+        name: '_count',
+        value: String(claimIds.length),
+      },
+    ],
+  });
+
+  const includedResources = (bundle.entry ?? []).map((e) => e.resource).filter(Boolean) as Resource[];
+  const claimsById = new Map(
+    includedResources.filter((r): r is Claim => r.resourceType === 'Claim' && !!r.id).map((claim) => [claim.id, claim])
+  );
+
+  return {
+    claims: claimIds.map((id) => claimsById.get(id)).filter((claim): claim is Claim => !!claim),
+    includedResources,
   };
 }
 

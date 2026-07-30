@@ -1,9 +1,12 @@
-import { Bundle, Claim } from 'fhir/r4b';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import Oystehr from '@oystehr/sdk';
+import { Bundle, Claim, Resource } from 'fhir/r4b';
+import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 import {
   buildClaimSearchTextQueries,
+  CLAIM_LIST_INCLUDE_PARAMS,
   CLAIM_SEARCH_TEXT_MATCH_LIMIT,
   collectClaimSearchBatch,
+  fetchClaimsPageByIds,
 } from '../../../src/billing/search-billing-claims';
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
@@ -264,6 +267,103 @@ describe('collectClaimSearchBatch', () => {
     ).toEqual({
       claims: [],
       truncatedUrls: [],
+    });
+  });
+});
+
+const stubOystehr = (
+  resources: Resource[]
+): {
+  oystehr: Oystehr;
+  search: Mock;
+} => {
+  const search = vi.fn().mockResolvedValue({
+    entry: resources.map((resource) => ({
+      resource,
+    })),
+  });
+  return {
+    oystehr: {
+      fhir: {
+        search,
+      },
+    } as unknown as Oystehr,
+    search,
+  };
+};
+
+const searchParams = (search: Mock): { name: string; value: string }[] => search.mock.calls[0][0].params;
+
+describe('fetchClaimsPageByIds', () => {
+  it('asks for exactly the page it was given, with the resources the list renders', async () => {
+    const { oystehr, search } = stubOystehr([makeClaim('claim-1'), makeClaim('claim-2')]);
+
+    await fetchClaimsPageByIds({
+      oystehr,
+      claimIds: ['claim-1', 'claim-2'],
+    });
+
+    expect(search.mock.calls[0][0].resourceType).toBe('Claim');
+    expect(searchParams(search)).toEqual([
+      {
+        name: '_id',
+        value: 'claim-1,claim-2',
+      },
+      ...CLAIM_LIST_INCLUDE_PARAMS,
+      {
+        name: '_count',
+        value: '2',
+      },
+    ]);
+  });
+
+  it('reapplies the requested order to the server response', async () => {
+    const { oystehr } = stubOystehr([makeClaim('claim-3'), makeClaim('claim-1'), makeClaim('claim-2')]);
+
+    const { claims } = await fetchClaimsPageByIds({
+      oystehr,
+      claimIds: ['claim-1', 'claim-2', 'claim-3'],
+    });
+    expect(claims.map((c) => c.id)).toEqual(['claim-1', 'claim-2', 'claim-3']);
+  });
+
+  it('returns the included resources alongside the claims', async () => {
+    const patient = {
+      resourceType: 'Patient',
+      id: 'patient-1',
+    } as Resource;
+    const { oystehr } = stubOystehr([makeClaim('claim-1'), patient]);
+
+    const { claims, includedResources } = await fetchClaimsPageByIds({
+      oystehr,
+      claimIds: ['claim-1'],
+    });
+    expect(claims.map((c) => c.id)).toEqual(['claim-1']);
+    expect(includedResources).toContainEqual(patient);
+  });
+
+  it('skips an id the server did not return rather than leaving a hole', async () => {
+    const { oystehr } = stubOystehr([makeClaim('claim-2')]);
+
+    const { claims } = await fetchClaimsPageByIds({
+      oystehr,
+      claimIds: ['claim-1', 'claim-2'],
+    });
+    expect(claims.map((c) => c.id)).toEqual(['claim-2']);
+  });
+
+  it('does not search at all for an empty page', async () => {
+    const { oystehr, search } = stubOystehr([]);
+
+    const result = await fetchClaimsPageByIds({
+      oystehr,
+      claimIds: [],
+    });
+
+    expect(search).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      claims: [],
+      includedResources: [],
     });
   });
 });
