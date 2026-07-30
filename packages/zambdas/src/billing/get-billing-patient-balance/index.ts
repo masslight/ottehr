@@ -24,6 +24,8 @@ export async function performEffect(
 ): Promise<GetBillingPatientBalanceResponse> {
   const claims = await fetchAllActivePatientArClaims(oystehr, {
     encounterIds: params.encounterIds,
+    // overpaid claims have negative balances; callers need them to surface patient credit
+    includeZeroBalance: true,
     // A biller can mark a claim fully paid by hand. Keep those out of the patient balance display.
     excludeFullyPaid: true,
   });

@@ -131,4 +131,84 @@ describe('get-patient-balances - performBillingEffect', () => {
     expect(result.encounters).toHaveLength(1);
     expect(result.totalBalanceCents).toBe(5000);
   });
+
+  it('returns an overpayment as patient credit while leaving posted payments out of pending payments', async () => {
+    const oystehr = mockOystehr(
+      [encounter('enc-1', 'appt-1'), appointment('appt-1', '2026-07-01T10:00:00Z')],
+      [claim({ claimId: 'claim-1', balance: -12.5, patientPaid: 62.5 })]
+    );
+
+    const result = await performBillingEffect(validatedInput, oystehr);
+
+    expect(result.encounters).toEqual([]);
+    expect(result.totalBalanceCents).toBe(0);
+    expect(result.pendingPaymentCents).toBe(0);
+    expect(result.patientCreditCents).toBe(1250);
+  });
+
+  it('keeps settled and overpaid claims out of the payable encounters and nets them against balances due for credit', async () => {
+    const oystehr = mockOystehr(
+      [
+        encounter('enc-1', 'appt-1'),
+        appointment('appt-1', '2026-07-01T10:00:00Z'),
+        encounter('enc-2', 'appt-2'),
+        appointment('appt-2', '2026-06-15T09:00:00Z'),
+        encounter('enc-3', 'appt-3'),
+        appointment('appt-3', '2026-05-20T09:00:00Z'),
+      ],
+      [
+        claim({ claimId: 'claim-1', encounterId: 'enc-1', balance: 50 }),
+        claim({ claimId: 'claim-2', encounterId: 'enc-2', balance: -12.5, patientPaid: 62.5 }),
+        claim({ claimId: 'claim-3', encounterId: 'enc-3', balance: 0, patientPaid: 50 }),
+      ]
+    );
+
+    const result = await performBillingEffect(validatedInput, oystehr);
+
+    expect(result.encounters).toEqual([
+      {
+        encounterId: 'enc-1',
+        encounterDate: '2026-07-01T10:00:00Z',
+        appointmentId: 'appt-1',
+        patientBalanceCents: 5000,
+      },
+    ]);
+    expect(result.totalBalanceCents).toBe(5000);
+    // the $12.50 overpayment is absorbed by the $50 still owed, matching the Candid patient-level balance
+    expect(result.patientCreditCents).toBe(0);
+  });
+
+  it('reports credit for the portion of overpayments exceeding the balances still due', async () => {
+    const oystehr = mockOystehr(
+      [
+        encounter('enc-1', 'appt-1'),
+        appointment('appt-1', '2026-07-01T10:00:00Z'),
+        encounter('enc-2', 'appt-2'),
+        appointment('appt-2', '2026-06-15T09:00:00Z'),
+      ],
+      [
+        claim({ claimId: 'claim-1', encounterId: 'enc-1', balance: 10 }),
+        claim({ claimId: 'claim-2', encounterId: 'enc-2', balance: -30, patientPaid: 80 }),
+      ]
+    );
+
+    const result = await performBillingEffect(validatedInput, oystehr);
+
+    expect(result.encounters).toHaveLength(1);
+    expect(result.totalBalanceCents).toBe(1000);
+    expect(result.patientCreditCents).toBe(2000);
+  });
+
+  it('ignores duplicate encounter claims entirely, even when they would contribute credit', async () => {
+    const oystehr = mockOystehr(
+      [encounter('enc-1', 'appt-1'), appointment('appt-1', '2026-07-01T10:00:00Z')],
+      [claim({ claimId: 'claim-1', balance: 30 }), claim({ claimId: 'claim-2', balance: -12.25, patientPaid: 42.25 })]
+    );
+
+    const result = await performBillingEffect(validatedInput, oystehr);
+
+    expect(result.encounters).toHaveLength(1);
+    expect(result.totalBalanceCents).toBe(3000);
+    expect(result.patientCreditCents).toBe(0);
+  });
 });

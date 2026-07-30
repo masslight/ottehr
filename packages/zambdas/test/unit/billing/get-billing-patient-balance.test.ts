@@ -86,6 +86,13 @@ describe('get-billing-patient-balance', () => {
         claimsWithPatientBalance: 1,
       });
     });
+
+    it('includes claim credits in the current balance', () => {
+      expect(summarizePatientBalance([claim({ balance: 25 }), claim({ balance: -40 })])).toEqual({
+        currentBalance: -15,
+        claimsWithPatientBalance: 1,
+      });
+    });
   });
 
   describe('performEffect', () => {
@@ -97,6 +104,7 @@ describe('get-billing-patient-balance', () => {
 
       expect(fetchAllActivePatientArClaims).toHaveBeenCalledWith(oystehr, {
         encounterIds: ['enc-1', 'enc-2'],
+        includeZeroBalance: true,
         excludeFullyPaid: true,
       });
       expect(result).toEqual({

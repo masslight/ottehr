@@ -96,22 +96,29 @@ export async function performBillingEffect(
   );
 
   const rows = new Map<string, GetPatientBalancesZambdaOutput['encounters'][number]>();
+  const seenEncounterIds = new Set<string>();
+  let netBalanceCents = 0;
   for (const claim of claims) {
     const encounterData = claim.encounterId ? encounterDataMap.get(claim.encounterId) : undefined;
     if (!claim.encounterId || !encounterData) {
       console.warn(`Claim ${claim.claimId} has no linked clinical encounter, skipping it.`);
       continue;
     }
-    if (rows.has(claim.encounterId)) {
+    if (seenEncounterIds.has(claim.encounterId)) {
       // first claim per encounter wins, matching create-invoice-tasks-for-billing-claims
       console.warn(`Encounter ${claim.encounterId} has multiple active AR claims; skipping claim ${claim.claimId}`);
       continue;
     }
+    seenEncounterIds.add(claim.encounterId);
+    const patientBalanceCents = Math.round(claim.balance * 100);
+    netBalanceCents += patientBalanceCents;
+    // settled and overpaid claims stay out of the payable rows, matching the Candid path
+    if (patientBalanceCents <= 0) continue;
     rows.set(claim.encounterId, {
       encounterId: claim.encounterId,
       encounterDate: encounterData.encounterDate,
       appointmentId: encounterData.appointmentId,
-      patientBalanceCents: Math.round(claim.balance * 100),
+      patientBalanceCents,
     });
   }
 
@@ -119,9 +126,10 @@ export async function performBillingEffect(
   return {
     encounters: balances,
     totalBalanceCents: balances.reduce((acc, { patientBalanceCents }) => acc + patientBalanceCents, 0),
-    // payments already reduce each claim balance, billing has no pending payment or credit source yet
+    // Billing PaymentNotices are already posted against claim balances; none are separately pending.
     pendingPaymentCents: 0,
-    patientCreditCents: 0,
+    // like the Candid patient-level balance, credit surfaces only once the account nets negative
+    patientCreditCents: Math.max(-netBalanceCents, 0),
   };
 }
 

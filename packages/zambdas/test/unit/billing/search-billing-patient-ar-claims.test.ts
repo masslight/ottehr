@@ -502,6 +502,22 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
     expect(items[0].balance).toBe(60);
   });
 
+  it('keeps settled and overpaid claims when zero balances are requested', async () => {
+    const settled = arClaim('c-settled', 'enc-0');
+    const overpaid = arClaim('c-overpaid', 'enc-1');
+    const notices = [notice('enc-0', 100), notice('enc-1', 125)];
+
+    const items = await fetchAllActivePatientArClaims(oystehrReturning([[settled, overpaid]], notices), {
+      encounterIds: ['enc-0', 'enc-1'],
+      includeZeroBalance: true,
+    });
+
+    expect(items.map(({ claimId, balance }) => ({ claimId, balance }))).toEqual([
+      { claimId: 'c-overpaid', balance: -25 },
+      { claimId: 'c-settled', balance: 0 },
+    ]);
+  });
+
   it('drops claims manually marked fully paid when excludeFullyPaid is set', async () => {
     const fullyPaid = arClaim('c-paid', 'enc-0', { patientPaidStatus: 'fully-paid' });
     const owing = arClaim('c-owing', 'enc-1');
