@@ -232,6 +232,37 @@ export async function performEffect(
   };
 }
 
+function encounterAndAppointmentSearchParams(patientId: string): { name: string; value: string }[] {
+  return [
+    {
+      name: 'subject',
+      value: `Patient/${patientId}`,
+    },
+    {
+      name: '_include',
+      value: 'Encounter:appointment',
+    },
+    // exclude follow-up encounters that are missing appointment references
+    {
+      name: 'appointment:missing',
+      value: 'false',
+    },
+  ];
+}
+
+function splitEncountersAndAppointments(
+  resources: (Encounter | Appointment)[],
+  patientId: string
+): { encounters: Encounter[]; appointments: Appointment[] } {
+  const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
+  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+  console.log(`Found ${encounters.length} encounters for patient ${patientId}`);
+  return {
+    encounters,
+    appointments,
+  };
+}
+
 // Same search as getFhirEncountersAndAppointmentsForPatient but pages through every encounter.
 async function getAllFhirEncountersAndAppointmentsForPatient(
   oystehr: Oystehr,
@@ -242,18 +273,7 @@ async function getAllFhirEncountersAndAppointmentsForPatient(
     const bundle = await oystehr.fhir.search<Encounter | Appointment>({
       resourceType: 'Encounter',
       params: [
-        {
-          name: 'subject',
-          value: `Patient/${patientId}`,
-        },
-        {
-          name: '_include',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: 'appointment:missing',
-          value: 'false',
-        },
+        ...encounterAndAppointmentSearchParams(patientId),
         {
           name: '_count',
           value: String(count),
@@ -267,13 +287,7 @@ async function getAllFhirEncountersAndAppointmentsForPatient(
     resources.push(...bundle.unbundle());
     return bundle;
   }, ENCOUNTER_SCAN_PAGE_SIZE);
-  const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
-  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
-  console.log(`Found ${encounters.length} encounters for patient ${patientId}`);
-  return {
-    encounters,
-    appointments,
-  };
+  return splitEncountersAndAppointments(resources, patientId);
 }
 
 async function getFhirEncountersAndAppointmentsForPatient(
@@ -282,30 +296,9 @@ async function getFhirEncountersAndAppointmentsForPatient(
 ): Promise<{ encounters: Encounter[]; appointments: Appointment[] }> {
   const resourcesResponse = await oystehr.fhir.search<Encounter | Appointment>({
     resourceType: 'Encounter',
-    params: [
-      {
-        name: 'subject',
-        value: `Patient/${patientId}`,
-      },
-      {
-        name: '_include',
-        value: 'Encounter:appointment',
-      },
-      // exclude follow-up encounters that are missing appointment references
-      {
-        name: 'appointment:missing',
-        value: 'false',
-      },
-    ],
+    params: encounterAndAppointmentSearchParams(patientId),
   });
-  const resources = resourcesResponse.unbundle();
-  const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
-  const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
-  console.log(`Found ${encounters.length} encounters for patient ${patientId}`);
-  return {
-    encounters,
-    appointments,
-  };
+  return splitEncountersAndAppointments(resourcesResponse.unbundle(), patientId);
 }
 
 async function getAllCandidEncounters(
