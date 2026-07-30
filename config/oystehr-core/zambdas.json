@@ -1172,10 +1172,24 @@
       "name": "send-fax-packet",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "memorySize": "3008",
-      "timeout": "27",
       "src": "src/ehr/send-fax-packet/index",
       "zip": ".dist/zips/send-fax-packet.zip"
+    },
+    "GET-FAX-PACKET-STATUS": {
+      "name": "get-fax-packet-status",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-fax-packet-status/index",
+      "zip": ".dist/zips/get-fax-packet-status.zip"
+    },
+    "SUB-SEND-FAX-PACKET": {
+      "name": "sub-send-fax-packet",
+      "type": "subscription",
+      "timeout": "300",
+      "memorySize": "3008",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-send-fax-packet/index",
+      "zip": ".dist/zips/sub-send-fax-packet.zip"
     },
     "GET-FAX-PACKET-PREVIEW": {
       "name": "get-fax-packet-preview",
@@ -2531,6 +2545,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-MERGE-PATIENTS/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_SEND_FAX_PACKET_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "background outbound fax packet send",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|send-fax-packet&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-FAX-PACKET/id}"
         },
         "extension": [
           {

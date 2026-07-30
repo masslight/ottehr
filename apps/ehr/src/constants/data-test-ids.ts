@@ -110,9 +110,6 @@ export const dataTestIds = {
   faxDialog: {
     root: 'fax-dialog',
     menuItem: 'fax-documents-menu-item',
-    docModeAll: 'fax-dialog-mode-all',
-    docModeSelected: 'fax-dialog-mode-selected',
-    docCheckbox: 'fax-dialog-document-checkbox',
     recipientName: 'fax-dialog-recipient-name',
     organization: 'fax-dialog-recipient-organization',
     faxNumber: 'fax-dialog-recipient-fax-number',

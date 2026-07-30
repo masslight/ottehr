@@ -1,15 +1,15 @@
 import AddIcon from '@mui/icons-material/Add';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, DialogActions, DialogContent, Divider, Typography, useTheme } from '@mui/material';
+import { Box, Button, DialogActions, DialogContent, Stack, Tooltip, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { FaxDocumentKind, GetFaxPacketPreviewOutput } from 'utils';
-import { buildDocumentRows, toggleKind } from '../model/faxDocuments';
+import { GetFaxPacketPreviewOutput } from 'utils';
+import { availableDocumentLabels, hasNothingToSend } from '../model/faxDocuments';
 import { buildDefaultFormValues } from '../model/faxForm';
 import { applySaveAsPcp, canAddRecipient, canSend, emptyRecipient } from '../model/faxRecipients';
-import { FaxDocumentSelectionMode, FaxFormValues } from '../model/types';
-import { DocumentSelector } from './DocumentSelector';
+import { FaxFormValues } from '../model/types';
 import { RecipientFields } from './RecipientFields';
 
 interface SendFaxFormProps {
@@ -19,40 +19,30 @@ interface SendFaxFormProps {
   onCancel: () => void;
 }
 
-/**
- * The Send Fax form. Mounts only after the preview has loaded, so `useForm` seeds itself from the preview at
- * mount — no syncing effect. Document selection and the recipient list are react-hook-form state.
- */
 export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit, onCancel }) => {
   const theme = useTheme();
 
-  const methods = useForm<FaxFormValues>({
-    mode: 'onChange',
-    defaultValues: buildDefaultFormValues(preview),
-  });
-  const { control, watch, setValue, getValues, handleSubmit } = methods;
+  const methods = useForm<FaxFormValues>({ mode: 'onChange', defaultValues: buildDefaultFormValues(preview) });
+  const { control, watch, getValues, handleSubmit } = methods;
   const recipientsArray = useFieldArray({ control, name: 'recipients' });
 
-  const mode = watch('mode');
-  const selectedKinds = watch('selectedKinds');
   const recipients = watch('recipients');
-
-  const documentRows = buildDocumentRows(preview.documents, selectedKinds, mode);
-  const sendEnabled = canSend({ mode, availability: preview.documents, selectedKinds, recipients });
+  const includedLabels = availableDocumentLabels(preview.documents);
+  const sendEnabled = canSend(recipients, includedLabels.length > 0);
 
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
-          <DocumentSelector
-            title="What documents do you want to send?"
-            rows={documentRows}
-            mode={mode}
-            onModeChange={(next: FaxDocumentSelectionMode) => setValue('mode', next)}
-            onToggle={(id) => setValue('selectedKinds', toggleKind(selectedKinds, id as FaxDocumentKind))}
-          />
-
-          <Divider sx={{ my: 2 }} />
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
+            <Typography>Fax all visit-related documents</Typography>
+            <Tooltip
+              title={includedLabels.length > 0 ? includedLabels.join(', ') : 'No documents to fax for this visit yet.'}
+              placement="top"
+            >
+              <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
+            </Tooltip>
+          </Stack>
 
           <Typography variant="subtitle1" sx={{ color: theme.palette.primary.dark, fontWeight: 600, mb: 2 }}>
             Recipient Information
@@ -98,7 +88,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit
             type="submit"
             variant="contained"
             loading={isSending}
-            disabled={!sendEnabled}
+            disabled={!sendEnabled || hasNothingToSend(preview.documents)}
             sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
             data-testid={dataTestIds.faxDialog.sendButton}
           >

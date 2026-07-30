@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
+  FAX_DOCUMENT_ORDER,
   FAX_PACKET_MAX_BYTES,
   FAX_PACKET_MAX_PAGES,
   FaxDocumentKind,
@@ -35,25 +36,19 @@ export interface FaxPacketBody {
 
 const MAX_BYTES_MB = (FAX_PACKET_MAX_BYTES / (1024 * 1024)).toFixed(0);
 
-/** Short, stable per-recipient discriminator so concurrent sends never collide on a filename. */
-const recipientHash = (recipient: FaxRecipient): string =>
-  createHash('sha256').update(recipient.faxNumber).digest('hex').slice(0, 8);
-
 export async function buildFaxPacketBody(args: {
   oystehr: Oystehr;
   token: string;
   secrets: Secrets | null;
-  kinds: FaxDocumentKind[];
+  kinds?: FaxDocumentKind[];
   visitResources: FullAppointmentResourcePackage;
 }): Promise<FaxPacketBody> {
-  const { oystehr, token, secrets, kinds, visitResources } = args;
+  const { oystehr, token, secrets, visitResources } = args;
+  const kinds = args.kinds ?? FAX_DOCUMENT_ORDER;
 
   const parts = await collectFaxParts({ oystehr, token, secrets, kinds, visitResources });
   if (parts.length === 0) {
-    throw new Error(
-      `No documents could be collected for the fax packet (requested: ${kinds.join(', ') || 'none'}). ` +
-        'Nothing was sent.'
-    );
+    throw new Error('No documents could be collected for the fax packet. Nothing was sent.');
   }
 
   const partBytes = await Promise.all(
@@ -130,7 +125,7 @@ export async function buildAndUploadPacketForRecipient(args: {
   // A retry must re-send the original bytes, so every packet is its own immutable file: the unique
   // filename doubles as the DocumentReference title, which is what keeps earlier packets from being
   // superseded (see makeFaxPacketDocumentReference).
-  const fileName = `FaxPacket-${DateTime.now().toUTC().toFormat('yyyy-MM-dd-HHmmss')}-${recipientHash(recipient)}.pdf`;
+  const fileName = `FaxPacket-${DateTime.now().toUTC().toFormat('yyyy-MM-dd-HHmmss')}-${randomUUID()}.pdf`;
 
   const uploadURL = makeZ3Url({
     secrets,

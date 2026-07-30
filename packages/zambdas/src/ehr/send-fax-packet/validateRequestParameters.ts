@@ -40,7 +40,6 @@ export function validateRequestParameters(input: ZambdaInput): SendFaxPacketInpu
 
   return {
     appointmentId: parsed.appointmentId,
-    documents: parsed.documents,
     recipients,
     secrets: input.secrets,
   };

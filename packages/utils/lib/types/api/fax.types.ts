@@ -67,7 +67,6 @@ export type FaxRecipient = z.infer<typeof FaxRecipientSchema>;
 export const SendFaxPacketInputSchema = z
   .object({
     appointmentId: z.string().uuid(),
-    documents: z.array(FaxDocumentKindSchema).min(1),
     recipients: z.array(FaxRecipientSchema).min(1).max(FAX_MAX_RECIPIENTS),
   })
   .refine(
@@ -76,20 +75,35 @@ export const SendFaxPacketInputSchema = z
   );
 export type SendFaxPacketInput = z.infer<typeof SendFaxPacketInputSchema>;
 
-export interface FaxSendResult {
-  recipient: FaxRecipient;
-  status: 'sent' | 'failed';
-  taskId?: string;
-  faxPacketDocumentReferenceId?: string;
-  error?: string;
+/** The send is queued as a Task; the caller polls its status with `get-fax-packet-status`. */
+export interface SendFaxPacketOutput {
+  taskId: string;
 }
 
-export interface SendFaxPacketOutput {
-  /** Page count of the packet, cover sheet included. Identical for every recipient. */
-  pageCount: number;
-  results: FaxSendResult[];
-  /** Set when the fax went out but persisting the recipient as PCP failed. Non-fatal. */
-  pcpSaveError?: string;
+export type FaxDeliveryStatus = 'sent' | 'failed';
+
+/** One recipient's outcome, surfaced to the UI. No raw error text — details live in server logs only. */
+export interface FaxRecipientResult {
+  name?: string;
+  organization?: string;
+  faxNumber: string;
+  phoneNumber?: string;
+  status: FaxDeliveryStatus;
+}
+
+export type FaxJobStatus = 'pending' | 'completed' | 'failed';
+
+export const GetFaxPacketStatusInputSchema = z.object({
+  taskId: z.string().uuid(),
+});
+export type GetFaxPacketStatusInput = z.infer<typeof GetFaxPacketStatusInputSchema>;
+
+export interface GetFaxPacketStatusOutput {
+  /** `pending` while the Task is requested/in-progress; `completed` once it ran (recipients may still have
+   * failed individually); `failed` when the whole job could not run. */
+  jobStatus: FaxJobStatus;
+  /** Per-recipient outcomes once the job has run. Empty while pending or on a hard failure. */
+  recipients: FaxRecipientResult[];
 }
 
 export const GetFaxPacketPreviewInputSchema = z.object({
@@ -126,3 +140,24 @@ export const FAX_DOCUMENT_UNAVAILABLE_REASONS: Record<FaxDocumentKind, string> =
 /** Patient education pages are physically merged into the discharge summary PDF when one is generated, so
  * attaching both would duplicate them. */
 export const FAX_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON = 'Included in Discharge Summary';
+
+/** Request payload (JSON) carried on the fax-packet Task, read by the subscription that does the work.
+ * The appointment is on `Task.focus` and the patient on `Task.for`; this holds the rest. */
+export interface FaxPacketTaskPayload {
+  recipients: FaxRecipient[];
+  /** Practitioner reference of the requesting user, used as the fax sender / cover-sheet sender. */
+  senderPractitionerId: string;
+  /** User id of the requester, recorded on each delivery attempt. */
+  senderUserId: string;
+}
+
+export const FAX_PACKET_REQUEST_TASK_INPUT = {
+  system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-input',
+  code: 'request',
+} as const;
+
+/** Per-recipient results (JSON) the subscription writes back onto the Task for the status poll. */
+export const FAX_PACKET_RESULTS_TASK_OUTPUT = {
+  system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-output',
+  code: 'results',
+} as const;

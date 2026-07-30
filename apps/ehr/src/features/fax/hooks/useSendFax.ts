@@ -1,9 +1,12 @@
-import { useCallback, useState } from 'react';
-import { FaxSendResult, GetFaxPacketPreviewOutput } from 'utils';
+import { useQueryClient } from '@tanstack/react-query';
+import { enqueueSnackbar } from 'notistack';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { FaxRecipientResult, GetFaxPacketPreviewOutput } from 'utils';
 import { toSendFaxPacketInput } from '../model/faxRecipients';
 import { FaxFormValues } from '../model/types';
 import { useFaxPacketPreview } from './useFaxPacketPreview';
-import { failedResults, useSendFaxPacket } from './useSendFaxPacket';
+import { useFaxPacketStatus } from './useFaxPacketStatus';
+import { useSendFaxPacket } from './useSendFaxPacket';
 
 export interface UseSendFaxResult {
   isOpen: boolean;
@@ -14,29 +17,31 @@ export interface UseSendFaxResult {
   previewError: boolean;
   preview?: GetFaxPacketPreviewOutput;
 
+  /** True from submit until the queued Task reaches a terminal state. */
   isSending: boolean;
-  /** Sends the packet, then closes the dialog. Rejects on transport failure (toast is shown by the mutation). */
+  /** Queues the send; the dialog stays open showing a sending state until the poll resolves. */
   send: (values: FaxFormValues) => Promise<void>;
 
   /** Recipients the fax could not be delivered to. Non-empty means the result dialog is shown. */
-  failures: FaxSendResult[];
+  failures: FaxRecipientResult[];
   dismissFailures: () => void;
 }
 
-/**
- * Owns the Send Fax dialog lifecycle: open/close, the availability preview and the send mutation. Holds no
- * form state — the form lives in `SendFaxForm`, which mounts only once the preview has loaded and seeds
- * itself from it.
- */
 export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult => {
   const [isOpen, setIsOpen] = useState(false);
-  const [failures, setFailures] = useState<FaxSendResult[]>([]);
+  const [taskId, setTaskId] = useState<string | undefined>(undefined);
+  const [failures, setFailures] = useState<FaxRecipientResult[]>([]);
+  const handledTaskId = useRef<string | undefined>(undefined);
 
+  const queryClient = useQueryClient();
   const preview = useFaxPacketPreview(appointmentId, isOpen);
-  const sendMutation = useSendFaxPacket(appointmentId);
+  const sendMutation = useSendFaxPacket();
+  const status = useFaxPacketStatus(taskId);
 
   const open = useCallback(() => {
     setFailures([]);
+    setTaskId(undefined);
+    handledTaskId.current = undefined;
     setIsOpen(true);
   }, []);
 
@@ -44,16 +49,43 @@ export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult 
 
   const send = useCallback(
     async (values: FaxFormValues): Promise<void> => {
-      if (!appointmentId || !preview.data) return;
-      const input = toSendFaxPacketInput(appointmentId, values, preview.data.documents);
-      // A rejected mutation throws here; the toast is in useSendFaxPacket.onError and the dialog stays open.
-      const output = await sendMutation.mutateAsync(input);
-      // A resolved mutation always closes the dialog; partial failures then surface in the result dialog.
-      setFailures(failedResults(output));
-      setIsOpen(false);
+      if (!appointmentId) return;
+      const output = await sendMutation.mutateAsync(toSendFaxPacketInput(appointmentId, values));
+      handledTaskId.current = undefined;
+      setTaskId(output.taskId);
     },
-    [appointmentId, preview.data, sendMutation]
+    [appointmentId, sendMutation]
   );
+
+  // React to the polled Task reaching a terminal state. Guarded by
+  // handledTaskId so each queued job is resolved exactly once.
+  useEffect(() => {
+    const data = status.data;
+
+    if (!taskId || !data || data.jobStatus === 'pending') return;
+
+    if (handledTaskId.current === taskId) return;
+
+    handledTaskId.current = taskId;
+
+    if (data.jobStatus === 'failed') {
+      enqueueSnackbar('The fax could not be processed. Please try again.', { variant: 'error' });
+      setIsOpen(false);
+    } else {
+      const failed = data.recipients.filter((recipient) => recipient.status === 'failed');
+
+      if (failed.length === 0) {
+        const count = data.recipients.length;
+        enqueueSnackbar(`Fax sent to ${count} recipient${count === 1 ? '' : 's'}`, { variant: 'success' });
+      }
+
+      setFailures(failed);
+      setIsOpen(false);
+    }
+
+    setTaskId(undefined);
+    void queryClient.invalidateQueries({ queryKey: ['get-visit-fax-history', appointmentId] });
+  }, [status.data, taskId, appointmentId, queryClient]);
 
   return {
     isOpen,
@@ -62,7 +94,7 @@ export const useSendFax = (appointmentId: string | undefined): UseSendFaxResult 
     isLoadingPreview: preview.isLoading,
     previewError: preview.isError,
     preview: preview.data,
-    isSending: sendMutation.isPending,
+    isSending: sendMutation.isPending || Boolean(taskId),
     send,
     failures,
     dismissFailures: useCallback(() => setFailures([]), []),

@@ -9,7 +9,6 @@ describe('send-fax-packet - validateRequestParameters', () => {
 
   const body = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
     appointmentId: APPOINTMENT_ID,
-    documents: ['progress-note'],
     recipients: [{ faxNumber: '2125551234' }],
     ...overrides,
   });
@@ -19,7 +18,6 @@ describe('send-fax-packet - validateRequestParameters', () => {
 
     expect(result).toEqual({
       appointmentId: APPOINTMENT_ID,
-      documents: ['progress-note'],
       recipients: [{ faxNumber: '+12125551234', phoneNumber: undefined }],
       secrets,
     });
@@ -107,16 +105,6 @@ describe('send-fax-packet - validateRequestParameters', () => {
   test('throws when appointmentId is not a valid UUID', () => {
     expect(() =>
       validateRequestParameters(createMockZambdaInput(body({ appointmentId: 'appt-123' }), { secrets }))
-    ).toThrow();
-  });
-
-  test('throws when no documents are selected', () => {
-    expect(() => validateRequestParameters(createMockZambdaInput(body({ documents: [] }), { secrets }))).toThrow();
-  });
-
-  test('throws for an unknown document kind', () => {
-    expect(() =>
-      validateRequestParameters(createMockZambdaInput(body({ documents: ['billing-summary'] }), { secrets }))
     ).toThrow();
   });
 

@@ -1,10 +1,10 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { FaxSendResult, formatPhoneNumberDisplay } from 'utils';
+import { FaxRecipientResult, formatPhoneNumberDisplay } from 'utils';
 
 interface FaxSendResultDialogProps {
-  failures: FaxSendResult[];
+  failures: FaxRecipientResult[];
   onClose: () => void;
 }
 
@@ -30,11 +30,11 @@ export const FaxSendResultDialog: FC<FaxSendResultDialogProps> = ({ failures, on
         <Typography sx={{ mb: 2 }}>The following recipient(s) could not be reached:</Typography>
         {failures.map((failure, index) => (
           <Typography
-            key={`${failure.recipient.faxNumber}-${index}`}
+            key={`${failure.faxNumber}-${index}`}
             sx={{ fontWeight: 600, mb: 1 }}
             data-testid={dataTestIds.faxResultDialog.failedRecipient}
           >
-            {failure.recipient.name || 'Unnamed recipient'} — {formatPhoneNumberDisplay(failure.recipient.faxNumber)}
+            {failure.name || 'Unnamed recipient'} — {formatPhoneNumberDisplay(failure.faxNumber)}
           </Typography>
         ))}
       </DialogContent>
