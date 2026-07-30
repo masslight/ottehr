@@ -37,6 +37,9 @@ export function CopyButton({ value, label, children }: CopyButtonProps): ReactEl
       aria-label={copied ? `Copied ${label}` : `Copy ${label}`}
       onClick={() => void handleCopy()}
       sx={{
+        display: 'flex',
+        justifyContent: 'flex-start',
+        width: 'fit-content',
         gap: 0.5,
         borderRadius: 1,
       }}
