@@ -1550,7 +1550,7 @@ function TagAdder({
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
           {available.map((t) => (
             <Chip
-              key={t.id}
+              key={t.id || t.name}
               label={t.name}
               size="small"
               color="primary"

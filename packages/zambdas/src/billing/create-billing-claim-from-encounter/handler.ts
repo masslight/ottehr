@@ -35,6 +35,8 @@ import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
+  AUTO_ACCIDENT_SYSTEM_TAG,
+  AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
@@ -83,8 +85,6 @@ import {
 } from '../../shared';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
-  AUTO_ACCIDENT_TAG_DESCRIPTION,
-  AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
   createBillingClient,
@@ -103,9 +103,8 @@ import {
   resourceDisplayName,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
+  systemTagBasic,
   TAG_CODE_SYSTEM,
-  TAG_DESCRIPTION_URL,
-  TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -440,19 +439,12 @@ export async function performEffect(
 
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
-    billingTags.push('auto-accident');
+    billingTags.push(AUTO_ACCIDENT_TAG_NAME);
     if (!billingResources.autoAccidentTag) {
       requests.push({
         method: 'POST',
         url: '/Basic',
-        resource: {
-          resourceType: 'Basic',
-          code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-          extension: [
-            { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
-            { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-          ],
-        },
+        resource: systemTagBasic(AUTO_ACCIDENT_SYSTEM_TAG),
       });
       order.push('auto-accident-tag');
     }

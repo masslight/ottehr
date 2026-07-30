@@ -18,6 +18,8 @@ import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   APIError,
   AR_STAGE,
+  AUTO_ACCIDENT_SYSTEM_TAG,
+  AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
   CANDID_PLAN_TYPE_SYSTEM,
   CLAIM_STATUS_TAG_SYSTEMS,
@@ -59,16 +61,12 @@ import {
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 import { validateRequestParameters } from '../../../src/billing/create-billing-claim-from-encounter/validateRequestParameters';
 import {
-  AUTO_ACCIDENT_TAG_DESCRIPTION,
-  AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
   CURRENT_STATUS_TAG_SYSTEM,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
-  TAG_CODE_SYSTEM,
-  TAG_DESCRIPTION_URL,
-  TAG_IS_SYSTEM_TAG_URL,
+  systemTagBasic,
 } from '../../../src/billing/shared';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
@@ -357,14 +355,7 @@ const billingResources: {
     resourceType: 'Organization',
     id: 'billing-organization-123',
   },
-  autoAccidentTag: {
-    resourceType: 'Basic',
-    code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-    extension: [
-      { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
-      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-    ],
-  },
+  autoAccidentTag: systemTagBasic(AUTO_ACCIDENT_SYSTEM_TAG),
   billingService: {
     resourceType: 'Basic',
     code: { text: 'urgent-care', coding: [{ system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, code: 'urgent-care' }] },
