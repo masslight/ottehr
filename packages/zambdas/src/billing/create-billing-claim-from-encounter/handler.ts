@@ -85,7 +85,7 @@ import {
   sendErrors,
   ZambdaInput,
 } from '../../shared';
-import { getChargeMasterPrice } from '../charge-master.helpers';
+import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
@@ -1127,7 +1127,7 @@ async function findExistingBillingResources(
   }
   let chargeMaster: ChargeItemDefinition | undefined;
   if (chargeMasterDefault) {
-    const cidSearch = (
+    const candidates = (
       await billingOystehr.fhir.search<ChargeItemDefinition>({
         resourceType: 'ChargeItemDefinition',
         params: [
@@ -1136,23 +1136,20 @@ async function findExistingBillingResources(
             value: 'active',
           },
           {
-            name: 'date',
-            value: `lt${new Date().toISOString()}`,
-          },
-          {
             name: '_tag',
             value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|${chargeMasterDefault}`,
-          },
-          {
-            name: '_sort',
-            value: 'date',
           },
         ],
       })
     ).unbundle();
-    if (cidSearch.length) {
-      chargeMaster = cidSearch[0];
-    }
+    // Resolve the best candidate the same way the rules engine's applyChargeMasterPrices action
+    // does: most recent effective date on or before the claim's date of service — the facility-local
+    // appointment date buildClaim stamps on every service line. buildClaim asserts appointment.start;
+    // fall back to today here only so selection never throws first.
+    const dateOfService = clinicalResources.appointment.start
+      ? getLocalDateOfService(clinicalResources.appointment.start, matchingServiceFacility)
+      : new Date().toISOString().slice(0, 10);
+    chargeMaster = selectBestChargeMaster(candidates, chargeMasterDefault, dateOfService);
   }
 
   return {

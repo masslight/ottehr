@@ -378,7 +378,8 @@ const billingResources: {
     resourceType: 'ChargeItemDefinition',
     title: 'insurance default',
     url: 'insurance-default',
-    date: '2026-01-01',
+    // Clearly effective before the fixture appointment's (facility-local) date of service.
+    date: '2025-06-01',
     status: 'active',
     propertyGroup: [
       {
@@ -415,7 +416,7 @@ const billingResources: {
     resourceType: 'ChargeItemDefinition',
     title: 'self-pay default',
     url: 'self-pay-default',
-    date: '2026-01-01',
+    date: '2025-06-01',
     status: 'active',
     propertyGroup: [
       {
@@ -1199,6 +1200,71 @@ describe('create-billing-claim-from-encounter', () => {
       );
       if (tc.expectedError) await expectPromise.rejects.toThrow(expect.objectContaining(tc.expectedError));
       else await expectPromise.resolves.toStrictEqual(tc.expectedResult);
+    });
+
+    it('selects the most recent charge master effective on or before the date of service', async () => {
+      // Same resolution as the rules engine's applyChargeMasterPrices action (selectBestChargeMaster):
+      // the fixture appointment is on 2026-01-01, so "newer" beats "older", while a future-effective
+      // or retired designation never applies.
+      const variant = (title: string, date: string, status: 'active' | 'retired' = 'active'): ChargeItemDefinition => ({
+        ...billingResources.chargeMasterInsurance,
+        title,
+        date,
+        status,
+      });
+      const clinicalOystehrSearch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          unbundle: () => [
+            clinicalResources.encounter,
+            clinicalResources.patient,
+            clinicalResources.appointment,
+            clinicalResources.location,
+            clinicalResources.practitioner,
+            clinicalResources.account,
+            clinicalResources.coverage,
+            ...clinicalResources.conditions,
+            clinicalResources.procedure,
+          ],
+        })
+        .mockResolvedValueOnce({ unbundle: () => [clinicalResources.coverage] })
+        .mockResolvedValueOnce({ unbundle: () => [clinicalResources.billingProvider] });
+      const billingOystehrSearch = vi
+        .fn()
+        .mockResolvedValueOnce({ unbundle: () => [] }) // existing claim
+        .mockResolvedValueOnce({
+          unbundle: () => [billingResources.person, billingResources.patient, billingResources.account],
+        })
+        .mockResolvedValueOnce({ unbundle: () => [billingResources.coverage, billingResources.relatedPerson] })
+        .mockResolvedValueOnce({ unbundle: () => [billingResources.location] })
+        .mockResolvedValueOnce({ unbundle: () => [billingResources.practitioner] })
+        .mockResolvedValueOnce({ unbundle: () => [billingResources.billingProvider] })
+        .mockResolvedValueOnce({ unbundle: () => [billingResources.autoAccidentTag] })
+        .mockResolvedValueOnce({ unbundle: () => [billingResources.billingService] })
+        .mockResolvedValueOnce({
+          // Charge master candidates (selection happens client-side, not via search order)
+          unbundle: () => [
+            variant('older', '2024-01-01'),
+            variant('newer', '2025-12-01'),
+            variant('future', '2026-06-01'),
+            variant('retired-recent', '2025-12-15', 'retired'),
+          ],
+        });
+
+      const result = await complexValidation(
+        {
+          fhir: { search: clinicalOystehrSearch },
+          rcm: {
+            config: {},
+            getPayerByUrl: vi.fn().mockResolvedValue(oystehrResources.payor),
+            constructPayerUrl: new Oystehr({}).rcm.constructPayerUrl,
+          },
+        } as unknown as Oystehr,
+        { fhir: { search: billingOystehrSearch } } as unknown as Oystehr,
+        { encounterId, secrets: { DEFAULT_BILLING_RESOURCE: 'Organization/organization-123' } }
+      );
+
+      expect(result.billingResources.chargeMaster?.title).toBe('newer');
     });
   });
 
