@@ -27,7 +27,6 @@ const claim = {
   payerName: 'Acme',
   payerId: 'ACME',
   memberId: 'M1',
-  coverageStatus: 'active',
   planType: '',
   relationship: 'Self',
   policyHolder: null,

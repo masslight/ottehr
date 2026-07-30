@@ -8,11 +8,14 @@ import {
   Patient,
   Practitioner,
   ProvenanceAgent,
+  RelatedPerson,
   Task,
 } from 'fhir/r4b';
 import {
   BillingRule,
   CLAIM_TAG_SYSTEM,
+  collectSetResourceRefs,
+  getResourcesFromBatchInlineRequests,
   getSecret,
   HOLD_TAG_NAME,
   makeOptimisticLockIfMatchHeader,
@@ -24,8 +27,10 @@ import {
 } from 'utils';
 import {
   addErrorProvenanceForClaimSubmission,
+  claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimMetaTagsWithProvenance,
+  recordedNow,
   resolveClaimActor,
 } from '../../../billing/provenance';
 import { RulesEngineClaimModel } from '../../../billing/rules-engine/claim-model';
@@ -109,12 +114,46 @@ export async function complexValidation(
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
+  model.referenceResources = await loadReferenceResources(oystehr, rules);
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
-      `serviceFacility=${model.serviceFacility?.id ?? 'none'}`
+      `billingProvider=${model.billingProvider?.id ?? 'none'}, ` +
+      `serviceFacility=${model.serviceFacility?.id ?? 'none'}, subscribers=${model.subscribers.length}` +
+      (model.referenceResources ? `, referenceResources=${model.referenceResources.size}` : '')
   );
   return { engine, claimId, rules, model };
+}
+
+// The reference resources (provider/facility page originals) named by the rule set's "set
+// provider/facility from list" actions, prefetched so the synchronous writers can copy them. A
+// rule referencing a resource that is missing — deleted, mistyped, or itself a working copy —
+// finds no entry and fails at apply time, holding the claim rather than mis-pointing it.
+async function loadReferenceResources(
+  oystehr: Oystehr,
+  rules: BillingRule[]
+): Promise<RulesEngineClaimModel['referenceResources']> {
+  const refs = new Set(
+    rules.filter((rule) => rule.enabled).flatMap((rule) => collectSetResourceRefs(rule).map((r) => r.ref))
+  );
+  const queries: string[] = [];
+  for (const ref of refs) {
+    const [type, id] = ref.split('/');
+    if ((type === 'Practitioner' || type === 'Organization' || type === 'Location') && id) {
+      queries.push(`/${type}?_id=${id}`);
+    }
+  }
+  if (!queries.length) return undefined;
+  const resources = await getResourcesFromBatchInlineRequests(oystehr, queries);
+  const map: NonNullable<RulesEngineClaimModel['referenceResources']> = new Map();
+  for (const resource of resources) {
+    const { resourceType } = resource;
+    if (resourceType !== 'Practitioner' && resourceType !== 'Organization' && resourceType !== 'Location') continue;
+    const typed = resource as Practitioner | Organization | Location;
+    if (!typed.id || hasTag(typed, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)) continue;
+    map.set(`${resourceType}/${typed.id}`, typed);
+  }
+  return map;
 }
 
 export async function performEffect(
@@ -145,9 +184,27 @@ export async function performEffect(
     }
   }
 
+  // A change to a resource the engine may not write (a shared resource, not a per-claim working
+  // copy) can never be stored — persistModel skips it defensively. Completing the run anyway would
+  // submit/advance the claim as if the change had applied, so hold it and fail instead.
+  const unwritable = failure || heldBy ? [] : findUnwritableChanges(model, unchanged);
+  if (unwritable.length > 0) {
+    applyAction({ type: RULE_ACTION_TYPE.applyTag, tag: HOLD_TAG_NAME }, model);
+  }
+
   // Persist whatever the rules changed — including the Hold tag — so the claim reflects the run.
   const written = await persistModel(oystehr, model, unchanged, agent);
   console.log(`[rules-engine] persisted ${written} changed resource(s) for Claim/${claimId}`);
+
+  if (unwritable.length > 0) {
+    console.log(`[rules-engine] Claim/${claimId} held: rules changed unwritable shared resource(s)`);
+    return {
+      taskStatus: 'failed',
+      statusReason:
+        `Rules changed ${unwritable.join(', ')}, which the engine cannot write (shared resources, ` +
+        `not per-claim working copies). The claim was held for review.`,
+    };
+  }
 
   if (failure) {
     console.log(`[rules-engine] Claim/${claimId} held after rule "${failure.rule.name}" failed`);
@@ -215,16 +272,24 @@ async function loadClaimModel(oystehr: Oystehr, claimId: string): Promise<RulesE
     patient: graph.patient,
     coverages: graph.coverages,
     renderingProvider: graph.renderingProvider,
+    billingProvider: graph.billingProvider,
     serviceFacility: graph.serviceFacility,
+    subscribers: graph.subscribers,
   };
 }
 
-type ModelResource = Claim | Patient | Coverage | Practitioner | Organization | Location;
+type ModelResource = Claim | Patient | Coverage | Practitioner | Organization | Location | RelatedPerson;
 
 function modelResources(model: RulesEngineClaimModel): ModelResource[] {
-  return [model.claim, model.patient, ...model.coverages, model.renderingProvider, model.serviceFacility].filter(
-    (r): r is ModelResource => !!r?.id
-  );
+  return [
+    model.claim,
+    model.patient,
+    ...model.coverages,
+    model.renderingProvider,
+    model.billingProvider,
+    model.serviceFacility,
+    ...model.subscribers,
+  ].filter((r): r is ModelResource => !!r?.id);
 }
 
 // Deep-cloned state of each model resource as loaded: the dirty check compares against it, and it is
@@ -233,9 +298,30 @@ export function snapshotModel(model: RulesEngineClaimModel): Map<string, ModelRe
   return new Map(modelResources(model).map((r) => [`${r.resourceType}/${r.id}`, structuredClone(r)]));
 }
 
-// Write back the resources a rule actually changed — each with its claim-history Provenance — in one
-// transaction, guarded by ifMatch so a concurrent edit fails the run (Task marked failed) instead of
-// being clobbered. Returns the number of resources written.
+// Dirty model resources the engine is not allowed to write back: anything that is neither the claim
+// itself, nor a per-claim working copy, nor a copy minted by this run's writers. persistModel skips
+// such writes defensively; performEffect must fail the run when any exist, or the claim would
+// proceed — and possibly submit — with a silently dropped change.
+export function findUnwritableChanges(model: RulesEngineClaimModel, snapshot: Map<string, ModelResource>): string[] {
+  return modelResources(model)
+    .filter((resource) => {
+      if (resource.resourceType === 'Claim') return false;
+      if (resource.id && model.createdCopyIds?.has(resource.id)) return false;
+      if (hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code)) return false;
+      const before = snapshot.get(`${resource.resourceType}/${resource.id}`);
+      return !before || JSON.stringify(before) !== JSON.stringify(resource);
+    })
+    .map((resource) => `${resource.resourceType}/${resource.id}`);
+}
+
+// Write back the resources a rule actually changed — each with its claim-history Provenance — in a
+// single atomic transaction. Working copies minted by this run's writers (a provider/facility swap)
+// are POSTed under fullUrl urn:uuid:<placeholder id> alongside the claim's own PUT: the server
+// rewrites the claim's temporary urn references — and the Provenances' Reference-typed entries — to
+// the created ids, so the copies, their create-Provenances, and the claim update commit or fail
+// together (a partial failure can never leave orphaned copies behind). Updates are guarded by
+// ifMatch so a concurrent edit fails the run (Task marked failed) instead of being clobbered.
+// Returns the number of resources written.
 export async function persistModel(
   oystehr: Oystehr,
   model: RulesEngineClaimModel,
@@ -249,6 +335,27 @@ export async function persistModel(
     const url = `${resource.resourceType}/${resource.id}`;
     const before = snapshot.get(url);
     if (before && JSON.stringify(before) === JSON.stringify(resource)) continue;
+    if (resource.id && model.createdCopyIds?.has(resource.id)) {
+      // A copy minted by this run's writers: POST it under its urn fullUrl so the claim's temporary
+      // urn references and the create-Provenance's target resolve to the created id inside the
+      // transaction. The model keeps the placeholder id afterwards — nothing downstream needs the
+      // created id (finalizeEngineRun only uses the claim id).
+      const urn = `urn:uuid:${resource.id}`;
+      const body = structuredClone(resource) as FhirResource;
+      delete body.id;
+      requests.push({ method: 'POST', url: `/${resource.resourceType}`, resource: body, fullUrl: urn });
+      const provenance = claimProvenanceRequest({
+        targetReference: urn,
+        claimReference,
+        after: resource,
+        agent,
+        activity: 'create',
+        recorded: recordedNow(),
+      });
+      if (provenance) requests.push(provenance as BatchInputRequest<FhirResource>);
+      written += 1;
+      continue;
+    }
     // Safety guard: the engine only ever edits the claim itself and its per-claim working copies.
     // Should a claim ever reference a shared (non-working-copy) resource, skip the write rather
     // than mutate a record other claims may share.

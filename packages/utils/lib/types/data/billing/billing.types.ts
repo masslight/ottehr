@@ -210,6 +210,7 @@ export interface BillingClaimItem {
   patientResp: number;
   patientPaid: number;
   claimBalance: number;
+  adjudicated: boolean;
   responsibleParty: string;
   tags: string[];
 }
@@ -261,6 +262,16 @@ export interface ClaimRemitAdjustment {
   amount: number;
 }
 
+export interface ClaimPatientPayment {
+  paymentNoticeId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  description: string;
+  checkNumber?: string;
+  status: string;
+}
+
 // One ERA payment (PaymentReconciliation) behind a claim's remits.
 export interface ClaimInsurancePayment {
   paymentReconciliationId: string;
@@ -297,8 +308,6 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
-  billingType: string;
-  billableStatus: string;
   service?: string;
   patientName: string;
   patientDob: string;
@@ -320,7 +329,6 @@ export interface ClaimDetailResponse {
   payerId: string;
   memberId: string;
   subscriberId: string;
-  coverageStatus: string;
   planType: string;
   relationship: SubscriberRelationship;
   policyHolder: BillingPolicyHolderSummary | null;
@@ -373,8 +381,10 @@ export interface ClaimDetailResponse {
   patientResp: number;
   patientPaid: number;
   balance: number;
+  adjudicated: boolean;
   remits: ClaimRemit[];
   insurancePayments: ClaimInsurancePayment[];
+  patientPayments: ClaimPatientPayment[];
   otherClaims: {
     id: string;
     status: string;
@@ -423,6 +433,16 @@ export interface PatientArClaimItem {
 
 export interface SearchBillingPatientARClaimsResponse extends Paginated {
   claims: PatientArClaimItem[];
+}
+
+export interface PatientBalanceSummary {
+  currentBalance: number;
+  claimsWithPatientBalance: number;
+}
+
+export interface GetBillingPatientBalanceResponse {
+  claims: PatientArClaimItem[];
+  balance: PatientBalanceSummary;
 }
 
 export interface SearchBillingProvidersResponse extends Paginated {
