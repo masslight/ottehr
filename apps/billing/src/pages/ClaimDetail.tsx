@@ -31,7 +31,7 @@ import {
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AR_STAGE,
@@ -48,6 +48,7 @@ import {
   ERA_CLAIM_STATUS_CODE,
   EraClaimStatusCode,
   formatClaimStatusValue,
+  formatCurrency,
   getApiError,
   RULES_ENGINES,
   RulesEngineDef,
@@ -67,8 +68,6 @@ import {
   getPatientCoverages,
   runBillingRulesEngine,
   saveBillingServiceFacility,
-  searchBillingProviders,
-  searchBillingServiceFacilities,
   searchBillingTags,
   tagBillingClaim,
   updateBillingCoverage,
@@ -87,7 +86,8 @@ import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
 import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
-import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
+import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import {
   CoverageForm,
   coverageToCreateInput,
@@ -95,11 +95,12 @@ import {
   defaultCoverageFormValues,
 } from '../constants/coverage';
 import { useApiClients } from '../hooks/useAppClients';
+import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { usePatient } from '../hooks/usePatient';
 import { useProvider } from '../hooks/useProvider';
 import { useServiceFacility } from '../hooks/useServiceFacility';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatDate } from '../utils/format';
 import { PatientDemographicsSection } from './PatientDetail';
 
 type UpdateFn = (
@@ -475,7 +476,12 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Billed" value={claim.billed} />
             <Amount label="Allowed" value={claim.allowed} />
             <Amount label="Payments" sublabel="Primary Ins Paid" value={claim.insurancePaid} />
-            <Amount label="Balance" value={claim.balance} />
+            <Amount label="Patient Paid" value={claim.patientPaid} />
+            <Amount
+              label="Balance"
+              value={claim.balance}
+              hint={claim.adjudicated ? undefined : PROVISIONAL_BALANCE_HINT}
+            />
             <Box>
               <Typography variant="caption" color="text.secondary">
                 Responsible Party
@@ -528,7 +534,7 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
             <ReadOnlySection title="Write offs">No write offs</ReadOnlySection>
-            <ReadOnlySection title="Patient payments">No patient payments</ReadOnlySection>
+            <PatientPaymentsSection payments={claim.patientPayments} />
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
@@ -719,7 +725,6 @@ export function InsuranceSection({
               value={`${claim.policyHolder.firstName} ${claim.policyHolder.lastName}`.trim()}
             />
           )}
-          <Row label="Coverage Status" value={claim.coverageStatus} />
           <Row label="Plan type" value={planTypeLabel(claim.planType)} hideBorder />
         </>
       ) : (
@@ -786,9 +791,8 @@ function RenderingProviderSection({
     onError: setError,
   });
 
-  const [options, setOptions] = useState<BillingProviderOption[]>([]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('rendering');
   const [selectedProvider, setSelectedProvider] = useState<BillingProviderOption | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelectedProvider(null);
@@ -799,21 +803,6 @@ function RenderingProviderSection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const searchProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingProviders(oystehrZambda, {
-          providerType: 'rendering',
-          ...(query ? { name: query } : {}),
-        });
-        setOptions(res.providers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
 
   const handleSave = async (
     payload: CreateBillingProviderInput | UpdateBillingProviderInput
@@ -890,9 +879,8 @@ function FacilitySection({
     id: claim.serviceFacilityId,
   });
 
-  const [options, setOptions] = useState<ServiceFacilityItem[]>([]);
+  const { options, search: searchServiceFacilities } = useFacilityOptionsSearch();
   const [selected, setSelected] = useState<ServiceFacilityItem | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelected(null);
@@ -901,18 +889,6 @@ function FacilitySection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const searchServiceFacilities = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingServiceFacilities(oystehrZambda, query ? { name: query } : {});
-        setOptions(res.facilities ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
 
   const handleSave = async (payload: SaveServiceFacilityInput): Promise<string | null> => {
     if (!oystehrZambda) return null;
@@ -980,9 +956,8 @@ function BillingProviderSection({
     onError: setError,
   });
 
-  const [options, setOptions] = useState<BillingProviderOption[]>([]);
+  const { options, search: searchProviders } = useProviderOptionsSearch('billing');
   const [selectedProvider, setSelectedProvider] = useState<BillingProviderOption | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const resetFields = useCallback((): void => {
     setSelectedProvider(null);
@@ -993,21 +968,6 @@ function BillingProviderSection({
   useEffect(() => {
     resetFields();
   }, [resetFields]);
-
-  const searchProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-      searchTimer.current = setTimeout(async () => {
-        const res = await searchBillingProviders(oystehrZambda, {
-          providerType: 'billing',
-          ...(query ? { name: query } : {}),
-        });
-        setOptions(res.providers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
 
   const handleSave = async (
     payload: CreateBillingProviderInput | UpdateBillingProviderInput
@@ -1416,6 +1376,45 @@ function InsurancePaymentsSection({
   );
 }
 
+function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['patientPayments'] }): ReactElement {
+  return (
+    <ReadOnlySection title="Patient payments">
+      {payments.length === 0 ? (
+        'No patient payments yet'
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>Date</TableCell>
+                <TableCell sx={thSx}>Method</TableCell>
+                <TableCell sx={thSx}>Description</TableCell>
+                <TableCell sx={thSx}>Check Number</TableCell>
+                <TableCell sx={thSx}>Status</TableCell>
+                <TableCell sx={thSx} align="right">
+                  Amount
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment.paymentNoticeId}>
+                  <TableCell>{formatDate(payment.paymentDate) || '-'}</TableCell>
+                  <TableCell>{payment.method || '-'}</TableCell>
+                  <TableCell>{payment.description || '-'}</TableCell>
+                  <TableCell>{payment.checkNumber || '-'}</TableCell>
+                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </ReadOnlySection>
+  );
+}
+
 function ReadOnlySection({ title, children }: { title: string; children: React.ReactNode }): ReactElement {
   return (
     <Card variant="outlined" sx={{ mb: 2 }}>
@@ -1460,7 +1459,17 @@ export function Meta({ label, value, copyable }: { label: string; value: string;
   );
 }
 
-function Amount({ label, sublabel, value }: { label: string; sublabel?: string; value: number }): ReactElement {
+function Amount({
+  label,
+  sublabel,
+  value,
+  hint,
+}: {
+  label: string;
+  sublabel?: string;
+  value: number;
+  hint?: string;
+}): ReactElement {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 48 }}>
       <Box>
@@ -1473,9 +1482,12 @@ function Amount({ label, sublabel, value }: { label: string; sublabel?: string; 
           </Typography>
         )}
       </Box>
-      <Typography variant="body1" fontWeight={600}>
-        {formatCurrency(value)}
-      </Typography>
+      <Stack direction="row" alignItems="center" gap={0.5}>
+        <Typography variant="body1" fontWeight={600}>
+          {formatCurrency(value)}
+        </Typography>
+        {hint && <WarningIconWithTooltip tooltipText={hint} />}
+      </Stack>
     </Box>
   );
 }

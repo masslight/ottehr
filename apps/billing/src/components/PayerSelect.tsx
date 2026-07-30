@@ -1,5 +1,5 @@
 import { Autocomplete, AutocompleteInputChangeReason, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { HTMLAttributes, ReactElement, SyntheticEvent, useState } from 'react';
+import { HTMLAttributes, ReactElement, ReactNode, Ref, SyntheticEvent, useState } from 'react';
 import { BillingPayerOption } from 'utils';
 import { searchBillingPayers } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
@@ -18,6 +18,10 @@ interface PayerSelectProps {
   // Options the caller already knows (e.g. the claim's current payer), so a stored id shows its
   // display name before any search has run.
   initialOptions?: BillingPayerOption[];
+  // Validation display + react-hook-form focus ref, for use inside Controller-registered forms.
+  error?: boolean;
+  helperText?: ReactNode;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 const optionLabel = (o: BillingPayerOption): string => (o.name ? `${o.name} (${o.payerId})` : o.id);
@@ -68,6 +72,9 @@ export function PayerSelect({
   onChange,
   label = 'Payer',
   initialOptions,
+  error,
+  helperText,
+  inputRef,
 }: PayerSelectProps): ReactElement {
   const { options, known, search } = usePayerSearch(initialOptions);
 
@@ -88,7 +95,14 @@ export function PayerSelect({
       if (reason === 'input') search(v || undefined);
     },
     renderInput: (params: AutocompleteRenderInputParams): ReactElement => (
-      <TextField {...params} label={label} placeholder="Search payers…" />
+      <TextField
+        {...params}
+        label={label}
+        placeholder="Search payers…"
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
     ),
   };
 

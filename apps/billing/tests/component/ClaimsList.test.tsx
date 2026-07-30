@@ -15,6 +15,8 @@ vi.mock('../../src/api/api', () => ({
   runBillingRulesEngine: runBillingRulesEngineMock,
   searchBillingPatients: vi.fn().mockResolvedValue({ patients: [] }),
   searchBillingPayers: vi.fn().mockResolvedValue({ payers: [] }),
+  // Preloaded on mount behind a debounce timer — without this export the timer explodes on slow
+  // (CI) runners after the test body has already finished.
   searchBillingServices: vi.fn().mockResolvedValue({ services: [] }),
   searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
 }));
@@ -116,6 +118,7 @@ const makeRow = (
   patientResp: 0,
   patientPaid: 0,
   claimBalance: 0,
+  adjudicated: true,
   responsibleParty: '',
   tags: [],
 });

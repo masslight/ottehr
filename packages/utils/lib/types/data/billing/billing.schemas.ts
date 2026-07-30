@@ -487,7 +487,6 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
     claimId: nonEmptyString.uuid(),
     fields: z.object({
       subscriberId: z.string().optional(),
-      status: z.enum(['active', 'cancelled', 'draft', 'entered-in-error']).optional(),
       relationship: subscriberRelationshipSchema.optional(),
       policyHolder: BillingPolicyHolderSchema.optional(),
     }),
