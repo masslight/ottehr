@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { Bundle, Claim, Resource } from 'fhir/r4b';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 import {
@@ -7,6 +7,7 @@ import {
   CLAIM_SEARCH_TEXT_MATCH_LIMIT,
   collectClaimSearchBatch,
   fetchClaimsPageByIds,
+  searchClaimsBySearchText,
 } from '../../../src/billing/search-billing-claims';
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
@@ -365,5 +366,176 @@ describe('fetchClaimsPageByIds', () => {
       claims: [],
       includedResources: [],
     });
+  });
+});
+
+const AR_STAGE_FILTER = {
+  name: '_tag',
+  value: 'https://fhir.ottehr.com/billing/ar-stage|insurance-payer',
+};
+
+const FILTER_PARAMS = [
+  {
+    name: '_sort',
+    value: '-_lastUpdated',
+  },
+  AR_STAGE_FILTER,
+];
+
+const stubBatchClient = (): {
+  oystehr: Oystehr;
+  batch: Mock;
+} => {
+  const batch = vi.fn().mockResolvedValue(makeBatch([]));
+  return {
+    oystehr: {
+      fhir: {
+        batch,
+      },
+    } as unknown as Oystehr,
+    batch,
+  };
+};
+
+const requestedUrls = (batch: Mock): string[] =>
+  batch.mock.calls.flatMap((call) => (call[0].requests as BatchInputGetRequest[]).map((r) => r.url));
+
+const chunkSizes = (batch: Mock): number[] =>
+  batch.mock.calls.map((call) => (call[0].requests as BatchInputGetRequest[]).length);
+
+describe('searchClaimsBySearchText', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('applies the other filters to every clause and asks for ids only', async () => {
+    const { oystehr, batch } = stubBatchClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: FILTER_PARAMS,
+      withServiceDateElements: false,
+    });
+
+    const urls = requestedUrls(batch);
+    expect(urls).toHaveLength(6);
+    urls.forEach((url) => {
+      expect(url.startsWith('/Claim?')).toBe(true);
+      expect(url).toContain('_sort=-_lastUpdated');
+      expect(url).toContain('_tag=https%3A%2F%2Ffhir.ottehr.com%2Fbilling%2Far-stage%7Cinsurance-payer');
+      expect(url).toContain('_elements=id,meta');
+      expect(url).toContain(`_count=${CLAIM_SEARCH_TEXT_MATCH_LIMIT}`);
+      expect(url).toContain('_total=accurate');
+      // Includes are what the page hydration is for, carrying them here would blow the batch budget
+      expect(url).not.toContain('_include');
+    });
+    expect(urls[0]).toContain('patient.name=Smith');
+    expect(urls[1]).toContain('provider:Practitioner.name=Smith');
+  });
+
+  it('asks for the fields the in-memory service date filter needs when a range is active', async () => {
+    const { oystehr, batch } = stubBatchClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: FILTER_PARAMS,
+      withServiceDateElements: true,
+    });
+
+    requestedUrls(batch).forEach((url) => expect(url).toContain('_elements=id,meta,created,item'));
+  });
+
+  it('percent-encodes the search text but leaves a filter comma as the OR separator', async () => {
+    const { oystehr, batch } = stubBatchClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'O&M Health',
+      filterParams: [
+        {
+          name: 'insurer',
+          value: 'https://payers/a,https://payers/b',
+        },
+      ],
+      withServiceDateElements: false,
+    });
+
+    const url = requestedUrls(batch)[0];
+    expect(url).toContain('patient.name=O%26M%20Health');
+    expect(url).toContain('insurer=https%3A%2F%2Fpayers%2Fa,https%3A%2F%2Fpayers%2Fb');
+  });
+
+  it('chunks the clauses so one batch never takes too many connections', async () => {
+    const { oystehr, batch } = stubBatchClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+    expect(chunkSizes(batch)).toEqual([4, 2]);
+
+    batch.mockClear();
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: CLAIM_ID,
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+    expect(chunkSizes(batch)).toEqual([4, 4]);
+  });
+
+  it('unions across chunks, deduping and re-sorting newest first', async () => {
+    const { oystehr, batch } = stubBatchClient();
+    batch
+      .mockResolvedValueOnce(makeBatch([searchsetEntry([makeClaim('older', '2026-01-01T00:00:00Z')])]))
+      .mockResolvedValueOnce(
+        makeBatch([
+          searchsetEntry([makeClaim('newer', '2026-07-01T00:00:00Z'), makeClaim('older', '2026-01-01T00:00:00Z')]),
+        ])
+      );
+
+    const claims = await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+    expect(claims.map((c) => c.id)).toEqual(['newer', 'older']);
+  });
+
+  it('warns when a clause hit the match limit, so partial results are visible', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { oystehr, batch } = stubBatchClient();
+    batch.mockResolvedValue(
+      makeBatch([searchsetEntry([makeClaim('claim-1', '2026-07-01T00:00:00Z')], CLAIM_SEARCH_TEXT_MATCH_LIMIT + 1)])
+    );
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(consoleWarn).toHaveBeenCalledTimes(1);
+    expect(consoleWarn.mock.calls[0][0]).toContain(String(CLAIM_SEARCH_TEXT_MATCH_LIMIT));
+  });
+
+  it('does not call out at all when the text is blank', async () => {
+    const { oystehr, batch } = stubBatchClient();
+
+    const claims = await searchClaimsBySearchText({
+      oystehr,
+      searchText: '   ',
+      filterParams: FILTER_PARAMS,
+      withServiceDateElements: false,
+    });
+
+    expect(batch).not.toHaveBeenCalled();
+    expect(claims).toEqual([]);
   });
 });

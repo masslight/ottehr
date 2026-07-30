@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Bundle,
@@ -85,7 +85,6 @@ async function performEffect(
   }
 
   const filterParams: ClaimSearchParam[] = [
-    ...CLAIM_LIST_INCLUDE_PARAMS,
     {
       name: '_sort',
       value: '-_lastUpdated',
@@ -101,7 +100,6 @@ async function performEffect(
   if (params.patientId) filterParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
   if (params.service)
     filterParams.push({ name: '_tag', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}` });
-  if (params.searchText) filterParams.push({ name: 'patient.name', value: params.searchText });
   if (insurerFilter) filterParams.push({ name: 'insurer', value: insurerFilter });
   if (params.tag) filterParams.push({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|${params.tag}` });
 
@@ -111,11 +109,31 @@ async function performEffect(
   let includedResources: Resource[];
   let total: number;
 
-  if (filteringByServiceDate) {
+  if (params.searchText) {
+    const matched = await searchClaimsBySearchText({
+      oystehr,
+      searchText: params.searchText,
+      filterParams,
+      withServiceDateElements: filteringByServiceDate,
+    });
+    const matching = filteringByServiceDate
+      ? matched.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
+      : matched;
+    total = matching.length;
+    const page = await fetchClaimsPageByIds({
+      oystehr,
+      claimIds: matching
+        .slice(offset, offset + pageSize)
+        .map((c) => c.id)
+        .filter(Boolean) as string[],
+    });
+    pageClaims = page.claims;
+    includedResources = page.includedResources;
+  } else if (filteringByServiceDate) {
     includedResources = await getAllFhirSearchPages<Claim | Patient | Location | Practitioner>(
       {
         resourceType: 'Claim',
-        params: filterParams,
+        params: [...CLAIM_LIST_INCLUDE_PARAMS, ...filterParams],
       },
       oystehr
     );
@@ -128,6 +146,7 @@ async function performEffect(
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
+        ...CLAIM_LIST_INCLUDE_PARAMS,
         ...filterParams,
         { name: '_count', value: String(pageSize) },
         { name: '_offset', value: String(offset) },
@@ -259,6 +278,9 @@ const claimLastUpdated = (claim: Claim): number => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
+const unionClaimsNewestFirst = (claims: Claim[]): Claim[] =>
+  deduplicateUnbundledResources(claims).sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a));
+
 export function collectClaimSearchBatch({ batch, requestUrls }: { batch: Bundle; requestUrls: string[] }): {
   claims: Claim[];
   truncatedUrls: string[];
@@ -283,11 +305,74 @@ export function collectClaimSearchBatch({ batch, requestUrls }: { batch: Bundle;
     });
   });
 
-  const deduplicated = deduplicateUnbundledResources(claims);
   return {
-    claims: deduplicated.sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a)),
+    claims: unionClaimsNewestFirst(claims),
     truncatedUrls,
   };
+}
+
+// Values are percent-encoded except commas, which FHIR reads as its OR separator. The payer filter
+// and _elements both rely on that.
+const toClaimSearchUrl = (params: ClaimSearchParam[]): string =>
+  `/Claim?${params.map(({ name, value }) => `${name}=${encodeURIComponent(value).replaceAll('%2C', ',')}`).join('&')}`;
+
+export async function searchClaimsBySearchText({
+  oystehr,
+  searchText,
+  filterParams,
+  withServiceDateElements,
+}: {
+  oystehr: Oystehr;
+  searchText: string;
+  filterParams: ClaimSearchParam[];
+  withServiceDateElements: boolean;
+}): Promise<Claim[]> {
+  const pageParams: ClaimSearchParam[] = [
+    {
+      name: '_elements',
+      // getClaimServiceDate reads item and created, and Claim has no service-date search parameter,
+      // so that filter has to run in memory over these ids.
+      value: withServiceDateElements ? 'id,meta,created,item' : 'id,meta',
+    },
+    {
+      name: '_count',
+      value: String(CLAIM_SEARCH_TEXT_MATCH_LIMIT),
+    },
+    {
+      name: '_total',
+      value: 'accurate',
+    },
+  ];
+
+  const requestUrls = buildClaimSearchTextQueries({ searchText }).map((clause) =>
+    toClaimSearchUrl([...filterParams, ...clause, ...pageParams])
+  );
+
+  const claims: Claim[] = [];
+  const truncatedUrls: string[] = [];
+  for (let start = 0; start < requestUrls.length; start += CLAIM_SEARCH_TEXT_BATCH_SIZE) {
+    const chunk = requestUrls.slice(start, start + CLAIM_SEARCH_TEXT_BATCH_SIZE);
+    const requests: BatchInputGetRequest[] = chunk.map((url) => ({
+      method: 'GET',
+      url,
+    }));
+    const batch = await oystehr.fhir.batch<Bundle>({ requests });
+    const collected = collectClaimSearchBatch({
+      batch,
+      requestUrls: chunk,
+    });
+    claims.push(...collected.claims);
+    truncatedUrls.push(...collected.truncatedUrls);
+  }
+
+  if (truncatedUrls.length > 0) {
+    console.warn(
+      `Claim search hit the ${CLAIM_SEARCH_TEXT_MATCH_LIMIT} match limit, so results are partial for: ` +
+        truncatedUrls.join(', ')
+    );
+  }
+
+  return unionClaimsNewestFirst(claims);
 }
 
 export async function fetchClaimsPageByIds({
