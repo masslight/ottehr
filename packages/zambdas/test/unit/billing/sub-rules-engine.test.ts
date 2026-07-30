@@ -16,6 +16,7 @@ import { rulesToList } from '../../../src/billing/rules-engine/serialization';
 import {
   BILLING_WORKING_COPY_TAG,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
   PROVIDER_ROLE_TAG,
 } from '../../../src/billing/shared';
 import {
@@ -416,6 +417,12 @@ describe('sub-rules-engine charge master pricing', () => {
     expect(validated.model.chargeMasters).toEqual([selfPayChargeMaster]);
     const calls = chargeMasterSearchCalls(search);
     expect(calls).toHaveLength(1);
+    // The shared charge-master identity filter (same as the charge master screen's list) plus the
+    // pricing scoping.
+    expect(calls[0].params).toContainEqual({
+      name: '_tag',
+      value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|charge-master`,
+    });
     expect(calls[0].params).toContainEqual({
       name: '_tag',
       value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|insurance,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay`,

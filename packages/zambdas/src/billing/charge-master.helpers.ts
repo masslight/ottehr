@@ -2,9 +2,11 @@ import { ChargeItemDefinition, ChargeItemDefinitionPropertyGroup } from 'fhir/r4
 import {
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
   CPT_CODE_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils';
+import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from './shared';
 
 // ---------------------------------------------------------------------------
 // Charge master (billing-app ChargeItemDefinition) pricing.
@@ -19,6 +21,33 @@ import {
 // ---------------------------------------------------------------------------
 
 type ChargeMasterPriceComponent = NonNullable<ChargeItemDefinitionPropertyGroup['priceComponent']>[number];
+
+// ---------------------------------------------------------------------------
+// Charge master searches.
+//
+// The charge master screen's list (search-charge-item-definitions) and the pricing consumers
+// (create-billing-claim-from-encounter, the rules engine's applyChargeMasterPrices prefetch) must
+// agree on what "a charge master" is, so the identifying search params are built here — one
+// definition to update as the feature changes.
+// ---------------------------------------------------------------------------
+
+type FhirSearchParam = { name: string; value: string };
+
+// The identity filter for ChargeItemDefinitions of a kind ('charge-master' | 'fee-schedule') — the
+// filter the charge master screen's list is built on.
+export function chargeItemDefinitionTypeSearchParam(type: ChargeItemDefinitionType): FhirSearchParam {
+  return { name: '_tag', value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|${type}` };
+}
+
+// The candidates for charge-master pricing: active charge masters designated as the default for one
+// of the given kinds. selectBestChargeMaster picks among them by effective date.
+export function activeDefaultChargeMasterSearchParams(kinds: ChargeItemDefinitionDefault[]): FhirSearchParam[] {
+  return [
+    chargeItemDefinitionTypeSearchParam('charge-master'),
+    { name: 'status', value: 'active' },
+    { name: '_tag', value: kinds.map((kind) => `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|${kind}`).join(',') },
+  ];
+}
 
 const entryModifier = (pc: ChargeMasterPriceComponent): string | undefined =>
   pc.extension?.find((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER)?.valueCode;

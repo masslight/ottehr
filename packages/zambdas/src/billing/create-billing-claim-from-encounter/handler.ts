@@ -37,7 +37,6 @@ import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
   BILLING_RESOURCE_TAG,
-  CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   ChargeItemDefinitionDefault,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
@@ -85,7 +84,11 @@ import {
   sendErrors,
   ZambdaInput,
 } from '../../shared';
-import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
+import {
+  activeDefaultChargeMasterSearchParams,
+  getChargeMasterPrice,
+  selectBestChargeMaster,
+} from '../charge-master.helpers';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
@@ -1130,16 +1133,7 @@ async function findExistingBillingResources(
     const candidates = (
       await billingOystehr.fhir.search<ChargeItemDefinition>({
         resourceType: 'ChargeItemDefinition',
-        params: [
-          {
-            name: 'status',
-            value: 'active',
-          },
-          {
-            name: '_tag',
-            value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|${chargeMasterDefault}`,
-          },
-        ],
+        params: activeDefaultChargeMasterSearchParams([chargeMasterDefault]),
       })
     ).unbundle();
     // Resolve the best candidate the same way the rules engine's applyChargeMasterPrices action

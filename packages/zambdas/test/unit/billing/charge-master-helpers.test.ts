@@ -1,8 +1,13 @@
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { ChargeItemDefinitionDefault, CPT_CODE_SYSTEM, EXTENSION_URL_CPT_MODIFIER } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { getChargeMasterPrice, selectBestChargeMaster } from '../../../src/billing/charge-master.helpers';
-import { CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM } from '../../../src/billing/shared';
+import {
+  activeDefaultChargeMasterSearchParams,
+  chargeItemDefinitionTypeSearchParam,
+  getChargeMasterPrice,
+  selectBestChargeMaster,
+} from '../../../src/billing/charge-master.helpers';
+import { CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from '../../../src/billing/shared';
 
 interface PriceEntry {
   code: string;
@@ -127,5 +132,33 @@ describe('selectBestChargeMaster', () => {
       title: 'same-day',
     });
     expect(selectBestChargeMaster([sameDay], 'insurance', '2026-01-05')?.title).toBe('same-day');
+  });
+});
+
+describe('charge master search params', () => {
+  it('builds the identity filter the charge master screen lists by', () => {
+    expect(chargeItemDefinitionTypeSearchParam('charge-master')).toEqual({
+      name: '_tag',
+      value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|charge-master`,
+    });
+    expect(chargeItemDefinitionTypeSearchParam('fee-schedule')).toEqual({
+      name: '_tag',
+      value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|fee-schedule`,
+    });
+  });
+
+  it('scopes pricing candidates to active, default-designated charge masters on the same identity', () => {
+    expect(activeDefaultChargeMasterSearchParams(['insurance', 'self-pay'])).toEqual([
+      chargeItemDefinitionTypeSearchParam('charge-master'),
+      { name: 'status', value: 'active' },
+      {
+        name: '_tag',
+        value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|insurance,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay`,
+      },
+    ]);
+    expect(activeDefaultChargeMasterSearchParams(['self-pay'])[2]).toEqual({
+      name: '_tag',
+      value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay`,
+    });
   });
 });

@@ -27,6 +27,7 @@ import {
   ruleUsesChargeMasterPrices,
   SecretsKeys,
 } from 'utils';
+import { activeDefaultChargeMasterSearchParams } from '../../../billing/charge-master.helpers';
 import {
   addErrorProvenanceForClaimSubmission,
   claimProvenanceRequest,
@@ -40,7 +41,6 @@ import { RULES_ENGINE_TASK_SYSTEM, rulesEngineForTaskCode } from '../../../billi
 import { applyAction, executeRule } from '../../../billing/rules-engine/evaluator';
 import {
   BILLING_WORKING_COPY_TAG,
-  CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
   createBillingClient,
   fetchById,
   fetchClaimGraph,
@@ -166,10 +166,11 @@ async function loadReferenceResources(
 }
 
 // The candidate charge masters for the applyChargeMasterPrices action: every active billing
-// ChargeItemDefinition designated as the insurance or self-pay default. Both kinds are fetched
-// because the action picks between them at apply time — earlier rules in the same run can change
-// the claim's coverage (and therefore its billing type). Skipped entirely when no enabled rule
-// applies charge master prices.
+// ChargeItemDefinition designated as the insurance or self-pay default, via the same shared search
+// definition the charge master screen's list is built on. Both kinds are fetched because the action
+// picks between them at apply time — earlier rules in the same run can change the claim's coverage
+// (and therefore its billing type). Skipped entirely when no enabled rule applies charge master
+// prices.
 async function loadChargeMasters(
   oystehr: Oystehr,
   rules: BillingRule[]
@@ -177,13 +178,7 @@ async function loadChargeMasters(
   if (!rules.some((rule) => rule.enabled && ruleUsesChargeMasterPrices(rule))) return undefined;
   const result = await oystehr.fhir.search<ChargeItemDefinition>({
     resourceType: 'ChargeItemDefinition',
-    params: [
-      {
-        name: '_tag',
-        value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|insurance,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay`,
-      },
-      { name: 'status', value: 'active' },
-    ],
+    params: activeDefaultChargeMasterSearchParams(['insurance', 'self-pay']),
   });
   return result.unbundle();
 }
