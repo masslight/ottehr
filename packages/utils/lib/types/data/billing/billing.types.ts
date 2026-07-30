@@ -210,6 +210,7 @@ export interface BillingClaimItem {
   patientResp: number;
   patientPaid: number;
   claimBalance: number;
+  adjudicated: boolean;
   responsibleParty: string;
   tags: string[];
 }
@@ -259,6 +260,16 @@ export interface ClaimRemitAdjustment {
   groupCode: X12AdjustmentGroupCode;
   reasonCode: string;
   amount: number;
+}
+
+export interface ClaimPatientPayment {
+  paymentNoticeId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  description: string;
+  checkNumber?: string;
+  status: string;
 }
 
 // One ERA payment (PaymentReconciliation) behind a claim's remits.
@@ -370,8 +381,10 @@ export interface ClaimDetailResponse {
   patientResp: number;
   patientPaid: number;
   balance: number;
+  adjudicated: boolean;
   remits: ClaimRemit[];
   insurancePayments: ClaimInsurancePayment[];
+  patientPayments: ClaimPatientPayment[];
   otherClaims: {
     id: string;
     status: string;
