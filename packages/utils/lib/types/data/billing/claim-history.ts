@@ -43,12 +43,8 @@ export const CLAIM_PROVENANCE_AGENT_TYPE: Record<'human' | 'system', Coding> = {
 // Extension on the Provenance whose valueString holds a JSON-serialized ClaimFieldChange[].
 export const CLAIM_PROVENANCE_DIFF_EXTENSION_URL = ottehrExtensionUrl('claim-history-change-set');
 
-// Extension on a Provenance.entity linking its Reference-typed `what` back to the change it
-// belongs to in the diff JSON. The valueString is '<field>|<previous|new>|<index>', index being the
-// position within a multi-reference field (the claim's coverage field carries several references).
-// References live in entities — not inside the JSON string — because the FHIR server rewrites
-// urn:uuid references in Reference-typed elements when a transaction creates the referenced
-// resource; a urn baked into the JSON would dangle forever.
+// Extension on a Provenance.entity linking its Reference-typed `what` back to a change in the diff
+// JSON — see changeRefEntities in packages/zambdas/src/billing/provenance.ts.
 export const CLAIM_PROVENANCE_CHANGE_REF_URL = ottehrExtensionUrl('claim-history-change-ref');
 
 // Singleton Device representing the automated billing rules engine. The actor abstraction
