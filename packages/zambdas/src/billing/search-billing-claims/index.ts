@@ -1,6 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import {
+  Bundle,
+  Claim,
+  ClaimResponse,
+  Coverage,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+  Resource,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BillingClaimItem,
@@ -8,14 +18,18 @@ import {
   CLAIM_TAG_SYSTEM,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  deduplicateUnbundledResources,
   getAllFhirSearchPages,
   getClaimStatusValues,
   getPayerId,
   getPayerUrl,
+  isValidUUID,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from '../claim-amounts';
 import {
+  CLAIM_PCN_IDENTIFIER_SYSTEM,
+  claimIdFromPcn,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -145,6 +159,123 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
   if (toDay && day > toDay) return false;
   return true;
 };
+
+export interface ClaimSearchParam {
+  name: string;
+  value: string;
+}
+
+// 6 MiB limit, 200 matches per query, 3 queries, 10kB per claim, 1kB overhead for the envelope.
+// thus limit batching.
+export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 200;
+export const CLAIM_SEARCH_TEXT_BATCH_SIZE = 4;
+
+export function buildClaimSearchTextQueries({ searchText }: { searchText: string }): ClaimSearchParam[][] {
+  const text = searchText.trim();
+  if (!text) return [];
+
+  const queries: ClaimSearchParam[][] = [
+    [
+      {
+        name: 'patient.name',
+        value: text,
+      },
+    ],
+    [
+      {
+        name: 'provider:Practitioner.name',
+        value: text,
+      },
+    ],
+    [
+      {
+        name: 'provider:Organization.name',
+        value: text,
+      },
+    ],
+    [
+      {
+        name: 'care-team:Practitioner.name',
+        value: text,
+      },
+    ],
+    [
+      {
+        name: 'care-team:Organization.name',
+        value: text,
+      },
+    ],
+    [
+      {
+        name: 'identifier',
+        value: `${CLAIM_PCN_IDENTIFIER_SYSTEM}|${text}`,
+      },
+    ],
+  ];
+
+  if (isValidUUID(text)) {
+    queries.push([
+      {
+        name: '_id',
+        value: text,
+      },
+    ]);
+    queries.push([
+      {
+        name: 'patient',
+        value: `Patient/${text}`,
+      },
+    ]);
+  }
+
+  const pcnClaimId = claimIdFromPcn(text);
+  if (pcnClaimId) {
+    queries.push([
+      {
+        name: '_id',
+        value: pcnClaimId,
+      },
+    ]);
+  }
+
+  return queries;
+}
+
+const claimLastUpdated = (claim: Claim): number => {
+  const parsed = claim.meta?.lastUpdated ? Date.parse(claim.meta.lastUpdated) : NaN;
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+export function collectClaimSearchBatch({ batch, requestUrls }: { batch: Bundle; requestUrls: string[] }): {
+  claims: Claim[];
+  truncatedUrls: string[];
+} {
+  const claims: Claim[] = [];
+  const truncatedUrls: string[] = [];
+
+  (batch.entry ?? []).forEach((entry, index) => {
+    const url = requestUrls[index] ?? `batch entry ${index}`;
+    const searchset = entry.resource;
+    if (searchset?.resourceType !== 'Bundle' || searchset.type !== 'searchset') {
+      console.error(
+        `Claim search clause failed (${url}): status ${entry.response?.status ?? 'unknown'}`,
+        JSON.stringify(entry.response?.outcome ?? entry.resource ?? null)
+      );
+      return;
+    }
+    if ((searchset.total ?? 0) > CLAIM_SEARCH_TEXT_MATCH_LIMIT) truncatedUrls.push(url);
+    (searchset.entry ?? []).forEach((searchEntry) => {
+      const resource = searchEntry.resource;
+      if (resource?.resourceType === 'Claim' && resource.id) claims.push(resource);
+    });
+  });
+
+  const deduplicated = deduplicateUnbundledResources(claims);
+  return {
+    claims: deduplicated.sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a)),
+    truncatedUrls,
+  };
+}
 
 async function enrichAndMapClaims(
   oystehr: Oystehr,
