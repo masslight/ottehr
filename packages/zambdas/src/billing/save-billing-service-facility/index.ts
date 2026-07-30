@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Location } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, INVALID_INPUT_ERROR } from 'utils';
+import { Location, ProvenanceAgent } from 'fhir/r4b';
+import { FHIR_IDENTIFIER_NPI, INVALID_INPUT_ERROR, makeOptimisticLockIfMatchHeader } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import { applyServiceFacilityInput } from '../service-facility.helpers';
 import { createBillingClient, EXCLUDE_WORKING_COPIES_PARAMS, fetchById, isWorkingCopy } from '../shared';
 import { SaveServiceFacilityParams, validateRequestParameters } from './validateRequestParameters';
@@ -21,12 +22,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, secrets);
 
   console.group('complexValidation');
-  const existing = await complexValidation(oystehr, params);
+  const { existing, agent } = await complexValidation(oystehr, params, input.headers?.Authorization);
   console.groupEnd();
   console.debug('complexValidation success', existing);
 
   console.group('performEffect');
-  const response = await performEffect(oystehr, params, existing);
+  const response = await performEffect(oystehr, params, existing, agent);
   console.groupEnd();
   console.debug('performEffect success', response);
 
@@ -36,7 +37,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(oystehr: Oystehr, params: SaveServiceFacilityParams): Promise<Location | undefined> {
+async function complexValidation(
+  oystehr: Oystehr,
+  params: SaveServiceFacilityParams,
+  authorizationHeader: string | undefined
+): Promise<{ existing: Location | undefined; agent: ProvenanceAgent | undefined }> {
   const { facilityId, npi } = params;
 
   const existing = facilityId ? await fetchById<Location>(oystehr, 'Location', facilityId) : undefined;
@@ -63,23 +68,45 @@ async function complexValidation(oystehr: Oystehr, params: SaveServiceFacilityPa
     }
   }
 
-  return existing;
+  // A claim-scoped edit (the claim screen editing the claim's facility working copy) is recorded in
+  // that claim's history, so it needs the acting user; master-screen edits carry no claim context
+  // and keep working without a resolvable caller.
+  const agent = params.claimId
+    ? await resolveClaimActor('caller', oystehr, authorizationHeader, params.secrets)
+    : undefined;
+
+  return { existing, agent };
 }
 
-async function performEffect(
+export async function performEffect(
   oystehr: Oystehr,
   params: SaveServiceFacilityParams,
-  existing: Location | undefined
+  existing: Location | undefined,
+  agent?: ProvenanceAgent
 ): Promise<{ id: string | undefined }> {
   const location = applyServiceFacilityInput(params, existing);
 
   if (existing) {
+    if (params.claimId && agent) {
+      // Write the update and its claim-history Provenance in one transaction, keeping the same
+      // optimistic lock the plain update uses.
+      await commitClaimResourceChange(oystehr, {
+        resource: location,
+        before: existing,
+        agent,
+        claimReference: `Claim/${params.claimId}`,
+        ifMatch: makeOptimisticLockIfMatchHeader(existing),
+      });
+      return { id: location.id };
+    }
     const updated = await oystehr.fhir.update<Location>(location, {
       optimisticLockingVersionId: existing.meta?.versionId,
     });
     return { id: updated.id };
   }
 
+  // A create is never claim-scoped: the facility only enters a claim via the subsequent attach,
+  // which records the claim's facility change itself.
   const created = await oystehr.fhir.create<Location>(location);
   return { id: created.id };
 }
