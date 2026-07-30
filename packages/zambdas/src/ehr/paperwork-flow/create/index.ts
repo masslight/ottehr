@@ -45,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const flowQuestionnaire = configFlowQuestionnaire(resources.formQuestionnaires, slug, flow, flowServices);
 
   // Reject bundles whose forms collide on a top-level page linkId (consent page exempted) before saving.
-  await validateFlowFormLinkIds(flowQuestionnaire.derivedFrom ?? [], oystehr);
+  validateFlowFormLinkIds(flowQuestionnaire.derivedFrom ?? [], resources.formQuestionnaires);
 
   console.log(
     `configuring healthcare service patch requests for ${flowServices.map(

@@ -169,6 +169,7 @@ function toFlowForm(q: Questionnaire, forms: Map<string, Questionnaire>): FlowFo
 
         const flowForm: FlowForm = {
           id: formQ.id,
+          url: formQ.url,
           label: formQ.title ?? 'form',
         };
 
@@ -183,9 +184,11 @@ function toFlowForm(q: Questionnaire, forms: Map<string, Questionnaire>): FlowFo
 
 const managedQToFlowForm = (questionnaires: Questionnaire[]): FlowForm[] => {
   return questionnaires.map((q) => {
-    const formatted = { id: q.id ?? '', label: q.title ?? '' };
     const url = q.url;
+    const formatted = { id: q.id ?? '', url: url ?? '', label: q.title ?? '' };
+
     if (!url) return formatted;
+
     const customLabel = MANAGED_Q_LABEL_MAP[url];
     if (customLabel) formatted.label = customLabel;
 

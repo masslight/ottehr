@@ -60,7 +60,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   });
 
   // Reject bundles whose forms collide on a top-level page linkId (consent page exempted) before saving.
-  await validateFlowFormLinkIds(targetFlowQuestionnaireCreatePost.resource?.derivedFrom ?? [], oystehr);
+  validateFlowFormLinkIds(
+    targetFlowQuestionnaireCreatePost.resource?.derivedFrom ?? [],
+    resources.allFormQuestionnaires
+  );
 
   console.log(`Retiring target version ${targetFlowQuestionnaireRetirePatch.url}`);
   console.log('New canonical url', nextCanonical);

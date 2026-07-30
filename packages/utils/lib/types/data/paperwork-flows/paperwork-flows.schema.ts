@@ -9,6 +9,7 @@ export const FlowServiceSchema = z.object({
 
 export const FlowFormSchema = z.object({
   id: z.string(),
+  url: z.string(),
   label: z.string(),
 });
 

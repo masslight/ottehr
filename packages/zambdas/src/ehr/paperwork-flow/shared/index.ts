@@ -8,7 +8,6 @@ import {
   FlowForm,
   FlowService,
   getAllFhirSearchPages,
-  getCanonicalQuestionnaire,
   getCoding,
   getSecret,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
@@ -176,17 +175,27 @@ export function makeOttehrManagedServiceTags(services: FlowService[]): Coding[] 
 }
 
 export function getFormCanonicals(formQuestionnaires: Questionnaire[], flowForms: FlowForm[]): string[] {
-  const formIdMap = new Map<string, Questionnaire>();
+  const formUrlMap = new Map<string, Questionnaire>();
   const formCanonicalUrls: string[] = [];
 
-  formQuestionnaires.forEach((form) => form.id && formIdMap.set(form.id, form));
+  formQuestionnaires.forEach((form) => form.url && formUrlMap.set(form.url, form));
 
   // important: forms must remain in the order which they were sent
   flowForms.forEach((form) => {
-    const q = formIdMap.get(form.id);
-    if (!q) return;
+    // we will use the url to grab the form to accommodate for edge case where the form was edited while a user was making the flow
+    const q = formUrlMap.get(form.url);
+
+    // edge case: form was deleted while someone else was making this flow - we should tell the user
+    if (!q || q.status === 'retired') {
+      throw PAPERWORK_FLOW_ERROR(
+        `We could not resolve for form: ${form.label}; please verify in the questionnaires tab that ths form is active`
+      );
+    }
+
     const canonical = getCanonicalUrlFromQ(q);
-    if (canonical) formCanonicalUrls.push(canonical);
+    if (!canonical) throw new Error(`Could not parse canonical url from Questionnaire/${q.id}`);
+
+    formCanonicalUrls.push(canonical);
   });
 
   return formCanonicalUrls;
@@ -274,15 +283,25 @@ export async function resolveFlowCanonicalForServiceMode(input: {
  * exempt: it may appear in more than one form and is de-duplicated (keep-last) at assembly. Throws
  * PAPERWORK_FLOW_ERROR naming any other duplicated linkId so the admin fixes the bundle before saving.
  */
-export async function validateFlowFormLinkIds(formCanonicals: string[], oystehr: Oystehr): Promise<void> {
+export function validateFlowFormLinkIds(formCanonicals: string[], allFormQuestionnaires: Questionnaire[]): void {
+  const formUrlMap = new Map<string, Questionnaire>();
+  allFormQuestionnaires.forEach((form) => form.url && formUrlMap.set(form.url, form));
+
   const seenLinkIds = new Set<string>();
   const duplicateLinkIds = new Set<string>();
 
   for (const canonical of formCanonicals) {
     const [url, version] = canonical.split('|');
-    if (!url || !version) continue;
-    const form = await getCanonicalQuestionnaire({ url, version }, oystehr);
-    for (const item of form.item ?? []) {
+    // this should never happen
+    if (!url || !version) throw new Error(`Form canonical url is malformed: ${canonical}`);
+
+    const formQ = formUrlMap.get(url);
+    // This should also never happen
+    // The derivedFrom canonical urls should be formed from the set of form questionnaires passed into this function
+    // so it would be odd to not find the form questionnaire
+    if (!formQ) throw new Error(`Could not find questionnaire for form: ${url}`);
+
+    for (const item of formQ.item ?? []) {
       const { linkId } = item;
       if (!linkId || linkId === CONSENT_FORMS_PAGE_LINK_ID) continue;
       if (seenLinkIds.has(linkId)) {
@@ -294,10 +313,13 @@ export async function validateFlowFormLinkIds(formCanonicals: string[], oystehr:
   }
 
   if (duplicateLinkIds.size > 0) {
+    // it might be better to handle this in the practice managed form module
+    // we could still validate here when building the flow but at that point if a duplicate was found it would be indicative of a system issue
+    // and we could throw 500 - not sure it makes sense to put the onerous of this on the user
     throw PAPERWORK_FLOW_ERROR(
       `Forms in this paperwork flow contain duplicate page linkId(s): ${[...duplicateLinkIds].join(
         ', '
-      )}. Each page must have a unique linkId across the flow's forms (the consent page is the only exception).`
+      )}. Each page must have a unique linkId across the flow's forms.`
     );
   }
 }

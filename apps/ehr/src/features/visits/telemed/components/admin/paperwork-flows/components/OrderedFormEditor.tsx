@@ -71,7 +71,6 @@ export const OrderedFormEditor: FC<OrderedFormEditorProps> = ({ formsSelected, f
           onChange={(e) => {
             const id = e.target.value as string;
             const option = formOptions.find((o) => o.id === id);
-            console.log('im changing!', id, option);
             if (option && !formsSelected.some((f) => f.id === id)) onChange([...formsSelected, option]);
           }}
         >

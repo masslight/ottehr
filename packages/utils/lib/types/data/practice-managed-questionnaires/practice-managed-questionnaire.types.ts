@@ -59,6 +59,7 @@ export type PracticeManagedQuestionnaireDTO = {
   id: string;
   title: string;
   status: Questionnaire['status'];
+  url: string;
 };
 
 export type StandaloneFormDTO = Omit<QAndQRResponse, 'questionnaireTitle'> & {

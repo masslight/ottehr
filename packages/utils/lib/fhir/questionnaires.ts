@@ -154,7 +154,10 @@ export const assembleFlowQuestionnaireItems = async (
   );
 
   const assembledItems = formItemLists.flat();
+  return handleFlowQuestionnaireItem(assembledItems);
+};
 
+export const handleFlowQuestionnaireItem = (assembledItems: QuestionnaireItem[]): QuestionnaireItem[] => {
   // Consent should always come at the end: when more than one form contributes a consent-forms page,
   // keep only the last occurrence and drop the earlier ones.
   const consentPageCount = assembledItems.filter((item) => item.linkId === CONSENT_FORMS_PAGE_LINK_ID).length;

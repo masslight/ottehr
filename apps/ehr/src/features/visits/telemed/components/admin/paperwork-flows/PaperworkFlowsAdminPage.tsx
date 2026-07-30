@@ -103,8 +103,6 @@ const PaperworkFlowsAdminPage: FC = () => {
   });
   const flows = flowsData?.flows ?? [];
 
-  console.log('flows', flows);
-
   // ottehr managed forms (intake pre-visit, consent only)
   const ottehrManagedQuestionnaires = useMemo(
     () => flowsData?.ottehrManagedQuestionnaires ?? [],
@@ -116,7 +114,7 @@ const PaperworkFlowsAdminPage: FC = () => {
   const formOptions: FlowForm[] = useMemo(() => {
     const practiceManagedForms = (formsData ?? [])
       .filter((q) => !!q.id && q.status !== 'retired')
-      .map((q) => ({ id: q.id, label: q.title || q.id }))
+      .map((q) => ({ id: q.id, url: q.url, label: q.title || q.id }))
       .sort((a, b) => a.label.localeCompare(b.label));
 
     return [...ottehrManagedQuestionnaires, ...practiceManagedForms];

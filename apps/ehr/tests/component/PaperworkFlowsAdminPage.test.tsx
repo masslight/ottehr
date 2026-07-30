@@ -75,7 +75,7 @@ import PaperworkFlowsAdminPage from 'src/features/visits/telemed/components/admi
 const flowFixture = (overrides: Partial<PaperworkFlow> = {}): PaperworkFlow => ({
   qId: 'flow-1',
   name: 'Standard Intake',
-  forms: [{ id: 'form-1', label: 'Consent Form' }],
+  forms: [{ id: 'form-1', url: 'https://ottehr.com/FHIR/Questionnaire/form-1', label: 'Consent Form' }],
   modes: [ServiceMode['in-person'], ServiceMode.virtual],
   services: [{ id: 'svc-1', label: 'Urgent Care', ottehrManagedService: true }],
   url: 'https://fhir.ottehr.com/Questionnaire/flow-1',
