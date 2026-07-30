@@ -161,17 +161,33 @@ export const getOrCreateRadiologyOrderForm = async (
   return { documentReference, mediaUrl, patientId: refs.patientId, presignedURL };
 };
 
-const fetchLatestWeightObservation = async (encounterId: string, oystehr: Oystehr): Promise<Observation | undefined> =>
-  (
+const PRINTABLE_OBSERVATION_STATUSES: Observation['status'][] = [
+  'registered',
+  'preliminary',
+  'final',
+  'amended',
+  'corrected',
+];
+
+export const isPrintableObservation = (observation: Observation): boolean =>
+  PRINTABLE_OBSERVATION_STATUSES.includes(observation.status);
+
+const fetchLatestWeightObservation = async (
+  encounterId: string,
+  oystehr: Oystehr
+): Promise<Observation | undefined> => {
+  const [observation] = (
     await oystehr.fhir.search<Observation>({
       resourceType: 'Observation',
       params: [
         { name: 'encounter', value: `Encounter/${encounterId}` },
         { name: 'code', value: 'http://loinc.org|29463-7' },
-        // Retracted vitals must not reach a printed order (same exclusions as the vitals reader).
-        { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' },
+        { name: 'status', value: PRINTABLE_OBSERVATION_STATUSES.join(',') },
         { name: '_sort', value: '-date' },
         { name: '_count', value: '1' },
       ],
     })
-  ).unbundle()[0];
+  ).unbundle();
+
+  return observation && isPrintableObservation(observation) ? observation : undefined;
+};

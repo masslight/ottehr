@@ -1,6 +1,7 @@
-import { DocumentReference } from 'fhir/r4b';
+import { DocumentReference, Observation } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
+  isPrintableObservation,
   OrderFormSource,
   radiologyOrderFormSourceVersion,
   storedOrderFormSourceVersion,
@@ -57,6 +58,28 @@ describe('radiologyOrderFormSourceVersion', () => {
   it('is undefined when a source carries no id', () => {
     expect(radiologyOrderFormSourceVersion([serviceRequest('1'), resource('Patient', undefined, '4')])).toBe(undefined);
   });
+});
+
+describe('isPrintableObservation', () => {
+  const withStatus = (status: Observation['status']): Observation => ({
+    resourceType: 'Observation',
+    status,
+    code: {},
+  });
+
+  it.each(['registered', 'preliminary', 'final', 'amended', 'corrected'] as Observation['status'][])(
+    'prints a %s observation',
+    (status) => {
+      expect(isPrintableObservation(withStatus(status))).toBe(true);
+    }
+  );
+
+  it.each(['entered-in-error', 'cancelled', 'unknown'] as Observation['status'][])(
+    'does not print a %s observation',
+    (status) => {
+      expect(isPrintableObservation(withStatus(status))).toBe(false);
+    }
+  );
 });
 
 describe('storedOrderFormSourceVersion', () => {

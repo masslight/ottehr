@@ -46,6 +46,28 @@ describe('radiology get-order-pdf integration tests', () => {
     }
   };
 
+  /**
+   * Search indexing lags writes, so a weight the order form is expected to pick up has to be visible
+   * to the same query the zambda runs before printing — otherwise the assertions race the index.
+   */
+  const waitUntilWeightIsSearchable = async (observationId: string, encounterId: string): Promise<void> => {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      // Status-agnostic: this waits on the retracted weight too, which the order form's own query skips.
+      const found = (
+        await oystehrAdmin.fhir.search<Observation>({
+          resourceType: 'Observation',
+          params: [
+            { name: 'encounter', value: `Encounter/${encounterId}` },
+            { name: 'code', value: 'http://loinc.org|29463-7' },
+          ],
+        })
+      ).unbundle();
+      if (found.some((observation) => observation.id === observationId)) return;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    throw new Error(`Observation/${observationId} never became searchable`);
+  };
+
   it('should generate an order-form PDF for an external order and link the DocumentReference', async () => {
     // External (print-only) orders skip the AdvaPACS transmit, so this works without AdvaPACS creds.
     const createOrderInput: CreateRadiologyZambdaOrderInput = {
@@ -163,6 +185,7 @@ describe('radiology get-order-pdf integration tests', () => {
       valueQuantity: { value: 70, unit: 'kg' },
     });
     resourcesToCleanup.push(weightObservation);
+    await waitUntilWeightIsSearchable(weightObservation.id!, baseResources.encounter.id!);
 
     const afterWeightOutput = (
       await oystehrTestUserM2M.zambda.execute({
@@ -185,10 +208,11 @@ describe('radiology get-order-pdf integration tests', () => {
       code: { coding: [{ system: 'http://loinc.org', code: '29463-7', display: 'Body weight' }] },
       subject: { reference: `Patient/${baseResources.patient.id}` },
       encounter: { reference: `Encounter/${baseResources.encounter.id}` },
-      effectiveDateTime: new Date(Date.now() + 60_000).toISOString(),
+      effectiveDateTime: new Date(Date.now() + 1_000).toISOString(),
       valueQuantity: { value: 999, unit: 'kg' },
     });
     resourcesToCleanup.push(erroredWeightObservation);
+    await waitUntilWeightIsSearchable(erroredWeightObservation.id!, baseResources.encounter.id!);
 
     const afterErroredWeightOutput = (
       await oystehrTestUserM2M.zambda.execute({
