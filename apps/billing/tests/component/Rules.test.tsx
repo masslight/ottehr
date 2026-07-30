@@ -154,6 +154,26 @@ describe('ConditionalEditor', () => {
     expect(screen.getAllByText('CPT code').length).toBeGreaterThan(0);
   });
 
+  it('renders the line match and the selection note for an apply-charge-master-prices action', () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: {
+            type: 'actions',
+            actions: [{ type: 'applyChargeMasterPrices', match: { type: 'all' } }],
+          },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+    // The action picker shows the action, the reusable line-match editor renders, and the helper
+    // text explains how the charge master is chosen.
+    expect(screen.getByText('Apply charge master prices')).toBeInTheDocument();
+    expect(screen.getAllByText('Lines to match').length).toBeGreaterThan(0);
+    expect(screen.getByText(/best charge master/)).toBeInTheDocument();
+  });
+
   it('renders the add-service-line form and blocks submit on missing required fields', async () => {
     const conditional: RuleConditional = {
       branches: [

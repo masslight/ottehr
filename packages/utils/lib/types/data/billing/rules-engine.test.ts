@@ -9,6 +9,7 @@ import {
   getServiceLinePropertyDef,
   ruleConditionValueProblem,
   RuleFieldDef,
+  ruleUsesChargeMasterPrices,
   serviceLineMatchValueProblem,
   serviceLineSetValueProblem,
   setFieldValueProblem,
@@ -53,6 +54,19 @@ describe('service line action schemas', () => {
 
     const removeAll = { type: 'removeServiceLines', match: { type: 'all' } };
     expect(RuleActionSchema.parse(removeAll)).toEqual(removeAll);
+  });
+
+  it('parses applyChargeMasterPrices actions with all/field matches, requiring the match', () => {
+    const priceAll = { type: 'applyChargeMasterPrices', match: { type: 'all' } };
+    expect(RuleActionSchema.parse(priceAll)).toEqual(priceAll);
+
+    const priceOne = {
+      type: 'applyChargeMasterPrices',
+      match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+    };
+    expect(RuleActionSchema.parse(priceOne)).toEqual(priceOne);
+
+    expect(RuleActionSchema.safeParse({ type: 'applyChargeMasterPrices' }).success).toBe(false);
   });
 
   it('rejects malformed matches and unknown operations', () => {
@@ -340,6 +354,42 @@ describe('rule value validation', () => {
       { field: 'serviceFacility.ref', ref: 'Location/loc-1' },
     ]);
   });
+
+  it('detects applyChargeMasterPrices actions anywhere in the conditional tree', () => {
+    expect(
+      ruleUsesChargeMasterPrices({
+        conditional: {
+          branches: [
+            {
+              condition: { type: 'all' },
+              outcome: {
+                type: 'conditional',
+                conditional: {
+                  branches: [{ condition: { type: 'all' }, outcome: { type: 'noop' } }],
+                  otherwise: {
+                    type: 'actions',
+                    actions: [{ type: 'applyChargeMasterPrices', match: { type: 'all' } }],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      })
+    ).toBe(true);
+    expect(
+      ruleUsesChargeMasterPrices({
+        conditional: {
+          branches: [
+            {
+              condition: { type: 'all' },
+              outcome: { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] },
+            },
+          ],
+        },
+      })
+    ).toBe(false);
+  });
 });
 
 describe('validateRuleFieldReferences', () => {
@@ -452,6 +502,51 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[1]).toContain('updates unknown service line property "alsoNotOne"');
     expect(problems[2]).toContain('matches service lines on "modifiers" with unsupported operator "gt"');
     expect(problems[3]).toContain('uses operation "add" on non-list service line property "units"');
+  });
+
+  it('validates the applyChargeMasterPrices line match like the other service-line actions', () => {
+    expect(
+      validateRuleFieldReferences(
+        ruleWith({
+          branches: [
+            {
+              condition: { type: 'all' },
+              outcome: {
+                type: 'actions',
+                actions: [
+                  { type: 'applyChargeMasterPrices', match: { type: 'all' } },
+                  {
+                    type: 'applyChargeMasterPrices',
+                    match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      )
+    ).toEqual([]);
+
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'applyChargeMasterPrices',
+                  match: { type: 'field', property: 'notALineProperty', operator: 'eq', value: 'x' },
+                },
+              ],
+            },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('matches service lines on unknown property "notALineProperty"');
   });
 
   it('reports unsupported condition operators and invalid condition/action values', () => {
