@@ -9,7 +9,6 @@ interface ProcedureCodeAutocompleteProps {
   onChange: (code: string) => void;
   label?: string;
   width?: number;
-  // Marks the label with the required asterisk.
   required?: boolean;
   // Validation display + react-hook-form focus ref, for use inside Controller-registered forms
   // (the rules builder).

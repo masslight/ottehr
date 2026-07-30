@@ -32,7 +32,6 @@ interface FacilitySelectProps {
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
-  // Marks the label with the required asterisk.
   required?: boolean;
   // Validation display + react-hook-form focus ref, for use inside Controller-registered forms.
   error?: boolean;

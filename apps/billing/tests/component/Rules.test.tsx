@@ -317,14 +317,11 @@ describe('ConditionalEditor', () => {
     const conditional: RuleConditional = {
       branches: [
         {
-          // A condition value is always required once the operator takes a value.
           condition: { type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'A1' },
           outcome: {
             type: 'actions',
             actions: [
-              // serviceDate is requiredOnSet: its writer rejects blank.
               { type: 'setField', field: 'serviceDate', value: '' },
-              // memberId is clearable: blank means "clear the property" on purpose.
               { type: 'setField', field: 'insurance.memberId', value: '' },
               { type: 'applyTag', tag: '' },
             ],
@@ -337,7 +334,6 @@ describe('ConditionalEditor', () => {
     expect(screen.getByLabelText('Value *')).toBeInTheDocument();
     expect(screen.getByLabelText('Tag name *')).toBeInTheDocument();
     expect(screen.getByLabelText('New value *')).toBeInTheDocument();
-    // The clearable field's label stays unmarked (exact match: no trailing asterisk).
     expect(screen.getByLabelText('New value')).toBeInTheDocument();
   });
 
@@ -352,13 +348,11 @@ describe('ConditionalEditor', () => {
               {
                 type: 'updateServiceLines',
                 match: { type: 'field', property: 'charges', operator: 'gt', value: '0' },
-                // "Set to" over the modifier list may be blank on purpose (clears the list).
                 set: { property: 'modifiers', value: '', operation: 'set' },
               },
               {
                 type: 'updateServiceLines',
                 match: { type: 'all' },
-                // "Add" takes the one modifier, so it is required.
                 set: { property: 'modifiers', value: '25', operation: 'add' },
               },
               { type: 'addServiceLine', line: { cptCode: '', charges: '' } },
@@ -369,11 +363,9 @@ describe('ConditionalEditor', () => {
     };
     render(<ConditionalForm conditional={conditional} />);
 
-    // The line-match value is always required once the operator takes a value.
     expect(screen.getByLabelText('Value *')).toBeInTheDocument();
     expect(screen.getByLabelText('Modifiers (comma-separated)')).toBeInTheDocument();
     expect(screen.getByLabelText('Modifier to add *')).toBeInTheDocument();
-    // The add-line form marks its required fields; optional ones keep the "(optional)" suffix.
     expect(screen.getByLabelText('CPT code *')).toBeInTheDocument();
     expect(screen.getByLabelText('Charges *')).toBeInTheDocument();
     expect(screen.getByLabelText('Units (optional)')).toBeInTheDocument();

@@ -502,7 +502,6 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
               multiple={operatorIsMultiValue(value.operator)}
               value={fieldValue}
               onChange={onChange}
-              // Every operator that shows a value input rejects a blank value at save time.
               required
               error={!!error}
               helperText={error?.message ?? formatHint(def)}
@@ -647,7 +646,6 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
                   multiple={operatorIsMultiValue(value.operator)}
                   value={fieldValue}
                   onChange={onChange}
-                  // Every operator that shows a value input rejects a blank value at save time.
                   required
                   error={!!error}
                   helperText={error?.message ?? formatHint(def)}
@@ -758,8 +756,6 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
       ? 'Modifier to remove'
       : 'Modifiers (comma-separated)'
     : 'New value';
-  // Mirrors serviceLineSetValueProblem: blank is allowed only where it means "clear" — a "set"
-  // over the modifier list, or the clearable placeOfService.
   const valueRequired = isList ? operation !== 'set' : def?.id !== 'placeOfService';
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -901,8 +897,6 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
                 value={fieldValue}
                 onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
                 label="New value"
-                // Mirrors setFieldValueProblem: blank means "clear the property" unless the
-                // field's writer requires a value.
                 required={!!setFieldDef?.requiredOnSet}
                 error={!!error}
                 helperText={

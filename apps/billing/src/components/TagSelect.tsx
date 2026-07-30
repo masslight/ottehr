@@ -20,7 +20,6 @@ interface TagSelectProps {
   value: string | null | undefined;
   onChange: (value: string) => void;
   label?: string;
-  // Marks the label with the required asterisk.
   required?: boolean;
   error?: boolean;
   helperText?: ReactNode;
