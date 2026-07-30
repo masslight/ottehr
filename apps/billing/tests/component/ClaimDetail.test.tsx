@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AR_STAGE, ClaimDetailResponse, emptyClaimStatusValues } from 'utils';
@@ -409,5 +410,47 @@ describe('ClaimDetail — provisional balance indicator', () => {
 
     await screen.findAllByText('Jane Doe');
     expect(screen.queryByRole('img', { name: PROVISIONAL_BALANCE_HINT })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClaimDetail — header copy buttons', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+  });
+
+  it('copies the claim id and the pcn from the header', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      pcn: 'claim1',
+    });
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText,
+      },
+      writable: true,
+      configurable: true,
+    });
+    renderDetail();
+
+    const copyClaimId = await screen.findByRole('button', { name: 'Copy Claim ID' });
+    await user.click(copyClaimId);
+    expect(writeText).toHaveBeenCalledWith('claim-1');
+
+    const copyPcn = screen.getByRole('button', { name: 'Copy PCN' });
+    await user.click(copyPcn);
+    expect(writeText).toHaveBeenCalledWith('claim1');
+  });
+
+  it('offers no copy button for an empty pcn', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      pcn: '',
+    });
+    renderDetail();
+
+    expect(await screen.findByRole('button', { name: 'Copy Claim ID' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy PCN' })).not.toBeInTheDocument();
   });
 });

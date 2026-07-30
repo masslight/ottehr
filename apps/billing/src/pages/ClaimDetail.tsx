@@ -1,6 +1,5 @@
 import {
   ArrowBack as ArrowBackIcon,
-  ContentCopy as ContentCopyIcon,
   DeleteOutline as DeleteOutlineIcon,
   Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
@@ -81,6 +80,7 @@ import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { CopyButton } from '../components/CopyButton';
 import { CoverageFields } from '../components/CoverageFields';
 import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { ProviderDetailForm } from '../components/ProviderDetailSection';
@@ -1435,26 +1435,24 @@ function ReadOnlySection({ title, children }: { title: string; children: React.R
 }
 
 export function Meta({ label, value, copyable }: { label: string; value: string; copyable?: boolean }): ReactElement {
+  const displayedValue = (
+    <Typography variant="body2" fontWeight={500}>
+      {value || '-'}
+    </Typography>
+  );
+
   return (
     <Box>
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Stack
-        direction="row"
-        onClick={async () => {
-          if (copyable) {
-            await navigator.clipboard.writeText(value);
-          }
-        }}
-        style={{ cursor: copyable ? 'pointer' : 'default' }}
-        alignItems="center"
-      >
-        <Typography variant="body2" fontWeight={500}>
-          {value || '-'}
-        </Typography>
-        {copyable ? <ContentCopyIcon sx={{ fontSize: 14, marginLeft: '4px' }} /> : null}
-      </Stack>
+      {copyable && value ? (
+        <CopyButton value={value} label={label}>
+          {displayedValue}
+        </CopyButton>
+      ) : (
+        displayedValue
+      )}
     </Box>
   );
 }
