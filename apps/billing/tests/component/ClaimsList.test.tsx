@@ -210,3 +210,42 @@ describe('ClaimsList — submit claims', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: /^Run rules \(/ })).not.toBeInTheDocument());
   });
 });
+
+describe('ClaimsList — search', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({
+      claims: [],
+      total: 0,
+    });
+  });
+
+  it('names the fields the one box searches, and which of them have to be exact', async () => {
+    renderList();
+
+    const search = await screen.findByPlaceholderText(/patient name, provider name, patient ID, PCN, or claim ID/);
+    expect(search).toBeInTheDocument();
+    const hint = screen.getByText(/Patient ID, PCN, and claim ID must be entered in full/);
+    expect(hint).toBeInTheDocument();
+  });
+
+  it('sends what was typed as one searchText once the debounce settles', async () => {
+    renderList();
+
+    const search = await screen.findByPlaceholderText(/Search by patient name/);
+    fireEvent.change(search, {
+      target: {
+        value: 'Smith',
+      },
+    });
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenLastCalledWith(
+        {},
+        expect.objectContaining({
+          searchText: 'Smith',
+        })
+      )
+    );
+  });
+});

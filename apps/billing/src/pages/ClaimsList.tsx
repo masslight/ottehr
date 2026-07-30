@@ -411,7 +411,8 @@ export default function ClaimsList(): ReactElement {
       <TextField
         fullWidth
         size="small"
-        placeholder="Search by patient name..."
+        placeholder="Search by patient name, provider name, patient ID, PCN, or claim ID..."
+        helperText="Names match from the start. Patient ID, PCN, and claim ID must be entered in full."
         value={searchText}
         onChange={(e) => handleSearchChange(e.target.value)}
         InputProps={{
