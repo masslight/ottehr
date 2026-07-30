@@ -25,6 +25,7 @@ const ZAMBDA_NAME = 'update-billing-coverage';
 interface ComplexValidationResult {
   patientId: string;
   coverage: Coverage;
+  agent?: ProvenanceAgent;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -32,22 +33,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const cvo = await complexValidation(params, oystehr);
+  const cvo = await complexValidation(params, oystehr, input.headers?.Authorization);
 
-  // A claim-scoped edit (the claim screen editing the claim's coverage working copy) is recorded in
-  // that claim's history, so it needs the acting user; master-screen edits carry no claim context
-  // and keep working without a resolvable caller.
-  const agent = params.claimId
-    ? await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets)
-    : undefined;
-
-  const response = await performEffect(oystehr, params, cvo, agent);
+  const response = await performEffect(oystehr, params, cvo);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 async function complexValidation(
   params: UpdateBillingCoverageParams,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  authorizationHeader: string | undefined
 ): Promise<ComplexValidationResult> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
   const patientId = coverage.beneficiary?.reference?.split('/')[1];
@@ -66,16 +61,22 @@ async function complexValidation(
     }
   }
 
-  return { patientId, coverage };
+  // A claim-scoped edit (the claim screen editing the claim's coverage working copy) is recorded in
+  // that claim's history, so it needs the acting user; master-screen edits carry no claim context
+  // and keep working without a resolvable caller.
+  const agent = params.claimId
+    ? await resolveClaimActor('caller', oystehr, authorizationHeader, params.secrets)
+    : undefined;
+
+  return { patientId, coverage, agent };
 }
 
 export async function performEffect(
   oystehr: Oystehr,
   params: UpdateBillingCoverageParams,
-  cvo: ComplexValidationResult,
-  agent?: ProvenanceAgent
+  cvo: ComplexValidationResult
 ): Promise<{ id: string | undefined }> {
-  const { patientId } = cvo;
+  const { patientId, agent } = cvo;
   let coverage = structuredClone(cvo.coverage);
   const accounts = params.insuranceType !== undefined ? await getPatientAccounts(oystehr, patientId) : [];
 

@@ -42,8 +42,7 @@ describe('update-billing-coverage', () => {
     const result = await performEffect(
       oystehr,
       { coverageId: 'cov-1', claimId: CLAIM_ID, memberId: 'NEW-456', secrets: null },
-      { patientId: 'pat-1', coverage: structuredClone(coverage) },
-      agent
+      { patientId: 'pat-1', coverage: structuredClone(coverage), agent }
     );
 
     expect(result).toEqual({ id: 'cov-1' });
@@ -74,8 +73,7 @@ describe('update-billing-coverage', () => {
         policyHolder: { firstName: 'Pat', lastName: 'Holder', dob: '1980-01-01', gender: 'female' },
         secrets: null,
       },
-      { patientId: 'pat-1', coverage: structuredClone(coverage) },
-      agent
+      { patientId: 'pat-1', coverage: structuredClone(coverage), agent }
     );
 
     const requests = transaction.mock.calls[0][0].requests;
@@ -126,8 +124,7 @@ describe('update-billing-coverage', () => {
         policyHolder: { firstName: 'Pat', lastName: 'Holder', dob: '1980-01-01', gender: 'female' },
         secrets: null,
       },
-      { patientId: 'pat-1', coverage: withSubscriber },
-      agent
+      { patientId: 'pat-1', coverage: withSubscriber, agent }
     );
 
     const requests = transaction.mock.calls[0][0].requests;
@@ -157,8 +154,7 @@ describe('update-billing-coverage', () => {
     await performEffect(
       oystehr,
       { coverageId: 'cov-1', memberId: 'NEW-456', secrets: null },
-      { patientId: 'pat-1', coverage: structuredClone(coverage) },
-      undefined
+      { patientId: 'pat-1', coverage: structuredClone(coverage) }
     );
 
     expect(transaction).toHaveBeenCalledTimes(1);

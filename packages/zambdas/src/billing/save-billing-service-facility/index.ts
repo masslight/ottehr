@@ -22,16 +22,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, secrets);
 
   console.group('complexValidation');
-  const existing = await complexValidation(oystehr, params);
+  const { existing, agent } = await complexValidation(oystehr, params, input.headers?.Authorization);
   console.groupEnd();
   console.debug('complexValidation success', existing);
-
-  // A claim-scoped edit (the claim screen editing the claim's facility working copy) is recorded in
-  // that claim's history, so it needs the acting user; master-screen edits carry no claim context
-  // and keep working without a resolvable caller.
-  const agent = params.claimId
-    ? await resolveClaimActor('caller', oystehr, input.headers?.Authorization, secrets)
-    : undefined;
 
   console.group('performEffect');
   const response = await performEffect(oystehr, params, existing, agent);
@@ -44,7 +37,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function complexValidation(oystehr: Oystehr, params: SaveServiceFacilityParams): Promise<Location | undefined> {
+async function complexValidation(
+  oystehr: Oystehr,
+  params: SaveServiceFacilityParams,
+  authorizationHeader: string | undefined
+): Promise<{ existing: Location | undefined; agent: ProvenanceAgent | undefined }> {
   const { facilityId, npi } = params;
 
   const existing = facilityId ? await fetchById<Location>(oystehr, 'Location', facilityId) : undefined;
@@ -71,7 +68,14 @@ async function complexValidation(oystehr: Oystehr, params: SaveServiceFacilityPa
     }
   }
 
-  return existing;
+  // A claim-scoped edit (the claim screen editing the claim's facility working copy) is recorded in
+  // that claim's history, so it needs the acting user; master-screen edits carry no claim context
+  // and keep working without a resolvable caller.
+  const agent = params.claimId
+    ? await resolveClaimActor('caller', oystehr, authorizationHeader, params.secrets)
+    : undefined;
+
+  return { existing, agent };
 }
 
 export async function performEffect(
