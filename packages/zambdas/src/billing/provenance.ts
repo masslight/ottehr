@@ -42,6 +42,7 @@ import {
   Secrets,
   userMe,
 } from 'utils';
+import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
   fhirName,
@@ -163,6 +164,8 @@ function projectPatient(p: Patient): FieldProjection[] {
     { field: 'dob', label: 'Date of Birth', value: p.birthDate ?? '' },
     { field: 'gender', label: 'Gender', value: p.gender ?? '' },
     { field: 'address', label: 'Address', value: formatAddress(p.address?.[0]) },
+    { field: 'phone', label: 'Phone', value: p.telecom?.find((t) => t.system === 'phone')?.value ?? '' },
+    { field: 'email', label: 'Email', value: p.telecom?.find((t) => t.system === 'email')?.value ?? '' },
   ];
 }
 
@@ -172,6 +175,7 @@ function projectPractitioner(p: Practitioner): FieldProjection[] {
     { field: 'npi', label: 'NPI', value: getNPI(p) ?? '' },
     { field: 'taxId', label: 'Tax ID', value: getTaxID(p) ?? '' },
     { field: 'taxonomy', label: 'Taxonomy', value: getTaxonomy(p) },
+    { field: 'address', label: 'Address', value: formatAddress(p.address?.[0]) },
   ];
 }
 
@@ -181,6 +185,7 @@ function projectOrganization(o: Organization): FieldProjection[] {
     { field: 'npi', label: 'NPI', value: getNPI(o) ?? '' },
     { field: 'taxId', label: 'Tax ID', value: getTaxID(o) ?? '' },
     { field: 'taxonomy', label: 'Taxonomy', value: getTaxonomy(o) },
+    { field: 'address', label: 'Address', value: formatAddress(o.address?.[0]) },
   ];
 }
 
@@ -188,6 +193,8 @@ function projectLocation(l: Location): FieldProjection[] {
   return [
     { field: 'name', label: 'Name', value: l.name ?? '' },
     { field: 'npi', label: 'NPI', value: getNPI(l) ?? '' },
+    { field: 'clia', label: 'CLIA', value: getCLIA(l) ?? '' },
+    { field: 'posCode', label: 'Place of Service', value: getPlaceOfServiceCode(l) ?? '' },
     { field: 'address', label: 'Address', value: formatAddress(l.address) },
   ];
 }

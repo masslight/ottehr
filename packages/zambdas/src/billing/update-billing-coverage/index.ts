@@ -1,9 +1,10 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Coverage } from 'fhir/r4b';
+import { Coverage, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND, setCoveragePlanType } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { commitClaimResourceChange, diffResources, resolveClaimActor } from '../provenance';
 import {
   BillingFhirResource,
   buildSubscriberRelatedPerson,
@@ -33,7 +34,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const cvo = await complexValidation(params, oystehr);
 
-  const response = await performEffect(oystehr, params, cvo);
+  // A claim-scoped edit (the claim screen editing the claim's coverage working copy) is recorded in
+  // that claim's history, so it needs the acting user; master-screen edits carry no claim context
+  // and keep working without a resolvable caller.
+  const agent = params.claimId
+    ? await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets)
+    : undefined;
+
+  const response = await performEffect(oystehr, params, cvo, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -61,10 +69,11 @@ async function complexValidation(
   return { patientId, coverage };
 }
 
-async function performEffect(
+export async function performEffect(
   oystehr: Oystehr,
   params: UpdateBillingCoverageParams,
-  cvo: ComplexValidationResult
+  cvo: ComplexValidationResult,
+  agent?: ProvenanceAgent
 ): Promise<{ id: string | undefined }> {
   const { patientId } = cvo;
   let coverage = structuredClone(cvo.coverage);
@@ -89,10 +98,12 @@ async function performEffect(
   const preCoverageRequests: BatchInputRequest<BillingFhirResource>[] = [];
   const postCoverageRequests: BatchInputRequest<BillingFhirResource>[] = [];
 
+  let newSubscriber: RelatedPerson | undefined;
+  let currentSubscriberId: string | undefined;
   if (params.relationship) {
     setCoverageRelationship(coverage, params.relationship);
     const currentRef = coverage.subscriber?.reference;
-    const currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
+    currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
 
     if (params.relationship === 'Self' || !params.policyHolder) {
       coverage.subscriber = { reference: `Patient/${patientId}` };
@@ -100,13 +111,13 @@ async function performEffect(
         postCoverageRequests.push({ method: 'DELETE', url: `RelatedPerson/${currentSubscriberId}` });
       }
     } else {
-      const subscriber = buildSubscriberRelatedPerson(patientId, params.relationship, params.policyHolder);
+      newSubscriber = buildSubscriberRelatedPerson(patientId, params.relationship, params.policyHolder);
       if (currentSubscriberId) {
-        subscriber.id = currentSubscriberId;
+        newSubscriber.id = currentSubscriberId;
         preCoverageRequests.push({
           method: 'PUT',
           url: `RelatedPerson/${currentSubscriberId}`,
-          resource: subscriber,
+          resource: newSubscriber,
         });
         coverage.subscriber = { reference: `RelatedPerson/${currentSubscriberId}` };
       } else {
@@ -114,7 +125,7 @@ async function performEffect(
         preCoverageRequests.push({
           method: 'POST',
           url: '/RelatedPerson',
-          resource: subscriber,
+          resource: newSubscriber,
           fullUrl: subscriberUrn,
         });
         coverage.subscriber = { reference: subscriberUrn };
@@ -126,13 +137,41 @@ async function performEffect(
     coverage = setCoveragePlanType(coverage, params.planType);
   }
 
+  // Moving insurance type re-homes the coverage to the right account (PBILLACCT vs WCOMPACCT).
+  const accountRequests =
+    params.insuranceType !== undefined
+      ? reconcileAccountsForCoverage(accounts, patientId, `Coverage/${params.coverageId}`, params.insuranceType)
+      : [];
+
+  if (params.claimId && agent) {
+    // Claim-scoped edit: write the coverage update and its claim-history Provenance in the same
+    // transaction. Policy-holder edits ride on the subscriber RelatedPerson, which the coverage
+    // projection can't see — fold them in as `policyHolder.*` changes, mirroring update-billing-claim.
+    const currentSubscriber =
+      params.relationship && currentSubscriberId
+        ? await fetchById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId)
+        : undefined;
+    const policyHolderChanges = diffResources(currentSubscriber, newSubscriber).map((change) => ({
+      ...change,
+      field: `policyHolder.${change.field}`,
+      label: `Policy Holder ${change.label}`,
+    }));
+    await commitClaimResourceChange(oystehr, {
+      resource: coverage,
+      before: cvo.coverage,
+      agent,
+      claimReference: `Claim/${params.claimId}`,
+      extraChanges: policyHolderChanges,
+      preRequests: preCoverageRequests,
+      postRequests: [...accountRequests, ...postCoverageRequests],
+    });
+    return { id: params.coverageId };
+  }
+
   const requests: BatchInputRequest<BillingFhirResource>[] = [
     ...preCoverageRequests,
     { method: 'PUT', url: `Coverage/${params.coverageId}`, resource: coverage },
-    // Moving insurance type re-homes the coverage to the right account (PBILLACCT vs WCOMPACCT).
-    ...(params.insuranceType !== undefined
-      ? reconcileAccountsForCoverage(accounts, patientId, `Coverage/${params.coverageId}`, params.insuranceType)
-      : []),
+    ...accountRequests,
     ...postCoverageRequests,
   ];
 

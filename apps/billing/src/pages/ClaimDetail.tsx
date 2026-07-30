@@ -570,7 +570,8 @@ function PatientSection({ claim }: { claim: ClaimDetailResponse }): ReactElement
 
   const handleSave = async (payload: UpdateBillingPatientInput): Promise<string | null> => {
     if (!oystehrZambda) return 'Client not ready';
-    await updateBillingPatient(oystehrZambda, payload);
+    // claimId scopes the edit to this claim so it lands in the claim's history.
+    await updateBillingPatient(oystehrZambda, { ...payload, claimId: claim.id });
     await refetchPatient();
     return null;
   };
@@ -659,7 +660,7 @@ export function InsuranceSection({
         const err = await updateResource('Claim', claim.id, claimFields);
         if (err) return err;
       }
-      await updateBillingCoverage(oystehrZambda, coverageToUpdateInput(data, coverageId));
+      await updateBillingCoverage(oystehrZambda, { ...coverageToUpdateInput(data, coverageId), claimId: claim.id });
       resetFields();
       return null;
     } catch (err) {
@@ -840,7 +841,7 @@ function RenderingProviderSection({
         }
       }
       // Update provider
-      await updateBillingProvider(oystehrZambda, { ...payload, providerId });
+      await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
       resetFields();
       await refetchClaimProvider();
       return null;
@@ -913,7 +914,7 @@ function FacilitySection({
         }
       }
       // Update provider
-      await saveBillingServiceFacility(oystehrZambda, { ...payload, facilityId });
+      await saveBillingServiceFacility(oystehrZambda, { ...payload, facilityId, claimId: claim.id });
       resetFields();
       await refetchServiceFacility();
       return null;
@@ -1005,7 +1006,7 @@ function BillingProviderSection({
         }
       }
       // Update provider
-      await updateBillingProvider(oystehrZambda, { ...payload, providerId });
+      await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
       resetFields();
       await refetchClaimProvider();
       return null;
