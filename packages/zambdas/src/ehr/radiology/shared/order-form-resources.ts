@@ -1,16 +1,29 @@
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference, Encounter, Location, Observation, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import {
+  DocumentReference,
+  Encounter,
+  Location,
+  Observation,
+  Patient,
+  Practitioner,
+  Resource,
+  ServiceRequest,
+} from 'fhir/r4b';
 import { Secrets, TIMEZONE_EXTENSION_URL } from 'utils';
 import {
   createRadiologyOrderFormPDF,
   RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE,
+  RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM,
   RadiologyOrderFormInput,
 } from '../../../shared/pdf/radiology-order-form-pdf';
+
+/** The identifying bits of a resource an order form was rendered from. */
+export type OrderFormSource = Pick<Resource, 'resourceType' | 'id' | 'meta'>;
 
 export interface RadiologyOrderFormResources {
   input: RadiologyOrderFormInput;
   refs: { patientId: string; encounterId: string; serviceRequestId: string };
+  sources: OrderFormSource[];
 }
 
 /**
@@ -36,21 +49,27 @@ export const gatherRadiologyOrderFormInput = async (
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
   const locationId = encounter.location?.[0]?.location?.reference?.split('/')[1];
 
-  const [patient, practitioner, location, weight] = await Promise.all([
+  const [patient, practitioner, location, weightObservation] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
     practitionerId
       ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId })
       : Promise.resolve(undefined),
     locationId ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }) : Promise.resolve(undefined),
-    fetchLatestWeight(encounterId, oystehr),
+    fetchLatestWeightObservation(encounterId, oystehr),
   ]);
 
   const timezone =
     location?.extension?.find((ext) => ext.url === TIMEZONE_EXTENSION_URL)?.valueString ?? 'America/New_York';
 
+  const quantity = weightObservation?.valueQuantity;
+  const weight = quantity?.value != null ? { value: quantity.value, unit: quantity.unit ?? 'kg' } : undefined;
+
   return {
     input: { serviceRequest, patient, practitioner, location, timezone, weight, oystehr },
     refs: { patientId, encounterId, serviceRequestId },
+    sources: [serviceRequest, encounter, patient, practitioner, location, weightObservation].flatMap((resource) =>
+      resource ? [resource] : []
+    ),
   };
 };
 
@@ -73,14 +92,25 @@ export const findCurrentRadiologyOrderFormDocRef = async (
     })
   ).unbundle()[0];
 
-/** True when the order changed after its stored form was written, by any edit path. */
-export const isRadiologyOrderFormStale = (docRef: DocumentReference, serviceRequest: ServiceRequest): boolean => {
-  const generatedAt = docRef.date;
-  const orderUpdatedAt = serviceRequest.meta?.lastUpdated;
-  if (!generatedAt) return true; // nothing to compare against — regenerate rather than guess
-  if (!orderUpdatedAt) return false;
-  return DateTime.fromISO(orderUpdatedAt) > DateTime.fromISO(generatedAt);
+/**
+ * Version of every resource that appears on a rendered form — stamped on its DocumentReference and
+ * compared on the next print. Undefined when a source is unversioned; such a form is never reused.
+ */
+export const radiologyOrderFormSourceVersion = (sources: OrderFormSource[]): string | undefined => {
+  const versions = sources.map((resource) =>
+    resource.id && resource.meta?.versionId
+      ? `${resource.resourceType}/${resource.id}@${resource.meta.versionId}`
+      : undefined
+  );
+  if (versions.some((version) => version === undefined)) {
+    return undefined;
+  }
+  return versions.sort().join('|');
 };
+
+/** The source version stamped on a stored order form, if any. */
+export const storedOrderFormSourceVersion = (docRef: DocumentReference): string | undefined =>
+  docRef.identifier?.find((identifier) => identifier.system === RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM)?.value;
 
 export interface RadiologyOrderFormDocument {
   documentReference: DocumentReference;
@@ -91,32 +121,37 @@ export interface RadiologyOrderFormDocument {
   presignedURL?: string;
 }
 
-/**
- * The order form for this order, rendered only when no usable copy is on file — so a fax carries the
- * same document that was printed and reviewed.
- */
+/** The order form for this order, re-rendered only when the copy on file no longer matches it. */
 export const getOrCreateRadiologyOrderForm = async (
   serviceRequestId: string,
   secrets: Secrets | null,
   token: string,
   oystehr: Oystehr
 ): Promise<RadiologyOrderFormDocument> => {
-  const existingDocRef = await findCurrentRadiologyOrderFormDocRef(serviceRequestId, oystehr);
-  const existingMediaUrl = existingDocRef?.content?.[0]?.attachment?.url;
-  const existingPatientId = existingDocRef?.subject?.reference?.split('/')[1];
+  const [existingDocRef, { input, refs, sources }] = await Promise.all([
+    findCurrentRadiologyOrderFormDocRef(serviceRequestId, oystehr),
+    gatherRadiologyOrderFormInput(serviceRequestId, oystehr),
+  ]);
 
-  if (existingDocRef && existingMediaUrl && existingPatientId) {
-    const serviceRequest = await oystehr.fhir.get<ServiceRequest>({
-      resourceType: 'ServiceRequest',
-      id: serviceRequestId,
-    });
-    if (!isRadiologyOrderFormStale(existingDocRef, serviceRequest)) {
-      return { documentReference: existingDocRef, mediaUrl: existingMediaUrl, patientId: existingPatientId };
-    }
+  const sourceVersion = radiologyOrderFormSourceVersion(sources);
+  const existingMediaUrl = existingDocRef?.content?.[0]?.attachment?.url;
+
+  if (
+    existingDocRef &&
+    existingMediaUrl &&
+    sourceVersion &&
+    storedOrderFormSourceVersion(existingDocRef) === sourceVersion
+  ) {
+    return { documentReference: existingDocRef, mediaUrl: existingMediaUrl, patientId: refs.patientId };
   }
 
-  const { input, refs } = await gatherRadiologyOrderFormInput(serviceRequestId, oystehr);
-  const { documentReference, presignedURL } = await createRadiologyOrderFormPDF(input, refs, secrets, token);
+  const { documentReference, presignedURL } = await createRadiologyOrderFormPDF(
+    input,
+    refs,
+    secrets,
+    token,
+    sourceVersion
+  );
 
   const mediaUrl = documentReference.content?.[0]?.attachment?.url;
   if (!mediaUrl) {
@@ -126,25 +161,17 @@ export const getOrCreateRadiologyOrderForm = async (
   return { documentReference, mediaUrl, patientId: refs.patientId, presignedURL };
 };
 
-const fetchLatestWeight = async (
-  encounterId: string,
-  oystehr: Oystehr
-): Promise<{ value: number; unit: string } | undefined> => {
-  const observations = (
+const fetchLatestWeightObservation = async (encounterId: string, oystehr: Oystehr): Promise<Observation | undefined> =>
+  (
     await oystehr.fhir.search<Observation>({
       resourceType: 'Observation',
       params: [
         { name: 'encounter', value: `Encounter/${encounterId}` },
         { name: 'code', value: 'http://loinc.org|29463-7' },
+        // Retracted vitals must not reach a printed order (same exclusions as the vitals reader).
+        { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' },
         { name: '_sort', value: '-date' },
         { name: '_count', value: '1' },
       ],
     })
-  ).unbundle();
-
-  const quantity = observations[0]?.valueQuantity;
-  if (quantity?.value == null) {
-    return undefined;
-  }
-  return { value: quantity.value, unit: quantity.unit ?? 'kg' };
-};
+  ).unbundle()[0];

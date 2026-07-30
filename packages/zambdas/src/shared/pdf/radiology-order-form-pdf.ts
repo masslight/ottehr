@@ -31,6 +31,10 @@ export const RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE = {
   display: 'Radiology Order Form',
 };
 
+/** Identifier system for a stored order form's source versions. */
+export const RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/radiology-order-form-source-version';
+
 interface OrganizationBlock {
   name?: string;
   address?: string;
@@ -271,7 +275,8 @@ export async function createRadiologyOrderFormPDF(
   input: RadiologyOrderFormInput,
   refs: { patientId: string; encounterId: string; serviceRequestId: string },
   secrets: Secrets | null,
-  token: string
+  token: string,
+  sourceVersion?: string
 ): Promise<{ documentReference: DocumentReference; presignedURL: string }> {
   const { patientId, encounterId, serviceRequestId } = refs;
 
@@ -293,6 +298,9 @@ export async function createRadiologyOrderFormPDF(
         related: [{ reference: `ServiceRequest/${serviceRequestId}` }],
         encounter: [{ reference: `Encounter/${encounterId}` }],
       },
+      ...(sourceVersion
+        ? { identifier: [{ system: RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM, value: sourceVersion }] }
+        : {}),
     },
     docStatus: 'final',
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
