@@ -20,6 +20,8 @@ interface TagSelectProps {
   value: string | null | undefined;
   onChange: (value: string) => void;
   label?: string;
+  // Marks the label with the required asterisk.
+  required?: boolean;
   error?: boolean;
   helperText?: ReactNode;
   // react-hook-form field ref, so shouldFocusError can focus this input on a failed submit.
@@ -32,6 +34,7 @@ export function TagSelect({
   value,
   onChange,
   label = 'Tag',
+  required,
   error,
   helperText,
   inputRef,
@@ -91,6 +94,7 @@ export function TagSelect({
           {...params}
           label={label}
           placeholder="Select a tag…"
+          required={required}
           error={error}
           helperText={helperText}
           inputRef={inputRef}

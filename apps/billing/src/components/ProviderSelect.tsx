@@ -35,6 +35,8 @@ interface ProviderSelectProps {
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
+  // Marks the label with the required asterisk.
+  required?: boolean;
   // Validation display + react-hook-form focus ref, for use inside Controller-registered forms.
   error?: boolean;
   helperText?: ReactNode;
@@ -115,6 +117,7 @@ export function ProviderSelect({
   value,
   onChange,
   label = 'Provider',
+  required,
   error,
   helperText,
   inputRef,
@@ -141,6 +144,7 @@ export function ProviderSelect({
         {...params}
         label={label}
         placeholder="Search providers…"
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}

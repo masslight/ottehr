@@ -246,11 +246,11 @@ describe('ConditionalEditor', () => {
 
     fireEvent.click(screen.getByText('Save'));
 
-    await waitFor(() => expect(screen.getByLabelText('Value')).toHaveAttribute('aria-invalid', 'true'));
+    await waitFor(() => expect(screen.getByLabelText('Value *')).toHaveAttribute('aria-invalid', 'true'));
     expect(screen.getByText('NPI must be a valid 10-digit number with a correct check digit')).toBeInTheDocument();
     expect(onValid).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText('Value'), { target: { value: '1234567893' } });
+    fireEvent.change(screen.getByLabelText('Value *'), { target: { value: '1234567893' } });
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(onValid).toHaveBeenCalled());
   });
@@ -313,6 +313,72 @@ describe('ConditionalEditor', () => {
     expect(onValid).not.toHaveBeenCalled();
   });
 
+  it('marks required value labels with an asterisk and leaves blank-on-purpose values unmarked', () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          // A condition value is always required once the operator takes a value.
+          condition: { type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'A1' },
+          outcome: {
+            type: 'actions',
+            actions: [
+              // serviceDate is requiredOnSet: its writer rejects blank.
+              { type: 'setField', field: 'serviceDate', value: '' },
+              // memberId is clearable: blank means "clear the property" on purpose.
+              { type: 'setField', field: 'insurance.memberId', value: '' },
+              { type: 'applyTag', tag: '' },
+            ],
+          },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    expect(screen.getByLabelText('Value *')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tag name *')).toBeInTheDocument();
+    expect(screen.getByLabelText('New value *')).toBeInTheDocument();
+    // The clearable field's label stays unmarked (exact match: no trailing asterisk).
+    expect(screen.getByLabelText('New value')).toBeInTheDocument();
+  });
+
+  it('marks service-line value labels required except where blank means "clear"', () => {
+    const conditional: RuleConditional = {
+      branches: [
+        {
+          condition: { type: 'all' },
+          outcome: {
+            type: 'actions',
+            actions: [
+              {
+                type: 'updateServiceLines',
+                match: { type: 'field', property: 'charges', operator: 'gt', value: '0' },
+                // "Set to" over the modifier list may be blank on purpose (clears the list).
+                set: { property: 'modifiers', value: '', operation: 'set' },
+              },
+              {
+                type: 'updateServiceLines',
+                match: { type: 'all' },
+                // "Add" takes the one modifier, so it is required.
+                set: { property: 'modifiers', value: '25', operation: 'add' },
+              },
+              { type: 'addServiceLine', line: { cptCode: '', charges: '' } },
+            ],
+          },
+        },
+      ],
+    };
+    render(<ConditionalForm conditional={conditional} />);
+
+    // The line-match value is always required once the operator takes a value.
+    expect(screen.getByLabelText('Value *')).toBeInTheDocument();
+    expect(screen.getByLabelText('Modifiers (comma-separated)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Modifier to add *')).toBeInTheDocument();
+    // The add-line form marks its required fields; optional ones keep the "(optional)" suffix.
+    expect(screen.getByLabelText('CPT code *')).toBeInTheDocument();
+    expect(screen.getByLabelText('Charges *')).toBeInTheDocument();
+    expect(screen.getByLabelText('Units (optional)')).toBeInTheDocument();
+  });
+
   it('resets the value when the operator arity changes (is one of -> equals)', async () => {
     const conditional: RuleConditional = {
       branches: [
@@ -324,23 +390,23 @@ describe('ConditionalEditor', () => {
     };
     render(<ConditionalForm conditional={conditional} />);
 
-    expect(screen.getByLabelText('Values (comma-separated)')).toHaveValue('A1, B2');
+    expect(screen.getByLabelText('Values (comma-separated) *')).toHaveValue('A1, B2');
 
     fireEvent.mouseDown(screen.getByText('is one of'));
     fireEvent.click(await screen.findByRole('option', { name: 'equals' }));
 
     // The stale list must not survive to be silently compared as its first entry.
-    expect(screen.getByLabelText('Value')).toHaveValue('');
+    expect(screen.getByLabelText('Value *')).toHaveValue('');
 
     // Same-arity switches keep the value. (The closed menu stays mounted, so scope the reopen
     // to the combobox display rather than any text match.)
-    fireEvent.change(screen.getByLabelText('Value'), { target: { value: 'A1' } });
+    fireEvent.change(screen.getByLabelText('Value *'), { target: { value: 'A1' } });
     const operatorDisplay = screen
       .getAllByText('equals')
       .find((element) => element.getAttribute('role') === 'combobox');
     fireEvent.mouseDown(operatorDisplay!);
     fireEvent.click(await screen.findByRole('option', { name: 'does not equal' }));
-    expect(screen.getByLabelText('Value')).toHaveValue('A1');
+    expect(screen.getByLabelText('Value *')).toHaveValue('A1');
   });
 
   it('clears a stale value error when the condition property changes', async () => {
@@ -355,12 +421,12 @@ describe('ConditionalEditor', () => {
     render(<ConditionalForm conditional={conditional} />);
 
     fireEvent.click(screen.getByText('Save'));
-    await waitFor(() => expect(screen.getByLabelText('Value')).toHaveAttribute('aria-invalid', 'true'));
+    await waitFor(() => expect(screen.getByLabelText('Value *')).toHaveAttribute('aria-invalid', 'true'));
 
     // Switch the condition to a different property; the NPI error no longer applies to its value.
     fireEvent.mouseDown(screen.getByText('NPI'));
     fireEvent.click((await screen.findAllByRole('option', { name: 'Member ID' }))[0]);
 
-    await waitFor(() => expect(screen.getByLabelText('Value')).not.toHaveAttribute('aria-invalid', 'true'));
+    await waitFor(() => expect(screen.getByLabelText('Value *')).not.toHaveAttribute('aria-invalid', 'true'));
   });
 });
