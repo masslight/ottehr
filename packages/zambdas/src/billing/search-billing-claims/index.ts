@@ -14,7 +14,7 @@ import {
   getPayerUrl,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
+import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from '../claim-amounts';
 import {
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
@@ -166,12 +166,16 @@ async function enrichAndMapClaims(
     coverages = covResult.unbundle();
   }
 
-  const [payersByRef, claimResponsesByClaimId] = await Promise.all([
+  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
     ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchPatientPaidByClaimId({
+      oystehr,
+      claims,
+    }),
   ]);
 
   const lookups: ClaimLookups = {
@@ -181,6 +185,7 @@ async function enrichAndMapClaims(
     practitioners: included.practitioners,
     coverages,
     claimResponsesByClaimId,
+    patientPaidByClaimId,
   };
   return claims.map((claim) => mapClaimToItem(claim, lookups));
 }
@@ -192,9 +197,10 @@ interface ClaimLookups {
   practitioners: Practitioner[];
   coverages: Coverage[];
   claimResponsesByClaimId: Map<string, ClaimResponse[]>;
+  patientPaidByClaimId: Map<string, number>;
 }
 
-function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
+export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patient = findRef<Patient>(lookups.patients, claim.patient?.reference);
   const insurer = claim.insurer?.reference ? lookups.payersByRef.get(claim.insurer.reference) : undefined;
   const facility = findRef<Location>(lookups.locations, claim.facility?.reference);
@@ -208,7 +214,12 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
   const patientName = fhirName(patient);
 
   const serviceDate = getClaimServiceDate(claim);
-  const payments = summarizeClaimPayments(lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [], billed);
+  const patientPaid = lookups.patientPaidByClaimId.get(claim.id ?? '') ?? 0;
+  const payments = summarizeClaimPayments(
+    lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [],
+    billed,
+    patientPaid
+  );
 
   return {
     id: claim.id ?? '',
@@ -231,6 +242,7 @@ function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
     claimBalance: payments.balance,
+    adjudicated: payments.adjudicated,
     responsibleParty: 'Primary',
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

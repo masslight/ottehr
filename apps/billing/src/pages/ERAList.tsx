@@ -21,6 +21,7 @@ import {
   BillingPayerOption,
   ClaimsQueueItemStatuses,
   EraListItem,
+  formatCurrency,
   getApiError,
   SearchErasInput,
 } from 'utils';
@@ -30,7 +31,6 @@ import { ImportEraDialog } from '../components/ImportEraDialog';
 import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
-import { formatCurrency } from '../utils/format';
 
 interface Filters {
   // ERA-level

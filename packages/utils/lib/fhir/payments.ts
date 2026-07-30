@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Device } from 'fhir/r4b';
+import { Device, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
 import {
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
@@ -70,3 +70,8 @@ export const getTerminalLocationIdFromDevice = (device: Device | undefined): str
   if (!device) return undefined;
   return device.identifier?.find((id) => id.system === STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM)?.value;
 };
+
+export const getContainedReconciliation = (notice: PaymentNotice): PaymentReconciliation | undefined =>
+  notice.contained?.find(
+    (resource): resource is PaymentReconciliation => resource.resourceType === 'PaymentReconciliation'
+  );

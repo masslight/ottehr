@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, ProvenanceAgent } from 'fhir/r4b';
+import { Claim, Organization, ProvenanceAgent } from 'fhir/r4b';
 import {
   AR_STAGE,
   BillingRule,
+  CLAIM_PROVENANCE_CHANGE_REF_URL,
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
   getPayerUrl,
@@ -10,8 +12,8 @@ import {
   withArStageInitialization,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RulesEngineClaimModel } from '../../../src/billing/rules-engine/claim-model';
-import { BILLING_WORKING_COPY_TAG } from '../../../src/billing/shared';
+import { RulesEngineClaimModel, writeField } from '../../../src/billing/rules-engine/claim-model';
+import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG } from '../../../src/billing/shared';
 import {
   ensureClaimHeld,
   performEffect,
@@ -67,6 +69,7 @@ function makeModel(arStage: string = AR_STAGE.insurancePayer): RulesEngineClaimM
         payor: [{ reference: getPayerUrl('123456') }],
       },
     ],
+    subscribers: [],
   };
 }
 
@@ -113,6 +116,38 @@ describe('sub-rules-engine performEffect', () => {
     expect(result.statusReason).toContain('submitted');
     // Status change (insuranceArStatus -> submitted) commits with its Provenance.
     expect(transaction).toHaveBeenCalled();
+  });
+
+  it('fails and holds the claim instead of submitting when rules changed a shared (non-working-copy) resource', async () => {
+    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    // Legacy/imported claim graph: the patient is a shared resource, not a per-claim working copy.
+    model.patient!.meta = { versionId: '1' };
+    const rules = [
+      alwaysRule('r1', {
+        type: 'actions',
+        actions: [{ type: 'setField', field: 'patient.lastName', value: 'Corrected' }],
+      }),
+    ];
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules, model },
+      AGENT
+    );
+
+    // persistModel skips the shared-resource write; completing would submit the claim as if the
+    // change had applied, so the run must fail and hold instead.
+    expect(result.taskStatus).toBe('failed');
+    expect(result.statusReason).toContain('Patient/patient-1');
+    expect(result.statusReason).toContain('held');
+    expect(submitClaimRcm).not.toHaveBeenCalled();
+    const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+    const claimPut = requests.find(
+      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    );
+    expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
+    expect(requests.some((r: { url: string }) => r.url.startsWith('Patient/'))).toBe(false);
   });
 
   it('lifts the Hold tag when a previously held claim passes and submits', async () => {
@@ -358,6 +393,94 @@ describe('sub-rules-engine persistModel', () => {
 
     expect(written).toBe(0);
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('creates writer-minted working copies and updates the claim in a single transaction', async () => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel();
+    // The claim already carries an old billing-provider working copy that the swap replaces.
+    model.billingProvider = {
+      resourceType: 'Organization',
+      id: 'old-copy-1',
+      name: 'Old Billing Group',
+      meta: { versionId: '1', tag: [workingCopyTag] },
+    };
+    model.claim.provider = { reference: 'Organization/old-copy-1', display: 'Old Billing Group' };
+    const snapshot = snapshotModel(model);
+
+    const original: Organization = {
+      resourceType: 'Organization',
+      id: 'org-new',
+      name: 'New Billing Group',
+      meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: 'billing' }] },
+    };
+    model.referenceResources = new Map([['Organization/org-new', original]]);
+    expect(writeField(model, 'billingProvider.ref', 'Organization/org-new')).toBe(true);
+    const localId = model.billingProvider.id!;
+    const urn = `urn:uuid:${localId}`;
+
+    const written = await persistModel(oystehr, model, snapshot, AGENT);
+
+    expect(written).toBe(2); // the new copy + the claim
+    // One atomic transaction: the copy's POST, its create-Provenance, the claim PUT, and the
+    // claim's change-Provenance commit or fail together — no orphaned copies on a partial failure.
+    expect(transaction).toHaveBeenCalledTimes(1);
+    const requests = transaction.mock.calls[0][0].requests;
+
+    // The copy: POST with no id, a urn fullUrl, the working-copy tag, and a create-Provenance
+    // targeting that urn (rewritten by the server inside the transaction).
+    const post = requests.find(
+      (r: { method: string; url: string }) => r.method === 'POST' && r.url === '/Organization'
+    );
+    expect(post.fullUrl).toBe(urn);
+    expect(post.resource.id).toBeUndefined();
+    expect(post.resource.meta.tag).toContainEqual(workingCopyTag);
+    const provenances = requests.filter((r: { url: string }) => r.url === '/Provenance');
+    const createProvenance = provenances.find(
+      (r: { resource: { activity: { coding: { code: string }[] } } }) => r.resource.activity.coding[0].code === 'CREATE'
+    );
+    expect(createProvenance.resource.target[0].reference).toBe(urn);
+
+    // The claim PUT still references the urn — matching the POST's fullUrl is the contract; the
+    // server rewrites it to the created id inside the transaction (the mock cannot emulate that).
+    const claimPut = requests.find(
+      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    );
+    expect(claimPut.resource.provider).toEqual({ reference: urn, display: 'New Billing Group' });
+    expect(
+      requests.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url.startsWith('Organization/'))
+    ).toBe(false);
+
+    // The claim's change-Provenance: the diff JSON carries no refs (and so no urns) — the urn lives
+    // in a Reference-typed entity the server rewrites, tied to its change by the linking extension.
+    const changeProvenance = provenances.find(
+      (r: { resource: { activity: { coding: { code: string }[] } } }) => r.resource.activity.coding[0].code === 'UPDATE'
+    );
+    const diffString = changeProvenance.resource.extension.find(
+      (e: { url: string }) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL
+    ).valueString;
+    expect(diffString).not.toContain('urn:uuid');
+    expect(JSON.parse(diffString)).toContainEqual({
+      field: 'billingProvider',
+      label: 'Billing Provider',
+      previousValue: 'Old Billing Group',
+      newValue: 'New Billing Group',
+    });
+    expect(changeProvenance.resource.entity).toContainEqual({
+      role: 'derivation',
+      what: { reference: urn },
+      extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'billingProvider|new|0' }],
+    });
+    expect(changeProvenance.resource.entity).toContainEqual({
+      role: 'source',
+      what: { reference: 'Organization/old-copy-1' },
+      extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'billingProvider|previous|0' }],
+    });
+
+    // The model keeps its placeholder id (nothing downstream needs the created id), and the
+    // superseded old copy was left untouched (orphaned) — no request writes to it.
+    expect(model.billingProvider.id).toBe(localId);
+    expect(requests.some((r: { url: string }) => r.url.includes('old-copy-1'))).toBe(false);
   });
 });
 
