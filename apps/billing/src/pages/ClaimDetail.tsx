@@ -810,23 +810,21 @@ function RenderingProviderSection({
   ): Promise<string | null> => {
     if (!oystehrZambda) return null;
     try {
-      // By default, update existing provider below, taking into account that the payload
-      // may include the selected provider's ID at this point
+      // A selected reference provider is an attach/swap — even when the claim already has one:
+      // point the claim at a fresh working copy of the selection (recording the reference change,
+      // with its link, in the claim history), then apply the form's fields to that copy below.
+      // Without a selection, this is a field edit of the current working copy.
       let providerId =
-        'providerId' in payload && payload.providerId
-          ? selectedProvider
-            ? claim.renderingProviderId
-            : payload.providerId
-          : undefined;
+        'providerId' in payload && payload.providerId && !selectedProvider ? payload.providerId : undefined;
       if (!providerId) {
         if (selectedProvider?.id) {
-          // Selected from some base, add it to claim and update below
-          await updateResource('Claim', claim.id, {
+          const attachError = await updateResource('Claim', claim.id, {
             renderingProvider: {
               id: selectedProvider.id,
               type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
             },
           });
+          if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.renderingProviderId;
         } else {
@@ -894,15 +892,17 @@ function FacilitySection({
   const handleSave = async (payload: SaveServiceFacilityInput): Promise<string | null> => {
     if (!oystehrZambda) return null;
     try {
-      // By default, update existing facility below, taking into account that the payload
-      // may include the selected facility's ID at this point
-      let facilityId = payload.facilityId ? (selected ? claim.serviceFacilityId : payload.facilityId) : undefined;
+      // A selected reference facility is an attach/swap — even when the claim already has one:
+      // point the claim at a fresh working copy of the selection (recording the reference change,
+      // with its link, in the claim history), then apply the form's fields to that copy below.
+      // Without a selection, this is a field edit of the current working copy.
+      let facilityId = payload.facilityId && !selected ? payload.facilityId : undefined;
       if (!facilityId) {
         if (selected?.id) {
-          // Selected from some base, add it to claim and update below
-          await updateResource('Claim', claim.id, {
+          const attachError = await updateResource('Claim', claim.id, {
             facilityId: selected.id,
           });
+          if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           facilityId = updatedClaim.serviceFacilityId;
         } else {
@@ -975,23 +975,21 @@ function BillingProviderSection({
   ): Promise<string | null> => {
     if (!oystehrZambda) return null;
     try {
-      // By default, update existing provider below, taking into account that the payload
-      // may include the selected provider's ID at this point
+      // A selected reference provider is an attach/swap — even when the claim already has one:
+      // point the claim at a fresh working copy of the selection (recording the reference change,
+      // with its link, in the claim history), then apply the form's fields to that copy below.
+      // Without a selection, this is a field edit of the current working copy.
       let providerId =
-        'providerId' in payload && payload.providerId
-          ? selectedProvider
-            ? claim.billingProviderFhirId
-            : payload.providerId
-          : undefined;
+        'providerId' in payload && payload.providerId && !selectedProvider ? payload.providerId : undefined;
       if (!providerId) {
         if (selectedProvider?.id) {
-          // Selected from some base, add it to claim and update below
-          await updateResource('Claim', claim.id, {
+          const attachError = await updateResource('Claim', claim.id, {
             billingProvider: {
               id: selectedProvider.id,
               type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
             },
           });
+          if (attachError) return attachError;
           const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
           providerId = updatedClaim.billingProviderFhirId;
         } else {
