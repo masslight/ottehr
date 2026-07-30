@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { CopyButton } from '../../src/components/CopyButton';
@@ -123,9 +123,11 @@ describe('CopyButton', () => {
     const copyButton = screen.getByRole('button', { name: 'Copy Claim ID' });
     await user.click(copyButton);
 
-    expect(enqueueSnackbarMock).toHaveBeenCalledWith('Could not copy Claim ID to clipboard', {
-      variant: 'error',
-    });
+    await waitFor(() =>
+      expect(enqueueSnackbarMock).toHaveBeenCalledWith('Could not copy Claim ID to clipboard', {
+        variant: 'error',
+      })
+    );
     expect(screen.getByRole('button', { name: 'Copy Claim ID' })).toBeInTheDocument();
     expect(screen.queryByTestId('CheckIcon')).not.toBeInTheDocument();
 
