@@ -11,7 +11,6 @@ import {
   AccountCoverage,
   Appointment,
   Basic,
-  ChargeItemDefinition,
   Claim,
   ClaimDiagnosis,
   ClaimItem,
@@ -37,7 +36,6 @@ import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
   BILLING_RESOURCE_TAG,
-  ChargeItemDefinitionDefault,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -49,7 +47,6 @@ import {
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  CPT_CODE_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   FHIR_RESOURCE_NOT_FOUND,
@@ -84,11 +81,6 @@ import {
   sendErrors,
   ZambdaInput,
 } from '../../shared';
-import {
-  activeDefaultChargeMasterSearchParams,
-  getChargeMasterPrice,
-  selectBestChargeMaster,
-} from '../charge-master.helpers';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
@@ -150,7 +142,6 @@ interface BillingResources {
   billingProvider?: Organization;
   autoAccidentTag?: Basic;
   billingService?: Basic;
-  chargeMaster?: ChargeItemDefinition;
 }
 
 interface ClaimResources {
@@ -166,7 +157,6 @@ interface ClaimResources {
   // Only rendering and billing providers handled now
   renderingProvider?: Practitioner;
   billingProvider?: Organization;
-  chargeMaster?: ChargeItemDefinition;
   diagnoses?: Array<Condition>;
   procedures?: Array<Procedure>;
   billingTags?: Array<string>;
@@ -479,7 +469,6 @@ export async function performEffect(
     serviceFacility: claimServiceFacility,
     billingProvider: claimBillingProvider,
     billingTags,
-    chargeMaster: billingResources.chargeMaster,
   });
   const claimUrn = 'urn:uuid:claim';
   requests.push({ method: 'POST', url: '/Claim', resource: claim, fullUrl: claimUrn });
@@ -1120,32 +1109,6 @@ async function findExistingBillingResources(
     }
   }
 
-  // Determine the payment variant and look up the correct charge master to use for service line prices
-  const paymentVariant = getPaymentVariantFromEncounter(clinicalResources.encounter);
-  let chargeMasterDefault: ChargeItemDefinitionDefault | undefined;
-  if (paymentVariant === PaymentVariant.insurance) {
-    chargeMasterDefault = 'insurance';
-  } else if (paymentVariant === PaymentVariant.selfPay) {
-    chargeMasterDefault = 'self-pay';
-  }
-  let chargeMaster: ChargeItemDefinition | undefined;
-  if (chargeMasterDefault) {
-    const candidates = (
-      await billingOystehr.fhir.search<ChargeItemDefinition>({
-        resourceType: 'ChargeItemDefinition',
-        params: activeDefaultChargeMasterSearchParams([chargeMasterDefault]),
-      })
-    ).unbundle();
-    // Resolve the best candidate the same way the rules engine's applyChargeMasterPrices action
-    // does: most recent effective date on or before the claim's date of service — the facility-local
-    // appointment date buildClaim stamps on every service line. buildClaim asserts appointment.start;
-    // fall back to today here only so selection never throws first.
-    const dateOfService = clinicalResources.appointment.start
-      ? getLocalDateOfService(clinicalResources.appointment.start, matchingServiceFacility)
-      : new Date().toISOString().slice(0, 10);
-    chargeMaster = selectBestChargeMaster(candidates, chargeMasterDefault, dateOfService);
-  }
-
   return {
     person: existingPerson,
     mainPatient: existingMainPatient,
@@ -1158,7 +1121,6 @@ async function findExistingBillingResources(
     billingProvider: matchingBillingProvider,
     autoAccidentTag,
     billingService,
-    chargeMaster,
   };
 }
 
@@ -1181,7 +1143,6 @@ function buildClaim(resources: ClaimResources): Claim {
   // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
 
-  let total = 0;
   const claim: Claim = {
     resourceType: 'Claim',
     identifier: [
@@ -1264,8 +1225,6 @@ function buildClaim(resources: ClaimResources): Claim {
               })),
             ...(procedureCode.coding ?? []).filter((coding) => coding.system !== CODE_SYSTEM_HCPCS),
           ];
-          const amount = getPriceForProcedure(p, resources.chargeMaster);
-          total += amount;
           return {
             sequence: i + 1,
             careTeamSequence: resources.renderingProvider ? [1] : undefined,
@@ -1307,8 +1266,11 @@ function buildClaim(resources: ClaimResources): Claim {
                     ],
                   }
                 : undefined,
+            // Lines are created unpriced: charge master prices are applied by the rules engine's
+            // applyChargeMasterPrices action (rule sets run automatically on creation), or entered
+            // by the biller in the claim editor.
             net: {
-              value: amount,
+              value: 0,
               currency: 'USD',
             },
             quantity: { value: 1, unit: 'UN' },
@@ -1316,7 +1278,7 @@ function buildClaim(resources: ClaimResources): Claim {
         })
       : [],
     total: {
-      value: total,
+      value: 0,
       currency: 'USD',
     },
   };
@@ -1338,29 +1300,6 @@ function getServiceCoding(appointment: Appointment): Coding | undefined {
     system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
     code: service,
   };
-}
-
-function getPriceForProcedure(procedure: Procedure, chargeMaster?: ChargeItemDefinition): number {
-  // Return early if nothing to check against
-  if (!chargeMaster) {
-    return 0;
-  }
-  // Find CPT code and CPT modifier
-  const procedureCodeCoding = procedure.code?.coding?.find((coding) => coding.system === CPT_CODE_SYSTEM);
-  const procedureCode = procedureCodeCoding?.code;
-  const procedureCodeModifierExt = procedureCodeCoding?.extension?.find(
-    (ext) => ext.url === EXTENSION_URL_CPT_MODIFIER
-  );
-  const procedureCodeModifier = procedureCodeModifierExt?.valueCodeableConcept?.coding?.find(
-    (coding) => coding.system === CODE_SYSTEM_CPT_MODIFIER
-  )?.code;
-  // Return early if nothing to check
-  if (!procedureCode) {
-    return 0;
-  }
-  // A claim built from an encounter carries a price on every line; a code the charge master doesn't
-  // cover is billed at 0 for the biller to fill in.
-  return getChargeMasterPrice(chargeMaster, procedureCode, procedureCodeModifier ? [procedureCodeModifier] : []) ?? 0;
 }
 
 export async function complexValidation(
