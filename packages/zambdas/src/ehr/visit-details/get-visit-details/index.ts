@@ -28,6 +28,7 @@ import {
   getFullestAvailableName,
   getNameFromScheduleResource,
   getQuestionnaireForQR,
+  getSecret,
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
   isAnnotationFollowupEncounter,
@@ -41,12 +42,19 @@ import {
   qrSentManually,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   selectIntakeQuestionnaireResponse,
   StandaloneFormDTO,
   Timezone,
   TIMEZONES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  sendErrors,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-visit-details';
@@ -62,7 +70,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const effectInput = await complexValidation(validatedParameters, oystehr);
+  const effectInput = await complexValidation(validatedParameters, oystehr, secrets);
   console.debug('complexValidation success', JSON.stringify(effectInput));
 
   const resources = performEffect(effectInput);
@@ -154,7 +162,7 @@ interface EffectInput {
   intakePaperworkFlowForms?: StandaloneFormDTO[];
 }
 
-const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
+const complexValidation = async (input: Input, oystehr: Oystehr, secrets: Secrets | null): Promise<EffectInput> => {
   const { appointmentId } = input;
 
   const searchResults = (
@@ -197,7 +205,6 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   const location = searchResults.find((resource) => resource.resourceType === 'Location') as Location | undefined;
   const flags = searchResults.filter((resource) => resource.resourceType === 'Flag') as Flag[];
   const qr = selectIntakeQuestionnaireResponse(searchResults) as PersistedFhirResource<QuestionnaireResponse>;
-  console.log('qr found:', JSON.stringify(qr)); // todo sarah remove log
   const schedule = searchResults.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
 
   if (!appointment) {
@@ -234,7 +241,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     ),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
     getStandaloneFormsForAppointment(appointment, oystehr),
-    getIntakePaperworkFlowForms(qr, oystehr),
+    getIntakePaperworkFlowForms(qr, oystehr, secrets),
   ]);
   const { guarantorResource } = accountResources;
   return {
@@ -367,12 +374,24 @@ const getStandaloneFormsForAppointment = async (
 // data is already surfaced elsewhere on visit details / the patient profile.
 const getIntakePaperworkFlowForms = async (
   qr: QuestionnaireResponse,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  secrets: Secrets | null
 ): Promise<StandaloneFormDTO[] | undefined> => {
-  console.log('starting getIntakePaperworkFlowForms'); // todo sarah remove log
-  const flowQuestionnaire = await getQuestionnaireForQR(qr, oystehr);
-  console.log('found flowQuestionnaire', flowQuestionnaire); // todo sarah remove log
-  if (!isPaperworkFlowQuestionnaire(flowQuestionnaire)) return;
+  let questionnaire: Questionnaire | undefined;
+
+  // this really shouldn't happen, but if it does it should not kill get-visit-details
+  try {
+    questionnaire = await getQuestionnaireForQR(qr, oystehr);
+  } catch (e) {
+    console.log(`Error getting Questionnaire for QuestionnaireResponse/${qr.id}`, e);
+    const errorMessage = `Error getting Questionnaire for QuestionnaireResponse/${qr.id}`;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    // no need to error and fail the call but this would be odd so alerting
+    await sendErrors(errorMessage, ENVIRONMENT);
+  }
+
+  if (!questionnaire || !isPaperworkFlowQuestionnaire(questionnaire)) return;
+  const flowQuestionnaire = questionnaire;
 
   const results = await Promise.allSettled(
     (flowQuestionnaire.derivedFrom ?? []).map(async (canonical) => {

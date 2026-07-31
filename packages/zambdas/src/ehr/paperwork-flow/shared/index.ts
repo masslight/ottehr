@@ -108,6 +108,7 @@ const makeQuestionnaireSearchRequest = async (
     console.log('questionnaires returned', returned);
     const errorMessage = `Unexpected number of questionnaires returned for ${url}|${version}: ${returned.length}`;
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    // no need to error and fail the call but this would be odd so alerting
     await sendErrors(errorMessage, ENVIRONMENT);
     return;
   }
