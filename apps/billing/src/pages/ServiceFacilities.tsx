@@ -162,7 +162,7 @@ export function ServiceFacilitiesList(): ReactElement {
         onRowClick={(params) => navigate(`/service-facilities/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        slots={dataGridSlots}
+        slots={dataGridSlots()}
         pagination={true}
         sx={{
           ...dataGridSx,

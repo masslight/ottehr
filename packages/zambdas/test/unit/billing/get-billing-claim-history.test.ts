@@ -4,6 +4,7 @@ import { Organization, Practitioner, Provenance, Resource } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
+  CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   ClaimFieldChange,
@@ -65,7 +66,7 @@ const makeOystehr = (handlers: Record<string, (params?: unknown) => unknown>): O
   return { fhir: { search }, rcm: { getPayerByUrl } } as unknown as Oystehr;
 };
 
-describe.skip('get-billing-claim-history performEffect', () => {
+describe('get-billing-claim-history performEffect', () => {
   it('maps a coverage update into a history entry with the actor resolved from the include', async () => {
     const provenance: Provenance = {
       ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
@@ -197,5 +198,139 @@ describe.skip('get-billing-claim-history performEffect', () => {
     expect(captureExceptionMock).toHaveBeenCalledTimes(1);
     const reported = captureExceptionMock.mock.calls[0][0] as Error;
     expect(reported.message).toContain('missing');
+  });
+});
+
+// Records written since the refs moved out of the diff JSON carry them as Provenance.entity entries
+// tagged with the linking extension; the reader reattaches them onto the parsed changes.
+describe('get-billing-claim-history entity-linked references', () => {
+  const changeRefEntity = (
+    reference: string,
+    marker: string,
+    role: 'source' | 'derivation'
+  ): NonNullable<Provenance['entity']>[number] => ({
+    role,
+    what: { reference },
+    extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: marker }],
+  });
+
+  const providerWorkingCopy: Practitioner = {
+    resourceType: 'Practitioner',
+    id: 'wc1',
+    name: [{ given: ['John'], family: 'Smith' }],
+    extension: [{ url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Practitioner/master1' } }],
+  } as Practitioner;
+
+  it('reconstructs previousRef/newRef from linked entities, keeping write-time values and building links', async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      // The prior-version entry carries no linking extension and is ignored by reconstruction.
+      entity: [
+        { role: 'revision', what: { reference: 'Claim/c1/_history/2' } },
+        changeRefEntity('Practitioner/old1', 'billingProvider|previous|0', 'source'),
+        changeRefEntity('Practitioner/wc1', 'billingProvider|new|0', 'derivation'),
+      ],
+      extension: [
+        diffExtension([
+          {
+            field: 'billingProvider',
+            label: 'Billing Provider',
+            previousValue: 'Old Provider',
+            newValue: 'John Smith',
+          },
+        ]),
+      ],
+    };
+    const oystehr = makeOystehr({
+      Provenance: () => pagedBundle([provenance], [practitionerU1]),
+      Practitioner: () => ({ unbundle: () => [providerWorkingCopy] }),
+    });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    const change = entries[0].changes[0];
+    expect(change.previousRef).toBe('Practitioner/old1');
+    expect(change.newRef).toBe('Practitioner/wc1');
+    // Display values captured at write time are kept — reconstruction only restores the refs.
+    expect(change.previousValue).toBe('Old Provider');
+    expect(change.newValue).toBe('John Smith');
+    expect(change.newLink).toEqual({ screen: 'billing-providers', id: 'master1' });
+  });
+
+  it('re-joins a multi-reference field in index order regardless of entity order', async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      entity: [
+        changeRefEntity('Coverage/b', 'coverage|new|1', 'derivation'),
+        changeRefEntity('Coverage/a', 'coverage|new|0', 'derivation'),
+      ],
+      extension: [
+        diffExtension([{ field: 'coverage', label: 'Coverage', previousValue: null, newValue: 'Cov A, Cov B' }]),
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    expect(entries[0].changes[0].newRef).toBe('Coverage/a, Coverage/b');
+    expect(entries[0].changes[0].previousRef).toBeUndefined();
+  });
+
+  it('resolves display names for null values whose refs came from entities', async () => {
+    // A display-less reference is stored as a null value (never the raw ref, which could have been
+    // a urn); the reader resolves the friendly name from the — by then rewritten — entity ref.
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      entity: [
+        changeRefEntity('Practitioner/wc1', 'billingProvider|new|0', 'derivation'),
+        changeRefEntity(PAYER_URL, 'payer|new|0', 'derivation'),
+      ],
+      extension: [
+        diffExtension([
+          { field: 'billingProvider', label: 'Billing Provider', previousValue: null, newValue: null },
+          { field: 'payer', label: 'Payer', previousValue: null, newValue: null },
+        ]),
+      ],
+    };
+    const oystehr = makeOystehr({
+      Provenance: () => pagedBundle([provenance], [practitionerU1]),
+      Practitioner: () => ({ unbundle: () => [providerWorkingCopy] }),
+    });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    const providerChange = entries[0].changes.find((c) => c.field === 'billingProvider');
+    expect(providerChange?.newValue).toBe('Smith, John');
+    expect(providerChange?.newLink).toEqual({ screen: 'billing-providers', id: 'master1' });
+    const payerChange = entries[0].changes.find((c) => c.field === 'payer');
+    expect(payerChange?.newValue).toBe('Acme Health');
+    expect(payerChange?.newLink).toBeNull();
+  });
+
+  it('leaves inline refs from records written before entity linking untouched', async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      entity: [changeRefEntity('Practitioner/other', 'billingProvider|new|0', 'derivation')],
+      extension: [
+        diffExtension([
+          {
+            field: 'billingProvider',
+            label: 'Billing Provider',
+            previousValue: null,
+            newValue: 'John Smith',
+            newRef: 'Practitioner/wc1',
+          },
+        ]),
+      ],
+    };
+    const oystehr = makeOystehr({
+      Provenance: () => pagedBundle([provenance], [practitionerU1]),
+      Practitioner: () => ({ unbundle: () => [providerWorkingCopy] }),
+    });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+
+    expect(entries[0].changes[0].newRef).toBe('Practitioner/wc1');
+    expect(entries[0].changes[0].newValue).toBe('John Smith');
   });
 });

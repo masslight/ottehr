@@ -158,7 +158,7 @@ export function BillingProvidersList(): ReactElement {
         onRowClick={(params) => navigate(`/billing-providers/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        slots={dataGridSlots}
+        slots={dataGridSlots()}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />

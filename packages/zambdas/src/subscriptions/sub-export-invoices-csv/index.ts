@@ -24,6 +24,9 @@ import {
   INVOICE_TASK_BUSINESS_STATUS_SYSTEM,
   InvoiceSortDirectionValues,
   InvoiceSortFieldValues,
+  InvoiceTaskSource,
+  InvoiceTaskSources,
+  invoiceTaskSourceSearchParam,
   mapInvoiceTaskStatusToDisplay,
   parseInvoiceTaskInput,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -98,6 +101,7 @@ interface ExportFilters {
   sortField?: string;
   sortDirection?: string;
   hideZeroBalance?: boolean;
+  source?: InvoiceTaskSource;
 }
 
 export const index = wrapTaskHandler('sub-export-invoices-csv', async (input, oystehr) => {
@@ -172,6 +176,7 @@ function extractFilters(task: FhirTask): ExportFilters {
     if (code === 'sort-field') filters.sortField = inp.valueString;
     if (code === 'sort-direction') filters.sortDirection = inp.valueString;
     if (code === 'hide-zero-balance') filters.hideZeroBalance = inp.valueBoolean;
+    if (code === 'filter-source') filters.source = InvoiceTaskSources.find((source) => source === inp.valueString);
   }
   return filters;
 }
@@ -232,7 +237,7 @@ async function getFhirResourcesPage(
   filters: ExportFilters,
   offset: number
 ): Promise<{ taskGroups: TaskGroup[]; bundleTotal: number }> {
-  const { status, sortField, sortDirection, hideZeroBalance } = filters;
+  const { status, sortField, sortDirection, hideZeroBalance, source } = filters;
   const resolvedSortField = sortField ?? InvoiceSortFieldValues.finalizationDate;
   const resolvedSortDirection = sortDirection ?? InvoiceSortDirectionValues.desc;
   const sortPrefix = resolvedSortDirection === InvoiceSortDirectionValues.desc ? '-' : '';
@@ -267,6 +272,10 @@ async function getFhirResourcesPage(
       name: 'business-status:not',
       value: `${INVOICE_TASK_BUSINESS_STATUS_SYSTEM}|${ZERO_BALANCE_BUSINESS_STATUS_CODE}`,
     });
+  }
+  const sourceParam = invoiceTaskSourceSearchParam(source);
+  if (sourceParam) {
+    params.push(sourceParam);
   }
 
   const bundle = await oystehr.fhir.search({ resourceType: 'Task', params });

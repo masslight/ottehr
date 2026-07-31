@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Coding, ProvenanceAgent } from 'fhir/r4b';
-import { CLAIM_TAG_SYSTEM } from 'utils';
+import { CLAIM_TAG_SYSTEM, HOLD_TAG_NAME, INVALID_INPUT_ERROR } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { createBillingClient, fetchById, fetchDefinedTagNames } from '../shared';
 import { TagBillingClaimParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -16,9 +16,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
+  await complexValidation(oystehr, params);
   const response = await performEffect(oystehr, params, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
+
+// Adding a tag requires it to exist in the tags feature (the claim-detail UI only offers existing
+// tags; this closes the API path). Removal stays unrestricted so an orphaned tag — one whose
+// definition was deleted — can still be taken off a claim. Hold is built into the rules engine and
+// always allowed.
+export async function complexValidation(oystehr: Oystehr, params: TagBillingClaimParams): Promise<void> {
+  if (params.action !== 'add' || params.tagName === HOLD_TAG_NAME) return;
+  const defined = await fetchDefinedTagNames(oystehr);
+  if (!defined.has(params.tagName)) {
+    throw INVALID_INPUT_ERROR(`unknown tag "${params.tagName}" — create it on the Tags page first`);
+  }
+}
 
 async function performEffect(
   oystehr: Oystehr,

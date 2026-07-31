@@ -108,12 +108,18 @@ interface CardPayment {
   amountInCents: number;
   paymentMethodId: string;
   description?: string;
+  // Client-generated key, stable across retries of the same logical payment, that lets the
+  // server dedupe replayed requests (e.g. a re-click after a response is lost on a flaky
+  // connection) instead of recording a duplicate PaymentNotice.
+  idempotencyKey?: string;
 }
 
 interface CashPayment {
   paymentMethod: 'cash' | 'check' | 'card-reader' | 'external-card-reader'; // terminal fallback external card reader payments are treated like cash/check because we have no direct processor link in this flow
   amountInCents: number;
   description?: string;
+  // See CardPayment.idempotencyKey.
+  idempotencyKey?: string;
 }
 
 export type CashOrCardPayment = CardPayment | CashPayment;
