@@ -88,8 +88,8 @@ const startTimer = (): void => {
   }, 250);
 };
 
-const releaseMic = (active: ActiveCapture): void => {
-  active.stream.getTracks().forEach((track) => track.stop());
+const releaseMic = (stream: MediaStream): void => {
+  stream.getTracks().forEach((track) => track.stop());
 };
 
 const finalizeAndUpload = async (active: ActiveCapture): Promise<void> => {
@@ -113,7 +113,7 @@ const finalizeAndUpload = async (active: ActiveCapture): Promise<void> => {
       uploadingDuration: active.accumulatedMs,
     });
   }
-  releaseMic(active);
+  releaseMic(active.stream);
 
   const { visitID, chunks, oystehr, onComplete } = active;
   // Upload the actual recorded type (iOS Safari records audio/mp4, not audio/webm). The transcription
@@ -174,44 +174,53 @@ export const audioRecordingActions = {
         return;
       }
 
-      const mimeType = MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = new MediaRecorder(stream, {
-        ...(mimeType ? { mimeType } : {}),
-        audioBitsPerSecond: 128000,
-      });
-      const chunks: Blob[] = [];
-      const active: ActiveCapture = {
-        visitID,
-        recorder,
-        stream,
-        chunks,
-        startedAt: performance.now(),
-        accumulatedMs: 0,
-        oystehr,
-        onComplete: onComplete ?? null,
-        finalized: false,
-        fallbackTimer: null,
-      };
+      // The mic is already on, so a throw from here on has to release it or nothing ever will.
+      try {
+        const mimeType = MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+        const recorder = new MediaRecorder(stream, {
+          ...(mimeType ? { mimeType } : {}),
+          audioBitsPerSecond: 128000,
+        });
+        const chunks: Blob[] = [];
+        const active: ActiveCapture = {
+          visitID,
+          recorder,
+          stream,
+          chunks,
+          startedAt: performance.now(),
+          accumulatedMs: 0,
+          oystehr,
+          onComplete: onComplete ?? null,
+          finalized: false,
+          fallbackTimer: null,
+        };
 
-      // Both handlers close over this session's own state, never `capture`.
-      recorder.ondataavailable = (event): void => {
-        if (event.data.size > 0) chunks.push(event.data);
-      };
-      recorder.onstop = (): void => {
-        void finalizeAndUpload(active);
-      };
-      recorder.onerror = (event): void => handleCaptureLost(visitID, event);
-      // A track ending on its own never fires onstop, so listen for it. Programmatic track.stop() (in
-      // releaseMic) does not emit 'ended', so this won't double-fire on the normal path.
-      stream
-        .getTracks()
-        .forEach((track) => track.addEventListener('ended', () => handleCaptureLost(visitID, 'track ended')));
+        // Both handlers close over this session's own state, never `capture`.
+        recorder.ondataavailable = (event): void => {
+          if (event.data.size > 0) chunks.push(event.data);
+        };
+        recorder.onstop = (): void => {
+          void finalizeAndUpload(active);
+        };
+        recorder.onerror = (event): void => handleCaptureLost(visitID, event);
+        // A track ending on its own never fires onstop, so listen for it. Programmatic track.stop() (in
+        // releaseMic) does not emit 'ended', so this won't double-fire on the normal path.
+        stream
+          .getTracks()
+          .forEach((track) => track.addEventListener('ended', () => handleCaptureLost(visitID, 'track ended')));
 
-      capture.active = active;
-      recorder.start(1000);
-      startTimer();
+        capture.active = active;
+        recorder.start(1000);
+        startTimer();
 
-      useAudioRecordingStore.setState({ session: { visitID, status: 'RECORDING', duration: 0 } });
+        useAudioRecordingStore.setState({ session: { visitID, status: 'RECORDING', duration: 0 } });
+      } catch (error) {
+        console.error('Error starting the audio recorder', error);
+        clearTimer();
+        capture.active = null; // a throw from recorder.start() leaves the capture attached
+        releaseMic(stream);
+        enqueueSnackbar('Recording could not be started. Please try again.', { variant: 'error' });
+      }
     } finally {
       capture.starting = false;
     }

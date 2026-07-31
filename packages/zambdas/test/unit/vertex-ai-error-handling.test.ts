@@ -64,11 +64,35 @@ describe('invokeChatbotVertexAI error handling', () => {
     expect(globalThis.fetch).toHaveBeenCalledOnce();
   });
 
-  test('a 200 with no candidate text is reported as such', async () => {
+  test('a 200 with no candidate text reports the reason, not the body', async () => {
     // e.g. a safety block or a MAX_TOKENS finishReason: valid JSON, no text to return.
-    respondWith(200, { candidates: [{ finishReason: 'SAFETY' }] });
+    // Partial transcript in a sibling part here: the error reaches logs and Sentry, so it must carry none.
+    respondWith(200, {
+      candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ inlineData: 'patient reports chest pain' }] } }],
+      usageMetadata: { totalTokenCount: 8192 },
+    });
 
-    await expect(invoke()).rejects.toThrow(/Vertex AI returned no text/);
+    const error = await invoke().then(
+      () => null,
+      (error: Error) => error
+    );
+    expect(error?.message).toMatch(/Vertex AI returned no text.*MAX_TOKENS/s);
+    expect(error?.message).toMatch(/8192/);
+    expect(error?.message).not.toContain('chest pain');
+  });
+
+  test('a successful response body is not logged verbatim', async () => {
+    // The transcript is PHI; only its size belongs in CloudWatch.
+    respondWith(200, { candidates: [{ content: { parts: [{ text: 'patient reports chest pain' }] } }] });
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    await expect(invoke()).resolves.toBe('patient reports chest pain');
+    expect(log).toHaveBeenCalled();
+    for (const call of log.mock.calls) {
+      expect(call.map(String).join(' ')).not.toContain('chest pain');
+    }
+
+    log.mockRestore();
   });
 
   test('a 200 that is not JSON is reported as such', async () => {

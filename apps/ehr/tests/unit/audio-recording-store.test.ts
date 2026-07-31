@@ -309,4 +309,31 @@ describe('audioRecording.store', () => {
 
     now.mockRestore();
   });
+
+  test('a recorder that cannot be constructed releases the mic', async () => {
+    const { audioRecordingActions, useAudioRecordingStore } = await import(
+      'src/features/visits/shared/stores/audioRecording.store'
+    );
+
+    vi.stubGlobal(
+      'MediaRecorder',
+      class {
+        static isTypeSupported = (): boolean => true;
+        constructor() {
+          throw new Error('NotSupportedError');
+        }
+      }
+    );
+
+    await audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
+
+    expect(trackStop).toHaveBeenCalled();
+    expect(useAudioRecordingStore.getState().session).toBeNull();
+    expect(audioRecordingActions.getStream()).toBeNull();
+    expect(enqueueSnackbar).toHaveBeenCalled();
+    // The failed attempt must not wedge the single-recording slot.
+    vi.stubGlobal('MediaRecorder', MockMediaRecorder);
+    await audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
+    expect(useAudioRecordingStore.getState().session?.visitID).toBe('enc-1');
+  });
 });

@@ -217,7 +217,8 @@ export async function invokeChatbotVertexAI(
     throw new Error(`Vertex AI request failed: ${settled.status} ${settled.statusText} ${body.slice(0, 1000)}`);
   }
 
-  console.log(body);
+  // Size only: on a transcription call the body is the transcript, which is PHI.
+  console.log(`Vertex AI responded with ${body.length} bytes`);
   let response: any;
   try {
     response = JSON.parse(body);
@@ -228,7 +229,13 @@ export async function invokeChatbotVertexAI(
   const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof text !== 'string') {
     // No candidate text means the model refused or was cut off (safety block, MAX_TOKENS finishReason).
-    throw new Error(`Vertex AI returned no text: ${body.slice(0, 1000)}`);
+    // Report the reason, not the body — a cut-off candidate can still carry partial transcript.
+    const reason = JSON.stringify({
+      finishReason: response?.candidates?.[0]?.finishReason,
+      promptFeedback: response?.promptFeedback,
+      usageMetadata: response?.usageMetadata,
+    });
+    throw new Error(`Vertex AI returned no text: ${reason}`);
   }
   return text;
 }
