@@ -37,6 +37,18 @@ export const PATIENT_RX_HISTORY_CONSENT_STATUS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/rx-history-consent-status';
 export const PATIENT_DECEASED_NOTE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/deceased-note';
 export const PATIENT_NO_EMAIL_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-no-email';
+/**
+ * Patient-level flag indicating the patient has Medicaid insurance coverage
+ * and the intake credit-card entry step can be skipped. Set by the intake
+ * paperwork's `patient-has-medicaid` checkbox on the credit-card page and
+ * mirrored on the EHR patient details page for staff correction. Persisted
+ * as a Patient extension because it's a patient-attribute-shaped flag that
+ * survives across visits, matches every other single-boolean patient flag
+ * in this codebase, and slots into the existing harvest linkId → fieldPath
+ * table without any new plumbing. See design discussion for why not Account
+ * or Coverage.
+ */
+export const PATIENT_HAS_MEDICAID_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-has-medicaid';
 export const RESPONSIBLE_PARTY_NO_EMAIL_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/responsible-party-no-email';
 export const PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL = ottehrExtensionUrl('preferred-communication-method');

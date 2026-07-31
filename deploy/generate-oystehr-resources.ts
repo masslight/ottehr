@@ -27,6 +27,8 @@ const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
   BILLING_LOGIN_REDIRECT_URL: 'https://billing-local.ottehr.com',
   BILLING_ALLOWED_URL_1: 'https://billing-local.ottehr.com',
   BILLING_INTEGRATION: '',
+  PATIENT_BALANCE_SOURCE: 'candid',
+  STRIPE_WEBHOOK_SECRET: '',
 };
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
@@ -193,7 +195,7 @@ async function getBillingSpecs(billingCoreConfigDir: string): Promise<SpecFile[]
   try {
     const coreSpecFiles = await fs.readdir(billingCoreConfigDir, { withFileTypes: true });
     const coreJsonSpecFiles = coreSpecFiles
-      .filter((file) => file.isFile() && file.name.endsWith('.json'))
+      .filter((file) => (file.isFile() || file.isSymbolicLink()) && file.name.endsWith('.json'))
       .map((file) => path.join(billingCoreConfigDir, file.name));
     jsonSpecFiles.push(...coreJsonSpecFiles);
   } catch (err: any) {

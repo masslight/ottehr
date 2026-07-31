@@ -28,13 +28,13 @@ import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   APIError,
+  buildPrebookModeLinks,
   CreateScheduleParams,
   getAllFhirSearchPages,
   isApiError,
   isValidSlug,
   isValidUUID,
   ScheduleDTO,
-  scheduleTypeFromFHIRType,
   SLUG_VALIDATION_MESSAGE,
   TIMEZONES,
   UpdateScheduleParams,
@@ -103,16 +103,15 @@ export default function SchedulePage(): ReactElement {
   // free pattern that lives on a Location, not a per-provider role).
   const bookingLinks = (() => {
     const fhirType = item?.owner.type;
-    const locationType = item?.owner.isVirtual ? 'virtual' : 'in-person';
     const links: Array<{ label: string; url: string; copyKey: string }> = [];
-    if (slug && fhirType) {
-      links.push({
-        label: 'Prebook',
-        url: `${INTAKE_URL}/prebook/${locationType}?bookingOn=${slug}&scheduleType=${scheduleTypeFromFHIRType(
-          fhirType
-        )}`,
-        copyKey: 'prebook',
-      });
+    // One prebook link per enabled service mode — a Location may be both.
+    for (const link of buildPrebookModeLinks({
+      fhirType,
+      slug,
+      isVirtual: item?.owner.isVirtual,
+      isInPerson: item?.owner.isInPerson,
+    })) {
+      links.push({ label: link.label, url: `${INTAKE_URL}${link.relativeUrl}`, copyKey: link.key });
     }
     if (fhirType === 'Location' && scheduleId && isValidUUID(scheduleId)) {
       links.push({
@@ -384,10 +383,17 @@ export default function SchedulePage(): ReactElement {
 
   const isLocationOwner = item?.owner?.type === 'Location';
 
-  // The permalink is only editable for non-Location owners. A non-empty slug
-  // must match the URL-safe shape the patient side enforces, otherwise the
-  // save succeeds here but booking by slug fails later with a validation error.
-  const slugError = !isLocationOwner && !!slug && !isValidSlug(slug);
+  // Location slugs are normally managed by terraform and shown read-only. The
+  // exception is a Location created through the "Add location" UI — it carries
+  // the manually-created marker, so the admin is allowed to edit the slug the
+  // create flow auto-derived from the name. Non-Location owners (Provider /
+  // Group) are always editable.
+  const slugEditable = !isLocationOwner || item?.owner?.isManuallyCreated === true;
+
+  // A non-empty slug must match the URL-safe shape the patient side enforces,
+  // otherwise the save succeeds here but booking by slug fails later with a
+  // validation error.
+  const slugError = slugEditable && !!slug && !isValidSlug(slug);
 
   async function onSaveSchedule(params: UpdateScheduleParams): Promise<void> {
     if (!oystehrZambda) {
@@ -694,10 +700,11 @@ export default function SchedulePage(): ReactElement {
                       <TextField
                         label="Permalink"
                         value={slug}
-                        // Location slugs are managed elsewhere and shown read-only here;
-                        // Provider (PractitionerRole) and Group (HealthcareService)
-                        // schedules can edit the permalink from this tab.
-                        {...(isLocationOwner
+                        // Terraform-managed Location slugs stay read-only; a
+                        // manually-created Location, plus Provider
+                        // (PractitionerRole) and Group (HealthcareService)
+                        // schedules, can edit the permalink from this tab.
+                        {...(!slugEditable
                           ? { InputProps: { readOnly: true }, disabled: true }
                           : {
                               onChange: (event) => setSlug(event.target.value),
@@ -730,7 +737,7 @@ export default function SchedulePage(): ReactElement {
                               arrow
                               onClose={() => {
                                 setTimeout(() => {
-                                  if (copiedLinkKey === link.copyKey) setCopiedLinkKey(null);
+                                  setCopiedLinkKey((prev) => (prev === link.copyKey ? null : prev));
                                 }, 200);
                               }}
                             >
@@ -748,7 +755,7 @@ export default function SchedulePage(): ReactElement {
                               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                 {link.label}
                               </Typography>
-                              <Link to={link.url} target="_blank">
+                              <Link to={link.url} target="_blank" rel="noopener noreferrer">
                                 <Typography variant="body2">{link.url}</Typography>
                               </Link>
                             </Box>

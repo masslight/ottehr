@@ -7,6 +7,7 @@ import {
   Condition,
   Coverage,
   Encounter,
+  FhirResource,
   List,
   Location,
   MedicationAdministration,
@@ -23,6 +24,7 @@ import {
   GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
   GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
   REPEAT_TEST_CPT_CODE_MODIFIER,
+  resourceHasTagSystem,
 } from 'utils';
 import { getLatestInHouseLabActivityDefinitionsForTemplatePlan } from '../apply-template/apply-in-house-labs';
 
@@ -244,4 +246,12 @@ export const getTemplateBaseResources = async (
   ]);
 
   return { encounterResources, latestInHouseLabAds };
+};
+
+export const isPatientEducationCommunication = (res: FhirResource): boolean => {
+  return (
+    res.resourceType === 'Communication' &&
+    resourceHasTagSystem(res, chartDataTagSystem('patient-instruction')) &&
+    (res.about?.some((about) => about.reference?.startsWith('DocumentReference/')) ?? false)
+  );
 };

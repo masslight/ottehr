@@ -1,21 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
-import { BillingProviderOption, FHIR_IDENTIFIER_CODE_TAXONOMY, getNPI, getTaxID } from 'utils';
+import { BillingProviderOption } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import {
-  BILLING_WORKING_COPY_TAG,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
-  fhirName,
-  formatAddress,
-  getTag,
-  hasTag,
-  LICENSE_TAG,
+  mapProvider,
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
-  toAddressParts,
 } from '../shared';
 import { SearchBillingProvidersParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -42,7 +36,8 @@ async function performEffect(
   // (Practitioner or Organization) can bill and/or render.
   const roleCode = params.providerType === 'rendering' ? PROVIDER_ROLE_RENDERING : PROVIDER_ROLE_BILLING;
   const baseParams: { name: string; value: string }[] = [
-    { name: '_tag', value: `${PROVIDER_ROLE_TAG}|${roleCode}`, ...EXCLUDE_WORKING_COPIES_PARAMS },
+    { name: '_tag', value: `${PROVIDER_ROLE_TAG}|${roleCode}` },
+    ...EXCLUDE_WORKING_COPIES_PARAMS,
   ];
   if (params.providerId) baseParams.push({ name: '_id', value: params.providerId });
   if (params.name) baseParams.push({ name: 'name', value: params.name });
@@ -72,32 +67,4 @@ async function performEffect(
 
   const all = [...practitioners, ...organizations].map(mapProvider).sort((a, b) => a.name.localeCompare(b.name));
   return { providers: all.slice(offset, offset + pageSize), total: all.length, offset, pageSize };
-}
-
-function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
-  const addr = resource.address?.[0];
-  const common = {
-    id: resource.id ?? '',
-    npi: getNPI(resource) ?? '',
-    taxonomyCode:
-      resource.identifier?.find((id) => id.type?.coding?.some((c) => c.code === FHIR_IDENTIFIER_CODE_TAXONOMY))
-        ?.value ?? '',
-    licenseType: getTag(resource, LICENSE_TAG),
-    taxId: getTaxID(resource) ?? '',
-    address: formatAddress(addr),
-    addressParts: toAddressParts(addr),
-    renders: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_RENDERING),
-    bills: hasTag(resource, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING),
-    isWorkingCopy: hasTag(resource, BILLING_WORKING_COPY_TAG.system, BILLING_WORKING_COPY_TAG.code),
-  };
-  if (resource.resourceType === 'Practitioner') {
-    return {
-      ...common,
-      kind: 'individual',
-      name: fhirName(resource),
-      firstName: resource.name?.[0]?.given?.join(' ') ?? '',
-      lastName: resource.name?.[0]?.family ?? '',
-    };
-  }
-  return { ...common, kind: 'organization', name: resource.name ?? '' };
 }

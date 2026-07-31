@@ -6,8 +6,8 @@ test('Quick picks admin page loads with tabs', async ({ page }) => {
   await page.goto('admin/quick-picks');
 
   await test.step('Page loads and loading spinner disappears', async () => {
-    // Wait for the Quick Picks top-level tab to be visible, confirming page load
-    await expect(page.getByRole('tab', { name: 'Quick Picks' })).toBeVisible(DEFAULT_TIMEOUT);
+    // No top-level "Quick Picks" tab anymore (sidebar nav); the category tablist confirms load.
+    await expect(page.getByRole('tablist', { name: 'Quick pick categories' })).toBeVisible(DEFAULT_TIMEOUT);
   });
 
   await test.step('Sub-tabs exist for all quick pick categories', async () => {

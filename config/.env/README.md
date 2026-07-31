@@ -84,6 +84,7 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `CANDID_CLIENT_ID` | OAuth client ID for the Candid Health billing API. Used to submit medical encounters for insurance claim processing. |
 | `CANDID_CLIENT_SECRET` | Client secret for Candid Health API authentication. **Keep this confidential.** |
 | `CANDID_ENV` | Candid Health environment to target (`SANDBOX` for testing, `PRODUCTION` for live billing). |
+| `PATIENT_BALANCE_SOURCE` | Data source for the visit details patient balance feature, `candid` or `ottehr`. Defaults to `candid` when unset. |
 
 ### Payments -- Stripe
 
@@ -92,6 +93,7 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `STRIPE_PUBLIC_KEY` | Stripe publishable (public) API key. Used client-side to initialize Stripe.js for payment UIs. |
 | `STRIPE_SECRET_KEY` | Stripe secret API key. Used server-side to create payment intents, charge invoices, and manage customers. **Keep this confidential.** |
 | `STRIPE_PAYMENT_METHOD_TYPES` | Comma-separated list of payment method types accepted by your Stripe account (e.g., `card`). |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret of the Stripe webhook endpoint (`whsec_...`). Used by the billing app webhook to verify incoming Stripe events. **Keep this confidential.** |
 
 ### Radiology / PACS -- Advapacs
 

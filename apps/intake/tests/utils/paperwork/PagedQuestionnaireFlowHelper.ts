@@ -152,6 +152,29 @@ export class PagedQuestionnaireFlowHelper {
 
     console.log(`Clearing field ${linkId}`);
 
+    // Attachment fields don't have an editable input to .clear() — once uploaded,
+    // the FileInput swaps the Upload button for a CardDisplay whose "Clear" button
+    // resets both the local preview and the RHF value. Without this branch, the
+    // fallback .clear() throws on the button element, silently returns false, and
+    // Phase 2 believes the field is empty when it's actually still populated —
+    // leading to unexpected navigation and downstream fills against the wrong page.
+    if (fieldType === 'attachment') {
+      const fieldContainer = this.page.locator(`[for="${linkId}"]`).locator('..');
+      const clearButton = fieldContainer.getByTestId(dataTestIds.fileCardClearButton);
+      const hasClearButton = await clearButton.isVisible({ timeout: 1000 }).catch(() => false);
+      if (!hasClearButton) {
+        return false;
+      }
+      await clearButton.click();
+      // Confirm the field returned to the upload state so downstream fills don't
+      // race against the CardDisplay unmounting.
+      await this.page
+        .locator(`#${linkId}`)
+        .waitFor({ state: 'visible', timeout: 5000 })
+        .catch(() => undefined);
+      return true;
+    }
+
     const locator = this.getFieldLocator(linkId);
     try {
       const isVisible = await locator.isVisible({ timeout: 1000 }).catch(() => false);
@@ -415,9 +438,9 @@ export class PagedQuestionnaireFlowHelper {
       await this.uploadDocs.fillInsuranceFront();
     } else if (linkId === 'insurance-card-back') {
       await this.uploadDocs.fillInsuranceBack();
-    } else if (linkId === 'secondary-insurance-card-front') {
+    } else if (linkId === 'insurance-card-front-2') {
       await this.uploadDocs.fillSecondaryInsuranceFront();
-    } else if (linkId === 'secondary-insurance-card-back') {
+    } else if (linkId === 'insurance-card-back-2') {
       await this.uploadDocs.fillSecondaryInsuranceBack();
     } else if (linkId === 'photo-id-front') {
       await this.uploadDocs.fillPhotoFrontID();

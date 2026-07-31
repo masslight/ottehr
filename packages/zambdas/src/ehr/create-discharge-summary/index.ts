@@ -11,6 +11,7 @@ import {
   Secrets,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { fetchErxPharmacies } from '../../shared/erx';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
@@ -107,6 +108,8 @@ export const performEffect = async (
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');
+  const erxPharmacies = await fetchErxPharmacies(oystehr, additionalChartData?.prescribedMedications);
+
   const { pdfInfo, attached } = await createDischargeSummaryPdf(
     {
       allChartData: {
@@ -116,6 +119,7 @@ export const performEffect = async (
       },
       appointmentPackage: visitResources,
       upcomingFollowUps,
+      erxPharmacies,
     },
     secrets,
     m2mToken

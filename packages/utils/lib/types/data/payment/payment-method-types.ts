@@ -28,6 +28,7 @@ export interface ListPaymentMethodsZambdaOutput {
 export interface PaymentMethodSetupZambdaOutput {
   clientSecret: string;
   stripeAccount: string | undefined;
+  createdWithoutEmail?: boolean;
 }
 
 export interface GetPatientBalancesZambdaInput {
@@ -37,6 +38,7 @@ export interface GetPatientBalancesZambdaInput {
 export interface GetPatientBalancesZambdaOutput {
   totalBalanceCents: number;
   pendingPaymentCents: number;
+  patientCreditCents: number;
   encounters: {
     encounterId: string;
     encounterDate: string;

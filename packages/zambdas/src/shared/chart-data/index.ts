@@ -42,6 +42,7 @@ import {
   BODY_SITE_SYSTEM,
   BooleanValueDTO,
   ClinicalImpressionDTO,
+  CODE_SYSTEM_ICD_10,
   CommunicationDTO,
   CPT_CODE_SYSTEM,
   CPTCodeDTO,
@@ -62,7 +63,6 @@ import {
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
-  ICD_10_CODE_SYSTEM,
   IN_PERSON_NOTE_ID,
   isNoteEdited,
   isVitalObservation,
@@ -84,6 +84,7 @@ import {
   patientScreeningQuestionsConfig,
   PERFORMER_TYPE_SYSTEM,
   PrescribedMedicationDTO,
+  PRESCRIPTION_ERX_PHARMACY_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
   ProcedureDTO,
@@ -105,7 +106,12 @@ import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
-import { makeRadiologyDTO, takeMostRecentPreliminaryReport, takeTheBestFinalDiagnosticReport } from '../radiology';
+import {
+  isCurrentRadiologyResultDocRef,
+  makeRadiologyDTO,
+  takeMostRecentPreliminaryReport,
+  takeTheBestFinalDiagnosticReport,
+} from '../radiology';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
 const hasValue = (data: unknown): boolean => {
@@ -148,7 +154,7 @@ export function makeConditionResource(
       ? {
           coding: [
             {
-              system: ICD_10_CODE_SYSTEM,
+              system: CODE_SYSTEM_ICD_10,
               version: '2019',
               code: dto.code,
               display: dto.display,
@@ -344,6 +350,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
     isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
+    pharmacyId: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL)?.valueInteger?.toString(),
   };
 }
 
@@ -1133,7 +1140,7 @@ export function makeDiagnosisConditionResource(
     code: {
       coding: [
         {
-          system: ICD_10_CODE_SYSTEM,
+          system: CODE_SYSTEM_ICD_10,
           code: data.code,
           display: data.display,
         },
@@ -1695,6 +1702,12 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
       const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
       const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
       const radiologyDTO = makeRadiologyDTO(sr, preliminaryDiagnosticReport, bestFinalReport);
+      // External orders have no DiagnosticReports; an uploaded result DocumentReference marks them reviewed.
+      if (radiologyDTO.external) {
+        radiologyDTO.externalResultReviewed =
+          resources.some((r) => r.resourceType === 'DocumentReference' && isCurrentRadiologyResultDocRef(r, id)) ||
+          undefined;
+      }
       data.radiologyOrders?.push(radiologyDTO);
     });
   }

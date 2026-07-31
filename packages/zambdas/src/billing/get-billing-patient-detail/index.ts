@@ -1,14 +1,23 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient, Person } from 'fhir/r4b';
-import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
+import { PatientDetailResponse } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaidByClaimId,
+  summarizeClaimPayments,
+  summarizePatientBalance,
+} from '../claim-amounts';
 import {
   createBillingClient,
   fetchById,
   formatAddress,
   getClaimStatus,
+  isWorkingCopy,
   resolvePayersByRef,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  SOURCE_IDENTIFIER_SYSTEM,
   toAddressParts,
 } from '../shared';
 import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
@@ -28,10 +37,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): Promise<PatientDetailResponse> {
   const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
 
-  const claims = await fetchPatientClaims(oystehr, params.patientId);
+  const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
 
-  const ids = patient.identifier ?? [];
-  const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
+  let clinicalId = patient.extension
+    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+    ?.valueReference?.reference?.replace('Patient/', '');
+  let clinicalFriendlyId = patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+  let workingCopyReferenceResourceId: string | undefined;
+  if (isWorkingCopy(patient)) {
+    workingCopyReferenceResourceId = patient.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Patient/', '');
+    if (workingCopyReferenceResourceId) {
+      const referencePatient = await fetchById<Patient>(oystehr, 'Patient', workingCopyReferenceResourceId);
+      clinicalId = referencePatient.extension
+        ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+        ?.valueReference?.reference?.replace('Patient/', '');
+      clinicalFriendlyId = referencePatient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)
+        ?.valueString;
+    }
+  }
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
   const addr = patient.address?.[0];
@@ -46,15 +71,22 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     email,
     address: formatAddress(addr),
     addressParts: toAddressParts(addr),
-    friendlyId,
+    clinicalId: clinicalId ?? '',
+    clinicalFriendlyId: clinicalFriendlyId ?? '',
+    workingCopyReferenceResourceId,
     active: patient.active !== false,
-    // TODO: wire real balance from ClaimResponse/PaymentReconciliation
-    balance: { claimsWithPatientBalance: 0, pendingPayments: 0, currentBalance: 0 },
+    balance,
     claims,
   };
 }
 
-async function fetchPatientClaims(oystehr: Oystehr, patientId: string): Promise<PatientDetailResponse['claims']> {
+async function fetchPatientClaims(
+  oystehr: Oystehr,
+  patientId: string
+): Promise<{
+  claims: PatientDetailResponse['claims'];
+  balance: PatientDetailResponse['balance'];
+}> {
   let patientIds = [patientId];
   const personResult = await oystehr.fhir.search<Person>({
     resourceType: 'Person',
@@ -87,23 +119,45 @@ async function fetchPatientClaims(oystehr: Oystehr, patientId: string): Promise<
     return bundle;
   }, 100);
 
-  const payersByRef = await resolvePayersByRef(
-    oystehr,
-    claims.map((c) => c.insurer?.reference)
+  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
+    resolvePayersByRef(
+      oystehr,
+      claims.map((c) => c.insurer?.reference)
+    ),
+    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchPatientPaidByClaimId({
+      oystehr,
+      claims,
+    }),
+  ]);
+
+  const summaries = claims.map((c) =>
+    summarizeClaimPayments(
+      claimResponsesByClaimId.get(c.id ?? '') ?? [],
+      c.total?.value ?? 0,
+      patientPaidByClaimId.get(c.id ?? '') ?? 0
+    )
   );
 
-  return claims.map((c) => {
+  const claimItems = claims.map((c, idx) => {
+    const payments = summaries[idx];
     return {
       id: c.id ?? '',
       status: getClaimStatus(c),
       serviceDate: c.item?.[0]?.servicedPeriod?.start ?? c.created ?? '',
       payerName: (c.insurer?.reference ? payersByRef.get(c.insurer.reference) : undefined)?.name ?? '',
       billed: c.total?.value ?? 0,
-      // TODO: wire from ClaimResponse when available
-      allowed: 0,
-      insurancePaid: 0,
-      patientResp: 0,
-      patientPaid: 0,
+      allowed: payments.allowed,
+      insurancePaid: payments.insurancePaid,
+      patientResp: payments.patientResp,
+      patientPaid: payments.patientPaid,
     };
   });
+
+  const balance = summarizePatientBalance(summaries);
+
+  return {
+    claims: claimItems,
+    balance,
+  };
 }

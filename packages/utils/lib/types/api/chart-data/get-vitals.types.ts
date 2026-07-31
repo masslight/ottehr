@@ -1,6 +1,7 @@
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
+  VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -19,6 +20,7 @@ export type GetVitalsResponseData = {
   [VitalFieldNames.VitalOxygenSaturation]: VitalsOxygenSatObservationDTO[];
   [VitalFieldNames.VitalWeight]: VitalsWeightObservationDTO[];
   [VitalFieldNames.VitalHeight]: VitalsHeightObservationDTO[];
+  [VitalFieldNames.VitalBMI]: VitalsBMIObservationDTO[];
   [VitalFieldNames.VitalVision]: VitalsVisionObservationDTO[];
   [VitalFieldNames.VitalLastMenstrualPeriod]: VitalsLastMenstrualPeriodObservationDTO[];
 };

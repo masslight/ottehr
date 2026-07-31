@@ -1,6 +1,6 @@
 import { Typography } from '@mui/material';
 import { FC } from 'react';
-import { CustomDialog } from '../../../components/CustomDialog';
+import { CustomDialog } from 'ui-components';
 import { useGetVideoChatInvites } from '../waiting-room';
 import { ManageParticipants } from './ManageParticipants';
 

@@ -20,9 +20,11 @@ import {
   getTimezone,
   getWaitingMinutesAtSchedule,
   isBookingConfigServiceCategoryCode,
+  isLocationInPerson,
   isLocationOpen,
-  isLocationVirtual,
+  locationSupportsServiceMode,
   PickableLocation,
+  scheduleOwnerSupportsServiceMode,
   SecretsKeys,
   SERVICE_CATEGORY_SYSTEM,
   SlotListItem,
@@ -40,7 +42,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
 
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
-  const { secrets, scheduleType, slug, selectedDate, atLocationSlug } = validatedParameters;
+  const { secrets, scheduleType, slug, selectedDate, serviceMode, atLocationSlug } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -214,6 +216,45 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     }
   }
 
+  // Reconcile group/owner *offering* against member *capability*: drop member
+  // schedules whose paired Location can't fulfill the requested service mode.
+  // A group may offer a mode (in-person or virtual) that a given member's
+  // Location doesn't support; without this, both mode links open the same
+  // slots and the mismatch only surfaces as a hard failure at booking time.
+  // All mode reasoning is delegated to locationSupportsServiceMode — the single
+  // seam a future provider-credentialing model would replace. `serviceMode` is
+  // optional: legacy callers that omit it keep the prior unfiltered behavior.
+  // pairedLocationById is reused by the qualifyingLocationIds loop below so the
+  // multi-Location picker never offers a Location the provider can't serve in
+  // this mode.
+  const pairedLocationById = new Map<string, Location>();
+  if (serviceMode) {
+    const pairedLocationIds = new Set<string>();
+    for (const entry of scheduleList) {
+      if (entry.owner.resourceType === 'PractitionerRole') {
+        for (const ref of (entry.owner as PractitionerRole).location ?? []) {
+          const id = ref.reference?.split('/')[1];
+          if (id) pairedLocationIds.add(id);
+        }
+      }
+    }
+    if (pairedLocationIds.size > 0) {
+      const locs = (
+        await oystehr.fhir.search<Location>({
+          resourceType: 'Location',
+          params: [{ name: '_id', value: Array.from(pairedLocationIds).join(',') }],
+        })
+      ).unbundle();
+      for (const loc of locs) if (loc.id) pairedLocationById.set(loc.id, loc);
+    }
+
+    const modeFiltered = scheduleList.filter((entry) =>
+      scheduleOwnerSupportsServiceMode(entry.owner, serviceMode, pairedLocationById)
+    );
+    scheduleList.length = 0;
+    scheduleList.push(...modeFiltered);
+  }
+
   // Resolve atLocationSlug → Location id, then narrow scheduleList to
   // entries that actually operate at that Location. If atLocationSlug isn't
   // provided but the remaining scheduleList spans more than one Location,
@@ -249,11 +290,21 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   const qualifyingLocationIds = new Set<string>();
   for (const entry of scheduleList) {
     if (entry.owner.resourceType === 'Location' && entry.owner.id) {
+      // Owner Locations that survived the mode filter above already support
+      // the requested mode, so no re-check is needed here.
       qualifyingLocationIds.add(entry.owner.id);
     } else if (entry.owner.resourceType === 'PractitionerRole') {
       for (const ref of (entry.owner as PractitionerRole).location ?? []) {
         const id = ref.reference?.split('/')[1];
-        if (id) qualifyingLocationIds.add(id);
+        if (!id) continue;
+        // When a mode is requested, admit only the provider's mode-capable
+        // Location(s) so the multi-Location picker can't surface a Location
+        // the provider can't serve in this mode.
+        if (serviceMode) {
+          const loc = pairedLocationById.get(id);
+          if (!loc || !locationSupportsServiceMode(loc, serviceMode)) continue;
+        }
+        qualifyingLocationIds.add(id);
       }
     }
   }
@@ -360,7 +411,9 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     },
     oystehr
   );
-  if (scheduleOwner.resourceType === 'Location' && !isLocationVirtual(scheduleOwner as Location)) {
+  // In-person Location owners (including dual-mode Locations that are also
+  // virtual) surface any telemed slots configured on the schedule.
+  if (scheduleOwner.resourceType === 'Location' && isLocationInPerson(scheduleOwner as Location)) {
     telemedAvailable.push(...tmSlots);
   }
   availableSlots.push(...regularSlots);

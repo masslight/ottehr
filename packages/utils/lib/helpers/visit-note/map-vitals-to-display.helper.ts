@@ -3,6 +3,7 @@ import { vitalsConfig } from '../../ottehr-config';
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
+  VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -16,6 +17,7 @@ import {
 import { formatDateTimeToZone } from '../../utils';
 import {
   celsiusToFahrenheit,
+  formatBMIWithUnit,
   formatHeightObservationValue,
   formatWeightKg,
   formatWeightLbs,
@@ -81,9 +83,13 @@ export const mapVitalsToDisplay = (
         parsed = observation as VitalsHeightObservationDTO;
         text = formatHeightObservationValue(parsed.value);
         break;
+      case VitalFieldNames.VitalBMI:
+        parsed = observation as VitalsBMIObservationDTO;
+        text = formatBMIWithUnit(parsed.value);
+        break;
       case VitalFieldNames.VitalVision: {
         parsed = observation as VitalsVisionObservationDTO;
-        const dotLines = getDotVisionScreeningLines(parsed.dotVisionScreening);
+        const dotLines = getDotVisionScreeningLines(parsed.dotVisionScreening, { includeDocument: true });
         if (dotLines.length > 0) {
           // DOT screening entries are stored as their own observation; render the MCSA-5875 layout.
           text = dotLines.join('\n');

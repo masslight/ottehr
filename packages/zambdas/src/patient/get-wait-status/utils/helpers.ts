@@ -1,5 +1,5 @@
-import { Location } from 'fhir/r4b';
-
-export const isLocationVirtual = (location: Location): boolean => {
-  return location.extension?.[0].valueCoding?.code === 'vi';
-};
+// Re-export the shared helper. The previous local implementation inspected only
+// `extension[0]`, which is order-dependent (and would throw on an empty extension
+// array) — it breaks outright once a Location carries multiple location-form
+// codings (e.g. both virtual and in-person).
+export { isLocationVirtual } from 'utils';

@@ -8,7 +8,7 @@ import {
   useRosterState,
 } from 'amazon-chime-sdk-component-library-react';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { getSelectors } from 'utils';
+import { getSelectors, isRecordingBotParticipant, selectActiveParticipant } from 'utils';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useVideoCallStore, VideoControls } from '.';
 
@@ -25,24 +25,22 @@ export const VideoRoom: FC = () => {
   const isMobile = useIsMobile();
 
   const [activeParticipant, setActiveParticipant] = useState<null | Participant>(null);
+  const localAttendeeId = (videoCallState.meetingData?.Attendee as { AttendeeId?: string } | undefined)?.AttendeeId;
 
   const participants = useMemo<Participant[]>(() => {
     return Object.keys(roster)
       .filter(
-        (participantId) => (videoCallState.meetingData?.Attendee as { AttendeeId: string }).AttendeeId !== participantId
+        (participantId) =>
+          participantId !== localAttendeeId && !isRecordingBotParticipant(roster[participantId].externalUserId)
       )
       .map((participantId) => ({
         ...roster[participantId],
         tileId: attendeeIdToTileId[participantId],
       }));
-  }, [roster, videoCallState.meetingData?.Attendee, attendeeIdToTileId]);
+  }, [roster, localAttendeeId, attendeeIdToTileId]);
 
   useEffect(() => {
-    if (participants.length) {
-      setActiveParticipant(participants[0]);
-    } else {
-      setActiveParticipant(null);
-    }
+    setActiveParticipant((currentActiveParticipant) => selectActiveParticipant(participants, currentActiveParticipant));
   }, [participants]);
 
   return (
@@ -60,7 +58,7 @@ export const VideoRoom: FC = () => {
         <Box
           sx={{
             position: 'relative',
-            backgroundColor: '#0A2143',
+            backgroundColor: theme.palette.primary.dark,
             height: isMobile ? '100%' : '600px',
             flex: isMobile ? 1 : undefined,
             color: 'white',

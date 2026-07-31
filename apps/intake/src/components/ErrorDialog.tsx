@@ -14,7 +14,7 @@ import { FC, ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { PROJECT_WEBSITE } from 'utils';
-import i18n from '../lib/i18n';
+import { i18n } from 'utils/lib/frontend';
 
 export interface ErrorDialogConfig {
   title: string;

@@ -34,6 +34,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { BOOKING_CONFIG, getDefaultCadenceMinutes } from 'utils';
 import {
   createServiceCategory,
@@ -124,7 +125,7 @@ const ServiceCategoryDialog: FC<{
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Typography variant="h4" color="primary.dark">
+        <Typography variant="h4" component="span" color="primary.dark">
           {initial?.id ? 'Edit Service' : 'New Service'}
         </Typography>
       </DialogTitle>
@@ -400,11 +401,8 @@ export const ServiceCategoriesAdminPage: FC = () => {
   }, [data?.serviceCategories]);
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: '8px' }}>
-        <Typography variant="h4" color="primary.dark">
-          Services
-        </Typography>
+    <Box>
+      <AdminHeaderActionSlot>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -415,7 +413,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
         >
           New Service
         </Button>
-      </Box>
+      </AdminHeaderActionSlot>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Services are the appointment types patients can book. Add a service here, then attach it to a provider's
@@ -543,7 +541,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
         }}
         onSubmit={handleSubmit}
       />
-    </Paper>
+    </Box>
   );
 };
 

@@ -17,6 +17,8 @@ import {
   getSlotIsWalkin,
   INVALID_INPUT_ERROR,
   isLocationVirtual,
+  isPhoneNumberValid,
+  locationSupportsServiceMode,
   makeSlotAtLocationExtensionEntry,
   MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
@@ -39,7 +41,6 @@ import { z } from 'zod';
 import {
   checkIsEHRUser,
   isTestUser,
-  phoneRegex,
   resolveBookingLocationId,
   safeJsonParse,
   safeValidate,
@@ -117,7 +118,11 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     (patient as Record<string, unknown>).emailUser = undefined;
   }
 
-  if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber as string)) {
+  // Accept any format the downstream storage step (formatPhoneNumber) can normalize.
+  // formatPhoneNumber strips separators before validating, so the gate must do the same —
+  // otherwise formatted values like "(202) 123-4567" or "202-123-4567" are rejected here
+  // even though they'd store fine as "+12021234567".
+  if (patient?.phoneNumber && !isPhoneNumberValid((patient.phoneNumber as string).replace(/[^0-9+]/g, ''))) {
     throw INVALID_INPUT_ERROR('patient phone number is not valid');
   }
 
@@ -491,6 +496,24 @@ export const createAppointmentComplexValidation = async (
       throw INVALID_INPUT_ERROR(`Resolved booking Location is missing an id (expected ${bookingLocationId})`);
     }
     bookingLocation = resolved as ResolvedBookingLocation | undefined;
+  }
+
+  // Reconcile the slot's service mode against what the resolved booking Location
+  // can actually fulfill. A group may offer a mode that a given member's paired
+  // Location doesn't support (e.g. a virtual slot booked through a group whose
+  // provider is only paired with an in-person Location, or vice versa). This is
+  // the backstop for the surfacing filter in get-schedule: without it, the
+  // virtual mismatch fails further down with a confusing "locationState is
+  // required" error, and — worse — the in-person mismatch (in-person slot on a
+  // virtual-only Location) slips through entirely and books a broken visit.
+  // Skipped when no Location resolves (Practitioner/HS actors with no
+  // at-location stamp); mode capability is delegated to the location.ts seam.
+  if (bookingLocation && !locationSupportsServiceMode(bookingLocation, serviceMode)) {
+    throw INVALID_INPUT_ERROR(
+      `The selected time is not available for ${
+        serviceMode === ServiceMode.virtual ? 'virtual' : 'in-person'
+      } visits at this location.`
+    );
   }
 
   // When the caller didn't pass locationState explicitly, derive it from a virtual

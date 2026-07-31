@@ -2,7 +2,7 @@ import { TextField } from '@mui/material';
 import { Extension } from 'fhir/r4b';
 import React from 'react';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import InputMask from '../../../components/InputMask';
+import { InputMask } from 'ui-components';
 import { configAoeDecimalEntryTestId } from '../utils/test-ids';
 
 interface NumberQuestionProps {

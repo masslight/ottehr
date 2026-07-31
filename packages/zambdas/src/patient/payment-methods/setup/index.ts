@@ -55,7 +55,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
   }
 
   const guarantor = accountResources.guarantorResource;
-  const { customerId } = await ensureStripeCustomerId(
+  const { customerId, createdWithoutEmail } = await ensureStripeCustomerId(
     {
       guarantorResource: guarantor,
       account,
@@ -92,6 +92,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
   const response: PaymentMethodSetupZambdaOutput = {
     clientSecret: setupIntent.client_secret,
     stripeAccount,
+    createdWithoutEmail: createdWithoutEmail || undefined,
   };
 
   return lambdaResponse(200, response);

@@ -36,3 +36,8 @@ export const roundNumberToDecimalPlaces = (value: number, decimalPlaces = 1): nu
   const factor = Math.pow(10, decimalPlaces);
   return Math.round(value * factor) / factor;
 };
+
+export const formatCurrency = (dollars: number): string =>
+  dollars < 0 ? `-$${Math.abs(dollars).toFixed(2)}` : `$${dollars.toFixed(2)}`;
+
+export const formatCurrencyFromCents = (cents: number | undefined): string => formatCurrency((cents ?? 0) / 100);

@@ -26,6 +26,9 @@ export const composePrimaryCarePhysicianData: DataComposer<PrimaryCarePhysicianI
     standardizePhoneNumber(
       physician?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value
     ) ?? '';
+  const pcpFax =
+    standardizePhoneNumber(physician?.telecom?.find((c) => c.system === 'fax' && c.period?.end === undefined)?.value) ??
+    '';
 
   return {
     hasPcp,
@@ -33,6 +36,7 @@ export const composePrimaryCarePhysicianData: DataComposer<PrimaryCarePhysicianI
     pcpPracticeName,
     pcpAddress,
     pcpPhone,
+    pcpFax,
   };
 };
 
@@ -94,6 +98,18 @@ export const createPrimaryCarePhysicianSection = <TData extends { pcp?: PrimaryC
         client.drawLabelValueRow(
           'PCP phone number',
           details.pcpPhone,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
+      }
+      if (shouldShow('pcp-fax')) {
+        client.drawLabelValueRow(
+          'PCP fax number',
+          details.pcpFax,
           styles.textStyles.regular,
           styles.textStyles.regular,
           {

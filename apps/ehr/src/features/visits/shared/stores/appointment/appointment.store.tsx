@@ -34,6 +34,7 @@ import {
   APIErrorCode,
   ChartDataRequestedFields,
   GetChartDataResponse,
+  isLocationInPerson,
   isLocationVirtual,
   NOTE_TYPE,
   ObservationDTO,
@@ -385,7 +386,11 @@ const selectAppointmentData = (
   const appointmentLocationId = appointmentLocationRef?.split('/')?.pop();
   const location = data.find(
     (resource): resource is Location =>
-      resource.resourceType === 'Location' && resource.id === appointmentLocationId && !isLocationVirtual(resource)
+      resource.resourceType === 'Location' &&
+      resource.id === appointmentLocationId &&
+      // Already scoped to the appointment's own Location; accept it as the physical
+      // location when it's in-person (including dual-mode Locations that are also virtual).
+      isLocationInPerson(resource)
   );
 
   const allEncountersRaw = data?.filter(

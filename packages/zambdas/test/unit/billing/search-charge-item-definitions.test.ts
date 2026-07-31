@@ -114,7 +114,7 @@ describe('search-charge-item-definition', () => {
           { name: '_count', value: '25' },
           { name: '_offset', value: '0' },
           { name: '_sort', value: 'title' },
-          { name: '_total', value: 'exact' },
+          { name: '_total', value: 'accurate' },
         ],
       });
     });
@@ -170,7 +170,7 @@ describe('search-charge-item-definition', () => {
           { name: '_count', value: '10' },
           { name: '_offset', value: '20' },
           { name: '_sort', value: 'title' },
-          { name: '_total', value: 'exact' },
+          { name: '_total', value: 'accurate' },
           { name: 'title', value: 'test' },
         ],
       });

@@ -42,6 +42,7 @@ const item: ApprovedPatientEducationItem = {
   title: 'Patient Education: Example',
   icdCodes: [],
   pdfPresignedUrl: 'https://example.com/doc.pdf',
+  language: 'en',
 };
 
 describe('EditApprovedPatientEducationCodesDialog', () => {

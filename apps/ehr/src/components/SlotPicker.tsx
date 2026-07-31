@@ -7,7 +7,7 @@ import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useMemo, useState } from 'react';
 import { getLocations } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { nextAvailableFrom, ScheduleType, ServiceCategoryCode } from 'utils';
+import { BOOKING_CONFIG, nextAvailableFrom, ScheduleType, ServiceCategoryCode } from 'utils';
 import { Slots } from './Slots';
 interface TabPanelProps {
   children?: ReactNode;
@@ -78,6 +78,10 @@ const SlotPicker = ({
 }: SlotPickerProps): JSX.Element => {
   const { oystehrZambda } = useApiClients();
   const theme = useTheme();
+  // "Other dates" calendar range in months, from the per-project booking config;
+  // defaults to 1 month when unset (beam sets 12). The tab is always shown here —
+  // slots for a picked day are fetched on demand (handleSelectOtherDate).
+  const prebookMonthsAhead = BOOKING_CONFIG.prebookMaxMonthsAhead ?? 1;
   const [currentTab, setCurrentTab] = useState(0);
   const [nextDay, setNextDay] = useState<boolean>(false);
   const [otherDateSlots, setOtherDateSlots] = useState<Slot[]>([]);
@@ -349,8 +353,9 @@ const SlotPicker = ({
                       }}
                       // Minus one day for timezone shenanigans
                       minDate={firstAvailableDay?.minus({ days: 1 })}
-                      // Plus one month for month picker dropdown
-                      maxDate={DateTime.fromISO(slotsList[slotsList.length - 1].start)?.plus({ months: 1 })}
+                      // Allow booking up to prebookMonthsAhead out (default 1).
+                      // Slots for the picked day are fetched on demand.
+                      maxDate={firstAvailableDay?.plus({ months: prebookMonthsAhead })}
                     />
                   </LocalizationProvider>
                   {selectedOtherDate && (

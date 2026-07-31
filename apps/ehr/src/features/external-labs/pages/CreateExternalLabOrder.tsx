@@ -17,10 +17,11 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -50,6 +51,7 @@ import {
 } from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import { useCreateExternalLabStore, useMarkDraftNavigatedAway } from '../../../state/draft-data.store';
 import { ExternalSelectedTests } from '../components/create/ExternalSelectedTests';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
@@ -63,6 +65,8 @@ type LocationMapValue = {
   location: ModifiedOrderingLocation;
   labOrgIds: string;
 };
+
+const PAGE_HEADER_TEXT = 'Order External Lab';
 
 export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = () => {
   const theme = useTheme();
@@ -78,24 +82,91 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+  const { setDraft, getDraft, clearDraft, hasDraft } = useCreateExternalLabStore();
+  useMarkDraftNavigatedAway({ encounterId: encounter.id ?? '', setDraft, hasDraft });
 
   const diagnosis = useMemo<DiagnosisDTO[]>(
     () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
     [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
   );
 
+  const draft = useMemo(() => (encounter.id ? getDraft(encounter.id) : {}), [encounter.id, getDraft]);
+
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
   const patientId = patient?.id || '';
-  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
-  const [selectedLabs, setSelectedLabs] = useState<OrderableItemSearchResult[]>([]);
-  const [psc, setPsc] = useState<boolean>(false);
-  const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
+  const formStateDefaults: {
+    dx: DiagnosisDTO[];
+    orderableItems: OrderableItemSearchResult[];
+    orderingLocationId: string;
+    selectedPaymentMethod: CreateLabPaymentMethod | '';
+    clinicalInfoNote: string | undefined;
+    psc: boolean;
+  } = {
+    dx: primaryDiagnosis ? [primaryDiagnosis] : [],
+    orderableItems: [],
+    orderingLocationId: apptLocation?.id ?? '',
+    selectedPaymentMethod: '',
+    clinicalInfoNote: undefined,
+    psc: false,
+  };
+  const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(() => {
+    if (draft.dx) return draft.dx;
+    return formStateDefaults.dx;
+  });
+  const [selectedLabs, setSelectedLabs] = useState<OrderableItemSearchResult[]>(
+    draft.orderableItems ?? formStateDefaults.orderableItems
+  );
+  const [psc, setPsc] = useState<boolean>(draft.psc ?? formStateDefaults.psc);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>(
+    draft.orderingLocationId ?? formStateDefaults.orderingLocationId
+  );
   const [labOrgIdsForSelectedOffice, setLabOrgIdsForSelectedOffice] = useState<string>('');
   const [isOrderingDisabled, setIsOrderingDisabled] = useState<boolean>(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<CreateLabPaymentMethod | ''>('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<CreateLabPaymentMethod | ''>(
+    draft.selectedPaymentMethod ?? formStateDefaults.selectedPaymentMethod
+  );
   const [showNotesFields, setShowNotesFields] = useState(false);
-  const [clinicalInfoNotes, setClinicalInfoNotes] = useState<string | undefined>(undefined);
+  const [clinicalInfoNotes, setClinicalInfoNotes] = useState<string | undefined>(
+    draft.clinicalInfoNoteByUser ?? formStateDefaults.clinicalInfoNote
+  );
+
+  // consolidating into some functions since every time these state setters are called, we also pass the value to the draft store
+  const handleOrderingLocationUpdate = useCallback(
+    (officeId: string): void => {
+      setSelectedOfficeId(officeId);
+      if (encounter.id) setDraft(encounter.id, { orderingLocationId: officeId });
+    },
+    [setSelectedOfficeId, setDraft, encounter.id]
+  );
+
+  const handleDxUpdate = (newDx: DiagnosisDTO[]): void => {
+    setOrderDx(newDx);
+    if (encounter.id) setDraft(encounter.id, { dx: newDx });
+  };
+
+  const handlePaymentMethodUpdate = useCallback(
+    (paymentMethod: CreateLabPaymentMethod | ''): void => {
+      setSelectedPaymentMethod(paymentMethod);
+      if (encounter.id) setDraft(encounter.id, { selectedPaymentMethod: paymentMethod ? paymentMethod : undefined });
+    },
+    [setSelectedPaymentMethod, setDraft, encounter.id]
+  );
+
+  const handleTestSelectionUpdate = (selectedLabs: OrderableItemSearchResult[]): void => {
+    setSelectedLabs(selectedLabs);
+    if (encounter.id) setDraft(encounter.id, { orderableItems: selectedLabs });
+  };
+
+  const handlePscUpdate = (psc: boolean): void => {
+    setPsc(psc);
+    if (encounter.id) setDraft(encounter.id, { psc });
+  };
+
+  const handleClinicalInfoUpdate = (note: string | undefined): void => {
+    setClinicalInfoNotes(note);
+    if (encounter.id) setDraft(encounter.id, { clinicalInfoNoteByUser: note });
+  };
 
   // used to fetch dx icd10 codes
   const [debouncedDxSearchTerm, setDebouncedDxSearchTerm] = useState('');
@@ -140,6 +211,36 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     [orderingLocationIdsStable] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  const determineInitialPaymentMethod = useCallback((): LabPaymentMethod | undefined => {
+    if (!isWorkersComp && !coverageInfo) {
+      console.log('coverageInfo is', coverageInfo);
+      return;
+    }
+
+    let selectedPaymentMethod: undefined | LabPaymentMethod = undefined;
+    if (isWorkersComp) {
+      selectedPaymentMethod = LabPaymentMethod.WorkersComp;
+    } else if (coverageInfo) {
+      if (coverageInfo.length > 0) {
+        selectedPaymentMethod = LabPaymentMethod.Insurance;
+      } else {
+        // if no coverage info is returned, self pay
+        selectedPaymentMethod = LabPaymentMethod.SelfPay;
+      }
+    }
+    return selectedPaymentMethod;
+  }, [isWorkersComp, coverageInfo]);
+
+  const handleClearForm = (): void => {
+    if (encounter.id) clearDraft(encounter.id);
+    setSelectedOfficeId(formStateDefaults.orderingLocationId);
+    setOrderDx(formStateDefaults.dx);
+    setSelectedPaymentMethod(determineInitialPaymentMethod() ?? formStateDefaults.selectedPaymentMethod);
+    setSelectedLabs(formStateDefaults.orderableItems);
+    setPsc(formStateDefaults.psc);
+    setClinicalInfoNotes(formStateDefaults.clinicalInfoNote);
+  };
+
   useEffect(() => {
     if (!apptLocation?.id) return;
 
@@ -147,7 +248,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       setSelectedOfficeId(apptLocation.id);
       console.log('we did the state set');
     }
-  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationAndLabOrgIdsMap]);
+  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationAndLabOrgIdsMap, handleOrderingLocationUpdate]);
 
   useEffect(() => {
     const labOrgIds = orderingLocationIdToLocationAndLabOrgIdsMap.get(selectedOfficeId)?.labOrgIds ?? '';
@@ -172,19 +273,13 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabOrgIdsMap]);
 
   useEffect(() => {
-    if (isWorkersComp) {
-      setSelectedPaymentMethod(LabPaymentMethod.WorkersComp);
-    } else if (coverageInfo) {
-      if (coverageInfo.length > 0) {
-        setSelectedPaymentMethod(LabPaymentMethod.Insurance);
-      } else {
-        // if no coverage info is returned, self pay
-        setSelectedPaymentMethod(LabPaymentMethod.SelfPay);
-      }
-    } else {
-      console.log('coverageInfo is', coverageInfo);
+    const initialPaymentMethod = determineInitialPaymentMethod();
+
+    if (draft.selectedPaymentMethod) setSelectedPaymentMethod(draft.selectedPaymentMethod);
+    else if (initialPaymentMethod) {
+      setSelectedPaymentMethod(initialPaymentMethod);
     }
-  }, [coverageInfo, isWorkersComp]);
+  }, [determineInitialPaymentMethod, draft]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -195,7 +290,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       selectedOfficeId &&
       orderingLocationIdToLocationAndLabOrgIdsMap.has(selectedOfficeId) &&
       selectedPaymentMethod !== '';
-    if (oystehrZambda && paramsSatisfied) {
+    if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
         if (!psc && cptCodesToAddPerEncounter && cptCodesToAddPerEncounter.length > 0) {
           await addAdditionalCptCodesToEncounter();
@@ -210,6 +305,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           selectedPaymentMethod: selectedPaymentMethod,
           clinicalInfoNoteByUser: clinicalInfoNotes,
         });
+        // clear out the zustand store once the lab is created
+        clearDraft(encounter.id);
         navigate(`/in-person/${appointmentIdFromUrl}/external-lab-orders`);
       } catch (e) {
         const sdkError = e as Oystehr.OystehrSdkError;
@@ -307,10 +404,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   if (isError || resourceFetchError) {
     return (
       <DetailPageContainer>
-        <LabBreadcrumbs sectionName="Order External Lab">
+        <LabBreadcrumbs sectionName={PAGE_HEADER_TEXT}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-              Order External Lab
+              {PAGE_HEADER_TEXT}
             </Typography>
           </Box>
           <Paper sx={{ p: 3 }}>
@@ -329,12 +426,21 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   return (
     <DetailPageContainer>
-      <LabBreadcrumbs sectionName="Order External Lab">
+      <LabBreadcrumbs sectionName={PAGE_HEADER_TEXT}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-            Order External Lab
+            {PAGE_HEADER_TEXT}
           </Typography>
         </Box>
+        {encounter.id && hasDraft(encounter.id) && (
+          <UnsavedDraftWarning
+            message={
+              draft.hasNavigatedAway
+                ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                : 'You have a lab order in progress. Your draft will be saved.'
+            }
+          />
+        )}
 
         {dataLoading ? (
           <LabOrderLoading />
@@ -362,13 +468,13 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         label="office"
                         onChange={(e) => {
                           console.log('Selected office value', e.target.value);
-                          setSelectedOfficeId(e.target.value);
+                          handleOrderingLocationUpdate(e.target.value);
                           if (!e.target.value)
                             enqueueSnackbar('Must select an ordering office', {
                               variant: 'error',
                             });
                           // future TODO: should clear out the selected lab only if the selected lab isn't from the same lab guid as what the location supports
-                          setSelectedLabs([]);
+                          handleTestSelectionUpdate([]);
                         }}
                         displayEmpty
                         value={selectedOfficeId ?? ''}
@@ -414,7 +520,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         if (selectedDx) {
                           const alreadySelected = orderDx.find((tempDx) => tempDx.code === selectedDx.code);
                           if (!alreadySelected) {
-                            setOrderDx([...orderDx, selectedDx]);
+                            handleDxUpdate([...orderDx, selectedDx]);
                           } else {
                             enqueueSnackbar('This Dx is already added to the order', {
                               variant: 'error',
@@ -458,7 +564,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     onChange={(event: any, selectedDx: any) => {
                       const alreadySelected = orderDx.find((tempDx) => tempDx.code === selectedDx.code);
                       if (!alreadySelected) {
-                        setOrderDx([...orderDx, selectedDx]);
+                        handleDxUpdate([...orderDx, selectedDx]);
                       } else {
                         enqueueSnackbar('This Dx is already added to the order', {
                           variant: 'error',
@@ -506,7 +612,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         )}
                         renderActions={(value) => (
                           <DeleteIconButton
-                            onClick={() => setOrderDx(() => orderDx.filter((dxVal) => dxVal.code !== value.code))}
+                            onClick={() => {
+                              handleDxUpdate(orderDx.filter((dxVal) => dxVal.code !== value.code));
+                            }}
                           />
                         )}
                       />
@@ -524,7 +632,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         notched
                         fullWidth
                         id="select-payment-method"
-                        onChange={(e) => setSelectedPaymentMethod(e.target.value as CreateLabPaymentMethod)}
+                        onChange={(e) => handlePaymentMethodUpdate(e.target.value as CreateLabPaymentMethod)}
                         displayEmpty
                         value={selectedPaymentMethod}
                         sx={{
@@ -574,11 +682,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     orderingLocation={{ searchingForAll: false, selectedOrderingLocationId: selectedOfficeId }}
                     labOrgIdsString={labOrgIdsForSelectedOffice}
                     selectedLabs={selectedLabs}
-                    setSelectedLabs={setSelectedLabs}
+                    setSelectedLabs={handleTestSelectionUpdate}
                     labSets={labSets}
                   ></LabsAutocomplete>
                   {selectedLabs.length > 0 && (
-                    <ExternalSelectedTests selectedLabs={selectedLabs} setSelectedLabs={setSelectedLabs} />
+                    <ExternalSelectedTests selectedLabs={selectedLabs} setSelectedLabs={handleTestSelectionUpdate} />
                   )}
                 </Grid>
                 {showNotesFields && (
@@ -595,7 +703,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       multiline
                       minRows={2}
                       value={clinicalInfoNotes}
-                      onChange={(e) => setClinicalInfoNotes(e.target.value)}
+                      onChange={(e) => handleClinicalInfoUpdate(e.target.value)}
                       inputProps={{
                         'data-testid': dataTestIds.externalLabs.createPg.clinicalInfoNote,
                         maxLength: HL7_NOTE_CHAR_LIMIT,
@@ -612,14 +720,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
-                    control={<Switch checked={psc} onChange={() => setPsc((psc) => !psc)} />}
+                    control={<Switch checked={psc} onChange={() => handlePscUpdate(!psc)} />}
                     label={<Typography variant="body2">{PSC_HOLD_LOCALE}</Typography>}
                   />
                   <Button
                     data-testid={dataTestIds.externalLabs.createPg.addClinicalInfoNote}
                     sx={{ textTransform: 'none' }}
                     onClick={() => {
-                      if (showNotesFields) setClinicalInfoNotes(undefined);
+                      if (showNotesFields) handleClinicalInfoUpdate(undefined);
                       setShowNotesFields(!showNotesFields);
                     }}
                   >
@@ -631,11 +739,23 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     variant="outlined"
                     sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                     onClick={() => {
+                      if (encounter.id) clearDraft(encounter.id);
                       navigate(`/in-person/${appointmentIdFromUrl}/external-lab-orders`);
                     }}
                   >
                     Cancel
                   </Button>
+                  {encounter.id && hasDraft(encounter.id) && (
+                    <Button
+                      variant="outlined"
+                      sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600, ml: 1 }}
+                      onClick={() => {
+                        handleClearForm();
+                      }}
+                    >
+                      Clear Form
+                    </Button>
+                  )}
                 </Grid>
                 <Grid item xs={6} display="flex" justifyContent="flex-end">
                   <LoadingButton

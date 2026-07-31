@@ -28,8 +28,13 @@ describe('combineMultipleValuesForSave', () => {
     expect(combineMultipleValuesForSave(['Suture Kit', OTHER], 'bbb')).toBe('Suture Kit, Other: bbb');
   });
 
-  it('drops the "Other" marker when there is no other text', () => {
-    expect(combineMultipleValuesForSave([OTHER, 'Suture Kit'], '  ')).toBe('Suture Kit');
+  it('"Other" should be moved to last, even when there is no additional other text sent', () => {
+    expect(combineMultipleValuesForSave([OTHER, 'Suture Kit'], '  ')).toBe('Suture Kit, Other');
+  });
+
+  it('"Other" is not striped when undefined is sent as otherValue', () => {
+    const saved = combineMultipleValuesForSave([OTHER], undefined);
+    expect(parseWithOther(saved, VALID_SUPPLIES)).toEqual({ values: [OTHER] });
   });
 });
 

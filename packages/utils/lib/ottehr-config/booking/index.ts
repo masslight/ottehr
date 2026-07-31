@@ -376,6 +376,10 @@ export interface BookingConfig {
   formConfig: QuestionnaireConfigType;
   inPersonPrebookRoutingParams: { key: string; value: string }[];
   defaultWalkinLocationName?: string;
+  // Prebook "Other dates" calendar range, in months. EHR shows the calendar and
+  // uses this (default 1 when unset). Patient app shows the extended calendar
+  // only when set (e.g. beam=12); unset = Today/Tomorrow only.
+  prebookMaxMonthsAhead?: number;
   // Questionnaire-related fields used for building the form
   FormFields?: Record<string, unknown>;
   questionnaireBase?: QuestionnaireBase;

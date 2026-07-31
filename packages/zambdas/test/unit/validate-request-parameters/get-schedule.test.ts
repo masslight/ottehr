@@ -74,6 +74,30 @@ describe('get-schedule - validateRequestParameters', () => {
     expect(result.serviceCategoryCode).toBeUndefined();
   });
 
+  // serviceMode drives the surfacing filter but comes from a raw URL path
+  // segment, so the schema is deliberately tolerant: recognized values pass
+  // through, anything else coerces to undefined (no filter) rather than 400.
+  test('should accept serviceMode "virtual"', () => {
+    const input = createMockZambdaInput({ ...validBody, serviceMode: 'virtual' });
+    expect(validateRequestParameters(input).serviceMode).toBe('virtual');
+  });
+
+  test('should accept serviceMode "in-person"', () => {
+    const input = createMockZambdaInput({ ...validBody, serviceMode: 'in-person' });
+    expect(validateRequestParameters(input).serviceMode).toBe('in-person');
+  });
+
+  test('should coerce an unrecognized serviceMode to undefined without throwing', () => {
+    const input = createMockZambdaInput({ ...validBody, serviceMode: 'telepathic' });
+    expect(() => validateRequestParameters(input)).not.toThrow();
+    expect(validateRequestParameters(input).serviceMode).toBeUndefined();
+  });
+
+  test('should allow omitting serviceMode', () => {
+    const input = createMockZambdaInput(validBody);
+    expect(validateRequestParameters(input).serviceMode).toBeUndefined();
+  });
+
   test('SCHEDULE_TYPES should contain expected values', () => {
     expect(SCHEDULE_TYPES).toEqual(['location', 'provider', 'group']);
   });

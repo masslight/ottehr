@@ -221,6 +221,18 @@ describe('ExternalRxSuggestions', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it('shows "Prescribed: Date unknown" when writtenDate is null', () => {
+    vi.mocked(useExternalMedicationHistory).mockReturnValue({
+      isLoading: false,
+      isAvailable: true,
+      externalMedications: [makeExternalMed({ name: 'TestMed', writtenDate: null, lastFillDate: null })],
+      error: null,
+    });
+
+    render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
+    expect(screen.getByText(/Prescribed: Date unknown/)).toBeInTheDocument();
+  });
+
   it('shows "Show more" when more than 5 medications', () => {
     const meds = Array.from({ length: 7 }, (_, i) => makeMatchedMed(`Med${i}`, `${i * 10} mg`));
 

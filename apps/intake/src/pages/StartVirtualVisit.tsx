@@ -4,6 +4,7 @@ import { Box, useTheme } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
 import {
   APIError,
   BOOKING_CONFIG,
@@ -21,7 +22,6 @@ import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import { CustomTooltip } from '../components/CustomTooltip';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
-import { BoldPurpleInputLabel } from '../components/form';
 import PageForm from '../components/PageForm';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';

@@ -1,5 +1,5 @@
 import { ExpandLess as ExpandLessIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
-import { Box, Button, MenuItem, Select, Typography } from '@mui/material';
+import { Box, Button, FormControl, FormHelperText, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import {
   CLAIM_STATUS_FIELDS,
@@ -12,7 +12,6 @@ import {
   getActiveStatusGroup,
 } from 'utils';
 import { otherColors } from '../../themes/ottehr/colors';
-import { Field } from '../Field';
 
 interface ClaimStatusFieldsProps {
   // Current value per status field (use empty string for None).
@@ -37,14 +36,20 @@ export function ClaimStatusFields({ values, onChange, title, requireArStage }: C
   const renderField = (field: ClaimStatusFieldDef): ReactElement => {
     const value = values[field.key] ?? '';
     const showError = !!requireArStage && field.key === 'arStage' && !value;
+    const label = `${field.label}${field.key === 'arStage' ? ' *' : ''}`;
     return (
-      <Field label={`${field.label}${requireArStage && field.key === 'arStage' ? ' *' : ''}`}>
+      <FormControl size="small" fullWidth>
+        <InputLabel id={`${field.key}-label`} error={showError}>
+          {label}
+        </InputLabel>
         <Select
           size="small"
           fullWidth
-          displayEmpty
           error={showError}
           value={value}
+          label={label}
+          labelId={`${field.key}-label`}
+          aria-describedby={`${field.key}-helper-text`}
           onChange={(e) => onChange(field.key, e.target.value)}
           renderValue={
             value
@@ -57,14 +62,25 @@ export function ClaimStatusFields({ values, onChange, title, requireArStage }: C
           }
         >
           {/* Nullable fields can be cleared back to their null/default state. */}
-          {field.defaultCode === null && <MenuItem value="">None</MenuItem>}
+          {field.defaultCode === null && (
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+          )}
           {field.options.map((o) => (
             <MenuItem key={o.code} value={o.code}>
               {o.label}
             </MenuItem>
           ))}
         </Select>
-      </Field>
+        {showError ? (
+          <FormHelperText id={`${field.key}-helper-text`} error={true}>
+            This field is required
+          </FormHelperText>
+        ) : (
+          <></>
+        )}
+      </FormControl>
     );
   };
 
@@ -107,13 +123,7 @@ export function ClaimStatusFields({ values, onChange, title, requireArStage }: C
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, minHeight: 32 }}>
-        {title ? (
-          <Typography variant="h6" color="primary.dark" fontWeight={600} fontSize={16}>
-            {title}
-          </Typography>
-        ) : (
-          <span />
-        )}
+        {title ? <Typography variant="h6">{title}</Typography> : <span />}
         <Button
           size="small"
           onClick={() => setExpanded((prev) => !prev)}

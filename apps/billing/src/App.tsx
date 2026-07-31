@@ -4,7 +4,7 @@ import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { RoleType } from 'utils';
+import { DEFAULT_RULES_ENGINE, RoleType } from 'utils';
 import { Layout } from './components/Layout';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -17,12 +17,13 @@ import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/Ch
 import ClaimDetail from './pages/ClaimDetail';
 import ClaimsList from './pages/ClaimsList';
 import CreateClaim from './pages/CreateClaim';
-import Dashboard from './pages/Dashboard';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import PatientDetail from './pages/PatientDetail';
 import PatientsList from './pages/PatientsList';
 import { RenderingProviderDetail, RenderingProvidersList } from './pages/RenderingProviders';
+import RuleDetail from './pages/RuleDetail';
+import Rules from './pages/Rules';
 import { ServiceFacilitiesList, ServiceFacilityDetail } from './pages/ServiceFacilities';
 import Tags from './pages/Tags';
 import { theme } from './themes/ottehr';
@@ -65,7 +66,8 @@ export default function App(): ReactElement {
                 />
               }
             >
-              <Route path="/" element={<Dashboard />} />
+              {/* <Route path="/" element={<Dashboard />} /> */}
+              <Route path="/" element={<Navigate to="/claims" replace />} />
               <Route path="/claims" element={<ClaimsList />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
@@ -88,6 +90,10 @@ export default function App(): ReactElement {
               <Route path="/eras" element={<ERAList />} />
               <Route path="/eras/:id" element={<ERADetail />} />
               <Route path="/tags" element={<Tags />} />
+              {/* Rules routes are per engine; bare /rules lands on the Claim Submission engine. */}
+              <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
+              <Route path="/rules/:engine" element={<Rules />} />
+              <Route path="/rules/:engine/:id" element={<RuleDetail />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Route>
           )}

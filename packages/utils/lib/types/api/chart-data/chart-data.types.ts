@@ -174,6 +174,7 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   prescriptionId?: string;
   encounterId?: string;
   isRenewal?: boolean;
+  pharmacyId?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {
@@ -248,6 +249,10 @@ export type VitalsWeightObservationDTO = VitalsWeightWithValueDTO | VitalsWeight
 
 export interface VitalsHeightObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-height'>;
+}
+
+export interface VitalsBMIObservationDTO extends VitalsNumericValueObservationDTO {
+  field: Extract<VitalFieldNames, 'vital-bmi'>;
 }
 
 export interface VitalsTemperatureObservationDTO extends VitalsNumericValueObservationDTO {
@@ -330,6 +335,7 @@ export type VitalsObservationDTO =
   | VitalsRespirationRateObservationDTO
   | VitalsWeightObservationDTO
   | VitalsHeightObservationDTO
+  | VitalsBMIObservationDTO
   | VitalsVisionObservationDTO
   | VitalsLastMenstrualPeriodObservationDTO;
 

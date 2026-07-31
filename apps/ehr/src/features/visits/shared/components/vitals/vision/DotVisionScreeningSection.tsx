@@ -6,7 +6,11 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { DOT_VISION_SCREENING_LABELS } from 'utils';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import DotVisionDocumentUploader from './DotVisionDocumentUploader';
-import { DotVisionScreeningLocalState } from './useDotVisionScreeningLocalState';
+import {
+  DOT_VISION_DEGREES_MAX,
+  DOT_VISION_DEGREES_MIN,
+  DotVisionScreeningLocalState,
+} from './useDotVisionScreeningLocalState';
 
 interface DotVisionScreeningSectionProps {
   state: DotVisionScreeningLocalState;
@@ -80,6 +84,8 @@ export const DotVisionScreeningSection: FC<DotVisionScreeningSectionProps> = ({
                 label={`${DOT_VISION_SCREENING_LABELS.horizontalFieldLeft} (degrees)`}
                 value={state.horizontalFieldLeft}
                 disabled={disabled}
+                isInputError={state.horizontalFieldLeftInvalid}
+                inputProps={{ min: DOT_VISION_DEGREES_MIN, max: DOT_VISION_DEGREES_MAX }}
                 onChange={(e) => state.handleHorizontalFieldLeftChange(e.target.value)}
                 data-testid={dataTestIds.vitalsPage.dotVisionHorizontalFieldLeftInput}
               />
@@ -89,6 +95,8 @@ export const DotVisionScreeningSection: FC<DotVisionScreeningSectionProps> = ({
                 label={`${DOT_VISION_SCREENING_LABELS.horizontalFieldRight} (degrees)`}
                 value={state.horizontalFieldRight}
                 disabled={disabled}
+                isInputError={state.horizontalFieldRightInvalid}
+                inputProps={{ min: DOT_VISION_DEGREES_MIN, max: DOT_VISION_DEGREES_MAX }}
                 onChange={(e) => state.handleHorizontalFieldRightChange(e.target.value)}
                 data-testid={dataTestIds.vitalsPage.dotVisionHorizontalFieldRightInput}
               />

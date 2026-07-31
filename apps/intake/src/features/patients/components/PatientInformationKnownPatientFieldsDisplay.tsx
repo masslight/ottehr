@@ -3,9 +3,9 @@ import { DateTime } from 'luxon';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { PatientInfo, yupDateTransform } from 'utils';
+import { i18n } from 'utils/lib/frontend';
 import { useGetFullName } from '../../../hooks/useGetFullName';
 import { otherColors } from '../../../IntakeThemeProvider';
-import i18n from '../../../lib/i18n';
 
 export const PatientInformationKnownPatientFieldsDisplay = ({
   patientInfo,

@@ -22,6 +22,7 @@ import {
   composeVitalsForDischargeSummary,
   composeWorkSchoolExcuseSection,
   createAllergiesSectionForDischargeSummary,
+  createCompactPatientHeader,
   createDiagnosesSection,
   createDispositionSection,
   createEducationalDocumentsSection,
@@ -30,7 +31,6 @@ import {
   createInHouseLabsSection,
   createInHouseMedicationsSectionForDischargeSummary,
   createMedicationsSectionForDischargeSummary,
-  createPatientHeaderForDischargeSummary,
   createPatientInstructionsSection,
   createPhysicianSection,
   createProceduresSection,
@@ -59,7 +59,7 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     externalLabs: composeExternalLabs({ allChartData }),
     radiology: composeRadiology({ allChartData }),
     inHouseMedications: composeInHouseMedicationsForDischargeSummary({ allChartData, appointmentPackage }),
-    erxMedications: composeErxMedications({ allChartData, appointmentPackage }),
+    erxMedications: composeErxMedications({ allChartData, appointmentPackage, erxPharmacies: input.erxPharmacies }),
     diagnoses: composeDiagnoses({ allChartData }),
     procedures: composeProcedures({ allChartData, appointmentPackage }),
     patientInstructions: composePatientInstructions({ allChartData }),
@@ -151,7 +151,7 @@ const createDischargeSummaryStyles: StyleFactory = (assets) => ({
 const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
   header: {
     title: 'DISCHARGE SUMMARY',
-    leftSection: createPatientHeaderForDischargeSummary(),
+    leftSection: createCompactPatientHeader(),
     rightSection: createVisitInfoSection(),
   },
   headerBodySeparator: true,

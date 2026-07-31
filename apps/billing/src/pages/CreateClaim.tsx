@@ -27,17 +27,12 @@ import {
   REQUIRED_FIELD_ERROR_MESSAGE,
   withArStageInitialization,
 } from 'utils';
-import {
-  createBillingClaim,
-  getPatientCoverages,
-  searchBillingLocations,
-  searchBillingPatients,
-  searchBillingProviders as searchBillingProvidersApi,
-} from '../api/api';
+import { createBillingClaim, getPatientCoverages, searchBillingLocations, searchBillingPatients } from '../api/api';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor, DiagnosisRow } from '../components/claim/DiagnosesEditor';
 import { emptyServiceLineRow, ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { useApiClients } from '../hooks/useAppClients';
+import { useProviderOptionsSearch } from '../hooks/useOptionSearch';
 
 // The create screen only picks references — patient, coverage, and providers are chosen as-is.
 // Tweaking their underlying details (names, NPIs, addresses, etc.) is done afterward in the claim
@@ -68,9 +63,7 @@ export default function CreateClaim(): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const renderingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const locTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const billingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const methods = useForm<CreateClaimForm>({ defaultValues });
   const {
@@ -92,9 +85,9 @@ export default function CreateClaim(): ReactElement {
   // Autocomplete search results — UI state, not form values.
   const [patients, setPatients] = useState<BillingPatientOption[]>([]);
   const [coverages, setCoverages] = useState<BillingCoverageOption[]>([]);
-  const [renderingProviders, setRenderingProviders] = useState<BillingProviderOption[]>([]);
   const [locations, setLocations] = useState<BillingLocationOption[]>([]);
-  const [billingProviders, setBillingProviders] = useState<BillingProviderOption[]>([]);
+  const { options: renderingProviders, search: searchRenderingProviders } = useProviderOptionsSearch('rendering');
+  const { options: billingProviders, search: searchBillingProviders } = useProviderOptionsSearch('billing');
 
   // Watched values used to drive conditional sections / disabled states.
   const selectedPatient = watch('patient');
@@ -106,9 +99,7 @@ export default function CreateClaim(): ReactElement {
   useEffect(() => {
     return (): void => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
-      if (renderingTimer.current) clearTimeout(renderingTimer.current);
       if (locTimer.current) clearTimeout(locTimer.current);
-      if (billingTimer.current) clearTimeout(billingTimer.current);
     };
   }, []);
 
@@ -137,21 +128,6 @@ export default function CreateClaim(): ReactElement {
     [oystehrZambda]
   );
 
-  const searchRenderingProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (renderingTimer.current) clearTimeout(renderingTimer.current);
-      renderingTimer.current = setTimeout(async () => {
-        const res = await searchBillingProvidersApi(oystehrZambda, {
-          providerType: 'rendering',
-          ...(query ? { name: query } : {}),
-        });
-        setRenderingProviders(res.providers ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-
   const searchLocations = useCallback(
     (query?: string): void => {
       if (!oystehrZambda) return;
@@ -159,21 +135,6 @@ export default function CreateClaim(): ReactElement {
       locTimer.current = setTimeout(async () => {
         const res = await searchBillingLocations(oystehrZambda, query ? { name: query } : {});
         setLocations(res.locations ?? []);
-      }, 300);
-    },
-    [oystehrZambda]
-  );
-
-  const searchBillingProviders = useCallback(
-    (query?: string): void => {
-      if (!oystehrZambda) return;
-      if (billingTimer.current) clearTimeout(billingTimer.current);
-      billingTimer.current = setTimeout(async () => {
-        const res = await searchBillingProvidersApi(oystehrZambda, {
-          providerType: 'billing',
-          ...(query ? { name: query } : {}),
-        });
-        setBillingProviders(res.providers ?? []);
       }, 300);
     },
     [oystehrZambda]
@@ -243,10 +204,7 @@ export default function CreateClaim(): ReactElement {
         payload.serviceLines = validLines.map((l) => {
           // Split the free-text modifiers field on any run of commas and/or whitespace
           // so "25, 59" and "25 59" both yield ["25", "59"].
-          const modifiers = l.modifiers
-            .split(/[,\s]+/)
-            .map((m) => m.trim())
-            .filter(Boolean);
+          const modifiers = parseModifiers(l.modifiers);
           const pointers = l.diagnosisPointers.filter((p) => p >= 1 && p <= diagnoses.length);
           return {
             cptCode: l.cptCode.trim(),
@@ -292,7 +250,7 @@ export default function CreateClaim(): ReactElement {
             <IconButton size="small" onClick={() => navigate('/claims')}>
               <ArrowBackIcon fontSize="small" />
             </IconButton>
-            <Typography variant="h6" color="primary.dark" fontWeight={600}>
+            <Typography variant="h5" color="primary.dark">
               Create a Claim
             </Typography>
           </Box>
@@ -367,7 +325,7 @@ export default function CreateClaim(): ReactElement {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Search Patient"
+                    label="Search Patient *"
                     size="small"
                     error={!!fieldError}
                     helperText={fieldError?.message}
@@ -450,7 +408,7 @@ export default function CreateClaim(): ReactElement {
                   <TextField
                     {...p}
                     size="small"
-                    label="Choose Rendering Provider"
+                    label="Choose Rendering Provider *"
                     error={!!fieldError}
                     helperText={fieldError?.message}
                   />
@@ -505,7 +463,7 @@ export default function CreateClaim(): ReactElement {
                   <TextField
                     {...p}
                     size="small"
-                    label="Choose Service Facility"
+                    label="Choose Service Facility *"
                     error={!!fieldError}
                     helperText={fieldError?.message}
                   />
@@ -550,7 +508,7 @@ export default function CreateClaim(): ReactElement {
                   <TextField
                     {...p}
                     size="small"
-                    label="Choose Billing Provider"
+                    label="Choose Billing Provider *"
                     error={!!fieldError}
                     helperText={fieldError?.message}
                   />
@@ -597,6 +555,10 @@ export default function CreateClaim(): ReactElement {
                 if (withCpt.some((l) => !(Number(l.units) > 0))) return 'Units must be a positive number';
                 if (withCpt.some((l) => l.charges.trim() === '' || !Number.isFinite(Number(l.charges))))
                   return 'Charges must be a number';
+                if (withCpt.some((l) => parseModifiers(l.modifiers).length > 4))
+                  return 'Maximum 4 modifiers can be used';
+                if (withCpt.some((l) => parseModifiers(l.modifiers).find((modifier) => modifier.length !== 2)))
+                  return 'Every modifier needs to be 2 chars long';
                 return true;
               },
             }}
@@ -608,6 +570,26 @@ export default function CreateClaim(): ReactElement {
             )}
           />
         </FormSection>
+
+        <Divider />
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}></Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button size="small" onClick={() => navigate('/claims')}>
+              Cancel
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={isSubmitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
+              onClick={handleCreate}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Creating...' : 'Create'}
+            </Button>
+          </Box>
+        </Box>
       </Box>
     </FormProvider>
   );
@@ -616,10 +598,15 @@ export default function CreateClaim(): ReactElement {
 function FormSection({ label, children }: { label: string; children: React.ReactNode }): ReactElement {
   return (
     <Box sx={{ py: 2.5 }}>
-      <Typography variant="overline" color="primary.dark" sx={{ fontWeight: 600, letterSpacing: 1, fontSize: 12 }}>
-        {label}
-      </Typography>
+      <Typography variant="h6">{label}</Typography>
       <Box sx={{ mt: 1.5 }}>{children}</Box>
     </Box>
   );
+}
+
+function parseModifiers(modifiersString: string): string[] {
+  return modifiersString
+    .split(/[,\s]+/)
+    .map((m) => m.trim())
+    .filter(Boolean);
 }

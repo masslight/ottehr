@@ -52,6 +52,7 @@ vi.mock('notistack', async () => {
 });
 
 import { List } from 'fhir/r4b';
+import { AdminHeaderSlotProvider } from '../../src/features/admin/AdminPageHeader';
 import AdminCustomFoldersPage from '../../src/pages/AdminCustomFoldersPage';
 
 // ---------------------------------------------------------------------------
@@ -62,9 +63,12 @@ const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
   });
+  // The "Add Folder" CTA portals into the admin header slot; provide a target so it renders.
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>{children}</MemoryRouter>
+      <MemoryRouter>
+        <AdminHeaderSlotProvider value={document.body}>{children}</AdminHeaderSlotProvider>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 };

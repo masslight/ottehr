@@ -142,7 +142,7 @@ export class AddPatientPage {
       await expect(dropdown).toContainText(serviceCategory);
     } else {
       await dropdown.click();
-      await this.#page.getByText(serviceCategory).click();
+      await this.#page.getByRole('option', { name: serviceCategory }).click();
     }
   }
 }

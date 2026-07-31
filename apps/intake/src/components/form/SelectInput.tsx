@@ -4,13 +4,13 @@ import { Box, FormControl, MenuItem, Select, SelectProps, Typography, useTheme }
 import { FC, useContext, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { LightToolTip } from 'ui-components/lib/components/paperwork/form-components';
+import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components';
+import { SelectInputOption } from 'ui-components/lib/components/paperwork/types';
 import { IntakeThemeContext } from '../../contexts';
 import { findLabelFromOptions } from '../../helpers';
 import { useLabelDimensions } from '../../hooks/useLabelDimensions';
-import { SelectInputOption } from '../../types';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
-import { LightToolTip } from './LightToolTip';
 import RenderLabelFromSelect from './RenderLabelFromSelect';
 
 type SelectInputProps = {

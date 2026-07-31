@@ -14,10 +14,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { PatientEducationLanguageSelector } from 'src/features/visits/shared/components/PatientEducationLanguageSelector';
 import { PatientEducationSectionsEditor } from 'src/features/visits/shared/components/PatientEducationSectionsEditor';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { EducationSection, generateCombinedPdf } from 'src/features/visits/shared/hooks/usePatientEducation';
-import { ApprovedPatientEducationIcdCode, getApiError } from 'utils';
+import { ApprovedPatientEducationIcdCode, getApiError, PatientEducationLanguage } from 'utils';
 import { AlternateDiagnosesInput, PrimaryDiagnosisInput } from './IcdDiagnosisInputs';
 import { APPROVED_PATIENT_EDUCATION_QUERY_KEY } from './PatientEducationAdminPage';
 import { Icd10Option } from './useIcd10SearchInput';
@@ -33,6 +34,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
 
   const [primary, setPrimary] = useState<Icd10Option | null>(null);
   const [alternates, setAlternates] = useState<Icd10Option[]>([]);
+  const [language, setLanguage] = useState<PatientEducationLanguage>('en');
 
   const [generatedSection, setGeneratedSection] = useState<EducationSection | null>(null);
   const [editableSection, setEditableSection] = useState<EducationSection | null>(null);
@@ -46,6 +48,7 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
       const result = await apiClient.generatePatientEducation({
         icdCode: primary.code,
         icdDescription: primary.display,
+        language,
       });
       if (!result.content) {
         throw new Error('No content was generated for the selected diagnosis.');
@@ -74,18 +77,18 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
       const section = editableSection ?? generatedSection;
       if (!section) throw new Error('No content to save');
 
-      const pdfBytes = await generateCombinedPdf([section]);
+      const pdfBytes = await generateCombinedPdf([section], language);
       const pdfBase64 = btoa(
         Array.from(pdfBytes)
           .map((b) => String.fromCharCode(b))
           .join('')
       );
-      const title = `Patient Education: ${section.patientTitle}`;
+      const title = `${language === 'es' ? 'Educación del paciente' : 'Patient Education'}: ${section.patientTitle}`;
       const icdCodes: ApprovedPatientEducationIcdCode[] = [
         { code: primary.code, display: primary.display },
         ...alternates.map((a) => ({ code: a.code, display: a.display })),
       ];
-      return apiClient.saveApprovedPatientEducation({ pdfBase64, title, icdCodes });
+      return apiClient.saveApprovedPatientEducation({ pdfBase64, title, icdCodes, language });
     },
     onSuccess: (output) => {
       const replacedNote =
@@ -114,9 +117,10 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
       <DialogContent>
         {!showReview && (
           <Stack spacing={2} sx={{ mt: 1 }}>
+            <PatientEducationLanguageSelector value={language} onChange={setLanguage} disabled={isBusy} />
             <Typography variant="body2" color="text.secondary">
               Pick the diagnosis the AI should use to generate the PDF. Add alternative ICD-10 codes if the same PDF
-              should also apply to other diagnoses.
+              should also apply to other diagnoses. A code can have separate English and Spanish approved PDFs.
             </Typography>
             <PrimaryDiagnosisInput value={primary} onChange={setPrimary} required errorMessage={primaryErrorMessage} />
             <AlternateDiagnosesInput value={alternates} onChange={setAlternates} primary={primary} />

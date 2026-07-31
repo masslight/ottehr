@@ -20,11 +20,13 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
+import { getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
 import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
+  ensureStripeCustomerId,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
   resolveTemplatePlaceholders,
@@ -55,12 +57,35 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { patient, encounter, account, appointment, location, schedule, stripeAccountId } = fhirResources;
     console.log('Fhir resources fetched');
 
-    console.log('Getting stripe and candid ids');
-    const stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
-    if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
-    const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
-    if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
-    console.log('Stripe and candid ids retrieved');
+    const source = getInvoiceTaskSource(task);
+    console.log(`Resolving Stripe customer id for ${source} invoice task`);
+    let stripeCustomerId = getStripeCustomerIdFromAccount(account, stripeAccountId);
+    if (!stripeCustomerId) {
+      console.log('No Stripe customer ID on account, creating one now');
+      const { customerId } = await ensureStripeCustomerId(
+        {
+          guarantorResource: patient,
+          account,
+          patientId: patient.id!,
+          stripeClient: stripe,
+          stripeAccount: stripeAccountId,
+        },
+        oystehr
+      );
+      stripeCustomerId = customerId;
+    }
+
+    const stripeCustomer = await stripe.customers.retrieve(stripeCustomerId, { stripeAccount: stripeAccountId });
+    if (stripeCustomer.deleted || !stripeCustomer.email) {
+      throw new Error(
+        'In order to create invoices that are sent to the customer, the responsible party must have a valid email.'
+      );
+    }
+
+    if (source === 'candid' && !getCandidEncounterIdFromEncounter(encounter)) {
+      throw new Error('CandidEncounterId is not found');
+    }
+    console.log('Stripe customer id resolved');
 
     const timezone = resolveTimezone(schedule, location);
     const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;

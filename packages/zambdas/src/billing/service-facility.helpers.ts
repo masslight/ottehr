@@ -9,6 +9,7 @@ import {
   SaveServiceFacilityInput,
   ServiceFacilityItem,
 } from 'utils';
+import { isWorkingCopy, SOURCE_IDENTIFIER_SYSTEM } from './shared';
 
 export function getCLIA(location: Location): string | undefined {
   return location.identifier?.find((identifier) => identifier.system === FHIR_IDENTIFIER_CLIA)?.value;
@@ -20,8 +21,13 @@ export function getPlaceOfServiceCode(location: Location): string | undefined {
 
 // FHIR Location -> the flat shape the billing UI consumes.
 export function mapServiceFacility(location: Location): ServiceFacilityItem {
+  let workingCopyReferenceResourceId: string | undefined;
+  if (isWorkingCopy(location)) {
+    workingCopyReferenceResourceId = location.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Location/', '');
+  }
   const address = location.address;
-  const [zip, zipPlus4 = ''] = (address?.postalCode ?? '').split('-');
   return {
     id: location.id ?? '',
     name: location.name ?? '',
@@ -29,12 +35,12 @@ export function mapServiceFacility(location: Location): ServiceFacilityItem {
     addressLine2: address?.line?.[1] ?? '',
     city: address?.city ?? '',
     state: address?.state ?? '',
-    zip: zip ?? '',
-    zipPlus4,
+    zip: address?.postalCode ?? '',
     npi: getNPI(location) ?? '',
     clia: getCLIA(location) ?? '',
     posCode: getPlaceOfServiceCode(location) ?? '',
     status: location.status === 'active' ? 'active' : 'inactive',
+    workingCopyReferenceResourceId,
   };
 }
 
@@ -57,7 +63,7 @@ export function applyServiceFacilityInput(params: SaveServiceFacilityInput, exis
   if (params.city !== undefined) address.city = params.city;
   if (params.state !== undefined) address.state = params.state;
   if (params.zip !== undefined) {
-    address.postalCode = params.zipPlus4 ? `${params.zip}-${params.zipPlus4}` : params.zip;
+    address.postalCode = params.zip;
   }
   if (Object.keys(address).length > 0) location.address = address;
 

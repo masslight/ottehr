@@ -2663,5 +2663,52 @@ describe('Conditional logic', () => {
         });
       });
     });
+
+    // hideControlLabel exists to replace a hardcoded linkId allow-list on the
+    // intake side. The reader must preserve the tri-state (undefined /
+    // true / false) semantics — the styler distinguishes "extension not
+    // present, fall back to legacy list" (undefined) from an explicit
+    // "no, show the label" (false).
+    describe('hideControlLabel tests', () => {
+      it('returns undefined when no hideControlLabel extension is present', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'boolean',
+        };
+        expect(structureExtension(item).hideControlLabel).toBeUndefined();
+      });
+
+      it('returns true when the extension is set to valueBoolean=true', () => {
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'boolean',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.hideControlLabel,
+              valueBoolean: true,
+            },
+          ],
+        };
+        expect(structureExtension(item).hideControlLabel).toBe(true);
+      });
+
+      it('returns false when the extension is set to valueBoolean=false (explicit override)', () => {
+        // An explicit `false` on the extension is the mechanism a config
+        // author uses to force-show the control label on a linkId that
+        // still appears in the legacy hardcoded allow-list. If the reader
+        // collapsed this to undefined the override wouldn't work.
+        const item: QuestionnaireItem = {
+          linkId: 'some-link-id',
+          type: 'boolean',
+          extension: [
+            {
+              url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.hideControlLabel,
+              valueBoolean: false,
+            },
+          ],
+        };
+        expect(structureExtension(item).hideControlLabel).toBe(false);
+      });
+    });
   });
 });

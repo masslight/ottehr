@@ -327,7 +327,22 @@ export enum AppointmentProviderNotificationTypes {
   patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',
   task_assigned = 'task-assigned',
+  task_category_created = 'task-category-created',
+  virtual_visit_scheduled = 'virtual-visit-scheduled',
 }
+
+// Per-notification-type preferences. Each idempotency-tag system is distinct so
+// getPatchOperationForNewMetaTag (which matches on system only) never clobbers another marker.
+export const PROVIDER_NOTIFICATION_PREFERENCES_V2_URL = `${FHIR_BASE_URL}/r4/provider-notifications-preferences-v2`;
+export const PROVIDER_NOTIFICATION_CATEGORY_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-category`;
+export const CATEGORY_NOTIFICATION_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-category-tag`;
+export const CATEGORY_NOTIFICATION_TAG_CODE = 'category-notified';
+export const VIRTUAL_VISIT_SCHEDULED_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-virtual-visit-scheduled-tag`;
+export const VIRTUAL_VISIT_SCHEDULED_TAG_CODE = 'virtual-visit-scheduled-notified';
+// Own system, not the legacy 'patient waiting' tag: old deploys stamped that tag at BOOKING, so reusing
+// it as the check-in gate would permanently suppress waiting-room notifications for in-flight appointments.
+export const WAITING_ROOM_NOTIFIED_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-waiting-room-tag`;
+export const WAITING_ROOM_NOTIFIED_TAG_CODE = 'waiting-room-notified';
 
 export const PROVIDER_TYPE_VALUES = ['MD', 'DO', 'PA', 'NP', 'other'] as const;
 export type ProviderTypeCode = (typeof PROVIDER_TYPE_VALUES)[number];

@@ -32,7 +32,7 @@ declare module '@mui/material/styles' {
   }
   interface PaletteOptions {
     tertiary: PaletteColor;
-    destructive: PaletteColor;
+    destructive?: PaletteColor;
   }
 }
 

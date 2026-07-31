@@ -11,7 +11,6 @@ import {
   DialogTitle,
   FormControlLabel,
   Grid,
-  Paper,
   Skeleton,
   Switch,
   Table,
@@ -29,7 +28,8 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/App';
+import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
+import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/features/admin/adminRoutes';
 import {
   useCreateChargeMasterMutation,
   useListChargeMastersQuery,
@@ -108,7 +108,13 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
   };
 
   return (
-    <Paper sx={{ padding: 2, marginTop: 2 }}>
+    <Box>
+      <AdminHeaderActionSlot>
+        <Button color="primary" variant="contained" startIcon={<AddIcon />} onClick={handleOpenDialog}>
+          Add new
+        </Button>
+      </AdminHeaderActionSlot>
+
       {!isChargeMaster && (
         <Box
           sx={{
@@ -158,7 +164,7 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
       )}
       <TableContainer>
         <Grid container spacing={2} display="flex" alignItems="center">
-          <Grid item xs={12} sm={10}>
+          <Grid item xs={12}>
             <TextField
               fullWidth
               id={`${mode}-search`}
@@ -168,22 +174,6 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
               InputProps={{ endAdornment: <SearchIcon /> }}
               margin="dense"
             />
-          </Grid>
-          <Grid item xs={12} sm={2} display={'flex'}>
-            <Button
-              sx={{
-                borderRadius: 100,
-                textTransform: 'none',
-                width: '100%',
-                fontWeight: 600,
-              }}
-              color="primary"
-              variant="contained"
-              onClick={handleOpenDialog}
-            >
-              <AddIcon />
-              <Typography fontWeight="bold">Add new</Typography>
-            </Button>
           </Grid>
         </Grid>
 
@@ -353,6 +343,6 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </Box>
   );
 }

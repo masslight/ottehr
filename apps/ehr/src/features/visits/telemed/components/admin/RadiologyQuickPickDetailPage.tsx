@@ -60,13 +60,13 @@ export default function RadiologyQuickPickDetailPage(): ReactElement {
             <ValueDisplay value={quickPick.studyName} />
           </Row>
           <Row label="Study Type (CPT)">
-            <Typography variant="body2">
+            <Box sx={{ typography: 'body2' }}>
               {quickPick.cptCode ? (
                 <Chip label={`${quickPick.cptCode} — ${quickPick.cptDisplay ?? ''}`} size="small" variant="outlined" />
               ) : (
                 <span style={{ color: '#999', fontStyle: 'italic' }}>—</span>
               )}
-            </Typography>
+            </Box>
           </Row>
           <Row label="Laterality">
             <ValueDisplay value={lateralityDisplay} />

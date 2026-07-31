@@ -1,7 +1,7 @@
-import { Condition, Encounter, Observation, Procedure, ServiceRequest } from 'fhir/r4b';
+import { Communication, Condition, Encounter, Observation, Procedure, ServiceRequest } from 'fhir/r4b';
 import {
   chartDataTagSystem,
-  ICD_10_CODE_SYSTEM,
+  CODE_SYSTEM_ICD_10,
   IN_HOUSE_TEST_CODE_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
@@ -22,7 +22,7 @@ const makeDxCondition = (id: string, encounterId = 'enc-1'): Condition => ({
   subject: { reference: 'Patient/p1' },
   encounter: { reference: `Encounter/${encounterId}` },
   meta: { tag: [{ system: chartDataTagSystem('diagnosis'), code: 'diagnosis' }] },
-  code: { coding: [{ system: ICD_10_CODE_SYSTEM, code: 'J02.9' }] },
+  code: { coding: [{ system: CODE_SYSTEM_ICD_10, code: 'J02.9' }] },
 });
 
 const makeMedicalCondition = (id: string, encounterId = 'enc-1'): Condition => ({
@@ -31,7 +31,7 @@ const makeMedicalCondition = (id: string, encounterId = 'enc-1'): Condition => (
   subject: { reference: 'Patient/p1' },
   encounter: { reference: `Encounter/${encounterId}` },
   meta: { tag: [{ system: chartDataTagSystem('medical-condition'), code: 'medical-condition' }] },
-  code: { coding: [{ system: ICD_10_CODE_SYSTEM, code: 'J45.909' }] },
+  code: { coding: [{ system: CODE_SYSTEM_ICD_10, code: 'J45.909' }] },
 });
 
 const makeObservation = (id: string, tagField: string): Observation => ({
@@ -50,6 +50,22 @@ const makeEncounter = (id: string, diagnosisConditionIds: string[]): Encounter =
   diagnosis: diagnosisConditionIds.map((condId) => ({
     condition: { reference: `Condition/${condId}` },
   })),
+});
+
+const makePatientEducationCommunication = (id: string): Communication => ({
+  resourceType: 'Communication',
+  id,
+  status: 'completed',
+  meta: { tag: [{ system: chartDataTagSystem('patient-instruction'), code: 'patient-instruction' }] },
+  // about.reference starting with 'DocumentReference/' marks this as a pdf patient education Communication
+  about: [{ reference: 'DocumentReference/doc-1' }],
+});
+
+const makeRegularPatientInstruction = (id: string): Communication => ({
+  resourceType: 'Communication',
+  id,
+  status: 'completed',
+  meta: { tag: [{ system: chartDataTagSystem('patient-instruction'), code: 'patient-instruction' }] },
 });
 
 describe('filterEntriesToTemplateContent', () => {
@@ -131,6 +147,39 @@ describe('filterEntriesToTemplateContent', () => {
     expect(ids).toContain('obs-2');
     expect(ids).not.toContain('dx-stale');
     expect(ids).not.toContain('mc-1');
+  });
+
+  describe('patient education Communication filtering', () => {
+    test('excludes a patient education Communication (patient-instruction tag + about referencing DocumentReference)', () => {
+      const comm = makePatientEducationCommunication('comm-edu-1');
+      const result = filterEntriesToTemplateContent([comm as TemplateEncounterResource], new Set());
+      expect(result).toHaveLength(0);
+    });
+
+    test('still includes a regular patient instruction Communication (patient-instruction tag, no about)', () => {
+      const comm = makeRegularPatientInstruction('comm-instr-1');
+      const result = filterEntriesToTemplateContent([comm as TemplateEncounterResource], new Set());
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('comm-instr-1');
+    });
+
+    test('still includes a patient instruction Communication whose about references a non-DocumentReference resource', () => {
+      const comm: Communication = {
+        ...makeRegularPatientInstruction('comm-non-doc'),
+        about: [{ reference: 'Communication/some-other-comm' }],
+      };
+      const result = filterEntriesToTemplateContent([comm as TemplateEncounterResource], new Set());
+      expect(result).toHaveLength(1);
+    });
+
+    test('mixed bundle: patient education Communication is excluded while regular instruction is kept', () => {
+      const edu = makePatientEducationCommunication('comm-edu');
+      const instr = makeRegularPatientInstruction('comm-instr');
+      const result = filterEntriesToTemplateContent([edu, instr] as TemplateEncounterResource[], new Set());
+      const ids = result.map((r) => r.id);
+      expect(ids).not.toContain('comm-edu');
+      expect(ids).toContain('comm-instr');
+    });
   });
 });
 
@@ -479,7 +528,7 @@ const makePatientInstruction = (id: string): TemplateEncounterResource =>
     id,
     status: 'completed',
     meta: { tag: [{ system: chartDataTagSystem('patient-instruction'), code: 'patient-instruction' }] },
-  }) as unknown as TemplateEncounterResource;
+  }) as TemplateEncounterResource;
 
 describe('deduplicateTemplateResourcesByMetaTag', () => {
   test('preserves multiple in-office procedure ServiceRequests (additive section)', () => {

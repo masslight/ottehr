@@ -9,7 +9,12 @@ import {
   Patient,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import { getPaymentVariantFromEncounter, getQuestionnaireResponseByLinkId, isLocationVirtual } from 'utils';
+import {
+  getPaymentVariantFromEncounter,
+  getQuestionnaireResponseByLinkId,
+  isLocationInPerson,
+  isLocationVirtual,
+} from 'utils';
 import { WEIGHT_EXTENSION_URL, WEIGHT_LAST_UPDATED_EXTENSION_URL } from './constants';
 import {
   AppointmentValues,
@@ -221,7 +226,10 @@ export const getResources = (
   const encounters = findResources<Encounter>('Encounter') ?? [];
   const questionnaireResponses = findResources<QuestionnaireResponse>('QuestionnaireResponse') ?? [];
   const virtualLocation = locations?.find(isLocationVirtual);
-  const physicalLocation = locations?.find((location) => !isLocationVirtual(location));
+  // A dual-mode Location (virtual AND in-person) must still resolve as the
+  // physical location — using `isLocationInPerson` rather than `!isLocationVirtual`
+  // keeps it from vanishing here on in-person visits.
+  const physicalLocation = locations?.find((location) => isLocationInPerson(location));
   const appointment = context?.appointmentId
     ? appointments.find((resource) => resource.id === context.appointmentId)
     : findMainAppointment(appointments, encounters);

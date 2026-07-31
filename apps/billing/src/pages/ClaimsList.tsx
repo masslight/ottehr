@@ -10,10 +10,13 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef, GridPaginationModel, GridRowSelectionModel } from '@mui/x-data-grid-pro';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -25,10 +28,13 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
+  formatCurrency,
   getApiError,
+  MAX_RUN_RULES_ENGINE_CLAIMS,
   SearchBillingClaimsInput,
 } from 'utils';
 import {
+  runBillingRulesEngine,
   searchBillingClaims,
   searchBillingPatients,
   searchBillingPayers,
@@ -36,9 +42,11 @@ import {
   searchBillingTags,
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
-import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DateRangeInput } from '../components/DateRangeInput';
+import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { formatCurrency } from '../utils/format';
 
 interface Filters {
   searchText?: string;
@@ -46,6 +54,8 @@ interface Filters {
   tag?: string;
   createdFrom?: string;
   createdTo?: string;
+  serviceDateFrom?: string;
+  serviceDateTo?: string;
   payerId?: string;
   patientId?: string;
   type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | '';
@@ -105,7 +115,15 @@ const columns: GridColDef[] = [
   currencyCol('insurancePaid', 'Insurance Paid', 120),
   currencyCol('patientResp', 'Patient Resp', 110),
   currencyCol('patientPaid', 'Patient Paid', 110),
-  currencyCol('claimBalance', 'Claim Balance', 120),
+  {
+    ...currencyCol('claimBalance', 'Claim Balance', 120),
+    renderCell: ({ value, row }) => (
+      <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={0.5} sx={{ width: '100%' }}>
+        {!(row as BillingClaimItem).adjudicated && <WarningIconWithTooltip tooltipText={PROVISIONAL_BALANCE_HINT} />}
+        <span>{formatCurrency(value as number)}</span>
+      </Stack>
+    ),
+  },
   { field: 'facility', headerName: 'Facility', width: 140 },
   { field: 'renderingProvider', headerName: 'Provider', width: 140 },
   { field: 'responsibleParty', headerName: 'Responsible Party', width: 140 },
@@ -120,8 +138,12 @@ export default function ClaimsList(): ReactElement {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
-
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
+
+  const [selected, setSelected] = useState<GridRowSelectionModel>([]);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const [payerOptions, setPayerOptions] = useState<BillingPayerOption[]>([]);
   const [patientOptions, setPatientOptions] = useState<BillingPatientOption[]>([]);
 
@@ -129,8 +151,10 @@ export default function ClaimsList(): ReactElement {
   const [arStageFilter, setArStageFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
-  const [createdFrom, setDosFrom] = useState('');
-  const [createdTo, setDosTo] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [serviceDateFrom, setServiceDateFrom] = useState('');
+  const [serviceDateTo, setServiceDateTo] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<BillingPayerOption | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<BillingPatientOption | null>(null);
   const [typeFilter, setTypeFilter] = useState<keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES | ''>('');
@@ -155,6 +179,7 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
+      setSelected([]);
       try {
         const params: SearchBillingClaimsInput = {
           pageSize: pagination.pageSize,
@@ -165,6 +190,8 @@ export default function ClaimsList(): ReactElement {
         if (filters.tag) params.tag = filters.tag;
         if (filters.createdFrom) params.createdFrom = filters.createdFrom;
         if (filters.createdTo) params.createdTo = filters.createdTo;
+        if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;
+        if (filters.serviceDateTo) params.serviceDateTo = filters.serviceDateTo;
         if (filters.payerId) params.payerId = filters.payerId;
         if (filters.patientId) params.patientId = filters.patientId;
         if (filters.type) params.type = filters.type;
@@ -195,6 +222,7 @@ export default function ClaimsList(): ReactElement {
     },
     [oystehrZambda]
   );
+  useEffect(() => searchServices(''), [searchServices]);
 
   const searchPayers = useCallback(
     (query: string): void => {
@@ -207,6 +235,7 @@ export default function ClaimsList(): ReactElement {
     },
     [oystehrZambda]
   );
+  useEffect(() => searchPayers(''), [searchPayers]);
 
   const searchPatients = useCallback(
     (query: string): void => {
@@ -219,6 +248,7 @@ export default function ClaimsList(): ReactElement {
     },
     [oystehrZambda]
   );
+  useEffect(() => searchPatients(''), [searchPatients]);
 
   const initialLoadDone = useRef(false);
   useEffect(() => {
@@ -244,6 +274,8 @@ export default function ClaimsList(): ReactElement {
       tag: overrides?.tag ?? tagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
+      serviceDateFrom: overrides?.serviceDateFrom ?? serviceDateFrom,
+      serviceDateTo: overrides?.serviceDateTo ?? serviceDateTo,
       payerId: overrides?.payerId ?? selectedPayer?.payerId,
       patientId: overrides?.patientId ?? selectedPatient?.id,
       type: overrides?.type ?? typeFilter,
@@ -255,6 +287,8 @@ export default function ClaimsList(): ReactElement {
       tagFilter,
       createdFrom,
       createdTo,
+      serviceDateFrom,
+      serviceDateTo,
       selectedPayer,
       selectedPatient,
       typeFilter,
@@ -285,8 +319,10 @@ export default function ClaimsList(): ReactElement {
     setSearchText('');
     setArStageFilter('');
     setTagFilter('');
-    setDosFrom('');
-    setDosTo('');
+    setCreatedFrom('');
+    setCreatedTo('');
+    setServiceDateFrom('');
+    setServiceDateTo('');
     setSelectedPayer(null);
     setSelectedPatient(null);
     setTypeFilter('');
@@ -302,20 +338,74 @@ export default function ClaimsList(): ReactElement {
     tagFilter ||
     createdFrom ||
     createdTo ||
+    serviceDateFrom ||
+    serviceDateTo ||
     selectedPayer ||
     selectedPatient ||
     typeFilter ||
     selectedService;
 
+  // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
+  // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
+  // applies the configured rules, then performs its engine's success effect — submit to the payer
+  // or make ready to invoice — or holds its claim, in the background.
+  const handleSubmit = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda || selected.length === 0) return;
+    setSubmitting(true);
+    try {
+      await runBillingRulesEngine(oystehrZambda, { claimIds: selected.map(String) });
+      enqueueSnackbar(
+        `Rules started for ${selected.length} claim(s) — each claim will be submitted, made ready to invoice, ` +
+          'or held shortly. Refresh to see the results.',
+        { variant: 'info' }
+      );
+      setSelected([]);
+    } catch (err) {
+      enqueueSnackbar(
+        getApiError({
+          error: err,
+          defaultError: 'Failed to submit claims',
+        }),
+        { variant: 'error' }
+      );
+    } finally {
+      setSubmitting(false);
+      setConfirmingSubmit(false);
+      void fetchClaims(currentFilters(), paginationModel);
+    }
+  }, [oystehrZambda, selected, fetchClaims, currentFilters, paginationModel]);
+
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
           Claims
         </Typography>
-        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
-          Create
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {selected.length > 0 && (
+            <Tooltip
+              title={
+                selected.length > MAX_RUN_RULES_ENGINE_CLAIMS
+                  ? `Select up to ${MAX_RUN_RULES_ENGINE_CLAIMS} claims to run rules on at once`
+                  : ''
+              }
+            >
+              <span>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={selected.length > MAX_RUN_RULES_ENGINE_CLAIMS}
+                  onClick={() => setConfirmingSubmit(true)}
+                >
+                  Run rules ({selected.length})
+                </Button>
+              </span>
+            </Tooltip>
+          )}
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/claims/new')}>
+            Add Claim
+          </Button>
+        </Box>
       </Box>
 
       <TextField
@@ -451,30 +541,32 @@ export default function ClaimsList(): ReactElement {
           sx={{ minWidth: 200 }}
         />
 
-        <TextField
-          size="small"
-          type="date"
-          label="Service Date From"
-          value={createdFrom}
-          onChange={(e) => {
-            setDosFrom(e.target.value);
-            applyFilters({ createdFrom: e.target.value });
+        <DateRangeInput
+          label="Service Date"
+          valueFrom={serviceDateFrom}
+          valueTo={serviceDateTo}
+          onChange={(from, to) => {
+            setServiceDateFrom(from);
+            setServiceDateTo(to);
+            applyFilters({
+              serviceDateFrom: from,
+              serviceDateTo: to,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
 
-        <TextField
-          size="small"
-          type="date"
-          label="Service Date To"
-          value={createdTo}
-          onChange={(e) => {
-            setDosTo(e.target.value);
-            applyFilters({ createdTo: e.target.value });
+        <DateRangeInput
+          label="Claim Creation Date"
+          valueFrom={createdFrom}
+          valueTo={createdTo}
+          onChange={(from, to) => {
+            setCreatedFrom(from);
+            setCreatedTo(to);
+            applyFilters({
+              createdFrom: from,
+              createdTo: to,
+            });
           }}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 160 }}
         />
 
         {hasFilters && (
@@ -503,9 +595,26 @@ export default function ClaimsList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         checkboxSelection
-        slots={dataGridSlots}
+        isRowSelectable={(params) => !!(params.row as BillingClaimItem).rulesEngine}
+        rowSelectionModel={selected}
+        onRowSelectionModelChange={setSelected}
+        slots={dataGridSlots({ showCsvExport: true, csvFileName: 'claims' })}
+        pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />
+
+      <ConfirmDialog
+        open={confirmingSubmit}
+        title="Run claim rules"
+        confirmLabel="Run rules"
+        loading={submitting}
+        onConfirm={() => void handleSubmit()}
+        onCancel={() => setConfirmingSubmit(false)}
+      >
+        Run rules for {selected.length} claim(s)? Each claim runs its AR stage's rules engine — when every rule passes,
+        Insurance Payer AR claims are submitted to the payer and pre-invoice claims are made ready to invoice; a Hold
+        keeps a claim for review.
+      </ConfirmDialog>
     </Box>
   );
 }

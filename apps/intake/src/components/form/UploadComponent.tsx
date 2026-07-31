@@ -2,9 +2,9 @@ import { Box, Button, Container, Typography, useTheme } from '@mui/material';
 import React, { ChangeEvent, FC, useContext } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
+import { DescriptionRenderer } from 'ui-components/lib/components/paperwork/form-components';
 import { MIME_TYPES } from 'utils';
 import { IntakeThemeContext } from '../../contexts';
-import { DescriptionRenderer } from './DescriptionRenderer';
 
 const DEFAULT_IMAGE_ACCEPT = [
   MIME_TYPES.PNG,

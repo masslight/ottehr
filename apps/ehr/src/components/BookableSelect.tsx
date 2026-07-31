@@ -5,6 +5,7 @@ import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
   getSlugForBookableResource,
   isBookingConfigServiceCategoryCode,
+  isLocationInPerson,
   isLocationVirtual,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
   SLUG_SYSTEM,
@@ -373,8 +374,11 @@ export default function BookableSelect({
     if (allowedTypes && allowedTypes.size === 1 && allowedTypes.has('Location')) {
       const expanded: BookableTarget[] = [];
       for (const inv of inventories) {
+        // A Location can be both virtual and in-person (dual-mode); it should
+        // surface in either mode it's tagged for.
         const isVirtual = isLocationVirtual(inv.location);
-        if (!((isVirtual && wantVirtual) || (!isVirtual && wantInPerson))) continue;
+        const isInPerson = isLocationInPerson(inv.location);
+        if (!((isVirtual && wantVirtual) || (isInPerson && wantInPerson))) continue;
         const passing = resolveTargetsAtLocation(inv, { serviceCategoryCode, serviceCategoryFhirId });
         if (passing.length === 0) continue;
         // Fill slug per target. The resolver leaves slug='' because it's a
@@ -435,7 +439,10 @@ export default function BookableSelect({
       if (allowedTypes && !allowedTypes.has(t.resourceType)) return false;
       if (t.resourceType === 'Location') {
         const isVirtual = t.rawLocation ? isLocationVirtual(t.rawLocation) : false;
-        const passesMode = (isVirtual && wantVirtual) || (!isVirtual && wantInPerson);
+        // Default to in-person when the raw Location is unavailable (mirrors the
+        // prior `!isVirtual` fallback for such targets).
+        const isInPerson = t.rawLocation ? isLocationInPerson(t.rawLocation) : true;
+        const passesMode = (isVirtual && wantVirtual) || (isInPerson && wantInPerson);
         if (!passesMode) return false;
         if (serviceCategoryCode) {
           // Shared per-Schedule admit rule with the Locations-only
