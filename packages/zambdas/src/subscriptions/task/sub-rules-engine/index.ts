@@ -1,5 +1,6 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import {
+  ChargeItemDefinition,
   Claim,
   Coverage,
   FhirResource,
@@ -23,8 +24,10 @@ import {
   RULE_ACTION_TYPE,
   RULES_ENGINES,
   RulesEngineType,
+  ruleUsesChargeMasterPrices,
   SecretsKeys,
 } from 'utils';
+import { activeDefaultChargeMasterSearchParams } from '../../../billing/charge-master.helpers';
 import {
   addErrorProvenanceForClaimSubmission,
   claimProvenanceRequest,
@@ -114,13 +117,19 @@ export async function complexValidation(
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  model.referenceResources = await loadReferenceResources(oystehr, rules);
+  const [referenceResources, chargeMasters] = await Promise.all([
+    loadReferenceResources(oystehr, rules),
+    loadChargeMasters(oystehr, rules),
+  ]);
+  model.referenceResources = referenceResources;
+  model.chargeMasters = chargeMasters;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
       `billingProvider=${model.billingProvider?.id ?? 'none'}, ` +
       `serviceFacility=${model.serviceFacility?.id ?? 'none'}, subscribers=${model.subscribers.length}` +
-      (model.referenceResources ? `, referenceResources=${model.referenceResources.size}` : '')
+      (model.referenceResources ? `, referenceResources=${model.referenceResources.size}` : '') +
+      (model.chargeMasters ? `, chargeMasters=${model.chargeMasters.length}` : '')
   );
   return { engine, claimId, rules, model };
 }
@@ -154,6 +163,24 @@ async function loadReferenceResources(
     map.set(`${resourceType}/${typed.id}`, typed);
   }
   return map;
+}
+
+// The candidate charge masters for the applyChargeMasterPrices action: every active billing
+// ChargeItemDefinition designated as the insurance or self-pay default, via the same shared search
+// definition the charge master screen's list is built on. Both kinds are fetched because the action
+// picks between them at apply time — earlier rules in the same run can change the claim's coverage
+// (and therefore its billing type). Skipped entirely when no enabled rule applies charge master
+// prices.
+async function loadChargeMasters(
+  oystehr: Oystehr,
+  rules: BillingRule[]
+): Promise<RulesEngineClaimModel['chargeMasters']> {
+  if (!rules.some((rule) => rule.enabled && ruleUsesChargeMasterPrices(rule))) return undefined;
+  const result = await oystehr.fhir.search<ChargeItemDefinition>({
+    resourceType: 'ChargeItemDefinition',
+    params: activeDefaultChargeMasterSearchParams(['insurance', 'self-pay']),
+  });
+  return result.unbundle();
 }
 
 export async function performEffect(

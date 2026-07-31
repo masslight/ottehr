@@ -1,5 +1,6 @@
 import {
   BillingRule,
+  ChargeItemDefinitionDefault,
   CLAIM_TAG_SYSTEM,
   getRuleFieldDef,
   getServiceLinePropertyDef,
@@ -17,6 +18,8 @@ import {
   SERVICE_LINE_MATCH_TYPE,
   ServiceLineMatch,
 } from 'utils';
+import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
+import { claimHasRealCoverage } from '../shared';
 import {
   ClaimServiceLine,
   readField,
@@ -288,6 +291,62 @@ const applyServiceLineUpdate = (
   return undefined;
 };
 
+// Re-price every line matching the predicate from the best applicable charge master. The charge
+// master is selected at apply time so it reflects whatever earlier rules did to the claim: the
+// billing type comes from whether the claim carries a real coverage, the date of service from the
+// claim's (first line's) service date. Every price is resolved before any line is written, so a
+// claim held by this action is either fully re-priced or untouched — never half-priced. Zero
+// matching lines is a no-op, but a matched line the charge master cannot price fails the rule.
+const applyChargeMasterPricing = (
+  action: Extract<RuleAction, { type: 'applyChargeMasterPrices' }>,
+  model: RulesEngineClaimModel
+): string | undefined => {
+  const { claim } = model;
+  const matching = (claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
+  if (!matching.length) return undefined;
+
+  const dateOfService = asScalar(readField(model, 'serviceDate'));
+  if (!dateOfService) {
+    return 'could not apply charge master prices — the claim has no date of service to select a charge master by';
+  }
+  const kind: ChargeItemDefinitionDefault = claimHasRealCoverage(claim.insurance) ? 'insurance' : 'self-pay';
+  const chargeMaster = selectBestChargeMaster(model.chargeMasters ?? [], kind, dateOfService);
+  if (!chargeMaster) {
+    return (
+      `could not apply charge master prices — no active charge master is designated as the ` +
+      `${kind} default and effective on or before ${dateOfService}`
+    );
+  }
+  const chargeMasterName = chargeMaster.title ?? `ChargeItemDefinition/${chargeMaster.id}`;
+
+  // Phase 1: resolve (and validate) every matched line's price before mutating anything.
+  const prices: { line: ClaimServiceLine; price: number }[] = [];
+  for (const line of matching) {
+    const cptCode = asScalar(readServiceLineProperty(line, 'cptCode'));
+    if (!cptCode) {
+      return `could not apply charge master prices — service line ${line.sequence} has no CPT code`;
+    }
+    const modifiers = readServiceLineProperty(line, 'modifiers');
+    const modifierList = Array.isArray(modifiers) ? modifiers : [];
+    const price = getChargeMasterPrice(chargeMaster, cptCode, modifierList);
+    if (price == null || !Number.isFinite(price) || price < 0) {
+      const modifierNote = modifierList.length ? ` with modifier(s) ${modifierList.join(', ')}` : '';
+      return (
+        `could not apply charge master prices — charge master "${chargeMasterName}" has no valid price ` +
+        `for CPT ${cptCode}${modifierNote} (service line ${line.sequence})`
+      );
+    }
+    prices.push({ line, price });
+  }
+
+  // Phase 2: apply. The charges writer cannot fail for a validated non-negative finite price.
+  for (const { line, price } of prices) {
+    writeServiceLineProperty(line, 'charges', String(price), 'set');
+  }
+  recomputeClaimTotal(claim);
+  return undefined;
+};
+
 // Remove every line matching the predicate (all lines when the match is "all"). Survivors are
 // re-sequenced 1..n and the billed total is recomputed. Zero matching lines is a no-op.
 const applyServiceLineRemoval = (
@@ -320,6 +379,8 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): s
       return applyServiceLineUpdate(action, model);
     case RULE_ACTION_TYPE.removeServiceLines:
       return applyServiceLineRemoval(action, model);
+    case RULE_ACTION_TYPE.applyChargeMasterPrices:
+      return applyChargeMasterPricing(action, model);
     case RULE_ACTION_TYPE.applyTag: {
       const { claim } = model;
       if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: action.tag })) return undefined;
