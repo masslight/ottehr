@@ -93,6 +93,10 @@ export function bumpFlowFormVersionRequests(
   const previousFormCanonical = `${url}|${previousVersion}`;
   const nextFormCanonical = `${url}|${nextVersion}`;
 
+  // Collected across all flows so services shared by more than one bumped flow get a single
+  // patch applying every bump, rather than one patch per flow overwriting the previous one.
+  const flowCanonicalBumps: { previousCanonical: string; nextCanonical: string }[] = [];
+
   for (const flow of flowQuestionnaires) {
     const derivedFromIndex = flow.derivedFrom?.findIndex((canonical) => canonical === previousFormCanonical) ?? -1;
     if (derivedFromIndex === -1) continue;
@@ -131,8 +135,10 @@ export function bumpFlowFormVersionRequests(
     if (!previousFlowCanonical) continue;
 
     const nextFlowCanonical = `${flow.url}|${nextFlowVersion}`;
-    requests.push(...makeServicePatchesForFlowCanonicalBump(services, previousFlowCanonical, nextFlowCanonical));
+    flowCanonicalBumps.push({ previousCanonical: previousFlowCanonical, nextCanonical: nextFlowCanonical });
   }
+
+  requests.push(...makeServicePatchesForFlowCanonicalBumps(services, flowCanonicalBumps));
 
   return requests;
 }
@@ -157,13 +163,28 @@ export function makeServicePatchesForFlowCanonicalBump(
   previousCanonical: string,
   nextCanonical: string
 ): BatchInputPatchRequest<HealthcareService>[] {
+  return makeServicePatchesForFlowCanonicalBumps(services, [{ previousCanonical, nextCanonical }]);
+}
+
+// Applies every previous -> next canonical bump to each service's extensions in one pass, emitting
+// at most one PATCH per service. This matters when a service is bound (on different modes/extension
+// urls) to more than one flow that got bumped in the same batch: patching per-flow would have each
+// PATCH replace the whole /extension array from the same pre-bump snapshot, so the later PATCH would
+// silently clobber the earlier one's change instead of the two accumulating.
+export function makeServicePatchesForFlowCanonicalBumps(
+  services: HealthcareService[],
+  canonicalBumps: { previousCanonical: string; nextCanonical: string }[]
+): BatchInputPatchRequest<HealthcareService>[] {
   const patchRequests: BatchInputPatchRequest<HealthcareService>[] = [];
 
   for (const service of services) {
     if (!service.id) continue;
 
     const existingExtensions = service.extension ?? [];
-    const nextExtensions = bumpServiceExtensionCanonical(existingExtensions, previousCanonical, nextCanonical);
+    let nextExtensions = existingExtensions;
+    for (const { previousCanonical, nextCanonical } of canonicalBumps) {
+      nextExtensions = bumpServiceExtensionCanonical(nextExtensions, previousCanonical, nextCanonical);
+    }
 
     if (isEqual(existingExtensions, nextExtensions)) continue;
 

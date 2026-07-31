@@ -308,6 +308,62 @@ describe('bumpFlowFormVersionRequests', () => {
     });
   });
 
+  it('applies both bumps in a single patch when one service is bound to two flows derived from the same form', () => {
+    const flowQuestionnaires = [
+      flowQuestionnaire({
+        id: 'flow-1',
+        url: 'https://ottehr.com/FHIR/Questionnaire/flow-a',
+        version: '2.3.0',
+        derivedFrom: [`${url}|${previousVersion}`],
+      }),
+      flowQuestionnaire({
+        id: 'flow-2',
+        url: 'https://ottehr.com/FHIR/Questionnaire/flow-b',
+        version: '1.5.0',
+        derivedFrom: [`${url}|${previousVersion}`],
+      }),
+    ];
+    const services = [
+      healthcareService({
+        extension: [
+          {
+            url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
+            valueCanonical: 'https://ottehr.com/FHIR/Questionnaire/flow-a|2.3.0',
+          },
+          {
+            url: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
+            valueCanonical: 'https://ottehr.com/FHIR/Questionnaire/flow-b|1.5.0',
+          },
+        ],
+      }),
+    ];
+
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services });
+
+    expect(result).toHaveLength(5);
+    const servicePatch = result[4] as { operations: { value: Extension[] }[] };
+    expect(servicePatch).toEqual({
+      method: 'PATCH',
+      url: 'HealthcareService/hs-1',
+      operations: [
+        {
+          op: 'replace',
+          path: '/extension',
+          value: [
+            {
+              url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
+              valueCanonical: 'https://ottehr.com/FHIR/Questionnaire/flow-a|2.3.1',
+            },
+            {
+              url: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
+              valueCanonical: 'https://ottehr.com/FHIR/Questionnaire/flow-b|1.5.1',
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('leaves a service extension untouched when it points at an unrelated flow canonical', () => {
     const flowQuestionnaires = [
       flowQuestionnaire({ id: 'flow-1', version: '2.3.0', derivedFrom: [`${url}|${previousVersion}`] }),
