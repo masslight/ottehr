@@ -197,6 +197,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   const location = searchResults.find((resource) => resource.resourceType === 'Location') as Location | undefined;
   const flags = searchResults.filter((resource) => resource.resourceType === 'Flag') as Flag[];
   const qr = selectIntakeQuestionnaireResponse(searchResults) as PersistedFhirResource<QuestionnaireResponse>;
+  console.log('qr found:', JSON.stringify(qr)); // todo sarah remove log
   const schedule = searchResults.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
 
   if (!appointment) {
@@ -368,7 +369,9 @@ const getIntakePaperworkFlowForms = async (
   qr: QuestionnaireResponse,
   oystehr: Oystehr
 ): Promise<StandaloneFormDTO[] | undefined> => {
+  console.log('starting getIntakePaperworkFlowForms'); // todo sarah remove log
   const flowQuestionnaire = await getQuestionnaireForQR(qr, oystehr);
+  console.log('found flowQuestionnaire', flowQuestionnaire); // todo sarah remove log
   if (!isPaperworkFlowQuestionnaire(flowQuestionnaire)) return;
 
   const results = await Promise.allSettled(
