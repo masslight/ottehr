@@ -2,14 +2,15 @@ import {
   DeviceLabels,
   useAudioVideo,
   useLocalVideo,
+  useLogger,
   useMeetingManager,
   useMeetingStatus,
+  useVideoInputs,
 } from 'amazon-chime-sdk-component-library-react';
-import { useLogger } from 'amazon-chime-sdk-component-library-react';
-import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
-import { LogLevel } from 'amazon-chime-sdk-js';
+import { LogLevel, MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { getSelectors } from 'utils';
+import { useApplyVirtualBackground } from '../../hooks/useApplyVirtualBackground';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VideoChatLayout } from './VideoChatLayout';
 import { VideoRoom } from './VideoRoom';
@@ -21,6 +22,9 @@ export const VideoChatContainer: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const meetingStatus = useMeetingStatus();
   const [isCameraTurnedOnForStart, setIsCameraTurnedOnForStart] = useState(false);
+
+  const { applyBackground } = useApplyVirtualBackground();
+  const { devices: videoDevices, selectedDevice } = useVideoInputs();
 
   const logger = useLogger();
   logger.setLogLevel(LogLevel.OFF);
@@ -68,6 +72,11 @@ export const VideoChatContainer: FC = () => {
     async function toggle(): Promise<void> {
       if (!isVideoEnabled && meetingStatus === 1 && !isCameraTurnedOnForStart) {
         setIsCameraTurnedOnForStart(true);
+        const rawDeviceId =
+          (selectedDevice as string) || (selectedDevice as MediaDeviceInfo)?.deviceId || videoDevices[0]?.deviceId;
+        if (rawDeviceId) {
+          await applyBackground(rawDeviceId);
+        }
         await toggleVideo();
       }
     }

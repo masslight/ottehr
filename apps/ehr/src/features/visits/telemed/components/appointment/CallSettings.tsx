@@ -13,14 +13,16 @@ import {
 import { useAudioInputs, useAudioVideo, useVideoInputs } from 'amazon-chime-sdk-component-library-react';
 import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useApplyVirtualBackground } from '../../hooks/useApplyVirtualBackground';
+import { VirtualBackgroundSettings } from './VirtualBackgroundSettings';
 
 interface CallSettingsProps {
   onClose: () => void;
 }
 
 export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
-  // const meetingManager = useMeetingManager();
   const audioVideo = useAudioVideo();
+  const { applyBackground, isBackgroundBlurSupported, isBackgroundReplacementSupported } = useApplyVirtualBackground();
   const { devices: audioDevices, selectedDevice: initialAudioDevice } = useAudioInputs();
   const { devices: videoDevices, selectedDevice: initialVideoDevice } = useVideoInputs();
 
@@ -37,8 +39,11 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
   const handleSave = async (): Promise<void> => {
     await stopAudioVideoPreviewAndUsage();
 
-    if (selectedVideoPreviewDeviceId !== initialVideoDevice) {
-      await audioVideo?.startVideoInput(selectedVideoPreviewDeviceId || initialVideoDevice || videoDevices[0].deviceId);
+    const targetDeviceId =
+      selectedVideoPreviewDeviceId?.toString() || initialVideoDevice?.toString() || videoDevices[0]?.deviceId;
+
+    if (targetDeviceId) {
+      await applyBackground(targetDeviceId);
     }
 
     onClose();
@@ -133,6 +138,10 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
             ))}
           </Select>
         </FormControl>
+        <VirtualBackgroundSettings
+          isBlurSupported={isBackgroundBlurSupported}
+          isReplacementSupported={isBackgroundReplacementSupported}
+        />
       </DialogContent>
       <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
         <Button onClick={handleClose} sx={{ marginRight: 1 }} variant="text">
