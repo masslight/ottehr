@@ -1,0 +1,45 @@
+name: Synthetic Population Seed
+
+# ── Registration stub (default branch) ───────────────────────────────────────
+# GitHub only lists a workflow and lets you "Run workflow" against another branch
+# once the file exists on the DEFAULT branch. This stub does nothing on its own —
+# the REAL implementation lives on the feature branch
+# (dabrams/otr-2435-get-realistic-test-data-in-demo-and-lower-envs). When you
+# dispatch this workflow and pick that branch, GitHub runs THAT branch's version.
+# The inputs below mirror the feature-branch file so the dispatch dialog (which is
+# rendered from the default branch) shows the right fields.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (lower/demo only — NEVER production)"
+        type: choice
+        options: [demo, development, testing, staging, local, e2e]
+        default: demo
+      patients:
+        description: "Number of unique patients to plan (~1.3× visits)"
+        default: "2000"
+      seed:
+        description: "RNG seed (same seed → identical plan; needed for clean resume)"
+        default: "42"
+      limit:
+        description: "Only run the first N planned visits (blank = all). Use to pilot."
+        default: ""
+      concurrency:
+        description: "Parallel harness processes (4 is comfortable for one local server)"
+        default: "4"
+      dry:
+        description: "Dry-run (plan + print assignments, no writes)"
+        type: boolean
+        default: false
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Registration stub
+        run: |
+          echo "This is the default-branch registration stub."
+          echo "Run this workflow against the branch that contains the synth harness"
+          echo "to execute the real Synthetic Population Seed."
