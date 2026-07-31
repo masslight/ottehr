@@ -158,14 +158,6 @@ export function bumpServiceExtensionCanonical(
   });
 }
 
-export function makeServicePatchesForFlowCanonicalBump(
-  services: HealthcareService[],
-  previousCanonical: string,
-  nextCanonical: string
-): BatchInputPatchRequest<HealthcareService>[] {
-  return makeServicePatchesForFlowCanonicalBumps(services, [{ previousCanonical, nextCanonical }]);
-}
-
 // Applies every previous -> next canonical bump to each service's extensions in one pass, emitting
 // at most one PATCH per service. This matters when a service is bound (on different modes/extension
 // urls) to more than one flow that got bumped in the same batch: patching per-flow would have each

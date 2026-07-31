@@ -8,7 +8,7 @@ import {
   evaluateFlowsForUrl,
   FhirQuestionnaireSubset,
   isLatestVersion,
-  makeServicePatchesForFlowCanonicalBump,
+  makeServicePatchesForFlowCanonicalBumps,
   patchQuestionnaireVersion,
 } from './index';
 
@@ -468,7 +468,7 @@ describe('bumpServiceExtensionCanonical', () => {
   });
 });
 
-describe('makeServicePatchesForFlowCanonicalBump', () => {
+describe('makeServicePatchesForFlowCanonicalBumps (single bump)', () => {
   const previousCanonical = 'https://ottehr.com/FHIR/Questionnaire/some-flow|1.0.0';
   const nextCanonical = 'https://ottehr.com/FHIR/Questionnaire/some-flow|1.0.1';
 
@@ -487,7 +487,7 @@ describe('makeServicePatchesForFlowCanonicalBump', () => {
       }),
     ];
 
-    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+    const result = makeServicePatchesForFlowCanonicalBumps(services, [{ previousCanonical, nextCanonical }]);
 
     expect(result).toEqual([
       {
@@ -507,13 +507,13 @@ describe('makeServicePatchesForFlowCanonicalBump', () => {
   it('returns no requests when no service has a matching extension', () => {
     const services = [healthcareService({ extension: [] }), healthcareService({ id: 'hs-2' })];
 
-    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+    const result = makeServicePatchesForFlowCanonicalBumps(services, [{ previousCanonical, nextCanonical }]);
 
     expect(result).toEqual([]);
   });
 
   it('returns no requests when given an empty services array', () => {
-    expect(makeServicePatchesForFlowCanonicalBump([], previousCanonical, nextCanonical)).toEqual([]);
+    expect(makeServicePatchesForFlowCanonicalBumps([], [{ previousCanonical, nextCanonical }])).toEqual([]);
   });
 
   it('skips a service that has no id', () => {
@@ -524,7 +524,7 @@ describe('makeServicePatchesForFlowCanonicalBump', () => {
       }),
     ];
 
-    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+    const result = makeServicePatchesForFlowCanonicalBumps(services, [{ previousCanonical, nextCanonical }]);
 
     expect(result).toEqual([]);
   });
@@ -542,7 +542,7 @@ describe('makeServicePatchesForFlowCanonicalBump', () => {
       }),
     ];
 
-    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+    const result = makeServicePatchesForFlowCanonicalBumps(services, [{ previousCanonical, nextCanonical }]);
 
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ url: 'HealthcareService/hs-1' });
@@ -552,7 +552,7 @@ describe('makeServicePatchesForFlowCanonicalBump', () => {
   it('treats a service with no extension array as having no matching extensions', () => {
     const services = [healthcareService({ extension: undefined })];
 
-    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+    const result = makeServicePatchesForFlowCanonicalBumps(services, [{ previousCanonical, nextCanonical }]);
 
     expect(result).toEqual([]);
   });
