@@ -13,9 +13,13 @@ const mockFetchAllActivePatientArClaims = vi.fn();
 
 vi.mock('../../src/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
+  const realFn = actual.isOttehrBillingInvoicingEnabled as (s: unknown, f: unknown) => boolean;
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+    // Call the real implementation but with ottehrBillingInvoicingEnabled:true so the feature-flag
+    // overlay never suppresses the test — only the BILLING_INTEGRATION secret check still gates it.
+    isOttehrBillingInvoicingEnabled: (s: unknown) => realFn(s, { ottehrBillingInvoicingEnabled: true }),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
