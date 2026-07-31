@@ -1,6 +1,6 @@
 import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils';
 import { describe, expect, it } from 'vitest';
-import { availableDocumentLabels, hasNothingToSend } from './faxDocuments';
+import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './faxDocuments';
 import { FAX_STATUS_POLL_INTERVALS_MS, FAX_STATUS_POLL_TIMEOUT_MS, nextFaxPollInterval } from './faxPolling';
 import {
   applySaveAsPcp,
@@ -31,6 +31,13 @@ describe('faxDocuments', () => {
       'Lab Results',
       'Patient Education',
     ]);
+  });
+
+  it('splits documents into included and not-included, in order', () => {
+    expect(documentLabelGroups(availability({ 'discharge-summary': false, 'radiology-results': false }))).toEqual({
+      included: ['Visit/Progress Note', 'Lab Results', 'Patient Education'],
+      excluded: ['Discharge Summary', 'Radiology Results'],
+    });
   });
 
   it('detects a visit with nothing to send', () => {

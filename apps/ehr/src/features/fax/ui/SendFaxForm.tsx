@@ -6,7 +6,7 @@ import { FC } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { GetFaxPacketPreviewOutput } from 'utils';
-import { availableDocumentLabels, hasNothingToSend } from '../model/faxDocuments';
+import { documentLabelGroups, hasNothingToSend } from '../model/faxDocuments';
 import { buildDefaultFormValues } from '../model/faxForm';
 import { applySaveAsPcp, canAddRecipient, canSend, emptyRecipient } from '../model/faxRecipients';
 import { FaxFormValues } from '../model/types';
@@ -27,8 +27,41 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit
   const recipientsArray = useFieldArray({ control, name: 'recipients' });
 
   const recipients = watch('recipients');
-  const includedLabels = availableDocumentLabels(preview.documents);
-  const sendEnabled = canSend(recipients, includedLabels.length > 0);
+  const { included, excluded } = documentLabelGroups(preview.documents);
+  const sendEnabled = canSend(recipients, included.length > 0);
+
+  const documentsTooltip = (
+    <Box>
+      {included.length > 0 ? (
+        <>
+          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
+            Included
+          </Typography>
+          {included.map((label) => (
+            <Typography key={label} variant="caption" sx={{ display: 'block' }}>
+              • {label}
+            </Typography>
+          ))}
+        </>
+      ) : (
+        <Typography variant="caption" sx={{ display: 'block' }}>
+          No documents to fax for this visit yet.
+        </Typography>
+      )}
+      {excluded.length > 0 && (
+        <>
+          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', mt: included.length > 0 ? 1 : 0 }}>
+            Not documented yet
+          </Typography>
+          {excluded.map((label) => (
+            <Typography key={label} variant="caption" sx={{ display: 'block', opacity: 0.7 }}>
+              • {label}
+            </Typography>
+          ))}
+        </>
+      )}
+    </Box>
+  );
 
   return (
     <FormProvider {...methods}>
@@ -36,10 +69,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({ preview, isSending, onSubmit
         <DialogContent>
           <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
             <Typography>Fax all visit-related documents</Typography>
-            <Tooltip
-              title={includedLabels.length > 0 ? includedLabels.join(', ') : 'No documents to fax for this visit yet.'}
-              placement="top"
-            >
+            <Tooltip title={documentsTooltip} placement="top">
               <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
             </Tooltip>
           </Stack>
