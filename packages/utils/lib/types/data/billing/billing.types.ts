@@ -43,7 +43,8 @@ export interface BillingPatientOption {
   dob: string;
   gender: string;
   address: string;
-  friendlyId: string;
+  clinicalId: string;
+  clinicalFriendlyId: string;
 }
 
 export interface BillingPolicyHolderSummary {
@@ -96,6 +97,7 @@ export interface ServiceFacilityItem {
   clia: string;
   posCode: string;
   status: 'active' | 'inactive';
+  workingCopyReferenceResourceId?: string;
 }
 
 export interface SearchServiceFacilitiesResponse {
@@ -128,6 +130,7 @@ export interface BillingProviderOption {
   renders: boolean;
   bills: boolean;
   isWorkingCopy: boolean;
+  workingCopyReferenceResourceId?: string;
 }
 
 // Payer option from the Oystehr RCM service. id is the RCM payer id (used in payer URLs);
@@ -207,6 +210,7 @@ export interface BillingClaimItem {
   patientResp: number;
   patientPaid: number;
   claimBalance: number;
+  adjudicated: boolean;
   responsibleParty: string;
   tags: string[];
 }
@@ -227,7 +231,9 @@ export interface PatientDetailResponse {
     state: string;
     postalCode: string;
   };
-  friendlyId: string;
+  clinicalId: string;
+  clinicalFriendlyId: string;
+  workingCopyReferenceResourceId?: string;
   active: boolean;
   balance: {
     claimsWithPatientBalance: number;
@@ -254,6 +260,16 @@ export interface ClaimRemitAdjustment {
   groupCode: X12AdjustmentGroupCode;
   reasonCode: string;
   amount: number;
+}
+
+export interface ClaimPatientPayment {
+  paymentNoticeId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  description: string;
+  checkNumber?: string;
+  status: string;
 }
 
 // One ERA payment (PaymentReconciliation) behind a claim's remits.
@@ -292,8 +308,6 @@ export interface ClaimDetailResponse {
   status: string;
   statuses: ClaimStatusValues;
   created: string;
-  billingType: string;
-  billableStatus: string;
   service?: string;
   patientName: string;
   patientDob: string;
@@ -315,7 +329,6 @@ export interface ClaimDetailResponse {
   payerId: string;
   memberId: string;
   subscriberId: string;
-  coverageStatus: string;
   planType: string;
   relationship: SubscriberRelationship;
   policyHolder: BillingPolicyHolderSummary | null;
@@ -368,8 +381,10 @@ export interface ClaimDetailResponse {
   patientResp: number;
   patientPaid: number;
   balance: number;
+  adjudicated: boolean;
   remits: ClaimRemit[];
   insurancePayments: ClaimInsurancePayment[];
+  patientPayments: ClaimPatientPayment[];
   otherClaims: {
     id: string;
     status: string;
@@ -397,6 +412,39 @@ export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
 }
 
+// amounts in dollars
+export interface PatientArClaimItem {
+  claimId: string;
+  patientId: string;
+  patientName: string;
+  patientDob: string;
+  encounterId: string | null;
+  appointmentId: string | null;
+  serviceDate: string;
+  finalizationDate: string;
+  billed: number;
+  allowed: number;
+  insurancePaid: number;
+  patientResp: number;
+  patientPaid: number;
+  balance: number;
+  adjudicated: boolean;
+}
+
+export interface SearchBillingPatientARClaimsResponse extends Paginated {
+  claims: PatientArClaimItem[];
+}
+
+export interface PatientBalanceSummary {
+  currentBalance: number;
+  claimsWithPatientBalance: number;
+}
+
+export interface GetBillingPatientBalanceResponse {
+  claims: PatientArClaimItem[];
+  balance: PatientBalanceSummary;
+}
+
 export interface SearchBillingProvidersResponse extends Paginated {
   providers: BillingProviderOption[];
 }
@@ -417,7 +465,7 @@ export interface SearchBillingPayersResponse {
   payers: BillingPayerOption[];
 }
 
-export interface SearchBillingProcedureCodesResponse {
+export interface SearchCodeResponse {
   codes: BillingCodeOption[];
 }
 

@@ -31,6 +31,11 @@ export type StyleFactory = (assets: PdfAssets) => PdfStyles;
 
 export interface PdfHeaderConfig<TData extends PdfData> {
   title: string | ((data: TData) => string);
+  /**
+   * `'right'` (default): title in the right column, right section beneath it.
+   * `'banner'`: full-width title on its own row (aligned per the `header` style), sections below it.
+   */
+  titleLayout?: 'right' | 'banner';
   logo?: {
     maxWidth: number;
     maxHeight: number;
@@ -178,70 +183,62 @@ const renderPdfHeader = <TData extends PdfData>(
     });
   }
 
-  pdfClient.setLeftBound(rightX + 10);
-  pdfClient.setRightBound(originalRight);
-
-  console.log('Drawing header title:', config.title);
-  console.log('Header text style:', styles.textStyles.header);
-
   const title = typeof config.title === 'function' ? config.title(data) : config.title;
 
-  try {
-    pdfClient.drawText(title, styles.textStyles.header);
-    console.log('Header title drawn successfully');
-  } catch (error) {
-    console.error('ERROR drawing header title:', error);
-    console.error('Text style was:', styles.textStyles.header);
-    throw error;
-  }
-
-  if (config.rightSection) {
-    console.log('Rendering right section...');
+  const renderRightSection = (): void => {
+    if (!config.rightSection) return;
     const rightData = config.rightSection.dataSelector(data);
-    console.log('Right section data:', rightData);
-    if (rightData !== undefined) {
-      const shouldRender = config.rightSection.shouldRender ? config.rightSection.shouldRender(rightData) : true;
+    if (rightData === undefined) return;
+    if (config.rightSection.shouldRender && !config.rightSection.shouldRender(rightData)) return;
+    config.rightSection.render(pdfClient, rightData, createRightAlignedStyles(styles), assets);
+  };
 
-      if (shouldRender) {
-        const rightAlignedStyles = createRightAlignedStyles(styles);
-        config.rightSection.render(pdfClient, rightData, rightAlignedStyles, assets);
-      }
-    }
-  }
-
-  rightHeight = headerStartY - pdfClient.getY();
-
-  if (config.leftSection) {
-    console.log('Rendering left section...');
+  const renderLeftSection = (columnsStartY: number): void => {
+    if (!config.leftSection) return;
     const leftData = config.leftSection.dataSelector(data);
-    console.log('Left section data:', leftData);
-    if (leftData !== undefined) {
-      const shouldRender = config.leftSection.shouldRender ? config.leftSection.shouldRender(leftData) : true;
+    if (leftData === undefined) return;
+    if (config.leftSection.shouldRender && !config.leftSection.shouldRender(leftData)) return;
+    pdfClient.setLeftBound(leftX);
+    pdfClient.setRightBound(leftX + columnWidth - 10);
+    pdfClient.setY(columnsStartY);
+    config.leftSection.render(pdfClient, leftData, styles, assets);
+    leftHeight = columnsStartY - pdfClient.getY();
+  };
 
-      if (shouldRender) {
-        pdfClient.setLeftBound(leftX);
-        pdfClient.setRightBound(leftX + columnWidth - 10);
-        pdfClient.setY(headerStartY);
-
-        try {
-          config.leftSection.render(pdfClient, leftData, styles, assets);
-          console.log('Left section rendered successfully');
-        } catch (error) {
-          console.error('ERROR rendering left section:', error);
-          throw error;
-        }
-
-        leftHeight = headerStartY - pdfClient.getY();
-      }
+  if (config.titleLayout === 'banner') {
+    pdfClient.setLeftBound(originalLeft);
+    pdfClient.setRightBound(originalRight);
+    if (title) {
+      pdfClient.drawText(title, styles.textStyles.header);
     }
+
+    const columnsStartY = pdfClient.getY();
+
+    pdfClient.setLeftBound(rightX + 10);
+    pdfClient.setRightBound(originalRight);
+    pdfClient.setY(columnsStartY);
+    renderRightSection();
+    rightHeight = columnsStartY - pdfClient.getY();
+
+    renderLeftSection(columnsStartY);
+
+    pdfClient.setLeftBound(originalLeft);
+    pdfClient.setRightBound(originalRight);
+    pdfClient.setY(columnsStartY - Math.max(leftHeight, rightHeight));
+  } else {
+    pdfClient.setLeftBound(rightX + 10);
+    pdfClient.setRightBound(originalRight);
+    pdfClient.drawText(title, styles.textStyles.header);
+
+    renderRightSection();
+    rightHeight = headerStartY - pdfClient.getY();
+
+    renderLeftSection(headerStartY);
+
+    pdfClient.setLeftBound(originalLeft);
+    pdfClient.setRightBound(originalRight);
+    pdfClient.setY(headerStartY - Math.max(leftHeight, rightHeight));
   }
-
-  pdfClient.setLeftBound(originalLeft);
-  pdfClient.setRightBound(originalRight);
-
-  const maxHeight = Math.max(leftHeight, rightHeight);
-  pdfClient.setY(headerStartY - maxHeight);
-  console.log('Header rendering complete');
 };
 
 const createRightAlignedStyles = (styles: PdfStyles): PdfStyles => {

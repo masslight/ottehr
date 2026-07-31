@@ -3,8 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { SearchChargeItemDefinitionItem, SearchChargeItemDefinitionsResponse } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { chargeItemDefinitionTypeSearchParam } from '../charge-master.helpers';
 import {
-  CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
   createBillingClient,
   getDefaultSettingForChargeItemDefinition,
   getTypeForChargeItemDefinition,
@@ -33,10 +33,7 @@ export async function performEffect(
   params: SearchChargeItemDefinitionsParams
 ): Promise<SearchChargeItemDefinitionsResponse> {
   const searchParams = [
-    {
-      name: '_tag',
-      value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|${params.type}`,
-    },
+    chargeItemDefinitionTypeSearchParam(params.type),
     { name: '_count', value: String(params.pageSize) },
     { name: '_offset', value: String(params.offset) },
     { name: '_sort', value: 'title' },

@@ -19,14 +19,13 @@ import {
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { EraDetailResponse, getApiError } from 'utils';
+import { EraDetailResponse, formatCurrency, getApiError } from 'utils';
 import { getBillingEraDetail } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '../themes/ottehr/colors';
-import { formatCurrency } from '../utils/format';
 
 const currencyCol = (field: string, headerName: string, width: number): GridColDef => ({
   field,
@@ -244,7 +243,7 @@ export default function ERADetail(): ReactElement {
               autoHeight
               pageSizeOptions={[25, 50]}
               initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-              slots={dataGridSlots}
+              slots={dataGridSlots()}
               sx={{ ...dataGridSx }}
             />
           </TabPanel>

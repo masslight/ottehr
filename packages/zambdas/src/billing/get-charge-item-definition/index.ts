@@ -81,7 +81,7 @@ export function transformChargeItemDefinition(cid: ChargeItemDefinition): Billin
         if (!pc) {
           return undefined;
         }
-        if (!pc.amount || !pc.amount.value) {
+        if (!pc.amount || pc.amount.value === undefined) {
           return undefined;
         }
         const coding = pc.code?.coding?.find((c) => c.system === CPT_CODE_SYSTEM);
