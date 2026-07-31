@@ -4,7 +4,7 @@ import { SendFaxPacketInput, SendFaxPacketOutput } from 'utils';
 import { useOystehrAPIClient } from '../../visits/shared/hooks/useOystehrAPIClient';
 import { sendFaxPacket } from '../api/faxApi';
 
-/** Queues the send (creates the Task); the outcome is then polled with `useFaxPacketStatus`. */
+/** Queues the send (creates the Task); the outcome is then polled with `useFaxPacketStatuses`. */
 export const useSendFaxPacket = (): UseMutationResult<SendFaxPacketOutput, unknown, SendFaxPacketInput> => {
   const apiClient = useOystehrAPIClient();
 

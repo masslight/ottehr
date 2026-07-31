@@ -1,6 +1,7 @@
 import { FAX_MAX_RECIPIENTS, FaxDocumentAvailability } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { availableDocumentLabels, hasNothingToSend } from './faxDocuments';
+import { FAX_STATUS_POLL_INTERVALS_MS, FAX_STATUS_POLL_TIMEOUT_MS, nextFaxPollInterval } from './faxPolling';
 import {
   applySaveAsPcp,
   canAddRecipient,
@@ -90,5 +91,27 @@ describe('faxRecipients', () => {
       recipients: [recipient({ saveAsPcp: true }), recipient({ faxNumber: '2027139681' })],
     });
     expect(input.recipients.filter((entry) => entry.saveAsPcp)).toHaveLength(1);
+  });
+});
+
+describe('faxPolling', () => {
+  it('backs off quickly then holds at 30s', () => {
+    expect(FAX_STATUS_POLL_INTERVALS_MS.slice(0, 4)).toEqual([3000, 6000, 12000, 30000]);
+    // 3 ramp-up steps + 11 steady 30s steps.
+    expect(FAX_STATUS_POLL_INTERVALS_MS).toHaveLength(14);
+    expect(FAX_STATUS_POLL_INTERVALS_MS.filter((ms) => ms === 30000)).toHaveLength(11);
+  });
+
+  it('maps completed-poll count to the next delay and stops once exhausted', () => {
+    expect(nextFaxPollInterval(1)).toBe(3000);
+    expect(nextFaxPollInterval(2)).toBe(6000);
+    expect(nextFaxPollInterval(4)).toBe(30000);
+    expect(nextFaxPollInterval(FAX_STATUS_POLL_INTERVALS_MS.length)).toBe(30000);
+    expect(nextFaxPollInterval(FAX_STATUS_POLL_INTERVALS_MS.length + 1)).toBe(false);
+  });
+
+  it('derives the timeout from the schedule plus a grace period', () => {
+    const scheduleTotal = FAX_STATUS_POLL_INTERVALS_MS.reduce((sum, ms) => sum + ms, 0);
+    expect(FAX_STATUS_POLL_TIMEOUT_MS).toBeGreaterThan(scheduleTotal);
   });
 });
