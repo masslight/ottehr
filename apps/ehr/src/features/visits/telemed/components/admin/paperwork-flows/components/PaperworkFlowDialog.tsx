@@ -10,6 +10,7 @@ import {
   FormControl,
   FormControlLabel,
   FormGroup,
+  FormHelperText,
   FormLabel,
   InputLabel,
   ListItemText,
@@ -30,6 +31,13 @@ import { OrderedFormEditor } from './OrderedFormEditor';
 const ALL_MODES: ServiceMode[] = Object.values(ServiceMode);
 
 const SELECT_ALL = '__all__';
+
+const MISSING_DATA_INIT = {
+  name: false,
+  modality: false,
+  forms: false,
+  services: false,
+};
 
 export type DraftFlow = {
   name: string;
@@ -56,6 +64,7 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
   onClose,
 }) => {
   const [value, setValue] = useState<DraftFlow>(initial);
+  const [missingDataEntry, setMissingDataEntry] = useState(MISSING_DATA_INIT);
 
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
@@ -91,11 +100,28 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
 
   const dialogTitle = editingFlowId ? 'Edit paperwork flow' : 'New paperwork flow';
 
-  const toggleMode = (mode: ServiceMode): void =>
+  const toggleMode = (mode: ServiceMode): void => {
+    setMissingDataEntry({ ...missingDataEntry, modality: false });
     setValue((v) => ({
       ...v,
       modes: v.modes.includes(mode) ? v.modes.filter((m) => m !== mode) : [...v.modes, mode],
     }));
+  };
+
+  const handleSave = (): void => {
+    const missing = { ...MISSING_DATA_INIT };
+    if (value.formsSelected.length === 0) missing.forms = true;
+    if (value.modes.length === 0) missing.modality = true;
+    if (value.services.length === 0) missing.services = true;
+    if (!value.name.trim()) missing.name = true;
+
+    if (Object.values(missing).some((value) => value)) {
+      setMissingDataEntry(missing);
+      return;
+    }
+
+    onSave({ draft: value });
+  };
 
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="sm">
@@ -103,15 +129,20 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
       <DialogContent>
         <Stack spacing={2.5} sx={{ mt: 1 }}>
           <TextField
+            error={missingDataEntry.name}
+            required
             label="Name"
             placeholder="e.g. Dermatology intake"
             value={value.name}
-            onChange={(e) => setValue((v) => ({ ...v, name: e.target.value }))}
+            onChange={(e) => {
+              setMissingDataEntry({ ...missingDataEntry, name: false });
+              setValue((v) => ({ ...v, name: e.target.value }));
+            }}
             fullWidth
           />
 
-          <FormControl>
-            <FormLabel sx={{ mb: 0.5 }}>Visit modes</FormLabel>
+          <FormControl error={missingDataEntry.modality}>
+            <FormLabel sx={{ mb: 0.5 }}>Visit modality</FormLabel>
             <FormGroup row>
               {ALL_MODES.map((mode) => (
                 <FormControlLabel
@@ -121,24 +152,33 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
                 />
               ))}
             </FormGroup>
+            {missingDataEntry.modality && <FormHelperText error>At least one modality is required.</FormHelperText>}
           </FormControl>
 
           <Box>
-            <FormLabel sx={{ mb: 0.5, display: 'block' }}>Forms (in order)</FormLabel>
+            <FormLabel sx={{ mb: 0.5, display: 'block' }} error={missingDataEntry.forms}>
+              Forms (in order)
+            </FormLabel>
             <OrderedFormEditor
               formsSelected={value.formsSelected}
               formOptions={formOptions}
-              onChange={(next) => setValue((v) => ({ ...v, formsSelected: next }))}
+              error={missingDataEntry.forms}
+              onChange={(next) => {
+                setMissingDataEntry({ ...missingDataEntry, forms: false });
+                setValue((v) => ({ ...v, formsSelected: next }));
+              }}
             />
+            {missingDataEntry.forms && <FormHelperText error>At least one form is required.</FormHelperText>}
           </Box>
 
-          <FormControl fullWidth>
+          <FormControl fullWidth error={missingDataEntry.services}>
             <InputLabel id="applies-services-label">Applies to services</InputLabel>
             <Select
               labelId="applies-services-label"
               multiple
               value={selectedServiceIds}
               onChange={(e) => {
+                setMissingDataEntry({ ...missingDataEntry, services: false });
                 const val = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
                 if (val.includes(SELECT_ALL)) {
                   setValue((v) => ({ ...v, services: selected ? [] : serviceCategories }));
@@ -163,6 +203,7 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
                 </MenuItem>
               ))}
             </Select>
+            {missingDataEntry.services && <FormHelperText error>At least one service is required.</FormHelperText>}
           </FormControl>
         </Stack>
       </DialogContent>
@@ -172,8 +213,8 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
         </Button>
         <Button
           variant="contained"
-          onClick={() => onSave({ draft: value })}
-          disabled={saving || !value.name.trim() || value.modes.length === 0}
+          onClick={() => handleSave()}
+          disabled={saving}
           startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
           Save

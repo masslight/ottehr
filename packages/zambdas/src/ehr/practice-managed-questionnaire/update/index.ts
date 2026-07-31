@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Questionnaire } from 'fhir/r4b';
+import { HealthcareService, Questionnaire } from 'fhir/r4b';
 import { MANAGED_QUESTIONNAIRE_ERROR, PAPERWORK_FLOW_TAG, practiceManagedQuestionnaireToFhir } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getCanonicalUrlFromQ, searchActiveQuestionnairesByTag } from '../../paperwork-flow/shared';
@@ -60,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
 
     console.log('checking if form is contained in any flows');
-    const flowRequests: BatchInputRequest<Questionnaire>[] = await handleFormInFlows({
+    const flowRequests: BatchInputRequest<Questionnaire | HealthcareService>[] = await handleFormInFlows({
       previousVersion,
       nextVersion,
       url: rest.url,
@@ -74,12 +74,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log(`Creating version ${nextVersion} of "${rest.url}", "superseding" Questionnaire/${previousId}`);
     const res = (
-      await oystehr.fhir.transaction<Questionnaire>({
+      await oystehr.fhir.transaction<Questionnaire | HealthcareService>({
         requests: [supersedeQPatchRequest, updatedQPostRequest, ...flowRequests],
       })
     ).unbundle();
 
-    questionnaireIdToReturn = res.find((resource) => resource.version === nextVersion)?.id;
+    questionnaireIdToReturn = res.find(
+      (resource): resource is Questionnaire =>
+        resource.resourceType === 'Questionnaire' && resource.version === nextVersion
+    )?.id;
   }
 
   return {
@@ -100,7 +103,7 @@ async function validateFormIsExcludedFromFlows(formQId: string, oystehr: Oystehr
     return q.derivedFrom?.some((url) => url === canonicalUrl);
   });
 
-  if (contained) {
+  if (contained.length > 0) {
     const flowsImpacted = contained.map((flow) => flow.title);
     throw MANAGED_QUESTIONNAIRE_ERROR(
       `This form is contained in a paperwork flow, please remove it from the following: ${flowsImpacted.join(', ')}`

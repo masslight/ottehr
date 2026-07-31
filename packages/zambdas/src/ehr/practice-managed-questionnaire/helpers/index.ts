@@ -1,11 +1,18 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Questionnaire } from 'fhir/r4b';
+import { Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
+import { isEqual } from 'lodash-es';
 import {
   PAPERWORK_FLOW_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
 } from 'utils';
-import { PAPERWORK_FLOW_BASE_VERSION, searchActiveQuestionnairesByTag } from '../../paperwork-flow/shared';
+import {
+  getCanonicalUrlFromQ,
+  healthcareServiceExtensionUrlMap,
+  PAPERWORK_FLOW_BASE_VERSION,
+  searchActiveQuestionnairesByTag,
+  searchServiceCategoryHealthcareServices,
+} from '../../paperwork-flow/shared';
 
 export const questionnaireElements = ['id', 'title', 'status', 'url', 'version', 'meta'] as const;
 export type FhirQuestionnaireSubset = Pick<Questionnaire, (typeof questionnaireElements)[number]>;
@@ -59,11 +66,16 @@ interface HandleFormInFlowInput {
   url: string;
   oystehr: Oystehr;
 }
-export async function handleFormInFlows(input: HandleFormInFlowInput): Promise<BatchInputRequest<Questionnaire>[]> {
+export async function handleFormInFlows(
+  input: HandleFormInFlowInput
+): Promise<BatchInputRequest<Questionnaire | HealthcareService>[]> {
   const { oystehr, ...additionalInput } = input;
-  const flowQuestionnaires = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
+  const [flowQuestionnaires, services] = await Promise.all([
+    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
+    searchServiceCategoryHealthcareServices(oystehr),
+  ]);
 
-  return bumpFlowFormVersionRequests({ ...additionalInput, flowQuestionnaires });
+  return bumpFlowFormVersionRequests({ ...additionalInput, flowQuestionnaires, services });
 }
 
 // A form version bump must also bump every flow that derives from it: flow Questionnaires are
@@ -71,10 +83,10 @@ export async function handleFormInFlows(input: HandleFormInFlowInput): Promise<B
 // flow version is retired and a new one is minted — identical except for the bumped flow version
 // and the updated form canonical in derivedFrom.
 export function bumpFlowFormVersionRequests(
-  input: Omit<HandleFormInFlowInput, 'oystehr'> & { flowQuestionnaires: Questionnaire[] }
-): BatchInputRequest<Questionnaire>[] {
-  const { previousVersion, nextVersion, url, flowQuestionnaires } = input;
-  const requests: BatchInputRequest<Questionnaire>[] = [];
+  input: Omit<HandleFormInFlowInput, 'oystehr'> & { flowQuestionnaires: Questionnaire[]; services: HealthcareService[] }
+): BatchInputRequest<Questionnaire | HealthcareService>[] {
+  const { previousVersion, nextVersion, url, flowQuestionnaires, services } = input;
+  const requests: BatchInputRequest<Questionnaire | HealthcareService>[] = [];
 
   const previousFormCanonical = `${url}|${previousVersion}`;
   const nextFormCanonical = `${url}|${nextVersion}`;
@@ -109,7 +121,56 @@ export function bumpFlowFormVersionRequests(
     };
 
     requests.push(retirePatch, createPost);
+
+    // Services don't reference forms directly — they hold a valueCanonical pointing at the flow
+    // Questionnaire's own canonical. Since the flow's canonical just changed (version bump above),
+    // any service still pointing at the flow's previous canonical needs to be re-pointed at the new one.
+    const previousFlowCanonical = getCanonicalUrlFromQ(flow);
+    if (!previousFlowCanonical) continue;
+
+    const nextFlowCanonical = `${flow.url}|${nextFlowVersion}`;
+    requests.push(...makeServicePatchesForFlowCanonicalBump(services, previousFlowCanonical, nextFlowCanonical));
   }
 
   return requests;
+}
+
+function bumpServiceExtensionCanonical(
+  extensions: Extension[],
+  previousCanonical: string,
+  nextCanonical: string
+): Extension[] {
+  const flowExtensionUrls: string[] = Object.values(healthcareServiceExtensionUrlMap);
+
+  return extensions.map((ext) => {
+    if (flowExtensionUrls.includes(ext.url) && ext.valueCanonical === previousCanonical) {
+      return { ...ext, valueCanonical: nextCanonical };
+    }
+    return ext;
+  });
+}
+
+function makeServicePatchesForFlowCanonicalBump(
+  services: HealthcareService[],
+  previousCanonical: string,
+  nextCanonical: string
+): BatchInputPatchRequest<HealthcareService>[] {
+  const patchRequests: BatchInputPatchRequest<HealthcareService>[] = [];
+
+  for (const service of services) {
+    if (!service.id) continue;
+
+    const existingExtensions = service.extension ?? [];
+    const nextExtensions = bumpServiceExtensionCanonical(existingExtensions, previousCanonical, nextCanonical);
+
+    if (isEqual(existingExtensions, nextExtensions)) continue;
+
+    patchRequests.push({
+      method: 'PATCH',
+      url: `HealthcareService/${service.id}`,
+      operations: [{ op: 'replace', path: '/extension', value: nextExtensions }],
+    });
+  }
+
+  return patchRequests;
 }
