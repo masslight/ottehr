@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputReque
 import { Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import {
+  MANAGED_QUESTIONNAIRE_ERROR,
   PAPERWORK_FLOW_TAG,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
@@ -82,6 +83,7 @@ export async function handleFormInFlows(
 // canonical (versioned) resources too, so rather than patching derivedFrom in place, the previous
 // flow version is retired and a new one is minted — identical except for the bumped flow version
 // and the updated form canonical in derivedFrom.
+// requests to patch and HealthcareServices pointing at the prior version of the form are also made
 export function bumpFlowFormVersionRequests(
   input: Omit<HandleFormInFlowInput, 'oystehr'> & { flowQuestionnaires: Questionnaire[]; services: HealthcareService[] }
 ): BatchInputRequest<Questionnaire | HealthcareService>[] {
@@ -135,7 +137,7 @@ export function bumpFlowFormVersionRequests(
   return requests;
 }
 
-function bumpServiceExtensionCanonical(
+export function bumpServiceExtensionCanonical(
   extensions: Extension[],
   previousCanonical: string,
   nextCanonical: string
@@ -150,7 +152,7 @@ function bumpServiceExtensionCanonical(
   });
 }
 
-function makeServicePatchesForFlowCanonicalBump(
+export function makeServicePatchesForFlowCanonicalBump(
   services: HealthcareService[],
   previousCanonical: string,
   nextCanonical: string
@@ -174,3 +176,27 @@ function makeServicePatchesForFlowCanonicalBump(
 
   return patchRequests;
 }
+
+export async function validateFormIsExcludedFromFlows(formQId: string, oystehr: Oystehr): Promise<void> {
+  console.log('checking if the form is contained in any flows before retiring');
+  const [targetFormQ, flowQuestionnaires] = await Promise.all([
+    oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: formQId }),
+    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
+  ]);
+  evaluateFlowsForUrl(targetFormQ, flowQuestionnaires);
+}
+
+export const evaluateFlowsForUrl = (targetFormQ: Questionnaire, flowQuestionnaires: Questionnaire[]): void => {
+  const canonicalUrl = getCanonicalUrlFromQ(targetFormQ);
+  const contained = flowQuestionnaires.filter((q) => {
+    return q.derivedFrom?.some((url) => url === canonicalUrl);
+  });
+
+  if (contained.length > 0) {
+    const flowsImpacted = contained.map((flow) => flow.title);
+    throw MANAGED_QUESTIONNAIRE_ERROR(
+      `This form is contained in a paperwork flow, please remove it from the following: ${flowsImpacted.join(', ')}`
+    );
+  }
+  console.log('safe to retire');
+};

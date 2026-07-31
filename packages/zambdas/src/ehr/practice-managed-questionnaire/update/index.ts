@@ -1,10 +1,9 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Questionnaire } from 'fhir/r4b';
-import { MANAGED_QUESTIONNAIRE_ERROR, PAPERWORK_FLOW_TAG, practiceManagedQuestionnaireToFhir } from 'utils';
+import { practiceManagedQuestionnaireToFhir } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { getCanonicalUrlFromQ, searchActiveQuestionnairesByTag } from '../../paperwork-flow/shared';
-import { handleFormInFlows, patchQuestionnaireVersion } from '../helpers';
+import { handleFormInFlows, patchQuestionnaireVersion, validateFormIsExcludedFromFlows } from '../helpers';
 import { validateQuestionnaire, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -90,27 +89,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     body: JSON.stringify({ questionnaireId: questionnaireIdToReturn }),
   };
 });
-
-async function validateFormIsExcludedFromFlows(formQId: string, oystehr: Oystehr): Promise<void> {
-  console.log('checking if the form is contained in any flows before retiring');
-  const [targetFormQ, flowQuestionnaires] = await Promise.all([
-    oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: formQId }),
-    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
-  ]);
-
-  const canonicalUrl = getCanonicalUrlFromQ(targetFormQ);
-  const contained = flowQuestionnaires.filter((q) => {
-    return q.derivedFrom?.some((url) => url === canonicalUrl);
-  });
-
-  if (contained.length > 0) {
-    const flowsImpacted = contained.map((flow) => flow.title);
-    throw MANAGED_QUESTIONNAIRE_ERROR(
-      `This form is contained in a paperwork flow, please remove it from the following: ${flowsImpacted.join(', ')}`
-    );
-  }
-  console.log('safe to retire');
-}
 
 async function updateQuestionnaireStatus(
   questionnaireId: string,

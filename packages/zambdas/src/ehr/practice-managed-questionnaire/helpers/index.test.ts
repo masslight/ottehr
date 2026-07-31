@@ -1,11 +1,14 @@
-import { HealthcareService, Questionnaire } from 'fhir/r4b';
-import { PAPERWORK_FLOW_INPERSON_EXTENSION_URL } from 'utils';
+import { Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
+import { PAPERWORK_FLOW_INPERSON_EXTENSION_URL, PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { PAPERWORK_FLOW_BASE_VERSION } from '../../paperwork-flow/shared';
 import {
   bumpFlowFormVersionRequests,
+  bumpServiceExtensionCanonical,
+  evaluateFlowsForUrl,
   FhirQuestionnaireSubset,
   isLatestVersion,
+  makeServicePatchesForFlowCanonicalBump,
   patchQuestionnaireVersion,
 } from './index';
 
@@ -269,7 +272,7 @@ describe('bumpFlowFormVersionRequests', () => {
       ...overrides,
     }) as HealthcareService;
 
-  it('repoints a service extension from the previous flow canonical to the next one', () => {
+  it('re-points a service extension from the previous flow canonical to the next one', () => {
     const flowQuestionnaires = [
       flowQuestionnaire({ id: 'flow-1', version: '2.3.0', derivedFrom: [`${url}|${previousVersion}`] }),
     ];
@@ -334,5 +337,217 @@ describe('bumpFlowFormVersionRequests', () => {
     const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services });
 
     expect(result).toEqual([]);
+  });
+});
+
+describe('bumpServiceExtensionCanonical', () => {
+  const previousCanonical = 'https://ottehr.com/FHIR/Questionnaire/some-flow|1.0.0';
+  const nextCanonical = 'https://ottehr.com/FHIR/Questionnaire/some-flow|1.0.1';
+
+  it('bumps the valueCanonical of a matching in-person flow extension', () => {
+    const extensions: Extension[] = [{ url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: previousCanonical }];
+
+    const result = bumpServiceExtensionCanonical(extensions, previousCanonical, nextCanonical);
+
+    expect(result).toEqual([{ url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: nextCanonical }]);
+  });
+
+  it('bumps the valueCanonical of a matching virtual flow extension', () => {
+    const extensions: Extension[] = [{ url: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL, valueCanonical: previousCanonical }];
+
+    const result = bumpServiceExtensionCanonical(extensions, previousCanonical, nextCanonical);
+
+    expect(result).toEqual([{ url: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL, valueCanonical: nextCanonical }]);
+  });
+
+  it('bumps only the extension whose valueCanonical matches, leaving the other mode untouched', () => {
+    const otherCanonical = 'https://ottehr.com/FHIR/Questionnaire/other-flow|3.0.0';
+    const extensions: Extension[] = [
+      { url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: previousCanonical },
+      { url: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL, valueCanonical: otherCanonical },
+    ];
+
+    const result = bumpServiceExtensionCanonical(extensions, previousCanonical, nextCanonical);
+
+    expect(result).toEqual([
+      { url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: nextCanonical },
+      { url: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL, valueCanonical: otherCanonical },
+    ]);
+  });
+
+  it('leaves an extension with a non-flow url untouched even if its valueCanonical matches', () => {
+    const extensions: Extension[] = [
+      { url: 'https://ottehr.com/FHIR/Extension/unrelated', valueCanonical: previousCanonical },
+    ];
+
+    const result = bumpServiceExtensionCanonical(extensions, previousCanonical, nextCanonical);
+
+    expect(result).toEqual(extensions);
+  });
+
+  it('leaves a flow extension untouched when its valueCanonical does not match the previous canonical', () => {
+    const extensions: Extension[] = [
+      {
+        url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
+        valueCanonical: 'https://ottehr.com/FHIR/Questionnaire/some-flow|9.9.9',
+      },
+    ];
+
+    const result = bumpServiceExtensionCanonical(extensions, previousCanonical, nextCanonical);
+
+    expect(result).toEqual(extensions);
+  });
+
+  it('returns an empty array when given no extensions', () => {
+    expect(bumpServiceExtensionCanonical([], previousCanonical, nextCanonical)).toEqual([]);
+  });
+
+  it('does not mutate the input extensions array', () => {
+    const extensions: Extension[] = [{ url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: previousCanonical }];
+    const original = JSON.parse(JSON.stringify(extensions));
+
+    bumpServiceExtensionCanonical(extensions, previousCanonical, nextCanonical);
+
+    expect(extensions).toEqual(original);
+  });
+});
+
+describe('makeServicePatchesForFlowCanonicalBump', () => {
+  const previousCanonical = 'https://ottehr.com/FHIR/Questionnaire/some-flow|1.0.0';
+  const nextCanonical = 'https://ottehr.com/FHIR/Questionnaire/some-flow|1.0.1';
+
+  const healthcareService = (overrides: Partial<HealthcareService> = {}): HealthcareService =>
+    ({
+      resourceType: 'HealthcareService',
+      id: 'hs-1',
+      active: true,
+      ...overrides,
+    }) as HealthcareService;
+
+  it('returns a PATCH request replacing extension for a service with a matching extension', () => {
+    const services = [
+      healthcareService({
+        extension: [{ url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: previousCanonical }],
+      }),
+    ];
+
+    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+
+    expect(result).toEqual([
+      {
+        method: 'PATCH',
+        url: 'HealthcareService/hs-1',
+        operations: [
+          {
+            op: 'replace',
+            path: '/extension',
+            value: [{ url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: nextCanonical }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('returns no requests when no service has a matching extension', () => {
+    const services = [healthcareService({ extension: [] }), healthcareService({ id: 'hs-2' })];
+
+    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+
+    expect(result).toEqual([]);
+  });
+
+  it('returns no requests when given an empty services array', () => {
+    expect(makeServicePatchesForFlowCanonicalBump([], previousCanonical, nextCanonical)).toEqual([]);
+  });
+
+  it('skips a service that has no id', () => {
+    const services = [
+      healthcareService({
+        id: undefined,
+        extension: [{ url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: previousCanonical }],
+      }),
+    ];
+
+    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+
+    expect(result).toEqual([]);
+  });
+
+  it('returns one PATCH per matching service, skipping non-matching ones, preserving order', () => {
+    const services = [
+      healthcareService({
+        id: 'hs-1',
+        extension: [{ url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL, valueCanonical: previousCanonical }],
+      }),
+      healthcareService({ id: 'hs-2', extension: [] }),
+      healthcareService({
+        id: 'hs-3',
+        extension: [{ url: PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL, valueCanonical: previousCanonical }],
+      }),
+    ];
+
+    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ url: 'HealthcareService/hs-1' });
+    expect(result[1]).toMatchObject({ url: 'HealthcareService/hs-3' });
+  });
+
+  it('treats a service with no extension array as having no matching extensions', () => {
+    const services = [healthcareService({ extension: undefined })];
+
+    const result = makeServicePatchesForFlowCanonicalBump(services, previousCanonical, nextCanonical);
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe('evaluateFlowsForUrl', () => {
+  const formQuestionnaire = (overrides: Partial<Questionnaire> = {}): Questionnaire =>
+    ({
+      resourceType: 'Questionnaire',
+      status: 'active',
+      url: 'https://ottehr.com/FHIR/Questionnaire/target-form',
+      version: '1.0.0',
+      ...overrides,
+    }) as Questionnaire;
+
+  const flow = (overrides: Partial<Questionnaire> = {}): Questionnaire =>
+    ({
+      resourceType: 'Questionnaire',
+      status: 'active',
+      url: 'https://ottehr.com/FHIR/Questionnaire/some-flow',
+      title: 'Some Flow',
+      version: '1.0.0',
+      ...overrides,
+    }) as Questionnaire;
+
+  it('does not throw when no flow derives from the target form', () => {
+    const targetFormQ = formQuestionnaire();
+    const flowQuestionnaires = [flow({ derivedFrom: ['https://ottehr.com/FHIR/Questionnaire/other-form|1.0.0'] })];
+
+    expect(() => evaluateFlowsForUrl(targetFormQ, flowQuestionnaires)).not.toThrow();
+  });
+
+  it('does not throw when there are no flows', () => {
+    const targetFormQ = formQuestionnaire();
+
+    expect(() => evaluateFlowsForUrl(targetFormQ, [])).not.toThrow();
+  });
+
+  it('throws a MANAGED_QUESTIONNAIRE_ERROR naming the flow when a flow derives from the target form', () => {
+    const targetFormQ = formQuestionnaire();
+    const flowQuestionnaires = [
+      flow({ title: 'Some Flow', derivedFrom: [`${targetFormQ.url}|${targetFormQ.version}`] }),
+    ];
+
+    let caught: unknown;
+    try {
+      evaluateFlowsForUrl(targetFormQ, flowQuestionnaires);
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toMatchObject({ message: expect.stringContaining('Some Flow') });
   });
 });
