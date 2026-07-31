@@ -107,6 +107,11 @@ export const BILLING_WORKING_COPY_TAG = {
 
 export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/current-status';
 
+export interface ClaimSearchParam {
+  name: string;
+  value: string;
+}
+
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
@@ -1106,6 +1111,34 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
   }
   console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
 }
+
+export async function resolveLinkedPatientIds({
+  oystehr,
+  patientId,
+}: {
+  oystehr: Oystehr;
+  patientId: string;
+}): Promise<string[]> {
+  const result = await oystehr.fhir.search<Person>({
+    resourceType: 'Person',
+    params: [
+      {
+        name: 'link',
+        value: `Patient/${patientId}`,
+      },
+    ],
+  });
+  const linkedIds = (result.unbundle()[0]?.link ?? [])
+    .map((entry) => entry.target?.reference)
+    .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
+    .map((ref) => ref.replace('Patient/', ''));
+  return [...new Set([patientId, ...linkedIds])];
+}
+
+export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
+  name: 'patient',
+  value: patientIds.map((id) => `Patient/${id}`).join(','),
+});
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
   let workingCopyReferenceResourceId: string | undefined;

@@ -30,6 +30,7 @@ import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClai
 import {
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   claimIdFromPcn,
+  ClaimSearchParam,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -202,11 +203,6 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
   if (toDay && day > toDay) return false;
   return true;
 };
-
-export interface ClaimSearchParam {
-  name: string;
-  value: string;
-}
 
 // 6 MiB limit, 200 matches per query, 3 queries, 10kB per claim, 1kB overhead for the envelope.
 // thus limit batching.
