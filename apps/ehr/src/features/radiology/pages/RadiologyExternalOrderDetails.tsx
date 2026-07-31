@@ -111,17 +111,15 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
     if (!file || !oystehrZambda) return;
 
     const extension = file.name.split('.').pop()?.toLowerCase();
-    const fileFormat =
-      extension === 'png' || extension === 'jpg' || extension === 'jpeg' || extension === 'pdf' ? extension : undefined;
-    if (!fileFormat) {
-      enqueueSnackbar('Only PDF, PNG, JPG, and JPEG files are supported.', { variant: 'error' });
+    if (extension !== 'pdf') {
+      enqueueSnackbar('Only PDF files are supported.', { variant: 'error' });
       return;
     }
 
     setUploading(true);
     try {
       const z3URL = await createZ3Object(
-        { appointmentID: appointmentId, fileType: 'patient-photo-radiology-result', fileFormat, file },
+        { appointmentID: appointmentId, fileType: 'patient-photo-radiology-result', fileFormat: 'pdf', file },
         oystehrZambda
       );
       await uploadRadiologyResult(oystehrZambda, { serviceRequestId, z3URL, title: file.name });
@@ -225,7 +223,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
                     ref={resultInputRef}
                     type="file"
                     hidden
-                    accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                    accept=".pdf,application/pdf"
                     onChange={handleUploadResult}
                   />
                   <LoadingButton
