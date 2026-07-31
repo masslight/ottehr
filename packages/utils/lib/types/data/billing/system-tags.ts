@@ -24,7 +24,7 @@ export const HOLD_TAG_NAME = 'Hold';
 
 // Applied by create-billing-claim-from-encounter when the clinical visit was booked as an auto
 // accident.
-export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
+export const AUTO_ACCIDENT_TAG_NAME = 'Auto Accident';
 
 export const HOLD_SYSTEM_TAG: SystemManagedTag = {
   name: HOLD_TAG_NAME,

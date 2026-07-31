@@ -231,7 +231,7 @@ describe('ConditionalEditor', () => {
 
     expect(await screen.findByRole('option', { name: /VIP/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Hold/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /auto-accident/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Auto Accident/ })).toBeInTheDocument();
     expect(searchBillingTagsMock).toHaveBeenCalledTimes(1);
   });
 

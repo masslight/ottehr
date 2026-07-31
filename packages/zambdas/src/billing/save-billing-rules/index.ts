@@ -54,7 +54,7 @@ export async function complexValidation(oystehr: Oystehr, params: SaveBillingRul
 }
 
 // Every tag a rule applies must exist in the tags feature, so the rule builder's tag dropdown and
-// API-created rules obey the same contract. System-managed tags (Hold, auto-accident, …) are
+// API-created rules obey the same contract. System-managed tags (Hold, Auto Accident, …) are
 // exempt: they are built into the system and may not be seeded as stored tags yet (that only
 // happens when an engine's first rules List is created). Runs at most one Basic search, and none
 // when no rule applies a non-system tag.

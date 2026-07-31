@@ -35,7 +35,6 @@ import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
-  AUTO_ACCIDENT_SYSTEM_TAG,
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_RESOURCE_TAG,
   CLAIM_TAG_SYSTEM,
@@ -91,6 +90,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
+  ensureSystemManagedTags,
   findRef,
   getClaimTypeCoding,
   kickOffRulesEngine,
@@ -103,8 +103,6 @@ import {
   resourceDisplayName,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
-  systemTagBasic,
-  TAG_CODE_SYSTEM,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -139,7 +137,6 @@ interface BillingResources {
   renderingProvider?: Practitioner;
   serviceFacility?: Location;
   billingProvider?: Organization;
-  autoAccidentTag?: Basic;
   billingService?: Basic;
 }
 
@@ -440,13 +437,13 @@ export async function performEffect(
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
     billingTags.push(AUTO_ACCIDENT_TAG_NAME);
-    if (!billingResources.autoAccidentTag) {
-      requests.push({
-        method: 'POST',
-        url: '/Basic',
-        resource: systemTagBasic(AUTO_ACCIDENT_SYSTEM_TAG),
-      });
-      order.push('auto-accident-tag');
+    // Best-effort: make sure the system-managed tag definitions exist before the claim references
+    // one by name. Never fails claim creation — the definitions are cosmetic (search-billing-tags
+    // reports system-managed tags whether or not their Basics exist).
+    try {
+      await ensureSystemManagedTags(billingOystehr);
+    } catch (error) {
+      console.error('Failed to ensure system-managed tags exist:', error);
     }
   }
 
@@ -1077,15 +1074,6 @@ async function findExistingBillingResources(
   ).unbundle();
   const matchingBillingProvider = billingProviderSearch.length > 0 ? billingProviderSearch[0] : undefined;
 
-  // Look for the auto-accident tag
-  const tagSearch = (
-    await billingOystehr.fhir.search<Basic>({
-      resourceType: 'Basic',
-      params: [{ name: 'code', value: `${TAG_CODE_SYSTEM}|tag` }],
-    })
-  ).unbundle();
-  const autoAccidentTag = tagSearch.find((tag) => tag.code.text === AUTO_ACCIDENT_TAG_NAME);
-
   // Look for the "billing service" (urgent-care, workers-comp, etc) matching the appointment's serviceCategory
   let billingService: Basic | undefined;
   const appointmentService = getService(clinicalResources.appointment);
@@ -1111,7 +1099,6 @@ async function findExistingBillingResources(
     renderingProvider: renderingProvider,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
-    autoAccidentTag,
     billingService,
   };
 }
