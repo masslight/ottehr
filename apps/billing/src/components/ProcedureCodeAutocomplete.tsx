@@ -9,6 +9,7 @@ interface ProcedureCodeAutocompleteProps {
   onChange: (code: string) => void;
   label?: string;
   width?: number;
+  required?: boolean;
   // Validation display + react-hook-form focus ref, for use inside Controller-registered forms
   // (the rules builder).
   error?: boolean;
@@ -22,6 +23,7 @@ export function ProcedureCodeAutocomplete({
   onChange,
   label = 'CPT',
   width = 150,
+  required,
   error,
   helperText,
   inputRef,
@@ -68,7 +70,14 @@ export function ProcedureCodeAutocomplete({
         if (o && typeof o !== 'string') onChange(o.code);
       }}
       renderInput={(params) => (
-        <TextField {...params} label={label} error={error} helperText={helperText} inputRef={inputRef} />
+        <TextField
+          {...params}
+          label={label}
+          required={required}
+          error={error}
+          helperText={helperText}
+          inputRef={inputRef}
+        />
       )}
       sx={{ width }}
     />

@@ -27,6 +27,7 @@ const BILLING_VAR_DEFAULTS: { [key: string]: string } = {
   BILLING_LOGIN_REDIRECT_URL: 'https://billing-local.ottehr.com',
   BILLING_ALLOWED_URL_1: 'https://billing-local.ottehr.com',
   BILLING_INTEGRATION: '',
+  PATIENT_BALANCE_SOURCE: 'candid',
   STRIPE_WEBHOOK_SECRET: '',
 };
 

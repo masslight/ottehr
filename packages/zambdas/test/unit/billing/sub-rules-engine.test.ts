@@ -1,18 +1,28 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Organization, ProvenanceAgent, Resource } from 'fhir/r4b';
+import { ChargeItemDefinition, Claim, Organization, ProvenanceAgent } from 'fhir/r4b';
 import {
   AR_STAGE,
   BillingRule,
+  CLAIM_PROVENANCE_CHANGE_REF_URL,
+  CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
+  CPT_CODE_SYSTEM,
   getPayerUrl,
   HOLD_TAG_NAME,
   withArStageInitialization,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RulesEngineClaimModel, writeField } from '../../../src/billing/rules-engine/claim-model';
-import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG } from '../../../src/billing/shared';
+import { rulesToList } from '../../../src/billing/rules-engine/serialization';
 import {
+  BILLING_WORKING_COPY_TAG,
+  CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
+  PROVIDER_ROLE_TAG,
+} from '../../../src/billing/shared';
+import {
+  complexValidation,
   ensureClaimHeld,
   performEffect,
   persistModel,
@@ -352,6 +362,157 @@ describe('pre-invoice engines performEffect', () => {
   });
 });
 
+describe('sub-rules-engine charge master pricing', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const priceRule = alwaysRule('price', {
+    type: 'actions',
+    actions: [{ type: 'applyChargeMasterPrices', match: { type: 'all' } }],
+  });
+
+  const selfPayChargeMaster: ChargeItemDefinition = {
+    resourceType: 'ChargeItemDefinition',
+    id: 'cid-self-pay',
+    url: 'urn:uuid:charge-master:self-pay',
+    title: 'self-pay default',
+    status: 'active',
+    date: '2025-06-01',
+    meta: { tag: [{ system: CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, code: 'self-pay' }] },
+    propertyGroup: [
+      {
+        priceComponent: [
+          {
+            type: 'base',
+            code: { coding: [{ system: CPT_CODE_SYSTEM, code: '99213' }] },
+            amount: { value: 75, currency: 'USD' },
+          },
+        ],
+      },
+    ],
+  };
+
+  // complexValidation loads rules (List), the claim graph (Claim), and the prefetches; answer each
+  // search by resource type.
+  const dispatchSearch = (
+    search: ReturnType<typeof vi.fn>,
+    { rules, claim, chargeMasters }: { rules: BillingRule[]; claim: Claim; chargeMasters: ChargeItemDefinition[] }
+  ): void => {
+    search.mockImplementation(({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'List') {
+        return Promise.resolve({ unbundle: () => [rulesToList('claim-submission', rules)] });
+      }
+      if (resourceType === 'Claim') return Promise.resolve({ unbundle: () => [claim] });
+      if (resourceType === 'ChargeItemDefinition') return Promise.resolve({ unbundle: () => chargeMasters });
+      return Promise.resolve({ unbundle: () => [] });
+    });
+  };
+
+  const chargeMasterSearchCalls = (search: ReturnType<typeof vi.fn>): { resourceType: string; params: unknown }[] =>
+    search.mock.calls.map((call) => call[0]).filter((arg) => arg.resourceType === 'ChargeItemDefinition');
+
+  it('prefetches the default charge masters only when an enabled rule applies charge master prices', async () => {
+    const { oystehr, search } = makeOystehrMock();
+    dispatchSearch(search, { rules: [priceRule], claim: makeModel().claim, chargeMasters: [selfPayChargeMaster] });
+
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+
+    expect(validated.model.chargeMasters).toEqual([selfPayChargeMaster]);
+    const calls = chargeMasterSearchCalls(search);
+    expect(calls).toHaveLength(1);
+    // The shared charge-master identity filter (same as the charge master screen's list) plus the
+    // pricing scoping.
+    expect(calls[0].params).toContainEqual({
+      name: '_tag',
+      value: `${CHARGE_ITEM_DEFINITION_TYPE_SYSTEM}|charge-master`,
+    });
+    expect(calls[0].params).toContainEqual({
+      name: '_tag',
+      value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|insurance,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay`,
+    });
+    expect(calls[0].params).toContainEqual({ name: 'status', value: 'active' });
+  });
+
+  it('skips the prefetch when no enabled rule uses the action', async () => {
+    const { oystehr, search } = makeOystehrMock();
+    const tagRule = alwaysRule('tag', { type: 'actions', actions: [{ type: 'applyTag', tag: 'VIP' }] });
+    const disabledPriceRule = { ...priceRule, enabled: false };
+    dispatchSearch(search, {
+      rules: [tagRule, disabledPriceRule],
+      claim: makeModel().claim,
+      chargeMasters: [selfPayChargeMaster],
+    });
+
+    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test');
+
+    expect(validated.model.chargeMasters).toBeUndefined();
+    expect(chargeMasterSearchCalls(search)).toHaveLength(0);
+  });
+
+  it('re-prices lines onto the claim PUT; charge masters are read-only and never written', async () => {
+    const { oystehr, search, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer); // insurance: [] -> self-pay billing type
+    model.claim.item = [
+      {
+        sequence: 1,
+        productOrService: { coding: [{ code: '99213' }] },
+        servicedPeriod: { start: '2026-01-05' },
+        net: { value: 5, currency: 'USD' },
+      },
+    ];
+    model.claim.total = { value: 5, currency: 'USD' };
+    model.chargeMasters = [selfPayChargeMaster];
+    search.mockResolvedValue({ unbundle: () => [model.claim] }); // submitClaim's re-fetch
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('completed');
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
+    const claimPut = requests.find(
+      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    );
+    expect(claimPut.resource.item[0].net).toEqual({ value: 75, currency: 'USD' });
+    expect(claimPut.resource.total).toEqual({ value: 75, currency: 'USD' });
+    // The shared ChargeItemDefinitions must never appear in the persistence transactions.
+    expect(requests.some((r: { url: string }) => r.url.includes('ChargeItemDefinition'))).toBe(false);
+  });
+
+  it('holds the claim instead of submitting when no charge master applies', async () => {
+    const { oystehr, transaction, submitClaimRcm } = makeOystehrMock();
+    const model = makeModel(AR_STAGE.insurancePayer);
+    model.claim.item = [
+      {
+        sequence: 1,
+        productOrService: { coding: [{ code: '99213' }] },
+        servicedPeriod: { start: '2026-01-05' },
+        net: { value: 5, currency: 'USD' },
+      },
+    ];
+    model.chargeMasters = []; // nothing designated
+
+    const result = await performEffect(
+      oystehr,
+      { engine: 'claim-submission', claimId: 'claim-1', rules: [priceRule], model },
+      AGENT
+    );
+
+    expect(result.taskStatus).toBe('failed');
+    expect(result.statusReason).toContain('Rule "Rule price" failed');
+    expect(submitClaimRcm).not.toHaveBeenCalled();
+    const requests = transaction.mock.calls[0][0].requests;
+    const claimPut = requests.find(
+      (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
+    );
+    expect(claimPut.resource.meta.tag).toContainEqual(HOLD_TAG);
+    // The failed pricing changed nothing else on the claim.
+    expect(claimPut.resource.item[0].net).toEqual({ value: 5, currency: 'USD' });
+  });
+});
+
 describe('sub-rules-engine persistModel', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -393,7 +554,7 @@ describe('sub-rules-engine persistModel', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('creates writer-minted working copies first, then PUTs the claim with the real reference', async () => {
+  it('creates writer-minted working copies and updates the claim in a single transaction', async () => {
     const { oystehr, transaction } = makeOystehrMock();
     const model = makeModel();
     // The claim already carries an old billing-provider working copy that the swap replaces.
@@ -415,51 +576,70 @@ describe('sub-rules-engine persistModel', () => {
     model.referenceResources = new Map([['Organization/org-new', original]]);
     expect(writeField(model, 'billingProvider.ref', 'Organization/org-new')).toBe(true);
     const localId = model.billingProvider.id!;
-
-    // The create transaction echoes each POSTed resource back with a server id (order-matched).
-    transaction.mockImplementation(({ requests }: { requests: { method: string; resource?: Resource }[] }) =>
-      Promise.resolve({
-        entry: requests.map((request) => ({
-          resource:
-            request.method === 'POST' && request.resource?.resourceType === 'Organization'
-              ? { ...request.resource, id: 'copy-real-1' }
-              : request.resource,
-        })),
-      })
-    );
+    const urn = `urn:uuid:${localId}`;
 
     const written = await persistModel(oystehr, model, snapshot, AGENT);
 
     expect(written).toBe(2); // the new copy + the claim
-    expect(transaction).toHaveBeenCalledTimes(2);
+    // One atomic transaction: the copy's POST, its create-Provenance, the claim PUT, and the
+    // claim's change-Provenance commit or fail together — no orphaned copies on a partial failure.
+    expect(transaction).toHaveBeenCalledTimes(1);
+    const requests = transaction.mock.calls[0][0].requests;
 
-    // Phase 1: POST with no id, a urn fullUrl, the working-copy tag, and a create-Provenance
+    // The copy: POST with no id, a urn fullUrl, the working-copy tag, and a create-Provenance
     // targeting that urn (rewritten by the server inside the transaction).
-    const phase1 = transaction.mock.calls[0][0].requests;
-    const post = phase1.find((r: { method: string; url: string }) => r.method === 'POST' && r.url === '/Organization');
-    expect(post.fullUrl).toBe(`urn:uuid:${localId}`);
+    const post = requests.find(
+      (r: { method: string; url: string }) => r.method === 'POST' && r.url === '/Organization'
+    );
+    expect(post.fullUrl).toBe(urn);
     expect(post.resource.id).toBeUndefined();
     expect(post.resource.meta.tag).toContainEqual(workingCopyTag);
-    const provenance = phase1.find((r: { url: string }) => r.url === '/Provenance');
-    expect(provenance.resource.target[0].reference).toBe(`urn:uuid:${localId}`);
+    const provenances = requests.filter((r: { url: string }) => r.url === '/Provenance');
+    const createProvenance = provenances.find(
+      (r: { resource: { activity: { coding: { code: string }[] } } }) => r.resource.activity.coding[0].code === 'CREATE'
+    );
+    expect(createProvenance.resource.target[0].reference).toBe(urn);
 
-    // Phase 2: the claim PUT carries the created id — never the urn — and the new copy is not PUT.
-    const phase2 = transaction.mock.calls[1][0].requests;
-    const claimPut = phase2.find(
+    // The claim PUT still references the urn — matching the POST's fullUrl is the contract; the
+    // server rewrites it to the created id inside the transaction (the mock cannot emulate that).
+    const claimPut = requests.find(
       (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
     );
-    expect(claimPut.resource.provider).toEqual({
-      reference: 'Organization/copy-real-1',
-      display: 'New Billing Group',
-    });
+    expect(claimPut.resource.provider).toEqual({ reference: urn, display: 'New Billing Group' });
     expect(
-      phase2.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url.startsWith('Organization/'))
+      requests.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url.startsWith('Organization/'))
     ).toBe(false);
-    // The model object itself now carries the created id, and the superseded old copy was left
-    // untouched (orphaned) — no request in either phase mentions it.
-    expect(model.billingProvider.id).toBe('copy-real-1');
-    const allRequests = [...phase1, ...phase2];
-    expect(allRequests.some((r: { url: string }) => r.url.includes('old-copy-1'))).toBe(false);
+
+    // The claim's change-Provenance: the diff JSON carries no refs (and so no urns) — the urn lives
+    // in a Reference-typed entity the server rewrites, tied to its change by the linking extension.
+    const changeProvenance = provenances.find(
+      (r: { resource: { activity: { coding: { code: string }[] } } }) => r.resource.activity.coding[0].code === 'UPDATE'
+    );
+    const diffString = changeProvenance.resource.extension.find(
+      (e: { url: string }) => e.url === CLAIM_PROVENANCE_DIFF_EXTENSION_URL
+    ).valueString;
+    expect(diffString).not.toContain('urn:uuid');
+    expect(JSON.parse(diffString)).toContainEqual({
+      field: 'billingProvider',
+      label: 'Billing Provider',
+      previousValue: 'Old Billing Group',
+      newValue: 'New Billing Group',
+    });
+    expect(changeProvenance.resource.entity).toContainEqual({
+      role: 'derivation',
+      what: { reference: urn },
+      extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'billingProvider|new|0' }],
+    });
+    expect(changeProvenance.resource.entity).toContainEqual({
+      role: 'source',
+      what: { reference: 'Organization/old-copy-1' },
+      extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: 'billingProvider|previous|0' }],
+    });
+
+    // The model keeps its placeholder id (nothing downstream needs the created id), and the
+    // superseded old copy was left untouched (orphaned) — no request writes to it.
+    expect(model.billingProvider.id).toBe(localId);
+    expect(requests.some((r: { url: string }) => r.url.includes('old-copy-1'))).toBe(false);
   });
 });
 

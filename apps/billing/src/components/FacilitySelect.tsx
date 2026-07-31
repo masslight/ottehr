@@ -32,6 +32,7 @@ interface FacilitySelectProps {
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
+  required?: boolean;
   // Validation display + react-hook-form focus ref, for use inside Controller-registered forms.
   error?: boolean;
   helperText?: ReactNode;
@@ -105,6 +106,7 @@ export function FacilitySelect({
   value,
   onChange,
   label = 'Facility',
+  required,
   error,
   helperText,
   inputRef,
@@ -131,6 +133,7 @@ export function FacilitySelect({
         {...params}
         label={label}
         placeholder="Search facilities…"
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}

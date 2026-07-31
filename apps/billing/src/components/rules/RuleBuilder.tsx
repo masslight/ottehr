@@ -145,7 +145,10 @@ function useNode<T>(name: string): { value: T; replace: (next: T) => void } {
 
 // Validation display + react-hook-form focus-ref props shared by the value inputs, so each can be
 // registered through a Controller and show its own field-level error (the applyTag precedent).
+// `required` marks the label with an asterisk when save-time validation rejects a blank value —
+// it must mirror the shared value-problem checks (values that may be blank on purpose stay unmarked).
 interface ValueInputValidationProps {
+  required?: boolean;
   error?: boolean;
   helperText?: ReactNode;
   inputRef?: Ref<HTMLInputElement>;
@@ -165,6 +168,7 @@ function TypedValueInput({
   value,
   onChange,
   label,
+  required,
   error,
   helperText,
   inputRef,
@@ -183,7 +187,7 @@ function TypedValueInput({
     const resolvedLabel = label ?? (multiple ? 'Values' : 'Value');
     const selected = multiple ? (Array.isArray(value) ? value : value ? [value] : []) : valueToText(value);
     return (
-      <FormControl size="small" sx={{ minWidth: 200 }} error={error}>
+      <FormControl size="small" sx={{ minWidth: 200 }} required={required} error={error}>
         <InputLabel>{resolvedLabel}</InputLabel>
         <Select
           label={resolvedLabel}
@@ -216,6 +220,7 @@ function TypedValueInput({
         value={valueToText(value)}
         onChange={(e) => onChange(e.target.value)}
         InputLabelProps={{ shrink: true }}
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}
@@ -229,6 +234,7 @@ function TypedValueInput({
       label={label ?? (multiple ? 'Values (comma-separated)' : 'Value')}
       value={valueToText(value)}
       onChange={(e) => onChange(multiple ? textToList(e.target.value) : e.target.value)}
+      required={required}
       error={error}
       helperText={helperText}
       inputRef={inputRef}
@@ -246,6 +252,7 @@ function FieldValueInput({
   value,
   onChange,
   label,
+  required,
   error,
   helperText,
   inputRef,
@@ -266,6 +273,7 @@ function FieldValueInput({
         value={value}
         onChange={onChange}
         label={label}
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}
@@ -280,6 +288,7 @@ function FieldValueInput({
         value={value}
         onChange={onChange}
         label={label ?? 'Provider'}
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}
@@ -293,6 +302,7 @@ function FieldValueInput({
         value={value}
         onChange={onChange}
         label={label ?? 'Facility'}
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}
@@ -305,6 +315,7 @@ function FieldValueInput({
         value={valueToText(value)}
         onChange={onChange}
         label={label ?? 'Tag'}
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}
@@ -318,6 +329,7 @@ function FieldValueInput({
         onChange={onChange}
         label={label ?? 'CPT code'}
         width={200}
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}
@@ -332,6 +344,7 @@ function FieldValueInput({
       value={value}
       onChange={onChange}
       label={label}
+      required={required}
       error={error}
       helperText={helperText}
       inputRef={inputRef}
@@ -348,6 +361,7 @@ function ServiceLineValueInput({
   value,
   onChange,
   label,
+  required,
   error,
   helperText,
   inputRef,
@@ -367,6 +381,7 @@ function ServiceLineValueInput({
         onChange={onChange}
         label={label ?? 'CPT code'}
         width={200}
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}
@@ -381,6 +396,7 @@ function ServiceLineValueInput({
       value={value}
       onChange={onChange}
       label={label}
+      required={required}
       error={error}
       helperText={helperText}
       inputRef={inputRef}
@@ -486,6 +502,7 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
               multiple={operatorIsMultiValue(value.operator)}
               value={fieldValue}
               onChange={onChange}
+              required
               error={!!error}
               helperText={error?.message ?? formatHint(def)}
               inputRef={ref}
@@ -629,6 +646,7 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
                   multiple={operatorIsMultiValue(value.operator)}
                   value={fieldValue}
                   onChange={onChange}
+                  required
                   error={!!error}
                   helperText={error?.message ?? formatHint(def)}
                   inputRef={ref}
@@ -666,6 +684,7 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
                   onChange={onChange}
                   label={label}
                   width={200}
+                  required={lineField.required}
                   error={!!error}
                   helperText={helperText}
                   inputRef={ref}
@@ -683,7 +702,14 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
                   getOptionLabel={(option) => option.label}
                   isOptionEqualToValue={(option, v) => option.value === v.value}
                   renderInput={(params) => (
-                    <TextField {...params} label={label} error={!!error} helperText={helperText} inputRef={ref} />
+                    <TextField
+                      {...params}
+                      label={label}
+                      required={lineField.required}
+                      error={!!error}
+                      helperText={helperText}
+                      inputRef={ref}
+                    />
                   )}
                   sx={{ minWidth: 220 }}
                 />
@@ -701,6 +727,7 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
                 InputLabelProps={
                   lineField.valueType === 'number' || lineField.valueType === 'date' ? { shrink: true } : undefined
                 }
+                required={lineField.required}
                 error={!!error}
                 helperText={helperText}
                 sx={{ minWidth: 200 }}
@@ -729,6 +756,7 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
       ? 'Modifier to remove'
       : 'Modifiers (comma-separated)'
     : 'New value';
+  const valueRequired = isList ? operation !== 'set' : def?.id !== 'placeOfService';
   return (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -785,6 +813,7 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
             value={fieldValue}
             onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
             label={valueLabel}
+            required={valueRequired}
             error={!!error}
             helperText={error?.message ?? formatHint(def)}
             inputRef={ref}
@@ -825,6 +854,9 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
               });
             else if (next === RULE_ACTION_TYPE.removeServiceLines)
               replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
+            else if (next === RULE_ACTION_TYPE.applyChargeMasterPrices)
+              // Default to all lines: re-pricing the whole claim is the common case.
+              replace({ type: RULE_ACTION_TYPE.applyChargeMasterPrices, match: { type: SERVICE_LINE_MATCH_TYPE.all } });
             else replace({ type: RULE_ACTION_TYPE.noop });
             clearErrors(name);
           }}
@@ -834,6 +866,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <MenuItem value={RULE_ACTION_TYPE.addServiceLine}>Add a service line</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.updateServiceLines}>Update service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.removeServiceLines}>Remove service lines</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.applyChargeMasterPrices}>Apply charge master prices</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
         </Select>
       </FormControl>
@@ -868,6 +901,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
                 value={fieldValue}
                 onChange={(v) => onChange(typeof v === 'string' ? v : v[0] ?? '')}
                 label="New value"
+                required={!!setFieldDef?.requiredOnSet}
                 error={!!error}
                 helperText={
                   error?.message ??
@@ -892,6 +926,16 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
         </Box>
       )}
       {value.type === RULE_ACTION_TYPE.removeServiceLines && <ServiceLineMatchEditor name={`${name}.match`} />}
+      {value.type === RULE_ACTION_TYPE.applyChargeMasterPrices && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <ServiceLineMatchEditor name={`${name}.match`} />
+          <FormHelperText>
+            Prices each matched line from the best charge master for the claim's billing type (the insurance or self-pay
+            default, most recent effective date on or before the date of service). A matched line the charge master
+            cannot price fails the rule and holds the claim.
+          </FormHelperText>
+        </Box>
+      )}
       {value.type === RULE_ACTION_TYPE.applyTag && (
         <Controller
           name={`${name}.tag`}
@@ -902,6 +946,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
               value={fieldValue}
               onChange={onChange}
               label="Tag name"
+              required
               error={!!error}
               helperText={error?.message ?? `Applying the "${HOLD_TAG_NAME}" tag holds the claim and stops the engine.`}
               inputRef={ref}

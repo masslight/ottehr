@@ -43,6 +43,10 @@ export const CLAIM_PROVENANCE_AGENT_TYPE: Record<'human' | 'system', Coding> = {
 // Extension on the Provenance whose valueString holds a JSON-serialized ClaimFieldChange[].
 export const CLAIM_PROVENANCE_DIFF_EXTENSION_URL = ottehrExtensionUrl('claim-history-change-set');
 
+// Extension on a Provenance.entity linking its Reference-typed `what` back to a change in the diff
+// JSON — see changeRefEntities in packages/zambdas/src/billing/provenance.ts.
+export const CLAIM_PROVENANCE_CHANGE_REF_URL = ottehrExtensionUrl('claim-history-change-ref');
+
 // Singleton Device representing the automated billing rules engine. The actor abstraction
 // resolves (and lazily provisions) this Device so automated changes can be attributed to it;
 // the rules engine itself is wired up separately.
@@ -62,8 +66,11 @@ export const CLAIM_SYSTEM_DEVICE_NAME = 'Ottehr System';
 
 // A single changed field, with the value before and after the change. Values are display strings
 // captured at write time (null = absent, i.e. a set or a clear). For reference-typed fields
-// (providers, facility, payer) the raw FHIR reference is kept alongside in previousRef/newRef;
+// (providers, facility, payer) the raw FHIR reference is carried alongside in previousRef/newRef;
 // change detection compares refs when present, so display-only differences are not changes.
+// Storage note: newer records store the refs as Provenance.entity entries (tagged with
+// CLAIM_PROVENANCE_CHANGE_REF_URL) rather than inside the diff JSON; the read API reattaches them,
+// so consumers of ClaimFieldChange always see previousRef/newRef populated either way.
 export interface ClaimFieldChange {
   // Machine-readable field key/path (e.g. 'memberId', 'diagnoses').
   field: string;

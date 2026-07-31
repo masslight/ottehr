@@ -18,6 +18,7 @@ interface PayerSelectProps {
   // Options the caller already knows (e.g. the claim's current payer), so a stored id shows its
   // display name before any search has run.
   initialOptions?: BillingPayerOption[];
+  required?: boolean;
   // Validation display + react-hook-form focus ref, for use inside Controller-registered forms.
   error?: boolean;
   helperText?: ReactNode;
@@ -72,6 +73,7 @@ export function PayerSelect({
   onChange,
   label = 'Payer',
   initialOptions,
+  required,
   error,
   helperText,
   inputRef,
@@ -99,6 +101,7 @@ export function PayerSelect({
         {...params}
         label={label}
         placeholder="Search payers…"
+        required={required}
         error={error}
         helperText={helperText}
         inputRef={inputRef}
