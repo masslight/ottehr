@@ -59,7 +59,7 @@ export default function ERADetail(): ReactElement {
   const [unmatching, setUnmatching] = useState(false);
   const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
     element: HTMLButtonElement;
-    claimResponseId: string;
+    claimResponseIds: string[];
   } | null>(null);
 
   const claimColumns: GridColDef[] = [
@@ -103,39 +103,17 @@ export default function ERADetail(): ReactElement {
               variant="outlined"
               size="small"
               sx={{ borderRadius: '4px', fontSize: 12 }}
-            />{' '}
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                setMoreActionsPopoverData({ element: e.currentTarget, claimResponseId: 'afasf' });
-              }}
-            >
-              <MoreVertIcon fontSize="medium" />
-            </IconButton>
-            {moreActionsPopoverData ? (
-              <Popover
-                open={true}
-                anchorEl={moreActionsPopoverData.element}
-                onClose={() => setMoreActionsPopoverData(null)}
-                anchorOrigin={{
-                  vertical: 'bottom',
-                  horizontal: 'left',
+            />
+            {row.matched && (
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
                 }}
               >
-                <List>
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      onClick={async () => {
-                        setMoreActionsPopoverData(null);
-                        setClaimResponsesToUnmatch(row.claimResponseIds);
-                      }}
-                    >
-                      <ListItemText primary="Unmatch" />
-                    </ListItemButton>
-                  </ListItem>
-                </List>
-              </Popover>
-            ) : null}
+                <MoreVertIcon fontSize="medium" />
+              </IconButton>
+            )}
           </Stack>
         ) : (
           '—'
@@ -329,6 +307,30 @@ export default function ERADetail(): ReactElement {
           Do you really want to unmatch
         </ConfirmDialog>
       )}
+      {moreActionsPopoverData ? (
+        <Popover
+          open={true}
+          anchorEl={moreActionsPopoverData.element}
+          onClose={() => setMoreActionsPopoverData(null)}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+        >
+          <List>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={async () => {
+                  setMoreActionsPopoverData(null);
+                  setClaimResponsesToUnmatch(moreActionsPopoverData.claimResponseIds);
+                }}
+              >
+                <ListItemText primary="Unmatch" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Popover>
+      ) : null}
     </Box>
   );
 }
