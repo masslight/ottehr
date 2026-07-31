@@ -9,7 +9,10 @@ export const useSendFaxPacket = (): UseMutationResult<SendFaxPacketOutput, unkno
   const apiClient = useOystehrAPIClient();
 
   return useMutation({
-    mutationFn: (input: SendFaxPacketInput) => sendFaxPacket(apiClient!, input),
+    mutationFn: (input: SendFaxPacketInput) => {
+      if (!apiClient) throw new Error('Fax service is not ready yet. Please try again.');
+      return sendFaxPacket(apiClient, input);
+    },
     onError: (error) => {
       console.error('Failed to queue fax packet', error);
       enqueueSnackbar(error instanceof Error ? error.message : 'Failed to send fax', { variant: 'error' });
