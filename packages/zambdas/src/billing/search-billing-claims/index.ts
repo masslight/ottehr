@@ -39,6 +39,8 @@ import {
   getClaimService,
   getClaimStatus,
   getClaimType,
+  patientSearchParam,
+  resolveLinkedPatientIds,
   resolvePayersByRef,
   resourceDisplayName,
   sortClaimInsurance,
@@ -107,7 +109,15 @@ async function performEffect(
     filterParams.push({ name: '_tag', value: `${CLAIM_STATUS_TAG_SYSTEMS.arStage}|${params.arStage}` });
   if (params.createdFrom) filterParams.push({ name: 'created', value: `ge${params.createdFrom}` });
   if (params.createdTo) filterParams.push({ name: 'created', value: `le${params.createdTo}` });
-  if (params.patientId) filterParams.push({ name: 'patient', value: `Patient/${params.patientId}` });
+  if (params.patientId)
+    filterParams.push(
+      patientSearchParam(
+        await resolveLinkedPatientIds({
+          oystehr,
+          patientId: params.patientId,
+        })
+      )
+    );
   if (params.service)
     filterParams.push({ name: '_tag', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|${params.service}` });
   if (insurerFilter) filterParams.push({ name: 'insurer', value: insurerFilter });
@@ -209,7 +219,13 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 200;
 export const CLAIM_SEARCH_TEXT_BATCH_SIZE = 4;
 
-export function buildClaimSearchTextQueries({ searchText }: { searchText: string }): ClaimSearchParam[][] {
+export function buildClaimSearchTextQueries({
+  searchText,
+  patientIds = [],
+}: {
+  searchText: string;
+  patientIds?: string[];
+}): ClaimSearchParam[][] {
   const text = searchText.trim();
   if (!text) return [];
 
@@ -259,13 +275,9 @@ export function buildClaimSearchTextQueries({ searchText }: { searchText: string
         value: text,
       },
     ]);
-    queries.push([
-      {
-        name: 'patient',
-        value: `Patient/${text}`,
-      },
-    ]);
   }
+
+  if (patientIds.length > 0) queries.push([patientSearchParam(patientIds)]);
 
   const pcnClaimId = claimIdFromPcn(text);
   if (pcnClaimId) {
@@ -351,7 +363,14 @@ export async function searchClaimsBySearchText({
     },
   ];
 
-  const requestUrls = buildClaimSearchTextQueries({ searchText }).map((clause) =>
+  const patientIds = isValidUUID(searchText.trim())
+    ? await resolveLinkedPatientIds({
+        oystehr,
+        patientId: searchText.trim(),
+      })
+    : [];
+
+  const requestUrls = buildClaimSearchTextQueries({ searchText, patientIds }).map((clause) =>
     toClaimSearchUrl([...filterParams, ...clause, ...pageParams])
   );
 

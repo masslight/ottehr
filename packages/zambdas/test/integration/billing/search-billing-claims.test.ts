@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { Claim, FhirResource, Organization, Patient, Practitioner } from 'fhir/r4b';
+import { Claim, FhirResource, Organization, Patient, Person, Practitioner } from 'fhir/r4b';
 import {
   AR_STAGE,
   CLAIM_STATUS_TAG_SYSTEMS,
@@ -29,6 +29,7 @@ describe('search-billing-claims search text', () => {
 
   const createdClaimIds: string[] = [];
   let patientId: string;
+  let claimPatientId: string;
   let practitionerId: string;
   let organizationId: string;
 
@@ -113,12 +114,40 @@ describe('search-billing-claims search text', () => {
       ],
     };
 
+    claimPatientId = await seed<Patient>({
+      resourceType: 'Patient',
+      active: true,
+      name: [
+        {
+          family: patientFamily,
+          given: [patientGiven],
+        },
+      ],
+      birthDate: '1990-01-01',
+    });
+
+    await seed<Person>({
+      resourceType: 'Person',
+      link: [
+        {
+          target: {
+            reference: `Patient/${patientId}`,
+          },
+        },
+        {
+          target: {
+            reference: `Patient/${claimPatientId}`,
+          },
+        },
+      ],
+    });
+
     // The claim every name and id search should find. No PCN identifier, so its PCN is its own id
     // with the dashes stripped.
     const claimId = await seed<Claim>({
       ...claimBase,
       patient: {
-        reference: `Patient/${patientId}`,
+        reference: `Patient/${claimPatientId}`,
       },
       provider: {
         reference: `Organization/${organizationId}`,
@@ -185,8 +214,9 @@ describe('search-billing-claims search text', () => {
     expect(await idsFor(patientGiven)).toEqual([createdClaimIds[0]]);
   }, 60_000);
 
-  it('finds the claim by the patient id', async () => {
+  it('finds the claim by the patient id shown in the UI, not just the copy the claim references', async () => {
     expect(await idsFor(patientId)).toEqual([createdClaimIds[0]]);
+    expect(await idsFor(claimPatientId)).toEqual([createdClaimIds[0]]);
   }, 60_000);
 
   it('finds the claim by the billing provider name', async () => {
@@ -223,6 +253,13 @@ describe('search-billing-claims search text', () => {
     });
     expect(mismatched.claims).toEqual([]);
     expect(mismatched.total).toBe(0);
+  }, 60_000);
+
+  it('filters by the patient of record supplied by the Patient picker', async () => {
+    const matching = await search({
+      patientId,
+    });
+    expect(matching.claims.map((claim) => claim.id)).toEqual([createdClaimIds[0]]);
   }, 60_000);
 
   it('returns nothing for text that matches no field', async () => {

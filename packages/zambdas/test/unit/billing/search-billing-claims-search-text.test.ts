@@ -59,14 +59,32 @@ describe('buildClaimSearchTextQueries', () => {
     ]);
   });
 
-  it('adds claim id and patient id clauses for a uuid', () => {
-    expect(clauseNames(PATIENT_ID)).toEqual([...NAME_CLAUSES, 'identifier', '_id', 'patient']);
-    expect(clauseFor(PATIENT_ID, 'patient')).toEqual([
+  it('adds a claim id clause for a uuid', () => {
+    expect(clauseNames(CLAIM_ID)).toEqual([...NAME_CLAUSES, 'identifier', '_id']);
+    expect(clauseFor(CLAIM_ID, '_id')).toEqual([
       {
-        name: 'patient',
-        value: `Patient/${PATIENT_ID}`,
+        name: '_id',
+        value: CLAIM_ID,
       },
     ]);
+  });
+
+  it('searches every linked patient id when the caller resolved them', () => {
+    const queries = buildClaimSearchTextQueries({
+      searchText: PATIENT_ID,
+      patientIds: [PATIENT_ID, 'copy-1', 'copy-2'],
+    });
+    expect(queries.flat().filter((p) => p.name === 'patient')).toEqual([
+      {
+        name: 'patient',
+        value: `Patient/${PATIENT_ID},Patient/copy-1,Patient/copy-2`,
+      },
+    ]);
+  });
+
+  it('omits the patient clause when nothing was resolved', () => {
+    expect(clauseNames(PATIENT_ID)).not.toContain('patient');
+    expect(clauseNames('Smith')).not.toContain('patient');
   });
 
   it('restores a dash-stripped PCN into a claim id clause', () => {
@@ -82,7 +100,13 @@ describe('buildClaimSearchTextQueries', () => {
   it('keeps the fan-out to at most eight clauses', () => {
     expect(buildClaimSearchTextQueries({ searchText: 'Smith' })).toHaveLength(6);
     expect(buildClaimSearchTextQueries({ searchText: MINIFIED_CLAIM_ID })).toHaveLength(7);
-    expect(buildClaimSearchTextQueries({ searchText: CLAIM_ID })).toHaveLength(8);
+    expect(buildClaimSearchTextQueries({ searchText: CLAIM_ID })).toHaveLength(7);
+    expect(
+      buildClaimSearchTextQueries({
+        searchText: CLAIM_ID,
+        patientIds: [CLAIM_ID],
+      })
+    ).toHaveLength(8);
   });
 
   it('trims the text and searches nothing when it is blank', () => {
@@ -382,18 +406,39 @@ const FILTER_PARAMS = [
   AR_STAGE_FILTER,
 ];
 
-const stubBatchClient = (): {
+const stubBatchClient = (
+  linkedPatientIds: string[] = []
+): {
   oystehr: Oystehr;
   batch: Mock;
+  search: Mock;
 } => {
   const batch = vi.fn().mockResolvedValue(makeBatch([]));
+  const search = vi.fn().mockResolvedValue({
+    unbundle: () =>
+      linkedPatientIds.length > 0
+        ? [
+            {
+              resourceType: 'Person',
+              id: 'person-1',
+              link: linkedPatientIds.map((id) => ({
+                target: {
+                  reference: `Patient/${id}`,
+                },
+              })),
+            },
+          ]
+        : [],
+  });
   return {
     oystehr: {
       fhir: {
         batch,
+        search,
       },
     } as unknown as Oystehr,
     batch,
+    search,
   };
 };
 
@@ -402,6 +447,9 @@ const requestedUrls = (batch: Mock): string[] =>
 
 const chunkSizes = (batch: Mock): number[] =>
   batch.mock.calls.map((call) => (call[0].requests as BatchInputGetRequest[]).length);
+
+const patientClauseUrl = (batch: Mock): string | undefined =>
+  requestedUrls(batch).find((url) => /[?&]patient=/.test(url));
 
 describe('searchClaimsBySearchText', () => {
   afterEach(() => {
@@ -445,6 +493,54 @@ describe('searchClaimsBySearchText', () => {
     });
 
     requestedUrls(batch).forEach((url) => expect(url).toContain('_elements=id,meta,created,item'));
+  });
+
+  it('widens a typed patient id to the working copies its claims actually reference', async () => {
+    const { oystehr, batch, search } = stubBatchClient([PATIENT_ID, 'copy-1', 'copy-2']);
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: PATIENT_ID,
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Person',
+      params: [
+        {
+          name: 'link',
+          value: `Patient/${PATIENT_ID}`,
+        },
+      ],
+    });
+    expect(patientClauseUrl(batch)).toContain(`patient=Patient%2F${PATIENT_ID},Patient%2Fcopy-1,Patient%2Fcopy-2`);
+  });
+
+  it('still searches the typed id when no Person links it, so a working copy id works directly', async () => {
+    const { oystehr, batch } = stubBatchClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: PATIENT_ID,
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(patientClauseUrl(batch)).toContain(`patient=Patient%2F${PATIENT_ID}`);
+  });
+
+  it('does not look up a Person for text that is not a uuid', async () => {
+    const { oystehr, search } = stubBatchClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(search).not.toHaveBeenCalled();
   });
 
   it('percent-encodes the search text but leaves a filter comma as the OR separator', async () => {
