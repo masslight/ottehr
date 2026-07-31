@@ -1128,11 +1128,17 @@ export async function resolveLinkedPatientIds({
       },
     ],
   });
-  const linkedIds = (result.unbundle()[0]?.link ?? [])
+  const persons = result.unbundle();
+  const linkedIds = persons
+    .flatMap((person) => person.link ?? [])
     .map((entry) => entry.target?.reference)
     .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
     .map((ref) => ref.replace('Patient/', ''));
-  return [...new Set([patientId, ...linkedIds])];
+  const resolved = [...new Set([patientId, ...linkedIds])];
+  console.debug(
+    `resolveLinkedPatientIds: Patient/${patientId} matched ${persons.length} Person(s), ${resolved.length} patient id(s)`
+  );
+  return resolved;
 }
 
 export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({

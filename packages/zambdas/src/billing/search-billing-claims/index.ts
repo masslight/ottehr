@@ -1,16 +1,6 @@
-import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  Bundle,
-  Claim,
-  ClaimResponse,
-  Coverage,
-  Location,
-  Organization,
-  Patient,
-  Practitioner,
-  Resource,
-} from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BillingClaimItem,
@@ -300,40 +290,8 @@ const claimLastUpdated = (claim: Claim): number => {
 const unionClaimsNewestFirst = (claims: Claim[]): Claim[] =>
   deduplicateUnbundledResources(claims).sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a));
 
-export function collectClaimSearchBatch({ batch, requestUrls }: { batch: Bundle; requestUrls: string[] }): {
-  claims: Claim[];
-  truncatedUrls: string[];
-} {
-  const claims: Claim[] = [];
-  const truncatedUrls: string[] = [];
-
-  (batch.entry ?? []).forEach((entry, index) => {
-    const url = requestUrls[index] ?? `batch entry ${index}`;
-    const searchset = entry.resource;
-    if (searchset?.resourceType !== 'Bundle' || searchset.type !== 'searchset') {
-      console.error(
-        `Claim search clause failed (${url}): status ${entry.response?.status ?? 'unknown'}`,
-        JSON.stringify(entry.response?.outcome ?? entry.resource ?? null)
-      );
-      return;
-    }
-    if ((searchset.total ?? 0) > CLAIM_SEARCH_TEXT_MATCH_LIMIT) truncatedUrls.push(url);
-    (searchset.entry ?? []).forEach((searchEntry) => {
-      const resource = searchEntry.resource;
-      if (resource?.resourceType === 'Claim' && resource.id) claims.push(resource);
-    });
-  });
-
-  return {
-    claims: unionClaimsNewestFirst(claims),
-    truncatedUrls,
-  };
-}
-
-// Values are percent-encoded except commas, which FHIR reads as its OR separator. The payer filter
-// and _elements both rely on that.
-const toClaimSearchUrl = (params: ClaimSearchParam[]): string =>
-  `/Claim?${params.map(({ name, value }) => `${name}=${encodeURIComponent(value).replaceAll('%2C', ',')}`).join('&')}`;
+export const describeClaimSearchClause = (clause: ClaimSearchParam[]): string =>
+  clause.map(({ name, value }) => `${name}=${value}`).join('&');
 
 export async function searchClaimsBySearchText({
   oystehr,
@@ -370,31 +328,40 @@ export async function searchClaimsBySearchText({
       })
     : [];
 
-  const requestUrls = buildClaimSearchTextQueries({ searchText, patientIds }).map((clause) =>
-    toClaimSearchUrl([...filterParams, ...clause, ...pageParams])
-  );
+  const clauses = buildClaimSearchTextQueries({ searchText, patientIds });
 
   const claims: Claim[] = [];
-  const truncatedUrls: string[] = [];
-  for (let start = 0; start < requestUrls.length; start += CLAIM_SEARCH_TEXT_BATCH_SIZE) {
-    const chunk = requestUrls.slice(start, start + CLAIM_SEARCH_TEXT_BATCH_SIZE);
-    const requests: BatchInputGetRequest[] = chunk.map((url) => ({
-      method: 'GET',
-      url,
-    }));
-    const batch = await oystehr.fhir.batch<Bundle>({ requests });
-    const collected = collectClaimSearchBatch({
-      batch,
-      requestUrls: chunk,
+  const truncatedClauses: string[] = [];
+  for (let start = 0; start < clauses.length; start += CLAIM_SEARCH_TEXT_BATCH_SIZE) {
+    const chunk = clauses.slice(start, start + CLAIM_SEARCH_TEXT_BATCH_SIZE);
+    const bundles = await Promise.all(
+      chunk.map(async (clause) => {
+        try {
+          return await oystehr.fhir.search<Claim>({
+            resourceType: 'Claim',
+            params: [...filterParams, ...clause, ...pageParams],
+          });
+        } catch (error) {
+          // One unsupported clause shouldn't empty the whole search, but it must be loud.
+          console.error(`Claim search clause failed (${describeClaimSearchClause(clause)}):`, error);
+          return undefined;
+        }
+      })
+    );
+
+    bundles.forEach((bundle, index) => {
+      if (!bundle) return;
+      const clause = describeClaimSearchClause(chunk[index]);
+      console.debug(`claim search clause matched ${bundle.total ?? 'unknown'}: ${clause}`);
+      if ((bundle.total ?? 0) > CLAIM_SEARCH_TEXT_MATCH_LIMIT) truncatedClauses.push(clause);
+      claims.push(...bundle.unbundle());
     });
-    claims.push(...collected.claims);
-    truncatedUrls.push(...collected.truncatedUrls);
   }
 
-  if (truncatedUrls.length > 0) {
+  if (truncatedClauses.length > 0) {
     console.warn(
       `Claim search hit the ${CLAIM_SEARCH_TEXT_MATCH_LIMIT} match limit, so results are partial for: ` +
-        truncatedUrls.join(', ')
+        truncatedClauses.join(', ')
     );
   }
 
@@ -435,8 +402,11 @@ export async function fetchClaimsPageByIds({
     includedResources.filter((r): r is Claim => r.resourceType === 'Claim' && !!r.id).map((claim) => [claim.id, claim])
   );
 
+  const claims = claimIds.map((id) => claimsById.get(id)).filter((claim): claim is Claim => !!claim);
+  console.debug(`fetchClaimsPageByIds: asked for ${claimIds.length} claim(s), hydrated ${claims.length}`);
+
   return {
-    claims: claimIds.map((id) => claimsById.get(id)).filter((claim): claim is Claim => !!claim),
+    claims,
     includedResources,
   };
 }

@@ -1,11 +1,10 @@
-import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, Claim, Resource } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Claim, Resource } from 'fhir/r4b';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 import {
   buildClaimSearchTextQueries,
   CLAIM_LIST_INCLUDE_PARAMS,
   CLAIM_SEARCH_TEXT_MATCH_LIMIT,
-  collectClaimSearchBatch,
   fetchClaimsPageByIds,
   searchClaimsBySearchText,
 } from '../../../src/billing/search-billing-claims';
@@ -132,171 +131,308 @@ const makeClaim = (id: string, lastUpdated?: string): Claim =>
       : undefined,
   }) as unknown as Claim;
 
-type BatchEntry = NonNullable<Bundle['entry']>[number];
+const AR_STAGE_FILTER = {
+  name: '_tag',
+  value: 'https://fhir.ottehr.com/billing/ar-stage|insurance-payer',
+};
 
-const searchsetEntry = (claims: Claim[], total = claims.length): BatchEntry =>
-  ({
-    response: {
-      status: '200',
-      outcome: {
-        id: 'ok',
-      },
-    },
-    resource: {
-      resourceType: 'Bundle',
-      type: 'searchset',
-      total,
-      entry: claims.map((claim) => ({
-        resource: claim,
-        search: {
-          mode: 'match',
-        },
-      })),
-    },
-  }) as unknown as BatchEntry;
+const FILTER_PARAMS = [
+  {
+    name: '_sort',
+    value: '-_lastUpdated',
+  },
+  AR_STAGE_FILTER,
+];
 
-const failedEntry = (): BatchEntry =>
-  ({
-    response: {
-      status: '400',
-      outcome: {
-        resourceType: 'OperationOutcome',
-        id: 'invalid-search',
-        issue: [
-          {
-            severity: 'error',
-            code: 'invalid',
-            diagnostics: 'Failed to parse search parameter chain.',
-          },
-        ],
-      },
-    },
-  }) as unknown as BatchEntry;
+type SearchParam = { name: string; value: string };
 
-const makeBatch = (entries: BatchEntry[]): Bundle => ({
-  resourceType: 'Bundle',
-  type: 'batch-response',
-  entry: entries,
+const bundleOf = (claims: Claim[], total = claims.length): unknown => ({
+  total,
+  unbundle: () => claims,
+  entry: claims.map((resource) => ({ resource })),
 });
 
-describe('collectClaimSearchBatch', () => {
+// The claim searches and the Person lookup share one fhir.search stub, dispatched on resourceType.
+// personLinks holds one entry per billing Person the link search finds, with that Person's patient ids.
+const stubClient = ({
+  personLinks = [],
+  claimsPerClause = [],
+}: {
+  personLinks?: string[][];
+  claimsPerClause?: Claim[][];
+} = {}): {
+  oystehr: Oystehr;
+  search: Mock;
+} => {
+  let clauseIndex = 0;
+  const search = vi.fn().mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+    if (resourceType === 'Person') {
+      return {
+        unbundle: () =>
+          personLinks.map((links, index) => ({
+            resourceType: 'Person',
+            id: `person-${index + 1}`,
+            link: links.map((id) => ({
+              target: {
+                reference: `Patient/${id}`,
+              },
+            })),
+          })),
+      };
+    }
+    return bundleOf(claimsPerClause[clauseIndex++] ?? []);
+  });
+  return {
+    oystehr: {
+      fhir: {
+        search,
+      },
+    } as unknown as Oystehr,
+    search,
+  };
+};
+
+const claimSearchCalls = (search: Mock): SearchParam[][] =>
+  search.mock.calls.filter((call) => call[0].resourceType === 'Claim').map((call) => call[0].params as SearchParam[]);
+
+const paramNamed = (params: SearchParam[], name: string): SearchParam | undefined =>
+  params.find((param) => param.name === name);
+
+const clauseWith = (search: Mock, name: string): SearchParam[] | undefined =>
+  claimSearchCalls(search).find((params) => paramNamed(params, name));
+
+describe('searchClaimsBySearchText', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('unions the clauses, deduping a claim matched by more than one', () => {
-    const batch = makeBatch([
-      searchsetEntry([makeClaim('claim-1', '2026-07-01T00:00:00Z')]),
-      searchsetEntry([makeClaim('claim-1', '2026-07-01T00:00:00Z'), makeClaim('claim-2', '2026-07-02T00:00:00Z')]),
-    ]);
+  it('searches through the SDK rather than hand-built batch urls, so values are encoded once', async () => {
+    const { oystehr, search } = stubClient();
 
-    const { claims } = collectClaimSearchBatch({
-      batch,
-      requestUrls: ['/Claim?patient.name=Smith', '/Claim?care-team:Practitioner.name=Smith'],
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: FILTER_PARAMS,
+      withServiceDateElements: false,
     });
-    expect(claims.map((c) => c.id)).toEqual(['claim-2', 'claim-1']);
+
+    expect(claimSearchCalls(search)).toHaveLength(6);
+    claimSearchCalls(search).forEach((params) => {
+      expect(params).toContainEqual(AR_STAGE_FILTER);
+      expect(paramNamed(params, '_elements')?.value).toBe('id,meta');
+      expect(paramNamed(params, '_count')?.value).toBe(String(CLAIM_SEARCH_TEXT_MATCH_LIMIT));
+      expect(paramNamed(params, '_total')?.value).toBe('accurate');
+      // Includes are what the page hydration is for; carrying them here would blow the response budget.
+      expect(paramNamed(params, '_include')).toBeUndefined();
+    });
   });
 
-  it('re-sorts the union newest first, since the per-clause sort does not survive it', () => {
-    const batch = makeBatch([
-      searchsetEntry([makeClaim('older', '2026-01-01T00:00:00Z')]),
-      searchsetEntry([makeClaim('newest', '2026-07-30T12:00:00Z'), makeClaim('middle', '2026-04-15T00:00:00Z')]),
-    ]);
+  it('passes reference values unencoded, which is what Oystehr matches on', async () => {
+    const { oystehr, search } = stubClient({
+      personLinks: [[PATIENT_ID, 'copy-1', 'copy-2']],
+    });
 
-    const { claims } = collectClaimSearchBatch({
-      batch,
-      requestUrls: ['/Claim?a', '/Claim?b'],
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: PATIENT_ID,
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(paramNamed(clauseWith(search, 'patient') ?? [], 'patient')?.value).toBe(
+      `Patient/${PATIENT_ID},Patient/copy-1,Patient/copy-2`
+    );
+  });
+
+  it('asks for the fields the in-memory service date filter needs when a range is active', async () => {
+    const { oystehr, search } = stubClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: FILTER_PARAMS,
+      withServiceDateElements: true,
+    });
+
+    claimSearchCalls(search).forEach((params) =>
+      expect(paramNamed(params, '_elements')?.value).toBe('id,meta,created,item')
+    );
+  });
+
+  it('widens a typed patient id to the working copies its claims reference', async () => {
+    const { oystehr, search } = stubClient({
+      personLinks: [[PATIENT_ID, 'copy-1']],
+    });
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: PATIENT_ID,
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Person',
+      params: [
+        {
+          name: 'link',
+          value: `Patient/${PATIENT_ID}`,
+        },
+      ],
+    });
+    expect(paramNamed(clauseWith(search, 'patient') ?? [], 'patient')?.value).toBe(
+      `Patient/${PATIENT_ID},Patient/copy-1`
+    );
+  });
+
+  it('unions the links across every Person the patient has, not just the first', async () => {
+    const { oystehr, search } = stubClient({
+      personLinks: [
+        [PATIENT_ID, 'copy-1'],
+        [PATIENT_ID, 'copy-2'],
+        [PATIENT_ID, 'copy-3'],
+      ],
+    });
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: PATIENT_ID,
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(paramNamed(clauseWith(search, 'patient') ?? [], 'patient')?.value).toBe(
+      `Patient/${PATIENT_ID},Patient/copy-1,Patient/copy-2,Patient/copy-3`
+    );
+  });
+
+  it('still searches the typed id when no Person links it, so a working copy id works directly', async () => {
+    const { oystehr, search } = stubClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: PATIENT_ID,
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(paramNamed(clauseWith(search, 'patient') ?? [], 'patient')?.value).toBe(`Patient/${PATIENT_ID}`);
+  });
+
+  it('does not look up a Person for text that is not a uuid', async () => {
+    const { oystehr, search } = stubClient();
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(search.mock.calls.some((call) => call[0].resourceType === 'Person')).toBe(false);
+  });
+
+  it('unions the clauses, deduping and re-sorting newest first', async () => {
+    const { oystehr } = stubClient({
+      claimsPerClause: [
+        [makeClaim('older', '2026-01-01T00:00:00Z')],
+        [makeClaim('newest', '2026-07-30T12:00:00Z'), makeClaim('older', '2026-01-01T00:00:00Z')],
+        [makeClaim('middle', '2026-04-15T00:00:00Z')],
+      ],
+    });
+
+    const claims = await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
     });
     expect(claims.map((c) => c.id)).toEqual(['newest', 'middle', 'older']);
   });
 
-  it('sorts a claim with no lastUpdated last rather than dropping it', () => {
-    const batch = makeBatch([searchsetEntry([makeClaim('undated'), makeClaim('dated', '2026-07-01T00:00:00Z')])]);
+  it('sorts a claim with no lastUpdated last rather than dropping it', async () => {
+    const { oystehr } = stubClient({
+      claimsPerClause: [[makeClaim('undated'), makeClaim('dated', '2026-07-01T00:00:00Z')]],
+    });
 
-    const { claims } = collectClaimSearchBatch({
-      batch,
-      requestUrls: ['/Claim?a'],
+    const claims = await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
     });
     expect(claims.map((c) => c.id)).toEqual(['dated', 'undated']);
   });
 
-  it('reports the clause whose matches were truncated', () => {
-    const batch = makeBatch([
-      searchsetEntry([makeClaim('claim-1', '2026-07-01T00:00:00Z')], CLAIM_SEARCH_TEXT_MATCH_LIMIT),
-      searchsetEntry([makeClaim('claim-2', '2026-07-02T00:00:00Z')], CLAIM_SEARCH_TEXT_MATCH_LIMIT + 1),
-    ]);
+  it('chunks the clauses so one round of searches never takes too many connections', async () => {
+    const { oystehr, search } = stubClient();
 
-    const { truncatedUrls } = collectClaimSearchBatch({
-      batch,
-      requestUrls: ['/Claim?at-the-limit', '/Claim?over-the-limit'],
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: CLAIM_ID,
+      filterParams: [],
+      withServiceDateElements: false,
     });
-    expect(truncatedUrls).toEqual(['/Claim?over-the-limit']);
+    expect(claimSearchCalls(search)).toHaveLength(8);
   });
 
-  // It returns 200 even when a clause is rejected, so a silent skip would read as "no matches".
-  it('logs a rejected clause and keeps the surviving ones', () => {
+  // One rejected clause must not empty the whole search, and it has to be loud.
+  it('logs a failed clause and keeps the results of the others', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const batch = makeBatch([failedEntry(), searchsetEntry([makeClaim('claim-2', '2026-07-02T00:00:00Z')])]);
-
-    const { claims } = collectClaimSearchBatch({
-      batch,
-      requestUrls: ['/Claim?provider:Practitioner.name=Smith', '/Claim?patient.name=Smith'],
+    const { oystehr } = stubClient();
+    let call = 0;
+    (oystehr.fhir.search as unknown as Mock).mockImplementation(async () => {
+      call += 1;
+      if (call === 1) throw new Error('unsupported search parameter');
+      return bundleOf([makeClaim('survivor', '2026-07-01T00:00:00Z')]);
     });
 
-    expect(claims.map((c) => c.id)).toEqual(['claim-2']);
+    const claims = await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(claims.map((c) => c.id)).toEqual(['survivor']);
     expect(consoleError).toHaveBeenCalledTimes(1);
-    expect(consoleError.mock.calls[0][0]).toContain('/Claim?provider:Practitioner.name=Smith');
+    expect(consoleError.mock.calls[0][0]).toContain('patient.name=Smith');
   });
 
-  it('ignores non-Claim resources an include could add', () => {
-    const batch = makeBatch([
-      {
-        response: {
-          status: '200',
-          outcome: {
-            id: 'ok',
-          },
-        },
-        resource: {
-          resourceType: 'Bundle',
-          type: 'searchset',
-          total: 1,
-          entry: [
-            {
-              resource: makeClaim('claim-1', '2026-07-01T00:00:00Z'),
-            },
-            {
-              resource: {
-                resourceType: 'Patient',
-                id: 'patient-1',
-              },
-            },
-          ],
-        },
-      } as unknown as BatchEntry,
-    ]);
+  it('warns when a clause hit the match limit, so partial results are visible', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { oystehr } = stubClient();
+    (oystehr.fhir.search as unknown as Mock).mockImplementation(async () =>
+      bundleOf([makeClaim('claim-1', '2026-07-01T00:00:00Z')], CLAIM_SEARCH_TEXT_MATCH_LIMIT + 1)
+    );
 
-    const { claims } = collectClaimSearchBatch({
-      batch,
-      requestUrls: ['/Claim?patient.name=Smith'],
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
     });
-    expect(claims.map((c) => c.id)).toEqual(['claim-1']);
+
+    expect(consoleWarn).toHaveBeenCalledTimes(1);
+    expect(consoleWarn.mock.calls[0][0]).toContain(String(CLAIM_SEARCH_TEXT_MATCH_LIMIT));
   });
 
-  it('returns nothing for an empty batch', () => {
-    expect(
-      collectClaimSearchBatch({
-        batch: makeBatch([]),
-        requestUrls: [],
-      })
-    ).toEqual({
-      claims: [],
-      truncatedUrls: [],
+  it('does not call out at all when the text is blank', async () => {
+    const { oystehr, search } = stubClient();
+
+    const claims = await searchClaimsBySearchText({
+      oystehr,
+      searchText: '   ',
+      filterParams: FILTER_PARAMS,
+      withServiceDateElements: false,
     });
+
+    expect(search).not.toHaveBeenCalled();
+    expect(claims).toEqual([]);
   });
 });
 
-const stubOystehr = (
+const stubPageClient = (
   resources: Resource[]
 ): {
   oystehr: Oystehr;
@@ -317,11 +453,9 @@ const stubOystehr = (
   };
 };
 
-const searchParams = (search: Mock): { name: string; value: string }[] => search.mock.calls[0][0].params;
-
 describe('fetchClaimsPageByIds', () => {
   it('asks for exactly the page it was given, with the resources the list renders', async () => {
-    const { oystehr, search } = stubOystehr([makeClaim('claim-1'), makeClaim('claim-2')]);
+    const { oystehr, search } = stubPageClient([makeClaim('claim-1'), makeClaim('claim-2')]);
 
     await fetchClaimsPageByIds({
       oystehr,
@@ -329,7 +463,7 @@ describe('fetchClaimsPageByIds', () => {
     });
 
     expect(search.mock.calls[0][0].resourceType).toBe('Claim');
-    expect(searchParams(search)).toEqual([
+    expect(search.mock.calls[0][0].params).toEqual([
       {
         name: '_id',
         value: 'claim-1,claim-2',
@@ -342,8 +476,9 @@ describe('fetchClaimsPageByIds', () => {
     ]);
   });
 
+  // An _id search returns server order, which would scramble the newest-first union.
   it('reapplies the requested order to the server response', async () => {
-    const { oystehr } = stubOystehr([makeClaim('claim-3'), makeClaim('claim-1'), makeClaim('claim-2')]);
+    const { oystehr } = stubPageClient([makeClaim('claim-3'), makeClaim('claim-1'), makeClaim('claim-2')]);
 
     const { claims } = await fetchClaimsPageByIds({
       oystehr,
@@ -357,7 +492,7 @@ describe('fetchClaimsPageByIds', () => {
       resourceType: 'Patient',
       id: 'patient-1',
     } as Resource;
-    const { oystehr } = stubOystehr([makeClaim('claim-1'), patient]);
+    const { oystehr } = stubPageClient([makeClaim('claim-1'), patient]);
 
     const { claims, includedResources } = await fetchClaimsPageByIds({
       oystehr,
@@ -368,7 +503,7 @@ describe('fetchClaimsPageByIds', () => {
   });
 
   it('skips an id the server did not return rather than leaving a hole', async () => {
-    const { oystehr } = stubOystehr([makeClaim('claim-2')]);
+    const { oystehr } = stubPageClient([makeClaim('claim-2')]);
 
     const { claims } = await fetchClaimsPageByIds({
       oystehr,
@@ -378,7 +513,7 @@ describe('fetchClaimsPageByIds', () => {
   });
 
   it('does not search at all for an empty page', async () => {
-    const { oystehr, search } = stubOystehr([]);
+    const { oystehr, search } = stubPageClient([]);
 
     const result = await fetchClaimsPageByIds({
       oystehr,
@@ -390,248 +525,5 @@ describe('fetchClaimsPageByIds', () => {
       claims: [],
       includedResources: [],
     });
-  });
-});
-
-const AR_STAGE_FILTER = {
-  name: '_tag',
-  value: 'https://fhir.ottehr.com/billing/ar-stage|insurance-payer',
-};
-
-const FILTER_PARAMS = [
-  {
-    name: '_sort',
-    value: '-_lastUpdated',
-  },
-  AR_STAGE_FILTER,
-];
-
-const stubBatchClient = (
-  linkedPatientIds: string[] = []
-): {
-  oystehr: Oystehr;
-  batch: Mock;
-  search: Mock;
-} => {
-  const batch = vi.fn().mockResolvedValue(makeBatch([]));
-  const search = vi.fn().mockResolvedValue({
-    unbundle: () =>
-      linkedPatientIds.length > 0
-        ? [
-            {
-              resourceType: 'Person',
-              id: 'person-1',
-              link: linkedPatientIds.map((id) => ({
-                target: {
-                  reference: `Patient/${id}`,
-                },
-              })),
-            },
-          ]
-        : [],
-  });
-  return {
-    oystehr: {
-      fhir: {
-        batch,
-        search,
-      },
-    } as unknown as Oystehr,
-    batch,
-    search,
-  };
-};
-
-const requestedUrls = (batch: Mock): string[] =>
-  batch.mock.calls.flatMap((call) => (call[0].requests as BatchInputGetRequest[]).map((r) => r.url));
-
-const chunkSizes = (batch: Mock): number[] =>
-  batch.mock.calls.map((call) => (call[0].requests as BatchInputGetRequest[]).length);
-
-const patientClauseUrl = (batch: Mock): string | undefined =>
-  requestedUrls(batch).find((url) => /[?&]patient=/.test(url));
-
-describe('searchClaimsBySearchText', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('applies the other filters to every clause and asks for ids only', async () => {
-    const { oystehr, batch } = stubBatchClient();
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: 'Smith',
-      filterParams: FILTER_PARAMS,
-      withServiceDateElements: false,
-    });
-
-    const urls = requestedUrls(batch);
-    expect(urls).toHaveLength(6);
-    urls.forEach((url) => {
-      expect(url.startsWith('/Claim?')).toBe(true);
-      expect(url).toContain('_sort=-_lastUpdated');
-      expect(url).toContain('_tag=https%3A%2F%2Ffhir.ottehr.com%2Fbilling%2Far-stage%7Cinsurance-payer');
-      expect(url).toContain('_elements=id,meta');
-      expect(url).toContain(`_count=${CLAIM_SEARCH_TEXT_MATCH_LIMIT}`);
-      expect(url).toContain('_total=accurate');
-      // Includes are what the page hydration is for, carrying them here would blow the batch budget
-      expect(url).not.toContain('_include');
-    });
-    expect(urls[0]).toContain('patient.name=Smith');
-    expect(urls[1]).toContain('provider:Practitioner.name=Smith');
-  });
-
-  it('asks for the fields the in-memory service date filter needs when a range is active', async () => {
-    const { oystehr, batch } = stubBatchClient();
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: 'Smith',
-      filterParams: FILTER_PARAMS,
-      withServiceDateElements: true,
-    });
-
-    requestedUrls(batch).forEach((url) => expect(url).toContain('_elements=id,meta,created,item'));
-  });
-
-  it('widens a typed patient id to the working copies its claims actually reference', async () => {
-    const { oystehr, batch, search } = stubBatchClient([PATIENT_ID, 'copy-1', 'copy-2']);
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: PATIENT_ID,
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-
-    expect(search).toHaveBeenCalledWith({
-      resourceType: 'Person',
-      params: [
-        {
-          name: 'link',
-          value: `Patient/${PATIENT_ID}`,
-        },
-      ],
-    });
-    expect(patientClauseUrl(batch)).toContain(`patient=Patient%2F${PATIENT_ID},Patient%2Fcopy-1,Patient%2Fcopy-2`);
-  });
-
-  it('still searches the typed id when no Person links it, so a working copy id works directly', async () => {
-    const { oystehr, batch } = stubBatchClient();
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: PATIENT_ID,
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-
-    expect(patientClauseUrl(batch)).toContain(`patient=Patient%2F${PATIENT_ID}`);
-  });
-
-  it('does not look up a Person for text that is not a uuid', async () => {
-    const { oystehr, search } = stubBatchClient();
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: 'Smith',
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-
-    expect(search).not.toHaveBeenCalled();
-  });
-
-  it('percent-encodes the search text but leaves a filter comma as the OR separator', async () => {
-    const { oystehr, batch } = stubBatchClient();
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: 'O&M Health',
-      filterParams: [
-        {
-          name: 'insurer',
-          value: 'https://payers/a,https://payers/b',
-        },
-      ],
-      withServiceDateElements: false,
-    });
-
-    const url = requestedUrls(batch)[0];
-    expect(url).toContain('patient.name=O%26M%20Health');
-    expect(url).toContain('insurer=https%3A%2F%2Fpayers%2Fa,https%3A%2F%2Fpayers%2Fb');
-  });
-
-  it('chunks the clauses so one batch never takes too many connections', async () => {
-    const { oystehr, batch } = stubBatchClient();
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: 'Smith',
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-    expect(chunkSizes(batch)).toEqual([4, 2]);
-
-    batch.mockClear();
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: CLAIM_ID,
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-    expect(chunkSizes(batch)).toEqual([4, 4]);
-  });
-
-  it('unions across chunks, deduping and re-sorting newest first', async () => {
-    const { oystehr, batch } = stubBatchClient();
-    batch
-      .mockResolvedValueOnce(makeBatch([searchsetEntry([makeClaim('older', '2026-01-01T00:00:00Z')])]))
-      .mockResolvedValueOnce(
-        makeBatch([
-          searchsetEntry([makeClaim('newer', '2026-07-01T00:00:00Z'), makeClaim('older', '2026-01-01T00:00:00Z')]),
-        ])
-      );
-
-    const claims = await searchClaimsBySearchText({
-      oystehr,
-      searchText: 'Smith',
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-    expect(claims.map((c) => c.id)).toEqual(['newer', 'older']);
-  });
-
-  it('warns when a clause hit the match limit, so partial results are visible', async () => {
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const { oystehr, batch } = stubBatchClient();
-    batch.mockResolvedValue(
-      makeBatch([searchsetEntry([makeClaim('claim-1', '2026-07-01T00:00:00Z')], CLAIM_SEARCH_TEXT_MATCH_LIMIT + 1)])
-    );
-
-    await searchClaimsBySearchText({
-      oystehr,
-      searchText: 'Smith',
-      filterParams: [],
-      withServiceDateElements: false,
-    });
-
-    expect(consoleWarn).toHaveBeenCalledTimes(1);
-    expect(consoleWarn.mock.calls[0][0]).toContain(String(CLAIM_SEARCH_TEXT_MATCH_LIMIT));
-  });
-
-  it('does not call out at all when the text is blank', async () => {
-    const { oystehr, batch } = stubBatchClient();
-
-    const claims = await searchClaimsBySearchText({
-      oystehr,
-      searchText: '   ',
-      filterParams: FILTER_PARAMS,
-      withServiceDateElements: false,
-    });
-
-    expect(batch).not.toHaveBeenCalled();
-    expect(claims).toEqual([]);
   });
 });
