@@ -44,7 +44,6 @@ import {
   taxIdRegex,
   zipRegex,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
@@ -127,9 +126,6 @@ const getClaimTagCodes = (claim: Claim): string[] =>
     .filter((t) => t.system === CLAIM_TAG_SYSTEM)
     .map((t) => t.code)
     .filter((c): c is string => !!c);
-
-const claimIdentifier = (claim: Claim, name: string): string | undefined =>
-  claim.identifier?.find((i) => i.system === ottehrIdentifierSystem(name))?.value;
 
 // --- service lines ---
 //
@@ -319,8 +315,6 @@ const READERS: Record<string, FieldReader> = {
   serviceDate: (m) => m.claim.item?.[0]?.servicedPeriod?.start ?? m.claim.item?.[0]?.servicedDate,
   created: (m) => m.claim.created,
   billingType: (m) => (claimHasRealCoverage(m.claim.insurance) ? 'Insurance Pay' : 'Self Pay'),
-  encounterId: (m) => claimIdentifier(m.claim, 'claim-encounter-id'),
-  appointmentId: (m) => claimIdentifier(m.claim, 'claim-appointment-id'),
   billed: (m) => (m.claim.total?.value != null ? String(m.claim.total.value) : undefined),
   diagnosisCodes: (m) =>
     (m.claim.diagnosis ?? [])

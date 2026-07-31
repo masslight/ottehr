@@ -31,7 +31,7 @@ is performed.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the rule runs, so it always matches what the rules
-actually support (69 properties, 57 of them settable).
+actually support (67 properties, 57 of them settable).
 
 ## Conditions
 
@@ -75,8 +75,6 @@ Which operators a property supports depends on its type (see the property tables
 | Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The date of service (read from the first service line). Setting it applies the one date to every service line, matching the claim editor. Cannot be cleared — setting it requires a value. |
 | Created date | `created` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | no | The date the claim was created. Read-only. |
 | Billing type | `billingType` | one of the listed values | equals, does not equal, is one of, is not one of, is present, is empty | no | Whether the claim bills insurance or the patient. Derived from whether the claim carries a real coverage, so it is read-only (attach or remove a coverage to change it). Allowed values: `Insurance Pay`, `Self Pay`. |
-| Encounter ID | `encounterId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | no | The clinical encounter this claim was generated from. Read-only. |
-| Appointment ID | `appointmentId` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, is present, is empty | no | The clinical appointment this claim was generated from. Read-only. |
 | Billed amount | `billed` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The claim total in dollars. Derived from the sum of service line charges, so it is read-only — it is recomputed when a rule updates line charges or removes lines. |
 | Diagnosis codes | `diagnosisCodes` | list of codes | contains, does not contain, is present, is empty | no | The list of ICD-10 diagnosis codes on the claim. Use contains / does-not-contain to test for a code; read-only (rules cannot restructure the diagnosis list). |
 | Procedure (CPT) codes | `cptCodes` | list of codes | contains, does not contain, is present, is empty | no | The list of CPT/HCPCS codes across the service lines. Use contains / does-not-contain to test for a code; change codes with the "Update service lines" action. |
