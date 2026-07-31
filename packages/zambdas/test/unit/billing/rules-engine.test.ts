@@ -1,7 +1,9 @@
-import { Basic, Claim, Location, Organization, Practitioner } from 'fhir/r4b';
+import { Basic, ChargeItemDefinition, Claim, Location, Organization, Practitioner } from 'fhir/r4b';
 import {
   BillingRule,
   CLAIM_TAG_SYSTEM,
+  CPT_CODE_SYSTEM,
+  EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   getPayerUrl,
   HOLD_TAG_NAME,
@@ -34,7 +36,13 @@ import {
   executeRule,
 } from '../../../src/billing/rules-engine/evaluator';
 import { buildRulesEngineKickoffTask, listToRules, rulesToList } from '../../../src/billing/rules-engine/serialization';
-import { BILLING_WORKING_COPY_TAG, PROVIDER_ROLE_TAG, SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import {
+  BILLING_WORKING_COPY_TAG,
+  buildNoCoverageStub,
+  CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  PROVIDER_ROLE_TAG,
+  SOURCE_IDENTIFIER_SYSTEM,
+} from '../../../src/billing/shared';
 
 const makeModel = (): RulesEngineClaimModel => ({
   claim: {
@@ -666,6 +674,177 @@ describe('service line actions', () => {
     const result = executeRule(rule, m);
     expect(result.held).toBe(true);
     expect(claimTags(m)).toContain(HOLD_TAG_NAME);
+  });
+});
+
+describe('apply charge master prices action', () => {
+  const makeChargeMaster = (
+    kind: 'insurance' | 'self-pay',
+    date: string,
+    prices: { code: string; amount: number; modifier?: string }[],
+    over?: Partial<ChargeItemDefinition>
+  ): ChargeItemDefinition => ({
+    resourceType: 'ChargeItemDefinition',
+    url: `urn:uuid:charge-master:${kind}:${date}`,
+    title: `${kind} ${date}`,
+    status: 'active',
+    date,
+    meta: { tag: [{ system: CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, code: kind }] },
+    propertyGroup: prices.map((price) => ({
+      priceComponent: [
+        {
+          type: 'base' as const,
+          code: { coding: [{ system: CPT_CODE_SYSTEM, code: price.code }] },
+          amount: { value: price.amount, currency: 'USD' },
+          ...(price.modifier ? { extension: [{ url: EXTENSION_URL_CPT_MODIFIER, valueCode: price.modifier }] } : {}),
+        },
+      ],
+    })),
+    ...over,
+  });
+
+  const addLine = (m: RulesEngineClaimModel, cptCode: string, charges: number, modifier?: string): void => {
+    m.claim.item = [
+      ...(m.claim.item ?? []),
+      {
+        sequence: (m.claim.item?.length ?? 0) + 1,
+        productOrService: { coding: [{ code: cptCode }] },
+        servicedPeriod: { start: '2026-01-05' },
+        net: { value: charges, currency: 'USD' },
+        ...(modifier ? { modifier: [{ coding: [{ code: modifier }] }] } : {}),
+      },
+    ];
+  };
+
+  const lineCharges = (m: RulesEngineClaimModel): (string | string[] | undefined)[] =>
+    (m.claim.item ?? []).map((line) => readServiceLineProperty(line, 'charges'));
+
+  it('re-prices matched lines from the insurance default (modifier-aware) and recomputes the total', () => {
+    const m = makeModel(); // the fixture claim carries a real coverage -> insurance billing type
+    addLine(m, '99214', 200, '25');
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [
+        { code: '99213', amount: 150 },
+        { code: '99214', amount: 250, modifier: '25' },
+      ]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '250']);
+    expect(m.claim.total?.value).toBe(400);
+  });
+
+  it('prices only the lines matching the predicate', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [
+        { code: '99213', amount: 150 },
+        { code: '99214', amount: 250 },
+      ]),
+    ];
+    const error = applyAction(
+      {
+        type: 'applyChargeMasterPrices',
+        match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '200']);
+    expect(m.claim.total?.value).toBe(350);
+  });
+
+  it('selects the self-pay default when the claim carries no real coverage', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['60']);
+  });
+
+  it('selects the most recent charge master effective on or before the date of service', () => {
+    const m = makeModel(); // fixture line's service date is 2026-01-05
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-01-01', [{ code: '99213', amount: 100 }]),
+      makeChargeMaster('insurance', '2026-01-01', [{ code: '99213', amount: 120 }]),
+      makeChargeMaster('insurance', '2026-02-01', [{ code: '99213', amount: 999 }]), // effective after DOS
+      makeChargeMaster('insurance', '2026-01-04', [{ code: '99213', amount: 555 }], { status: 'retired' }),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['120']);
+  });
+
+  it('treats zero matching lines as a no-op, even with no charge masters loaded', () => {
+    const m = makeModel();
+    const before = JSON.stringify(m.claim);
+    const error = applyAction(
+      {
+        type: 'applyChargeMasterPrices',
+        match: { type: 'field', property: 'cptCode', operator: 'eq', value: '00000' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(JSON.stringify(m.claim)).toBe(before);
+  });
+
+  it('fails the rule when no applicable charge master exists, leaving the claim untouched', () => {
+    const m = makeModel();
+    const before = JSON.stringify(m.claim);
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain(
+      'no active charge master'
+    );
+    m.chargeMasters = [makeChargeMaster('insurance', '2026-02-01', [{ code: '99213', amount: 100 }])];
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain(
+      'no active charge master'
+    );
+    expect(JSON.stringify(m.claim)).toBe(before);
+  });
+
+  it('fails the rule when the claim has no date of service to select a charge master by', () => {
+    const m = makeModel();
+    delete m.claim.item![0].servicedPeriod;
+    m.chargeMasters = [makeChargeMaster('insurance', '2025-01-01', [{ code: '99213', amount: 100 }])];
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain('date of service');
+  });
+
+  it('fails without changing any line when a matched line has no price entry (all-or-nothing)', () => {
+    const m = makeModel();
+    addLine(m, '99999', 200);
+    m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toContain('99999');
+    // The claim must never persist half-priced: the priceable 99213 line stays untouched too.
+    expect(lineCharges(m)).toEqual(['125.5', '200']);
+    expect(m.claim.total?.value).toBe(125.5);
+  });
+
+  it('holds the claim via executeRule when pricing fails', () => {
+    const m = makeModel();
+    const rule: BillingRule = {
+      id: 'r-cm',
+      name: 'Price from charge master',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: { type: 'actions', actions: [{ type: 'applyChargeMasterPrices', match: { type: 'all' } }] },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.error).toContain('charge master');
+    expect(result.appliedActions).toHaveLength(0);
   });
 });
 

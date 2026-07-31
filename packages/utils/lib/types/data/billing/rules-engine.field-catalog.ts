@@ -1029,16 +1029,11 @@ export function serviceLineSetValueProblem(
   return strictValueProblem(def, trimmed);
 }
 
-// The tag names a rule's applyTag actions reference (deduped, in tree order) — save-billing-rules
-// checks them against the tags feature.
-export function collectApplyTagNames(rule: { conditional: RuleConditional }): string[] {
-  const names: string[] = [];
+// Walk every action in a rule's conditional tree (branch outcomes, nested conditionals, and the
+// otherwise outcome) in tree order — the shared traversal under the collectors below.
+function forEachRuleAction(rule: { conditional: RuleConditional }, visit: (action: RuleAction) => void): void {
   const visitOutcome = (outcome: RuleOutcome): void => {
-    if (outcome.type === 'actions') {
-      for (const action of outcome.actions) {
-        if (action.type === 'applyTag' && !names.includes(action.tag)) names.push(action.tag);
-      }
-    }
+    if (outcome.type === 'actions') outcome.actions.forEach(visit);
     if (outcome.type === 'conditional') visitConditional(outcome.conditional);
   };
   const visitConditional = (conditional: RuleConditional): void => {
@@ -1046,7 +1041,26 @@ export function collectApplyTagNames(rule: { conditional: RuleConditional }): st
     if (conditional.otherwise) visitOutcome(conditional.otherwise);
   };
   visitConditional(rule.conditional);
+}
+
+// The tag names a rule's applyTag actions reference (deduped, in tree order) — save-billing-rules
+// checks them against the tags feature.
+export function collectApplyTagNames(rule: { conditional: RuleConditional }): string[] {
+  const names: string[] = [];
+  forEachRuleAction(rule, (action) => {
+    if (action.type === 'applyTag' && !names.includes(action.tag)) names.push(action.tag);
+  });
   return names;
+}
+
+// Whether any action in the rule applies charge master prices — the engine prefetches the candidate
+// charge masters for a run only when an enabled rule needs them.
+export function ruleUsesChargeMasterPrices(rule: { conditional: RuleConditional }): boolean {
+  let uses = false;
+  forEachRuleAction(rule, (action) => {
+    if (action.type === 'applyChargeMasterPrices') uses = true;
+  });
+  return uses;
 }
 
 // The provider/facility reference values a rule's setField actions assign (deduped, in tree
@@ -1060,26 +1074,16 @@ export interface SetResourceRef {
 export function collectSetResourceRefs(rule: { conditional: RuleConditional }): SetResourceRef[] {
   const refs: SetResourceRef[] = [];
   const seen = new Set<string>();
-  const visitOutcome = (outcome: RuleOutcome): void => {
-    if (outcome.type === 'actions') {
-      for (const action of outcome.actions) {
-        if (action.type !== 'setField') continue;
-        const def = CATALOG_BY_ID.get(action.field);
-        if (def?.valueType !== 'provider' && def?.valueType !== 'facility') continue;
-        const ref = action.value?.trim();
-        const key = `${action.field}|${ref}`;
-        if (!ref || seen.has(key)) continue;
-        seen.add(key);
-        refs.push({ field: action.field, ref });
-      }
-    }
-    if (outcome.type === 'conditional') visitConditional(outcome.conditional);
-  };
-  const visitConditional = (conditional: RuleConditional): void => {
-    for (const branch of conditional.branches) visitOutcome(branch.outcome);
-    if (conditional.otherwise) visitOutcome(conditional.otherwise);
-  };
-  visitConditional(rule.conditional);
+  forEachRuleAction(rule, (action) => {
+    if (action.type !== 'setField') return;
+    const def = CATALOG_BY_ID.get(action.field);
+    if (def?.valueType !== 'provider' && def?.valueType !== 'facility') return;
+    const ref = action.value?.trim();
+    const key = `${action.field}|${ref}`;
+    if (!ref || seen.has(key)) return;
+    seen.add(key);
+    refs.push({ field: action.field, ref });
+  });
   return refs;
 }
 
@@ -1147,7 +1151,7 @@ export function validateRuleFieldReferences(rule: { name: string; conditional: R
       }
       return;
     }
-    if (action.type === 'removeServiceLines') {
+    if (action.type === 'removeServiceLines' || action.type === 'applyChargeMasterPrices') {
       visitServiceLineMatch(action.match);
       return;
     }

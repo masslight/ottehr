@@ -268,7 +268,6 @@ export default function EditInsurance(): JSX.Element {
           <CustomBreadcrumbs
             chain={[
               { link: '/admin', children: 'Admin' },
-              { link: BILLING_URL, children: 'Billing Configuration' },
               { link: `${BILLING_URL}/insurance`, children: 'Insurance' },
               ...(insuranceTab
                 ? [
