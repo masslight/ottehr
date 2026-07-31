@@ -16,6 +16,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   ConsentDetails,
+  deconstructCanonicalUrl,
   DISPLAY_DATE_FORMAT,
   EHRVisitDetails,
   FHIR_RESOURCE_NOT_FOUND,
@@ -372,10 +373,8 @@ const getIntakePaperworkFlowForms = async (
 
   const results = await Promise.allSettled(
     (flowQuestionnaire.derivedFrom ?? []).map(async (canonical) => {
-      const [url, version] = canonical.split('|');
-      if (!url || !version) {
-        throw new Error(`Malformed derivedFrom canonical on flow ${flowQuestionnaire.url}: ${canonical}`);
-      }
+      const { url, version } = deconstructCanonicalUrl(canonical, flowQuestionnaire);
+
       return getCanonicalQuestionnaire({ url, version }, oystehr);
     })
   );

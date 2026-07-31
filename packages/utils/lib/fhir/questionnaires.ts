@@ -144,10 +144,7 @@ export const assembleFlowQuestionnaireItems = async (
 
   const formItemLists = await Promise.all(
     derivedFrom.map(async (canonical) => {
-      const [url, version] = canonical.split('|');
-      if (!url || !version) {
-        throw new Error(`Malformed derivedFrom canonical "${canonical}" on paperwork flow ${flowQuestionnaire.url}`);
-      }
+      const { url, version } = deconstructCanonicalUrl(canonical, flowQuestionnaire);
       const form = await getCanonicalQuestionnaire({ url, version }, oystehr);
       return form.item ?? [];
     })
@@ -190,11 +187,14 @@ export const resolveEffectiveQuestionnaire = async (
   return { ...questionnaire, item };
 };
 
-/** getQuestionnaireForQR + flow assembly: resolves the QR's Questionnaire, assembling it when it's a paperwork flow. */
-export const getEffectiveQuestionnaireForQR = async (
-  qr: QuestionnaireResponse,
-  oystehr: Oystehr
-): Promise<Questionnaire> => {
-  const questionnaire = await getQuestionnaireForQR(qr, oystehr);
-  return resolveEffectiveQuestionnaire(questionnaire, oystehr);
+export const deconstructCanonicalUrl = (
+  canonical: string,
+  questionnaire: Questionnaire
+): { url: string; version: string } => {
+  const [url, version] = canonical.split('|');
+  if (!url || !version) {
+    throw new Error(`Malformed derivedFrom canonical "${canonical}" on Questionnaire/${questionnaire.id}`);
+  }
+
+  return { url, version };
 };
