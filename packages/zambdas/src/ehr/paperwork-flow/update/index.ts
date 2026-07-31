@@ -6,7 +6,6 @@ import { isEqual } from 'lodash-es';
 import {
   FlowService,
   PAPERWORK_FLOW_ERROR,
-  PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PaperworkFlowBase,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
@@ -19,6 +18,7 @@ import { patchQuestionnaireVersion } from '../../practice-managed-questionnaire/
 import {
   buildFlowQuestionnaire,
   getCanonicalUrlFromQ,
+  getFlowModes,
   getFormCanonicals,
   getOttehrManagedQuestionnaires,
   healthcareServiceExtensionUrlMap,
@@ -173,13 +173,6 @@ function makeTargetFlowQuestionnaireRequests(input: {
   };
 
   return { retirePatch, createPost, nextCanonical };
-}
-
-function getFlowModes(q: Questionnaire): ServiceMode[] {
-  return (q.extension ?? [])
-    .filter((ext) => ext.url === PAPERWORK_FLOW_MODE_EXTENSION_URL)
-    .map((ext) => ext.valueCode)
-    .filter((mode): mode is ServiceMode => mode != null);
 }
 
 // make additional questionnaire patches (if necessary)

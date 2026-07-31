@@ -7,10 +7,11 @@ import { FlowForm } from 'utils';
 interface OrderedFormEditorProps {
   formsSelected: FlowForm[];
   formOptions: FlowForm[];
+  error: boolean;
   onChange: (next: FlowForm[]) => void;
 }
 
-export const OrderedFormEditor: FC<OrderedFormEditorProps> = ({ formsSelected, formOptions, onChange }) => {
+export const OrderedFormEditor: FC<OrderedFormEditorProps> = ({ formsSelected, formOptions, error, onChange }) => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const available = formOptions.filter((f) => !formsSelected.some((form) => form.id === f.id));
@@ -62,7 +63,7 @@ export const OrderedFormEditor: FC<OrderedFormEditorProps> = ({ formsSelected, f
           ))
         )}
       </Stack>
-      <FormControl fullWidth size="small">
+      <FormControl fullWidth size="small" error={error}>
         <InputLabel id="add-flow-form">Add form</InputLabel>
         <Select
           labelId="add-flow-form"

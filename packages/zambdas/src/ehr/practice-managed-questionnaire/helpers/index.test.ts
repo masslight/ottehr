@@ -1,4 +1,5 @@
-import { Questionnaire } from 'fhir/r4b';
+import { HealthcareService, Questionnaire } from 'fhir/r4b';
+import { PAPERWORK_FLOW_INPERSON_EXTENSION_URL } from 'utils';
 import { describe, expect, it } from 'vitest';
 import { PAPERWORK_FLOW_BASE_VERSION } from '../../paperwork-flow/shared';
 import {
@@ -145,13 +146,19 @@ describe('bumpFlowFormVersionRequests', () => {
       flowQuestionnaire({ id: 'flow-1', derivedFrom: ['https://ottehr.com/FHIR/Questionnaire/other-form|1.0.0'] }),
     ];
 
-    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires });
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services: [] });
 
     expect(result).toEqual([]);
   });
 
   it('returns no requests when flowQuestionnaires is empty', () => {
-    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires: [] });
+    const result = bumpFlowFormVersionRequests({
+      previousVersion,
+      nextVersion,
+      url,
+      flowQuestionnaires: [],
+      services: [],
+    });
 
     expect(result).toEqual([]);
   });
@@ -165,7 +172,7 @@ describe('bumpFlowFormVersionRequests', () => {
       }),
     ];
 
-    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires });
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services: [] });
 
     expect(result).toEqual([
       {
@@ -195,7 +202,7 @@ describe('bumpFlowFormVersionRequests', () => {
       flowQuestionnaire({ id: 'flow-1', version: undefined, derivedFrom: [`${url}|${previousVersion}`] }),
     ];
 
-    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires });
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services: [] });
 
     expect(result[1]).toMatchObject({
       resource: { version: PAPERWORK_FLOW_BASE_VERSION },
@@ -208,7 +215,7 @@ describe('bumpFlowFormVersionRequests', () => {
       flowQuestionnaire({ id: 'flow-2', derivedFrom: [`${url}|${previousVersion}`] }),
     ];
 
-    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires });
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services: [] });
 
     expect(result).toHaveLength(4);
     expect(result[0]).toMatchObject({ method: 'PATCH', url: 'Questionnaire/flow-1' });
@@ -220,7 +227,7 @@ describe('bumpFlowFormVersionRequests', () => {
   it('ignores flows whose derivedFrom references a different version of the target form', () => {
     const flowQuestionnaires = [flowQuestionnaire({ id: 'flow-1', derivedFrom: [`${url}|9.9.9`] })];
 
-    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires });
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services: [] });
 
     expect(result).toEqual([]);
   });
@@ -228,7 +235,7 @@ describe('bumpFlowFormVersionRequests', () => {
   it('does not throw when a flow has no derivedFrom', () => {
     const flowQuestionnaires = [flowQuestionnaire({ id: 'flow-1', derivedFrom: undefined })];
 
-    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires });
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services: [] });
 
     expect(result).toEqual([]);
   });
@@ -245,12 +252,87 @@ describe('bumpFlowFormVersionRequests', () => {
       }),
     ];
 
-    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires });
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services: [] });
     const createPost = result[1] as { resource: Questionnaire };
 
     expect(createPost.resource.id).toBeUndefined();
     expect(createPost.resource.meta).toEqual({
       tag: [{ system: 'https://ottehr.com/paperwork-flow', code: 'paperwork-flow' }],
     });
+  });
+
+  const healthcareService = (overrides: Partial<HealthcareService> = {}): HealthcareService =>
+    ({
+      resourceType: 'HealthcareService',
+      id: 'hs-1',
+      active: true,
+      ...overrides,
+    }) as HealthcareService;
+
+  it('repoints a service extension from the previous flow canonical to the next one', () => {
+    const flowQuestionnaires = [
+      flowQuestionnaire({ id: 'flow-1', version: '2.3.0', derivedFrom: [`${url}|${previousVersion}`] }),
+    ];
+    const services = [
+      healthcareService({
+        extension: [
+          {
+            url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
+            valueCanonical: 'https://ottehr.com/FHIR/Questionnaire/some-flow|2.3.0',
+          },
+        ],
+      }),
+    ];
+
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services });
+
+    expect(result).toHaveLength(3);
+    expect(result[2]).toEqual({
+      method: 'PATCH',
+      url: 'HealthcareService/hs-1',
+      operations: [
+        {
+          op: 'replace',
+          path: '/extension',
+          value: [
+            {
+              url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
+              valueCanonical: 'https://ottehr.com/FHIR/Questionnaire/some-flow|2.3.1',
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('leaves a service extension untouched when it points at an unrelated flow canonical', () => {
+    const flowQuestionnaires = [
+      flowQuestionnaire({ id: 'flow-1', version: '2.3.0', derivedFrom: [`${url}|${previousVersion}`] }),
+    ];
+    const services = [
+      healthcareService({
+        extension: [
+          {
+            url: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
+            valueCanonical: 'https://ottehr.com/FHIR/Questionnaire/other-flow|1.0.0',
+          },
+        ],
+      }),
+    ];
+
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services });
+
+    expect(result).toHaveLength(2);
+  });
+
+  it('does not patch a service when the target flow does not match any of its extensions', () => {
+    const flowQuestionnaires = [
+      flowQuestionnaire({ id: 'flow-1', derivedFrom: ['https://ottehr.com/FHIR/Questionnaire/other-form|1.0.0'] }),
+    ];
+    const services = [healthcareService()];
+
+    const result = bumpFlowFormVersionRequests({ previousVersion, nextVersion, url, flowQuestionnaires, services });
+
+    expect(result).toEqual([]);
   });
 });
