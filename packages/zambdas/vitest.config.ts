@@ -23,9 +23,10 @@ export default defineConfig({
     // never times out.
     teardownTimeout: 60000,
     // Root-only in vitest 3. Caps concurrent workers to keep write pressure on the shared backend
-    // modest during integration tests (matches the prior single-config behavior). The CI
-    // integration-only run (test:integration:ci) raises this via --maxWorkers on the CLI — the
-    // suite is network-bound, so more in-flight files there buy wall time, not CPU.
+    // modest during integration tests (matches the prior single-config behavior). Raising it does
+    // not speed the integration suite up (measured: 10 workers ≈ 6 workers) — every zambda handler
+    // executes in the single global-setup process's in-process server, so throughput is bounded by
+    // that one Node process, and the extra client workers only steal CPU from co-running suites.
     maxWorkers: 6,
     minWorkers: 1,
     server: {
