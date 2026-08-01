@@ -6,9 +6,49 @@
 // of the total the tail owns. Runs in CI right after the suite so the numbers live in the job log.
 
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 const REPORT_PATH =
   process.argv[2] ?? 'packages/zambdas/test-results/integration-report.json';
+const PENDING_PATH = path.join(path.dirname(REPORT_PATH), 'pending-network.jsonl');
+
+// Littered-network report (written by test/helpers/pending-network-tracker.setup.ts): requests
+// still in flight >500ms after a test file finished. These are the --no-isolate blockers. Printed
+// first — and unconditionally — because a run that crashes mid-suite (the failure mode the tracker
+// exists to explain) writes this file but never gets to write the timing report below.
+let pendingLines = [];
+try {
+  pendingLines = readFileSync(PENDING_PATH, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
+} catch {
+  // no report file — either no leaks or tracker not active
+}
+
+if (pendingLines.length === 0) {
+  console.log('Pending-network report: no littered requests detected (or tracker not active).');
+} else {
+  console.log(`::group::Littered network requests — ${pendingLines.length} still pending at file end`);
+  const byFile = new Map();
+  for (const e of pendingLines) {
+    const list = byFile.get(e.testPath) ?? [];
+    list.push(e);
+    byFile.set(e.testPath, list);
+  }
+  for (const [file, entries] of [...byFile.entries()].sort((a, b) => b[1].length - a[1].length)) {
+    console.log(`\n${file} — ${entries.length} pending request(s):`);
+    const seen = new Set();
+    for (const e of entries) {
+      const key = `${e.method} ${e.url}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      console.log(`  ${e.method} ${e.url} (in flight ${(e.ageMs / 1000).toFixed(1)}s)`);
+      for (const frame of e.stack ?? []) console.log(`      ${frame}`);
+    }
+  }
+  console.log('::endgroup::');
+}
 
 let report;
 try {
