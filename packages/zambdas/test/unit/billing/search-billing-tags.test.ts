@@ -100,4 +100,16 @@ describe('search-billing-tags', () => {
     // The canonical description fills in when the stored definition has none.
     expect(hold?.description).toBe(HOLD_SYSTEM_TAG.description);
   });
+
+  it('does not flag a stale definition whose name has left the system-managed list, despite its extension', async () => {
+    // e.g. a pre-rename "auto-accident" definition seeded with the is-system-tag extension.
+    const stale: Basic = { ...systemTagBasic({ name: 'auto-accident', description: 'old seeded copy' }), id: 'aa-1' };
+    search.mockResolvedValue({ unbundle: () => [stale] });
+
+    const { tags } = await performEffect(oystehr);
+
+    expect(tags.find((tag) => tag.name === 'auto-accident')?.isSystemTag).toBe(false);
+    // The current system-managed tags still get their synthetic entries alongside it.
+    expect(tags.map((tag) => tag.name)).toEqual(['auto-accident', HOLD_TAG_NAME, AUTO_ACCIDENT_TAG_NAME]);
+  });
 });

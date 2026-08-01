@@ -4,7 +4,8 @@
 // SYSTEM_MANAGED_TAGS and everything downstream follows:
 // - search-billing-tags always returns them (so the Tags page shows them even before any claim
 //   has used them) and marks them isSystemTag,
-// - save-billing-tag / delete-billing-tag refuse to edit or delete them,
+// - save-billing-tag / delete-billing-tag refuse to edit or delete them, and refuse to create or
+//   rename another tag onto their names,
 // - tag validations (save-billing-rules, tag-billing-claim) always accept them,
 // - the zambdas seed their Basic definitions from these entries (see systemTagBasic in
 //   packages/zambdas/src/billing/shared.ts),
@@ -40,4 +41,13 @@ export const SYSTEM_MANAGED_TAGS: readonly SystemManagedTag[] = [HOLD_SYSTEM_TAG
 
 export function isSystemManagedTagName(name: string | undefined): boolean {
   return !!name && SYSTEM_MANAGED_TAGS.some((tag) => tag.name === name);
+}
+
+// The canonical system-managed name that `name` collides with, or undefined when there is none.
+// Case-insensitive, unlike isSystemManagedTagName: a user-created "hold" would only masquerade as
+// Hold, so the whole spelling family is reserved on the Tags page.
+export function collidingSystemManagedTagName(name: string | undefined): string | undefined {
+  const normalized = name?.trim().toLowerCase();
+  if (!normalized) return undefined;
+  return SYSTEM_MANAGED_TAGS.find((tag) => tag.name.toLowerCase() === normalized)?.name;
 }

@@ -251,14 +251,14 @@ export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
-// The tag's name (code.text) is its identity everywhere tags are referenced (claim meta tags,
-// rules), so a definition whose name matches a system-managed tag is treated as system-managed
-// even if it was stored without the is-system-tag extension.
+// A tag definition is system-managed iff its name (code.text) is in SYSTEM_MANAGED_TAGS — the name
+// is the tag's identity everywhere tags are referenced (claim meta tags, rules), and the
+// code-defined list is the single source of truth. A definition whose name leaves the list (e.g.
+// after a system tag is renamed in code) degrades to an ordinary, editable/deletable tag. The
+// is-system-tag extension written by systemTagBasic records provenance only and deliberately does
+// not drive behavior.
 export function isSystemTag(tag: Basic): boolean {
-  return (
-    isSystemManagedTagName(tag.code?.text) ||
-    (tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false)
-  );
+  return isSystemManagedTagName(tag.code?.text);
 }
 
 // The one FHIR encoding of a system-managed tag definition (see utils' SYSTEM_MANAGED_TAGS).
