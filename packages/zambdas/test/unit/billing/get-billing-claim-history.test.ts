@@ -172,7 +172,7 @@ describe('get-billing-claim-history performEffect', () => {
     };
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([bad, good], [practitionerU1]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: { ENVIRONMENT: 'staging' } as any });
 
     expect(entries).toHaveLength(2);
     expect(entries.find((e) => e.id === 'bad')?.changes).toEqual([]);
@@ -190,7 +190,7 @@ describe('get-billing-claim-history performEffect', () => {
     } as Provenance;
     const oystehr = makeOystehr({ Provenance: () => pagedBundle([malformed]) });
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: null });
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: { ENVIRONMENT: 'staging' } as any });
 
     // Graceful: the entry is still returned (with its changes) rather than crashing the view.
     expect(entries).toHaveLength(1);
