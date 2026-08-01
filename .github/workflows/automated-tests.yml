@@ -107,9 +107,7 @@ jobs:
           fi
 
       - name: Spec tests with coverage
-        # TODO(ci-test-performance): --force is TEMPORARY — it bypasses the turbo cache so this PR's
-        # timing measurements reflect real executions. Remove it before merge.
-        run: npx turbo run test:ci test:unit:ci test:component:ci test:integration:ci --concurrency=6 --output-logs=errors-only --continue=always --summarize --force
+        run: npx turbo run test:ci test:unit:ci test:component:ci test:integration:ci --concurrency=6 --output-logs=errors-only --continue=always --summarize
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
