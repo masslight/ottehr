@@ -86,6 +86,28 @@
         "package.json"
       ]
     },
+    "test:integration:ci": {
+      "dependsOn": ["^build"],
+      "env": ["ENV", "CI"],
+      "outputs": ["coverage/integration/**"],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "lib/**/*.ts",
+        "lib/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "tests/**/*.ts",
+        "tests/**/*.tsx",
+        "*.ts",
+        "*.tsx",
+        "vitest.config.ts",
+        "vitest.config.*.ts",
+        "vitest.setup.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
     "test:component:ci": {
       "dependsOn": ["^build"],
       "env": ["ENV", "CI"],

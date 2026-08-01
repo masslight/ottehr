@@ -107,7 +107,9 @@ jobs:
           fi
 
       - name: Spec tests with coverage
-        run: npx turbo run test:ci test:unit:ci test:component:ci --concurrency=5 --output-logs=errors-only --continue=always --summarize
+        # TODO(ci-test-performance): --force is TEMPORARY — it bypasses the turbo cache so this PR's
+        # timing measurements reflect real executions. Remove it before merge.
+        run: npx turbo run test:ci test:unit:ci test:component:ci test:integration:ci --concurrency=6 --output-logs=errors-only --continue=always --summarize --force
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
@@ -162,6 +164,15 @@ jobs:
           file: ./packages/zambdas/coverage/integration/lcov.info
           fail-on-error: false
 
+      - name: Upload zambdas unit coverage to Coveralls
+        if: ${{ !cancelled() && hashFiles('packages/zambdas/coverage/unit/lcov.info') != '' }}
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
+        with:
+          flag-name: zambdas-unit
+          parallel: true
+          file: ./packages/zambdas/coverage/unit/lcov.info
+          fail-on-error: false
+
       - name: Upload EHR unit coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('apps/ehr/coverage/unit/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
@@ -203,7 +214,7 @@ jobs:
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6
         with:
           parallel-finished: true
-          carryforward: "spec,test-utils,deploy,utils,zambdas,ehr-unit,ehr-component,intake-unit,intake-component"
+          carryforward: "spec,test-utils,deploy,utils,zambdas,zambdas-unit,ehr-unit,ehr-component,intake-unit,intake-component"
           fail-on-error: false
 
       - name: Set GitHub Commit Status
