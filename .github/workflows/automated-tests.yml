@@ -293,6 +293,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: node ./scripts/print-test-run-summary.mjs
 
+      - name: Integration timing digest
+        if: ${{ !cancelled() }}
+        run: node ./scripts/print-integration-timing-digest.mjs
+
       - name: Upload integration test timing report
         if: ${{ !cancelled() && hashFiles('packages/zambdas/test-results/integration-report.json') != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
