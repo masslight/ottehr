@@ -26,12 +26,24 @@ try {
   // no report file — either no leaks or tracker not active
 }
 
-if (pendingLines.length === 0) {
+const crashes = pendingLines.filter((e) => e.type === 'unhandledRejection' || e.type === 'uncaughtException');
+const litter = pendingLines.filter((e) => e.type === 'pending' || e.type === undefined);
+
+if (crashes.length > 0) {
+  console.log(`::group::Worker crash events — ${crashes.length} unhandled rejection(s)/exception(s)`);
+  for (const e of crashes) {
+    console.log(`\n[${e.type}] during ${e.testPath}: ${e.message}`);
+    for (const frame of e.stack ?? []) console.log(`      ${frame}`);
+  }
+  console.log('::endgroup::');
+}
+
+if (litter.length === 0) {
   console.log('Pending-network report: no littered requests detected (or tracker not active).');
 } else {
-  console.log(`::group::Littered network requests — ${pendingLines.length} still pending at file end`);
+  console.log(`::group::Littered network requests — ${litter.length} left in flight`);
   const byFile = new Map();
-  for (const e of pendingLines) {
+  for (const e of litter) {
     const list = byFile.get(e.testPath) ?? [];
     list.push(e);
     byFile.set(e.testPath, list);
