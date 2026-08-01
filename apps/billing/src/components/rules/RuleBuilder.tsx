@@ -22,6 +22,7 @@ import {
   getServiceLinePropertyDef,
   HOLD_TAG_NAME,
   operatorIsMultiValue,
+  operatorIsRegex,
   operatorNeedsValue,
   RULE_ACTION_TYPE,
   RULE_CONDITION_TYPE,
@@ -158,6 +159,40 @@ interface ValueInputValidationProps {
 const formatHint = (def: Pick<RuleFieldDef, 'format'> | undefined): string | undefined =>
   def?.format && RULE_VALUE_FORMATS[def.format].validate ? RULE_VALUE_FORMATS[def.format].hint : undefined;
 
+const REGEX_HINT = 'Regular expression; anchor with ^ and $ to match the whole value, e.g. ^9938[1-7]$';
+
+// Pattern input for the regex operators: always a free-text field, regardless of the property's
+// usual picker (payer search, tag dropdown, CPT autocomplete, option select) — a pattern is not one
+// of the enumerated values.
+function RegexPatternInput({
+  value,
+  onChange,
+  label,
+  required,
+  error,
+  helperText,
+  inputRef,
+}: {
+  value: string | string[] | null | undefined;
+  onChange: (value: string | string[]) => void;
+  label?: string;
+} & ValueInputValidationProps): ReactElement {
+  return (
+    <TextField
+      size="small"
+      label={label ?? 'Pattern'}
+      value={valueToText(value)}
+      onChange={(e) => onChange(e.target.value)}
+      required={required}
+      error={error}
+      helperText={helperText}
+      inputRef={inputRef}
+      inputProps={{ style: { fontFamily: 'monospace' } }}
+      sx={{ minWidth: 240 }}
+    />
+  );
+}
+
 // Typed value input dispatched on a valueType: dropdowns for options, date/number pickers, and a
 // text field (comma-separated when multiple) otherwise. Shared by the claim-field inputs and the
 // service-line match/set inputs.
@@ -249,6 +284,7 @@ function TypedValueInput({
 function FieldValueInput({
   fieldId,
   multiple,
+  isRegex,
   value,
   onChange,
   label,
@@ -260,12 +296,27 @@ function FieldValueInput({
 }: {
   fieldId: string;
   multiple: boolean;
+  // The regex operators take a pattern: a plain text input replaces the field's usual picker.
+  isRegex?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
   allowEmptyOption?: boolean;
 } & ValueInputValidationProps): ReactElement {
   const def = getRuleFieldDef(fieldId);
+  if (isRegex) {
+    return (
+      <RegexPatternInput
+        value={value}
+        onChange={onChange}
+        label={label}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
   if (def?.valueType === 'payer') {
     return (
       <PayerSelect
@@ -358,6 +409,7 @@ function FieldValueInput({
 function ServiceLineValueInput({
   def,
   multiple,
+  isRegex,
   value,
   onChange,
   label,
@@ -369,11 +421,26 @@ function ServiceLineValueInput({
 }: {
   def: ServiceLinePropertyDef | undefined;
   multiple: boolean;
+  // The regex operators take a pattern: a plain text input replaces the property's usual picker.
+  isRegex?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
   allowEmptyOption?: boolean;
 } & ValueInputValidationProps): ReactElement {
+  if (isRegex) {
+    return (
+      <RegexPatternInput
+        value={value}
+        onChange={onChange}
+        label={label}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
   if (def?.format === 'cpt' && !multiple) {
     return (
       <ProcedureCodeAutocomplete
@@ -472,9 +539,12 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
           onChange={(e) => {
             const operator = e.target.value as RuleOperator;
             // The value survives same-shape switches (equals -> does not equal) but resets when the
-            // arity changes: a leftover list under a single-value operator would otherwise be
-            // silently compared as its first entry.
-            const sameShape = operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator);
+            // arity changes (a leftover list under a single-value operator would otherwise be
+            // silently compared as its first entry) or when regex-ness changes (a literal is not a
+            // pattern, and vice versa).
+            const sameShape =
+              operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator) &&
+              operatorIsRegex(operator) === operatorIsRegex(value.operator);
             replace(sameShape ? { ...value, operator } : { ...value, operator, value: '' });
             clearErrors(name);
           }}
@@ -500,11 +570,12 @@ function FieldConditionEditor({ name }: { name: string }): ReactElement | null {
             <FieldValueInput
               fieldId={value.field}
               multiple={operatorIsMultiValue(value.operator)}
+              isRegex={operatorIsRegex(value.operator)}
               value={fieldValue}
               onChange={onChange}
               required
               error={!!error}
-              helperText={error?.message ?? formatHint(def)}
+              helperText={error?.message ?? (operatorIsRegex(value.operator) ? REGEX_HINT : formatHint(def))}
               inputRef={ref}
             />
           )}
@@ -618,8 +689,10 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
               value={value.operator}
               onChange={(e) => {
                 const operator = e.target.value as RuleOperator;
-                // Same arity-change reset as the condition editor's operator picker.
-                const sameShape = operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator);
+                // Same arity/regex-change reset as the condition editor's operator picker.
+                const sameShape =
+                  operatorIsMultiValue(operator) === operatorIsMultiValue(value.operator) &&
+                  operatorIsRegex(operator) === operatorIsRegex(value.operator);
                 replace(sameShape ? { ...value, operator } : { ...value, operator, value: '' });
                 clearErrors(name);
               }}
@@ -644,11 +717,12 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
                 <ServiceLineValueInput
                   def={def}
                   multiple={operatorIsMultiValue(value.operator)}
+                  isRegex={operatorIsRegex(value.operator)}
                   value={fieldValue}
                   onChange={onChange}
                   required
                   error={!!error}
-                  helperText={error?.message ?? formatHint(def)}
+                  helperText={error?.message ?? (operatorIsRegex(value.operator) ? REGEX_HINT : formatHint(def))}
                   inputRef={ref}
                 />
               )}

@@ -171,6 +171,39 @@ describe('rules-engine evaluator', () => {
     expect(evaluateOperator('notStartsWith', undefined, 'XKD')).toBe(true);
   });
 
+  it('matches regex patterns with matches / notMatches', () => {
+    // Standard (unanchored) semantics: the pattern may match anywhere unless the author anchors it.
+    expect(evaluateOperator('matches', '99381', '9938')).toBe(true);
+    expect(evaluateOperator('matches', '199381', '^9938[1-7]$')).toBe(false);
+    expect(evaluateOperator('matches', '99381', '^9938[1-7]$')).toBe(true);
+    expect(evaluateOperator('matches', '99388', '^9938[1-7]$')).toBe(false);
+    expect(evaluateOperator('notMatches', '99388', '^9938[1-7]$')).toBe(true);
+    // A list matches when any entry does; notMatches means no entry does.
+    expect(evaluateOperator('matches', ['99213', '99385'], '^9938[1-7]$')).toBe(true);
+    expect(evaluateOperator('notMatches', ['99213', '99385'], '^9938[1-7]$')).toBe(false);
+    expect(evaluateOperator('notMatches', ['99213', '87880'], '^9938[1-7]$')).toBe(true);
+    // Missing values never match; notMatches is true for them (like neq/notContains).
+    expect(evaluateOperator('matches', undefined, '^9938')).toBe(false);
+    expect(evaluateOperator('notMatches', undefined, '^9938')).toBe(true);
+    expect(evaluateOperator('matches', '99381', undefined)).toBe(false);
+    // An uncompilable pattern (kept out by save-time validation) evaluates as no-match, not a throw.
+    expect(evaluateOperator('matches', '99381', '9938[1-7')).toBe(false);
+    expect(evaluateOperator('notMatches', '99381', '9938[1-7')).toBe(true);
+  });
+
+  it('evaluates the canonical "a CPT code in the 9938x range" condition', () => {
+    const m = makeModel();
+    expect(
+      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^992[01][0-9]$' }, m)
+    ).toBe(true);
+    expect(evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^9938[1-7]$' }, m)).toBe(
+      false
+    );
+    expect(
+      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'notMatches', value: '^9938[1-7]$' }, m)
+    ).toBe(true);
+  });
+
   it('evaluates the canonical "member id starts with XKD" condition', () => {
     const m = makeModel();
     m.coverages[0].subscriberId = 'XKD-889-12';
@@ -539,6 +572,22 @@ describe('service line actions', () => {
     expect(readField(m, 'cptCodes')).toEqual(['99213', '99215']);
     expect(m.claim.item?.map((line) => line.sequence)).toEqual([1, 2]);
     expect(m.claim.total?.value).toBe(425.5);
+  });
+
+  it('removes the lines whose CPT matches a regex range', () => {
+    const m = makeModel();
+    addLine(m, '99381', 200);
+    addLine(m, '99385', 300);
+    const error = applyAction(
+      {
+        type: 'removeServiceLines',
+        match: { type: 'field', property: 'cptCode', operator: 'matches', value: '^9938[1-7]$' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(readField(m, 'cptCodes')).toEqual(['99213']);
+    expect(m.claim.total?.value).toBe(125.5);
   });
 
   it('removes all lines when the match is "all"', () => {
