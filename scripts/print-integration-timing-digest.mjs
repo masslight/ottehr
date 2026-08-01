@@ -11,6 +11,7 @@ import path from 'node:path';
 const REPORT_PATH =
   process.argv[2] ?? 'packages/zambdas/test-results/integration-report.json';
 const PENDING_PATH = path.join(path.dirname(REPORT_PATH), 'pending-network.jsonl');
+const LIFECYCLE_PATH = path.join(path.dirname(REPORT_PATH), 'file-lifecycle.jsonl');
 
 // Littered-network report (written by test/helpers/pending-network-tracker.setup.ts): requests
 // still in flight >500ms after a test file finished. These are the --no-isolate blockers. Printed
@@ -60,6 +61,40 @@ if (litter.length === 0) {
     }
   }
   console.log('::endgroup::');
+}
+
+// File lifecycle journal (written by the main-process file-lifecycle-reporter): at an abort, the
+// files that started but never ended are the in-flight set — the earliest of them is the prime
+// suspect for whatever killed its worker.
+let lifecycle = [];
+try {
+  lifecycle = readFileSync(LIFECYCLE_PATH, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
+} catch {
+  // no journal — reporter not active
+}
+
+if (lifecycle.length > 0) {
+  const started = new Map();
+  let ended = 0;
+  const t0 = lifecycle[0]?.t ?? 0;
+  for (const e of lifecycle) {
+    if (e.event === 'start') started.set(e.file, e.t);
+    if (e.event === 'end') {
+      started.delete(e.file);
+      ended++;
+    }
+  }
+  console.log(`File lifecycle: ${ended} files finished, ${started.size} started but never ended.`);
+  if (started.size > 0) {
+    console.log('::group::Files in flight at run end (start order — earliest is the prime suspect)');
+    for (const [file, t] of [...started.entries()].sort((a, b) => a[1] - b[1])) {
+      console.log(`  +${((t - t0) / 1000).toFixed(1)}s  ${file}`);
+    }
+    console.log('::endgroup::');
+  }
 }
 
 let report;
