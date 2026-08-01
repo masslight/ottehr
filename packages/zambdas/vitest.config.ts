@@ -23,7 +23,9 @@ export default defineConfig({
     // never times out.
     teardownTimeout: 60000,
     // Root-only in vitest 3. Caps concurrent workers to keep write pressure on the shared backend
-    // modest during integration tests (matches the prior single-config behavior).
+    // modest during integration tests (matches the prior single-config behavior). The CI
+    // integration-only run (test:integration:ci) raises this via --maxWorkers on the CLI — the
+    // suite is network-bound, so more in-flight files there buy wall time, not CPU.
     maxWorkers: 6,
     minWorkers: 1,
     server: {
