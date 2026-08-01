@@ -38,6 +38,9 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
+      // AST-aware remapping (vitest 3.2+) replaces the much slower source-map-based v8 report
+      // remapping — measured as part of the integration suite's large non-test overhead share.
+      experimentalAstAwareRemapping: true,
       reporter: ['lcov', 'text-summary', 'json'],
       reportsDirectory: './coverage/integration',
       include: ['src/**/*.ts'],
