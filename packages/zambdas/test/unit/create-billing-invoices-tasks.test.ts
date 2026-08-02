@@ -16,6 +16,9 @@ vi.mock('../../src/shared', async (importOriginal) => {
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+    isOttehrBillingInvoicingEnabled: vi
+      .fn()
+      .mockImplementation((s: Record<string, string> | null) => s?.['BILLING_INTEGRATION'] === 'ottehr'),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });

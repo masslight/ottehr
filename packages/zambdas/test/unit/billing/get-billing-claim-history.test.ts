@@ -13,10 +13,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-history';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
-vi.mock('@sentry/aws-serverless', async (importActual) => ({
-  ...(await importActual<typeof import('@sentry/aws-serverless')>()),
-  captureException: vi.fn(),
-}));
 const captureExceptionMock = vi.mocked(captureException);
 
 beforeEach(() => captureExceptionMock.mockClear());
