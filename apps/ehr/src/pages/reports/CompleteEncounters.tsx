@@ -50,6 +50,7 @@ interface CompleteEncounterRow {
   attendingProvider?: string;
   visitType?: string;
   reason?: string;
+  teleradiologyOrdersSent: number;
 }
 
 type DateRangeFilter =
@@ -247,6 +248,7 @@ const useCompleteEncounters = (
             attendingProvider: encounter.attendingProvider,
             visitType: encounter.visitType,
             reason: encounter.reason,
+            teleradiologyOrdersSent: encounter.teleradiologyOrdersSent,
           };
         });
 
@@ -299,6 +301,7 @@ const useCompleteEncounters = (
           attendingProvider: encounter.attendingProvider,
           visitType: encounter.visitType,
           reason: encounter.reason,
+          teleradiologyOrdersSent: encounter.teleradiologyOrdersSent,
         };
       });
 
@@ -546,6 +549,13 @@ export default function CompleteEncounters(): React.ReactElement {
       {
         field: 'reason',
         headerName: 'Reason',
+        width: 200,
+        sortable: true,
+      },
+      {
+        field: 'teleradiologyOrdersSent',
+        headerName: 'Telerad Orders',
+        type: 'number',
         width: 200,
         sortable: true,
       },

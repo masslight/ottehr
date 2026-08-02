@@ -21,6 +21,10 @@ export interface IncompleteEncounterItem {
   attendingProvider?: string;
   visitType?: string;
   reason?: string;
+  // Number of radiology orders on this encounter that have actually been transmitted to a
+  // teleradiology group for an external read (i.e. carry the has-been-sent-to-teleradiology
+  // extension). Usually 0 or 1, but can be higher when multiple orders were sent.
+  teleradiologyOrdersSent: number;
 }
 
 export interface IncompleteEncountersReportZambdaOutput {
