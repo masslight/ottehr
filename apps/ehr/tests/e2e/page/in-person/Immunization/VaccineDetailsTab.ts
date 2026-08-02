@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdministeredDialogue, expectAdministrationConfirmationDialogue } from './AdministrationConfirmationDialog';
 import { expectMarTab, MarTab } from './MarTab';
@@ -6,11 +6,16 @@ import { OrderDetailsSection } from './OrderDetailsSection';
 
 export class VaccineDetailsTab {
   #page: Page;
+  // The vaccine-details tab renders one card per non-cancelled order, sorted most-recent
+  // first. Scope all in-card fields and buttons to the first card so the section stays
+  // unambiguous when earlier tests have left administered orders behind on the appointment.
+  #root: Locator;
   #orderDetailsSection: OrderDetailsSection;
 
   constructor(page: Page) {
     this.#page = page;
-    this.#orderDetailsSection = new OrderDetailsSection(this.#page);
+    this.#root = page.getByTestId(dataTestIds.immunizationPage.vaccineDetailsCard).first();
+    this.#orderDetailsSection = new OrderDetailsSection(this.#root);
   }
 
   get orderDetailsSection(): OrderDetailsSection {
@@ -18,7 +23,7 @@ export class VaccineDetailsTab {
   }
 
   async enterLotNumber(lotNumber: string): Promise<void> {
-    await this.#page
+    await this.#root
       .getByTestId(dataTestIds.vaccineDetailsPage.lotNumber)
       .locator('input')
       .locator('visible=true')
@@ -26,13 +31,13 @@ export class VaccineDetailsTab {
   }
 
   async enterExpiredDate(expiredDate: string): Promise<void> {
-    const locator = this.#page.getByTestId(dataTestIds.vaccineDetailsPage.expiredDate);
+    const locator = this.#root.getByTestId(dataTestIds.vaccineDetailsPage.expiredDate);
     await locator.click();
     await locator.pressSequentially(expiredDate);
   }
 
   async enterMvxCode(mvxCode: string): Promise<void> {
-    await this.#page
+    await this.#root
       .getByTestId(dataTestIds.vaccineDetailsPage.mvxCode)
       .locator('input')
       .locator('visible=true')
@@ -40,7 +45,7 @@ export class VaccineDetailsTab {
   }
 
   async enterCvxCode(cvxCode: string): Promise<void> {
-    await this.#page
+    await this.#root
       .getByTestId(dataTestIds.vaccineDetailsPage.cvxCode)
       .locator('input')
       .locator('visible=true')
@@ -48,12 +53,12 @@ export class VaccineDetailsTab {
   }
 
   async selectCptCode(cptCode: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.cptCode).locator('input').fill(cptCode);
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.cptCode).locator('input').fill(cptCode);
     await this.#page.locator('li').getByText(cptCode, { exact: false }).click();
   }
 
   async enterNdcCode(ndcCode: string): Promise<void> {
-    await this.#page
+    await this.#root
       .getByTestId(dataTestIds.vaccineDetailsPage.ndcCode)
       .locator('input')
       .locator('visible=true')
@@ -61,49 +66,49 @@ export class VaccineDetailsTab {
   }
 
   async clearAdministeredDate(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.administeredDate).clear();
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.administeredDate).clear();
   }
 
   async enterAdministeredDate(administeredDate: string): Promise<void> {
-    const locator = this.#page.getByTestId(dataTestIds.vaccineDetailsPage.administeredDate);
+    const locator = this.#root.getByTestId(dataTestIds.vaccineDetailsPage.administeredDate);
     await locator.click();
     await locator.pressSequentially(administeredDate);
   }
 
   async clearAdministeredTime(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.administeredTime).clear();
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.administeredTime).clear();
   }
 
   async enterAdministeredTime(administeredTime: string): Promise<void> {
-    const locator = this.#page.getByTestId(dataTestIds.vaccineDetailsPage.administeredTime);
+    const locator = this.#root.getByTestId(dataTestIds.vaccineDetailsPage.administeredTime);
     await locator.click();
     await locator.pressSequentially(administeredTime);
   }
 
   async setVisCheckboxChecked(checked: boolean): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.visCheckbox).locator('input').setChecked(checked);
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.visCheckbox).locator('input').setChecked(checked);
   }
 
   async enterVisGivenDate(visGivenDate: string): Promise<void> {
-    const locator = this.#page.getByTestId(dataTestIds.vaccineDetailsPage.visGivenDate);
+    const locator = this.#root.getByTestId(dataTestIds.vaccineDetailsPage.visGivenDate);
     await locator.click();
     await locator.pressSequentially(visGivenDate);
   }
 
   async selectRelationship(relationship: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.relationship).click();
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.relationship).click();
     await this.#page.getByText(relationship, { exact: true }).click();
   }
 
   async enterFullName(fullName: string): Promise<void> {
-    await this.#page
+    await this.#root
       .getByTestId(dataTestIds.vaccineDetailsPage.fullName)
       .locator('input')
       .locator('visible=true')
       .fill(fullName);
   }
   async enterMobile(mobile: string): Promise<void> {
-    await this.#page
+    await this.#root
       .getByTestId(dataTestIds.vaccineDetailsPage.mobile)
       .locator('input')
       .locator('visible=true')
@@ -111,17 +116,17 @@ export class VaccineDetailsTab {
   }
 
   async clickAdministeredButton(): Promise<AdministeredDialogue> {
-    await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.administeredButton).click();
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.administeredButton).click();
     return expectAdministrationConfirmationDialogue(this.#page);
   }
 
   async clickNotAdministeredButton(): Promise<AdministeredDialogue> {
-    await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.notAdministeredButton).click();
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.notAdministeredButton).click();
     return expectAdministrationConfirmationDialogue(this.#page);
   }
 
   async clickPartlyAdministeredButton(): Promise<AdministeredDialogue> {
-    await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.partlyAdministeredButton).click();
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.partlyAdministeredButton).click();
     return expectAdministrationConfirmationDialogue(this.#page);
   }
 
