@@ -44,10 +44,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   }
 
+  let refundCharge: Stripe.Charge | undefined;
+  if (event.type === 'refund.created' || event.type === 'refund.updated' || event.type === 'refund.failed') {
+    refundCharge = await retrieveChargeForRefund(event.data.object as Stripe.Refund, event.account, params.secrets);
+    if (!refundCharge || !chargeBelongsToCurrentProject(refundCharge, params.secrets)) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({}),
+      };
+    }
+  }
+
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  await performEffect(oystehr, params);
+  await performEffect(oystehr, params, refundCharge);
 
   return {
     statusCode: 200,
@@ -55,7 +66,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebhookParams): Promise<void> => {
+export const performEffect = async (
+  oystehr: Oystehr,
+  params: BillingStripeWebhookParams,
+  retrievedRefundCharge?: Stripe.Charge
+): Promise<void> => {
   const { event, secrets } = params;
   switch (event.type) {
     case 'charge.succeeded':
@@ -76,7 +91,9 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     case 'refund.failed': {
       const refund = event.data.object as Stripe.Refund;
       console.log(`Refund event for ${refund.id}, charge: ${refund.charge}, status: ${refund.status}`);
-      await upsertPaymentNoticeForRefund(oystehr, refund, event.account, secrets);
+      const charge = retrievedRefundCharge ?? (await retrieveChargeForRefund(refund, event.account, params.secrets));
+      if (!charge || !chargeBelongsToCurrentProject(charge, secrets)) break;
+      await upsertPaymentNoticeForRefund(oystehr, refund, charge, event.account, secrets);
       break;
     }
     default:
@@ -92,6 +109,19 @@ const chargeBelongsToCurrentProject = (charge: Stripe.Charge, secrets: ZambdaInp
     return false;
   }
   return true;
+};
+
+const retrieveChargeForRefund = async (
+  refund: Stripe.Refund,
+  stripeAccount: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<Stripe.Charge | undefined> => {
+  const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
+  if (!chargeId) {
+    console.warn(`Refund ${refund.id} has no charge; skipping PaymentNotice upsert`);
+    return undefined;
+  }
+  return getStripeClient(secrets).charges.retrieve(chargeId, undefined, { stripeAccount });
 };
 
 // picks the billing provider org stamped with the connected account id or default org otherwise,
@@ -205,17 +235,10 @@ const persistPaymentNoticeUpsert = async (
 const upsertPaymentNoticeForRefund = async (
   oystehr: Oystehr,
   refund: Stripe.Refund,
+  charge: Stripe.Charge,
   stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets']
 ): Promise<void> => {
-  const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
-  if (!chargeId) {
-    console.warn(`Refund ${refund.id} has no charge; skipping PaymentNotice upsert`);
-    return;
-  }
-  // refunds carry no metadata, the charge has the encounter id
-  const charge = await getStripeClient(secrets).charges.retrieve(chargeId, undefined, { stripeAccount });
-
   const encounterId = charge.metadata?.oystehr_encounter_id ?? charge.metadata?.encounterId;
   if (!encounterId) {
     console.warn(`Charge ${charge.id} for refund ${refund.id} has no encounter metadata; skipping`);

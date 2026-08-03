@@ -288,4 +288,27 @@ describe('billing-stripe-webhook', () => {
     expect(notice.status).toBe('cancelled');
     expect(notice.contained[0].outcome).toBe('error');
   });
+
+  it('acks and ignores a refund whose charge belongs to another project', async () => {
+    const foreignCharge = makeCharge({
+      metadata: { oystehr_encounter_id: 'enc-1', [STRIPE_PROJECT_ID_METADATA_KEY]: 'project-2' },
+    });
+    const retrieve = vi.fn().mockResolvedValue(foreignCharge);
+    (getStripeClient as Mock)
+      .mockReturnValueOnce(stripe)
+      .mockReturnValue({ charges: { retrieve } } as unknown as Stripe);
+    const { oystehr, create, update } = makeOystehr([]);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+    const refund = { id: 're_1', charge: 'ch_1', amount: 400, currency: 'usd', created: 1751990000 };
+
+    const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(
+      signedInput(makeEvent('refund.created', refund))
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(retrieve).toHaveBeenCalledOnce();
+    expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
 });
