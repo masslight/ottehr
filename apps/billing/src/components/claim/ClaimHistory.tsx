@@ -13,22 +13,15 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { ClaimHistoryEntry, ClaimHistoryLink, getApiError } from 'utils';
 import { getBillingClaimHistory } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { otherColors } from '../../themes/ottehr/colors';
+import { formatDateTime } from '../../utils/format';
 
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
-
-function formatWhen(recorded: string): string {
-  if (!recorded) return '-';
-  const dateTime = DateTime.fromISO(recorded);
-  if (!dateTime.isValid) return recorded;
-  return dateTime.toLocaleString(DateTime.DATETIME_MED);
-}
 
 function formatValue(value: string | null): string {
   return value && value.length ? value : '—';
@@ -112,7 +105,7 @@ export function ClaimHistory({ claimId }: { claimId: string }): ReactElement {
         <TableBody>
           {entries.map((entry) => (
             <TableRow key={entry.id} sx={{ verticalAlign: 'top', '& td': { borderColor: otherColors.lightDivider } }}>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatWhen(entry.recorded)}</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(entry.recorded)}</TableCell>
               <TableCell>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="body2">{entry.actor.display}</Typography>
