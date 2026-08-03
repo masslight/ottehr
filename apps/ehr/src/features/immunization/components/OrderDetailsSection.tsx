@@ -6,6 +6,8 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { PROVIDERS_FILTER } from 'src/shared/utils';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
@@ -15,7 +17,11 @@ export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
   const { data: vaccines, isLoading } = useGetVaccines();
   const { chartData } = useChartData();
-  const diagnosisOptions = (chartData?.diagnosis ?? [])
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+  const diagnosis = isFollowup ? mainEncounterChartData?.diagnosis : chartData?.diagnosis;
+  const diagnosisOptions = (diagnosis ?? [])
     .filter((dx) => dx.resourceId)
     .map((dx) => ({ resourceId: dx.resourceId!, display: `${dx.code} - ${dx.display}` }));
 
