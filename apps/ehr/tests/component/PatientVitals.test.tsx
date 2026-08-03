@@ -111,7 +111,12 @@ vi.mock('src/features/visits/shared/components/vitals/last-menstrual-period/Vita
 // IMPORTS (after mocks)
 // ============================================================================
 
-import { VitalFieldNames, VitalsHeartbeatObservationDTO, VitalsTemperatureObservationDTO } from 'utils';
+import {
+  VitalFieldNames,
+  VitalsHeartbeatObservationDTO,
+  VitalsLastMenstrualPeriodObservationDTO,
+  VitalsTemperatureObservationDTO,
+} from 'utils';
 import { PatientVitals } from '../../src/features/visits/in-person/pages/PatientVitals';
 import { useVitalsManagement } from '../../src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
 import { useVitalsDraftStore } from '../../src/state/draft-data.store';
@@ -427,6 +432,38 @@ describe('PatientVitals', () => {
 
         const draft = useVitalsDraftStore.getState().getDraft(HOOK_ENCOUNTER_ID);
         expect(Object.keys(draft).filter((k) => k !== 'temperature')).toHaveLength(0);
+      });
+    });
+
+    describe('saveAll (add all vitals)', () => {
+      it('clears all draft fields after saving, including lmp', async () => {
+        useVitalsDraftStore.getState().setDraft(HOOK_ENCOUNTER_ID, {
+          temperature: { field: VitalFieldNames.VitalTemperature, value: 37.0 } as VitalsTemperatureObservationDTO,
+          heartbeat: { field: VitalFieldNames.VitalHeartbeat, value: 72 } as VitalsHeartbeatObservationDTO,
+          lmp: {
+            field: VitalFieldNames.VitalLastMenstrualPeriod,
+            value: '',
+            isUnsure: true,
+          } as VitalsLastMenstrualPeriodObservationDTO,
+        });
+
+        const { result } = renderHook(() => useVitalsManagement({ encounterId: HOOK_ENCOUNTER_ID }));
+
+        // Allow draft hydration to run
+        await act(async () => {});
+
+        expect(result.current.fields.temperature.hasData).toBe(true);
+        expect(result.current.fields.heartbeat.hasData).toBe(true);
+        expect(result.current.fields.lmp.hasData).toBe(true);
+
+        await act(async () => {
+          await result.current.saveAll();
+        });
+
+        const draft = useVitalsDraftStore.getState().getDraft(HOOK_ENCOUNTER_ID);
+        expect(draft.temperature).toBeUndefined();
+        expect(draft.heartbeat).toBeUndefined();
+        expect(draft.lmp).toBeUndefined();
       });
     });
   });
