@@ -32,6 +32,7 @@ import {
   resolveTemplatePlaceholders,
   resolveTimezone,
   sendSmsForPatient,
+  STRIPE_PROJECT_ID_METADATA_KEY,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -111,6 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const invoiceResponse = await createInvoice(stripe, stripeCustomerId, stripeAccountId, {
       oystehrEncounterId: encounterId,
       oystehrPatientId: patientId,
+      oystehrProjectId: getSecret(SecretsKeys.PROJECT_ID, secrets),
       dueDate,
       timezone,
       filledMemo,
@@ -206,13 +208,14 @@ async function createInvoice(
   params: {
     oystehrEncounterId: string;
     oystehrPatientId: string;
+    oystehrProjectId: string;
     filledMemo?: string;
     dueDate: string;
     timezone: string;
   }
 ): Promise<Stripe.Invoice> {
   try {
-    const { oystehrEncounterId, oystehrPatientId, filledMemo, dueDate, timezone } = params;
+    const { oystehrEncounterId, oystehrPatientId, oystehrProjectId, filledMemo, dueDate, timezone } = params;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
@@ -221,6 +224,7 @@ async function createInvoice(
       metadata: {
         oystehr_patient_id: oystehrPatientId,
         oystehr_encounter_id: oystehrEncounterId,
+        [STRIPE_PROJECT_ID_METADATA_KEY]: oystehrProjectId,
       },
       currency: 'USD',
       due_date: DateTime.fromISO(dueDate, { zone: timezone }).toUnixInteger(),

@@ -185,6 +185,10 @@ describe('sub-send-invoice-to-patient source guard', () => {
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).message).toContain('sent successfully');
+    expect(mockStripe.invoices.create).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: expect.objectContaining({ oystehr_project_id: 'test-project' }) }),
+      { stripeAccount: undefined }
+    );
     expect(mockStripe.invoices.sendInvoice).toHaveBeenCalledWith('inv_1', { stripeAccount: undefined });
     expect(mockSendSmsForPatient).toHaveBeenCalled();
   });
