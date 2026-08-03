@@ -9,6 +9,7 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
+  Typography,
 } from '@mui/material';
 import { useAudioInputs, useAudioVideo, useVideoInputs } from 'amazon-chime-sdk-component-library-react';
 import {
@@ -154,16 +155,6 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
     <Dialog open onClose={onClose}>
       <DialogTitle>Call Settings</DialogTitle>
       <DialogContent>
-        <video
-          ref={videoPreviewRef}
-          autoPlay
-          muted
-          playsInline
-          style={{
-            height: '100%',
-            width: '100%',
-          }}
-        ></video>
         <FormControl fullWidth margin="normal">
           <InputLabel>Camera</InputLabel>
           <Select value={selectedVideoPreviewDeviceId?.toString()} onChange={handleVideoDeviceChange} label="Camera">
@@ -175,7 +166,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
           </Select>
         </FormControl>
 
-        <FormControl fullWidth margin="normal">
+        <FormControl fullWidth margin="normal" sx={{ mb: 2 }}>
           <InputLabel>Microphone</InputLabel>
           <Select value={selectedAudioDevice?.toString()} onChange={handleAudioDeviceChange} label="Microphone">
             {audioDevices.map((device) => (
@@ -185,10 +176,27 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
             ))}
           </Select>
         </FormControl>
+
+        <video
+          ref={videoPreviewRef}
+          autoPlay
+          muted
+          playsInline
+          style={{
+            width: '100%',
+            borderRadius: '10px',
+          }}
+        ></video>
+
         <VirtualBackgroundSettings
           isBlurSupported={isBackgroundBlurSupported}
           isReplacementSupported={isBackgroundReplacementSupported}
         />
+
+        <Typography sx={{ mt: 3 }}>
+          Functional microphone, sound and camera are required to proceed with the visit. If something is not working
+          for you, please contact out support team.
+        </Typography>
       </DialogContent>
       <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
         <Button onClick={handleClose} sx={{ marginRight: 1 }} variant="text">

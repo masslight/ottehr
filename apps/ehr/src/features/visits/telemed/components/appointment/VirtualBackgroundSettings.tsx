@@ -1,7 +1,8 @@
+import BlurOffIcon from '@mui/icons-material/BlurOff';
 import BlurOnIcon from '@mui/icons-material/BlurOn';
-import DoNotDisturbIcon from '@mui/icons-material/DoNotDisturb';
-import WallpaperIcon from '@mui/icons-material/Wallpaper';
-import { Box, Button, ButtonGroup, Typography } from '@mui/material';
+import CoPresentIcon from '@mui/icons-material/CoPresent';
+import HideImageIcon from '@mui/icons-material/HideImage';
+import { Box, Button } from '@mui/material';
 import { FC, useRef } from 'react';
 import { useVideoCallStore, VirtualBackgroundSetting } from '../../state/video-call/video-call.store';
 
@@ -22,7 +23,15 @@ export const VirtualBackgroundSettings: FC<VirtualBackgroundSettingsProps> = ({
   };
 
   const handleImageButtonClick = (): void => {
-    fileInputRef.current?.click();
+    if (virtualBackground.mode === 'image') {
+      setBackground({ mode: 'none' });
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleBlurButtonClick = (): void => {
+    setBackground(virtualBackground.mode === 'blur' ? { mode: 'none' } : { mode: 'blur' });
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -33,41 +42,33 @@ export const VirtualBackgroundSettings: FC<VirtualBackgroundSettingsProps> = ({
     event.target.value = '';
   };
 
+  const imageActive = virtualBackground.mode === 'image';
+  const blurActive = virtualBackground.mode === 'blur';
+
   return (
     <Box sx={{ mt: 2 }}>
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-        Virtual Background
-      </Typography>
-      <ButtonGroup variant="outlined" size="small">
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         <Button
-          onClick={() => setBackground({ mode: 'none' })}
-          variant={virtualBackground.mode === 'none' ? 'contained' : 'outlined'}
-          startIcon={<DoNotDisturbIcon />}
-        >
-          None
-        </Button>
-        <Button
-          onClick={() => setBackground({ mode: 'blur' })}
-          disabled={isBlurSupported === false}
-          variant={virtualBackground.mode === 'blur' ? 'contained' : 'outlined'}
-          startIcon={<BlurOnIcon />}
-        >
-          Blur
-        </Button>
-        <Button
-          onClick={handleImageButtonClick}
+          variant="outlined"
+          size="small"
           disabled={isReplacementSupported === false}
-          variant={virtualBackground.mode === 'image' ? 'contained' : 'outlined'}
-          startIcon={<WallpaperIcon />}
+          onClick={handleImageButtonClick}
+          startIcon={imageActive ? <HideImageIcon /> : <CoPresentIcon />}
+          sx={{ borderRadius: '20px', paddingY: 1, paddingX: 2 }}
         >
-          {virtualBackground.mode === 'image' ? 'Change Image' : 'Custom Image'}
+          {imageActive ? 'Clear background image' : 'Add background'}
         </Button>
-      </ButtonGroup>
-      {virtualBackground.mode === 'image' && (
-        <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
-          Image selected. Click &quot;Save Changes&quot; to apply.
-        </Typography>
-      )}
+        <Button
+          variant="outlined"
+          size="small"
+          disabled={isBlurSupported === false}
+          onClick={handleBlurButtonClick}
+          startIcon={blurActive ? <BlurOffIcon /> : <BlurOnIcon />}
+          sx={{ borderRadius: '20px', paddingY: 1, paddingX: 2 }}
+        >
+          {blurActive ? 'Turn OFF blur' : 'Turn ON blur'}
+        </Button>
+      </Box>
       <input
         ref={fileInputRef}
         type="file"
