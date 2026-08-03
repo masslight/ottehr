@@ -72,6 +72,7 @@ describe('add-billing-claim-note performEffect', () => {
         claimId: CLAIM_ID,
         message: 'Called payer, on hold pending medical records',
         secrets: null,
+        userToken: 'test-token',
       },
       agent
     );
@@ -112,6 +113,7 @@ describe('add-billing-claim-note performEffect', () => {
           claimId: CLAIM_ID,
           message: 'A note',
           secrets: null,
+          userToken: 'test-token',
         },
         agent
       )
