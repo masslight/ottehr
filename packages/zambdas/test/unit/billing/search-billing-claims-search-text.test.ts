@@ -439,6 +439,23 @@ describe('searchClaimsBySearchText', () => {
     expect(consoleError.mock.calls[0][0]).toContain('patient.name');
   });
 
+  it('throws when every clause fails rather than reporting no matches', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { oystehr } = stubClient();
+    (oystehr.fhir.search as unknown as Mock).mockImplementation(async () => {
+      throw new Error('401 unauthorized');
+    });
+
+    await expect(
+      searchClaimsBySearchText({
+        oystehr,
+        searchText: 'Smith',
+        filterParams: [],
+        withServiceDateElements: false,
+      })
+    ).rejects.toThrow('401 unauthorized');
+  });
+
   it('keeps the searched text out of the truncation warning', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { oystehr } = stubClient();

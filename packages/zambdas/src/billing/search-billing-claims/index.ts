@@ -335,6 +335,8 @@ export async function searchClaimsBySearchText({
 
   const claims: Claim[] = [];
   const truncatedClauses: string[] = [];
+  let failures = 0;
+  let lastFailure: unknown;
   for (let start = 0; start < clauses.length; start += CLAIM_SEARCH_TEXT_CONCURRENCY) {
     const chunk = clauses.slice(start, start + CLAIM_SEARCH_TEXT_CONCURRENCY);
     const bundles = await Promise.all(
@@ -345,8 +347,10 @@ export async function searchClaimsBySearchText({
             params: [...filterParams, ...clause, ...pageParams],
           });
         } catch (error) {
-          // One unsupported clause shouldn't empty the whole search, but it must be loud.
+          // One clause the server won't accept shouldn't empty the whole search, but it must be loud.
           console.error(`Claim search clause failed (${describeClaimSearchClause(clause)}):`, error);
+          failures += 1;
+          lastFailure = error;
           return undefined;
         }
       })
@@ -360,6 +364,8 @@ export async function searchClaimsBySearchText({
       claims.push(...bundle.unbundle());
     });
   }
+
+  if (clauses.length > 0 && failures === clauses.length) throw lastFailure;
 
   if (truncatedClauses.length > 0) {
     console.warn(
