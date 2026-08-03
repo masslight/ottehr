@@ -5,6 +5,7 @@ import {
   buildClaimSearchTextQueries,
   CLAIM_LIST_INCLUDE_PARAMS,
   CLAIM_SEARCH_TEXT_MATCH_LIMIT,
+  describeClaimSearchClause,
   fetchClaimsPageByIds,
   searchClaimsBySearchText,
 } from '../../../src/billing/search-billing-claims';
@@ -201,6 +202,45 @@ const paramNamed = (params: SearchParam[], name: string): SearchParam | undefine
 const clauseWith = (search: Mock, name: string): SearchParam[] | undefined =>
   claimSearchCalls(search).find((params) => paramNamed(params, name));
 
+describe('describeClaimSearchClause', () => {
+  it('names the parameter without echoing the searched text', () => {
+    expect(
+      describeClaimSearchClause([
+        {
+          name: 'patient.name',
+          value: 'Smith',
+        },
+      ])
+    ).toBe('patient.name');
+  });
+
+  it('reports how many values a widened clause carries, to tell it from a bare one', () => {
+    expect(
+      describeClaimSearchClause([
+        {
+          name: 'patient',
+          value: `Patient/${PATIENT_ID},Patient/copy-1`,
+        },
+      ])
+    ).toBe('patient(2 values)');
+  });
+
+  it('joins a multi-parameter clause by name alone', () => {
+    expect(
+      describeClaimSearchClause([
+        {
+          name: '_id',
+          value: CLAIM_ID,
+        },
+        {
+          name: '_tag',
+          value: 'system|code',
+        },
+      ])
+    ).toBe('_id&_tag');
+  });
+});
+
 describe('searchClaimsBySearchText', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -396,7 +436,25 @@ describe('searchClaimsBySearchText', () => {
 
     expect(claims.map((c) => c.id)).toEqual(['survivor']);
     expect(consoleError).toHaveBeenCalledTimes(1);
-    expect(consoleError.mock.calls[0][0]).toContain('patient.name=Smith');
+    expect(consoleError.mock.calls[0][0]).toContain('patient.name');
+  });
+
+  it('keeps the searched text out of the truncation warning', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { oystehr } = stubClient();
+    (oystehr.fhir.search as unknown as Mock).mockImplementation(async () =>
+      bundleOf([makeClaim('claim-1', '2026-07-01T00:00:00Z')], CLAIM_SEARCH_TEXT_MATCH_LIMIT + 1)
+    );
+
+    await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+
+    expect(consoleWarn.mock.calls[0][0]).not.toContain('Smith');
+    expect(consoleWarn.mock.calls[0][0]).toContain('patient.name');
   });
 
   it('warns when a clause hit the match limit, so partial results are visible', async () => {

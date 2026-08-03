@@ -289,7 +289,12 @@ const unionClaimsNewestFirst = (claims: Claim[]): Claim[] =>
   deduplicateUnbundledResources(claims).sort((a, b) => claimLastUpdated(b) - claimLastUpdated(a));
 
 export const describeClaimSearchClause = (clause: ClaimSearchParam[]): string =>
-  clause.map(({ name, value }) => `${name}=${value}`).join('&');
+  clause
+    .map(({ name, value }) => {
+      const values = value.split(',').length;
+      return values > 1 ? `${name}(${values} values)` : name;
+    })
+    .join('&');
 
 export async function searchClaimsBySearchText({
   oystehr,
