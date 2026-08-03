@@ -49,6 +49,7 @@ export function getStripeClient(secrets: Secrets | null): Stripe {
 }
 
 export const STRIPE_PAYMENT_ID_SYSTEM = 'https://fhir.oystehr.com/PaymentIdSystem/stripe';
+export const STRIPE_PROJECT_ID_METADATA_KEY = 'oystehr_project_id';
 export const makeBusinessIdentifierForStripePayment = (stripePaymentId: string): Identifier => {
   return {
     system: STRIPE_PAYMENT_ID_SYSTEM,

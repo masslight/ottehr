@@ -35,6 +35,7 @@ import {
   makeBusinessIdentifierForCandidPayment,
   makeBusinessIdentifierForStripePayment,
   safeJsonParse,
+  STRIPE_PROJECT_ID_METADATA_KEY,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -172,6 +173,7 @@ const performEffect = async (
         oystehr_encounter_id: encounterId,
         // added later. if it's undefined, add conditional check to get patient id from fhir
         oystehr_patient_id: patientId,
+        [STRIPE_PROJECT_ID_METADATA_KEY]: getSecret(SecretsKeys.PROJECT_ID, requiredSecrets.secrets),
       },
       automatic_payment_methods: {
         enabled: true,
