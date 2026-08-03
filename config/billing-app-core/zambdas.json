@@ -162,6 +162,13 @@
       "src": "src/billing/get-billing-claim-history/index",
       "zip": ".dist/zips/get-billing-claim-history.zip"
     },
+    "ADD-BILLING-CLAIM-NOTE": {
+      "name": "add-billing-claim-note",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/add-billing-claim-note/index",
+      "zip": ".dist/zips/add-billing-claim-note.zip"
+    },
     "EXPORT-BILLING-CLAIM-X12": {
       "name": "export-billing-claim-x12",
       "type": "http_auth",
