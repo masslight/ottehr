@@ -14,8 +14,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('validateRequestParameters');
   const params = validateRequestParameters(input);
   console.groupEnd();
-  const { secrets, userToken, ...restOfParams } = params;
-  console.debug('validateRequestParameters success', restOfParams);
+  const { secrets, userToken, message, ...restOfParams } = params;
+  console.debug('validateRequestParameters success', restOfParams, `length: ${message.length}`);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
