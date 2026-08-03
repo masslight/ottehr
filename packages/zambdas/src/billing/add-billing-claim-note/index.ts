@@ -23,7 +23,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('complexValidation');
   const agent = await complexValidation(oystehr, params, userToken);
   console.groupEnd();
-  console.debug('complexValidation success', agent);
+  console.debug('complexValidation success');
 
   console.group('performEffect');
   const response = await performEffect(oystehr, params, agent);
