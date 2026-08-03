@@ -633,6 +633,10 @@ export const MatchClaimResponseToClaimInputSchema = z.object({
   claimId: nonEmptyString,
 });
 
+export const UnmatchClaimResponseInputSchema = z.object({
+  claimResponseId: nonEmptyString,
+});
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -700,4 +704,5 @@ export type DeleteServiceFacilityInput = z.output<typeof DeleteServiceFacilityIn
 export type ImportEraInput = z.output<typeof ImportEraInputSchema>;
 export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
+export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;

@@ -74,6 +74,8 @@ import {
   SearchServiceFacilitiesResponse,
   ServiceFacilityItem,
   TagBillingClaimInputSchema,
+  TaggedClaimResponse,
+  UnmatchClaimResponseInputSchema,
   UpdateBillingCoverageInputSchema,
   UpdateBillingPatientInputSchema,
   UpdateBillingProviderInputSchema,
@@ -346,6 +348,11 @@ export const matchClaimResponseToClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof MatchClaimResponseToClaimInputSchema>
 ): Promise<any> => executeBillingZambda(oystehr, 'match-claim-response', parameters);
+
+export const unmatchClaimResponse = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UnmatchClaimResponseInputSchema>
+): Promise<any> => executeBillingZambda(oystehr, 'unmatch-claim-response', parameters);
 
 // --- ChargeItemDefinitions --
 
