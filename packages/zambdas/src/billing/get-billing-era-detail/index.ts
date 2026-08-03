@@ -1,7 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Patient, PaymentReconciliation } from 'fhir/r4b';
-import { EraDetailResponse, FHIR_RESOURCE_NOT_FOUND } from 'utils';
+import {
+  CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_PROCESS_PRIORITY,
+  codeableConcept,
+  EraDetailResponse,
+  FHIR_RESOURCE_NOT_FOUND,
+} from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   countEraClaims,
@@ -91,18 +97,29 @@ async function performEffect(
   claimResponses
     .filter((claimResponse) => !isMatchedToClaim(claimResponse))
     .forEach((claimResponse) => {
-      const claim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
-      const patient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
-      if (claim && patient) {
-        const id = 'unmatched-' + claimResponse.id;
-        claim.id = id;
-        patient.id = id;
-        claim.patient.reference = 'Patient/' + id;
-        responsesByClaimId.set(id, [claimResponse]);
+      const claim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim') ?? {
+        resourceType: 'Claim',
+        created: '',
+        insurance: [],
+        patient: { display: 'Unknown' },
+        priority: codeableConcept('normal', CODE_SYSTEM_PROCESS_PRIORITY, 'Normal'),
+        provider: { display: 'Unknown' },
+        status: 'active',
+        type: codeableConcept('unknown', CODE_SYSTEM_CLAIM_TYPE, 'Unknown'),
+        use: 'claim',
+      };
+      const patient: Patient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient') ?? {
+        resourceType: 'Patient',
+      };
 
-        claims.push(claim);
-        patients.push(patient);
-      }
+      const id = 'unmatched-' + claimResponse.id;
+      claim.id = id;
+      patient.id = id;
+      claim.patient.reference = 'Patient/' + id;
+      responsesByClaimId.set(id, [claimResponse]);
+
+      claims.push(claim);
+      patients.push(patient);
     });
 
   const claimItems = claims.map((claim) => {
