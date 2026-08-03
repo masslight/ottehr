@@ -1,7 +1,7 @@
 import retry from 'retry';
 
-// uploadObjectToZ3's tuning in shared/z3Utils, shortened because a webhook handler is waiting on
-// this: randomize scales each backoff by 1-2x, so the whole budget is 3.5-6s.
+// Kept short because a webhook handler is waiting on this: randomize scales each backoff by 1-2x,
+// so the whole budget is 3.5-6s.
 const ADVAPACS_RETRY_OPTIONS: retry.OperationOptions = {
   retries: 3,
   factor: 2,
