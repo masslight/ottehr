@@ -74,7 +74,6 @@ import {
   SearchServiceFacilitiesResponse,
   ServiceFacilityItem,
   TagBillingClaimInputSchema,
-  TaggedClaimResponse,
   UnmatchClaimResponseInputSchema,
   UpdateBillingCoverageInputSchema,
   UpdateBillingPatientInputSchema,
