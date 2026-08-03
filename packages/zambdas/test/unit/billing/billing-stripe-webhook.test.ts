@@ -25,6 +25,7 @@ import {
   checkOrCreateM2MClientToken,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
+  STRIPE_PROJECT_ID_METADATA_KEY,
   ZambdaInput,
 } from '../../../src/shared';
 
@@ -40,6 +41,7 @@ const secrets: Secrets = {
   ORGANIZATION_ID: 'org-1',
   FHIR_API: 'https://fhir.example.com/r4',
   PROJECT_API: 'https://project.example.com/v1',
+  PROJECT_ID: 'project-1',
 };
 
 const makeCharge = (over: Record<string, unknown> = {}): Stripe.Charge =>
@@ -52,7 +54,7 @@ const makeCharge = (over: Record<string, unknown> = {}): Stripe.Charge =>
     status: 'succeeded',
     paid: true,
     payment_method_details: { type: 'card' },
-    metadata: { oystehr_encounter_id: 'enc-1' },
+    metadata: { oystehr_encounter_id: 'enc-1', [STRIPE_PROJECT_ID_METADATA_KEY]: 'project-1' },
     ...over,
   }) as unknown as Stripe.Charge;
 
@@ -160,6 +162,40 @@ describe('billing-stripe-webhook', () => {
       identifier: { system: CLAIM_ENC_SYSTEM, value: 'enc-1' },
     });
     expect(update.mock.calls[0][0].request.reference).toBeUndefined();
+  });
+
+  it('acks and ignores a charge belonging to another project', async () => {
+    const { oystehr, create, update } = makeOystehr([]);
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+    const charge = makeCharge({
+      metadata: { oystehr_encounter_id: 'enc-1', [STRIPE_PROJECT_ID_METADATA_KEY]: 'project-2' },
+    });
+
+    const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(
+      signedInput(makeEvent('charge.succeeded', charge))
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('ignores a charge without project metadata', async () => {
+    const { oystehr, create, update } = makeOystehr([]);
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+    const charge = makeCharge({ metadata: { oystehr_encounter_id: 'enc-1' } });
+
+    const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(
+      signedInput(makeEvent('charge.succeeded', charge))
+    );
+
+    expect(result.statusCode).toBe(200);
+    expect(checkOrCreateM2MClientToken).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('keeps the existing link when the claim search misses on an update', async () => {

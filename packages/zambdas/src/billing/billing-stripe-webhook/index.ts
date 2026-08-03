@@ -8,6 +8,7 @@ import {
   getStripeClient,
   shouldUseOttehrBilling,
   STRIPE_PAYMENT_ID_SYSTEM,
+  STRIPE_PROJECT_ID_METADATA_KEY,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -27,6 +28,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Acknowledge with 200 so Stripe doesn't retry or disable the endpoint.
   if (!shouldUseOttehrBilling(params.secrets)) {
     console.log('BILLING_INTEGRATION does not include ottehr; acknowledging event without processing');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({}),
+    };
+  }
+
+  if (
+    (event.type === 'charge.succeeded' || event.type === 'charge.updated') &&
+    !chargeBelongsToCurrentProject(event.data.object as Stripe.Charge, params.secrets)
+  ) {
     return {
       statusCode: 200,
       body: JSON.stringify({}),
@@ -71,6 +82,16 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     default:
       console.log('Ignoring unhandled event type:', event.type);
   }
+};
+
+const chargeBelongsToCurrentProject = (charge: Stripe.Charge, secrets: ZambdaInput['secrets']): boolean => {
+  const chargeProjectId = charge.metadata?.[STRIPE_PROJECT_ID_METADATA_KEY];
+  const currentProjectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  if (chargeProjectId !== currentProjectId) {
+    console.log(`Ignoring Stripe charge ${charge.id} for a different project`);
+    return false;
+  }
+  return true;
 };
 
 // picks the billing provider org stamped with the connected account id or default org otherwise,
