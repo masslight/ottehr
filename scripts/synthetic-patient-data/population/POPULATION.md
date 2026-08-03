@@ -7,7 +7,13 @@ cases, evenly split across the two in-person locations (Los Angeles, New York),
 each visit handled by a real-looking provider + intake MA.
 
 Built on the single-visit harness (`../synthesize-visit.ts`) and the 24
-synthetic staff (`../SYNTH-STAFF.md`). Three steps: **plan → run → verify**.
+synthetic staff (`../SYNTH-STAFF.md`). In practice it's **run → verify**:
+`run-population` regenerates the plan itself (from a per-project manifest) before
+seeding, so you don't run the planner separately — `plan-population` stays
+runnable standalone only to eyeball a plan. Resume/idempotency state lives in the
+target project as FHIR (a manifest + per-visit tags), **not** a local file or CI
+cache, so re-running (locally or via a re-dispatched GitHub Action) just continues
+where it left off.
 
 > **When to run this.** Fresh environments are populated by the [daily census](../DAILY-CENSUS.md) by
 > default. Run this full population build **only when specifically requested** — i.e. when an
@@ -62,7 +68,10 @@ How it works (`archetypes.ts` holds the registry + identity pools):
   de-weighting); a patient's multiple visits are chronologically spaced.
 - Location assigned to keep the LA/NY **visit** counts even; provider + MA drawn
   from that location's roster.
-- Same seed → identical plan (reproducible, and the runner resumes by `seq`).
+- Reproducible: **same seed + same `--today` anchor → byte-identical plan**.
+  `run-population` pins that anchor in the per-project manifest on the first run
+  and reuses it on every resume, so each `seq`→patient mapping stays stable.
+  Omitting `--today` anchors to the wall-clock day (fine for a one-off manual plan).
 
 The planner prints distribution summaries (by location, archetype, month,
 provider) — eyeball these before running.
@@ -78,17 +87,30 @@ with the planned `--practitioner` (attending) and `--intake` (MA).
 ```bash
 # MUST run under the synth env so child harness processes inherit creds:
 npx env-cmd -f packages/zambdas/.env/synth.json \
-  npx tsx run-population.ts [--concurrency 4] [--limit N] [--from SEQ] [--to SEQ] [--redo] [--dry]
+  npx tsx run-population.ts [--seed 42] [--patients 2000] [--concurrency 4] [--limit N] [--from SEQ] [--to SEQ] [--redo] [--dry]
 ```
 
-- **Pilot**: `--limit 25` runs the 25 chronologically-earliest visits.
-- **Resume**: a `population-progress.json` records each visit's outcome; a re-run
-  skips visits already `done`. Failures are NOT marked done, so re-running
-  retries them. `--redo` forces re-run of completed ones.
-- **Dry**: `--dry` prints the assignment for the first 20 selected visits.
-- Per-visit harness output is saved to `.logs/seq-NNNNN.log`; materialized
-  scenarios to `.scenarios/seq-NNNNN.json` (both gitignored-by-convention — the
-  whole `scripts/synthetic-patient-data/` tree is untracked).
+- **Self-planning**: on start it resolves the run manifest (below), regenerates
+  `population-plan.json` from its params, then seeds — no separate planner step.
+- **Pilot**: `--limit 25` runs the 25 chronologically-earliest not-yet-seeded visits.
+- **State + resume live in FHIR** (durable — no local progress file or CI cache):
+  - a singleton **`Basic` manifest** per project (`code = …|population-manifest`)
+    pins the plan params — `seed`, `patients`, `todayAnchor` — plus status/counts,
+    so any resume regenerates the identical plan;
+  - every seeded **Appointment is tagged** `…/synth-population|seq-<N>`. The resume
+    set is "which seqs are already tagged", so a re-run — or a re-dispatched GitHub
+    Action — skips finished visits with nothing to persist between runs.
+  - `--redo` ignores the done-set and re-runs everything; failures aren't tagged,
+    so a plain re-run retries them.
+  - **Different population**: the manifest's params win on resume — passing a
+    different `--seed`/`--patients` warns and resumes the existing plan. To start a
+    fresh one, clean up (`../cleanup-synth-patient.ts --all`) and delete the
+    manifest `Basic` (its id is printed in the warning).
+- **Dry**: `--dry` regenerates + prints the assignment for the first 20 selected
+  visits; writes nothing (no manifest, no visits).
+- Per-visit harness output → `.logs/seq-NNNNN.log`; materialized scenarios →
+  `.scenarios/seq-NNNNN.json` (both untracked). `population-progress.json` is kept
+  as a local run log but is **not** the resume source of truth anymore.
 - Concurrency 4 is comfortable against a single local zambda server. Higher may
   overwhelm it.
 
@@ -117,3 +139,8 @@ location (even LA/NY), and distinct patients.
   backdated — only Appointment/Encounter dates, which is what reports bucket on.
 - The harness creates real FHIR on the synth project. Cleanup utilities live in
   the parent dir (`cleanup-synth-patient.ts`, etc.).
+- Resume state is FHIR-native (the `Basic` manifest + `synth-population`
+  Appointment tags). `cleanup-synth-patient.ts --all` removes the seeded
+  patients/visits but **not** the manifest `Basic` — delete it manually to start a
+  different plan, otherwise the next run reuses its pinned params (and re-seeds
+  under the same anchor).

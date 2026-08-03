@@ -12,9 +12,10 @@ name: Synthetic Population Seed
 # NOTE: a full 2,000-patient run is long. A single GitHub job caps at ~6h; at
 # concurrency 4 a full run is borderline. Two ways to stay safe:
 #   • pilot first with a small `patients` (e.g. 200) or `limit` (e.g. 50), or
-#   • just re-run this workflow — it caches the plan + per-visit progress
-#     (population-progress.json) keyed on env+seed+patients and RESUMES, skipping
-#     visits already done. Same seed + same patients → same plan on resume.
+#   • just re-run this workflow — resume state lives IN THE TARGET PROJECT (a
+#     Basic "manifest" pins the plan params; each seeded Appointment is tagged
+#     with its plan seq), so a re-dispatch regenerates the identical plan and
+#     skips visits already seeded. No CI cache to persist or expire.
 
 on:
   workflow_dispatch:
@@ -134,28 +135,10 @@ jobs:
           npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/link-synth-staff-users.ts
           npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/population/fix-schedules-permissive.ts --execute
 
-      - name: Restore plan + progress (resume)
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            scripts/synthetic-patient-data/population/population-plan.json
-            scripts/synthetic-patient-data/population/population-progress.json
-          # run_id in the key means each run saves a fresh entry; restore-keys
-          # pulls the latest matching prefix so a re-dispatch resumes.
-          key: synth-pop-${{ inputs.environment }}-s${{ inputs.seed }}-p${{ inputs.patients }}-${{ github.run_id }}
-          restore-keys: |
-            synth-pop-${{ inputs.environment }}-s${{ inputs.seed }}-p${{ inputs.patients }}-
-
-      - name: Plan population
-        run: |
-          set -euo pipefail
-          cd scripts/synthetic-patient-data/population
-          if [ -f population-plan.json ]; then
-            echo "Reusing cached plan (resume)."
-          else
-            npx tsx plan-population.ts --patients "${{ inputs.patients }}" --seed "${{ inputs.seed }}"
-          fi
-
+      # No plan/cache steps: run-population resolves durable state from the target
+      # project itself — a Basic "manifest" pins the plan params (so it regenerates
+      # the identical plan) and per-Appointment `seq-<N>` tags are the resume set.
+      # Re-dispatching this workflow just continues where it left off.
       - name: Run population seed
         run: |
           set -uo pipefail
@@ -163,6 +146,7 @@ jobs:
           LIMIT=""; [ -n "${{ inputs.limit }}" ] && LIMIT="--limit ${{ inputs.limit }}"
           DRY="";   [ "${{ inputs.dry }}" = "true" ] && DRY="--dry"
           npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/population/run-population.ts \
+            --seed "${{ inputs.seed }}" --patients "${{ inputs.patients }}" \
             --concurrency "${{ inputs.concurrency }}" $LIMIT $DRY
 
       - name: Verify population

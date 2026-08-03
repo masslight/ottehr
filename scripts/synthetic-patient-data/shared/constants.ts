@@ -18,6 +18,20 @@ export const SYNTH_CRON_CODE = 'synth-cron';
 /** meta.tag system carrying the census run date (tag value = YYYY-MM-DD). */
 export const SYNTH_CRON_RUN_DATE_SYSTEM = 'https://fhir.ottehr.com/sid/synth-cron-run-date';
 
+// ── Population build state (FHIR-native, so resume/idempotency survive without a
+// local progress file or CI cache) ───────────────────────────────────────────
+/** Appointment meta.tag system for population-seed visits; code = `seq-<N>` (the
+ *  plan sequence). run-population derives "which visits are already done" by
+ *  searching these tags — the seeded data itself is the progress ledger. */
+export const SYNTH_POPULATION_SYSTEM = 'https://fhir.ottehr.com/sid/synth-population';
+export const SYNTH_POPULATION_SEQ_PREFIX = 'seq-';
+/** Singleton Basic per project recording the population run + its plan params
+ *  (seed / patients / todayAnchor), so a resume regenerates the identical plan. */
+export const SYNTH_POPULATION_MANIFEST_SYSTEM = 'https://fhir.ottehr.com/sid/synth-population-manifest';
+export const SYNTH_POPULATION_MANIFEST_CODE = 'population-manifest';
+export const SYNTH_POPULATION_MANIFEST_EXT_URL =
+  'https://fhir.ottehr.com/StructureDefinition/synth-population-manifest';
+
 /**
  * Encounter.statusHistory extension carrying the Ottehr visit-status code.
  * Imported from utils — writing a different URL makes the EHR fall through to a

@@ -11,19 +11,36 @@
 //
 // Pilot: --limit 25 runs the first 25 (chronologically-earliest) visits.
 
-import { spawn } from 'child_process';
+import Oystehr from '@oystehr/sdk';
+import { execFileSync, spawn } from 'child_process';
+import type { Appointment, Basic } from 'fhir/r4b';
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { arg, argInt, flag } from '../shared/cli';
+import {
+  SYNTH_POPULATION_MANIFEST_CODE,
+  SYNTH_POPULATION_MANIFEST_EXT_URL,
+  SYNTH_POPULATION_MANIFEST_SYSTEM,
+  SYNTH_POPULATION_SEQ_PREFIX,
+  SYNTH_POPULATION_SYSTEM,
+} from '../shared/constants';
 import { type HarnessCommand, prepareHarnessCommand } from '../shared/harness-bundle';
+import { createOystehrFromEnv, searchAllPages } from '../shared/oystehr-client';
+import { withRetry } from '../shared/retry';
 
 const HERE = __dirname;
 const EXAMPLES = resolve(HERE, '..', 'examples');
+const PLAN_SCRIPT = resolve(HERE, 'plan-population.ts');
 const PLAN_PATH = resolve(arg('--plan', resolve(HERE, 'population-plan.json')));
 const PROGRESS_PATH = resolve(arg('--progress', resolve(HERE, 'population-progress.json')));
 const SCEN_DIR = resolve(HERE, '.scenarios');
 const LOG_DIR = resolve(HERE, '.logs');
 
+// Plan params — used to create the manifest on the FIRST run. On a resume the
+// manifest's stored params win (see readOrCreateManifest), so these are only the
+// "new population" defaults.
+const SEED = argInt('--seed', { default: 42 });
+const PATIENTS = argInt('--patients', { default: 2000, min: 1 });
 const CONCURRENCY = argInt('--concurrency', { default: 4, min: 1 });
 const LIMIT = argInt('--limit', { default: 0, min: 0 }); // 0 = no limit
 const FROM = argInt('--from', { default: 0, min: 0 });
@@ -83,6 +100,152 @@ function flushProgress(): void {
   dirty = false;
 }
 
+// ── FHIR-native run state ─────────────────────────────────────────────────────
+// The population's durable state lives IN THE TARGET PROJECT, not a local file or
+// CI cache: a singleton `Basic` manifest (plan params + status) and a `seq-<N>`
+// meta.tag on every seeded Appointment. Resume = "which seqs are already tagged".
+// This mirrors how the daily census derives idempotency from FHIR tags, and means
+// re-dispatching the GitHub Action just works with no cache to persist/expire.
+
+// Refreshable M2M client (only used for manifest + per-visit tagging; the harness
+// children mint their own tokens). Re-mint every ~50 min so a multi-hour run
+// doesn't lapse the token mid-flight.
+let clientCache: Oystehr | undefined;
+let clientMintedAt = 0;
+async function popClient(): Promise<Oystehr> {
+  if (!clientCache || Date.now() - clientMintedAt > 50 * 60_000) {
+    clientCache = await createOystehrFromEnv();
+    clientMintedAt = Date.now();
+  }
+  return clientCache;
+}
+
+interface ManifestState {
+  seed: number;
+  patients: number;
+  todayAnchor: string; // YYYY-MM-DD — pins the plan's date/DOB anchor so resume regenerates it identically
+}
+
+async function findManifest(o: Oystehr): Promise<Basic | undefined> {
+  const results = (
+    await o.fhir.search<Basic>({
+      resourceType: 'Basic',
+      params: [
+        { name: 'code', value: `${SYNTH_POPULATION_MANIFEST_SYSTEM}|${SYNTH_POPULATION_MANIFEST_CODE}` },
+        { name: '_count', value: '2' },
+      ],
+    })
+  ).unbundle();
+  if (results.length > 1)
+    console.warn(`⚠ ${results.length} population manifests found; using the first (${results[0].id}).`);
+  return results[0];
+}
+
+// Read the singleton manifest, or create it (pinning todayAnchor = today) on the
+// first run. On a resume the STORED params win — a mismatched --seed/--patients is
+// a warning, not a new plan, so seq→patient stays stable. `readOnly` (dry-run)
+// never writes: it falls back to a today-anchored ephemeral plan.
+async function readOrCreateManifest(
+  o: Oystehr,
+  want: { seed: number; patients: number },
+  readOnly: boolean
+): Promise<ManifestState> {
+  const existing = await findManifest(o);
+  const raw = existing?.extension?.find((e) => e.url === SYNTH_POPULATION_MANIFEST_EXT_URL)?.valueString;
+  if (raw) {
+    const state = JSON.parse(raw) as ManifestState;
+    if (state.seed !== want.seed || state.patients !== want.patients) {
+      console.warn(
+        `⚠ existing population manifest is seed=${state.seed} patients=${state.patients}; ignoring CLI ` +
+          `seed=${want.seed} patients=${want.patients} and RESUMING the existing plan. To start a different ` +
+          `population, clean it up first (cleanup-synth-patient --all) and delete Basic/${existing?.id}.`
+      );
+    }
+    return state;
+  }
+  const state: ManifestState = {
+    seed: want.seed,
+    patients: want.patients,
+    todayAnchor: new Date().toISOString().slice(0, 10),
+  };
+  if (!readOnly) {
+    await o.fhir.create<Basic>({
+      resourceType: 'Basic',
+      code: {
+        coding: [{ system: SYNTH_POPULATION_MANIFEST_SYSTEM, code: SYNTH_POPULATION_MANIFEST_CODE }],
+        text: 'Synthetic population run manifest',
+      },
+      meta: { tag: [{ system: SYNTH_POPULATION_SYSTEM, code: 'manifest' }] },
+      extension: [
+        {
+          url: SYNTH_POPULATION_MANIFEST_EXT_URL,
+          valueString: JSON.stringify({ ...state, startedAt: new Date().toISOString(), status: 'in-progress' }),
+        },
+      ],
+    });
+  }
+  return state;
+}
+
+async function updateManifest(o: Oystehr, patch: Record<string, unknown>): Promise<void> {
+  const existing = await findManifest(o);
+  if (!existing?.id) return;
+  const raw = existing.extension?.find((e) => e.url === SYNTH_POPULATION_MANIFEST_EXT_URL)?.valueString;
+  const cur = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  await o.fhir.update<Basic>(
+    {
+      ...existing,
+      resourceType: 'Basic',
+      id: existing.id,
+      extension: [
+        {
+          url: SYNTH_POPULATION_MANIFEST_EXT_URL,
+          valueString: JSON.stringify({ ...cur, ...patch, lastUpdatedAt: new Date().toISOString() }),
+        },
+      ],
+    },
+    existing.meta?.versionId ? { optimisticLockingVersionId: existing.meta.versionId } : undefined
+  );
+}
+
+// "Which plan seqs already have a seeded Appointment" — the resume set, derived
+// straight from FHIR tags. No local ledger to drift or lose.
+async function loadDoneSeqs(o: Oystehr): Promise<Set<number>> {
+  const appts = await searchAllPages<Appointment>(o, 'Appointment', [
+    { name: '_tag', value: `${SYNTH_POPULATION_SYSTEM}|` },
+  ]);
+  const seqs = new Set<number>();
+  for (const a of appts) {
+    for (const t of a.meta?.tag ?? []) {
+      if (t.system === SYNTH_POPULATION_SYSTEM && t.code?.startsWith(SYNTH_POPULATION_SEQ_PREFIX)) {
+        const n = Number(t.code.slice(SYNTH_POPULATION_SEQ_PREFIX.length));
+        if (Number.isFinite(n)) seqs.add(n);
+      }
+    }
+  }
+  return seqs;
+}
+
+// Tag a just-seeded Appointment with its plan seq — this is what makes the visit
+// count as "done" on the next run. Retried on transient failures; a hard failure
+// is loud (that seq would otherwise re-run and create a duplicate visit).
+async function tagAppointmentDone(appointmentId: string, seq: number): Promise<void> {
+  await withRetry(`tag population seq ${seq}`, 3, async () => {
+    const o = await popClient();
+    const appt = await o.fhir.get<Appointment>({ resourceType: 'Appointment', id: appointmentId });
+    const tag = (appt.meta?.tag ?? []).filter((t) => t.system !== SYNTH_POPULATION_SYSTEM);
+    tag.push({ system: SYNTH_POPULATION_SYSTEM, code: `${SYNTH_POPULATION_SEQ_PREFIX}${seq}` });
+    const op = appt.meta?.tag ? 'replace' : appt.meta ? 'add' : 'add';
+    const path = appt.meta ? '/meta/tag' : '/meta';
+    const value = appt.meta ? tag : { tag };
+    await o.fhir.patch<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+      operations: [{ op, path, value }],
+    });
+  });
+}
+
 // Build the per-visit scenario file by cloning the archetype and overriding
 // identity + visit fields. Returns the scenario file path.
 function materializeScenario(v: PlannedVisit): string {
@@ -115,6 +278,19 @@ function materializeScenario(v: PlannedVisit): string {
   const file = resolve(SCEN_DIR, `seq-${String(v.seq).padStart(5, '0')}.json`);
   writeFileSync(file, JSON.stringify(base, null, 2));
   return file;
+}
+
+// Parse the harness's machine-readable SYNTH_RESULT line (stable contract) to get
+// the created Appointment id for tagging. {} if absent.
+function parseSynthResult(out: string): { appointmentId?: string } {
+  const m = out.match(/^SYNTH_RESULT (\{.*\})\s*$/m);
+  if (!m) return {};
+  try {
+    const r = JSON.parse(m[1]) as Record<string, string | null>;
+    return { appointmentId: r.appointmentId ?? undefined };
+  } catch {
+    return {};
+  }
 }
 
 // Spawn command for the per-visit harness. Set once in main() before the pool
@@ -171,27 +347,48 @@ function runOne(v: PlannedVisit): Promise<void> {
       flushProgress();
       resolvePromise();
     });
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
       if (settled) return;
       settled = true;
-      const out = chunks.join('');
-      writeFileSync(logFile, out);
-      if (code === 0) {
-        recordOutcome(v.seq, 'done');
-        console.log(
-          `  ✓ seq ${v.seq} ${v.date} ${v.location.padEnd(11)} ${v.archetypeLabel} — ${v.firstName} ${v.lastName}`
-        );
-      } else {
-        const lastErr =
-          out
-            .split('\n')
-            .filter((l) => /error|aborted|failed/i.test(l))
-            .slice(-1)[0] ?? `exit ${code}`;
-        recordOutcome(v.seq, 'failed', lastErr);
-        console.log(`  ✗ seq ${v.seq} FAILED (exit ${code}): ${lastErr.trim().slice(0, 160)}  [log: ${logFile}]`);
+      try {
+        const out = chunks.join('');
+        writeFileSync(logFile, out);
+        if (code === 0) {
+          // Durable "done" = the Appointment carries its seq tag in FHIR. Do this
+          // before recording local progress; a tag failure is loud (that seq would
+          // otherwise re-run and create a duplicate visit on resume).
+          const appointmentId = parseSynthResult(out).appointmentId;
+          if (appointmentId) {
+            try {
+              await tagAppointmentDone(appointmentId, v.seq);
+            } catch (err) {
+              console.log(
+                `  ⚠ seq ${v.seq}: created but FAILED to tag Appointment/${appointmentId} ` +
+                  `(${err instanceof Error ? err.message : err}) — may re-run/duplicate on resume`
+              );
+            }
+          } else {
+            console.log(
+              `  ⚠ seq ${v.seq}: created but no Appointment id in harness output — untagged (may re-run/duplicate on resume)`
+            );
+          }
+          recordOutcome(v.seq, 'done');
+          console.log(
+            `  ✓ seq ${v.seq} ${v.date} ${v.location.padEnd(11)} ${v.archetypeLabel} — ${v.firstName} ${v.lastName}`
+          );
+        } else {
+          const lastErr =
+            out
+              .split('\n')
+              .filter((l) => /error|aborted|failed/i.test(l))
+              .slice(-1)[0] ?? `exit ${code}`;
+          recordOutcome(v.seq, 'failed', lastErr);
+          console.log(`  ✗ seq ${v.seq} FAILED (exit ${code}): ${lastErr.trim().slice(0, 160)}  [log: ${logFile}]`);
+        }
+        flushProgress();
+      } finally {
+        resolvePromise();
       }
-      flushProgress();
-      resolvePromise();
     });
   });
 }
@@ -244,18 +441,52 @@ function acquireLock(): void {
 
 async function main(): Promise<void> {
   if (!DRY) acquireLock();
+
+  // Durable run state lives in the target project: a Basic manifest pins the plan
+  // params (seed/patients/todayAnchor), so we regenerate the EXACT same plan every
+  // run, and per-Appointment `seq-<N>` tags tell us what's already seeded. No local
+  // progress file or CI cache to persist/expire.
+  const o = await popClient();
+  const manifest = await readOrCreateManifest(o, { seed: SEED, patients: PATIENTS }, DRY);
+  console.log(
+    `Population manifest: seed=${manifest.seed} patients=${manifest.patients} anchor=${manifest.todayAnchor}` +
+      `${DRY ? ' [DRY — not persisted]' : ''}`
+  );
+  console.log('Regenerating plan from manifest params …');
+  execFileSync(
+    'npx',
+    [
+      'tsx',
+      PLAN_SCRIPT,
+      '--seed',
+      String(manifest.seed),
+      '--patients',
+      String(manifest.patients),
+      '--today',
+      manifest.todayAnchor,
+      '--out',
+      PLAN_PATH,
+    ],
+    { stdio: 'inherit' }
+  );
   const plan = JSON.parse(readFileSync(PLAN_PATH, 'utf-8')) as Plan;
+
+  // Resume set = seqs already tagged on seeded Appointments (from FHIR).
+  const doneSeqs = REDO ? new Set<number>() : await loadDoneSeqs(o);
+
   let visits = plan.visits;
   if (FROM) visits = visits.filter((v) => v.seq >= FROM);
   if (TO) visits = visits.filter((v) => v.seq <= TO);
-  if (!REDO) visits = visits.filter((v) => progress[String(v.seq)]?.outcome !== 'done');
+  if (!REDO) visits = visits.filter((v) => !doneSeqs.has(v.seq));
   if (LIMIT) visits = visits.slice(0, LIMIT);
 
   const total = plan.visits.length;
-  const alreadyDone = Object.values(progress).filter((p) => p.outcome === 'done').length;
-  console.log(`Plan: ${total} visits total; ${alreadyDone} already done.`);
+  console.log(`Plan: ${total} visits total; ${doneSeqs.size} already seeded (from FHIR tags).`);
   console.log(`This run: ${visits.length} visits (concurrency ${CONCURRENCY})${DRY ? ' [DRY]' : ''}.`);
-  if (!visits.length) return;
+  if (!visits.length) {
+    if (!DRY && doneSeqs.size >= total) await updateManifest(o, { status: 'complete', doneCount: doneSeqs.size });
+    return;
+  }
 
   if (DRY) {
     for (const v of visits.slice(0, 20)) {
@@ -298,10 +529,18 @@ async function main(): Promise<void> {
     harness.cleanup();
   }
 
-  const done = Object.values(progress).filter((p) => p.outcome === 'done').length;
+  // Re-read the durable done-set from FHIR for an accurate cumulative count, and
+  // record it on the manifest (status flips to 'complete' once everything's seeded).
+  const doneNow = await loadDoneSeqs(o);
   const failed = Object.values(progress).filter((p) => p.outcome === 'failed').length;
-  console.log(`\nRun complete. Cumulative: ${done} done, ${failed} failed (of ${total}).`);
-  if (failed) console.log(`Re-run to retry failures (they're not marked done). Logs in ${LOG_DIR}.`);
+  await updateManifest(o, {
+    status: doneNow.size >= total ? 'complete' : 'in-progress',
+    doneCount: doneNow.size,
+    lastRunFailed: failed,
+  });
+  console.log(`\nRun complete. Seeded (FHIR): ${doneNow.size}/${total}. Failed this run: ${failed}.`);
+  if (doneNow.size < total)
+    console.log(`Re-run to continue — resume is derived from FHIR tags (no cache needed). Logs in ${LOG_DIR}.`);
 }
 
 main().catch((e) => {
