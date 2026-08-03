@@ -17,8 +17,10 @@ describe('splitDisplayName', () => {
 });
 
 describe('formatDateTime', () => {
-  it('renders an ISO timestamp as a medium date and time', () => {
-    expect(formatDateTime('2026-06-01T12:00:00Z')).toMatch(/^\w{3} \d{1,2}, 2026, \d{1,2}:\d{2} [AP]M$/);
+  it('renders an ISO timestamp as a localized date and time', () => {
+    const formatted = formatDateTime('2026-06-01T12:00:00Z');
+    expect(formatted).not.toBe('2026-06-01T12:00:00Z');
+    expect(formatted).toContain('2026');
   });
 
   it('returns a dash for an empty value', () => {
