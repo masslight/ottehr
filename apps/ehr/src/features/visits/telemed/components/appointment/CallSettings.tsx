@@ -11,9 +11,18 @@ import {
   SelectChangeEvent,
 } from '@mui/material';
 import { useAudioInputs, useAudioVideo, useVideoInputs } from 'amazon-chime-sdk-component-library-react';
-import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
+import {
+  BackgroundBlurVideoFrameProcessor,
+  BackgroundReplacementProcessor,
+  BackgroundReplacementVideoFrameProcessor,
+  ConsoleLogger,
+  DefaultDeviceController,
+  DefaultVideoTransformDevice,
+  VideoFrameProcessor,
+} from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApplyVirtualBackground } from '../../hooks/useApplyVirtualBackground';
+import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VirtualBackgroundSettings } from './VirtualBackgroundSettings';
 
 interface CallSettingsProps {
@@ -29,12 +38,14 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
   const [selectedAudioDevice, setSelectedAudioDevice] = useState(initialAudioDevice);
   const [selectedVideoPreviewDeviceId, setSelectedVideoPreviewDeviceId] = useState(initialVideoDevice);
 
-  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const virtualBackground = useVideoCallStore((s) => s.virtualBackground);
 
-  const previewDeviceController = useMemo(() => {
-    const logger = new ConsoleLogger('preview');
-    return new DefaultDeviceController(logger);
-  }, []);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const previewLoggerRef = useRef(new ConsoleLogger('preview'));
+  const previewProcessorRef = useRef<VideoFrameProcessor | null>(null);
+  const previewTransformDeviceRef = useRef<DefaultVideoTransformDevice | null>(null);
+
+  const previewDeviceController = useMemo(() => new DefaultDeviceController(previewLoggerRef.current), []);
 
   const handleSave = async (): Promise<void> => {
     await stopAudioVideoPreviewAndUsage();
@@ -57,10 +68,18 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
 
   const stopAudioVideoPreviewAndUsage = useCallback(async (): Promise<void> => {
     if (previewDeviceController && videoPreviewRef.current) {
-      await previewDeviceController?.stopVideoPreviewForVideoInput(videoPreviewRef.current);
+      previewDeviceController.stopVideoPreviewForVideoInput(videoPreviewRef.current);
     }
     await previewDeviceController?.stopVideoInput();
     await previewDeviceController?.stopAudioInput();
+    if (previewTransformDeviceRef.current) {
+      await previewTransformDeviceRef.current.stop();
+      previewTransformDeviceRef.current = null;
+    }
+    if (previewProcessorRef.current) {
+      await previewProcessorRef.current.destroy();
+      previewProcessorRef.current = null;
+    }
   }, [previewDeviceController]);
 
   useEffect(() => {
@@ -69,13 +88,41 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
 
   const startVideoPreview = useCallback(
     async (deviceId: string): Promise<void> => {
-      if (previewDeviceController && videoPreviewRef.current) {
-        await previewDeviceController.stopVideoInput();
-        await previewDeviceController.startVideoInput(deviceId);
-        previewDeviceController.startVideoPreviewForVideoInput(videoPreviewRef.current);
+      if (!previewDeviceController || !videoPreviewRef.current) return;
+
+      previewDeviceController.stopVideoPreviewForVideoInput(videoPreviewRef.current);
+      await previewDeviceController.stopVideoInput();
+
+      if (previewTransformDeviceRef.current) {
+        await previewTransformDeviceRef.current.stop();
+        previewTransformDeviceRef.current = null;
       }
+      if (previewProcessorRef.current) {
+        await previewProcessorRef.current.destroy();
+        previewProcessorRef.current = null;
+      }
+
+      let processor: VideoFrameProcessor | undefined;
+      if (virtualBackground.mode === 'blur') {
+        processor = await BackgroundBlurVideoFrameProcessor.create();
+      } else if (virtualBackground.mode === 'image' && virtualBackground.imageBlob) {
+        processor = await BackgroundReplacementVideoFrameProcessor.create();
+      }
+
+      if (processor) {
+        if (virtualBackground.mode === 'image')
+          await (processor as BackgroundReplacementProcessor).setImageBlob(virtualBackground.imageBlob);
+        previewProcessorRef.current = processor;
+        const transformDevice = new DefaultVideoTransformDevice(previewLoggerRef.current, deviceId, [processor]);
+        previewTransformDeviceRef.current = transformDevice;
+        await previewDeviceController.startVideoInput(transformDevice as unknown as string);
+      } else {
+        await previewDeviceController.startVideoInput(deviceId);
+      }
+
+      previewDeviceController.startVideoPreviewForVideoInput(videoPreviewRef.current);
     },
-    [previewDeviceController]
+    [previewDeviceController, virtualBackground]
   );
 
   const handleVideoDeviceChange = async (event: SelectChangeEvent<string>): Promise<void> => {
