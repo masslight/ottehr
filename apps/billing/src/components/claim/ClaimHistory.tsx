@@ -24,7 +24,7 @@ import { formatDateTime } from '../../utils/format';
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
 function formatValue(value: string | null): string {
-  return value && value.length ? value : '—';
+  return value && value.length ? value : '-';
 }
 
 // A single before/after value: a link to the resource's screen when one is available, otherwise text.
@@ -49,6 +49,45 @@ function HistoryValue({
     <Box component="span" sx={{ color }}>
       {formatValue(value)}
     </Box>
+  );
+}
+
+function HistoryDetail({ entry }: { entry: ClaimHistoryEntry }): ReactElement {
+  // for claim notes
+  if (entry.message) {
+    return (
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+        {entry.message}
+      </Typography>
+    );
+  }
+
+  if (entry.changes.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        -
+      </Typography>
+    );
+  }
+
+  return (
+    <>
+      {entry.changes.map((change, idx) => (
+        <Typography variant="body2" key={`${entry.id}-${change.field}-${idx}`} sx={{ py: 0.25 }}>
+          <Box component="span" sx={{ fontWeight: 500, color: change.label === 'Error' ? 'error.main' : undefined }}>
+            {change.label}:
+          </Box>{' '}
+          {change.label !== 'Error' ? (
+            <>
+              <HistoryValue value={change.previousValue} link={change.previousLink} muted /> →{' '}
+            </>
+          ) : (
+            <></>
+          )}
+          <HistoryValue value={change.newValue} link={change.newLink} />
+        </Typography>
+      ))}
+    </>
   );
 }
 
@@ -116,30 +155,7 @@ export function ClaimHistory({ claimId }: { claimId: string }): ReactElement {
               </TableCell>
               <TableCell>{entry.activity}</TableCell>
               <TableCell>
-                {entry.changes.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    —
-                  </Typography>
-                ) : (
-                  entry.changes.map((change, idx) => (
-                    <Typography variant="body2" key={`${entry.id}-${change.field}-${idx}`} sx={{ py: 0.25 }}>
-                      <Box
-                        component="span"
-                        sx={{ fontWeight: 500, color: change.label === 'Error' ? 'error.main' : undefined }}
-                      >
-                        {change.label}:
-                      </Box>{' '}
-                      {change.label !== 'Error' ? (
-                        <>
-                          <HistoryValue value={change.previousValue} link={change.previousLink} muted /> →{' '}
-                        </>
-                      ) : (
-                        <></>
-                      )}
-                      <HistoryValue value={change.newValue} link={change.newLink} />
-                    </Typography>
-                  ))
-                )}
+                <HistoryDetail entry={entry} />
               </TableCell>
             </TableRow>
           ))}
