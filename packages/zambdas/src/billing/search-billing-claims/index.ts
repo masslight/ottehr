@@ -204,10 +204,8 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
   return true;
 };
 
-// 6 MiB limit, 200 matches per query, 3 queries, 10kB per claim, 1kB overhead for the envelope.
-// thus limit batching.
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 200;
-export const CLAIM_SEARCH_TEXT_BATCH_SIZE = 4;
+export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
 export function buildClaimSearchTextQueries({
   searchText,
@@ -332,8 +330,8 @@ export async function searchClaimsBySearchText({
 
   const claims: Claim[] = [];
   const truncatedClauses: string[] = [];
-  for (let start = 0; start < clauses.length; start += CLAIM_SEARCH_TEXT_BATCH_SIZE) {
-    const chunk = clauses.slice(start, start + CLAIM_SEARCH_TEXT_BATCH_SIZE);
+  for (let start = 0; start < clauses.length; start += CLAIM_SEARCH_TEXT_CONCURRENCY) {
+    const chunk = clauses.slice(start, start + CLAIM_SEARCH_TEXT_CONCURRENCY);
     const bundles = await Promise.all(
       chunk.map(async (clause) => {
         try {
