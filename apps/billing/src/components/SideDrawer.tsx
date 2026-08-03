@@ -31,7 +31,7 @@ export function SideDrawer({ open, onClose, title, children, width = DEFAULT_WID
         sx={{
           px: 3,
           pt: 3,
-          pb: 1.5,
+          pb: 1,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -48,6 +48,7 @@ export function SideDrawer({ open, onClose, title, children, width = DEFAULT_WID
       <Box
         sx={{
           px: 3,
+          pt: 1.5,
           pb: 3,
           flex: 1,
           overflowY: 'auto',
