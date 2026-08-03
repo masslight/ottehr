@@ -125,6 +125,7 @@ interface CommonDataConfigResources {
 type ExternalLabSpecificResources = {
   externalLabResults: ExternalLabResult[];
   collectionDate: string;
+  specimenReceivedDatetime: string;
   orderSubmitDate: string;
   reviewed: boolean;
   reviewingProvider: Practitioner | undefined;
@@ -175,6 +176,7 @@ const getResultDataConfigForDrResources = (
     resultInterpretations,
     attachments,
     collectionDate,
+    specimenReceivedDatetime,
     serviceRequest,
   } = specificResources;
 
@@ -225,6 +227,7 @@ const getResultDataConfigForDrResources = (
     externalLabResults,
     resultsReceivedDate,
     collectionDate,
+    specimenReceivedDatetime,
   };
 
   // need to determine for each DR based result type whether or not to use the friendly patient id.
@@ -357,6 +360,7 @@ const getResultDataConfig = (
     const {
       externalLabResults,
       collectionDate,
+      specimenReceivedDatetime,
       orderSubmitDate,
       reviewed,
       reviewingProvider,
@@ -375,6 +379,7 @@ const getResultDataConfig = (
       alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
+      specimenReceivedDatetime,
       orderSubmitDate,
       reviewed,
       reviewingProvider,
@@ -476,9 +481,15 @@ export async function createExternalLabResultPDFBasedOnDr(
     timezone = getTimezone(schedule);
   }
 
-  const collectionTimeFromDr = getResultSpecimenInfoFromDr(diagnosticReport)?.collectedDateTime;
+  const { collectedDateTime: collectionTimeFromDr, specimenReceivedDatetime } =
+    getResultSpecimenInfoFromDr(diagnosticReport) ?? {};
+
   const collectionDate = collectionTimeFromDr
     ? DateTime.fromISO(collectionTimeFromDr).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : '';
+
+  const specimenReceivedDatetimeInTz = specimenReceivedDatetime
+    ? DateTime.fromISO(specimenReceivedDatetime).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : '';
 
   const externalSpecificResources: LabTypeSpecificResources = {
@@ -496,6 +507,7 @@ export async function createExternalLabResultPDFBasedOnDr(
       resultInterpretations: resultInterpretationDisplays,
       attachments: obsAttachments,
       collectionDate,
+      specimenReceivedDatetime: specimenReceivedDatetimeInTz,
       serviceRequest,
     },
   };
@@ -593,11 +605,18 @@ export async function createExternalLabResultPDF(
     ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : '';
 
+  // the received date comes from the contained specimen on DiagnosticReport
+  const specimenReceivedDatetime = getResultSpecimenInfoFromDr(diagnosticReport)?.specimenReceivedDatetime ?? '';
+  const specimenReceivedDatetimeInTz = specimenReceivedDatetime
+    ? DateTime.fromISO(specimenReceivedDatetime).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : '';
+
   const externalSpecificResources: LabTypeSpecificResources = {
     type: LabType.external,
     specificResources: {
       externalLabResults,
       collectionDate,
+      specimenReceivedDatetime: specimenReceivedDatetimeInTz,
       orderSubmitDate: orderSubmitDate.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       reviewed,
       reviewingProvider,
@@ -1162,17 +1181,17 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
 
     drawRowHelper({
       col1: `Patient ID: ${data.patientId}`,
-      col2: `Result Status: ${data.resultStatus}`,
+      col2: `Received Date & Time: ${data.specimenReceivedDatetime ? data.specimenReceivedDatetime : ''}`,
     });
 
     drawRowHelper({
       col1: `Ordering Phys.: ${data.providerName}`,
-      col2: `Reported Date & Time: ${data.resultsReceivedDate}`,
+      col2: `Result Status: ${data.resultStatus}`,
     });
 
     drawRowHelper({
       col1: `NPI: ${data.providerNPI}`,
-      col2: '',
+      col2: `Reported Date & Time: ${data.resultsReceivedDate}`,
     });
 
     pdfClient.drawSeparatedLine({ ...SEPARATED_LINE_STYLE, thickness: 2, color: LAB_PDF_STYLES.color.purple });
@@ -2173,6 +2192,7 @@ const getResultSpecimenInfoFromDr = (diagnosticReport: DiagnosticReport): Result
   }
 
   collectionInfo.collectedDateTime = specimen.collection.collectedDateTime;
+  collectionInfo.specimenReceivedDatetime = specimen.receivedTime;
 
   return Object.keys(collectionInfo).length ? collectionInfo : undefined;
 };
