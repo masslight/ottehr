@@ -381,7 +381,7 @@ describe('searchClaimsBySearchText', () => {
       ],
     });
 
-    const claims = await searchClaimsBySearchText({
+    const { claims } = await searchClaimsBySearchText({
       oystehr,
       searchText: 'Smith',
       filterParams: [],
@@ -395,13 +395,63 @@ describe('searchClaimsBySearchText', () => {
       claimsPerClause: [[makeClaim('undated'), makeClaim('dated', '2026-07-01T00:00:00Z')]],
     });
 
-    const claims = await searchClaimsBySearchText({
+    const { claims } = await searchClaimsBySearchText({
       oystehr,
       searchText: 'Smith',
       filterParams: [],
       withServiceDateElements: false,
     });
     expect(claims.map((c) => c.id)).toEqual(['dated', 'undated']);
+  });
+
+  it('reports complete results when every clause succeeded within the limit', async () => {
+    const { oystehr } = stubClient({
+      claimsPerClause: [[makeClaim('claim-1', '2026-07-01T00:00:00Z')]],
+    });
+
+    const { incomplete } = await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+    expect(incomplete).toBe(false);
+  });
+
+  it('reports incomplete results when a clause hit the match limit', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { oystehr } = stubClient();
+    (oystehr.fhir.search as unknown as Mock).mockImplementation(async () =>
+      bundleOf([makeClaim('claim-1', '2026-07-01T00:00:00Z')], CLAIM_SEARCH_TEXT_MATCH_LIMIT + 1)
+    );
+
+    const { incomplete } = await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+    expect(incomplete).toBe(true);
+  });
+
+  it('reports incomplete results when some clauses failed but others returned', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { oystehr } = stubClient();
+    let call = 0;
+    (oystehr.fhir.search as unknown as Mock).mockImplementation(async () => {
+      call += 1;
+      if (call === 1) throw new Error('unsupported search parameter');
+      return bundleOf([makeClaim('survivor', '2026-07-01T00:00:00Z')]);
+    });
+
+    const { claims, incomplete } = await searchClaimsBySearchText({
+      oystehr,
+      searchText: 'Smith',
+      filterParams: [],
+      withServiceDateElements: false,
+    });
+    expect(claims.map((c) => c.id)).toEqual(['survivor']);
+    expect(incomplete).toBe(true);
   });
 
   it('chunks the clauses so one round of searches never takes too many connections', async () => {
@@ -427,7 +477,7 @@ describe('searchClaimsBySearchText', () => {
       return bundleOf([makeClaim('survivor', '2026-07-01T00:00:00Z')]);
     });
 
-    const claims = await searchClaimsBySearchText({
+    const { claims } = await searchClaimsBySearchText({
       oystehr,
       searchText: 'Smith',
       filterParams: [],
@@ -495,7 +545,7 @@ describe('searchClaimsBySearchText', () => {
   it('does not call out at all when the text is blank', async () => {
     const { oystehr, search } = stubClient();
 
-    const claims = await searchClaimsBySearchText({
+    const { claims } = await searchClaimsBySearchText({
       oystehr,
       searchText: '   ',
       filterParams: FILTER_PARAMS,

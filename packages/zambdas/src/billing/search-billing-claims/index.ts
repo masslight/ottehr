@@ -14,6 +14,7 @@ import {
   getPayerId,
   getPayerUrl,
   isValidUUID,
+  SearchBillingClaimsResponse,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { fetchClaimResponsesByClaimIds, fetchPatientPaidByClaimId, summarizeClaimPayments } from '../claim-amounts';
@@ -71,7 +72,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function performEffect(
   oystehr: Oystehr,
   params: SearchBillingClaimsParams
-): Promise<{ claims: BillingClaimItem[]; total: number; offset: number; pageSize: number }> {
+): Promise<SearchBillingClaimsResponse> {
   const pageSize = params.pageSize ?? 25;
   const offset = params.offset ?? 0;
 
@@ -118,17 +119,22 @@ async function performEffect(
   let pageClaims: Claim[];
   let includedResources: Resource[];
   let total: number;
+  let incomplete = false;
 
   if (params.searchText) {
+    // FHIR ANDs separate search parameters and only ORs within one, so searching several fields at
+    // once means several searches, and their union can only be paginated here rather than by the
+    // server. _filter would express it as one paginated search, but Oystehr discards _filter.
     const matched = await searchClaimsBySearchText({
       oystehr,
       searchText: params.searchText,
       filterParams,
       withServiceDateElements: filteringByServiceDate,
     });
+    incomplete = matched.incomplete;
     const matching = filteringByServiceDate
-      ? matched.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
-      : matched;
+      ? matched.claims.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
+      : matched.claims;
     total = matching.length;
     const page = await fetchClaimsPageByIds({
       oystehr,
@@ -185,6 +191,7 @@ async function performEffect(
     total,
     offset,
     pageSize,
+    incomplete,
   };
 }
 
@@ -204,7 +211,7 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
   return true;
 };
 
-export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 200;
+export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
 export function buildClaimSearchTextQueries({
@@ -306,7 +313,7 @@ export async function searchClaimsBySearchText({
   searchText: string;
   filterParams: ClaimSearchParam[];
   withServiceDateElements: boolean;
-}): Promise<Claim[]> {
+}): Promise<{ claims: Claim[]; incomplete: boolean }> {
   const pageParams: ClaimSearchParam[] = [
     {
       name: '_elements',
@@ -374,7 +381,10 @@ export async function searchClaimsBySearchText({
     );
   }
 
-  return unionClaimsNewestFirst(claims);
+  return {
+    claims: unionClaimsNewestFirst(claims),
+    incomplete: truncatedClauses.length > 0 || failures > 0,
+  };
 }
 
 export async function fetchClaimsPageByIds({
