@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   getStripeAccountForAppointmentOrEncounter,
   getStripeCustomerIdFromAccount,
   getStripeTerminalLocationIdForAppointmentOrEncounter,
@@ -12,6 +13,7 @@ import {
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  SecretsKeys,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
 } from 'utils';
 import {
@@ -20,6 +22,7 @@ import {
   getStripeClient,
   lambdaResponse,
   safeJsonParse,
+  STRIPE_PROJECT_ID_METADATA_KEY,
   wrapHandler,
   ZambdaInput,
 } from '../../../../shared';
@@ -81,6 +84,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       metadata: {
         oystehr_patient_id: validatedParameters.patientId,
         oystehr_encounter_id: validatedParameters.encounterId,
+        [STRIPE_PROJECT_ID_METADATA_KEY]: getSecret(SecretsKeys.PROJECT_ID, input.secrets),
       },
     },
     {
