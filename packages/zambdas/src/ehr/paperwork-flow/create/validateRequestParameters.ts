@@ -1,6 +1,7 @@
 import {
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
   PaperworkFlowCreateInput,
   PaperworkFlowCreateInputSchema,
   Secrets,
@@ -19,6 +20,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
   }
 
   const secrets = input.secrets;
+  if (!secrets) throw MISSING_REQUEST_SECRETS;
 
   let parsed: PaperworkFlowCreateInput;
   try {

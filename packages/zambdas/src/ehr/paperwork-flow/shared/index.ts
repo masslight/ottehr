@@ -106,6 +106,7 @@ const makeQuestionnaireSearchRequest = async (
 };
 
 // =================== resource formatting helpers ==================
+/** returns url|version given that both if exist, if either is missing undefined is returned */
 export const getCanonicalUrlFromQ = (questionnaire: Questionnaire): string | undefined => {
   const { url, version } = questionnaire;
 
@@ -164,6 +165,7 @@ export function makeOttehrManagedServiceTags(services: FlowService[]): Coding[] 
   });
 }
 
+/** returns canonical urls (url|version) for flow forms passed */
 export function getFormCanonicals(formQuestionnaires: Questionnaire[], flowForms: FlowForm[]): string[] {
   const formIdMap = new Map<string, Questionnaire>();
   const formCanonicalUrls: string[] = [];

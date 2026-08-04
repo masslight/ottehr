@@ -4,6 +4,7 @@ import { HealthcareService, Questionnaire } from 'fhir/r4b';
 import {
   FlowForm,
   FlowService,
+  getSecret,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
@@ -13,10 +14,17 @@ import {
   PaperworkFlowQuestionnaire,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   Secrets,
+  SecretsKeys,
   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
   VIRTUAL_INTAKE_PAPERWORK_CANONICAL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  sendErrors,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import {
   getCanonicalUrlFromQ,
   getFlowModes,
@@ -65,6 +73,7 @@ async function listPaperworkFlows(oystehr: Oystehr, secrets: Secrets | null): Pr
   console.log('mapping services by their virtual / inperson flow questionnaire canonical urls');
   const servicesByFlowUrlMap = makeServiceIdsByFlowUrlMap(services);
 
+  const flowsMissingUrls: Questionnaire[] = [];
   console.log('formatting flow questionnaires, form questionnaires and services into paperwork flow DTO');
   const flows =
     flowQuestionnaires
@@ -73,10 +82,13 @@ async function listPaperworkFlows(oystehr: Oystehr, secrets: Secrets | null): Pr
 
         if (!paperworkFlowQuestionnaire) return;
 
-        const flowCanonicalUrl = getCanonicalUrlFromQ(flow);
-        if (!flowCanonicalUrl) return;
+        const flowUrl = flow.url;
+        if (!flowUrl) {
+          flowsMissingUrls.push(flow);
+          return;
+        }
 
-        const serviceIds = servicesByFlowUrlMap.get(flowCanonicalUrl);
+        const serviceIds = servicesByFlowUrlMap.get(flowUrl);
         const ottehrManagedServiceIds = ottehrManagedServicesFromQ(flow);
         const services = [...ottehrManagedServiceIds, ...(serviceIds ? Array.from(serviceIds) : [])];
 
@@ -91,10 +103,19 @@ async function listPaperworkFlows(oystehr: Oystehr, secrets: Secrets | null): Pr
 
   const ottehrQsFormatted = managedQToFlowForm(ottehrManagedQuestionnaires);
 
+  // this shouldn't happen but if it does, we don't want to kill the whole list and but will alert sentry
+  if (flowsMissingUrls.length > 0) {
+    const errorMessage = `Could not resolve urls for the following ${flowsMissingUrls.map(
+      (q) => `Questionnaire/${q.id}`
+    )}`;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendErrors(errorMessage, ENVIRONMENT);
+  }
+
   return { flows, ottehrManagedQuestionnaires: ottehrQsFormatted };
 }
 
-/** returns a map of form questionnaires by their canonical urls */
+/** returns a map of form questionnaires by their canonical urls (url|version) */
 function makeFormByUrlMap(formQuestionnaires: Questionnaire[]): Map<string, Questionnaire> {
   const formByUrlMap = new Map<string, Questionnaire>();
   formQuestionnaires.forEach((form) => {
