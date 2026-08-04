@@ -10,12 +10,17 @@ export interface VideoCallState {
   // than a terminal flag. It drives the Ambient Scribe suggestions polling to re-run for every call.
   endedCallCount: number;
   virtualBackground: VirtualBackgroundSetting;
+  // Device IDs chosen in the pre-call settings dialog. Applied by VideoChatContainer on call start.
+  preferredVideoDeviceId: string | null;
+  preferredAudioDeviceId: string | null;
 }
 
 const VIDEO_CALL_STATE_INITIAL: VideoCallState = {
   meetingData: null,
   endedCallCount: 0,
   virtualBackground: { mode: 'none' },
+  preferredVideoDeviceId: null,
+  preferredAudioDeviceId: null,
 };
 
 export const useVideoCallStore = create<VideoCallState>()(() => ({

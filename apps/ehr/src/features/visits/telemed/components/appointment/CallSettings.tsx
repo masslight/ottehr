@@ -39,7 +39,18 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
   const [selectedAudioDevice, setSelectedAudioDevice] = useState(initialAudioDevice);
   const [selectedVideoPreviewDeviceId, setSelectedVideoPreviewDeviceId] = useState(initialVideoDevice);
 
+  // Chime enumerates devices asynchronously; initialVideoDevice may be undefined at mount time.
+  // Sync the local state once the SDK reports a selected device (only if the user hasn't picked one yet).
+  useEffect(() => {
+    if (initialVideoDevice && !selectedVideoPreviewDeviceId) {
+      setSelectedVideoPreviewDeviceId(initialVideoDevice);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialVideoDevice]);
+
   const virtualBackground = useVideoCallStore((s) => s.virtualBackground);
+  // Snapshot at open time so Cancel can roll back store changes made by VirtualBackgroundSettings.
+  const [initialVirtualBackground] = useState(useVideoCallStore.getState().virtualBackground);
 
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
   const previewLoggerRef = useRef(new ConsoleLogger('preview'));
@@ -64,6 +75,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
   const handleClose = async (): Promise<void> => {
     await stopAudioVideoPreviewAndUsage();
     await audioVideo?.startAudioInput(initialAudioDevice || audioDevices[0].deviceId);
+    useVideoCallStore.setState({ virtualBackground: initialVirtualBackground });
     onClose();
   };
 

@@ -5,10 +5,12 @@ import {
   useLogger,
   useMeetingManager,
   useMeetingStatus,
+  useVideoInputs,
 } from 'amazon-chime-sdk-component-library-react';
 import { LogLevel, MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { getSelectors } from 'utils';
+import { useApplyVirtualBackground } from '../../hooks/useApplyVirtualBackground';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VideoChatLayout } from './VideoChatLayout';
 import { VideoRoom } from './VideoRoom';
@@ -19,6 +21,8 @@ export const VideoChatContainer: FC = () => {
   const audioVideo = useAudioVideo();
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const meetingStatus = useMeetingStatus();
+  const { devices: videoDevices, selectedDevice } = useVideoInputs();
+  const { applyBackground } = useApplyVirtualBackground();
   const [isCameraTurnedOnForStart, setIsCameraTurnedOnForStart] = useState(false);
 
   const logger = useLogger();
@@ -67,6 +71,25 @@ export const VideoChatContainer: FC = () => {
     async function toggle(): Promise<void> {
       if (!isVideoEnabled && meetingStatus === 1 && !isCameraTurnedOnForStart) {
         setIsCameraTurnedOnForStart(true);
+
+        // Read device preferences directly from the store (not reactive) to avoid adding them
+        // as effect deps, which would cause this effect to re-run mid-call.
+        const { preferredVideoDeviceId, preferredAudioDeviceId } = useVideoCallStore.getState();
+
+        const rawDeviceId =
+          preferredVideoDeviceId ||
+          (selectedDevice as string) ||
+          (selectedDevice as MediaDeviceInfo)?.deviceId ||
+          videoDevices[0]?.deviceId;
+
+        if (rawDeviceId) {
+          await applyBackground(rawDeviceId);
+        }
+
+        if (preferredAudioDeviceId && audioVideo) {
+          await audioVideo.startAudioInput(preferredAudioDeviceId);
+        }
+
         await toggleVideo();
       }
     }
