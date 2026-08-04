@@ -2928,13 +2928,29 @@ async function changeStatus(ctx: SynthesisContext, status: string): Promise<void
   if (!ctx.oystehr) return;
   const body = { encounterId: ctx.encounterId, updatedStatus: status };
   // change-in-person-visit-status doesn't use user.me() — cloud routing OK.
-  // withRetry: connection-level failures only; setting the same status again is
-  // safe (Phase 13.5 rebuilds statusHistory with canonical entries anyway).
-  const res = await withRetry(`change-in-person-visit-status (${status})`, 3, () =>
-    zambdaPost(ctx, 'change-in-person-visit-status', body)
-  );
-  if (!res.ok) {
-    throw new Error(`change-in-person-visit-status (${status}) failed: ${res.status}\n${await res.text()}`);
+  // withRetry covers connection-level failures. Setting the same status again is
+  // safe (Phase 13.5 rebuilds statusHistory anyway), so ALSO retry the transient
+  // concurrent-update conflict: the zambda patches the Encounter with optimistic
+  // locking, and a near-simultaneous write from a PRIOR transition's subscription
+  // side-effect can stale the version → 412, surfaced as HTTP 400 APIError code
+  // 4024 ("...modified during the operation"). A fresh re-issue reads the new
+  // version and succeeds; without this the walk fails 400 on ~random visits.
+  const CONFLICT_ATTEMPTS = 4;
+  for (let attempt = 1; ; attempt++) {
+    const res = await withRetry(`change-in-person-visit-status (${status})`, 3, () =>
+      zambdaPost(ctx, 'change-in-person-visit-status', body)
+    );
+    if (res.ok) return;
+    const text = await res.text();
+    const isConflict =
+      res.status === 400 && (/"code":\s*4024/.test(text) || /concurrent|modified during the operation/i.test(text));
+    if (isConflict && attempt < CONFLICT_ATTEMPTS) {
+      const delayMs = 300 * attempt;
+      logNote(`change-in-person-visit-status (${status}) concurrent-update conflict — retrying in ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      continue;
+    }
+    throw new Error(`change-in-person-visit-status (${status}) failed: ${res.status}\n${text}`);
   }
 }
 

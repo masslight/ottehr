@@ -211,20 +211,25 @@ jobs:
 
       - name: Show failing visit logs
         if: always()
-        # run-population records per-visit failures (exit 0), so dump the first few
-        # harness logs here — the last "── Phase N:" line + error shows which zambda
-        # 500'd, without downloading the artifact. (Harness stdout carries no
-        # secrets; the server's secret log is a separate, redacted stream.)
+        # run-population records per-visit failures (exit 0) in population-progress.json.
+        # Dump the FAILED visits' harness logs (full — they carry the zambda error
+        # body, e.g. a 400 reason), so failures are diagnosable from the job log
+        # without the artifact. (Harness stdout carries no secrets; the server's
+        # secret log is a separate, redacted stream.)
         run: |
-          shopt -s nullglob
-          logs=(scripts/synthetic-patient-data/population/.logs/*.log)
-          if [ ${#logs[@]} -eq 0 ]; then echo "no per-visit logs found"; exit 0; fi
-          echo "found ${#logs[@]} per-visit log(s); showing up to 3:"
-          for f in "${logs[@]:0:3}"; do
+          set -uo pipefail
+          PROG=scripts/synthetic-patient-data/population/population-progress.json
+          [ -f "$PROG" ] || { echo "no progress file"; exit 0; }
+          mapfile -t FAILED < <(node -e "const p=require('./$PROG');for(const[s,o]of Object.entries(p))if(o.outcome==='failed')console.log(s)")
+          if [ ${#FAILED[@]} -eq 0 ]; then echo "no failed visits recorded 🎉"; exit 0; fi
+          echo "${#FAILED[@]} failed visit(s): ${FAILED[*]}"
+          for seq in "${FAILED[@]:0:20}"; do
+            f="scripts/synthetic-patient-data/population/.logs/seq-$(printf '%05d' "$seq").log"
             echo "==================== $f ===================="
-            tail -n 80 "$f"
+            [ -f "$f" ] && cat "$f" || echo "(log file missing)"
             echo
           done
+          [ ${#FAILED[@]} -gt 20 ] && echo "… and $(( ${#FAILED[@]} - 20 )) more failed visit(s)" || true
 
       - name: Verify population
         if: ${{ inputs.dry != 'true' }}

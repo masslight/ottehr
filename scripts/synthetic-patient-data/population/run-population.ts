@@ -385,6 +385,13 @@ function runOne(v: PlannedVisit): Promise<void> {
               .slice(-1)[0] ?? `exit ${code}`;
           recordOutcome(v.seq, 'failed', lastErr);
           console.log(`  ✗ seq ${v.seq} FAILED (exit ${code}): ${lastErr.trim().slice(0, 160)}  [log: ${logFile}]`);
+          // Inline the error context (from "Pipeline aborted" onward — includes the
+          // zambda response BODY, e.g. a 400's reason) so the failure is diagnosable
+          // straight from the job log, without the per-visit artifact.
+          const lines = out.split('\n');
+          const from = lines.findIndex((l) => /Pipeline aborted|Fatal error/i.test(l));
+          const ctxLines = (from >= 0 ? lines.slice(from) : lines.slice(-25)).slice(0, 40);
+          for (const l of ctxLines) console.log(`    │ ${l}`);
         }
         flushProgress();
       } finally {
