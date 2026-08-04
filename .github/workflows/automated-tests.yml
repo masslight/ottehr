@@ -293,18 +293,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: node ./scripts/print-test-run-summary.mjs
 
-      - name: Integration timing digest
-        if: ${{ !cancelled() }}
-        run: node ./scripts/print-integration-timing-digest.mjs
-
-      - name: Upload integration test timing report
-        if: ${{ !cancelled() && hashFiles('packages/zambdas/test-results/integration-report.json') != '' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: zambdas-integration-test-report
-          path: packages/zambdas/test-results/
-          retention-days: 14
-
       - name: Upload zambdas coverage to Coveralls
         if: ${{ !cancelled() && hashFiles('packages/zambdas/coverage/integration/lcov.info') != '' }}
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.6

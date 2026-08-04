@@ -91,14 +91,7 @@ export default defineConfig({
           globalSetup: './test/helpers/integration-global-setup.ts',
           // no-network.setup.ts blocks real network egress for non-integration tests; integration tests
           // (test/integration/**) are exempt by path and keep hitting the in-process test server.
-          // pending-network-tracker is last so it wraps the guard and sees every call: it reports
-          // requests still in flight when a file ends (the --no-isolate blocker) to
-          // test-results/pending-network.jsonl.
-          setupFiles: [
-            '../test-utils/lib/no-network.setup.ts',
-            './vitest.setup.ts',
-            './test/helpers/pending-network-tracker.setup.ts',
-          ],
+          setupFiles: ['../test-utils/lib/no-network.setup.ts', './vitest.setup.ts'],
         },
       },
     ],

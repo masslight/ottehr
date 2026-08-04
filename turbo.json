@@ -89,7 +89,7 @@
     "test:integration:ci": {
       "dependsOn": ["^build"],
       "env": ["ENV", "CI"],
-      "outputs": ["coverage/integration/**", "test-results/**"],
+      "outputs": ["coverage/integration/**"],
       "inputs": [
         "src/**/*.ts",
         "src/**/*.tsx",
