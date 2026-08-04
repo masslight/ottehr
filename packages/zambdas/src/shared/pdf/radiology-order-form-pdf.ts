@@ -31,7 +31,7 @@ export const RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE = {
   display: 'Radiology Order Form',
 };
 
-/** Identifier system for a stored order form's source versions. */
+/** Identifier system for a stored order form's source versions. Written here only — never on results. */
 export const RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/radiology-order-form-source-version';
 

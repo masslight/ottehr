@@ -73,7 +73,10 @@ export const gatherRadiologyOrderFormInput = async (
   };
 };
 
-/** The order form on file that has not been superseded; at most one exists. */
+/**
+ * The order form on file for this order. Each generation supersedes its predecessor, so normally only
+ * one is current — but two prints racing each other can leave two, so the newest wins.
+ */
 export const findCurrentRadiologyOrderFormDocRef = async (
   serviceRequestId: string,
   oystehr: Oystehr
@@ -88,15 +91,19 @@ export const findCurrentRadiologyOrderFormDocRef = async (
           value: `${RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE.system}|${RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE.code}`,
         },
         { name: 'status', value: 'current' },
+        { name: '_sort', value: '-date' },
       ],
     })
   ).unbundle()[0];
 
 /**
- * Version of every resource that appears on a rendered form — stamped on its DocumentReference and
- * compared on the next print. Undefined when a source is unversioned; such a form is never reused.
+ * The version each source resource was at when the form was rendered: `Type/id@versionId` for every
+ * resource the PDF draws from, sorted and joined. Stamped on the form's DocumentReference, then
+ * recomputed and compared on the next print — any source that has moved on since makes them differ.
+ *
+ * Undefined when a source is unversioned, which leaves the form incomparable and so never reused.
  */
-export const radiologyOrderFormSourceVersion = (sources: OrderFormSource[]): string | undefined => {
+export const makeRadiologyOrderFormSourceVersion = (sources: OrderFormSource[]): string | undefined => {
   const versions = sources.map((resource) =>
     resource.id && resource.meta?.versionId
       ? `${resource.resourceType}/${resource.id}@${resource.meta.versionId}`
@@ -109,7 +116,7 @@ export const radiologyOrderFormSourceVersion = (sources: OrderFormSource[]): str
 };
 
 /** The source version stamped on a stored order form, if any. */
-export const storedOrderFormSourceVersion = (docRef: DocumentReference): string | undefined =>
+export const getStoredOrderFormSourceVersion = (docRef: DocumentReference): string | undefined =>
   docRef.identifier?.find((identifier) => identifier.system === RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM)?.value;
 
 export interface RadiologyOrderFormDocument {
@@ -133,14 +140,14 @@ export const getOrCreateRadiologyOrderForm = async (
     gatherRadiologyOrderFormInput(serviceRequestId, oystehr),
   ]);
 
-  const sourceVersion = radiologyOrderFormSourceVersion(sources);
+  const sourceVersion = makeRadiologyOrderFormSourceVersion(sources);
   const existingMediaUrl = existingDocRef?.content?.[0]?.attachment?.url;
 
   if (
     existingDocRef &&
     existingMediaUrl &&
     sourceVersion &&
-    storedOrderFormSourceVersion(existingDocRef) === sourceVersion
+    getStoredOrderFormSourceVersion(existingDocRef) === sourceVersion
   ) {
     return { documentReference: existingDocRef, mediaUrl: existingMediaUrl, patientId: refs.patientId };
   }
