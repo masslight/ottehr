@@ -22,7 +22,8 @@ import {
 } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useState } from 'react';
+import { FC } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { createPaperworkFlow, updatePaperworkFlow } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { APIError, FlowForm, FlowService, isApiError, SERVICE_MODE_LABEL, ServiceMode } from 'utils';
@@ -31,13 +32,6 @@ import { OrderedFormEditor } from './OrderedFormEditor';
 const ALL_MODES: ServiceMode[] = Object.values(ServiceMode);
 
 const SELECT_ALL = '__all__';
-
-const MISSING_DATA_INIT = {
-  name: false,
-  modality: false,
-  forms: false,
-  services: false,
-};
 
 export type DraftFlow = {
   name: string;
@@ -63,15 +57,12 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
   serviceCategories,
   onClose,
 }) => {
-  const [value, setValue] = useState<DraftFlow>(initial);
-  const [missingDataEntry, setMissingDataEntry] = useState(MISSING_DATA_INIT);
+  const { control, handleSubmit } = useForm<DraftFlow>({ defaultValues: initial, mode: 'onChange' });
 
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
 
   const serviceIds = serviceCategories.map((s) => s.id);
-  const selectedServiceIds = value.services.map((s) => s.id);
-  const selected = serviceIds.length > 0 && selectedServiceIds.length === serviceIds.length;
 
   const { isPending: saving, mutate: onSave } = useMutation({
     mutationFn: async ({ draft }: { draft: DraftFlow }) => {
@@ -100,111 +91,128 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
 
   const dialogTitle = editingFlowId ? 'Edit paperwork flow' : 'New paperwork flow';
 
-  const toggleMode = (mode: ServiceMode): void => {
-    setMissingDataEntry({ ...missingDataEntry, modality: false });
-    setValue((v) => ({
-      ...v,
-      modes: v.modes.includes(mode) ? v.modes.filter((m) => m !== mode) : [...v.modes, mode],
-    }));
-  };
-
-  const handleSave = (): void => {
-    const missing = { ...MISSING_DATA_INIT };
-    if (value.formsSelected.length === 0) missing.forms = true;
-    if (value.modes.length === 0) missing.modality = true;
-    if (value.services.length === 0) missing.services = true;
-    if (!value.name.trim()) missing.name = true;
-
-    if (Object.values(missing).some((value) => value)) {
-      setMissingDataEntry(missing);
-      return;
-    }
-
-    onSave({ draft: value });
-  };
+  const handleSave = handleSubmit((draft) => onSave({ draft }));
 
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="sm">
       <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
         <Stack spacing={2.5} sx={{ mt: 1 }}>
-          <TextField
-            error={missingDataEntry.name}
-            required
-            label="Name"
-            placeholder="e.g. Dermatology intake"
-            value={value.name}
-            onChange={(e) => {
-              setMissingDataEntry({ ...missingDataEntry, name: false });
-              setValue((v) => ({ ...v, name: e.target.value }));
-            }}
-            fullWidth
+          <Controller
+            name="name"
+            control={control}
+            rules={{ validate: (value) => value.trim().length > 0 || 'A name is required.' }}
+            render={({ field, fieldState: { error } }) => (
+              <TextField
+                {...field}
+                error={!!error}
+                helperText={error?.message}
+                required
+                label="Name"
+                placeholder="e.g. Dermatology intake"
+                fullWidth
+              />
+            )}
           />
 
-          <FormControl error={missingDataEntry.modality}>
-            <FormLabel sx={{ mb: 0.5 }}>Visit modality</FormLabel>
-            <FormGroup row>
-              {ALL_MODES.map((mode) => (
-                <FormControlLabel
-                  key={mode}
-                  control={<Checkbox checked={value.modes.includes(mode)} onChange={() => toggleMode(mode)} />}
-                  label={SERVICE_MODE_LABEL[mode]}
+          <Controller
+            name="modes"
+            control={control}
+            rules={{ validate: (value) => value.length > 0 || 'At least one modality is required.' }}
+            render={({ field, fieldState: { error } }) => (
+              <FormControl error={!!error}>
+                <FormLabel sx={{ mb: 0.5 }}>Visit modality</FormLabel>
+                <FormGroup row>
+                  {ALL_MODES.map((mode) => (
+                    <FormControlLabel
+                      key={mode}
+                      control={
+                        <Checkbox
+                          checked={field.value.includes(mode)}
+                          onChange={() =>
+                            field.onChange(
+                              field.value.includes(mode)
+                                ? field.value.filter((m) => m !== mode)
+                                : [...field.value, mode]
+                            )
+                          }
+                        />
+                      }
+                      label={SERVICE_MODE_LABEL[mode]}
+                    />
+                  ))}
+                </FormGroup>
+                {error && <FormHelperText error>{error.message}</FormHelperText>}
+              </FormControl>
+            )}
+          />
+
+          <Controller
+            name="formsSelected"
+            control={control}
+            rules={{ validate: (value) => value.length > 0 || 'At least one form is required.' }}
+            render={({ field, fieldState: { error } }) => (
+              <Box>
+                <FormLabel sx={{ mb: 0.5, display: 'block' }} error={!!error}>
+                  Forms (in order)
+                </FormLabel>
+                <OrderedFormEditor
+                  formsSelected={field.value}
+                  formOptions={formOptions}
+                  error={!!error}
+                  onChange={field.onChange}
                 />
-              ))}
-            </FormGroup>
-            {missingDataEntry.modality && <FormHelperText error>At least one modality is required.</FormHelperText>}
-          </FormControl>
+                {error && <FormHelperText error>{error.message}</FormHelperText>}
+              </Box>
+            )}
+          />
 
-          <Box>
-            <FormLabel sx={{ mb: 0.5, display: 'block' }} error={missingDataEntry.forms}>
-              Forms (in order)
-            </FormLabel>
-            <OrderedFormEditor
-              formsSelected={value.formsSelected}
-              formOptions={formOptions}
-              error={missingDataEntry.forms}
-              onChange={(next) => {
-                setMissingDataEntry({ ...missingDataEntry, forms: false });
-                setValue((v) => ({ ...v, formsSelected: next }));
-              }}
-            />
-            {missingDataEntry.forms && <FormHelperText error>At least one form is required.</FormHelperText>}
-          </Box>
+          <Controller
+            name="services"
+            control={control}
+            rules={{ validate: (value) => value.length > 0 || 'At least one service is required.' }}
+            render={({ field, fieldState: { error } }) => {
+              const selectedServiceIds = field.value.map((s) => s.id);
+              const allSelected = serviceIds.length > 0 && selectedServiceIds.length === serviceIds.length;
 
-          <FormControl fullWidth error={missingDataEntry.services}>
-            <InputLabel id="applies-services-label">Applies to services</InputLabel>
-            <Select
-              labelId="applies-services-label"
-              multiple
-              value={selectedServiceIds}
-              onChange={(e) => {
-                setMissingDataEntry({ ...missingDataEntry, services: false });
-                const val = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
-                if (val.includes(SELECT_ALL)) {
-                  setValue((v) => ({ ...v, services: selected ? [] : serviceCategories }));
-                } else {
-                  const nextServices = val
-                    .map((id) => serviceCategories.find((s) => s.id === id))
-                    .filter((s): s is FlowService => !!s);
-                  setValue((v) => ({ ...v, services: nextServices }));
-                }
-              }}
-              input={<OutlinedInput label="Applies to services" />}
-              renderValue={() => value.services.map((s) => s.label).join(', ')}
-            >
-              <MenuItem value={SELECT_ALL}>
-                <Checkbox checked={selected} indeterminate={selectedServiceIds.length > 0 && !selected} />
-                <ListItemText primary="Select all" />
-              </MenuItem>
-              {serviceCategories.map((opt) => (
-                <MenuItem key={opt.id} value={opt.id}>
-                  <Checkbox checked={selectedServiceIds.includes(opt.id)} />
-                  <ListItemText primary={opt.label} />
-                </MenuItem>
-              ))}
-            </Select>
-            {missingDataEntry.services && <FormHelperText error>At least one service is required.</FormHelperText>}
-          </FormControl>
+              return (
+                <FormControl fullWidth error={!!error}>
+                  <InputLabel id="applies-services-label">Applies to services</InputLabel>
+                  <Select
+                    labelId="applies-services-label"
+                    multiple
+                    value={selectedServiceIds}
+                    onChange={(e) => {
+                      const val = typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value;
+                      if (val.includes(SELECT_ALL)) {
+                        field.onChange(allSelected ? [] : serviceCategories);
+                      } else {
+                        field.onChange(
+                          val
+                            .map((id) => serviceCategories.find((s) => s.id === id))
+                            .filter((s): s is FlowService => !!s)
+                        );
+                      }
+                    }}
+                    input={<OutlinedInput label="Applies to services" />}
+                    renderValue={() => field.value.map((s) => s.label).join(', ')}
+                  >
+                    <MenuItem value={SELECT_ALL}>
+                      <Checkbox checked={allSelected} indeterminate={selectedServiceIds.length > 0 && !allSelected} />
+                      <ListItemText primary="Select all" />
+                    </MenuItem>
+                    {serviceCategories.map((opt) => (
+                      <MenuItem key={opt.id} value={opt.id}>
+                        <Checkbox checked={selectedServiceIds.includes(opt.id)} />
+                        <ListItemText primary={opt.label} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {error && <FormHelperText error>{error.message}</FormHelperText>}
+                </FormControl>
+              );
+            }}
+          />
         </Stack>
       </DialogContent>
       <DialogActions>

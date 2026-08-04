@@ -82,8 +82,6 @@ const PaperworkFlowsAdminPage: FC = () => {
     },
   });
 
-  // Duplicate: pre-fill a NEW flow with the source's forms/modes/services; name is cleared so the
-  // admin gives it a distinct identity, then tweaks (e.g. drop a form for a specific service).
   const openDuplicate = (flow: PaperworkFlow): void =>
     setFlowDialog((d) => ({
       open: true,
