@@ -3422,7 +3422,9 @@ async function cleanupFailedRun(ctx: SynthesisContext): Promise<void> {
       { rt: 'Procedure', param: 'encounter' },
       { rt: 'MedicationAdministration', param: 'context' }, // child of MedicationRequest
       { rt: 'DiagnosticReport', param: 'encounter' }, // child of ServiceRequest
-      { rt: 'Immunization', param: 'encounter' },
+      // NOTE: Immunization is intentionally omitted — Oystehr doesn't index
+      // `Immunization.encounter` (search 400s). A late-failure Immunization orphan
+      // is rare and is swept by the patient-tier cleanup (cleanup-synth-patient).
       { rt: 'DocumentReference', param: 'encounter' },
       { rt: 'Communication', param: 'encounter' },
       { rt: 'MedicationRequest', param: 'encounter' },

@@ -50,6 +50,7 @@ import {
 import { type HarnessCommand, prepareHarnessCommand } from './shared/harness-bundle';
 import { createOystehrFromToken, mintAccessToken, need, searchAllPages } from './shared/oystehr-client';
 import { withRetry } from './shared/retry';
+import { ensureSynthM2MInProcess } from './shared/synth-m2m';
 import { type ZambdaCtx, zambdaPost } from './shared/zambda';
 
 const ENV = arg('--env', 'demo');
@@ -845,6 +846,11 @@ function assertNotProduction(): void {
 async function main(): Promise<void> {
   // Safety first — refuse production before authenticating or touching anything.
   assertNotProduction();
+  // Authenticate as a dedicated Practitioner-profile M2M (provisioned in-process
+  // under admin creds; nothing written to disk) so the generate phase's harness
+  // save-chart-data resolves a Practitioner. No-op without admin creds; skipped on
+  // --dry (dry logs planned calls only). Must run before the first auth() mint.
+  if (!DRY) await ensureSynthM2MInProcess({ name: 'Synth Pipeline (census)' });
   console.log(`synth-daily-census — env=${ENV}, count=${COUNT}, phase=${PHASE}, zambda=${ZAMBDA_API}`);
   const { at, o, projectId } = await auth();
 

@@ -161,10 +161,25 @@ jobs:
       # project itself — a Basic "manifest" pins the plan params (so it regenerates
       # the identical plan) and per-Appointment `seq-<N>` tags are the resume set.
       # Re-dispatching this workflow just continues where it left off.
+      #
+      # run-population provisions a dedicated Practitioner-profile M2M IN-PROCESS
+      # (so save-chart-data works) given admin creds — we pass the terraform
+      # provider pair as OYSTEHR_ADMIN_*. Nothing is written to disk or the secrets
+      # repo; the existing project M2M is untouched. On --dry we skip it (dry only
+      # reads FHIR), so the admin pair isn't required for a dry run.
       - name: Run population seed
         run: |
           set -uo pipefail
           CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
+          TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+          if [ "${{ inputs.dry }}" != "true" ]; then
+            [ -f "$TF" ] || { echo "::error::$TF not found — needed to provision the Practitioner-profile M2M"; exit 1; }
+            OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            [ -n "$OYSTEHR_ADMIN_CLIENT_ID" ] && [ -n "$OYSTEHR_ADMIN_CLIENT_SECRET" ] || { echo "::error::no client pair in $TF"; exit 1; }
+            echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"; echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
+            export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
+          fi
           LIMIT=""; [ -n "${{ inputs.limit }}" ] && LIMIT="--limit ${{ inputs.limit }}"
           DRY="";   [ "${{ inputs.dry }}" = "true" ] && DRY="--dry"
           npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/population/run-population.ts \

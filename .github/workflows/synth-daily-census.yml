@@ -105,8 +105,23 @@ jobs:
       - name: Run daily census
         # The wrapper boots its own ephemeral local zambda server (redacted log,
         # torn down after), so no separate server step is needed here.
+        #
+        # The census provisions a dedicated Practitioner-profile M2M IN-PROCESS
+        # (generate → save-chart-data needs it) given admin creds — we export the
+        # terraform provider pair as OYSTEHR_ADMIN_*, which the wrapper's env-cmd
+        # passes through to the census. Nothing is written to disk or the secrets
+        # repo; the existing project M2M is untouched. Skipped on --dry.
         run: |
           set -uo pipefail
+          if [ "${{ inputs.dry }}" != "true" ]; then
+            TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+            [ -f "$TF" ] || { echo "::error::$TF not found — needed to provision the Practitioner-profile M2M"; exit 1; }
+            OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            [ -n "$OYSTEHR_ADMIN_CLIENT_ID" ] && [ -n "$OYSTEHR_ADMIN_CLIENT_SECRET" ] || { echo "::error::no client pair in $TF"; exit 1; }
+            echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"; echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
+            export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
+          fi
           DRY=""
           [ "${{ inputs.dry }}" = "true" ] && DRY="--dry"
           bash scripts/synthetic-patient-data/run-daily-census.sh \

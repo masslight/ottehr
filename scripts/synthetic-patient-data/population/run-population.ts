@@ -27,6 +27,7 @@ import {
 import { type HarnessCommand, prepareHarnessCommand } from '../shared/harness-bundle';
 import { createOystehrFromEnv, searchAllPages } from '../shared/oystehr-client';
 import { withRetry } from '../shared/retry';
+import { ensureSynthM2MInProcess } from '../shared/synth-m2m';
 
 const HERE = __dirname;
 const EXAMPLES = resolve(HERE, '..', 'examples');
@@ -441,6 +442,12 @@ function acquireLock(): void {
 
 async function main(): Promise<void> {
   if (!DRY) acquireLock();
+
+  // Authenticate as a dedicated Practitioner-profile M2M (provisioned in-process
+  // under admin creds; nothing written to disk) so the harness's save-chart-data
+  // resolves the caller to a Practitioner. No-op without admin creds. Skipped on
+  // --dry (dry only reads FHIR, which the default M2M can do).
+  if (!DRY) await ensureSynthM2MInProcess({ name: 'Synth Pipeline (population)' });
 
   // Durable run state lives in the target project: a Basic manifest pins the plan
   // params (seed/patients/todayAnchor), so we regenerate the EXACT same plan every
