@@ -1659,6 +1659,11 @@ export function shouldUseOttehrBilling(secrets: Secrets): boolean {
   return ['ottehr', 'all'].includes(secrets.BILLING_INTEGRATION);
 }
 
+// Picks the data source for the visit-details patient balances feature
+export function shouldUseOttehrBillingForPatientBalances(secrets: Secrets): boolean {
+  return secrets.PATIENT_BALANCE_SOURCE === 'ottehr';
+}
+
 export function shouldSendClaim(secrets: Secrets, encounter: Encounter): boolean {
   if (shouldUseCandid(secrets)) {
     // Check if candid encounter ID already exists in encounter identifier

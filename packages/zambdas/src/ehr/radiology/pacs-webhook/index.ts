@@ -28,6 +28,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
+  advaPacsFetch,
   configReviewResultTask,
   parseRadiologyResourcesForTask,
   ResourcesForTask,
@@ -367,7 +368,7 @@ const getAdvaPacsServiceRequestByID = async (
     const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
     const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
 
-    const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/${serviceRequestRelativeReference}`, {
+    const advapacsResponse = await advaPacsFetch(`${ADVAPACS_FHIR_BASE_URL}/${serviceRequestRelativeReference}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/fhir+json',
@@ -440,7 +441,7 @@ const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string
 
     // Advapacs doesn't support PATCH or optimistic locking right now so the best we can do is GET the latest, and PUT back with the status changed.
     // First, search up the SR in AdvaPACS by the accession number
-    const findServiceRequestResponse = await fetch(
+    const findServiceRequestResponse = await advaPacsFetch(
       `${ADVAPACS_FHIR_BASE_URL}/ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}%7C${accessionNumber}`,
       {
         method: 'GET',
@@ -482,7 +483,7 @@ const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string
     }
 
     // Update the AdvaPACS SR now that we have its latest data.
-    const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/ServiceRequest/${advapacsSR.id}`, {
+    const advapacsResponse = await advaPacsFetch(`${ADVAPACS_FHIR_BASE_URL}/ServiceRequest/${advapacsSR.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/fhir+json',
