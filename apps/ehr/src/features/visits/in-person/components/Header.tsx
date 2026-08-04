@@ -75,6 +75,7 @@ const HeaderWrapper = styled(Box)(({ theme }) => ({
   padding: '8px 16px 8px 0',
   borderBottom: `1px solid ${theme.palette.divider}`,
   boxShadow: '0px 2px 4px -1px #00000033',
+  overflowX: 'hidden',
 }));
 
 const PatientName = styled(Typography)(({ theme }) => ({
@@ -396,8 +397,19 @@ export const Header = (): JSX.Element => {
         <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
           <Grid item xs={12}>
             <Grid container alignItems="center" justifyContent="space-between" wrap="nowrap">
-              <Grid item>
-                <Grid container alignItems="center" spacing={2} wrap="nowrap">
+              <Grid item sx={{ flex: '1 1 0', minWidth: 0 }}>
+                <Grid
+                  container
+                  alignItems="center"
+                  spacing={2}
+                  wrap="nowrap"
+                  sx={{
+                    overflowX: 'auto',
+                    '&::-webkit-scrollbar': { display: 'none' },
+                    msOverflowStyle: 'none',
+                    scrollbarWidth: 'none',
+                  }}
+                >
                   <Grid item>
                     {isFollowup ? (
                       getFollowupStatusChip(getAnnotationFollowupStatusLabel(encounter?.status))
@@ -597,7 +609,7 @@ export const Header = (): JSX.Element => {
                   </Grid>
                 </Grid>
               </Grid>
-              <Grid item>
+              <Grid item sx={{ flexShrink: 0 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <CommandPaletteSearchButton />
                   <IconButton onClick={() => navigate('/visits')}>
