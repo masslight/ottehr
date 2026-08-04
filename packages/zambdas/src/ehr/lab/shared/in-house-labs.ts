@@ -497,9 +497,10 @@ export const provenanceIsInHouseLabResultEntry = (provenance: Provenance): boole
 
 export const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
 
-const sanitizeForId = (str: string): string => {
-  /* eslint-disable-next-line  no-useless-escape */
-  return str.replace(/[ ()\/\\]/g, '').replace(/,/g, '-');
+export const sanitizeForId = (str: string): string => {
+  // anything not alphanumeric or a hyphen should get sanitized out. this includes ( ), +, ., %, &, etc
+  // first preserve commas as hyphens to maintain structure
+  return str.replace(/[,.]/g, '-').replace(/[^A-Za-z0-9-]/g, '');
 };
 
 // Don't want things like commas in code fields in case we ever try to do fhir searches and commas are meaningful
@@ -510,7 +511,6 @@ const sanitizeForCode = (str: string): string => {
 const sanitizeComma = (str: string): string => {
   return str.replace(/,/g, '-');
 };
-
 const valueSetConfigDiff = (
   a: Set<AdminLabComponentValueSetConfig>,
   b: Set<AdminLabComponentValueSetConfig>
