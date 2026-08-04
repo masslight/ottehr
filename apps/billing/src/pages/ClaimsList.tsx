@@ -10,6 +10,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Stack,
   TextField,
   Tooltip,
   Typography,
@@ -27,6 +28,7 @@ import {
   CLAIM_STATUS_FIELDS_BY_KEY,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   formatClaimStatusValue,
+  formatCurrency,
   getApiError,
   MAX_RUN_RULES_ENGINE_CLAIMS,
   SearchBillingClaimsInput,
@@ -42,9 +44,9 @@ import {
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateRangeInput';
-import { claimStatusValueColor, formatAntCaseString } from '../constants/claimStatus';
+import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
+import { claimStatusValueColor, formatAntCaseString, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
-import { formatCurrency } from '../utils/format';
 
 interface Filters {
   searchText?: string;
@@ -113,7 +115,15 @@ const columns: GridColDef[] = [
   currencyCol('insurancePaid', 'Insurance Paid', 120),
   currencyCol('patientResp', 'Patient Resp', 110),
   currencyCol('patientPaid', 'Patient Paid', 110),
-  currencyCol('claimBalance', 'Claim Balance', 120),
+  {
+    ...currencyCol('claimBalance', 'Claim Balance', 120),
+    renderCell: ({ value, row }) => (
+      <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={0.5} sx={{ width: '100%' }}>
+        {!(row as BillingClaimItem).adjudicated && <WarningIconWithTooltip tooltipText={PROVISIONAL_BALANCE_HINT} />}
+        <span>{formatCurrency(value as number)}</span>
+      </Stack>
+    ),
+  },
   { field: 'facility', headerName: 'Facility', width: 140 },
   { field: 'renderingProvider', headerName: 'Provider', width: 140 },
   { field: 'responsibleParty', headerName: 'Responsible Party', width: 140 },
@@ -127,6 +137,7 @@ export default function ClaimsList(): ReactElement {
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [incomplete, setIncomplete] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
@@ -169,6 +180,7 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
+      setIncomplete(false);
       setSelected([]);
       try {
         const params: SearchBillingClaimsInput = {
@@ -190,6 +202,7 @@ export default function ClaimsList(): ReactElement {
         const data = await searchBillingClaims(oystehrZambda, params);
         setClaims(data.claims ?? []);
         setTotalRows(data.total ?? 0);
+        setIncomplete(Boolean(data.incomplete));
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load claims' }));
         setClaims([]);
@@ -401,7 +414,8 @@ export default function ClaimsList(): ReactElement {
       <TextField
         fullWidth
         size="small"
-        placeholder="Search by patient name..."
+        placeholder="Search by patient name, provider name, patient ID, PCN, or claim ID..."
+        helperText="Names match from the start. Patient ID, PCN, and claim ID must be entered in full."
         value={searchText}
         onChange={(e) => handleSearchChange(e.target.value)}
         InputProps={{
@@ -569,6 +583,13 @@ export default function ClaimsList(): ReactElement {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {incomplete && !error && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Some claims may be missing from these results. Narrow the search, or use the filters to find a claim you
+          expected to see.
         </Alert>
       )}
 

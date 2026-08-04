@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ClaimPaymentSummary } from '../../../src/billing/claim-amounts';
 import {
   deriveFinalizationDate,
+  fetchAllActivePatientArClaims,
   fetchPatientsById,
   isActivePatientArClaim,
   isInActivePatientArStage,
@@ -431,5 +432,105 @@ describe('fetchPatientsById', () => {
 
     expect(search).not.toHaveBeenCalled();
     expect(result.size).toBe(0);
+  });
+});
+
+describe('fetchAllActivePatientArClaims with encounter ids', () => {
+  const arClaim = (id: string, encounterId: string, statusOverrides: Partial<ClaimStatusValues> = {}): Claim =>
+    claim({
+      id,
+      meta: { tag: claimStatusValuesToTags(activeStatuses(statusOverrides)) },
+      total: { value: 100, currency: 'USD' },
+      identifier: [{ system: ottehrIdentifierSystem('claim-encounter-id'), value: encounterId }],
+    });
+
+  const notice = (encounterId: string, amount: number): unknown => ({
+    resourceType: 'PaymentNotice',
+    status: 'active',
+    amount: { value: amount },
+    request: { identifier: { value: encounterId } },
+  });
+
+  const oystehrReturning = (claimsPerSearch: Claim[][], notices: unknown[] = []): Oystehr => {
+    let claimSearchCount = 0;
+    const search = vi.fn(async (args: { resourceType: string; params: { name: string; value: string }[] }) => {
+      if (args.resourceType === 'Claim') {
+        const claims = claimsPerSearch[claimSearchCount] ?? [];
+        claimSearchCount += 1;
+        return { link: [], unbundle: () => claims };
+      }
+      if (args.resourceType === 'PaymentNotice') {
+        return { link: [], unbundle: () => notices };
+      }
+      return { link: [], unbundle: () => [] };
+    });
+    return { fhir: { search } } as unknown as Oystehr;
+  };
+
+  it('batches the encounter-id filter into chunked claim searches and dedupes merged results', async () => {
+    const encounterIds = Array.from({ length: 120 }, (_, i) => `enc-${i}`);
+    const oystehr = oystehrReturning([
+      [arClaim('c-shared', 'enc-0'), arClaim('c-1', 'enc-1')],
+      [arClaim('c-shared', 'enc-0'), arClaim('c-2', 'enc-101')],
+    ]);
+
+    const items = await fetchAllActivePatientArClaims(oystehr, { encounterIds });
+
+    const search = (oystehr.fhir.search as ReturnType<typeof vi.fn>).mock.calls;
+    const identifierParams = search
+      .filter(([args]) => args.resourceType === 'Claim')
+      .map(([args]) => args.params.find((param: { name: string }) => param.name === 'identifier')?.value ?? '');
+    expect(identifierParams).toHaveLength(2);
+    expect(identifierParams[0].split(',')).toHaveLength(100);
+    expect(identifierParams[1].split(',')).toHaveLength(20);
+    expect(identifierParams[0]).toContain('|enc-0');
+    expect(identifierParams[1]).toContain('|enc-100');
+    expect(items.map((item) => item.claimId).sort()).toEqual(['c-1', 'c-2', 'c-shared']);
+  });
+
+  it('subtracts patient payments from balances and drops settled claims', async () => {
+    const settled = arClaim('c-settled', 'enc-0');
+    const partial = arClaim('c-partial', 'enc-1');
+    const notices = [notice('enc-0', 100), notice('enc-1', 40)];
+
+    const items = await fetchAllActivePatientArClaims(oystehrReturning([[settled, partial]], notices), {
+      encounterIds: ['enc-0', 'enc-1'],
+    });
+
+    expect(items.map((item) => item.claimId)).toEqual(['c-partial']);
+    expect(items[0].patientPaid).toBe(40);
+    expect(items[0].balance).toBe(60);
+  });
+
+  it('keeps settled and overpaid claims when zero balances are requested', async () => {
+    const settled = arClaim('c-settled', 'enc-0');
+    const overpaid = arClaim('c-overpaid', 'enc-1');
+    const notices = [notice('enc-0', 100), notice('enc-1', 125)];
+
+    const items = await fetchAllActivePatientArClaims(oystehrReturning([[settled, overpaid]], notices), {
+      encounterIds: ['enc-0', 'enc-1'],
+      includeZeroBalance: true,
+    });
+
+    expect(items.map(({ claimId, balance }) => ({ claimId, balance }))).toEqual([
+      { claimId: 'c-overpaid', balance: -25 },
+      { claimId: 'c-settled', balance: 0 },
+    ]);
+  });
+
+  it('drops claims manually marked fully paid when excludeFullyPaid is set', async () => {
+    const fullyPaid = arClaim('c-paid', 'enc-0', { patientPaidStatus: 'fully-paid' });
+    const owing = arClaim('c-owing', 'enc-1');
+
+    const withFilter = await fetchAllActivePatientArClaims(oystehrReturning([[fullyPaid, owing]]), {
+      encounterIds: ['enc-0', 'enc-1'],
+      excludeFullyPaid: true,
+    });
+    expect(withFilter.map((item) => item.claimId)).toEqual(['c-owing']);
+
+    const withoutFilter = await fetchAllActivePatientArClaims(oystehrReturning([[fullyPaid, owing]]), {
+      encounterIds: ['enc-0', 'enc-1'],
+    });
+    expect(withoutFilter.map((item) => item.claimId).sort()).toEqual(['c-owing', 'c-paid']);
   });
 });

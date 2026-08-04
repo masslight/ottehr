@@ -84,6 +84,7 @@ This directory contains per-environment configuration files for Ottehr. The file
 | `CANDID_CLIENT_ID` | OAuth client ID for the Candid Health billing API. Used to submit medical encounters for insurance claim processing. |
 | `CANDID_CLIENT_SECRET` | Client secret for Candid Health API authentication. **Keep this confidential.** |
 | `CANDID_ENV` | Candid Health environment to target (`SANDBOX` for testing, `PRODUCTION` for live billing). |
+| `PATIENT_BALANCE_SOURCE` | Data source for the visit details patient balance feature, `candid` or `ottehr`. Defaults to `candid` when unset. |
 
 ### Payments -- Stripe
 

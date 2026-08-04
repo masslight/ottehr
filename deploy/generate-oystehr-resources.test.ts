@@ -372,6 +372,7 @@ describe('generate-oystehr-resources', () => {
         },
         secrets: {
           BILLING_INTEGRATION_FEATURE_FLAG: { name: 'BILLING_INTEGRATION', value: '#{var/BILLING_INTEGRATION}' },
+          PATIENT_BALANCE_SOURCE: { name: 'PATIENT_BALANCE_SOURCE', value: '#{var/PATIENT_BALANCE_SOURCE}' },
         },
       };
       const setupMocks = (vars: VarsFile): void => {
@@ -417,10 +418,16 @@ describe('generate-oystehr-resources', () => {
         expect(billingApp.name).toBe('Ottehr Billing');
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
         expect(billingSecret.value).toBe('');
+        const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
+        expect(balanceSourceSecret.value).toBe('candid');
       });
 
       it('prefers configured BILLING_* vars over defaults', async () => {
-        setupMocks({ BILLING_LOGIN_REDIRECT_URL: 'https://billing.example.com/', BILLING_INTEGRATION: 'all' });
+        setupMocks({
+          BILLING_LOGIN_REDIRECT_URL: 'https://billing.example.com/',
+          BILLING_INTEGRATION: 'all',
+          PATIENT_BALANCE_SOURCE: 'ottehr',
+        });
 
         await generateOystehrResources(createTestArgs());
 
@@ -429,6 +436,8 @@ describe('generate-oystehr-resources', () => {
         expect(billingApp.name).toBe('Ottehr Billing');
         const billingSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.BILLING_INTEGRATION_FEATURE_FLAG;
         expect(billingSecret.value).toBe('all');
+        const balanceSourceSecret = writtenJson('secrets.tf.json').resource.oystehr_secret.PATIENT_BALANCE_SOURCE;
+        expect(balanceSourceSecret.value).toBe('ottehr');
       });
     });
   });

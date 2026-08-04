@@ -19,6 +19,7 @@ import {
   Person,
   Practitioner,
   Provenance,
+  Reference,
   RelatedPerson,
   Resource,
   Task,
@@ -46,6 +47,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   convertFhirNameToDisplayName,
   CPT_CODE_SYSTEM,
@@ -104,6 +106,11 @@ export const BILLING_WORKING_COPY_TAG = {
 };
 
 export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/current-status';
+
+export interface ClaimSearchParam {
+  name: string;
+  value: string;
+}
 
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
@@ -242,12 +249,75 @@ export function getEraCheckNumber(
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
 }
 
+export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
+
+export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string {
+  return (
+    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
+    claim.id?.replaceAll('-', '') ??
+    ''
+  );
+}
+
+export function claimIdFromPcn(pcn: string): string | undefined {
+  const minified = pcn.toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(minified)) return undefined;
+  const claimId = [
+    minified.slice(0, 8),
+    minified.slice(8, 12),
+    minified.slice(12, 16),
+    minified.slice(16, 20),
+    minified.slice(20),
+  ].join('-');
+  return isValidUUID(claimId) ? claimId : undefined;
+}
+
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
 export const TAG_DESCRIPTION_URL = 'https://fhir.ottehr.com/billing/tag-description';
 export const TAG_IS_SYSTEM_TAG_URL = 'https://fhir.ottehr.com/billing/is-system-tag';
 
 export function isSystemTag(tag: Basic): boolean {
   return tag.extension?.some((ext) => ext.url === TAG_IS_SYSTEM_TAG_URL && ext.valueBoolean === true) ?? false;
+}
+
+// All tag definitions in the tags feature (Basic resources; the name lives in code.text), newest
+// first. The one search behind both the Tags page (search-billing-tags) and the tag-existence
+// validations, so the two can't diverge.
+export async function searchTagBasics(oystehr: Oystehr): Promise<Basic[]> {
+  const bundle = await oystehr.fhir.search<Basic>({
+    resourceType: 'Basic',
+    params: [
+      { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
+      { name: '_sort', value: '-_lastUpdated' },
+      { name: '_count', value: '200' },
+    ],
+  });
+  return bundle.unbundle();
+}
+
+// Names of the defined tags — used to validate tag references before they are written onto claims
+// or into rules.
+export async function fetchDefinedTagNames(oystehr: Oystehr): Promise<Set<string>> {
+  const basics = await searchTagBasics(oystehr);
+  return new Set(basics.map((tag) => tag.code?.text).filter((name): name is string => !!name));
+}
+
+// Re-point careTeam sequence 1 (the rendering provider) at `provider`, preserving other members,
+// and point every service line at it. The one careTeam shape both the claim editor
+// (update-billing-claim) and the rules engine write.
+export function setClaimRenderingProviderCareTeam(claim: Claim, provider: Reference): void {
+  claim.careTeam = [
+    {
+      sequence: 1,
+      provider,
+      role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE, code: '82' }] },
+    },
+    ...(claim.careTeam ?? []).filter((member) => member.sequence !== 1),
+  ];
+  claim.item = claim.item?.map((item) => ({
+    ...item,
+    careTeamSequence: Array.from(new Set([1, ...(item.careTeamSequence ?? [])])),
+  }));
 }
 
 export const AUTO_ACCIDENT_TAG_NAME = 'auto-accident';
@@ -1010,16 +1080,16 @@ export async function tagEraResources({
   return untagged.size;
 }
 
-// Links notices the stripe webhook stored before the claim existed. Oystehr matches
-// request:identifier by value only, the system|value form returns nothing.
+// Links notices the stripe webhook stored before the claim existed.
 export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
-  const encounterId = claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value;
+  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
+  const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
   if (!claim.id || !encounterId) return;
 
   const notices = (
     await oystehr.fhir.search<PaymentNotice>({
       resourceType: 'PaymentNotice',
-      params: [{ name: 'request:identifier', value: encounterId }],
+      params: [{ name: 'request:identifier', value: `${encounterIdSystem}|${encounterId}` }],
     })
   ).unbundle();
 
@@ -1041,6 +1111,40 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
   }
   console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
 }
+
+export async function resolveLinkedPatientIds({
+  oystehr,
+  patientId,
+}: {
+  oystehr: Oystehr;
+  patientId: string;
+}): Promise<string[]> {
+  const result = await oystehr.fhir.search<Person>({
+    resourceType: 'Person',
+    params: [
+      {
+        name: 'link',
+        value: `Patient/${patientId}`,
+      },
+    ],
+  });
+  const persons = result.unbundle();
+  const linkedIds = persons
+    .flatMap((person) => person.link ?? [])
+    .map((entry) => entry.target?.reference)
+    .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
+    .map((ref) => ref.replace('Patient/', ''));
+  const resolved = [...new Set([patientId, ...linkedIds])];
+  console.debug(
+    `resolveLinkedPatientIds: Patient/${patientId} matched ${persons.length} Person(s), ${resolved.length} patient id(s)`
+  );
+  return resolved;
+}
+
+export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
+  name: 'patient',
+  value: patientIds.map((id) => `Patient/${id}`).join(','),
+});
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
   let workingCopyReferenceResourceId: string | undefined;

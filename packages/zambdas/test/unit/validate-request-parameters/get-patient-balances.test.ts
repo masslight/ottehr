@@ -89,4 +89,36 @@ describe('get-patient-balances - validateSecrets', () => {
       expect(() => validateSecrets(secrets)).toThrow('Missing required secrets');
     });
   }
+
+  describe('with PATIENT_BALANCE_SOURCE set to ottehr', () => {
+    const billingSecrets = {
+      AUTH0_ENDPOINT: 'https://auth0.endpoint',
+      AUTH0_CLIENT: 'auth0-client',
+      AUTH0_SECRET: 'auth0-secret',
+      AUTH0_AUDIENCE: 'auth0-audience',
+      FHIR_API: 'https://fhir.api',
+      PROJECT_API: 'https://project.api',
+      PATIENT_BALANCE_SOURCE: 'ottehr',
+    };
+
+    test('should not require candid secrets', () => {
+      expect(validateSecrets(billingSecrets)).toEqual(billingSecrets);
+    });
+
+    test('should still require candid secrets when the source is candid', () => {
+      const secrets = { ...billingSecrets, PATIENT_BALANCE_SOURCE: 'candid' };
+      expect(() => validateSecrets(secrets)).toThrow('Missing required secrets');
+      expect(
+        validateSecrets({
+          ...allRequiredSecrets,
+          PATIENT_BALANCE_SOURCE: 'candid',
+        })
+      ).toEqual({ ...allRequiredSecrets, PATIENT_BALANCE_SOURCE: 'candid' });
+    });
+
+    test('should treat an unresolved deployment placeholder as candid', () => {
+      const secrets = { ...billingSecrets, PATIENT_BALANCE_SOURCE: '#{var/PATIENT_BALANCE_SOURCE}' };
+      expect(() => validateSecrets(secrets)).toThrow('Missing required secrets');
+    });
+  });
 });
