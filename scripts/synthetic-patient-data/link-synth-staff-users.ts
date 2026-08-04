@@ -10,7 +10,12 @@
 // Optional: APPLICATION_ID='<ehr-app-id>' to override application auto-detection.
 import { Practitioner } from 'fhir/r4b';
 import { FHIR_IDENTIFIER_NPI } from 'utils';
-import { createOystehrFromToken, mintAccessToken, searchAllPages } from './shared/oystehr-client';
+import {
+  createOystehrFromToken,
+  mintAccessToken,
+  mintAccessTokenForClient,
+  searchAllPages,
+} from './shared/oystehr-client';
 
 const STAFF_MARKER_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff';
 const STAFF_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff-id';
@@ -146,14 +151,23 @@ function practitionerResource(s: StaffDef): Practitioner {
 }
 
 async function main(): Promise<void> {
-  // Auth: prefer an explicit OYSTEHR_ACCESS_TOKEN (e.g. a logged-in admin USER's
-  // browser bearer token) — needed when the project's M2M client lacks IAM
-  // permissions (can't application.list / user.invite). Otherwise mint an M2M
-  // token from the env's AUTH0_* creds. Never inline the token — pass it via the
-  // env var at call time.
+  // Auth: this is the ONE step that needs IAM perms (application.list / role.list
+  // / user.invite), which the default project M2M usually lacks. Resolve a token
+  // with those perms, in priority order — never inline creds:
+  //   1. OYSTEHR_ACCESS_TOKEN — an explicit bearer (e.g. a logged-in admin USER token).
+  //   2. OYSTEHR_ADMIN_CLIENT_ID/SECRET — an admin M2M client pair (e.g. the
+  //      terraform provider client from terraform/<env>.tfvars, which provisions
+  //      the project and therefore HAS IAM perms). Minted against the same
+  //      AUTH0_ENDPOINT/AUDIENCE as the default M2M.
+  //   3. Otherwise the default M2M (AUTH0_CLIENT/SECRET) — will 403 if it lacks IAM.
   let accessToken = process.env.OYSTEHR_ACCESS_TOKEN;
+  const adminId = process.env.OYSTEHR_ADMIN_CLIENT_ID;
+  const adminSecret = process.env.OYSTEHR_ADMIN_CLIENT_SECRET;
   if (accessToken) {
-    console.log('Using OYSTEHR_ACCESS_TOKEN (user/admin token).');
+    console.log('Using OYSTEHR_ACCESS_TOKEN (user/admin bearer token).');
+  } else if (adminId && adminSecret) {
+    console.log('Using OYSTEHR_ADMIN_CLIENT_ID/SECRET (admin M2M client) for IAM operations.');
+    accessToken = await mintAccessTokenForClient(adminId, adminSecret);
   } else {
     accessToken = await mintAccessToken();
   }

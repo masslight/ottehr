@@ -132,6 +132,28 @@ jobs:
         run: |
           set -euo pipefail
           CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
+          # Staff creation is the one IAM-privileged step; the project M2M lacks
+          # those perms (→ Forbidden). Use the terraform provider client from the
+          # checked-out secrets repo (it provisions the project, so it HAS IAM
+          # perms) — ONLY for this step, via OYSTEHR_ADMIN_CLIENT_ID/SECRET. The
+          # harness/run-population keep the default M2M (least privilege). Mask the
+          # pair so it never lands in the job log; fall back with a warning if the
+          # tfvars isn't present.
+          TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+          if [ -f "$TF" ]; then
+            OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+            if [ -n "$OYSTEHR_ADMIN_CLIENT_SECRET" ] && [ -n "$OYSTEHR_ADMIN_CLIENT_ID" ]; then
+              echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"
+              echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
+              export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
+              echo "Using terraform provider client from $TF for staff creation (IAM)."
+            else
+              echo "⚠ $TF has no client_id/client_secret — staff creation uses the default M2M (may 403 on IAM)."
+            fi
+          else
+            echo "⚠ $TF not found — staff creation uses the default M2M (may 403 on IAM)."
+          fi
           npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/link-synth-staff-users.ts
           npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/population/fix-schedules-permissive.ts --execute
 

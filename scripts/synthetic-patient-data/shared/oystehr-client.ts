@@ -86,6 +86,21 @@ export const mintAccessToken = async (): Promise<string> =>
     AUTH0_AUDIENCE: need('AUTH0_AUDIENCE'),
   });
 
+/**
+ * Mint an M2M token from an EXPLICIT client_id/client_secret pair, reusing the
+ * project's AUTH0_ENDPOINT/AUTH0_AUDIENCE from the env. Used to run the one IAM-
+ * privileged step (staff creation) under a higher-permission client (e.g. the
+ * terraform provider client from terraform/<env>.tfvars) without swapping the
+ * default M2M used for everything else.
+ */
+export const mintAccessTokenForClient = async (clientId: string, clientSecret: string): Promise<string> =>
+  requestAccessToken({
+    AUTH0_ENDPOINT: need('AUTH0_ENDPOINT'),
+    AUTH0_CLIENT: clientId,
+    AUTH0_SECRET: clientSecret,
+    AUTH0_AUDIENCE: need('AUTH0_AUDIENCE'),
+  });
+
 export interface OystehrClientOptions {
   /** Point the SDK's zambda.execute() at this URL (e.g. http://localhost:3000/local). */
   zambdaApiUrl?: string;
