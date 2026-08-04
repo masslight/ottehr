@@ -123,3 +123,5 @@ jobs:
           path: scripts/synthetic-patient-data/.census-logs/
           retention-days: 7
           if-no-files-found: ignore
+          # .census-logs/ is a dotted dir — upload-artifact v4 skips hidden paths unless told.
+          include-hidden-files: true
