@@ -124,6 +124,8 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
+export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
+
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
@@ -156,7 +158,7 @@ export async function invokeChatbotVertexAI(
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${VERTEX_AI_MODEL}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           headers: {
