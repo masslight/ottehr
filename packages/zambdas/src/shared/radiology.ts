@@ -145,7 +145,8 @@ const extractPerformedBy = (serviceRequest: ServiceRequest): RadiologyPerformedB
   if (!id) {
     return undefined;
   }
-  return { id, name: performer?.display ?? '' };
+  // `display` is written from the Practitioner's name; fall back to the id rather than rendering nothing.
+  return { id, name: performer?.display || id };
 };
 
 const extractPerformingOrganization = (serviceRequest: ServiceRequest): RadiologyPerformingOrganization | undefined => {

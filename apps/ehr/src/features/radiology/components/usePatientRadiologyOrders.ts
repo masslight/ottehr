@@ -6,7 +6,6 @@ import {
   getApiError,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
-  RadiologyPerformedBy,
 } from 'utils';
 import {
   cancelRadiologyOrder,
@@ -42,7 +41,7 @@ interface UsePatientRadiologyOrdersResult {
     serviceRequestId: string,
     report: string,
     reportType: 'preliminary' | 'final',
-    performedBy?: RadiologyPerformedBy
+    performedById?: string
   ) => Promise<void>;
   handleSendForFinalRead: (serviceRequestId: string) => Promise<void>;
   handleUpdateConsent: (serviceRequestId: string, consentObtained: boolean) => Promise<void>;
@@ -228,7 +227,7 @@ export const usePatientRadiologyOrders = (options: {
       serviceRequestId: string,
       report: string,
       reportType: 'preliminary' | 'final',
-      performedBy?: RadiologyPerformedBy
+      performedById?: string
     ): Promise<void> => {
       if (!report) {
         enqueueSnackbar(`Please enter a ${reportType} report before saving.`, { variant: 'error' });
@@ -246,7 +245,7 @@ export const usePatientRadiologyOrders = (options: {
 
       try {
         if (reportType === 'preliminary') {
-          await savePreliminaryReport(oystehrZambda, { serviceRequestId, report, performedBy });
+          await savePreliminaryReport(oystehrZambda, { serviceRequestId, report, performedById });
         } else {
           await saveFinalReport(oystehrZambda, { serviceRequestId, report });
         }

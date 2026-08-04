@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder, RadiologyOrderStatus } from 'utils';
@@ -73,6 +73,7 @@ const CURRENT_USER_ID = 'practitioner-current';
 const CURRENT_USER_NAME = 'Dr. Current';
 const ORDERING_PROVIDER_ID = 'practitioner-ordering';
 const PERFORMED_BY_LABEL = 'Performed by';
+const PERFORMED_BY_REQUIRED_MESSAGE = 'Performed by is required';
 const WRITE_FINAL_REPORT_CHECKBOX_LABEL = "Don't send to teleradiology, I will write the final report myself.";
 const SEND_FOR_FINAL_READ_BTN_LABEL = 'Send for Final Read';
 const SAVE_AS_FINAL_BTN_LABEL = 'Save as Final';
@@ -336,10 +337,47 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
       await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
 
-      expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, 'No acute findings', 'preliminary', {
-        id: ORDERING_PROVIDER_ID,
-        name: 'Dr. Test',
-      });
+      expect(mockHandleSaveReport).toHaveBeenCalledWith(
+        SERVICE_REQUEST_ID,
+        'No acute findings',
+        'preliminary',
+        ORDERING_PROVIDER_ID
+      );
+    });
+
+    it('defaults to the recorded performer even when the order arrives after the first render', async () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [], loading: true }));
+      const { rerender } = renderPage();
+
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makePerformedOrder({ performedBy: { id: ORDERING_PROVIDER_ID, name: 'Dr. Test' } })],
+        })
+      );
+      rerender(
+        <BrowserRouter>
+          <RadiologyOrderDetailsPage />
+        </BrowserRouter>
+      );
+
+      await waitFor(() => expect(getPerformedBySelect()).toHaveTextContent('Dr. Test'));
+    });
+
+    it('shows a validation error and does not save when no performer can be defaulted or selected', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      // No profileResource and no ordering provider id => nothing to default to and nothing to pick.
+      mockUseEvolveUser.mockReturnValue({ userName: CURRENT_USER_NAME } as any);
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({ orders: [makePerformedOrder({ providerId: '' })], handleSaveReport: mockHandleSaveReport })
+      );
+      renderPage();
+
+      await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
+      await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
+
+      expect(screen.getByText(PERFORMED_BY_REQUIRED_MESSAGE)).toBeInTheDocument();
+      expect(mockHandleSaveReport).not.toHaveBeenCalled();
     });
 
     it.each([

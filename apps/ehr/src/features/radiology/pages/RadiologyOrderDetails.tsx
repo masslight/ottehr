@@ -25,6 +25,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
   const [performedById, setPerformedById] = useState('');
+  const [missingPerformedBy, setMissingPerformedBy] = useState(false);
   const [finalReportByUser, setFinalReportByUser] = useState(false);
   const [finalReport, setFinalReport] = useState<string | undefined>();
   const [missingFinalReport, setMissingFinalReport] = useState(false);
@@ -68,13 +69,23 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     return options;
   }, [currentUser, order?.performedBy, order?.providerId, order?.providerName]);
 
+  const selectedPerformedBy = performedByOptions.find((option) => option.id === performedById);
+
+  // So a selection can't leak onto the next order viewed.
   useEffect(() => {
-    if (performedById) return;
-    const defaultId = order?.performedBy?.id ?? currentUser?.profileResource?.id;
+    setPerformedById('');
+    setMissingPerformedBy(false);
+  }, [serviceRequestId]);
+
+  // Gated on `order`: `currentUser` is served from an already-populated store while the orders are still
+  // fetching, so an unguarded default would latch onto them and the order's recorded performer never win.
+  useEffect(() => {
+    if (!order || performedById) return;
+    const defaultId = order.performedBy?.id ?? currentUser?.profileResource?.id;
     if (defaultId) {
       setPerformedById(defaultId);
     }
-  }, [currentUser?.profileResource?.id, order?.performedBy?.id, performedById]);
+  }, [currentUser?.profileResource?.id, order, performedById]);
 
   const saveReportButton = (label: string, loading?: boolean, btnOnClick?: () => void): JSX.Element => {
     const btn = (
@@ -202,7 +213,12 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     fullWidth
                     size="small"
                     value={performedById}
-                    onChange={(e) => setPerformedById(e.target.value)}
+                    onChange={(e) => {
+                      setMissingPerformedBy(false);
+                      setPerformedById(e.target.value);
+                    }}
+                    error={missingPerformedBy}
+                    helperText={missingPerformedBy ? 'Performed by is required' : ''}
                     disabled={isReadOnly}
                   >
                     {!performedById && <MenuItem value="">Select</MenuItem>}
@@ -356,14 +372,14 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
             {order.status === 'performed' &&
               !order.preliminaryReport &&
-              saveReportButton('Save Preliminary Report', isSavingReport, () =>
-                handleSaveReport(
-                  serviceRequestId,
-                  preliminaryReport || '',
-                  'preliminary',
-                  performedByOptions.find((option) => option.id === performedById)
-                )
-              )}
+              saveReportButton('Save Preliminary Report', isSavingReport, () => {
+                // This is the only screen that records the performer, so it's captured here or never.
+                if (!selectedPerformedBy) {
+                  setMissingPerformedBy(true);
+                  return;
+                }
+                void handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary', selectedPerformedBy.id);
+              })}
 
             {order.status === 'preliminary' &&
               (finalReportByUser

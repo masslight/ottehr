@@ -24,12 +24,11 @@ export const RadiologyPerformingOrganizationSchema = z.object({
 });
 export type RadiologyPerformingOrganization = z.infer<typeof RadiologyPerformingOrganizationSchema>;
 
-/** The practitioner who performed an in-house study, recorded on `ServiceRequest.performer`. */
-export const RadiologyPerformedBySchema = z.object({
-  id: z.string().min(1, 'performedBy.id is required and must be a string'),
-  name: z.string().min(1, 'performedBy.name is required and must be a string'),
-});
-export type RadiologyPerformedBy = z.infer<typeof RadiologyPerformedBySchema>;
+/** The practitioner who performed an in-house study, read back from `ServiceRequest.performer`. */
+export interface RadiologyPerformedBy {
+  id: string;
+  name: string;
+}
 
 export const RadiologyLateralityModifierSchema = z.object({
   display: z.string(),
@@ -182,10 +181,11 @@ export type SaveRadiologyReportZambdaInput = z.infer<typeof SaveRadiologyReportZ
 
 /**
  * The preliminary read is where "Performed by" is captured, so it takes the base report payload plus that
- * optional selection. The final-report endpoint keeps the base contract.
+ * optional selection. The final-report endpoint keeps the base contract. Only the Practitioner id travels —
+ * the zambda resolves the display name, so the performer can't be an arbitrary client-supplied name.
  */
 export const SavePreliminaryRadiologyReportZambdaInputSchema = SaveRadiologyReportZambdaInputSchema.extend({
-  performedBy: RadiologyPerformedBySchema.optional(),
+  performedById: z.string().min(1, 'performedById is required and must be a string').optional(),
 });
 export type SavePreliminaryRadiologyReportZambdaInput = z.infer<typeof SavePreliminaryRadiologyReportZambdaInputSchema>;
 
