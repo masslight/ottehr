@@ -13,6 +13,9 @@ export interface VideoCallState {
   // Device IDs chosen in the pre-call settings dialog. Applied by VideoChatContainer on call start.
   preferredVideoDeviceId: string | null;
   preferredAudioDeviceId: string | null;
+  // Plain camera device ID currently in use (may differ from selectedDevice in useVideoInputs()
+  // which returns the DefaultVideoTransformDevice when blur/background is active).
+  currentRawVideoDeviceId: string | null;
 }
 
 const VIDEO_CALL_STATE_INITIAL: VideoCallState = {
@@ -21,6 +24,7 @@ const VIDEO_CALL_STATE_INITIAL: VideoCallState = {
   virtualBackground: { mode: 'none' },
   preferredVideoDeviceId: null,
   preferredAudioDeviceId: null,
+  currentRawVideoDeviceId: null,
 };
 
 export const useVideoCallStore = create<VideoCallState>()(() => ({

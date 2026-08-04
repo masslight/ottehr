@@ -34,6 +34,10 @@ export function useApplyVirtualBackground(): {
 
       if (!audioVideo) return;
 
+      // Keep the store in sync so CallSettings can initialize its camera dropdown to the plain
+      // device ID even when a DefaultVideoTransformDevice is the active selectedDevice.
+      useVideoCallStore.setState({ currentRawVideoDeviceId: rawDeviceId });
+
       if (activeTransformDeviceRef.current) {
         await activeTransformDeviceRef.current.stop();
         activeTransformDeviceRef.current = null;

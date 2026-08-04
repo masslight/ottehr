@@ -36,17 +36,19 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
   const { devices: audioDevices, selectedDevice: initialAudioDevice } = useAudioInputs();
   const { devices: videoDevices, selectedDevice: initialVideoDevice } = useVideoInputs();
 
-  const [selectedAudioDevice, setSelectedAudioDevice] = useState(initialAudioDevice);
-  const [selectedVideoPreviewDeviceId, setSelectedVideoPreviewDeviceId] = useState(initialVideoDevice);
+  const currentRawVideoDeviceId = useVideoCallStore((s) => s.currentRawVideoDeviceId);
 
-  // Chime enumerates devices asynchronously; initialVideoDevice may be undefined at mount time.
-  // Sync the local state once the SDK reports a selected device (only if the user hasn't picked one yet).
+  const [selectedAudioDevice, setSelectedAudioDevice] = useState(initialAudioDevice);
+  // When blur or image background is active, useVideoInputs().selectedDevice is the
+  // DefaultVideoTransformDevice, not a plain device ID. Use the raw ID stored by applyBackground.
+  const [selectedVideoPreviewDeviceId, setSelectedVideoPreviewDeviceId] = useState<
+    string | MediaDeviceInfo | null | undefined
+  >(currentRawVideoDeviceId ?? initialVideoDevice);
+
+  // Sync when devices are enumerated asynchronously after mount (only if not already set).
   useEffect(() => {
-    if (initialVideoDevice && !selectedVideoPreviewDeviceId) {
-      setSelectedVideoPreviewDeviceId(initialVideoDevice);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialVideoDevice]);
+    setSelectedVideoPreviewDeviceId((prev) => prev || currentRawVideoDeviceId || initialVideoDevice);
+  }, [currentRawVideoDeviceId, initialVideoDevice]);
 
   const virtualBackground = useVideoCallStore((s) => s.virtualBackground);
   // Snapshot at open time so Cancel can roll back store changes made by VirtualBackgroundSettings.
