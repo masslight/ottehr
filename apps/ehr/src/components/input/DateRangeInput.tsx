@@ -81,7 +81,6 @@ export const DateRangeInput: React.FC<Props> = ({
 
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [rangeMode, setRangeMode] = useState(false);
-  const [session, setSession] = useState(0);
 
   const dateFrom = parseIsoDate(fromField.value);
   const dateTo = parseIsoDate(toField.value);
@@ -94,7 +93,6 @@ export const DateRangeInput: React.FC<Props> = ({
 
   const openPicker = (event: React.MouseEvent<HTMLElement>): void => {
     setRangeMode(isMultiDayRange);
-    setSession((current) => current + 1);
     setAnchorEl(event.currentTarget);
   };
 
@@ -149,7 +147,6 @@ export const DateRangeInput: React.FC<Props> = ({
         slotProps={{ paper: { 'data-testid': dataTestIds.dashboard.datePickerPopover } as Record<string, unknown> }}
       >
         <RangeCalendar
-          key={session}
           value={[dateFrom, dateTo]}
           rangeMode={rangeMode}
           maxRangeDays={maxRangeDays}

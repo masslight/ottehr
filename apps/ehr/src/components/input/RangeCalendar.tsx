@@ -12,19 +12,17 @@ const CALENDAR_VIEWS = ['month', 'day'] as const;
 const BAND_START = { borderTopLeftRadius: '50%', borderBottomLeftRadius: '50%' } as const;
 const BAND_END = { borderTopRightRadius: '50%', borderBottomRightRadius: '50%' } as const;
 
-const IGNORE_HOVER = (): void => undefined;
-
 type DayState = {
   /** Boundaries of the selection; `end` is null while it is still being picked. */
   start: DateTime | null;
   end: DateTime | null;
   /** Day under the cursor, which previews where the range would end. */
   hovered: DateTime | null;
-  onHover: (day: DateTime | null) => void;
+  onHover?: (day: DateTime | null) => void;
 };
 
 // Given by context because `slotProps.day` only accepts props of the day component it replaces.
-const DayContext = React.createContext<DayState>({ start: null, end: null, hovered: null, onHover: IGNORE_HOVER });
+const DayContext = React.createContext<DayState>({ start: null, end: null, hovered: null });
 
 /** Day cell that owns its own selected state, so the band and `aria-selected` always agree. */
 const RangeDay: React.FC<PickersDayProps<DateTime>> = (dayProps) => {
@@ -46,12 +44,18 @@ const RangeDay: React.FC<PickersDayProps<DateTime>> = (dayProps) => {
     day >= start.startOf('day') &&
     day <= bandEnd.startOf('day');
   const isPreview = inBand && end == null;
+  const hoverProps =
+    onHover == null
+      ? undefined
+      : {
+          onMouseEnter: (): void => onHover(canPreview ? day : null),
+          onMouseLeave: (): void => onHover(null),
+        };
 
   return (
     <Box
       data-band={inBand ? (isPreview ? 'preview' : 'range') : undefined}
-      onMouseEnter={() => onHover(canPreview ? day : null)}
-      onMouseLeave={() => onHover(null)}
+      {...hoverProps}
       // The day keeps its margins, so this wrapper spans the whole cell and consecutive bands touch.
       sx={(theme) => ({
         display: 'flex',
@@ -132,7 +136,7 @@ export const RangeCalendar: React.FC<Props> = ({ value: [dateFrom, dateTo], rang
     pendingStart != null
       ? { start: pendingStart, end: null, hovered, onHover: setHovered }
       : // Nothing to preview without a staged start, so hovering is not tracked at all.
-        { start: dateFrom, end: dateTo, hovered: null, onHover: IGNORE_HOVER };
+        { start: dateFrom, end: dateTo, hovered: null };
 
   return (
     <LocalizationProvider dateAdapter={AdapterLuxon}>

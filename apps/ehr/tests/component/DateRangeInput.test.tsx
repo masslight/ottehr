@@ -209,13 +209,12 @@ describe('DateRangeInput', () => {
     expect(getDay('2026-08-27')).toBeEnabled();
     expect(getDay('2026-08-28')).toBeDisabled();
 
-    // Nor can it be previewed, even though its cell is what receives the hover.
+    // A valid preview is cleared when the cursor moves onto an unselectable cell.
+    await hoverCell('2026-08-27');
+    expect(bandOf('2026-08-27')).toBe('preview');
     await hoverCell('2026-08-28');
     expect(bandOf('2026-08-27')).toBeUndefined();
     expect(bandOf('2026-08-28')).toBeUndefined();
-
-    await hoverCell('2026-08-27');
-    expect(bandOf('2026-08-27')).toBe('preview');
   });
 
   it('marks the committed range on its days and only its boundaries as selected', async () => {
