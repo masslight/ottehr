@@ -17,7 +17,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { sendPatientForm } from 'src/api/api';
-import { usePracticeManagedQuestionnaireList } from 'src/features/visits/telemed/components/admin/admin.queries';
+import { usePracticeManagedQuestionnaires } from 'src/features/visits/telemed/hooks/usePracticeManagedQuestionnaires';
 import { useApiClients } from 'src/hooks/useAppClients';
 
 interface SendFormDialogProps {
@@ -34,11 +34,7 @@ export const SendFormDialog: FC<SendFormDialogProps> = ({ open, onClose, appoint
   const [questionnaireResponseId, setQuestionnaireResponseId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
 
-  const { data, isLoading: loading, error: loadError } = usePracticeManagedQuestionnaireList();
-
-  const questionnaires = (data?.practiceManagedQuestionnaires || [])
-    .slice()
-    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  const { active: questionnaires, isLoading: loading, error: loadError } = usePracticeManagedQuestionnaires();
 
   const formUrl = useMemo(() => {
     if (!questionnaireResponseId || !PATIENT_APP_URL) return '';

@@ -1,8 +1,12 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { captureMessage } from '@sentry/aws-serverless';
+import { captureException, captureMessage } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth, getSecret, Secrets } from 'utils';
-import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
+import {
+  ErxUnenrollmentOutcome,
+  UserActivationZambdaInput,
+  UserActivationZambdaOutput,
+} from 'utils/lib/types/api/user-activation.types';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -58,6 +62,7 @@ async function deactivateUser(
   const userRoles = (user as any).roles;
   const userRoleIds = userRoles.map((role: any) => role.id);
   const userInactive = userRoles.find((role: any) => role.name === 'Inactive');
+  let alreadyDeactivated = false;
   if (!userInactive) {
     console.log('searching for Inactive role in the the project');
     let existingRoles;
@@ -94,10 +99,17 @@ async function deactivateUser(
     // have drifted (e.g., this fix landed after a previous deactivation that
     // pre-dated Practitioner.active sync). Resync to keep the two in agreement.
     await setPractitionerActive(user, false, oystehr);
-    return { message: 'User is already deactivated.' };
+    alreadyDeactivated = true;
   }
 
-  return { message: 'User successfully deactivated.' };
+  // Runs on the already-deactivated path too, so re-running deactivate retries an
+  // unenrollment that failed (or never ran, for users deactivated before this landed).
+  const erxUnenrollment = await unenrollPractitionerFromErx(user, oystehr);
+
+  return {
+    message: alreadyDeactivated ? 'User is already deactivated.' : 'User successfully deactivated.',
+    erxUnenrollment,
+  };
 }
 
 async function activateUser(
@@ -136,6 +148,89 @@ async function activateUser(
   }
 
   return { message: 'User successfully activated.' };
+}
+
+// A project that doesn't have eRx set up answers every eRx call with this error. That's the
+// expected state on most lower envs, so it's a no-op rather than a failure worth reporting.
+// Matched on message rather than code ('4006' covers a broad family of eRx input errors —
+// see getErxPatientSyncErrorMessage in apps/ehr, which special-cases the same string).
+function isErxNotConfiguredError(error: any): boolean {
+  return typeof error?.message === 'string' && error.message.toLowerCase().includes('erx service is not configured');
+}
+
+// eRx enrollment lives with the upstream eRx provider (DoseSpot), keyed by Practitioner id —
+// flipping the Oystehr user to Inactive doesn't touch it, so a departed clinician would otherwise
+// keep a live prescriber account there. Unenroll them as part of deactivation.
+//
+// Never throws: by the time this runs the deactivation itself has already landed (Inactive role +
+// Practitioner.active=false), and rejecting here would report an otherwise-successful deactivation
+// as a failure to the operator. Failures are logged, sent to Sentry, and returned in the response;
+// re-running deactivate retries the unenrollment.
+//
+// Activation deliberately does NOT re-enroll: the eRx module enrolls the practitioner on demand the
+// next time they open eRx (see the enrollment effect in apps/ehr .../shared/components/ERX.tsx), so
+// a reactivated user gets a fresh enrollment with no operator step.
+async function unenrollPractitionerFromErx(user: User, oystehr: Oystehr): Promise<ErxUnenrollmentOutcome> {
+  const profile = user.profile;
+  // No Sentry report here — setPractitionerActive already flagged this same condition
+  // earlier in the call, and a second event would just be duplicate noise.
+  if (!profile?.startsWith('Practitioner/')) {
+    console.log('user has no Practitioner profile; skipping eRx unenrollment', { userId: user.id, profile });
+    return 'no-practitioner';
+  }
+  const practitionerId = profile.split('/')[1];
+  if (!practitionerId) {
+    console.log('malformed Practitioner profile reference; skipping eRx unenrollment', { userId: user.id, profile });
+    return 'no-practitioner';
+  }
+
+  // Each eRx call is caught separately so the log names the call that actually failed — the two
+  // need different grants on the zambdas M2M client (eRx:Read vs eRx:Delete on eRx:Enrollment),
+  // and a shared catch reported every failure as "failed to unenroll", pointing at the wrong one.
+  const onFailure = (
+    error: any,
+    operation: 'checkPractitionerEnrollment' | 'unenrollPractitioner'
+  ): 'not-configured' | 'failed' => {
+    if (isErxNotConfiguredError(error)) {
+      console.log(`eRx is not configured for this project; skipping unenrollment of Practitioner/${practitionerId}`);
+      return 'not-configured';
+    }
+    // OystehrSdkError carries the HTTP status on `code`; log it, since a 403 here means the M2M
+    // client is missing an eRx:Enrollment grant rather than anything being wrong with the user.
+    console.error(
+      `eRx ${operation} failed for Practitioner/${practitionerId} (status ${error?.code ?? 'unknown'})`,
+      error
+    );
+    captureException(error, {
+      level: 'error',
+      tags: { system: 'erx', zambda: 'user-activation' },
+      extra: { userId: user.id, practitionerId, operation, status: error?.code },
+    });
+    return 'failed';
+  };
+
+  // Enrollment is checked first so the common case — staff who never touched eRx — doesn't hit
+  // the vendor with an unenroll for an account that was never registered.
+  let enrollment;
+  try {
+    enrollment = await oystehr.erx.checkPractitionerEnrollment({ practitionerId });
+  } catch (error: any) {
+    return onFailure(error, 'checkPractitionerEnrollment');
+  }
+
+  if (!enrollment.registered) {
+    console.log(`Practitioner/${practitionerId} is not enrolled in eRx; nothing to unenroll`);
+    return 'not-enrolled';
+  }
+
+  try {
+    await oystehr.erx.unenrollPractitioner({ practitionerId });
+  } catch (error: any) {
+    return onFailure(error, 'unenrollPractitioner');
+  }
+
+  console.log(`Unenrolled Practitioner/${practitionerId} from eRx`);
+  return 'unenrolled';
 }
 
 // Sync Practitioner.active with the user's activation state. Skips users

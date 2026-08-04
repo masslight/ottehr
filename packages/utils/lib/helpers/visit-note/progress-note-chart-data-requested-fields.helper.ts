@@ -42,7 +42,8 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   vitalsObservations: vitalsObservationsRequest,
   externalLabResults: {},
   inHouseLabResults: {},
-  radiologyOrders: { _tag: 'radiology', _revinclude: 'DiagnosticReport:based-on' },
+  // DocumentReference:related pulls in external orders' uploaded result files (they have no DiagnosticReport).
+  radiologyOrders: { _tag: 'radiology', _revinclude: ['DiagnosticReport:based-on', 'DocumentReference:related'] },
   practitioners: {},
   medicalDecision: {
     _tag: 'medical-decision',

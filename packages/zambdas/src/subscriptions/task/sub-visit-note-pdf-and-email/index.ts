@@ -21,6 +21,7 @@ import { getChartData } from '../../../ehr/get-chart-data';
 import { getMedicationOrders } from '../../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
+import { performEffect as generateVisitDetailsPdf } from '../../../ehr/visit-details/visit-details-to-pdf';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
 import {
   buildVisitNoteEmailTemplate,
@@ -63,7 +64,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     taskId = task.id;
 
-    const skipEmail = resolveSkipEmail(task);
+    // SKIP_EMAIL is set only by the addendum re-generation path, so it means "re-generation,
+    // not a fresh post-sign run" — gates both the completion email and the Visit Details PDF.
+    const isRegeneration = resolveSkipEmail(task);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -106,8 +109,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 
-    // Check if this is a PDF-only task (for follow-ups) or regular PDF+email task
-    const isPDFOnlyTask = isFollowupEncounter(encounter);
+    // Follow-up visits get a differently-titled visit note and no completion email.
+    const isFollowupTask = isFollowupEncounter(encounter);
 
     const chartDataPromise = getChartData(oystehr, oystehrToken, visitResources.encounter.id!);
     const additionalChartDataPromise = getChartData(
@@ -186,7 +189,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         oystehrToken
       );
       if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-      if (isPDFOnlyTask) {
+      if (isFollowupTask) {
         pdfInfo.title = 'Patient Follow-up Note';
       }
       console.log(`Creating visit note pdf docRef`);
@@ -199,10 +202,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         listResources
       );
 
+      // Also generate the Visit Details PDF at completion so a copy exists for the medical
+      // record without a manual on-demand click. Failure here must not block the visit note.
+      if (shouldGenerateVisitDetailsPdf(task)) {
+        try {
+          await generateVisitDetailsPdf(oystehr, appointmentId, secrets, oystehrToken, visitResources.timezone);
+          console.log(`Visit details pdf created for appointment ${appointmentId}`);
+        } catch (visitDetailsError) {
+          console.error(`Failed to generate visit details PDF for appointment ${appointmentId}:`, visitDetailsError);
+        }
+      }
+
       // Email delivery is secondary to PDF creation. Every failure in email setup, URL generation, validation, or
       // provider delivery is contained here so the PDF task keeps its existing success semantics.
       let emailSent = false;
-      if (!isPDFOnlyTask && !skipEmail) {
+      if (!isFollowupTask && !isRegeneration) {
         try {
           const emailClient = skipVisitNoteInPatientPortal ? undefined : getEmailClient(secrets, oystehr);
           if (emailClient?.getFeatureFlag()) {
@@ -341,4 +355,14 @@ export function resolveSkipEmail(task: Task): boolean {
         ) && taskInput.valueString === 'true'
     ) ?? false
   );
+}
+
+/**
+ * Generate the Visit Details PDF on a fresh sign, but not on an addendum re-generation:
+ * an addendum changes only the clinical note, none of the data the Visit Details PDF is built
+ * from. The addendum path (getChartDataPostChangeTasks) is the only caller that sets the
+ * SKIP_EMAIL input, so its presence identifies a re-generation run.
+ */
+export function shouldGenerateVisitDetailsPdf(task: Task): boolean {
+  return !resolveSkipEmail(task);
 }

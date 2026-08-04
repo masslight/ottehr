@@ -21,6 +21,7 @@ import {
   BillingPayerOption,
   ClaimsQueueItemStatuses,
   EraListItem,
+  formatCurrency,
   getApiError,
   SearchErasInput,
 } from 'utils';
@@ -30,7 +31,6 @@ import { ImportEraDialog } from '../components/ImportEraDialog';
 import { formatAntCaseString } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
-import { formatCurrency } from '../utils/format';
 
 interface Filters {
   // ERA-level
@@ -287,7 +287,6 @@ export default function ERAList(): ReactElement {
           label="Check Number"
           value={checkNumber}
           onChange={(e) => handleDebouncedFilter(setCheckNumber, 'checkNumber')(e.target.value)}
-          InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 140 }}
         />
         <FormControl size="small" sx={{ minWidth: 140 }}>
@@ -441,7 +440,7 @@ export default function ERAList(): ReactElement {
         disableRowSelectionOnClick
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
-        slots={dataGridSlots}
+        slots={dataGridSlots({ showCsvExport: true, csvFileName: 'eras' })}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 430px)' }}
       />

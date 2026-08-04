@@ -89,6 +89,7 @@ export const otherColors = {
   lightErrorText: '#541313',
   lightGreen: '#EAF2EA',
   darkGreenText: '#123214',
+  lightBlue600: '#039BE5',
 
   // Scheduled patient outreach feature.
   // Status tints, medium/action accents, and history-dialog colors used by the
