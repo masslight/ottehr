@@ -12,11 +12,16 @@
 // this process to authenticate as it by overwriting AUTH0_CLIENT/AUTH0_SECRET in
 // process.env — which spawned harness children inherit.
 import type Oystehr from '@oystehr/sdk';
-import { createOystehrFromToken, mintAccessTokenForClient, searchAllPages } from './oystehr-client';
+import { createOystehrFromToken, mintAccessTokenForClient } from './oystehr-client';
 
-// Mirrors the tags link-synth-staff-users.ts writes (kept in sync intentionally).
+// Marker tag + identifier for the DEDICATED Practitioner used as the M2M profile.
 const STAFF_MARKER_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff';
-const ROLE_SYSTEM = 'https://fhir.ottehr.com/sid/synth-staff-role';
+const PROFILE_ID_SYSTEM = 'https://fhir.ottehr.com/sid/synth-m2m-profile';
+const slug = (s: string): string =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 
 // Resolve an admin-privileged token (needs IAM: m2m list/create/update/rotate).
 // Returns null when no admin creds are provided — the caller then keeps the env
@@ -30,23 +35,31 @@ async function adminToken(): Promise<string | null> {
   return null;
 }
 
-async function pickPractitionerId(admin: Oystehr, override?: string): Promise<string> {
+// The M2M's profile must be a Practitioner not already bound to another principal:
+// a Practitioner ↔ principal is 1:1, so reusing a synth-STAFF provider (already a
+// staff User's profile) fails with "Profile ... is already in use". Use a
+// DEDICATED, otherwise-unused Practitioner per M2M — find-or-create by a stable
+// identifier — exactly as the integration tests make a throwaway Practitioner for
+// their M2M. This Practitioner is the chart-data author (the synthesizer /
+// registrar), which is the intended attribution per POPULATION.md.
+async function ensureProfilePractitioner(admin: Oystehr, m2mName: string, override?: string): Promise<string> {
   if (override) return override;
-  // Prefer a synth-staff provider; fall back to any Practitioner on the project.
-  const synth = await searchAllPages<any>(admin, 'Practitioner', [
-    { name: '_tag', value: `${STAFF_MARKER_SYSTEM}|synth-staff` },
-  ]);
-  const provider =
-    synth.find((p: any) => (p.meta?.tag ?? []).some((t: any) => t.system === ROLE_SYSTEM && t.code === 'provider')) ??
-    synth[0];
-  if (provider?.id) return provider.id as string;
-  const anyPrac = (
-    await admin.fhir.search<any>({ resourceType: 'Practitioner', params: [{ name: '_count', value: '1' }] })
+  const idValue = slug(m2mName);
+  const existing = (
+    await admin.fhir.search<any>({
+      resourceType: 'Practitioner',
+      params: [{ name: 'identifier', value: `${PROFILE_ID_SYSTEM}|${idValue}` }],
+    })
   ).unbundle();
-  if (anyPrac[0]?.id) return anyPrac[0].id as string;
-  throw new Error(
-    '[synth-m2m] no Practitioner found for the M2M profile — run link-synth-staff-users.ts first, or pass a practitionerId.'
-  );
+  if (existing[0]?.id) return existing[0].id as string;
+  const created = await admin.fhir.create<any>({
+    resourceType: 'Practitioner',
+    active: true,
+    identifier: [{ system: PROFILE_ID_SYSTEM, value: idValue }],
+    meta: { tag: [{ system: STAFF_MARKER_SYSTEM, code: 'synth-m2m-profile' }] },
+    name: [{ use: 'official', family: 'Synthesizer', given: ['Synth'] }],
+  });
+  return created.id as string;
 }
 
 export interface SynthM2M {
@@ -93,7 +106,7 @@ export async function ensureSynthM2MInProcess(opts: {
     );
   }
 
-  const practitionerId = await pickPractitionerId(admin, opts.practitionerId);
+  const practitionerId = await ensureProfilePractitioner(admin, opts.name, opts.practitionerId);
   const existing = clients.find((c) => c.name === opts.name);
   let id: string;
   let clientId: string;
