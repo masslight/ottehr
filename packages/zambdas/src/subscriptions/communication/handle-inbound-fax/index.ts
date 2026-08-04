@@ -1,22 +1,18 @@
-import { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Communication, Device, Practitioner, Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { Communication, Device, Task } from 'fhir/r4b';
 import {
-  AppointmentProviderNotificationTypes,
   createOystehrClient,
   FAX_TASK,
-  getProviderNotificationSettingsForPractitioner,
   getSecret,
   INVALID_INPUT_ERROR,
-  PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+  OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
   SecretsKeys,
   TASK_CATEGORY_IDENTIFIER,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { fetchAllPages, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { createTask } from '../../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -62,11 +58,36 @@ export function getPdfUrl(communication: Communication): string | undefined {
   return communication.payload?.[0]?.contentAttachment?.url;
 }
 
+/**
+ * Faxes we *sent* also land in the FHIR store as `medium=FAXWRIT` Communications — `oystehr.fax.send`
+ * creates one per transmission (see `sendFaxAttempt` and `radiology/send-fax`) — so the subscription
+ * criteria alone cannot tell direction. Oystehr stamps every sent fax with the outbound-fax-status
+ * extension it uses to track delivery, and inbound faxes never carry it; that is the discriminator.
+ *
+ * Without this guard every outbound fax would file itself as an inbound one: a bogus "Inbound fax
+ * from …" work item plus a notification to every provider.
+ */
+export function isOutboundFax(communication: Communication): boolean {
+  return !!communication.extension?.some((ext) => ext.url === OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL);
+}
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`[${ZAMBDA_NAME}] handler start, body length: ${input.body?.length ?? 0}`);
 
   try {
     const { communication, secrets } = validateRequestParameters(input);
+
+    // Bail before doing any work (no token, no client, no searches): outbound faxes match the same
+    // subscription criteria and are by far the higher-volume case.
+    if (isOutboundFax(communication)) {
+      console.log(
+        `[${ZAMBDA_NAME}] Communication/${communication.id} is an outbound fax; skipping (not an inbound fax)`
+      );
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ skipped: 'outbound-fax' }),
+      };
+    }
 
     if (!oystehrToken) {
       console.log('getting token');
@@ -94,8 +115,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // Idempotency: FHIR subscriptions can re-fire for the same Communication. If an
-    // inbound-fax Task already exists for it, no-op instead of duplicating the Task and
-    // re-sending notifications.
+    // inbound-fax Task already exists for it, no-op instead of duplicating the work item
+    // (a second Task would also mean a second round of notifications from the cron).
     const existingFaxTasks = (
       await oystehr.fhir.search<Task>({
         resourceType: 'Task',
@@ -165,7 +186,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // The conditional create matched an existing Task rather than creating ours: another
-    // delivery of this same fax won the race and has already sent the notifications.
+    // delivery of this same fax won the race and already created the work item.
     const ownsClaim = result.identifier?.some(
       (identifier) => identifier.system === FAX_TASK_CLAIM_SYSTEM && identifier.value === claimToken
     );
@@ -181,69 +202,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Created fax task:', result.id);
 
-    // Create provider notifications for all practitioners with task notifications enabled
-    try {
-      let practitioners: Practitioner[] = [];
-      await fetchAllPages(async (offset, count) => {
-        const bundle = await oystehr.fhir.search<Practitioner>({
-          resourceType: 'Practitioner',
-          params: [
-            { name: '_count', value: count.toString() },
-            { name: '_offset', value: offset.toString() },
-          ],
-        });
-        practitioners = practitioners.concat(bundle.unbundle());
-        return bundle;
-      }, 500);
-
-      // Deactivating a user sets Practitioner.active = false (see user-activation); exclude
-      // those, but keep practitioners that predate the flag (active undefined).
-      const activePractitioners = practitioners.filter((practitioner) => practitioner.active !== false);
-
-      const notificationMessage = `Inbound fax received from ${senderFaxNumber} (${pageCount ?? '?'} pages)`;
-      const notificationRequests: BatchInputPostRequest<Communication>[] = [];
-
-      for (const practitioner of activePractitioners) {
-        const settings = getProviderNotificationSettingsForPractitioner(practitioner);
-        if (settings?.taskNotificationsEnabled && practitioner.id) {
-          notificationRequests.push({
-            method: 'POST',
-            url: '/Communication',
-            resource: {
-              resourceType: 'Communication',
-              category: [
-                {
-                  coding: [
-                    {
-                      system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                      code: AppointmentProviderNotificationTypes.inbound_fax,
-                    },
-                  ],
-                },
-              ],
-              sent: DateTime.utc().toISO()!,
-              status: 'in-progress',
-              basedOn: [{ reference: `Task/${result.id}` }],
-              recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-              payload: [{ contentString: notificationMessage }],
-            },
-          });
-        }
-      }
-
-      if (notificationRequests.length > 0) {
-        await oystehr.fhir.transaction({ requests: notificationRequests });
-        console.log(`Created ${notificationRequests.length} provider notifications`);
-      } else {
-        console.log('No practitioners with task notifications enabled');
-      }
-    } catch (notifError) {
-      // The fax Task itself was created successfully; a notification fan-out failure should
-      // not fail ingestion (the subscription would re-fire and duplicate work), but it must
-      // be visible to operators.
-      console.error(`[${ZAMBDA_NAME}] failed to create provider notifications, continuing:`, notifError);
-      captureException(notifError);
-    }
+    // Notifying staff is deliberately NOT done here. The `notifications-updater` cron already
+    // notifies subscribers of any newly created task in a category, honoring each practitioner's V2
+    // preferences (enabled, delivery method, location filter, assigned-to) with its own idempotency
+    // tag — `FAX_TASK.category` is registered in `TASK_CODE_TO_UI_CATEGORY` so inbound faxes flow
+    // through it like every other category. Fanning out from here instead would ignore those
+    // preferences and scan every Practitioner in the project inside a subscription handler.
 
     return {
       statusCode: 200,

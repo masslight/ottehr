@@ -327,7 +327,6 @@ export enum AppointmentProviderNotificationTypes {
   patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',
   task_assigned = 'task-assigned',
-  inbound_fax = 'inbound-fax',
   task_category_created = 'task-category-created',
   virtual_visit_scheduled = 'virtual-visit-scheduled',
 }

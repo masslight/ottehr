@@ -1,5 +1,5 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, Secrets } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export interface FileInboundFaxInput {
   secrets: Secrets | null;
@@ -19,7 +19,7 @@ export function validateRequestParameters(input: ZambdaInput): FileInboundFaxInp
     throw MISSING_REQUEST_BODY;
   }
 
-  const body = JSON.parse(input.body);
+  const body = safeJsonParse(input.body);
 
   const missing: string[] = [];
   if (!body.taskId) missing.push('taskId');

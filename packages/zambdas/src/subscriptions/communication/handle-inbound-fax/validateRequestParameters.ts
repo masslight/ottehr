@@ -1,6 +1,6 @@
 import { Communication } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, Secrets } from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { safeJsonParse, ZambdaInput } from '../../../shared';
 
 export interface HandleInboundFaxInput {
   communication: Communication;
@@ -12,7 +12,7 @@ export function validateRequestParameters(input: ZambdaInput): HandleInboundFaxI
     throw MISSING_REQUEST_BODY;
   }
 
-  const communication = JSON.parse(input.body) as Communication;
+  const communication = safeJsonParse(input.body) as Communication;
 
   if (communication.resourceType !== 'Communication') {
     throw INVALID_INPUT_ERROR(`Expected Communication but got ${communication.resourceType}`);

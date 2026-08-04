@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Communication, List, Practitioner, Task } from 'fhir/r4b';
+import { Communication, List, Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared';
 
@@ -59,11 +59,7 @@ vi.mock('@sentry/aws-serverless', async (importOriginal) => {
   };
 });
 
-import {
-  APIErrorCode,
-  PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-  PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL,
-} from 'utils';
+import { APIErrorCode, FAX_TASK, getUiTaskCategoryForCode, OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils';
 import { index as deleteInboundFaxRaw } from '../../src/ehr/delete-inbound-fax/index';
 import { index as fileInboundFaxRaw } from '../../src/ehr/file-inbound-fax/index';
 import { Z3Error } from '../../src/shared/z3Utils';
@@ -123,7 +119,7 @@ function makeFolderList(overrides: Partial<List> = {}): List {
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function makeSearchBundle(resources: (Task | Practitioner | List)[], hasNext = false) {
+function makeSearchBundle(resources: (Task | List)[], hasNext = false) {
   return {
     resourceType: 'Bundle',
     type: 'searchset',
@@ -457,24 +453,9 @@ describe('handle-inbound-fax handler', () => {
     extension: [{ url: 'https://extensions.fhir.oystehr.com/fax-pages', valueInteger: 3 }],
   };
 
-  const taskNotificationsEnabledExtension = {
-    url: PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
-    extension: [{ url: PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL, valueBoolean: true }],
-  };
-
-  function makePractitioner(id: string, overrides: Partial<Practitioner> = {}): Practitioner {
-    return {
-      resourceType: 'Practitioner',
-      id,
-      extension: [taskNotificationsEnabledExtension],
-      ...overrides,
-    };
-  }
-
-  function mockSearches({ existingTasks = [] as Task[], practitioners = [] as Practitioner[] } = {}): void {
+  function mockSearches({ existingTasks = [] as Task[] } = {}): void {
     mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'Task') return makeSearchBundle(existingTasks);
-      if (resourceType === 'Practitioner') return makeSearchBundle(practitioners);
       throw new Error(`unexpected search for ${resourceType}`);
     });
     // Echo the submitted resource back with an id, the way a real FHIR create does — the handler
@@ -518,34 +499,76 @@ describe('handle-inbound-fax handler', () => {
     expect(pdfInput?.valueString).toBe(TASK_PDF_URL);
   });
 
-  it('notifies only active practitioners with task notifications enabled', async () => {
-    mockSearches({
-      practitioners: [
-        makePractitioner('active-1'),
-        makePractitioner('deactivated-1', { active: false }),
-        makePractitioner('no-notifications', { extension: [] }),
-        makePractitioner('active-2', { active: true }),
-      ],
-    });
-
-    const result = await handleInboundFax(makeInput(communication as unknown as Record<string, unknown>));
-
-    expect(result.statusCode).toBe(200);
-    expect(mockOystehr.fhir.transaction).toHaveBeenCalledTimes(1);
-    const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
-    const recipients = requests.map((r: any) => r.resource.recipient[0].reference);
-    expect(recipients).toEqual(['Practitioner/active-1', 'Practitioner/active-2']);
-  });
-
-  it('reports but does not fail ingestion when the notification fan-out fails', async () => {
-    mockSearches({ practitioners: [makePractitioner('active-1')] });
-    mockOystehr.fhir.transaction.mockRejectedValue(new Error('fan-out failed'));
+  // The task is the only thing this handler writes. Staff notification is the notifications-updater
+  // cron's job (it honors each practitioner's V2 preferences); fanning out here would ignore them
+  // and scan every Practitioner in the project from inside a subscription.
+  it('creates only the task, leaving notification fan-out to the notifications cron', async () => {
+    mockSearches();
 
     const result = await handleInboundFax(makeInput(communication as unknown as Record<string, unknown>));
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toEqual({ taskId: 'task-new' });
-    expect(mockCaptureException).toHaveBeenCalled();
+    expect(mockOystehr.fhir.create).toHaveBeenCalledTimes(1);
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+    // No Practitioner scan at all — mockSearches throws on any non-Task search.
+    const searchedTypes = mockOystehr.fhir.search.mock.calls.map((call: any[]) => call[0].resourceType);
+    expect(searchedTypes).toEqual(['Task']);
+  });
+
+  // The task category is what routes inbound faxes through the notifications cron, so it has to be
+  // the value registered in TASK_CODE_TO_UI_CATEGORY.
+  it('tags the task with the category the notifications cron subscribes to', async () => {
+    mockSearches();
+
+    await handleInboundFax(makeInput(communication as unknown as Record<string, unknown>));
+
+    const createdTask = mockOystehr.fhir.create.mock.calls[0][0] as Task;
+    expect(createdTask.groupIdentifier?.value).toBe(FAX_TASK.category);
+    expect(getUiTaskCategoryForCode(createdTask.groupIdentifier?.value)).toBe('inboundFax');
+    // The cron only considers tasks in these statuses.
+    expect(createdTask.status).toBe('ready');
+  });
+
+  describe('outbound faxes', () => {
+    // `oystehr.fax.send` writes a medium=FAXWRIT Communication for every fax we *send*, which matches
+    // the same subscription criteria. Oystehr stamps those with the outbound-fax-status extension.
+    const outboundCommunication: Communication = {
+      ...communication,
+      id: 'comm-outbound',
+      extension: [
+        ...(communication.extension ?? []),
+        { url: OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL, valueString: 'queued' },
+      ],
+    };
+
+    it('skips an outbound fax instead of filing it as inbound', async () => {
+      mockSearches();
+
+      const result = await handleInboundFax(makeInput(outboundCommunication as unknown as Record<string, unknown>));
+
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body)).toEqual({ skipped: 'outbound-fax' });
+      expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+    });
+
+    it('bails before doing any work, since outbound is the higher-volume case', async () => {
+      mockSearches();
+
+      await handleInboundFax(makeInput(outboundCommunication as unknown as Record<string, unknown>));
+
+      expect(mockOystehr.fhir.search).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+    });
+
+    it('still ingests an inbound fax that carries other extensions', async () => {
+      mockSearches();
+
+      const result = await handleInboundFax(makeInput(communication as unknown as Record<string, unknown>));
+
+      expect(JSON.parse(result.body)).toEqual({ taskId: 'task-new' });
+      expect(mockOystehr.fhir.create).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('concurrent delivery of the same fax', () => {
@@ -563,8 +586,8 @@ describe('handle-inbound-fax handler', () => {
       expect(resource.identifier).toEqual([{ system: FAX_TASK_CLAIM_SYSTEM, value: expect.any(String) }]);
     });
 
-    it('sends no duplicate notifications when the conditional create matched an existing task', async () => {
-      mockSearches({ practitioners: [makePractitioner('active-1')] });
+    it('reports the winning task without creating a second one', async () => {
+      mockSearches();
       // The race: the pre-search saw nothing, but by the time we wrote, another delivery had
       // created the task. The server returns *that* task, which carries no claim token of ours.
       mockOystehr.fhir.create.mockResolvedValue(makeFaxTask({ id: 'task-from-other-delivery' }));
@@ -577,7 +600,7 @@ describe('handle-inbound-fax handler', () => {
     });
 
     it('reports without failing when the conditional create is rejected (multiple matches)', async () => {
-      mockSearches({ practitioners: [makePractitioner('active-1')] });
+      mockSearches();
       mockOystehr.fhir.create.mockRejectedValue(new Error('412 Precondition Failed'));
 
       const result = await handleInboundFax(makeInput(communication as unknown as Record<string, unknown>));

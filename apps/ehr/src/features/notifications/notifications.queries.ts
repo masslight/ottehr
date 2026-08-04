@@ -29,15 +29,18 @@ export type ProviderNotification = {
   link?: string;
 };
 
-const isInboundFaxNotification = (communication: Communication): boolean =>
-  !!communication.category?.some(
-    (category) =>
-      category.coding?.some(
-        (coding) =>
-          coding.system === PROVIDER_NOTIFICATION_TYPE_SYSTEM &&
-          coding.code === AppointmentProviderNotificationTypes.inbound_fax
-      )
-  );
+/**
+ * Destination for a task-backed notification that has no appointment to fall back on. Keyed off the
+ * task the notification is `basedOn` rather than the notification type, so it holds for every way a
+ * task notification is produced (category subscription, assignment, …).
+ */
+const getTaskNotificationLink = (task: FhirTask | undefined): string | undefined => {
+  if (task?.groupIdentifier?.value !== FAX_TASK.category) {
+    return undefined;
+  }
+  const faxCommunicationID = getTaskInputValue(task, FAX_TASK.input.communicationId);
+  return faxCommunicationID ? `/inbound-fax/${faxCommunicationID}/match` : undefined;
+};
 
 export const useGetProviderNotifications = (
   onSuccess?: (data: ProviderNotification[] | null) => void
@@ -62,8 +65,9 @@ export const useGetProviderNotifications = (
               value: 'Communication:encounter',
             },
             {
-              // Inbound-fax notifications have no encounter; their Communication is basedOn the
-              // fax Task, whose input carries the fax Communication id used to build the match link.
+              // Task notifications have no encounter; their Communication is basedOn the Task, which
+              // is what `getTaskNotificationLink` needs to resolve a destination (e.g. an inbound fax's
+              // match page, via the fax Communication id on the Task's input).
               name: '_include',
               value: 'Communication:based-on',
             },
@@ -104,17 +108,10 @@ export const useGetProviderNotifications = (
         const encounter = encounterResources.find((encounterTemp) => encounterID === encounterTemp.id);
         const appointmentID = encounter?.appointment?.[0].reference?.replace('Appointment/', '');
 
-        let link: string | undefined;
-        if (isInboundFaxNotification(communicationResource)) {
-          const taskID = communicationResource.basedOn
-            ?.find((ref) => ref.reference?.startsWith('Task/'))
-            ?.reference?.split('/')?.[1];
-          const task = taskResources?.find((taskTemp) => taskTemp.id === taskID);
-          const faxCommunicationID = task ? getTaskInputValue(task, FAX_TASK.input.communicationId) : undefined;
-          if (faxCommunicationID) {
-            link = `/inbound-fax/${faxCommunicationID}/match`;
-          }
-        }
+        const basedOnTaskID = communicationResource.basedOn
+          ?.find((ref) => ref.reference?.startsWith('Task/'))
+          ?.reference?.split('/')?.[1];
+        const link = getTaskNotificationLink(taskResources?.find((taskTemp) => taskTemp.id === basedOnTaskID));
 
         const notification: ProviderNotification = {
           appointmentID: appointmentID || '',
