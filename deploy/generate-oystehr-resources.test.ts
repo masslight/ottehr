@@ -13,6 +13,7 @@ vi.mock('utils', () => ({
 import {
   GenerateFhirResourcesArgs,
   generateOystehrResources,
+  generateRuntimeSeedRemovals,
   isObject,
   validSchemas,
 } from './generate-oystehr-resources';
@@ -430,5 +431,73 @@ describe('generate-oystehr-resources', () => {
         expect(billingSecret.value).toBe('all');
       });
     });
+  });
+});
+
+describe('generateRuntimeSeedRemovals', () => {
+  const OUT = '/out/removed-locations.tf.json';
+  const SEED_DIR = '/config/runtime-seed';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFsForSuccess();
+  });
+
+  const writtenRemoved = (): { removed: { from: string; lifecycle: { destroy: unknown } }[] } =>
+    JSON.parse(vi.mocked(fs.writeFile).mock.calls[0][1] as string);
+
+  it('emits exactly one destroy=false removal block per seed resource key', async () => {
+    vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('locations.json', true)] as never);
+    vi.mocked(fs.readFile).mockImplementation(async () =>
+      JSON.stringify({ fhirResources: { LOCATION_A: { resource: {} }, SCHEDULE_A: { resource: {} } } })
+    );
+
+    await generateRuntimeSeedRemovals({ runtimeSeedDir: SEED_DIR, outputFile: OUT });
+
+    expect(fs.writeFile).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fs.writeFile).mock.calls[0][0]).toBe(OUT);
+    const { removed } = writtenRemoved();
+    expect(removed).toEqual([
+      { from: 'oystehr_fhir_resource.LOCATION_A', lifecycle: { destroy: false } },
+      { from: 'oystehr_fhir_resource.SCHEDULE_A', lifecycle: { destroy: false } },
+    ]);
+    // The non-destructive guarantee: every block must be destroy=false.
+    expect(removed.every((b) => b.lifecycle.destroy === false)).toBe(true);
+    expect(fs.rm).not.toHaveBeenCalled();
+  });
+
+  it('aggregates keys across seed files and ignores non-json', async () => {
+    vi.mocked(fs.readdir).mockResolvedValue([
+      createMockDirent('a.json', true),
+      createMockDirent('b.json', true),
+      createMockDirent('README.md', true),
+    ] as never);
+    vi.mocked(fs.readFile).mockImplementation(async (p) => {
+      if (String(p).endsWith('a.json')) return JSON.stringify({ fhirResources: { A: {} } });
+      if (String(p).endsWith('b.json')) return JSON.stringify({ fhirResources: { B: {} } });
+      throw new Error(`unexpected read: ${String(p)}`);
+    });
+
+    await generateRuntimeSeedRemovals({ runtimeSeedDir: SEED_DIR, outputFile: OUT });
+
+    expect(writtenRemoved().removed.map((b) => b.from)).toEqual(['oystehr_fhir_resource.A', 'oystehr_fhir_resource.B']);
+  });
+
+  it('removes the output file (no stale blocks) when there are no seed resources', async () => {
+    vi.mocked(fs.readdir).mockResolvedValue([] as never);
+
+    await generateRuntimeSeedRemovals({ runtimeSeedDir: SEED_DIR, outputFile: OUT });
+
+    expect(fs.rm).toHaveBeenCalledWith(OUT, { force: true });
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('treats a missing runtime-seed dir (ENOENT) as empty', async () => {
+    vi.mocked(fs.readdir).mockRejectedValue(Object.assign(new Error('nope'), { code: 'ENOENT' }));
+
+    await generateRuntimeSeedRemovals({ runtimeSeedDir: SEED_DIR, outputFile: OUT });
+
+    expect(fs.rm).toHaveBeenCalledWith(OUT, { force: true });
+    expect(fs.writeFile).not.toHaveBeenCalled();
   });
 });
