@@ -6,10 +6,11 @@ import {
   getSuffixFromProviderTypeExtension,
   makeProviderTypeExtension,
   makeQualificationForPractitioner,
+  NOT_AUTHORIZED,
   RoleType,
   UpdateUserZambdaOutput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, requireUserWithRole, wrapHandler, ZambdaInput } from '../../shared';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -42,6 +43,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
+
+  // Editing users / assigning roles is an admin-only operation, matching the EHR's employee-management
+  // gate (Administrator or Customer Support). Enforcing it here prevents a non-admin (e.g. a Clinician)
+  // from calling this zambda directly to grant themselves the Provider role or an NPI and thereby
+  // bypass every NPI-gated action check.
+  const userToken = input.headers.Authorization?.replace('Bearer ', '');
+  if (!userToken) {
+    throw NOT_AUTHORIZED;
+  }
+  await requireUserWithRole(userToken, secrets, [RoleType.Administrator, RoleType.CustomerSupport]);
+
   const PROJECT_API = getSecret('PROJECT_API', secrets);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const headers = {
