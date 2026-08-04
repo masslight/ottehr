@@ -161,7 +161,7 @@ export function ChargeItemDefinitionList({ type }: { type: ChargeItemDefinitionT
         onRowClick={(params) => navigate(`/${ChargeItemDefinitionLabels[type].pathComponent}/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        slots={dataGridSlots}
+        slots={dataGridSlots()}
         pagination={true}
         sx={{
           ...dataGridSx,

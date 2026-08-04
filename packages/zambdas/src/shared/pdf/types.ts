@@ -225,6 +225,7 @@ export type ResultSpecimenInfo = {
   unit?: string;
   bodySite?: string;
   collectedDateTime?: string;
+  specimenReceivedDateTime?: string;
 };
 
 export interface LabResultsData
@@ -261,6 +262,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;
+  specimenReceivedDateTime: string;
   resultsReceivedDate: string;
   reviewed?: boolean; // todo why is this possibly undefined ??
   reviewingProvider: Practitioner | undefined;

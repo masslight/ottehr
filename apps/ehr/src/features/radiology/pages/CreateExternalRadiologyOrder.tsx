@@ -11,6 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { phone } from 'phone';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -26,6 +27,7 @@ import {
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
 } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { createRadiologyOrder, updateRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
@@ -37,6 +39,7 @@ import {
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
 import { SAFETY_FLAG_LABELS } from '../constants';
+import { generateAndOpenRadiologyOrderForm } from '../orderPdf';
 
 interface CreateExternalRadiologyOrderProps {
   /** when provided, the form is in edit mode and submits an update instead of a create */
@@ -120,6 +123,19 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
     return org.name || org.address || org.phone || org.fax ? org : undefined;
   };
 
+  /** The order is already saved by now, so a PDF failure is reported on its own, not as a failed order. */
+  const printOrderForm = async (serviceRequestId: string): Promise<void> => {
+    if (!oystehrZambda) return;
+    try {
+      await generateAndOpenRadiologyOrderForm(oystehrZambda, serviceRequestId);
+    } catch (printError) {
+      enqueueSnackbar('The order was saved, but the order form could not be generated for printing.', {
+        variant: 'error',
+      });
+      safelyCaptureException(printError);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
@@ -154,12 +170,14 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
             consentObtained,
             edit: sharedFields,
           });
+          await printOrderForm(initialOrder.serviceRequestId);
           navigate(getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId));
         } else {
           const res = await createRadiologyOrder(oystehrZambda, { ...sharedFields, encounterId: encounter.id });
           if (res.cptCodesSaved && res.cptCodesSaved.length > 0) {
             setPartialChartData({ cptCodes: [...chartCptCodes, ...res.cptCodesSaved] });
           }
+          await printOrderForm(res.serviceRequestId);
           navigate(getRadiologyUrl(appointmentIdFromUrl || ''));
         }
       } catch (submitError) {
@@ -300,8 +318,13 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
                 <RadiologyOrderFormActions
                   appointmentId={appointmentIdFromUrl || ''}
                   submitting={submitting}
-                  submitLabel={isEditMode ? 'Save' : 'Order'}
+                  submitLabel={isEditMode ? 'Save & Print' : 'Order & Print'}
                   errors={error}
+                  cancelUrl={
+                    initialOrder
+                      ? getRadiologyExternalOrderDetailsUrl(appointmentIdFromUrl || '', initialOrder.serviceRequestId)
+                      : undefined
+                  }
                 />
               </Grid>
             </Paper>

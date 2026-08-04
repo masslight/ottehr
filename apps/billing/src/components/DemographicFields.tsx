@@ -1,7 +1,7 @@
 import { Box, FormControl, FormHelperText, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { PERSON_GENDER_OPTIONS, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
 interface DemographicForm {
   firstName: string | null;
@@ -109,10 +109,11 @@ export function DemographicFields({ showMiddle }: { showMiddle?: boolean }): Rea
                 onChange={(e) => field.onChange(e.target.value)}
                 error={!!fieldError}
               >
-                <MenuItem value="male">Male</MenuItem>
-                <MenuItem value="female">Female</MenuItem>
-                <MenuItem value="other">Other</MenuItem>
-                <MenuItem value="unknown">Unknown</MenuItem>
+                {PERSON_GENDER_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
               </Select>
               {fieldError ? (
                 <FormHelperText id={`gender-helper-text`} error={true}>

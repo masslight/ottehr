@@ -1,5 +1,5 @@
 import { Autocomplete, TextField } from '@mui/material';
-import { ReactElement, useRef, useState } from 'react';
+import { ReactElement, ReactNode, Ref, useRef, useState } from 'react';
 import { BillingCodeOption } from 'utils';
 import { searchBillingProcedureCodes } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
@@ -9,6 +9,12 @@ interface ProcedureCodeAutocompleteProps {
   onChange: (code: string) => void;
   label?: string;
   width?: number;
+  required?: boolean;
+  // Validation display + react-hook-form focus ref, for use inside Controller-registered forms
+  // (the rules builder).
+  error?: boolean;
+  helperText?: ReactNode;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 // freeSolo so users can still enter arbitrary/custom codes
@@ -17,6 +23,10 @@ export function ProcedureCodeAutocomplete({
   onChange,
   label = 'CPT',
   width = 150,
+  required,
+  error,
+  helperText,
+  inputRef,
 }: ProcedureCodeAutocompleteProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [options, setOptions] = useState<BillingCodeOption[]>([]);
@@ -59,7 +69,16 @@ export function ProcedureCodeAutocomplete({
       onChange={(_, o) => {
         if (o && typeof o !== 'string') onChange(o.code);
       }}
-      renderInput={(params) => <TextField {...params} label={label} />}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          required={required}
+          error={error}
+          helperText={helperText}
+          inputRef={inputRef}
+        />
+      )}
       sx={{ width }}
     />
   );

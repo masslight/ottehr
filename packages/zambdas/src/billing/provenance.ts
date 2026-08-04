@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 import {
   Claim,
   Coding,
@@ -11,13 +12,16 @@ import {
   Practitioner,
   Provenance,
   ProvenanceAgent,
+  ProvenanceEntity,
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  buildClaimStatusDateExtensions,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
+  CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
@@ -40,6 +44,7 @@ import {
   Secrets,
   userMe,
 } from 'utils';
+import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
   fhirName,
@@ -57,6 +62,9 @@ import {
 // claim, so `Provenance?target=Claim/{id}` returns the claim's complete history even for working
 // copies that were later replaced or removed. The field-level before/after diff is stored inline as
 // an extension, with display names captured at write time; FHIR _history remains the source of truth.
+// The raw references behind reference-typed fields are stored as Provenance.entity entries (not in
+// the diff JSON) so a transaction that creates the referenced resource under a urn:uuid fullUrl gets
+// them rewritten to the real ids by the server; get-billing-claim-history reattaches them.
 // ---------------------------------------------------------------------------
 
 // `ref` is set for reference-typed fields: it drives change detection (display-only differences are
@@ -161,6 +169,8 @@ function projectPatient(p: Patient): FieldProjection[] {
     { field: 'dob', label: 'Date of Birth', value: p.birthDate ?? '' },
     { field: 'gender', label: 'Gender', value: p.gender ?? '' },
     { field: 'address', label: 'Address', value: formatAddress(p.address?.[0]) },
+    { field: 'phone', label: 'Phone', value: p.telecom?.find((t) => t.system === 'phone')?.value ?? '' },
+    { field: 'email', label: 'Email', value: p.telecom?.find((t) => t.system === 'email')?.value ?? '' },
   ];
 }
 
@@ -170,6 +180,7 @@ function projectPractitioner(p: Practitioner): FieldProjection[] {
     { field: 'npi', label: 'NPI', value: getNPI(p) ?? '' },
     { field: 'taxId', label: 'Tax ID', value: getTaxID(p) ?? '' },
     { field: 'taxonomy', label: 'Taxonomy', value: getTaxonomy(p) },
+    { field: 'address', label: 'Address', value: formatAddress(p.address?.[0]) },
   ];
 }
 
@@ -179,6 +190,7 @@ function projectOrganization(o: Organization): FieldProjection[] {
     { field: 'npi', label: 'NPI', value: getNPI(o) ?? '' },
     { field: 'taxId', label: 'Tax ID', value: getTaxID(o) ?? '' },
     { field: 'taxonomy', label: 'Taxonomy', value: getTaxonomy(o) },
+    { field: 'address', label: 'Address', value: formatAddress(o.address?.[0]) },
   ];
 }
 
@@ -186,6 +198,8 @@ function projectLocation(l: Location): FieldProjection[] {
   return [
     { field: 'name', label: 'Name', value: l.name ?? '' },
     { field: 'npi', label: 'NPI', value: getNPI(l) ?? '' },
+    { field: 'clia', label: 'CLIA', value: getCLIA(l) ?? '' },
+    { field: 'posCode', label: 'Place of Service', value: getPlaceOfServiceCode(l) ?? '' },
     { field: 'address', label: 'Address', value: formatAddress(l.address) },
   ];
 }
@@ -403,6 +417,50 @@ export interface ClaimProvenanceArgs {
   extraChanges?: ClaimFieldChange[];
 }
 
+// Multi-reference fields (the claim's coverage field) join their references with ', '.
+const MULTI_REF_SEPARATOR = ', ';
+
+// The reference values of a change, as Provenance.entity entries. They live here — in
+// Reference-typed elements — rather than inside the diff JSON so that a transaction creating the
+// referenced resource (fullUrl urn:uuid:...) gets them rewritten to the real id by the server; a
+// urn inside the JSON string would dangle forever. Previous refs use role 'source', new refs
+// 'derivation' ('revision' is reserved for the prior-version entry). The linking extension ties
+// each entry back to its change and side, with the index preserving order for multi-ref fields.
+function changeRefEntities(changes: ClaimFieldChange[]): ProvenanceEntity[] {
+  const entities: ProvenanceEntity[] = [];
+  for (const change of changes) {
+    const sides = [
+      { side: 'previous', joinedRefs: change.previousRef, role: 'source' },
+      { side: 'new', joinedRefs: change.newRef, role: 'derivation' },
+    ] as const;
+    for (const { side, joinedRefs, role } of sides) {
+      const refs = joinedRefs ? joinedRefs.split(MULTI_REF_SEPARATOR).filter(Boolean) : [];
+      refs.forEach((reference, index) => {
+        entities.push({
+          role,
+          what: { reference },
+          extension: [{ url: CLAIM_PROVENANCE_CHANGE_REF_URL, valueString: `${change.field}|${side}|${index}` }],
+        });
+      });
+    }
+  }
+  return entities;
+}
+
+// The shape stored in the diff JSON: the refs travel as entity entries instead (changeRefEntities).
+// A value that merely repeats its raw reference (the refValue fallback when display was missing at
+// write time) is stored as null — it could be a urn the server is about to rewrite — and the reader
+// resolves a friendly name from the entity reference.
+function storedChange(change: ClaimFieldChange): ClaimFieldChange {
+  const { field, label, previousValue, newValue, previousRef, newRef } = change;
+  return {
+    field,
+    label,
+    previousValue: previousRef && previousValue === previousRef ? null : previousValue,
+    newValue: newRef && newValue === newRef ? null : newValue,
+  };
+}
+
 /**
  * Build the POST request for a Provenance describing a single change. Returns null for an update
  * whose diff is empty (a no-op mutation gets no history entry); creates/deletes always produce a
@@ -415,16 +473,21 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
   const target = [{ reference: args.targetReference }];
   if (args.claimReference !== args.targetReference) target.push({ reference: args.claimReference });
 
+  const entity: ProvenanceEntity[] = [
+    ...(args.priorVersionReference
+      ? [{ role: 'revision', what: { reference: args.priorVersionReference } } as ProvenanceEntity]
+      : []),
+    ...changeRefEntities(changes),
+  ];
+
   const provenance: Provenance = {
     resourceType: 'Provenance',
     target,
     recorded: args.recorded,
     activity: { coding: [CLAIM_PROVENANCE_ACTIVITY[args.activity]] },
     agent: [args.agent],
-    ...(args.priorVersionReference
-      ? { entity: [{ role: 'revision', what: { reference: args.priorVersionReference } }] }
-      : {}),
-    extension: [{ url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL, valueString: JSON.stringify(changes) }],
+    ...(entity.length > 0 ? { entity } : {}),
+    extension: [{ url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL, valueString: JSON.stringify(changes.map(storedChange)) }],
   };
   return { method: 'POST', url: '/Provenance', resource: provenance };
 }
@@ -520,6 +583,7 @@ export async function commitClaimMetaTagsWithProvenance(
 ): Promise<void> {
   const claimReference = `Claim/${claim.id}`;
   const afterClaim: Claim = { ...claim, meta: { ...claim.meta, tag: updatedTags } };
+  const recorded = recordedNow();
   const provenance = claimProvenanceRequest({
     targetReference: claimReference,
     claimReference,
@@ -527,17 +591,60 @@ export async function commitClaimMetaTagsWithProvenance(
     after: afterClaim,
     agent,
     activity,
-    recorded: recordedNow(),
+    recorded,
     priorVersionReference: versionedReference(claim),
   });
+  const patchOperations: Operation[] = [
+    {
+      op: 'add',
+      path: '/meta/tag',
+      value: updatedTags,
+    },
+  ];
+  const dateExtensions = buildClaimStatusDateExtensions(claim, getClaimStatusValues(afterClaim), recorded);
+  if (dateExtensions) {
+    patchOperations.push({
+      op: 'add',
+      path: '/extension',
+      value: dateExtensions,
+    });
+  }
   const patch = getPatchBinary({
     resourceType: 'Claim',
     resourceId: claim.id!,
-    patchOperations: [{ op: 'add', path: '/meta/tag', value: updatedTags }],
+    patchOperations,
     ifMatch: makeOptimisticLockIfMatchHeader(claim),
   });
   const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
   await oystehr.fhir.transaction<FhirResource>({ requests });
+}
+
+export async function addErrorProvenanceForClaimSubmission(
+  oystehr: Oystehr,
+  claim: Claim,
+  error: Error,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const claimReference = `Claim/${claim.id}`;
+  const recorded = recordedNow();
+  const provenance = claimProvenanceRequest({
+    targetReference: claimReference,
+    claimReference,
+    extraChanges: [
+      {
+        field: 'error',
+        label: 'Error',
+        previousValue: null,
+        newValue: error.message,
+      },
+    ],
+    activity: 'submit',
+    agent,
+    recorded,
+    priorVersionReference: versionedReference(claim),
+  });
+  if (!provenance) throw new Error('Error provenance unexpectedly null');
+  await oystehr.fhir.transaction<FhirResource>({ requests: [provenance] });
 }
 
 /**

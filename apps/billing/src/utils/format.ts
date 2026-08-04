@@ -1,8 +1,6 @@
 import { DateTime } from 'luxon';
 import { CMS_PLACE_OF_SERVICE_CODES, formatZipcodeForDisplay, ServiceFacilityItem } from 'utils';
 
-export const formatCurrency = (v: number): string => `$${v.toFixed(2)}`;
-
 export function formatDate(iso: string): string {
   const date = DateTime.fromISO(iso, { zone: 'utc' });
   return date.isValid ? date.toFormat('MM/dd/yyyy') : iso;
@@ -44,4 +42,11 @@ export function buildAddressInput(
     ...(zip?.trim() ? { postalCode: zip.trim() } : {}),
   };
   return Object.keys(address).length ? address : undefined;
+}
+
+export function formatTaxId(taxId: string): string {
+  if (taxId.length < 3) {
+    return taxId;
+  }
+  return taxId.substring(0, 2) + '-' + taxId.substring(2);
 }

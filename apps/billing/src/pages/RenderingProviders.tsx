@@ -150,7 +150,7 @@ export function RenderingProvidersList(): ReactElement {
         onRowClick={(params) => navigate(`/rendering-providers/${params.id}`)}
         disableRowSelectionOnClick
         disableColumnMenu
-        slots={dataGridSlots}
+        slots={dataGridSlots()}
         pagination={true}
         sx={{ ...dataGridSx, height: 'calc(100vh - 310px)' }}
       />

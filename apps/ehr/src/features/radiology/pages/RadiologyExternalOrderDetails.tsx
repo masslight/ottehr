@@ -6,7 +6,7 @@ import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Chip, IconButton, Stack, Typography } from '@mui/material';
+import { Box, Button, IconButton, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -18,10 +18,10 @@ import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { LATERALITY_SELECTORS, RadiologyResultDTO, VitalFieldNames } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import {
   createZ3Object,
   deleteRadiologyResult,
-  getRadiologyOrderPdf,
   listRadiologyResults,
   sendRadiologyOrderFax,
   uploadRadiologyResult,
@@ -30,11 +30,13 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { getRadiologyExternalOrderEditUrl } from '../../visits/in-person/routing/helpers';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import { RadiologyExternalOrderChip } from '../components/RadiologyExternalOrderChip';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
 import { SAFETY_FLAG_LABELS } from '../constants';
+import { generateAndOpenRadiologyOrderForm } from '../orderPdf';
 
 const DetailRow: React.FC<{ label: string; value?: React.ReactNode; icon?: React.ReactNode }> = ({
   label,
@@ -152,11 +154,10 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
     if (!oystehrZambda) return;
     setPrinting(true);
     try {
-      const { presignedURL } = await getRadiologyOrderPdf(oystehrZambda, { serviceRequestId });
-      window.open(presignedURL, '_blank');
+      await generateAndOpenRadiologyOrderForm(oystehrZambda, serviceRequestId);
     } catch (e) {
-      console.error('Failed to generate radiology order PDF', e);
       enqueueSnackbar('Failed to generate the order PDF', { variant: 'error' });
+      safelyCaptureException(e);
     } finally {
       setPrinting(false);
     }
@@ -196,17 +197,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
       <div style={{ maxWidth: '714px', margin: '0 auto' }}>
         <Stack spacing={2} sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip
-              size="small"
-              label="EXTERNAL"
-              sx={{
-                borderRadius: '4px',
-                fontWeight: 900,
-                fontSize: '12px',
-                background: theme.palette.info.main,
-                color: 'white',
-              }}
-            />
+            <RadiologyExternalOrderChip />
             {order.timeWindow && (
               <Typography variant="body2" sx={{ color: theme.palette.error.main, fontWeight: 'bold' }}>
                 {order.timeWindow}

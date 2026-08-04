@@ -1,10 +1,11 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
+import { DataGridProProps, GridPagination, GridToolbarExport } from '@mui/x-data-grid-pro';
 import { ReactElement } from 'react';
 import { otherColors } from '../themes/ottehr/colors';
 
 export const dataGridSx = {
   bgcolor: 'background.paper',
-  border: 'none',
+  border: `1px solid ${otherColors.lightDivider}`,
   borderRadius: 1,
   fontSize: 14,
   '& .MuiDataGrid-columnHeaders': {
@@ -37,4 +38,20 @@ function LoadingOverlay(): ReactElement {
   );
 }
 
-export const dataGridSlots = { noRowsOverlay: NoRowsOverlay, loadingOverlay: LoadingOverlay };
+function CustomToolbar(props?: { fileName?: string }): ReactElement {
+  return <GridToolbarExport csvOptions={{ fileName: props?.fileName ?? 'data-export' }} />;
+}
+
+export const dataGridSlots = (props?: {
+  showCsvExport?: boolean;
+  csvFileName?: string;
+}): DataGridProProps['slots'] => ({
+  noRowsOverlay: NoRowsOverlay,
+  loadingOverlay: LoadingOverlay,
+  pagination: () => (
+    <>
+      {props?.showCsvExport ? <CustomToolbar fileName={props?.csvFileName} /> : <></>}
+      <GridPagination />
+    </>
+  ),
+});

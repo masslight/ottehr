@@ -2,6 +2,8 @@ import { DiagnosticReport, Encounter, Location, Patient, Practitioner, ServiceRe
 import { CODE_SYSTEM_CPT, getFullestAvailableName, RADIOLOGY_TASK } from 'utils';
 import { createTask } from '../../../shared/tasks';
 
+export * from './advapacs';
+
 export interface ResourcesForTask {
   diagnosticReport: DiagnosticReport;
   serviceRequest: ServiceRequest;

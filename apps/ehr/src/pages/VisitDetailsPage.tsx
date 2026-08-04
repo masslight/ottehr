@@ -1228,6 +1228,7 @@ export default function VisitDetailsPage(): ReactElement {
                         refetchPaymentList={refetchAllPaymentData}
                         isRefetching={isPaymentListRefetching}
                         paymentListError={paymentListError}
+                        patientCreditCents={patientBalancesData?.patientCreditCents ?? 0}
                       />
                     </Grid>
                     <Grid item>

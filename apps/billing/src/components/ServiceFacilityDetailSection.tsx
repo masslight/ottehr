@@ -10,7 +10,7 @@ import {
 import { useApiClients } from '../hooks/useAppClients';
 import { formatFacilityAddress, placeOfServiceLabel } from '../utils/format';
 import { AddressFields } from './AddressFields';
-import { EditableSection } from './claim/EditableSection';
+import { EditableSection, TitleWithSourceLink } from './claim/EditableSection';
 import { Row } from './Row';
 import { ServiceFacilityFields } from './ServiceFacilityFields';
 
@@ -46,6 +46,7 @@ export function ServiceFacilityDetailForm({
   onSave,
   onCancel,
   selector,
+  showSourceLink,
 }: {
   facility: ServiceFacilityItem | null;
   onSave: (payload: SaveServiceFacilityInput) => Promise<string | null>;
@@ -56,6 +57,7 @@ export function ServiceFacilityDetailForm({
     onSelectOption: (value: ServiceFacilityItem | null) => void;
     fetchOptions: (value?: string) => void;
   };
+  showSourceLink?: boolean;
 }): ReactElement {
   const defaultValues = defaultServiceFacilityFormValues(facility);
   const handleSave = async (data: ServiceFacilityForm): Promise<string | null> => {
@@ -63,7 +65,13 @@ export function ServiceFacilityDetailForm({
   };
   return (
     <EditableSection
-      title="Service Facility Details"
+      title={
+        <TitleWithSourceLink
+          title={'Service Facility Details'}
+          sourceId={showSourceLink ? facility?.workingCopyReferenceResourceId : undefined}
+          sourceRouteBase="/service-facilities/"
+        />
+      }
       defaultValues={defaultValues}
       onSave={handleSave}
       onCancel={onCancel}
