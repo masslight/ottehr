@@ -841,7 +841,8 @@
             "FHIR:Person",
             "FHIR:Schedule",
             "FHIR:ValueSet",
-            "FHIR:List"
+            "FHIR:List",
+            "FHIR:Medication"
           ],
           "action": [
             "FHIR:Search",
