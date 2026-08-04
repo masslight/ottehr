@@ -6,6 +6,8 @@ import {
   AppointmentSummary,
   CreditCardInfo,
   GetAnswerOptionsRequest,
+  GetInsuranceCardSuggestionsResponse,
+  GetPhotoIdSuggestionsResponse,
   HandleAnswerInput,
   IntakeQuestionnaireItem,
   PaperworkPatient,
@@ -17,6 +19,17 @@ import {
   StartInterviewInput,
   UCGetPaperworkResponse,
 } from 'utils';
+
+/** Identifies which just-uploaded file a card-suggestions call is for, so the caller can cache the result keyed appropriately (e.g. primary vs secondary insurance). */
+export interface CardSuggestionsInput {
+  appointmentID: string;
+  fileURL: string;
+  // Deliberately not named "contentType" on the wire — see the matching comment on
+  // GetInsuranceCardSuggestionsInput/GetPhotoIdSuggestionsInput in utils.
+  fileContentType?: string;
+  cardSlot: string;
+}
+
 export interface PaperworkComponentHelpers {
   /** PharmacyCollection */
   handleSearchPlaces: ((input: SearchPlacesInput) => Promise<SearchPlacesOutput>) | undefined;
@@ -24,6 +37,12 @@ export interface PaperworkComponentHelpers {
   createZ3Object:
     | ((input: { appointmentID: string; fileType: string; fileFormat: string; file: File }) => Promise<any>)
     | undefined;
+  /** FileInput (insurance card front) */
+  getInsuranceCardSuggestions:
+    | ((input: CardSuggestionsInput) => Promise<GetInsuranceCardSuggestionsResponse>)
+    | undefined;
+  /** FileInput (photo ID front) */
+  getPhotoIdSuggestions: ((input: CardSuggestionsInput) => Promise<GetPhotoIdSuggestionsResponse>) | undefined;
   /** AiInterview */
   aIInterviewStart: ((input: StartInterviewInput) => Promise<QuestionnaireResponse>) | undefined;
   /** AiInterview */

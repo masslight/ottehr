@@ -1,6 +1,12 @@
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, Extension } from 'fhir/r4b';
-import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction, InsuranceCardExtractionFields } from 'utils';
+import {
+  INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
+  InsuranceCardExtraction,
+  InsuranceCardExtractionFields,
+  Secrets,
+} from 'utils';
+import { invokeChatbotVertexAI } from '../../shared/ai';
 import {
   assertBooleanClassifier,
   buildExtractionExtension as buildGenericExtractionExtension,
@@ -110,6 +116,39 @@ export function parseModelResponse(raw: string): ParsedModelResponse {
   // all-null extraction is a permanent no-op condition, same as notACard — readable is nulled
   // with it (a judgment about a card we store nothing for is not actionable)
   return { isInsuranceCard: true, fields, readable: fields ? readable : null };
+}
+
+export interface ModelInsuranceCardExtraction {
+  isInsuranceCard: boolean;
+  fields: InsuranceCardExtractionFields | null;
+  readable: boolean | null;
+  /** true when mimeType isn't an image/pdf we can even attempt to OCR — caller should treat as notACard */
+  unsupportedContentType: boolean;
+}
+
+/**
+ * The reusable "bytes in, fields out" core of insurance card OCR: no DocumentReference, no FHIR
+ * I/O — just the model call and response parsing. Shared by the DocumentReference-backed
+ * extraction below and by get-insurance-card-suggestions, which OCRs a just-uploaded image before
+ * any DocumentReference exists. Throws on malformed model JSON (parseModelResponse) — callers
+ * decide retry semantics.
+ */
+export async function extractInsuranceCardFieldsFromImage(
+  bytes: Buffer,
+  mimeType: string,
+  secrets: Secrets | null
+): Promise<ModelInsuranceCardExtraction> {
+  if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') {
+    return { isInsuranceCard: false, fields: null, readable: null, unsupportedContentType: true };
+  }
+
+  const rawModelResponse = await invokeChatbotVertexAI(
+    [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
+    secrets,
+    insuranceCardResponseSchema
+  );
+  const parsed = parseModelResponse(rawModelResponse);
+  return { ...parsed, unsupportedContentType: false };
 }
 
 export interface ExistingExtraction {
