@@ -137,6 +137,7 @@ export default function ClaimsList(): ReactElement {
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [incomplete, setIncomplete] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
   const [serviceOptions, setServiceOptions] = useState<BillingService[]>([]);
 
@@ -179,6 +180,7 @@ export default function ClaimsList(): ReactElement {
       if (!oystehrZambda) return;
       setLoading(true);
       setError(null);
+      setIncomplete(false);
       setSelected([]);
       try {
         const params: SearchBillingClaimsInput = {
@@ -200,6 +202,7 @@ export default function ClaimsList(): ReactElement {
         const data = await searchBillingClaims(oystehrZambda, params);
         setClaims(data.claims ?? []);
         setTotalRows(data.total ?? 0);
+        setIncomplete(Boolean(data.incomplete));
       } catch (err) {
         setError(getApiError({ error: err, defaultError: 'Failed to load claims' }));
         setClaims([]);
@@ -411,7 +414,8 @@ export default function ClaimsList(): ReactElement {
       <TextField
         fullWidth
         size="small"
-        placeholder="Search by patient name..."
+        placeholder="Search by patient name, provider name, patient ID, PCN, or claim ID..."
+        helperText="Names match from the start. Patient ID, PCN, and claim ID must be entered in full."
         value={searchText}
         onChange={(e) => handleSearchChange(e.target.value)}
         InputProps={{
@@ -579,6 +583,13 @@ export default function ClaimsList(): ReactElement {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {incomplete && !error && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Some claims may be missing from these results. Narrow the search, or use the filters to find a claim you
+          expected to see.
         </Alert>
       )}
 

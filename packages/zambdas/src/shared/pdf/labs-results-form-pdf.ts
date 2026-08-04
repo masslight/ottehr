@@ -125,6 +125,7 @@ interface CommonDataConfigResources {
 type ExternalLabSpecificResources = {
   externalLabResults: ExternalLabResult[];
   collectionDate: string;
+  specimenReceivedDateTime: string;
   orderSubmitDate: string;
   reviewed: boolean;
   reviewingProvider: Practitioner | undefined;
@@ -175,6 +176,7 @@ const getResultDataConfigForDrResources = (
     resultInterpretations,
     attachments,
     collectionDate,
+    specimenReceivedDateTime,
     serviceRequest,
   } = specificResources;
 
@@ -225,6 +227,7 @@ const getResultDataConfigForDrResources = (
     externalLabResults,
     resultsReceivedDate,
     collectionDate,
+    specimenReceivedDateTime,
   };
 
   // need to determine for each DR based result type whether or not to use the friendly patient id.
@@ -357,6 +360,7 @@ const getResultDataConfig = (
     const {
       externalLabResults,
       collectionDate,
+      specimenReceivedDateTime,
       orderSubmitDate,
       reviewed,
       reviewingProvider,
@@ -375,6 +379,7 @@ const getResultDataConfig = (
       alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
+      specimenReceivedDateTime,
       orderSubmitDate,
       reviewed,
       reviewingProvider,
@@ -476,9 +481,15 @@ export async function createExternalLabResultPDFBasedOnDr(
     timezone = getTimezone(schedule);
   }
 
-  const collectionTimeFromDr = getResultSpecimenInfoFromDr(diagnosticReport)?.collectedDateTime;
+  const { collectedDateTime: collectionTimeFromDr, specimenReceivedDateTime } =
+    getResultSpecimenInfoFromDr(diagnosticReport) ?? {};
+
   const collectionDate = collectionTimeFromDr
     ? DateTime.fromISO(collectionTimeFromDr).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : '';
+
+  const specimenReceivedDateTimeInTz = specimenReceivedDateTime
+    ? DateTime.fromISO(specimenReceivedDateTime).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : '';
 
   const externalSpecificResources: LabTypeSpecificResources = {
@@ -496,6 +507,7 @@ export async function createExternalLabResultPDFBasedOnDr(
       resultInterpretations: resultInterpretationDisplays,
       attachments: obsAttachments,
       collectionDate,
+      specimenReceivedDateTime: specimenReceivedDateTimeInTz,
       serviceRequest,
     },
   };
@@ -593,11 +605,18 @@ export async function createExternalLabResultPDF(
     ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : '';
 
+  // the received date comes from the contained specimen on DiagnosticReport
+  const specimenReceivedDateTime = getResultSpecimenInfoFromDr(diagnosticReport)?.specimenReceivedDateTime ?? '';
+  const specimenReceivedDateTimeInTz = specimenReceivedDateTime
+    ? DateTime.fromISO(specimenReceivedDateTime).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : '';
+
   const externalSpecificResources: LabTypeSpecificResources = {
     type: LabType.external,
     specificResources: {
       externalLabResults,
       collectionDate,
+      specimenReceivedDateTime: specimenReceivedDateTimeInTz,
       orderSubmitDate: orderSubmitDate.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       reviewed,
       reviewingProvider,
@@ -1162,17 +1181,17 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
 
     drawRowHelper({
       col1: `Patient ID: ${data.patientId}`,
-      col2: `Result Status: ${data.resultStatus}`,
+      col2: `Received Date & Time: ${data.specimenReceivedDateTime ? data.specimenReceivedDateTime : ''}`,
     });
 
     drawRowHelper({
       col1: `Ordering Phys.: ${data.providerName}`,
-      col2: `Reported Date & Time: ${data.resultsReceivedDate}`,
+      col2: `Result Status: ${data.resultStatus}`,
     });
 
     drawRowHelper({
       col1: `NPI: ${data.providerNPI}`,
-      col2: '',
+      col2: `Reported Date & Time: ${data.resultsReceivedDate}`,
     });
 
     pdfClient.drawSeparatedLine({ ...SEPARATED_LINE_STYLE, thickness: 2, color: LAB_PDF_STYLES.color.purple });
@@ -2153,28 +2172,31 @@ const getResultSpecimenInfoFromDr = (diagnosticReport: DiagnosticReport): Result
   // this may change in the future. But Ottehr does not currently handle multi-specimen setups
   const specimen = specimens[0];
 
-  if (!specimen.collection) {
-    console.warn('No specimen collection info found');
+  if (!specimen.collection && !specimen.receivedTime) {
+    console.warn('No specimen collection info found, or no received time');
     return undefined;
   }
 
-  const collectionInfo: ResultSpecimenInfo = {};
+  const specimenInfo: ResultSpecimenInfo = {};
 
-  const quantity = specimen.collection.quantity;
-  if (quantity && quantity.system === OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM) {
-    collectionInfo.quantityString = quantity.code;
-    collectionInfo.unit = quantity.unit;
+  if (specimen.collection) {
+    const quantity = specimen.collection.quantity;
+    if (quantity !== undefined && quantity.system === OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM) {
+      specimenInfo.quantityString = quantity.code;
+      specimenInfo.unit = quantity.unit;
+    }
+
+    if (specimen.collection.bodySite) {
+      specimenInfo.bodySite = specimen.collection.bodySite.coding?.find(
+        (coding) => coding.system === OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM
+      )?.display;
+    }
+    specimenInfo.collectedDateTime = specimen.collection.collectedDateTime;
   }
 
-  if (specimen.collection.bodySite) {
-    collectionInfo.bodySite = specimen.collection.bodySite.coding?.find(
-      (coding) => coding.system === OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM
-    )?.display;
-  }
+  specimenInfo.specimenReceivedDateTime = specimen.receivedTime;
 
-  collectionInfo.collectedDateTime = specimen.collection.collectedDateTime;
-
-  return Object.keys(collectionInfo).length ? collectionInfo : undefined;
+  return Object.keys(specimenInfo).length ? specimenInfo : undefined;
 };
 
 function getProviderNameAndNpiFromDr(diagnosticReport: DiagnosticReport): {

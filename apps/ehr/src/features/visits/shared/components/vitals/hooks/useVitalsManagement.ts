@@ -885,6 +885,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         if (savedFields.includes(VitalFieldNames.VitalWeight)) setDraft(encounterId, { weight: undefined });
         if (savedFields.includes(VitalFieldNames.VitalHeight)) setDraft(encounterId, { height: undefined });
         if (savedFields.includes(VitalFieldNames.VitalVision)) setDraft(encounterId, { vision: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalLastMenstrualPeriod)) setDraft(encounterId, { lmp: undefined });
         if (savedFields.includes(VitalFieldNames.VitalHeight) || savedFields.includes(VitalFieldNames.VitalWeight)) {
           try {
             const { heightCm, weightKg } = deriveBMIInputs(refetchResult.data);

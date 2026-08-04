@@ -44,12 +44,13 @@ const makeServiceDatedClaim = (created: string, servicedStart?: string): Claim =
 
 const makeLookups = (
   patientPaidByClaimId: Map<string, number>,
-  claimResponsesByClaimId: Map<string, ClaimResponse[]> = new Map()
+  claimResponsesByClaimId: Map<string, ClaimResponse[]> = new Map(),
+  providers: Lookups['providers'] = []
 ): Lookups => ({
   patients: [],
   payersByRef: new Map(),
   locations: [],
-  practitioners: [],
+  providers,
   coverages: [],
   claimResponsesByClaimId,
   patientPaidByClaimId,
@@ -90,6 +91,59 @@ describe('mapClaimToItem: adjudicated flag', () => {
       makeLookups(new Map(), new Map([['claim-1', [claimResponse]]]))
     );
     expect(item.adjudicated).toBe(true);
+  });
+});
+
+describe('mapClaimToItem: rendering provider', () => {
+  const withRenderingProvider = (reference: string): Claim =>
+    ({
+      ...makeClaim('claim-1', 100),
+      careTeam: [
+        {
+          sequence: 1,
+          provider: {
+            reference,
+          },
+        },
+      ],
+    }) as unknown as Claim;
+
+  it('names a Practitioner rendering provider', () => {
+    const practitioner = {
+      resourceType: 'Practitioner',
+      id: '1',
+      name: [
+        {
+          family: 'Black',
+          given: ['Oliver'],
+        },
+      ],
+    } as unknown as Lookups['providers'][number];
+
+    const item = mapClaimToItem(
+      withRenderingProvider('Practitioner/1'),
+      makeLookups(new Map(), new Map(), [practitioner])
+    );
+    expect(item.renderingProvider).toBe('Black, Oliver');
+  });
+
+  it('names an Organization rendering provider', () => {
+    const organization = {
+      resourceType: 'Organization',
+      id: 'org-1',
+      name: 'Riverside Group',
+    } as unknown as Lookups['providers'][number];
+
+    const item = mapClaimToItem(
+      withRenderingProvider('Organization/org-1'),
+      makeLookups(new Map(), new Map(), [organization])
+    );
+    expect(item.renderingProvider).toBe('Riverside Group');
+  });
+
+  it('leaves the column blank when the claim has no care team', () => {
+    const item = mapClaimToItem(makeClaim('claim-1', 100), makeLookups(new Map()));
+    expect(item.renderingProvider).toBe('');
   });
 });
 

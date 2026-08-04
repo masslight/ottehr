@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { HealthcareService, Questionnaire } from 'fhir/r4b';
+import { Questionnaire } from 'fhir/r4b';
 import { practiceManagedQuestionnaireToFhir } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { handleFormInFlows, patchQuestionnaireVersion, validateFormIsExcludedFromFlows } from '../helpers';
@@ -59,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
 
     console.log('checking if form is contained in any flows');
-    const flowRequests: BatchInputRequest<Questionnaire | HealthcareService>[] = await handleFormInFlows({
+    const flowRequests: BatchInputRequest<Questionnaire>[] = await handleFormInFlows({
       previousVersion,
       nextVersion,
       url: rest.url,
@@ -73,7 +73,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log(`Creating version ${nextVersion} of "${rest.url}", "superseding" Questionnaire/${previousId}`);
     const res = (
-      await oystehr.fhir.transaction<Questionnaire | HealthcareService>({
+      await oystehr.fhir.transaction<Questionnaire>({
         requests: [supersedeQPatchRequest, updatedQPostRequest, ...flowRequests],
       })
     ).unbundle();

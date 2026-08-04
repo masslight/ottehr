@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { GetRadiologyOrderPdfZambdaOutput, Secrets } from 'utils';
+import { getPresignedURL, GetRadiologyOrderPdfZambdaOutput, Secrets } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { createRadiologyOrderFormPDF } from '../../../shared/pdf/radiology-order-form-pdf';
-import { gatherRadiologyOrderFormInput } from '../shared/order-form-resources';
+import { getOrCreateRadiologyOrderForm } from '../shared/order-form-resources';
 import { validateInput, validateSecrets } from './validation';
 
 let m2mToken: string;
@@ -28,9 +27,18 @@ const performEffect = async (
   token: string,
   oystehr: Oystehr
 ): Promise<GetRadiologyOrderPdfZambdaOutput> => {
-  const { input, refs } = await gatherRadiologyOrderFormInput(serviceRequestId, oystehr);
+  const { documentReference, mediaUrl, presignedURL } = await getOrCreateRadiologyOrderForm(
+    serviceRequestId,
+    secrets,
+    token,
+    oystehr
+  );
 
-  const { documentReference, presignedURL } = await createRadiologyOrderFormPDF(input, refs, secrets, token);
+  // A reused form has to be signed for this print; a freshly generated one already is.
+  const urlToPrint = presignedURL ?? (await getPresignedURL(mediaUrl, token));
+  if (!urlToPrint) {
+    throw new Error('Failed to get presigned URL for radiology order form PDF');
+  }
 
-  return { presignedURL, documentReferenceId: documentReference.id ?? '' };
+  return { presignedURL: urlToPrint, documentReferenceId: documentReference.id ?? '' };
 };

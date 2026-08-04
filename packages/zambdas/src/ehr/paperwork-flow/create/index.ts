@@ -16,7 +16,6 @@ import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, 
 import {
   buildFlowQuestionnaire,
   BuildFlowQuestionnaireInput,
-  getCanonicalUrlFromQ,
   getFormCanonicals,
   getOttehrManagedQuestionnaires,
   getPatchOperationForExtensionUpsert,
@@ -141,8 +140,8 @@ function makeHSPatchRequestsForServices(
   modes: ServiceMode[],
   flowQuestionnaire: Questionnaire
 ): BatchInputPatchRequest<HealthcareService>[] {
-  const canonical = getCanonicalUrlFromQ(flowQuestionnaire);
-  if (!canonical) return [];
+  const flowUrl = flowQuestionnaire.url;
+  if (!flowUrl) throw new Error(`Could not parse url for Questionnaire/${flowQuestionnaire.id}`);
 
   const patchRequests: BatchInputPatchRequest<HealthcareService>[] = [];
 
@@ -158,7 +157,7 @@ function makeHSPatchRequestsForServices(
     modes.forEach((mode) => {
       const ext = {
         url: healthcareServiceExtensionUrlMap[mode],
-        valueCanonical: canonical,
+        valueCanonical: flowUrl,
       };
 
       const operation = getPatchOperationForExtensionUpsert(service, ext);

@@ -5,6 +5,7 @@ import { Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import {
   FlowService,
+  makeOptimisticLockIfMatchHeader,
   PAPERWORK_FLOW_ERROR,
   PAPERWORK_FLOW_TAG,
   PaperworkFlowBase,
@@ -42,22 +43,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // get all active flow & form questionnaires & services
   const resources = await getResources(oystehr, flowId, secrets);
-  const canonical = getCanonicalUrlFromQ(resources.targetFlowQuestionnaire);
 
-  if (!canonical) throw new Error(`Could not parse canonical url from Questionnaire/${flowId}`);
+  // canonical === url|version
+  const canonical = getCanonicalUrlFromQ(resources.targetFlowQuestionnaire);
+  const flowUrl = resources.targetFlowQuestionnaire.url;
+
+  if (!canonical) throw new Error(`Could not parse url|version from Questionnaire/${flowId}`);
+  if (!flowUrl) throw new Error(`Could not parse url from from Questionnaire/${flowId}`);
 
   const ottehrManagedServices = flowServices.filter((s) => s.ottehrManagedService);
 
-  const {
-    retirePatch: targetFlowQuestionnaireRetirePatch,
-    createPost: targetFlowQuestionnaireCreatePost,
-    nextCanonical,
-  } = makeTargetFlowQuestionnaireRequests({
-    flow,
-    ottehrManagedServices,
-    flowQuestionnaire: resources.targetFlowQuestionnaire,
-    formQuestionnaires: resources.allFormQuestionnaires,
-  });
+  const { retirePatch: targetFlowQuestionnaireRetirePatch, createPost: targetFlowQuestionnaireCreatePost } =
+    makeTargetFlowQuestionnaireRequests({
+      flow,
+      ottehrManagedServices,
+      flowQuestionnaire: resources.targetFlowQuestionnaire,
+      formQuestionnaires: resources.allFormQuestionnaires,
+    });
 
   // Reject bundles whose forms collide on a top-level page linkId (consent page exempted) before saving.
   validateFlowFormLinkIds(
@@ -66,7 +68,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   );
 
   console.log(`Retiring target version ${targetFlowQuestionnaireRetirePatch.url}`);
-  console.log('New canonical url', nextCanonical);
 
   const additionalQuestionnairePatches = makeAdditionalFlowQuestionnairePatches({
     modes: flow.modes,
@@ -79,8 +80,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     allServices: resources.allServices,
     flowServices,
     modes: flow.modes,
-    previousCanonical: canonical,
-    nextCanonical,
+    flowUrl,
   });
 
   const requests: BatchInputRequest<Questionnaire | HealthcareService>[] = [
@@ -134,7 +134,6 @@ function makeTargetFlowQuestionnaireRequests(input: {
 }): {
   retirePatch: BatchInputPatchRequest<Questionnaire>;
   createPost: BatchInputPostRequest<Questionnaire>;
-  nextCanonical: string;
 } {
   const { flow, ottehrManagedServices, flowQuestionnaire, formQuestionnaires } = input;
 
@@ -144,8 +143,6 @@ function makeTargetFlowQuestionnaireRequests(input: {
 
   const slug = flowQuestionnaire.url?.split('/').pop();
   if (!slug) throw new Error(`Could not parse the flow slug from Questionnaire/${flowQuestionnaire.id}`);
-
-  const nextCanonical = `${flowQuestionnaire.url}|${nextVersion}`;
 
   // important: forms must remain in the order which they were sent
   const formCanonicalUrls = getFormCanonicals(formQuestionnaires, flow.forms);
@@ -164,6 +161,7 @@ function makeTargetFlowQuestionnaireRequests(input: {
     method: 'PATCH',
     url: `Questionnaire/${flowQuestionnaire.id}`,
     operations: [{ op: 'replace', path: '/status', value: 'retired' }],
+    ifMatch: makeOptimisticLockIfMatchHeader(flowQuestionnaire),
   };
 
   const createPost: BatchInputPostRequest<Questionnaire> = {
@@ -172,7 +170,7 @@ function makeTargetFlowQuestionnaireRequests(input: {
     url: '/Questionnaire',
   };
 
-  return { retirePatch, createPost, nextCanonical };
+  return { retirePatch, createPost };
 }
 
 // make additional questionnaire patches (if necessary)
@@ -221,6 +219,7 @@ function makeAdditionalFlowQuestionnairePatches(input: {
       method: 'PATCH',
       url: `Questionnaire/${q.id}`,
       operations,
+      ifMatch: makeOptimisticLockIfMatchHeader(q),
     });
   });
 
@@ -228,17 +227,13 @@ function makeAdditionalFlowQuestionnairePatches(input: {
 }
 
 // Builds the full next `extension` array for a service given the modes this flow wants it to carry
-// (empty if the service isn't included in the flow at all). For each visit mode:
-// // desired -> upsert this flow's (bumped) canonical into that mode's slot
-// // not desired, but this flow currently holds that mode's slot -> relinquish it
-// // not desired and held by some other flow -> leave untouched
+// (empty if the service isn't included in the flow at all)
 function computeNextServiceExtensions(input: {
   service: HealthcareService;
   desiredModes: ServiceMode[];
-  previousCanonical: string;
-  nextCanonical: string;
+  flowUrl: string;
 }): Extension[] {
-  const { service, desiredModes, previousCanonical, nextCanonical } = input;
+  const { service, desiredModes, flowUrl } = input;
   const nextExtensions = [...(service.extension ?? [])];
 
   Object.values(ServiceMode).forEach((mode) => {
@@ -246,16 +241,19 @@ function computeNextServiceExtensions(input: {
     const existingIndex = nextExtensions.findIndex((ext) => ext.url === url);
 
     if (desiredModes.includes(mode)) {
-      const ext = { url, valueCanonical: nextCanonical };
+      const ext = { url, valueCanonical: flowUrl };
       if (existingIndex === -1) {
+        // being added to a flow for this mode
         nextExtensions.push(ext);
       } else {
+        // being moved into a new flow for this mode
         nextExtensions[existingIndex] = ext;
       }
       return;
     }
 
-    if (existingIndex !== -1 && nextExtensions[existingIndex].valueCanonical === previousCanonical) {
+    // removed from the flow for this mode
+    if (existingIndex !== -1 && nextExtensions[existingIndex].valueCanonical === flowUrl) {
       nextExtensions.splice(existingIndex, 1);
     }
   });
@@ -272,10 +270,9 @@ function makeHealthServicePatches(input: {
   allServices: HealthcareService[];
   flowServices: FlowService[];
   modes: ServiceMode[];
-  previousCanonical: string;
-  nextCanonical: string;
+  flowUrl: string;
 }): BatchInputPatchRequest<HealthcareService>[] {
-  const { allServices, flowServices, modes, previousCanonical, nextCanonical } = input;
+  const { allServices, flowServices, modes, flowUrl } = input;
 
   const desiredServiceIds = new Set(
     flowServices.filter((service) => !service.ottehrManagedService).map((service) => service.id)
@@ -288,7 +285,7 @@ function makeHealthServicePatches(input: {
 
     const desiredModes = desiredServiceIds.has(service.id) ? modes : [];
     const existingExtensions = service.extension ?? [];
-    const nextExtensions = computeNextServiceExtensions({ service, desiredModes, previousCanonical, nextCanonical });
+    const nextExtensions = computeNextServiceExtensions({ service, desiredModes, flowUrl });
 
     if (isEqual(existingExtensions, nextExtensions)) return;
 
