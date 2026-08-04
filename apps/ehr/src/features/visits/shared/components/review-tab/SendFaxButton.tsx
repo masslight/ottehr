@@ -58,7 +58,7 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
     if (
       appointmentAccessibility.visitType === 'follow-up'
         ? encounter?.status === 'in-progress'
-        : inPersonStatus && !['intake', 'completed'].includes(inPersonStatus)
+        : inPersonStatus && !['completed'].includes(inPersonStatus)
     ) {
       return "Once the visit note has been signed, you will have the option to fax a copy to the patient's Primary Care Physician.";
     }
