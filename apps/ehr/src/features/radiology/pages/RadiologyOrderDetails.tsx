@@ -1,10 +1,13 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Checkbox, Chip, TextField, Tooltip, Typography } from '@mui/material';
+import { Button, Checkbox, Chip, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { RadiologyOrderStatus } from 'utils';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
@@ -21,11 +24,13 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const theme = useTheme();
 
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
+  const [performedById, setPerformedById] = useState('');
   const [finalReportByUser, setFinalReportByUser] = useState(false);
   const [finalReport, setFinalReport] = useState<string | undefined>();
   const [missingFinalReport, setMissingFinalReport] = useState(false);
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const currentUser = useEvolveUser();
 
   const {
     orders,
@@ -48,6 +53,28 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const consentExists = useRadiologyConsentExists();
 
   const order = orders.find((order) => order.serviceRequestId === serviceRequestId);
+
+  const canEditPerformedBy = order?.status === RadiologyOrderStatus.performed && !order.preliminaryReport;
+
+  const performedByOptions = useMemo(() => {
+    const options: { id: string; name: string }[] = [];
+    const addOption = (id: string | undefined, name: string | undefined): void => {
+      if (!id || options.some((option) => option.id === id)) return;
+      options.push({ id, name: name || id });
+    };
+    addOption(currentUser?.profileResource?.id, currentUser?.userName);
+    addOption(order?.providerId, order?.providerName);
+    addOption(order?.performedBy?.id, order?.performedBy?.name);
+    return options;
+  }, [currentUser, order?.performedBy, order?.providerId, order?.providerName]);
+
+  useEffect(() => {
+    if (performedById) return;
+    const defaultId = order?.performedBy?.id ?? currentUser?.profileResource?.id;
+    if (defaultId) {
+      setPerformedById(defaultId);
+    }
+  }, [currentUser?.profileResource?.id, order?.performedBy?.id, performedById]);
 
   const saveReportButton = (label: string, loading?: boolean, btnOnClick?: () => void): JSX.Element => {
     const btn = (
@@ -163,6 +190,40 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     {order.clinicalHistory}
                   </Typography>
                 </Box>
+              )}
+
+              {canEditPerformedBy ? (
+                <Box sx={{ mt: 2 }}>
+                  <TextField
+                    data-testid={dataTestIds.radiologyPage.performedBySelect}
+                    id="performed-by-field"
+                    select
+                    label="Performed by"
+                    fullWidth
+                    size="small"
+                    value={performedById}
+                    onChange={(e) => setPerformedById(e.target.value)}
+                    disabled={isReadOnly}
+                  >
+                    {!performedById && <MenuItem value="">Select</MenuItem>}
+                    {performedByOptions.map((option) => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Box>
+              ) : (
+                order.performedBy && (
+                  <Box sx={{ mt: 2 }} data-testid={dataTestIds.radiologyPage.performedByValue}>
+                    <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                      Performed by
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {order.performedBy.name}
+                    </Typography>
+                  </Box>
+                )
               )}
 
               {order.status === 'performed' && !order.preliminaryReport && (
@@ -296,7 +357,12 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
             {order.status === 'performed' &&
               !order.preliminaryReport &&
               saveReportButton('Save Preliminary Report', isSavingReport, () =>
-                handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary')
+                handleSaveReport(
+                  serviceRequestId,
+                  preliminaryReport || '',
+                  'preliminary',
+                  performedByOptions.find((option) => option.id === performedById)
+                )
               )}
 
             {order.status === 'preliminary' &&

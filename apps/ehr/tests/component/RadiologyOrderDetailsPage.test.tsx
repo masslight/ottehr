@@ -50,19 +50,29 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
   useGetAppointmentAccessibility: vi.fn(),
 }));
 
+vi.mock('src/hooks/useEvolveUser', () => ({
+  default: vi.fn(),
+}));
+
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePatientRadiologyOrders } from '../../src/features/radiology/components/usePatientRadiologyOrders';
 import { useRadiologyConsentExists } from '../../src/features/radiology/components/useRadiologyConsentExists';
 import { RadiologyOrderDetailsPage } from '../../src/features/radiology/pages/RadiologyOrderDetails';
 import { useGetAppointmentAccessibility } from '../../src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import useEvolveUser from '../../src/hooks/useEvolveUser';
 
 const mockUsePatientRadiologyOrders = vi.mocked(usePatientRadiologyOrders);
 const mockUseRadiologyConsentExists = vi.mocked(useRadiologyConsentExists);
 const mockUseGetAppointmentAccessibility = vi.mocked(useGetAppointmentAccessibility);
 const mockUseNavigate = vi.mocked(useNavigate);
 const mockUseParams = vi.mocked(useParams);
+const mockUseEvolveUser = vi.mocked(useEvolveUser);
 
 const SERVICE_REQUEST_ID = 'sr-001';
+const CURRENT_USER_ID = 'practitioner-current';
+const CURRENT_USER_NAME = 'Dr. Current';
+const ORDERING_PROVIDER_ID = 'practitioner-ordering';
+const PERFORMED_BY_LABEL = 'Performed by';
 const WRITE_FINAL_REPORT_CHECKBOX_LABEL = "Don't send to teleradiology, I will write the final report myself.";
 const SEND_FOR_FINAL_READ_BTN_LABEL = 'Send for Final Read';
 const SAVE_AS_FINAL_BTN_LABEL = 'Save as Final';
@@ -89,6 +99,7 @@ const makeMockOrder = (
   visitDateTime: '2024-12-20T09:00:00Z',
   orderAddedDateTime: '2024-12-20T10:00:00Z',
   providerName: 'Dr. Test',
+  providerId: ORDERING_PROVIDER_ID,
   diagnosis: 'Chest pain',
   status: RadiologyOrderStatus.preliminary,
   isStat: false,
@@ -125,6 +136,10 @@ describe('RadiologyOrderDetailsPage - final report', () => {
     mockUseNavigate.mockReturnValue(vi.fn());
     mockUseRadiologyConsentExists.mockReturnValue(false);
     mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult());
+    mockUseEvolveUser.mockReturnValue({
+      userName: CURRENT_USER_NAME,
+      profileResource: { resourceType: 'Practitioner', id: CURRENT_USER_ID },
+    } as any);
 
     mockUseGetAppointmentAccessibility.mockReturnValue({
       isAppointmentReadOnly: false,
@@ -256,6 +271,111 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       await user.click(screen.getByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL }));
 
       expect(mockHandleSendForFinalRead).toHaveBeenCalledWith(SERVICE_REQUEST_ID);
+    });
+  });
+
+  describe('"Performed by"', () => {
+    const makePerformedOrder = (
+      overrides: Partial<GetRadiologyOrderListZambdaOrder> = {}
+    ): GetRadiologyOrderListZambdaOrder => makeMockOrder({ status: RadiologyOrderStatus.performed, ...overrides });
+
+    const getPerformedBySelect = (): HTMLElement => screen.getByRole('combobox', { name: PERFORMED_BY_LABEL });
+
+    it('defaults the select to the current user', () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makePerformedOrder()] }));
+      renderPage();
+
+      expect(getPerformedBySelect()).toHaveTextContent(CURRENT_USER_NAME);
+    });
+
+    it('offers the current user and the ordering provider as options', async () => {
+      const user = userEvent.setup();
+      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makePerformedOrder()] }));
+      renderPage();
+
+      await user.click(getPerformedBySelect());
+
+      expect(screen.getByRole('option', { name: CURRENT_USER_NAME })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Dr. Test' })).toBeInTheDocument();
+    });
+
+    it('lists only the current user when they are also the ordering provider', async () => {
+      const user = userEvent.setup();
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({ orders: [makePerformedOrder({ providerId: CURRENT_USER_ID, providerName: 'Dr. Current' })] })
+      );
+      renderPage();
+
+      await user.click(getPerformedBySelect());
+
+      expect(screen.getAllByRole('option')).toHaveLength(1);
+      expect(screen.getByRole('option', { name: CURRENT_USER_NAME })).toBeInTheDocument();
+    });
+
+    it('defaults to the performer already recorded on the order', () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makePerformedOrder({ performedBy: { id: ORDERING_PROVIDER_ID, name: 'Dr. Test' } })],
+        })
+      );
+      renderPage();
+
+      expect(getPerformedBySelect()).toHaveTextContent('Dr. Test');
+    });
+
+    it('passes the selected performer to handleSaveReport', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({ orders: [makePerformedOrder()], handleSaveReport: mockHandleSaveReport })
+      );
+      renderPage();
+
+      await user.click(getPerformedBySelect());
+      await user.click(screen.getByRole('option', { name: 'Dr. Test' }));
+      await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
+      await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
+
+      expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, 'No acute findings', 'preliminary', {
+        id: ORDERING_PROVIDER_ID,
+        name: 'Dr. Test',
+      });
+    });
+
+    it.each([
+      RadiologyOrderStatus.preliminary,
+      RadiologyOrderStatus.pendingFinal,
+      RadiologyOrderStatus.final,
+      RadiologyOrderStatus.reviewed,
+    ])('shows the recorded performer read-only for status "%s"', (status) => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({
+          orders: [makeMockOrder({ status, performedBy: { id: CURRENT_USER_ID, name: CURRENT_USER_NAME } })],
+        })
+      );
+      renderPage();
+
+      expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
+      expect(screen.getByText(PERFORMED_BY_LABEL)).toBeInTheDocument();
+      expect(screen.getByText(CURRENT_USER_NAME)).toBeInTheDocument();
+    });
+
+    it('renders nothing when the order has no recorded performer and is past performed', () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({ orders: [makeMockOrder({ status: RadiologyOrderStatus.final })] })
+      );
+      renderPage();
+
+      expect(screen.queryByText(PERFORMED_BY_LABEL)).not.toBeInTheDocument();
+    });
+
+    it('is not editable once a preliminary report exists on a performed order', () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(
+        makeHookResult({ orders: [makePerformedOrder({ preliminaryReport: btoa('Prelim') })] })
+      );
+      renderPage();
+
+      expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
     });
   });
 

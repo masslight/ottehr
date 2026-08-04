@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ServiceRequest } from 'fhir/r4b';
+import { Reference as Reference4B, ServiceRequest } from 'fhir/r4b';
 import { DiagnosticReport, Reference } from 'fhir/r5';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
@@ -9,6 +9,7 @@ import {
   fetchServiceRequestFromAdvaPACS,
   getSecret,
   RADIOLOGY_ERROR,
+  RadiologyPerformedBy,
   SaveRadiologyReportZambdaOutput,
   Secrets,
   SecretsKeys,
@@ -43,7 +44,7 @@ async function performEffect(
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<SaveRadiologyReportZambdaOutput> {
-  const { serviceRequestId, report: preliminaryReport } = validatedInput.body;
+  const { serviceRequestId, report: preliminaryReport, performedBy } = validatedInput.body;
 
   // Get the existing service request from Oystehr
   console.group('Fetching service request from Oystehr');
@@ -53,6 +54,15 @@ async function performEffect(
   });
   console.groupEnd();
   console.debug('Service request fetched successfully');
+
+  // Record who performed the study before writing the report; a report failure downstream then leaves the
+  // selection saved for the retry rather than discarding it.
+  if (performedBy) {
+    console.group('Saving performed by on the service request');
+    await savePerformedBy(serviceRequest, performedBy, oystehr);
+    console.groupEnd();
+    console.debug('Performed by saved successfully');
+  }
 
   // Extract the accession number from the service request
   const accessionNumber = serviceRequest.identifier?.find(
@@ -87,6 +97,34 @@ async function performEffect(
 
   return {};
 }
+
+/**
+ * Records the practitioner who performed the study on `ServiceRequest.performer`. Any non-Practitioner
+ * performer (an external order's contained performing Organization) is preserved.
+ */
+const savePerformedBy = async (
+  serviceRequest: ServiceRequest,
+  performedBy: RadiologyPerformedBy,
+  oystehr: Oystehr
+): Promise<void> => {
+  const otherPerformers = (serviceRequest.performer ?? []).filter((ref) => !ref.reference?.startsWith('Practitioner/'));
+  const performer: Reference4B[] = [
+    ...otherPerformers,
+    { reference: `Practitioner/${performedBy.id}`, display: performedBy.name },
+  ];
+
+  await oystehr.fhir.patch<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    id: serviceRequest.id!,
+    operations: [
+      {
+        op: serviceRequest.performer ? 'replace' : 'add',
+        path: '/performer',
+        value: performer,
+      },
+    ],
+  });
+};
 
 /**
  * Creates a DiagnosticReport in AdvaPACS for a ServiceRequest with preliminary findings

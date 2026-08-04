@@ -24,6 +24,13 @@ export const RadiologyPerformingOrganizationSchema = z.object({
 });
 export type RadiologyPerformingOrganization = z.infer<typeof RadiologyPerformingOrganizationSchema>;
 
+/** The practitioner who performed an in-house study, recorded on `ServiceRequest.performer`. */
+export const RadiologyPerformedBySchema = z.object({
+  id: z.string().min(1, 'performedBy.id is required and must be a string'),
+  name: z.string().min(1, 'performedBy.name is required and must be a string'),
+});
+export type RadiologyPerformedBy = z.infer<typeof RadiologyPerformedBySchema>;
+
 export const RadiologyLateralityModifierSchema = z.object({
   display: z.string(),
   code: z.string(),
@@ -140,12 +147,15 @@ export interface RadiologyDTO {
   performingOrganization?: RadiologyPerformingOrganization;
   timeWindow?: string;
   safetyFlags?: RadiologySafetyFlag[];
+  performedBy?: RadiologyPerformedBy;
 }
 export interface GetRadiologyOrderListZambdaOrder extends RadiologyDTO {
   appointmentId: string;
   visitDateTime: string;
   orderAddedDateTime: string;
   providerName: string;
+  /** Practitioner id of the ordering provider (`providerName`); used to populate the "Performed by" options. */
+  providerId: string;
   status: RadiologyOrderStatus;
   isStat: boolean;
   history?: RadiologyOrderHistoryRow[];
@@ -169,6 +179,15 @@ export const SaveRadiologyReportZambdaInputSchema = z.object({
   report: z.string().min(1, 'report is required and must be a string'),
 });
 export type SaveRadiologyReportZambdaInput = z.infer<typeof SaveRadiologyReportZambdaInputSchema>;
+
+/**
+ * The preliminary read is where "Performed by" is captured, so it takes the base report payload plus that
+ * optional selection. The final-report endpoint keeps the base contract.
+ */
+export const SavePreliminaryRadiologyReportZambdaInputSchema = SaveRadiologyReportZambdaInputSchema.extend({
+  performedBy: RadiologyPerformedBySchema.optional(),
+});
+export type SavePreliminaryRadiologyReportZambdaInput = z.infer<typeof SavePreliminaryRadiologyReportZambdaInputSchema>;
 
 export type SaveRadiologyReportZambdaOutput = Record<string, never>;
 

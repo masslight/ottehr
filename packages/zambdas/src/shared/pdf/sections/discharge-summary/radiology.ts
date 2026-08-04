@@ -23,6 +23,7 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
 
   const radiology = radiologyOrders?.map((order) => ({
     name: order.studyType,
+    performedBy: order.performedBy?.name,
     result: handleFinalReport(order.finalReport),
   }));
 
@@ -40,6 +41,8 @@ export const createRadiologySection = <TData extends { radiology?: RadiologyData
     render: (client, data, styles) => {
       data.radiology?.forEach((radiology) => {
         client.drawText(radiology.name, styles.textStyles.regularText);
+        if (radiology.performedBy)
+          client.drawText(`Performed by: ${radiology.performedBy}`, styles.textStyles.regularText);
         if (radiology.result) client.drawText(`Final Read: ${radiology.result}`, styles.textStyles.regularText);
       });
       client.drawSeparatedLine(styles.lineStyles.separator);
