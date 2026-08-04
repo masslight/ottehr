@@ -239,27 +239,23 @@ export function getFlowModes(q: Questionnaire): ServiceMode[] {
 }
 
 /**
- * Resolves the active paperwork flow canonical assigned to a (service category, visit mode), or
- * undefined when none is assigned. Mirrors resolveServiceCategory's precedence:
- * - A BOOKING_CONFIG (ottehr-managed) service category is matched against the flow Questionnaire's
- *   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM meta.tag (same slug identifier space as the slot's serviceCategory).
- * - Any other (FHIR-backed) service category is matched to its HealthcareService via the
- *   SERVICE_CATEGORY_SYSTEM coding on HealthcareService.type[] (NOT the resource id), and the flow
- *   canonical is read from that service's per-mode paperwork-flow extension.
- * Only active flows are considered (searchActiveQuestionnairesByTag filters status=active; the HS
- * extension is maintained by flow create/update to point at the active flow).
+ * Resolves the active paperwork flow canonical assigned to a (service category x visit mode),
+ * returns undefined when none is assigned or there is an error resolving the flow.
+ * In the case of an error, sentry should be alerted while returning undefined to avoid erroring during booking
  */
 export async function resolveFlowCanonicalForServiceMode(input: {
   serviceCategoryCode: string;
   serviceMode: ServiceMode;
   oystehr: Oystehr;
+  secrets: Secrets | null;
 }): Promise<CanonicalUrl | undefined> {
-  const { serviceCategoryCode, serviceMode, oystehr } = input;
-  if (!serviceCategoryCode) return undefined;
+  const { serviceCategoryCode, serviceMode, oystehr, secrets } = input;
+  if (!serviceCategoryCode) return;
+
+  const flows = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
 
   if (isBookingConfigServiceCategoryCode(serviceCategoryCode)) {
     // Ottehr-managed service category: the assignment lives as a meta.tag on the flow Questionnaire.
-    const flows = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
     const match = flows.find(
       (flow) =>
         (flow.meta?.tag ?? []).some(
@@ -273,10 +269,33 @@ export async function resolveFlowCanonicalForServiceMode(input: {
   // FHIR-backed service category: the assignment lives as a per-mode extension on the HealthcareService.
   const services = await searchServiceCategoryHealthcareServices(oystehr);
   const service = services.find((hs) => getCoding(hs.type, SERVICE_CATEGORY_SYSTEM)?.code === serviceCategoryCode);
-  if (!service) return undefined;
+  if (!service) return;
+
   const extensionUrl = healthcareServiceExtensionUrlMap[serviceMode];
-  const valueCanonical = service.extension?.find((ext) => ext.url === extensionUrl)?.valueCanonical;
-  return valueCanonical ? parseQuestionnaireCanonicalExtension(valueCanonical) : undefined;
+  const flowUrlFromExtension = service.extension?.find((ext) => ext.url === extensionUrl)?.valueCanonical;
+  if (!flowUrlFromExtension) return;
+
+  const flow = flows.find((flowQ) => flowQ.url === flowUrlFromExtension);
+  if (!flow) {
+    // we do not want to fail booking but we do want to alert sentry in this case
+    const flowsIdMap = flows.map((q) => `Questionnaire/${q.id}`);
+    const errorMsg = `A flow extension was found on HealthcareService/${service.id} but we were unable to find an active flow with a matching url: ${flowUrlFromExtension}. Flow questionnaires evaluated: ${flowsIdMap}`;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendErrors(errorMsg, ENVIRONMENT);
+    return;
+  }
+
+  if (!flow.url || !flow.version) {
+    // same as above, we do not want to fail booking but we do want to alert sentry in this case
+    // the expectation is that if there is some error resolving the flow url, then fall back to system defaults
+    const errorMsg = `Questionnaire/${flow.id} is missing url and/or version. Url: ${flow.url} Version: ${flow.version}`;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendErrors(errorMsg, ENVIRONMENT);
+    return;
+  }
+
+  const canonicalUrlForFlow: CanonicalUrl = { url: flow.url, version: flow.version };
+  return canonicalUrlForFlow;
 }
 
 /**

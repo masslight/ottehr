@@ -28,6 +28,7 @@ import {
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
+import { resolveFlowCanonicalForServiceMode } from '../../../ehr/paperwork-flow/shared';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 
 const ZAMBDA_NAME = 'create-slot';
@@ -227,6 +228,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     questionnaireCanonical,
     atLocationId,
     bookedViaGroupId,
+    secrets,
   } = input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
@@ -461,9 +463,28 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   if (originalBookingUrl) {
     extension.push(makeBookingOriginExtensionEntry(originalBookingUrl));
   }
-  if (questionnaireCanonical) {
-    extension.push(makeQuestionnaireCanonicalExtensionEntry(questionnaireCanonical));
+
+  // handle assigning correct questionnaireCanonical
+  // we will check if any flows have been created for this service category x visit modality
+  // if yes, the flow questionnaire will take precedence over the questionnaireCanonical
+  // this extension is the source of truth for what the booking questionnaire response should point to
+  const flowCanonical = await resolveFlowCanonicalForServiceMode({
+    serviceCategoryCode: effectiveServiceCategoryCode,
+    serviceMode: serviceModality,
+    oystehr,
+    secrets,
+  });
+  console.log(
+    `flowCanonical for ${effectiveServiceCategoryCode} x ${serviceModality}: ${
+      flowCanonical ? `${flowCanonical.url}|${flowCanonical.version}` : 'none'
+    }`
+  );
+  const winningQuestionnaireCanonical = flowCanonical ?? questionnaireCanonical;
+
+  if (winningQuestionnaireCanonical) {
+    extension.push(makeQuestionnaireCanonicalExtensionEntry(winningQuestionnaireCanonical));
   }
+
   if (shouldStampAtLocation && atLocationId) {
     extension.push(makeSlotAtLocationExtensionEntry(atLocationId));
   }

@@ -11,7 +11,6 @@ import {
   CreateAppointmentInputParams,
   FHIR_RESOURCE_NOT_FOUND,
   FollowUpOptions,
-  getServiceCategoryFromSlot,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
@@ -39,7 +38,6 @@ import {
   VisitType,
 } from 'utils';
 import { z } from 'zod';
-import { resolveFlowCanonicalForServiceMode } from '../../../ehr/paperwork-flow/shared';
 import {
   checkIsEHRUser,
   isTestUser,
@@ -445,25 +443,15 @@ export const createAppointmentComplexValidation = async (
     throw new Error('Service mode not found');
   }
 
-  // Resolve which questionnaire the QuestionnaireResponse should point at, in priority order:
-  //   1. A paperwork flow assigned to this (service category, visit mode) — highest priority.
-  //   2. A questionnaire canonical stamped directly on the Slot (explicit per-slot override).
-  //   3. The default service-mode intake questionnaire.
+  // Check if the Slot has a questionnaire canonical extension
+  // This allows slots to specify which questionnaire should be used for appointments booked on them
   let questionnaireCanonical: CanonicalUrl;
-
-  const serviceCategoryCode = getServiceCategoryFromSlot(slot);
-  const flowCanonical = serviceCategoryCode
-    ? await resolveFlowCanonicalForServiceMode({ serviceCategoryCode, serviceMode, oystehr: oystehrClient })
-    : undefined;
 
   const slotQuestionnaireExtension = slot.extension?.find(
     (ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL
   );
 
-  if (flowCanonical) {
-    questionnaireCanonical = flowCanonical;
-    console.log('Using paperwork flow questionnaire canonical:', questionnaireCanonical);
-  } else if (slotQuestionnaireExtension?.valueString) {
+  if (slotQuestionnaireExtension?.valueString) {
     questionnaireCanonical = parseQuestionnaireCanonicalExtension(slotQuestionnaireExtension.valueString);
     console.log('Using questionnaire canonical from slot extension:', questionnaireCanonical);
   } else {
