@@ -40,7 +40,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   console.log('Created Oystehr client');
 
-  const response = await performEffect(oystehr, appointmentId, secrets, timezone);
+  const response = await performEffect(oystehr, appointmentId, secrets, m2mToken, timezone);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -51,6 +51,7 @@ export const performEffect = async (
   oystehr: Oystehr,
   appointmentId: string,
   secrets: Secrets | null,
+  token: string,
   timezone?: string
 ): Promise<VisitDetailsResponse> => {
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
@@ -166,7 +167,7 @@ export const performEffect = async (
       payments,
     },
     secrets,
-    m2mToken
+    token
   );
 
   console.log(`Creating Visit details PDF Document Reference`);
