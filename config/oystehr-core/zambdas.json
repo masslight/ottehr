@@ -2299,6 +2299,24 @@
         }
       }
     },
+    "HANDLE_INBOUND_FAX_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Inbound fax received",
+        "criteria": "Communication?medium=FAXWRIT&status=completed",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-INBOUND-FAX/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
     "PROCESS_TELEMED_RECORDING_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",

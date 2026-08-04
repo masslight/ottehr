@@ -8,6 +8,10 @@ export interface FileInboundFaxInput {
   patientId: string;
   folderId: string;
   documentName: string;
+  // Internal name of the target folder. The client sends a `synthetic:${internalName}` sentinel
+  // as `folderId` when the patient has no per-patient List for the folder yet; this is the
+  // explicit form of the same information (see resolvePatientDocumentFolder).
+  internalName?: string;
 }
 
 export function validateRequestParameters(input: ZambdaInput): FileInboundFaxInput {
@@ -38,5 +42,6 @@ export function validateRequestParameters(input: ZambdaInput): FileInboundFaxInp
     patientId: body.patientId,
     folderId: body.folderId,
     documentName: body.documentName,
+    internalName: typeof body.internalName === 'string' && body.internalName ? body.internalName : undefined,
   };
 }

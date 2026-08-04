@@ -26,6 +26,7 @@ import {
   TASK_LOCATION_SYSTEM,
   TaskAlertCode,
 } from 'utils';
+import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
@@ -74,6 +75,76 @@ export interface UnassignTaskRequest {
 export interface CompleteTaskRequest {
   taskId: string;
 }
+
+export interface TaskSearchStream {
+  tasks: FhirTask[];
+  encounters: Encounter[];
+  total: number | undefined;
+}
+
+/**
+ * Merge the two searches that back the location filter — tasks tagged with the selected
+ * location, and location-agnostic tasks (no location tag at all, e.g. inbound faxes) — into a
+ * single page of results.
+ *
+ * Both streams arrive sorted by `-authored-on`, so merging, sorting by `authoredOn` desc and
+ * slicing the requested window reproduces the ordering a single server-side query would give.
+ *
+ * Exported for tests: this is the only place the "a location filter never hides a
+ * location-agnostic task" guarantee is enforced.
+ */
+export const mergeLocationFilteredTasks = ({
+  tagged,
+  untagged,
+  pageOffset,
+  pageSize,
+}: {
+  tagged: TaskSearchStream;
+  untagged: TaskSearchStream;
+  pageOffset: number;
+  pageSize: number;
+}): { tasks: FhirTask[]; total: number } => {
+  const hasLocationTag = (task: FhirTask): boolean =>
+    !!task.meta?.tag?.some((tag) => tag.system === TASK_LOCATION_SYSTEM);
+
+  // `_tag:not=<system>|` (system, empty code) is meant to exclude every task carrying a tag in
+  // the location system. Servers that read the empty code literally instead return
+  // location-tagged tasks too, so drop them here rather than showing another location's tasks.
+  const locationLessTasks = untagged.tasks.filter((task) => !hasLocationTag(task));
+  const untaggedStreamIsUnfiltered = locationLessTasks.length !== untagged.tasks.length;
+  if (untaggedStreamIsUnfiltered) {
+    // The window we fetched was partly consumed by tasks that should have been excluded
+    // server-side, so location-agnostic tasks beyond it may be missing from this page and
+    // `untagged.total` counts rows we just discarded. Surface it instead of silently showing a
+    // short page with a confident-looking count.
+    safelyCaptureMessage('Task location `_tag:not` filter was not honored by the server', {
+      level: 'error',
+      tags: {
+        invariant: 'task-search:tag-not-excludes-location-tagged',
+        site: 'useGetTasks',
+        returned: String(untagged.tasks.length),
+        locationLess: String(locationLessTasks.length),
+      },
+    });
+  }
+
+  const seenTaskIds = new Set<string>();
+  const tasks = [...tagged.tasks, ...locationLessTasks]
+    .filter((task) => {
+      if (!task.id || seenTaskIds.has(task.id)) return false;
+      seenTaskIds.add(task.id);
+      return true;
+    })
+    .sort((a, b) => (b.authoredOn ?? '').localeCompare(a.authoredOn ?? ''))
+    .slice(pageOffset, pageOffset + pageSize);
+
+  // -1 tells TablePagination the count is unknown, which is honest: either stream may have
+  // omitted its total, or the untagged total counts tasks we had to discard client-side.
+  const total =
+    tagged.total != null && untagged.total != null && !untaggedStreamIsUnfiltered ? tagged.total + untagged.total : -1;
+
+  return { tasks, total };
+};
 
 export const useGetTasks = (
   { assignedTo, category, location, status, page }: TasksSearchParams,
@@ -158,22 +229,10 @@ export const useGetTasks = (
           searchTasks([{ name: '_tag', value: TASK_LOCATION_SYSTEM + '|' + location }], windowEnd, 0),
           searchTasks([{ name: '_tag:not', value: TASK_LOCATION_SYSTEM + '|' }], windowEnd, 0),
         ]);
-        // Defensive: only keep genuinely location-less tasks from the second search in case the
-        // server's handling of a system-only `_tag:not` differs from the FHIR spec.
-        const locationLessTasks = untagged.tasks.filter(
-          (task) => !task.meta?.tag?.some((tag) => tag.system === TASK_LOCATION_SYSTEM)
-        );
-        const seenTaskIds = new Set<string>();
-        fhirTasks = [...tagged.tasks, ...locationLessTasks]
-          .filter((task) => {
-            if (!task.id || seenTaskIds.has(task.id)) return false;
-            seenTaskIds.add(task.id);
-            return true;
-          })
-          .sort((a, b) => (b.authoredOn ?? '').localeCompare(a.authoredOn ?? ''))
-          .slice(pageOffset, windowEnd);
+        const merged = mergeLocationFilteredTasks({ tagged, untagged, pageOffset, pageSize: TASKS_PAGE_SIZE });
+        fhirTasks = merged.tasks;
         encounters = [...tagged.encounters, ...untagged.encounters];
-        total = tagged.total != null && untagged.total != null ? tagged.total + untagged.total : -1;
+        total = merged.total;
       } else {
         const result = await searchTasks([], TASKS_PAGE_SIZE, pageOffset);
         fhirTasks = result.tasks;

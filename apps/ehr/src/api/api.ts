@@ -2477,7 +2477,12 @@ export interface FileInboundFaxInput {
   taskId: string;
   communicationId: string;
   patientId: string;
+  /**
+   * A real folder `List` id, or the `synthetic:${internalName}` sentinel for a folder the patient
+   * has no List for yet. The zambda resolves (and lazily creates) the latter.
+   */
   folderId: string;
+  internalName?: string;
   documentName: string;
   // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative
   // url from the verified inbound-fax Task's stored input.

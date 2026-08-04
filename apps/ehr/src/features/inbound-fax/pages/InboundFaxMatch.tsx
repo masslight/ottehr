@@ -22,7 +22,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
-import { List as FhirList, Task } from 'fhir/r4b';
+import { Task } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -38,16 +38,7 @@ import {
   useGetPatientDocsFolders,
 } from 'src/hooks/useGetPatientDocs';
 import PageContainer from 'src/layout/PageContainer';
-import {
-  createCustomPatientDocumentList,
-  createPatientDocumentList,
-  FAX_TASK,
-  FOLDERS_CONFIG,
-  getPresignedURL,
-  isCustomFolderList,
-  isSyntheticFolderId,
-  parseSyntheticFolderId,
-} from 'utils';
+import { FAX_TASK, getPresignedURL } from 'utils';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 
 export const InboundFaxMatch: React.FC = () => {
@@ -185,60 +176,20 @@ export const InboundFaxMatch: React.FC = () => {
     setSelectedFolder(undefined);
   }, []);
 
-  // The file-inbound-fax zambda resolves the folder by List id, so a synthetic folder
-  // (system/custom folder the patient has no per-patient List for yet — see
-  // useGetPatientDocsFolders) must be materialized first. Mirrors the lazy-create path in the
-  // create-upload-document-url zambda, reusing the shared List builders from utils.
-  const resolveRealFolderId = useCallback(
-    async (folder: PatientDocumentsFolder, patientId: string): Promise<string> => {
-      if (!isSyntheticFolderId(folder.id)) return folder.id;
-      if (!oystehr) throw new Error('oystehr client not defined');
-
-      const internalName = folder.internalName ?? parseSyntheticFolderId(folder.id);
-      if (!internalName) throw new Error(`Cannot resolve internal name for folder ${folder.id}`);
-
-      // FHIR string search on `title` is prefix-match, so confirm an exact match (and matching
-      // folder kind) before reusing an existing List.
-      const existing = (
-        await oystehr.fhir.search<FhirList>({
-          resourceType: 'List',
-          params: [
-            { name: 'subject', value: `Patient/${patientId}` },
-            { name: 'title', value: internalName },
-          ],
-        })
-      )
-        .unbundle()
-        .find((list) => list.title === internalName && isCustomFolderList(list) === folder.isCustom);
-      if (existing?.id) return existing.id;
-
-      const patientReference = `Patient/${patientId}`;
-      let newList: FhirList;
-      if (folder.isCustom) {
-        newList = createCustomPatientDocumentList(patientReference, internalName);
-      } else {
-        const config = FOLDERS_CONFIG.find((c) => c.title === internalName);
-        if (!config) throw new Error(`Unknown system folder "${internalName}"`);
-        newList = createPatientDocumentList(patientReference, config);
-      }
-      const created = await oystehr.fhir.create<FhirList>(newList);
-      if (!created.id) throw new Error('Failed to create folder List');
-      return created.id;
-    },
-    [oystehr]
-  );
-
   const handleFile = async (): Promise<void> => {
     if (!oystehrZambda || !taskId || !confirmedSelectedPatient || !selectedFolder || !pdfUrl || !documentName) return;
 
     setIsFiling(true);
     try {
-      const folderId = await resolveRealFolderId(selectedFolder, confirmedSelectedPatient.id);
+      // The folder id may be a `synthetic:${internalName}` sentinel for a folder the patient has
+      // no List for yet. The zambda materializes those (validating against the folder catalog and
+      // re-checking patient ownership) — folder Lists are never created from the browser.
       await fileInboundFax(oystehrZambda, {
         taskId,
         communicationId,
         patientId: confirmedSelectedPatient.id,
-        folderId,
+        folderId: selectedFolder.id,
+        internalName: selectedFolder.internalName,
         documentName,
       });
       await Promise.all([

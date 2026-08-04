@@ -68,20 +68,8 @@ vi.mock('utils', () => ({
     },
   },
   getPresignedURL: (...args: unknown[]) => mockGetPresignedURL(...args),
-  FOLDERS_CONFIG: [{ title: 'medical-records', display: 'Medical Records' }],
-  isSyntheticFolderId: (id?: string) => !!id && id.startsWith('synthetic:'),
-  parseSyntheticFolderId: (id?: string) => (id?.startsWith('synthetic:') ? id.slice('synthetic:'.length) : undefined),
-  isCustomFolderList: () => false,
-  createPatientDocumentList: (patientReference: string, config: { title: string }) => ({
-    resourceType: 'List',
-    title: config.title,
-    subject: { reference: patientReference },
-  }),
-  createCustomPatientDocumentList: (patientReference: string, internalName: string) => ({
-    resourceType: 'List',
-    title: internalName,
-    subject: { reference: patientReference },
-  }),
+  // The folder-List builders and synthetic-id helpers are intentionally absent: resolving and
+  // creating folder Lists is the file-inbound-fax zambda's job, so this page never touches them.
 }));
 
 vi.mock('../../src/features/external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard', () => ({
@@ -201,15 +189,18 @@ const mockTaskSearchResult = {
   unbundle: () => [makeFaxTask('ready')],
 };
 
-const selectPatientAndFolder = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+const selectPatientAndFolder = async (
+  user: ReturnType<typeof userEvent.setup>,
+  folderLabel: string | RegExp = /Medical Records/
+): Promise<void> => {
   await waitFor(() => {
     expect(screen.getByTestId('patient-search')).toBeDefined();
   });
   await user.click(screen.getByTestId('select-patient-btn'));
   await waitFor(() => {
-    expect(screen.getByText(/Medical Records/)).toBeDefined();
+    expect(screen.getByText(folderLabel)).toBeDefined();
   });
-  await user.click(screen.getByText(/Medical Records/));
+  await user.click(screen.getByText(folderLabel));
 };
 
 // ============================================================================
@@ -491,14 +482,58 @@ describe('InboundFaxMatch page', () => {
         communicationId: COMMUNICATION_ID,
         patientId: 'patient-123',
         folderId: 'folder-1',
+        internalName: 'medical-records',
         documentName: 'Fax from +15551234567',
       });
     });
+
+    // Folder Lists are materialized by the zambda, which validates against the folder catalog
+    // and re-checks patient ownership. The page must not write FHIR directly.
+    expect(mockFhirCreate).not.toHaveBeenCalled();
 
     // Navigates back to the tasks board
     await waitFor(() => {
       expect(screen.getByTestId('tasks-page')).toBeDefined();
     });
+  });
+
+  it('passes a synthetic folder id through for the zambda to materialize', async () => {
+    mockUseGetPatientDocsFolders.mockReturnValue({ data: {}, isLoading: false });
+    mockParsePatientDocsFolders.mockReturnValue([
+      {
+        id: 'synthetic:labs',
+        folderName: 'Labs',
+        internalName: 'labs',
+        documentsCount: 0,
+        isCustom: false,
+      },
+    ]);
+    mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-created' });
+    const user = userEvent.setup();
+    const Wrapper = createWrapper();
+    render(
+      <Wrapper>
+        <InboundFaxMatch />
+      </Wrapper>
+    );
+
+    await selectPatientAndFolder(user, 'Labs (0)');
+
+    const saveButton = screen.getByText('Save').closest('button');
+    await waitFor(() => {
+      expect(saveButton?.disabled).toBe(false);
+    });
+    await user.click(saveButton!);
+
+    await waitFor(() => {
+      expect(mockFileInboundFax).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ folderId: 'synthetic:labs', internalName: 'labs' })
+      );
+    });
+
+    // No client-side List creation for a folder that does not exist yet.
+    expect(mockFhirCreate).not.toHaveBeenCalled();
   });
 
   describe('delete confirmation dialog', () => {

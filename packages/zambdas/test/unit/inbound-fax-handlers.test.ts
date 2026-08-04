@@ -123,7 +123,7 @@ function makeFolderList(overrides: Partial<List> = {}): List {
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function makeSearchBundle(resources: (Task | Practitioner)[], hasNext = false) {
+function makeSearchBundle(resources: (Task | Practitioner | List)[], hasNext = false) {
   return {
     resourceType: 'Bundle',
     type: 'searchset',
@@ -157,11 +157,18 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('file-inbound-fax handler', () => {
-  function mockHappyPathReads(task: Task = makeFaxTask(), folder: List = makeFolderList()): void {
+  // The folder is resolved through the shared `resolvePatientDocumentFolder`, which reads the
+  // List via search (`_id` + `_include=List:subject`) rather than a direct get.
+  // `folder: null` means the List search finds nothing (note: passing `undefined` would fall
+  // back to the default parameter).
+  function mockHappyPathReads(task: Task = makeFaxTask(), folder: List | null = makeFolderList()): void {
     mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
       if (resourceType === 'Task') return task;
-      if (resourceType === 'List') return folder;
       throw new Error(`unexpected get for ${resourceType}`);
+    });
+    mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'List') return makeSearchBundle(folder ? [folder] : []);
+      throw new Error(`unexpected search for ${resourceType}`);
     });
     mockOystehr.fhir.transaction.mockResolvedValue({
       entry: [{ resource: { resourceType: 'DocumentReference', id: 'docref-1' } }],
@@ -263,6 +270,86 @@ describe('file-inbound-fax handler', () => {
     expect(result.statusCode).toBe(404);
     expect(JSON.parse(result.body).code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
     expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the folder does not exist', async () => {
+    mockHappyPathReads(makeFaxTask(), null);
+
+    const result = await fileInboundFax(makeInput(fileBody));
+
+    expect(result.statusCode).toBe(404);
+    expect(JSON.parse(result.body).code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('guards the folder List update with an optimistic lock so a concurrent edit cannot be clobbered', async () => {
+    mockHappyPathReads(makeFaxTask(), makeFolderList({ meta: { versionId: '7' } }));
+
+    await fileInboundFax(makeInput(fileBody));
+
+    const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
+    const listPut = requests.find((r: any) => r.method === 'PUT' && r.url === '/List/folder-abc');
+    expect(listPut.ifMatch).toBe('W/"7"');
+  });
+
+  describe('synthetic folder ids', () => {
+    const syntheticBody = { ...fileBody, folderId: 'synthetic:visit-notes', internalName: 'visit-notes' };
+
+    function mockSyntheticReads(createdFolder: List): void {
+      mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+        if (resourceType === 'Task') return makeFaxTask();
+        throw new Error(`unexpected get for ${resourceType}`);
+      });
+      // No existing per-patient List for this folder yet.
+      mockOystehr.fhir.search.mockResolvedValue(makeSearchBundle([]));
+      mockOystehr.fhir.create.mockResolvedValue(createdFolder);
+      mockOystehr.fhir.transaction.mockResolvedValue({
+        entry: [{ resource: { resourceType: 'DocumentReference', id: 'docref-1' } }],
+      });
+    }
+
+    it('materializes the folder List server-side and files into it', async () => {
+      mockSyntheticReads(makeFolderList({ id: 'folder-new', title: 'visit-notes' }));
+
+      const result = await fileInboundFax(makeInput(syntheticBody));
+
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body)).toEqual({ documentRefId: 'docref-1', folderId: 'folder-new' });
+
+      // Filed into the newly resolved List, not the synthetic sentinel
+      const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
+      expect(requests.some((r: any) => r.method === 'PUT' && r.url === '/List/folder-new')).toBe(true);
+      expect(JSON.stringify(requests)).not.toContain('synthetic:');
+    });
+
+    it('creates the folder List conditionally so concurrent filings cannot duplicate it', async () => {
+      mockSyntheticReads(makeFolderList({ id: 'folder-new', title: 'visit-notes' }));
+
+      await fileInboundFax(makeInput(syntheticBody));
+
+      expect(mockOystehr.fhir.create).toHaveBeenCalledTimes(1);
+      const [resource, options] = mockOystehr.fhir.create.mock.calls[0];
+      expect(resource.resourceType).toBe('List');
+      // Keyed on exact-match params only — `title` is prefix-match and would let the conditional
+      // create latch onto a different folder whose name starts with this one.
+      expect(options.ifNoneExist).toEqual([
+        { name: 'subject', value: 'Patient/patient-789' },
+        { name: 'identifier', value: 'visit-notes' },
+      ]);
+    });
+
+    it('refuses a folder name that is in neither the system config nor the catalog', async () => {
+      mockOystehr.fhir.get.mockResolvedValue(makeFaxTask());
+      mockOystehr.fhir.search.mockResolvedValue(makeSearchBundle([]));
+
+      const result = await fileInboundFax(
+        makeInput({ ...fileBody, folderId: 'synthetic:not-a-real-folder', internalName: 'not-a-real-folder' })
+      );
+
+      expect(result.statusCode).toBe(404);
+      expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -390,9 +477,14 @@ describe('handle-inbound-fax handler', () => {
       if (resourceType === 'Practitioner') return makeSearchBundle(practitioners);
       throw new Error(`unexpected search for ${resourceType}`);
     });
-    mockOystehr.fhir.create.mockResolvedValue({ resourceType: 'Task', id: 'task-new' });
+    // Echo the submitted resource back with an id, the way a real FHIR create does — the handler
+    // detects "my conditional create actually created this" by finding its own claim identifier
+    // on the returned Task.
+    mockOystehr.fhir.create.mockImplementation(async (resource: Task) => ({ ...resource, id: 'task-new' }));
     mockOystehr.fhir.transaction.mockResolvedValue({});
   }
+
+  const FAX_TASK_CLAIM_SYSTEM = 'https://fhir.ottehr.com/Identifier/inbound-fax-task-claim';
 
   it('is idempotent: a re-fired subscription for the same Communication no-ops', async () => {
     mockSearches({ existingTasks: [makeFaxTask()] });
@@ -454,5 +546,47 @@ describe('handle-inbound-fax handler', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body)).toEqual({ taskId: 'task-new' });
     expect(mockCaptureException).toHaveBeenCalled();
+  });
+
+  describe('concurrent delivery of the same fax', () => {
+    it('creates the task conditionally, so the server enforces at-most-one per Communication', async () => {
+      mockSearches();
+
+      await handleInboundFax(makeInput(communication as unknown as Record<string, unknown>));
+
+      const [resource, options] = mockOystehr.fhir.create.mock.calls[0];
+      expect(options.ifNoneExist).toEqual([
+        { name: 'based-on', value: 'Communication/comm-456' },
+        { name: 'group-identifier', value: 'https://fhir.ottehr.com/Identifier/task-category|inbound-fax' },
+      ]);
+      // A single-use claim token distinguishes "created by me" from "already existed".
+      expect(resource.identifier).toEqual([{ system: FAX_TASK_CLAIM_SYSTEM, value: expect.any(String) }]);
+    });
+
+    it('sends no duplicate notifications when the conditional create matched an existing task', async () => {
+      mockSearches({ practitioners: [makePractitioner('active-1')] });
+      // The race: the pre-search saw nothing, but by the time we wrote, another delivery had
+      // created the task. The server returns *that* task, which carries no claim token of ours.
+      mockOystehr.fhir.create.mockResolvedValue(makeFaxTask({ id: 'task-from-other-delivery' }));
+
+      const result = await handleInboundFax(makeInput(communication as unknown as Record<string, unknown>));
+
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body)).toEqual({ taskId: 'task-from-other-delivery', alreadyProcessed: true });
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+    });
+
+    it('reports without failing when the conditional create is rejected (multiple matches)', async () => {
+      mockSearches({ practitioners: [makePractitioner('active-1')] });
+      mockOystehr.fhir.create.mockRejectedValue(new Error('412 Precondition Failed'));
+
+      const result = await handleInboundFax(makeInput(communication as unknown as Record<string, unknown>));
+
+      // 200 keeps the subscription from retrying forever; Sentry carries the signal instead.
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body)).toEqual({ alreadyProcessed: true });
+      expect(mockCaptureException).toHaveBeenCalled();
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+    });
   });
 });

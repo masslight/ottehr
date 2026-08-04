@@ -11,12 +11,14 @@ import {
   getSecret,
   getTaskInputValue,
   INVALID_INPUT_ERROR,
+  makeOptimisticLockIfMatchHeader,
   PRECONDITION_FAILED,
   replaceOperation,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { resolvePatientDocumentFolder } from '../shared/patient-document-folders';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'file-inbound-fax';
@@ -27,7 +29,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`[${ZAMBDA_NAME}] handler start`);
 
   try {
-    const { secrets, taskId, communicationId, patientId, folderId, documentName } = validateRequestParameters(input);
+    const { secrets, taskId, communicationId, patientId, folderId, documentName, internalName } =
+      validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(
@@ -71,20 +74,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(`Task/${taskId} has no stored fax PDF url; cannot file this fax`);
     }
 
-    // Fetch the target folder List
-    let folderList: List;
-    try {
-      folderList = await oystehr.fhir.get<List>({
-        resourceType: 'List',
-        id: folderId,
-      });
-    } catch {
-      throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Folder List/${folderId} not found`), statusCode: 404 };
+    // Resolve the target folder. `folderId` may be a real List id or the
+    // `synthetic:${internalName}` sentinel the read path hands out for folders the patient has
+    // no List for yet; the shared resolver materializes those (validating against the folder
+    // catalog) and verifies ownership. Folder Lists are never created client-side.
+    const folderResult = await resolvePatientDocumentFolder({ folderId, patientId, internalName, oystehr });
+    if (folderResult.status === 'not-found') {
+      throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(folderResult.message), statusCode: 404 };
     }
-
-    // Verify the folder belongs to the specified patient
-    if (folderList.subject?.reference !== `Patient/${patientId}`) {
-      throw INVALID_INPUT_ERROR(`Folder List/${folderId} does not belong to Patient/${patientId}`);
+    if (folderResult.status === 'wrong-patient') {
+      throw INVALID_INPUT_ERROR(folderResult.message);
+    }
+    const folderList: List = folderResult.folder;
+    const resolvedFolderId = folderList.id;
+    if (!resolvedFolderId) {
+      throw new Error(`Resolved folder List for Patient/${patientId} has no id`);
     }
 
     const now = DateTime.now().setZone('UTC').toISO() ?? '';
@@ -134,8 +138,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
     const updateListRequest: BatchInputPutRequest<List> = {
       method: 'PUT',
-      url: `/List/${folderId}`,
+      url: `/List/${resolvedFolderId}`,
       resource: updatedList,
+      // Optimistic lock: this PUT replaces the whole List, so without it a document uploaded
+      // (or another fax filed) between the read above and this write would be silently
+      // reverted. A concurrent change fails the transaction instead, leaving the fax
+      // unfiled and the task open so the operation can be retried.
+      ifMatch: makeOptimisticLockIfMatchHeader(folderList),
     };
 
     const completeTaskRequest = getPatchBinary({
@@ -156,12 +165,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     console.log(
-      `[${ZAMBDA_NAME}] filed DocumentReference/${documentRefId} into List/${folderId} and completed Task/${taskId}`
+      `[${ZAMBDA_NAME}] filed DocumentReference/${documentRefId} into List/${resolvedFolderId} and completed Task/${taskId}`
     );
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ documentRefId, folderId }),
+      body: JSON.stringify({ documentRefId, folderId: resolvedFolderId }),
     };
   } catch (error: any) {
     console.error(`[${ZAMBDA_NAME}] error:`, error);
