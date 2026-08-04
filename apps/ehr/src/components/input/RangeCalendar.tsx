@@ -29,7 +29,10 @@ const DayContext = React.createContext<DayState>({ start: null, end: null, hover
 /** Day cell that owns its own selected state, so the band and `aria-selected` always agree. */
 const RangeDay: React.FC<PickersDayProps<DateTime>> = (dayProps) => {
   const { start, end, hovered, onHover } = React.useContext(DayContext);
-  const { day, outsideCurrentMonth, isFirstVisibleCell, isLastVisibleCell } = dayProps;
+  const { day, disabled, outsideCurrentMonth, isFirstVisibleCell, isLastVisibleCell } = dayProps;
+  // Disabled days have `pointer-events: none`, so their hover lands on this wrapper instead: a day
+  // that cannot be picked must not preview a range, and neither must a blank outside-month cell.
+  const canPreview = !disabled && !outsideCurrentMonth;
   const isStart = start != null && day.hasSame(start, 'day');
   const isSelected = isStart || (end != null && day.hasSame(end, 'day'));
   // Until the end date is picked, the hovered day stands in for it as a preview.
@@ -47,7 +50,7 @@ const RangeDay: React.FC<PickersDayProps<DateTime>> = (dayProps) => {
   return (
     <Box
       data-band={inBand ? (isPreview ? 'preview' : 'range') : undefined}
-      onMouseEnter={() => onHover(day)}
+      onMouseEnter={() => onHover(canPreview ? day : null)}
       onMouseLeave={() => onHover(null)}
       // The day keeps its margins, so this wrapper spans the whole cell and consecutive bands touch.
       sx={(theme) => ({
@@ -99,8 +102,11 @@ export const RangeCalendar: React.FC<Props> = ({ value: [dateFrom, dateTo], rang
   const [calendarDate, setCalendarDate] = useState<DateTime | null>(dateFrom);
   const [hovered, setHovered] = useState<DateTime | null>(null);
 
-  // Leaving range mode drops a start that will never get its end.
-  useEffect(() => setPendingStart(null), [rangeMode]);
+  // Leaving range mode drops transient selection state that must not affect a later range.
+  useEffect(() => {
+    setPendingStart(null);
+    setHovered(null);
+  }, [rangeMode]);
 
   const handleDayPick = (day: DateTime | null): void => {
     if (!day) {
@@ -114,6 +120,7 @@ export const RangeCalendar: React.FC<Props> = ({ value: [dateFrom, dateTo], rang
     // backwards one.
     if (pendingStart == null || day < pendingStart) {
       setPendingStart(day);
+      setHovered(null);
       return;
     }
     onComplete(pendingStart, day);

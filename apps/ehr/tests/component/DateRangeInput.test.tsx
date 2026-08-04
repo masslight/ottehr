@@ -61,6 +61,11 @@ const goToNextMonth = async (): Promise<void> => {
 const getMonthLabel = (): string => screen.getByText(/^[A-Z][a-z]+ \d{4}$/).textContent ?? '';
 const bandOf = (isoDate: string): string | undefined => getDay(isoDate).parentElement?.dataset.band;
 
+// Disabled days do not take pointer events, so the cell around them is what gets hovered.
+const hoverCell = async (isoDate: string): Promise<void> => {
+  await userEvent.hover(getDay(isoDate).parentElement as HTMLElement);
+};
+
 describe('DateRangeInput', () => {
   it('displays a single date when both boundaries are the same day and commits both on one day click', async () => {
     render(<Harness dateFrom="2026-07-10" dateTo="2026-07-10" />);
@@ -101,6 +106,28 @@ describe('DateRangeInput', () => {
     expect(bandOf('2026-07-17')).toBeUndefined();
     // The preview follows the cursor and commits nothing.
     await userEvent.unhover(getDay('2026-07-16'));
+    expect(bandOf('2026-07-15')).toBeUndefined();
+    expect(getValues()).toBe('2026-07-10|2026-07-10');
+  });
+
+  it('does not reuse an old hover preview after Date Range mode is toggled with the keyboard', async () => {
+    render(<Harness dateFrom="2026-07-10" dateTo="2026-07-10" />);
+
+    await openPicker();
+    await enableRangeMode();
+    await clickDay('2026-07-13');
+    await userEvent.hover(getDay('2026-07-16'));
+    expect(bandOf('2026-07-15')).toBe('preview');
+
+    const checkbox = screen.getByTestId(dataTestIds.dashboard.dateRangeModeCheckbox);
+    checkbox.focus();
+    await userEvent.keyboard(' ');
+    await userEvent.keyboard(' ');
+
+    getDay('2026-07-14').focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(getDay('2026-07-14')).toHaveAttribute('aria-selected', 'true');
     expect(bandOf('2026-07-15')).toBeUndefined();
     expect(getValues()).toBe('2026-07-10|2026-07-10');
   });
@@ -181,6 +208,14 @@ describe('DateRangeInput', () => {
     // 45 days after 07/13 is 08/27, so the following day cannot close the range.
     expect(getDay('2026-08-27')).toBeEnabled();
     expect(getDay('2026-08-28')).toBeDisabled();
+
+    // Nor can it be previewed, even though its cell is what receives the hover.
+    await hoverCell('2026-08-28');
+    expect(bandOf('2026-08-27')).toBeUndefined();
+    expect(bandOf('2026-08-28')).toBeUndefined();
+
+    await hoverCell('2026-08-27');
+    expect(bandOf('2026-08-27')).toBe('preview');
   });
 
   it('marks the committed range on its days and only its boundaries as selected', async () => {
@@ -225,6 +260,34 @@ describe('DateRangeInput', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Start date must be on or before end date.')).toBeVisible();
+    });
+  });
+
+  it.each([
+    { dateFrom: '2026-07-10', dateTo: null },
+    { dateFrom: null, dateTo: '2026-07-10' },
+  ])('shows an inline error for an incomplete range seeded from outside the picker', async ({ dateFrom, dateTo }) => {
+    render(<Harness dateFrom={dateFrom} dateTo={dateTo} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Both start and end dates are required.')).toBeVisible();
+    });
+  });
+
+  it('accepts an empty externally seeded range', async () => {
+    render(<Harness dateFrom={null} dateTo={null} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId(FIELD_TEST_ID)).toHaveAttribute('aria-invalid', 'false');
+    });
+    expect(screen.queryByText('Both start and end dates are required.')).not.toBeInTheDocument();
+  });
+
+  it('shows an inline error for an over-limit range seeded from outside the picker', async () => {
+    render(<Harness dateFrom="2026-07-01" dateTo="2026-08-16" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Date range must not exceed 45 days.')).toBeVisible();
     });
   });
 });
