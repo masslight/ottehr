@@ -36,15 +36,11 @@ import {
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   Validation,
 } from 'utils';
+import { sanitizeForId } from '../../ehr/lab/shared/in-house-labs';
 import { createClinicalOystehrClient, getAuth0Token, makeCptModifierExtension } from '../../shared';
 import { testItems as baseTestItems } from '../data/base-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
-
-const sanitizeForId = (str: string): string => {
-  /* eslint-disable-next-line  no-useless-escape */
-  return str.replace(/[ ()\/\\]/g, '');
-};
 
 const valueSetConfigDiff = (
   a: Set<LabComponentValueSetConfig>,
