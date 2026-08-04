@@ -26,6 +26,12 @@
         },
         {
           "linkId": "patient-street-address-2"
+        },
+        {
+          "linkId": "photo-id-front"
+        },
+        {
+          "linkId": "photo-id-back"
         }
       ]
     },
@@ -128,17 +134,6 @@
       "item": [
         {
           "linkId": "responsible-party-number"
-        }
-      ]
-    },
-    {
-      "linkId": "photo-id-page",
-      "item": [
-        {
-          "linkId": "photo-id-front"
-        },
-        {
-          "linkId": "photo-id-back"
         }
       ]
     }
