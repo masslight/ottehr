@@ -89,10 +89,10 @@ jobs:
           environment: ${{ inputs.environment }}
 
       - name: Materialize zambda env files
-        # populate-secrets writes config/.env/<env>.json (M2M creds + all server
-        # secrets in one file). The census wrapper + local server read them from
-        # packages/zambdas/.env/, so mirror them there (M2M creds file + the
-        # server's secrets file). 0600 so the values never sit world-readable.
+        # config/.env has the M2M creds + third-party keys, but NOT terraform-
+        # generated secrets like ORGANIZATION_ID. Use it for the harness M2M creds
+        # and as a fallback server-secrets file; the next step overwrites the
+        # server file with the FULL project secret set.
         run: |
           set -euo pipefail
           SRC="config/.env/${{ inputs.environment }}.json"
@@ -101,6 +101,25 @@ jobs:
           cp "$SRC" "packages/zambdas/.env/${{ inputs.environment }}.json"
           cp "$SRC" "packages/zambdas/.env/zambda-secrets-${{ inputs.environment }}.json"
           chmod 600 packages/zambdas/.env/*.json
+
+      - name: Sync project secrets for the local server
+        if: ${{ inputs.dry != 'true' }}
+        # The census wrapper boots a local server that runs the visit harness; that
+        # server needs the exact secret set the deployed zambdas use, incl.
+        # terraform-generated ORGANIZATION_ID (else change-in-person-visit-status
+        # 500s on its audit log). Fetch them from Oystehr (IAM read) under the
+        # terraform admin pair and overwrite the server-secrets file. Skipped on --dry.
+        run: |
+          set -euo pipefail
+          CREDS="packages/zambdas/.env/${{ inputs.environment }}.json"
+          TF="secrets/ottehr/terraform/${{ inputs.environment }}.tfvars"
+          [ -f "$TF" ] || { echo "::error::$TF not found — needed to read project secrets"; exit 1; }
+          OYSTEHR_ADMIN_CLIENT_ID=$(sed -nE 's/^[[:space:]]*client_id[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+          OYSTEHR_ADMIN_CLIENT_SECRET=$(sed -nE 's/^[[:space:]]*client_secret[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' "$TF")
+          [ -n "$OYSTEHR_ADMIN_CLIENT_ID" ] && [ -n "$OYSTEHR_ADMIN_CLIENT_SECRET" ] || { echo "::error::no client pair in $TF"; exit 1; }
+          echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_ID"; echo "::add-mask::$OYSTEHR_ADMIN_CLIENT_SECRET"
+          export OYSTEHR_ADMIN_CLIENT_ID OYSTEHR_ADMIN_CLIENT_SECRET
+          npx env-cmd -f "$CREDS" npx tsx scripts/synthetic-patient-data/sync-project-secrets.ts --env "${{ inputs.environment }}"
 
       - name: Run daily census
         # The wrapper boots its own ephemeral local zambda server (redacted log,
