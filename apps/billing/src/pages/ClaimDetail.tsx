@@ -4,6 +4,7 @@ import {
   Edit as EditIcon,
   FileDownloadOutlined as FileDownloadIcon,
   OpenInNew as OpenInNewIcon,
+  StickyNote2Outlined as StickyNote2Icon,
 } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -75,6 +76,7 @@ import {
   updateBillingResource,
 } from '../api/api';
 import { ClaimHistory } from '../components/claim/ClaimHistory';
+import { ClaimNotesDrawer } from '../components/claim/ClaimNotesDrawer';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { DiagnosesEditor } from '../components/claim/DiagnosesEditor';
 import { EditableSection, EditableSectionSkeleton } from '../components/claim/EditableSection';
@@ -132,6 +134,8 @@ export default function ClaimDetail(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState('1');
   const [exportOpen, setExportOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
   const [savingHeader, setSavingHeader] = useState(false);
   const [headerError, setHeaderError] = useState<string | null>(null);
@@ -430,6 +434,15 @@ export default function ClaimDetail(): ReactElement {
         >
           Export X12
         </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<StickyNote2Icon />}
+          onClick={() => setNotesOpen(true)}
+          sx={{ mt: 0.5 }}
+        >
+          Notes
+        </Button>
         {runEngine && (
           <Button variant="contained" size="small" onClick={() => setConfirmingSubmit(true)} sx={{ mt: 0.5 }}>
             {runEngine.runButtonLabel}
@@ -442,6 +455,14 @@ export default function ClaimDetail(): ReactElement {
         onClose={() => setExportOpen(false)}
         claimId={claim.id}
         claimType={claim.type}
+      />
+
+      <ClaimNotesDrawer
+        key={claim.id}
+        open={notesOpen}
+        onClose={() => setNotesOpen(false)}
+        claimId={claim.id}
+        onNoteAdded={() => setHistoryVersion((version) => version + 1)}
       />
 
       <Box sx={{ ml: 5, mb: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -542,7 +563,7 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="5" sx={{ px: 0, pt: 2 }}>
-            <ClaimHistory claimId={claim.id} />
+            <ClaimHistory key={historyVersion} claimId={claim.id} />
           </TabPanel>
         </TabContext>
       </Box>

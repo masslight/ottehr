@@ -4,7 +4,12 @@ import { Attachment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { addContentTypeToAttachment } from 'utils';
+import {
+  addContentTypeToAttachment,
+  INSURANCE_CARD_FRONT_2_ID,
+  INSURANCE_CARD_FRONT_ID,
+  PHOTO_ID_FRONT_ID,
+} from 'utils';
 import { convertHeicToJpegIfNeeded } from '../../../../utils/heic';
 import { PaperworkContext } from '../../context';
 import CardDisplay from './CardDisplay';
@@ -49,7 +54,7 @@ const FileInput: FC<FileInputProps> = ({
   const [pendingZ3Upload, setPendingZ3Upload] = useState<File | undefined>();
   const [z3UploadState, setZ3UploadState] = useState(UploadState.initial);
   const [compressingImage, setCompressingImage] = useState(false);
-  const { createZ3Object } = paperworkComponentHelpers;
+  const { createZ3Object, getInsuranceCardSuggestions, getPhotoIdSuggestions } = paperworkComponentHelpers;
   // when the user clears an existing value, then uploads a different image, then deletes it, we set the value
   // back to the starting value in the form state since we won't actually be deleting the existing image in that case.
   // this prevents the upload button from appearing, because value exists. this additional state is a hack to make the upload button
@@ -132,10 +137,30 @@ const FileInput: FC<FileInputProps> = ({
           title: fileName,
           creation: DateTime.now().toISO(),
         };
-        onChange(addContentTypeToAttachment(attachment));
+        const enrichedAttachment = addContentTypeToAttachment(attachment);
+        onChange(enrichedAttachment);
         setZ3UploadState(UploadState.complete);
         setPendingZ3Upload(undefined);
         setSaveButtonDisabled(false);
+
+        // Suggestions are a nice-to-have on top of the upload, not part of its success/failure —
+        // only the front image carries the fields we currently have a use for (see
+        // extract-insurance-card/extract-photo-id: back images aren't OCR'd for photo ID either).
+        const suggestionsInput = {
+          appointmentID: appointmentId,
+          fileURL: z3URL,
+          fileContentType: enrichedAttachment.contentType,
+          cardSlot: fileName,
+        };
+        if (fileName === INSURANCE_CARD_FRONT_ID || fileName === INSURANCE_CARD_FRONT_2_ID) {
+          getInsuranceCardSuggestions?.(suggestionsInput).catch((error) =>
+            console.error('Failed to fetch insurance card suggestions:', error)
+          );
+        } else if (fileName === PHOTO_ID_FRONT_ID) {
+          getPhotoIdSuggestions?.(suggestionsInput).catch((error) =>
+            console.error('Failed to fetch photo ID suggestions:', error)
+          );
+        }
       } catch (e) {
         console.error(e);
         setZ3UploadState(UploadState.failed);
@@ -155,6 +180,8 @@ const FileInput: FC<FileInputProps> = ({
     onChange,
     setSaveButtonDisabled,
     createZ3Object,
+    getInsuranceCardSuggestions,
+    getPhotoIdSuggestions,
   ]);
 
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>): Promise<string | null> => {

@@ -69,5 +69,7 @@ export * from './get-booking-questionnaire.types';
 export * from './erx.types';
 export * from './invoicing.types';
 export * from './extract-card.types';
+export * from './get-insurance-card-suggestions.types';
+export * from './get-photo-id-suggestions.types';
 export * from './patient-login-phone-numbers.types';
 export * from './quick-picks.types';

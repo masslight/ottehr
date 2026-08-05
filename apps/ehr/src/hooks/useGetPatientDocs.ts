@@ -330,22 +330,109 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   };
 };
 
-type PatientDocsFoldersQueryData = {
+export type PatientDocsFoldersQueryData = {
   lists: List[];
   catalogDefs: CustomFolderDefinition[];
 };
 
-const useGetPatientDocsFolders = (
+// Pure transform from the raw folders query data to displayable folders (real per-patient
+// Lists plus synthesized folders — see the comments inline). Exported so consumers of
+// useGetPatientDocsFolders can derive folders directly from query data instead of relying
+// on the onSuccess callback (which only fires when the data reference changes).
+export const parsePatientDocsFolders = (
+  data: PatientDocsFoldersQueryData,
+  patientId: string
+): PatientDocumentsFolder[] => {
+  const { lists, catalogDefs } = data;
+
+  const patientFolderLists = lists.filter(
+    (list) => list.status === 'current' && list.code?.coding?.some((c) => c.code === PATIENT_FOLDERS_CODE)
+  );
+
+  const byInternalName = new Map<string, PatientDocumentsFolder>();
+
+  for (const list of patientFolderLists) {
+    const internalName = list.title;
+    if (!internalName) continue;
+    const isCustom = isCustomFolderList(list);
+    // Custom folder displayName is owned by the catalog (active or soft-deleted).
+    // A per-patient List with no matching catalog entry is unreachable through supported
+    // flows (deletes are soft); skip it and report the invariant so it can be remediated.
+    const catalogDef = isCustom ? catalogDefs.find((d) => d.internalName === internalName) : undefined;
+    if (isCustom && !catalogDef) {
+      safelyCaptureMessage('Custom-folder List has no matching catalog entry (invariant violation)', {
+        level: 'error',
+        tags: {
+          invariant: 'custom-folder-list:has-catalog-entry',
+          site: 'useGetPatientDocsFolders',
+          patientId,
+          listId: list.id ?? '',
+          internalName,
+        },
+      });
+      continue;
+    }
+
+    const docRefs: DocRef[] = (list.entry ?? []).map((entry) => ({ reference: entry.item }) as DocRef);
+
+    const folderName = isCustom
+      ? catalogDef!.displayName
+      : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
+
+    byInternalName.set(internalName, {
+      id: list.id!,
+      folderName,
+      internalName,
+      documentsCount: docRefs.length,
+      documentsRefs: docRefs,
+      isCustom,
+    });
+  }
+
+  // Synthesize folders the patient has no per-patient List for yet, so they can be opened
+  // and uploaded to; the real List is created lazily on first upload (see the
+  // create-upload-document-url zambda). Two sources:
+  //  - System folders (FOLDERS_CONFIG): missing for patients created before the folder
+  //    existed or before seeding ran.
+  //  - Custom folders (catalog): soft-deleted entries are skipped so patients who never
+  //    used the folder don't see it reappear after an admin deletes it.
+  const synthCandidates = [
+    ...FOLDERS_CONFIG.map((c) => ({ internalName: c.title, displayName: c.display, isCustom: false })),
+    ...catalogDefs
+      .filter((def) => !def.deleted)
+      .map((def) => ({ internalName: def.internalName, displayName: def.displayName, isCustom: true })),
+  ];
+  for (const { internalName, displayName, isCustom } of synthCandidates) {
+    if (byInternalName.has(internalName)) continue;
+    byInternalName.set(internalName, {
+      id: makeSyntheticFolderId(internalName),
+      folderName: displayName,
+      internalName,
+      documentsCount: 0,
+      documentsRefs: [],
+      isCustom,
+    });
+  }
+
+  return Array.from(byInternalName.values());
+};
+
+// Exported so screens that file documents for an ad-hoc patient (e.g. inbound-fax matching)
+// can reuse the folder loading + synthetic-folder logic instead of re-implementing it.
+export const useGetPatientDocsFolders = (
   {
     patientId,
   }: {
     patientId: string;
   },
-  onSuccess: (data: PatientDocumentsFolder[]) => void
+  onSuccess?: (data: PatientDocumentsFolder[]) => void
 ): UseQueryResult<PatientDocsFoldersQueryData, Error> => {
   const { oystehr } = useApiClients();
   const queryResult = useQuery({
     queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+    // Callers may render before a patient is chosen (empty patientId) or before the
+    // oystehr client initializes; don't run (and error-retry) the query until both exist.
+    enabled: !!oystehr && !!patientId,
 
     queryFn: async (): Promise<PatientDocsFoldersQueryData> => {
       if (!oystehr) {
@@ -385,78 +472,7 @@ const useGetPatientDocsFolders = (
     if (!data) {
       return;
     }
-    const { lists, catalogDefs } = data;
-
-    const patientFolderLists = lists.filter(
-      (list) => list.status === 'current' && list.code?.coding?.some((c) => c.code === PATIENT_FOLDERS_CODE)
-    );
-
-    const byInternalName = new Map<string, PatientDocumentsFolder>();
-
-    for (const list of patientFolderLists) {
-      const internalName = list.title;
-      if (!internalName) continue;
-      const isCustom = isCustomFolderList(list);
-      // Custom folder displayName is owned by the catalog (active or soft-deleted).
-      // A per-patient List with no matching catalog entry is unreachable through supported
-      // flows (deletes are soft); skip it and report the invariant so it can be remediated.
-      const catalogDef = isCustom ? catalogDefs.find((d) => d.internalName === internalName) : undefined;
-      if (isCustom && !catalogDef) {
-        safelyCaptureMessage('Custom-folder List has no matching catalog entry (invariant violation)', {
-          level: 'error',
-          tags: {
-            invariant: 'custom-folder-list:has-catalog-entry',
-            site: 'useGetPatientDocsFolders',
-            patientId,
-            listId: list.id ?? '',
-            internalName,
-          },
-        });
-        continue;
-      }
-
-      const docRefs: DocRef[] = (list.entry ?? []).map((entry) => ({ reference: entry.item }) as DocRef);
-
-      const folderName = isCustom
-        ? catalogDef!.displayName
-        : list.code?.coding?.find((c) => c.code === PATIENT_FOLDERS_CODE)?.display ?? '';
-
-      byInternalName.set(internalName, {
-        id: list.id!,
-        folderName,
-        internalName,
-        documentsCount: docRefs.length,
-        documentsRefs: docRefs,
-        isCustom,
-      });
-    }
-
-    // Synthesize folders the patient has no per-patient List for yet, so they can be opened
-    // and uploaded to; the real List is created lazily on first upload (see the
-    // create-upload-document-url zambda). Two sources:
-    //  - System folders (FOLDERS_CONFIG): missing for patients created before the folder
-    //    existed or before seeding ran.
-    //  - Custom folders (catalog): soft-deleted entries are skipped so patients who never
-    //    used the folder don't see it reappear after an admin deletes it.
-    const synthCandidates = [
-      ...FOLDERS_CONFIG.map((c) => ({ internalName: c.title, displayName: c.display, isCustom: false })),
-      ...catalogDefs
-        .filter((def) => !def.deleted)
-        .map((def) => ({ internalName: def.internalName, displayName: def.displayName, isCustom: true })),
-    ];
-    for (const { internalName, displayName, isCustom } of synthCandidates) {
-      if (byInternalName.has(internalName)) continue;
-      byInternalName.set(internalName, {
-        id: makeSyntheticFolderId(internalName),
-        folderName: displayName,
-        internalName,
-        documentsCount: 0,
-        documentsRefs: [],
-        isCustom,
-      });
-    }
-
-    onSuccess?.(Array.from(byInternalName.values()));
+    onSuccess?.(parsePatientDocsFolders(data, patientId));
   });
 
   return queryResult;

@@ -558,6 +558,20 @@
       "src": "src/patient/get-presigned-file-url/index",
       "zip": ".dist/zips/get-presigned-file-url.zip"
     },
+    "GET-INSURANCE-CARD-SUGGESTIONS": {
+      "name": "get-insurance-card-suggestions",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-insurance-card-suggestions/index",
+      "zip": ".dist/zips/get-insurance-card-suggestions.zip"
+    },
+    "GET-PHOTO-ID-SUGGESTIONS": {
+      "name": "get-photo-id-suggestions",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/get-photo-id-suggestions/index",
+      "zip": ".dist/zips/get-photo-id-suggestions.zip"
+    },
     "GET-APPOINTMENT-DETAILS": {
       "name": "get-appointment-details",
       "type": "http_open",
@@ -751,6 +765,13 @@
       "schedule": {
         "expression": "cron(4,33 * * * ? *)"
       }
+    },
+    "HANDLE-INBOUND-FAX": {
+      "name": "handle-inbound-fax",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/communication/handle-inbound-fax/index",
+      "zip": ".dist/zips/handle-inbound-fax.zip"
     },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
@@ -1160,6 +1181,20 @@
       "timeout": "300",
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
       "zip": ".dist/zips/ai-interview-summary.zip"
+    },
+    "FILE-INBOUND-FAX": {
+      "name": "file-inbound-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/file-inbound-fax/index",
+      "zip": ".dist/zips/file-inbound-fax.zip"
+    },
+    "DELETE-INBOUND-FAX": {
+      "name": "delete-inbound-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-inbound-fax/index",
+      "zip": ".dist/zips/delete-inbound-fax.zip"
     },
     "SEND-FAX": {
       "name": "send-fax",
@@ -2306,6 +2341,24 @@
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-LAB-RESULT/id}"
         }
+      }
+    },
+    "HANDLE_INBOUND_FAX_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Inbound fax received",
+        "criteria": "Communication?medium=FAXWRIT&status=completed",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-INBOUND-FAX/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
       }
     },
     "PROCESS_TELEMED_RECORDING_SUBSCRIPTION": {

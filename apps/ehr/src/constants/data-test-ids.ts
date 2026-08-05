@@ -34,6 +34,7 @@ export const dataTestIds = {
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     dateFilter: 'tracking-board-date-filter',
+    datePickerPopover: 'date-picker-popover',
     dateRangeModeCheckbox: 'date-picker-range-mode-checkbox',
     datePickerTodayButton: 'date-picker-today-button',
     datePickerDay: (isoDate: string) => `date-picker-day-${isoDate}`,
