@@ -6,6 +6,7 @@ import { CMS_PLACE_OF_SERVICE_CODE_SET, CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from
 import { fullZipRegex, stripeAccountIdRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { STATE_CODES } from '../../common';
 import { BILLING_MANUAL_PAYMENT_METHODS } from './billing.constants';
+import { CLAIM_NOTE_MAX_LENGTH } from './claim-history';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -38,6 +39,11 @@ export const GetClaimDetailInputSchema = z.object({
 
 export const GetClaimHistoryInputSchema = z.object({
   claimId: nonEmptyString.uuid(),
+});
+
+export const AddClaimNoteInputSchema = z.object({
+  claimId: nonEmptyString.uuid(),
+  message: nonEmptyString.max(CLAIM_NOTE_MAX_LENGTH),
 });
 
 export const ExportClaimX12InputSchema = z.object({
@@ -647,6 +653,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
 
 export type GetClaimDetailInput = z.output<typeof GetClaimDetailInputSchema>;
 export type GetClaimHistoryInput = z.output<typeof GetClaimHistoryInputSchema>;
+export type AddClaimNoteInput = z.output<typeof AddClaimNoteInputSchema>;
 export type ExportClaimX12Input = z.output<typeof ExportClaimX12InputSchema>;
 export type GetEraDetailInput = z.output<typeof GetEraDetailInputSchema>;
 export type SearchErasInput = z.output<typeof SearchErasInputSchema>;

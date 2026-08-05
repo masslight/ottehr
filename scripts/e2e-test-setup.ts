@@ -5,7 +5,9 @@ import { FhirResource, HealthcareService, Location, Practitioner, Schedule } fro
 import fs from 'fs';
 import {
   allLicensesForPractitioner,
+  FHIR_IDENTIFIER_NPI,
   FULL_DAY_SCHEDULE,
+  getNPIIdentifier,
   makeQualificationForPractitioner,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
@@ -306,12 +308,13 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
   };
 }
 
-async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
-  if (!isVirtualEnabled) {
-    console.warn('No virtual locations configured — skipping telemed practitioner setup');
-    return;
-  }
+// The e2e provider stands in for a full Provider. NPI-gated actions (sign/co-sign, external labs &
+// imaging orders, in-house medication orders) are enforced in the zambdas via requirePractitionerNPI, so
+// without an NPI on file every ordering and signing spec fails — the zambda returns NOT_AUTHORIZED and
+// the EHR also disables the affected buttons. Same value the shared integration-test provider uses.
+const TEST_PRACTITIONER_NPI = '1234567893';
 
+async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
   console.log(`Setting up test EHR provider credentials`);
   const oystehr = await getToken(ehrConfig, ehrConfig.AUTH0_CLIENT_TESTS, ehrConfig.AUTH0_SECRET_TESTS);
 
@@ -341,30 +344,48 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
     throw Error('e2e test user profile practitioner not found');
   }
 
-  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
+  const updates: Partial<Practitioner> = {};
 
-  const licenses = allLicensesForPractitioner(practitioner);
-  const qualification = practitioner.qualification || [];
-  if (!licenses.find((license) => license.state === firstDefaultVirtualLocation.state)) {
-    qualification.push(
-      makeQualificationForPractitioner({
-        state: firstDefaultVirtualLocation.state,
-        number: '1234567890',
-        code: 'MD',
-        active: true,
-      })
-    );
+  // Not telemed-specific, so this runs even when no virtual locations are configured.
+  if (!getNPIIdentifier(practitioner)?.value) {
+    console.log(`Adding NPI to e2e test practitioner ${practitioner.id}`);
+    updates.identifier = [
+      ...(practitioner.identifier ?? []),
+      { system: FHIR_IDENTIFIER_NPI, value: TEST_PRACTITIONER_NPI },
+    ];
+  }
 
-    try {
-      await oystehr.fhir.update<Practitioner>({
-        id: practitioner.id!,
-        ...practitioner,
-        qualification,
-      });
-    } catch (error) {
-      console.error('Error updating e2e test practitioner qualifications', error);
-      throw error;
+  if (isVirtualEnabled) {
+    const firstDefaultVirtualLocation = virtualDefaultLocations[0];
+    const licenses = allLicensesForPractitioner(practitioner);
+    if (!licenses.find((license) => license.state === firstDefaultVirtualLocation.state)) {
+      updates.qualification = [
+        ...(practitioner.qualification ?? []),
+        makeQualificationForPractitioner({
+          state: firstDefaultVirtualLocation.state,
+          number: '1234567890',
+          code: 'MD',
+          active: true,
+        }),
+      ];
     }
+  } else {
+    console.warn('No virtual locations configured — skipping telemed practitioner license setup');
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return;
+  }
+
+  try {
+    await oystehr.fhir.update<Practitioner>({
+      ...practitioner,
+      id: practitioner.id!,
+      ...updates,
+    });
+  } catch (error) {
+    console.error('Error updating e2e test practitioner credentials', error);
+    throw error;
   }
 }
 

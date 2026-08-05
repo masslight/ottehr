@@ -30,6 +30,7 @@ import { AdminLayout } from './features/admin/AdminSidebar';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
 import LocationConfigPage from './features/locations/LocationConfigPage';
 import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
@@ -101,6 +102,7 @@ const PRIMARY_EHR_STAFF_ROLES = [
   RoleType.Staff,
   RoleType.Manager,
   RoleType.Provider,
+  RoleType.Clinician,
   RoleType.CustomerSupport,
 ];
 
@@ -319,6 +321,8 @@ function App(): ReactElement {
                     <Route path="/admin/:adminTab" element={<AdminPage />} />
                   </Route>
                 )}
+
+                <Route path="/inbound-fax/:communicationId/match" element={<InboundFaxMatch />} />
 
                 <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
