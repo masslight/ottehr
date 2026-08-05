@@ -891,6 +891,7 @@ export interface PatientInfoForDischargeSummary extends PdfData {
 }
 
 export interface RadiologyData extends PdfData {
+  radiologyOrders: string[];
   radiology?: {
     name: string;
     result?: string;
