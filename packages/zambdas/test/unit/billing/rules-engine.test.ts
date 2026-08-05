@@ -795,24 +795,23 @@ describe('apply charge master prices action', () => {
     expect(JSON.stringify(m.claim)).toBe(before);
   });
 
-  it('fails the rule when no applicable charge master exists, leaving the claim untouched', () => {
+  it('is a no-op when no applicable charge master exists, leaving the claim untouched', () => {
     const m = makeModel();
     const before = JSON.stringify(m.claim);
-    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain(
-      'no active charge master'
-    );
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toBeUndefined();
+    // A charge master effective only after the date of service is not applicable either.
     m.chargeMasters = [makeChargeMaster('insurance', '2026-02-01', [{ code: '99213', amount: 100 }])];
-    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain(
-      'no active charge master'
-    );
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toBeUndefined();
     expect(JSON.stringify(m.claim)).toBe(before);
   });
 
-  it('fails the rule when the claim has no date of service to select a charge master by', () => {
+  it('is a no-op when the claim has no date of service to select a charge master by', () => {
     const m = makeModel();
     delete m.claim.item![0].servicedPeriod;
     m.chargeMasters = [makeChargeMaster('insurance', '2025-01-01', [{ code: '99213', amount: 100 }])];
-    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain('date of service');
+    const before = JSON.stringify(m.claim);
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toBeUndefined();
+    expect(JSON.stringify(m.claim)).toBe(before);
   });
 
   it('prices the lines the charge master has entries for and leaves the rest unchanged', () => {
@@ -854,7 +853,7 @@ describe('apply charge master prices action', () => {
     expect(JSON.stringify(m.claim)).toBe(before);
   });
 
-  it('holds the claim via executeRule when pricing fails', () => {
+  it('never fails or holds via executeRule, even with no charge masters loaded', () => {
     const m = makeModel();
     const rule: BillingRule = {
       id: 'r-cm',
@@ -871,8 +870,9 @@ describe('apply charge master prices action', () => {
       },
     };
     const result = executeRule(rule, m);
-    expect(result.error).toContain('charge master');
-    expect(result.appliedActions).toHaveLength(0);
+    expect(result.error).toBeUndefined();
+    expect(result.held).toBe(false);
+    expect(result.appliedActions).toHaveLength(1);
   });
 });
 

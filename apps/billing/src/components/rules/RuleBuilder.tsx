@@ -931,8 +931,8 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <ServiceLineMatchEditor name={`${name}.match`} />
           <FormHelperText>
             Prices each matched line from the best charge master for the claim's billing type (the insurance or self-pay
-            default, most recent effective date on or before the date of service). A matched line the charge master
-            cannot price keeps its existing charges.
+            default, most recent effective date on or before the date of service). Lines the charge master cannot price
+            keep their existing charges — this action never fails or holds the claim.
           </FormHelperText>
         </Box>
       )}

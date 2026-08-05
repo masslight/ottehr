@@ -294,30 +294,24 @@ const applyServiceLineUpdate = (
 // Re-price every line matching the predicate from the best applicable charge master. The charge
 // master is selected at apply time so it reflects whatever earlier rules did to the claim: the
 // billing type comes from whether the claim carries a real coverage, the date of service from the
-// claim's (first line's) service date. Each matched line is priced independently: a line the charge
-// master has no valid price for (no CPT code, or no entry for the code/modifier combination) keeps
-// its existing charges rather than failing the rule. Zero matching lines is a no-op, but a missing
-// date of service or the absence of an applicable charge master fails the rule.
+// claim's (first line's) service date. Best-effort by design — this action never fails the rule or
+// holds the claim. A line the charge master has no valid price for (no CPT code, or no entry for
+// the code/modifier combination) keeps its existing charges, and when no charge master can be
+// selected at all (no date of service, or none active/designated/effective) no lines change. Rules
+// later in the run are the place to hold claims whose lines still lack a price.
 const applyChargeMasterPricing = (
   action: Extract<RuleAction, { type: 'applyChargeMasterPrices' }>,
   model: RulesEngineClaimModel
-): string | undefined => {
+): undefined => {
   const { claim } = model;
   const matching = (claim.item ?? []).filter((line) => serviceLineMatches(line, action.match));
   if (!matching.length) return undefined;
 
   const dateOfService = asScalar(readField(model, 'serviceDate'));
-  if (!dateOfService) {
-    return 'could not apply charge master prices — the claim has no date of service to select a charge master by';
-  }
+  if (!dateOfService) return undefined;
   const kind: ChargeItemDefinitionDefault = claimHasRealCoverage(claim.insurance) ? 'insurance' : 'self-pay';
   const chargeMaster = selectBestChargeMaster(model.chargeMasters ?? [], kind, dateOfService);
-  if (!chargeMaster) {
-    return (
-      `could not apply charge master prices — no active charge master is designated as the ` +
-      `${kind} default and effective on or before ${dateOfService}`
-    );
-  }
+  if (!chargeMaster) return undefined;
 
   let changed = false;
   for (const line of matching) {
