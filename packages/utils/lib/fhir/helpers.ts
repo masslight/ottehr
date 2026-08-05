@@ -284,6 +284,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
 export interface FileDocDataForDocReference {
   url: string;
   title: string;
+  language?: string;
 }
 
 export interface CreateDocumentReferenceInput {
