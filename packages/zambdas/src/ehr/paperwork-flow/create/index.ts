@@ -23,7 +23,6 @@ import {
   PAPERWORK_FLOW_BASE_VERSION,
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
-  validateFlowFormLinkIds,
 } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -42,9 +41,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('configuring questionnaire resource');
   const flowQuestionnaire = configFlowQuestionnaire(resources.formQuestionnaires, slug, flow, flowServices);
-
-  // Reject bundles whose forms collide on a top-level page linkId (consent page exempted) before saving.
-  validateFlowFormLinkIds(flowQuestionnaire.derivedFrom ?? [], resources.formQuestionnaires);
 
   console.log(
     `configuring healthcare service patch requests for ${flowServices.map(

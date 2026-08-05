@@ -10,7 +10,7 @@ import {
   VIRTUAL_INTAKE_PAPERWORK_URL,
 } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
-import { CONSENT_FORMS_PAGE_LINK_ID, INTAKE_PAPERWORK_QR_TAG, PAPERWORK_FLOW_TAG } from './constants';
+import { INTAKE_PAPERWORK_QR_TAG, PAPERWORK_FLOW_TAG } from './constants';
 
 // todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
 const getQuestionnaires = (): Array<Questionnaire> => [
@@ -129,12 +129,9 @@ export const isPaperworkFlowQuestionnaire = (questionnaire: Questionnaire): bool
 
 /**
  * Assembles a paperwork flow's constituent forms into a single ordered top-level item list. For each
- * canonical in `flowQuestionnaire.derivedFrom` (in order) the referenced form Questionnaire is resolved
- * and its top-level items are concatenated. The consent-forms page is de-duplicated keeping only its
- * last occurrence, so consent always renders at the end of the flow.
- *
- * Assumes non-consent top-level linkIds are unique across the flow's forms; that invariant is enforced
- * when the flow is created/updated (paperwork-flow create/update validation).
+ * canonical in `flowQuestionnaire.derivedFrom` the referenced form Questionnaire is resolved
+ * and its top-level items are concatenated. Any top-level linkId that appears in more than one form is
+ * de-duplicated, keeping only its last occurrence and dropping earlier ones.
  */
 export const assembleFlowQuestionnaireItems = async (
   flowQuestionnaire: Questionnaire,
@@ -155,19 +152,19 @@ export const assembleFlowQuestionnaireItems = async (
 };
 
 export const handleFlowQuestionnaireItem = (assembledItems: QuestionnaireItem[]): QuestionnaireItem[] => {
-  // Consent should always come at the end: when more than one form contributes a consent-forms page,
-  // keep only the last occurrence and drop the earlier ones.
-  const consentPageCount = assembledItems.filter((item) => item.linkId === CONSENT_FORMS_PAGE_LINK_ID).length;
-  if (consentPageCount <= 1) {
-    return assembledItems;
+  // where page linkIds are duplicated, keep the last occurrence (a common example of this is the consent page)
+  // we in order to get the consent page to show up at the end of a flow that holds a form with the consent page contained
+  // the user must add consent only form at the end of the flow
+  // this could be a strange user experience for other pages but we have decided that its probably an unlikely occurrence
+  // and better to handle gracefully than error when trying to enter paperwork
+  const occurrencesRemaining = new Map<string, number>();
+  for (const item of assembledItems) {
+    occurrencesRemaining.set(item.linkId, (occurrencesRemaining.get(item.linkId) ?? 0) + 1);
   }
-  let consentPagesRemaining = consentPageCount;
   return assembledItems.filter((item) => {
-    if (item.linkId !== CONSENT_FORMS_PAGE_LINK_ID) {
-      return true;
-    }
-    consentPagesRemaining -= 1;
-    return consentPagesRemaining === 0;
+    const remaining = occurrencesRemaining.get(item.linkId)! - 1;
+    occurrencesRemaining.set(item.linkId, remaining);
+    return remaining === 0;
   });
 };
 

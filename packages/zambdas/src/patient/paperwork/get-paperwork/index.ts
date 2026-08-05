@@ -202,9 +202,6 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
   );
   console.timeEnd('get-booking-questionnaire');
 
-  // If the QR points at a paperwork flow, assemble its constituent forms into a flattened item[]
-  // (in derivedFrom order) so the patient gets one continuous paperwork experience; a non-flow
-  // questionnaire is returned unchanged.
   const effectiveQuestionnaire = await resolveEffectiveQuestionnaire(questionnaire, oystehr);
 
   const allItems = mapQuestionnaireAndValueSetsToItemsList(effectiveQuestionnaire.item ?? [], valueSets);

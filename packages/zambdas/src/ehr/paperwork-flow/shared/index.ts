@@ -4,7 +4,6 @@ import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import {
   CanonicalUrl,
-  CONSENT_FORMS_PAGE_LINK_ID,
   FlowForm,
   FlowService,
   getAllFhirSearchPages,
@@ -296,52 +295,4 @@ export async function resolveFlowCanonicalForServiceMode(input: {
 
   const canonicalUrlForFlow: CanonicalUrl = { url: flow.url, version: flow.version };
   return canonicalUrlForFlow;
-}
-
-/**
- * Validates that assembling the given form canonicals into a flow won't produce duplicate top-level
- * page linkIds — the patient paperwork experience keys pages by top-level linkId, so a collision would
- * break navigation, review, and pre-fill. The consent-forms page (CONSENT_FORMS_PAGE_LINK_ID) is
- * exempt: it may appear in more than one form and is de-duplicated (keep-last) at assembly. Throws
- * PAPERWORK_FLOW_ERROR naming any other duplicated linkId so the admin fixes the bundle before saving.
- */
-export function validateFlowFormLinkIds(formCanonicals: string[], allFormQuestionnaires: Questionnaire[]): void {
-  const formUrlMap = new Map<string, Questionnaire>();
-  allFormQuestionnaires.forEach((form) => form.url && formUrlMap.set(form.url, form));
-
-  const seenLinkIds = new Set<string>();
-  const duplicateLinkIds = new Set<string>();
-
-  for (const canonical of formCanonicals) {
-    const [url, version] = canonical.split('|');
-    // this should never happen
-    if (!url || !version) throw new Error(`Form canonical url is malformed: ${canonical}`);
-
-    const formQ = formUrlMap.get(url);
-    // This should also never happen
-    // The derivedFrom canonical urls should be formed from the set of form questionnaires passed into this function
-    // so it would be odd to not find the form questionnaire
-    if (!formQ) throw new Error(`Could not find questionnaire for form: ${url}`);
-
-    for (const item of formQ.item ?? []) {
-      const { linkId } = item;
-      if (!linkId || linkId === CONSENT_FORMS_PAGE_LINK_ID) continue;
-      if (seenLinkIds.has(linkId)) {
-        duplicateLinkIds.add(linkId);
-      } else {
-        seenLinkIds.add(linkId);
-      }
-    }
-  }
-
-  if (duplicateLinkIds.size > 0) {
-    // it might be better to handle this in the practice managed form module
-    // we could still validate here when building the flow but at that point if a duplicate was found it would be indicative of a system issue
-    // and we could throw 500 - not sure it makes sense to put the onerous of this on the user
-    throw PAPERWORK_FLOW_ERROR(
-      `Forms in this paperwork flow contain duplicate page linkId(s): ${[...duplicateLinkIds].join(
-        ', '
-      )}. Each page must have a unique linkId across the flow's forms.`
-    );
-  }
 }

@@ -26,7 +26,6 @@ import {
   PAPERWORK_FLOW_BASE_VERSION,
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
-  validateFlowFormLinkIds,
 } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -60,12 +59,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       flowQuestionnaire: resources.targetFlowQuestionnaire,
       formQuestionnaires: resources.allFormQuestionnaires,
     });
-
-  // Reject bundles whose forms collide on a top-level page linkId (consent page exempted) before saving.
-  validateFlowFormLinkIds(
-    targetFlowQuestionnaireCreatePost.resource?.derivedFrom ?? [],
-    resources.allFormQuestionnaires
-  );
 
   console.log(`Retiring target version ${targetFlowQuestionnaireRetirePatch.url}`);
 
