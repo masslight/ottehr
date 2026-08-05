@@ -671,6 +671,7 @@ test.describe('critical flows', { tag: '@pr-ci' }, () => {
 Notes:
 
 - A test can carry multiple tags, e.g. `{ tag: ['@smoke', '@pr-ci'] }`.
+- The generated intake booking-flow tests (`booking-flows-generated.spec.ts`) are whitelisted per scenario, not per test declaration: edit `PR_CI_SCENARIOS` in `apps/intake/tests/utils/booking/BookingTestFactory.ts`, which matches scenarios by visit type + service mode + service category and tags the matching generated tests.
 - The login stage is never filtered — it produces the authentication state the whitelisted specs need.
 - Because of `--pass-with-no-tests`, a suite with no `@pr-ci` tags (e.g. a downstream repo that hasn't tagged anything) passes rather than failing with "no tests found".
 - To run the full suite on a specific PR anyway, add `/run-full-ehr-e2e` and/or `/run-full-intake-e2e` to the PR description (see [PR Commands](#pr-commands)).

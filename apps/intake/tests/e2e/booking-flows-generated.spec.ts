@@ -152,7 +152,9 @@ test.describe('Complete booking flows', () => {
 
   // Generate tests for each scenario
   for (const scenario of scenarios) {
-    test(`${scenario.description}`, async ({ page }) => {
+    // scenario.prCi (set in generateBookingTestScenarios via PR_CI_SCENARIOS) whitelists the
+    // test into the pull-request CI run (see E2E_README.md "PR CI Test Whitelist")
+    test(`${scenario.description}`, { tag: scenario.prCi ? ['@pr-ci'] : [] }, async ({ page }) => {
       // Select the appropriate test location based on visit type and service mode
       let locationName: string;
       if (scenario.visitType === 'walk-in') {
