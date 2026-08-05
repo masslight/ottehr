@@ -53,12 +53,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const response = await listPaperworkFlows(oystehr, secrets);
+  const response = await performEffect(oystehr, secrets);
 
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function listPaperworkFlows(oystehr: Oystehr, secrets: Secrets | null): Promise<PaperworkFlowListOutput> {
+async function performEffect(oystehr: Oystehr, secrets: Secrets | null): Promise<PaperworkFlowListOutput> {
   console.log('searching for all flow questionnaires and services');
   const [flowQuestionnaires, formQuestionnaires, ottehrManagedQuestionnaires, services] = await Promise.all([
     searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),

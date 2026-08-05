@@ -8,7 +8,6 @@ import {
   PAPERWORK_FLOW_TAG,
   PaperworkFlowBase,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
-  Secrets,
   ServiceMode,
   slugify,
 } from 'utils';
@@ -25,44 +24,67 @@ import {
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
 } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { ValidatedRequest, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'paperwork-flow-create';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started`);
-  const { flow, flowServices, secrets } = validateRequestParameters(input);
+  const validatedInput = validateRequestParameters(input);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
 
-  const resources = await getResources(oystehr, secrets);
+  const effectInput = await complexValidation(validatedInput, oystehr);
+  await performEffect(effectInput, oystehr);
+
+  return { statusCode: 200, body: JSON.stringify({}) };
+});
+
+interface EffectInput extends ValidatedRequest {
+  formQuestionnaires: Questionnaire[];
+  flowQuestionnaires: Questionnaire[];
+  services: HealthcareService[];
+}
+
+async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Promise<EffectInput> {
+  console.log('searching questionnaire and service resources');
+  const [formQuestionnaires, ottehrManagedQuestionnaires, flowQuestionnaires, services] = await Promise.all([
+    searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG),
+    getOttehrManagedQuestionnaires(oystehr, input.secrets),
+    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
+    searchServiceCategoryHealthcareServices(oystehr),
+  ]);
+
+  const allFormQuestionnaires = [...formQuestionnaires, ...ottehrManagedQuestionnaires];
+
+  return { ...input, formQuestionnaires: allFormQuestionnaires, flowQuestionnaires, services };
+}
+
+async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void> {
+  const { flow, flowServices, formQuestionnaires, flowQuestionnaires, services } = input;
+
   const slug = await makeUniqueFlowSlug(oystehr, slugify(flow.name));
 
   const ottehrManagedServices = flowServices.filter((s) => s.ottehrManagedService);
 
   console.log('configuring questionnaire resource');
-  const flowQuestionnaire = configFlowQuestionnaire(resources.formQuestionnaires, slug, flow, flowServices);
+  const flowQuestionnaire = configFlowQuestionnaire(formQuestionnaires, slug, flow, flowServices);
 
   console.log(
     `configuring healthcare service patch requests for ${flowServices.map(
       (service) => `HealthcareService/${service.id}`
     )}`
   );
-  const hsPatchRequests = makeHSPatchRequestsForServices(
-    resources.services,
-    flowServices,
-    flow.modes,
-    flowQuestionnaire
-  );
+  const hsPatchRequests = makeHSPatchRequestsForServices(services, flowServices, flow.modes, flowQuestionnaire);
 
   // Ottehr-managed (service, mode) assignment lives as a meta.tag on the flow Questionnaire, not on the
   // HealthcareService — strip that tag from any other active flow that shares a mode and already claims it.
   const additionalQuestionnairePatches = makeAdditionalFlowQuestionnairePatches({
     modes: flow.modes,
     ottehrManagedServices,
-    flowQuestionnaires: resources.flowQuestionnaires,
+    flowQuestionnaires,
   });
 
   const requests: BatchInputRequest<Questionnaire | HealthcareService>[] = [
@@ -73,9 +95,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`making fhir transaction for ${requests.length} requests`);
   await oystehr.fhir.transaction({ requests });
-
-  return { statusCode: 200, body: JSON.stringify({}) };
-});
+}
 
 async function makeUniqueFlowSlug(oystehr: Oystehr, desired: string): Promise<string> {
   const searchByTag = async (oystehr: Oystehr, tag: Coding): Promise<Questionnaire[]> => {
@@ -97,26 +117,6 @@ async function makeUniqueFlowSlug(oystehr: Oystehr, desired: string): Promise<st
   let i = 2;
   while (used.has(`${base}-${i}`)) i++;
   return `${base}-${i}`;
-}
-
-interface ResourceConfig {
-  formQuestionnaires: Questionnaire[];
-  flowQuestionnaires: Questionnaire[];
-  services: HealthcareService[];
-}
-
-async function getResources(oystehr: Oystehr, secrets: Secrets | null): Promise<ResourceConfig> {
-  console.log('searching questionnaire and service resources');
-  const [formQuestionnaires, ottehrManagedQuestionnaires, flowQuestionnaires, services] = await Promise.all([
-    searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG),
-    getOttehrManagedQuestionnaires(oystehr, secrets),
-    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
-    searchServiceCategoryHealthcareServices(oystehr),
-  ]);
-
-  const allFormQuestionnaires = [...formQuestionnaires, ...ottehrManagedQuestionnaires];
-
-  return { formQuestionnaires: allFormQuestionnaires, flowQuestionnaires, services };
 }
 
 function configFlowQuestionnaire(

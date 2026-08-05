@@ -12,7 +12,7 @@ type BaseContext = {
   secrets: Secrets | null;
 };
 
-type ValidatedRequest = BaseContext & PaperworkFlowCreateInput;
+export type ValidatedRequest = BaseContext & PaperworkFlowCreateInput;
 
 export function validateRequestParameters(input: ZambdaInput): ValidatedRequest {
   if (!input.body) {

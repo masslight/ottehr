@@ -9,7 +9,6 @@ import {
   PAPERWORK_FLOW_TAG,
   PaperworkFlowBase,
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
-  Secrets,
   ServiceMode,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
@@ -25,7 +24,7 @@ import {
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
 } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { ValidatedRequest, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'paperwork-flow-update';
@@ -33,66 +32,25 @@ const ZAMBDA_NAME = 'paperwork-flow-update';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started`);
   const validated = validateRequestParameters(input);
-  const { flow, flowServices, flowId, secrets } = validated;
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validated.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validated.secrets);
 
-  // get all active flow & form questionnaires & services
-  const resources = await getResources(oystehr, flowId, secrets);
-
-  // canonical === url|version
-  const canonical = getCanonicalUrlFromQ(resources.targetFlowQuestionnaire);
-  const flowUrl = resources.targetFlowQuestionnaire.url;
-
-  if (!canonical) throw new Error(`Could not parse url|version from Questionnaire/${flowId}`);
-  if (!flowUrl) throw new Error(`Could not parse url from from Questionnaire/${flowId}`);
-
-  const ottehrManagedServices = flowServices.filter((s) => s.ottehrManagedService);
-
-  const { retirePatch: targetFlowQuestionnaireRetirePatch, createPost: targetFlowQuestionnaireCreatePost } =
-    makeTargetFlowQuestionnaireRequests({
-      flow,
-      ottehrManagedServices,
-      flowQuestionnaire: resources.targetFlowQuestionnaire,
-      formQuestionnaires: resources.allFormQuestionnaires,
-    });
-
-  console.log(`Retiring target version ${targetFlowQuestionnaireRetirePatch.url}`);
-
-  const additionalQuestionnairePatches = makeAdditionalFlowQuestionnairePatches({
-    modes: flow.modes,
-    ottehrManagedServices,
-    flowQuestionnaires: resources.allFlowQuestionnaires,
-    targetFlowId: flowId,
-  });
-
-  const healthServicePatches = makeHealthServicePatches({
-    allServices: resources.allServices,
-    flowServices,
-    modes: flow.modes,
-    flowUrl,
-  });
-
-  const requests: BatchInputRequest<Questionnaire | HealthcareService>[] = [
-    targetFlowQuestionnaireRetirePatch,
-    targetFlowQuestionnaireCreatePost,
-    ...additionalQuestionnairePatches,
-    ...healthServicePatches,
-  ];
-
-  console.log(`making fhir transaction for ${requests.length} requests`);
-  await oystehr.fhir.transaction({ requests });
+  const effectInput = await complexValidation(validated, oystehr);
+  await performEffect(effectInput, oystehr);
 
   return { statusCode: 200, body: JSON.stringify({}) };
 });
-interface ResourceConfig {
+
+interface EffectInput extends ValidatedRequest {
   targetFlowQuestionnaire: Questionnaire;
   allFlowQuestionnaires: Questionnaire[];
   allFormQuestionnaires: Questionnaire[];
   allServices: HealthcareService[];
 }
-async function getResources(oystehr: Oystehr, flowId: string, secrets: Secrets | null): Promise<ResourceConfig> {
+
+async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Promise<EffectInput> {
+  const { flowId, secrets } = input;
   console.log('searching questionnaire and service resources');
   const [targetFlowQuestionnaire, allFlowQuestionnaires, formQuestionnaires, ottehrManagedQuestionnaires, allServices] =
     await Promise.all([
@@ -111,7 +69,61 @@ async function getResources(oystehr: Oystehr, flowId: string, secrets: Secrets |
     );
   }
 
-  return { targetFlowQuestionnaire, allFlowQuestionnaires, allFormQuestionnaires, allServices };
+  return { ...input, targetFlowQuestionnaire, allFlowQuestionnaires, allFormQuestionnaires, allServices };
+}
+
+async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void> {
+  const {
+    flow,
+    flowServices,
+    flowId,
+    targetFlowQuestionnaire,
+    allFlowQuestionnaires,
+    allFormQuestionnaires,
+    allServices,
+  } = input;
+  // canonical === url|version
+  const canonical = getCanonicalUrlFromQ(targetFlowQuestionnaire);
+  const flowUrl = targetFlowQuestionnaire.url;
+
+  if (!canonical) throw new Error(`Could not parse url|version from Questionnaire/${flowId}`);
+  if (!flowUrl) throw new Error(`Could not parse url from from Questionnaire/${flowId}`);
+
+  const ottehrManagedServices = flowServices.filter((s) => s.ottehrManagedService);
+
+  const { retirePatch: targetFlowQuestionnaireRetirePatch, createPost: targetFlowQuestionnaireCreatePost } =
+    makeTargetFlowQuestionnaireRequests({
+      flow,
+      ottehrManagedServices,
+      flowQuestionnaire: targetFlowQuestionnaire,
+      formQuestionnaires: allFormQuestionnaires,
+    });
+
+  console.log(`Retiring target version ${targetFlowQuestionnaireRetirePatch.url}`);
+
+  const additionalQuestionnairePatches = makeAdditionalFlowQuestionnairePatches({
+    modes: flow.modes,
+    ottehrManagedServices,
+    flowQuestionnaires: allFlowQuestionnaires,
+    targetFlowId: flowId,
+  });
+
+  const healthServicePatches = makeHealthServicePatches({
+    allServices,
+    flowServices,
+    modes: flow.modes,
+    flowUrl,
+  });
+
+  const requests: BatchInputRequest<Questionnaire | HealthcareService>[] = [
+    targetFlowQuestionnaireRetirePatch,
+    targetFlowQuestionnaireCreatePost,
+    ...additionalQuestionnairePatches,
+    ...healthServicePatches,
+  ];
+
+  console.log(`making fhir transaction for ${requests.length} requests`);
+  await oystehr.fhir.transaction({ requests });
 }
 
 // Edits mint a new, bumped-version Questionnaire rather than patching the existing one in place —
