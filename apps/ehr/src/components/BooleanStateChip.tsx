@@ -16,9 +16,6 @@ const theme = {
       primary: '#1B5E20',
     },
   },
-  // Inactive is a neutral, archived state — not an error — so it reads as an
-  // understated grey rather than an alarming red. Green (active) vs grey
-  // (inactive) carries the distinction with plenty of contrast.
   off: {
     background: {
       primary: '#E0E0E0',
