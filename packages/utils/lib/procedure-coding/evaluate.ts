@@ -2,9 +2,12 @@
 // EvaluationResult. Unknown families are reported "not assessed", never guessed (requirement B7).
 
 import { cerumenFamily } from './families/cerumen';
+import { ekgFamily } from './families/ekg';
 import { foreignBodyFamily } from './families/foreign-body';
 import { incisionDrainageFamily } from './families/incision-drainage';
+import { injectionInfusionFamily } from './families/injection-infusion';
 import { lacerationFamily } from './families/laceration';
+import { splintingFamily } from './families/splinting';
 import { EvaluationResult, FamilyEvaluation, ProcedureFactsInput, ProcedureFamilyModel } from './model.types';
 import { CPT_RULES_VINTAGE } from './provenance';
 
@@ -14,6 +17,9 @@ export const PROCEDURE_FAMILIES: ProcedureFamilyModel[] = [
   incisionDrainageFamily,
   foreignBodyFamily,
   cerumenFamily,
+  splintingFamily,
+  injectionInfusionFamily,
+  ekgFamily,
 ];
 
 export function detectProcedureFamily(input: ProcedureFactsInput): ProcedureFamilyModel | undefined {

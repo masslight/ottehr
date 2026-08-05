@@ -19,19 +19,19 @@ describe('family detection', () => {
 
   it('detects nothing for unrelated procedures', () => {
     expect(
-      detectProcedureFamily({ procedureType: 'EKG', cptCodes: [{ code: '93000', display: 'EKG complete' }] })
+      detectProcedureFamily({ procedureType: 'X-Ray', cptCodes: [{ code: '73630', display: 'X-ray foot' }] })
     ).toBeUndefined();
   });
 });
 
 describe('unknown family results', () => {
   it('suggestCode returns an empty, honest result with selected codes not assessed', () => {
-    const result = suggestCode({ procedureType: 'EKG', cptCodes: [{ code: '93000', display: 'EKG complete' }] });
+    const result = suggestCode({ procedureType: 'X-Ray', cptCodes: [{ code: '73630', display: 'X-ray foot' }] });
     expect(result.family).toBeUndefined();
     expect(result.suggestion).toBeUndefined();
     expect(result.findings).toHaveLength(0);
     expect(result.notAssessed).toBe(true);
-    expect(result.notAssessedCodes).toEqual(['93000']);
+    expect(result.notAssessedCodes).toEqual(['73630']);
   });
 
   it('defendCodes mirrors the same not-assessed behavior', () => {

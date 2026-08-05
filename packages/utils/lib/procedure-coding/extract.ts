@@ -150,6 +150,18 @@ export function textFlag(text: string, pattern: RegExp): FactValue<true> | undef
   return { value: true, confidence: 'text', sourceText: snippetAround(text, found.index, found.match.length) };
 }
 
+/**
+ * Unguarded boolean fact from a text pattern, for assessment language where a negative
+ * statement still documents the element ("no acute ST-T changes", "no neurovascular deficit") —
+ * the negation guard in textFlag would wrongly discard those.
+ */
+export function textMention(text: string, pattern: RegExp): FactValue<true> | undefined {
+  const regex = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
+  const result = regex.exec(text);
+  if (result === null) return undefined;
+  return { value: true, confidence: 'text', sourceText: snippetAround(text, result.index, result[0].length) };
+}
+
 // ── Length extraction ──────────────────────────────────────────────────────────
 
 // "3.2 cm", "3.2cm", "3,2 cm" — tolerant of template and freehand shapes.

@@ -160,6 +160,18 @@ export interface ProcedureFactsInput {
   lengthCm?: number;
   /** Structured repair depth (conditional select); extraction prefers it over text-derived class/adhesive facts. */
   repairDepth?: RepairDepthSelection;
+  /** Structured performer type — counts as clinician-application evidence for splint/strapping codes. */
+  performerType?: string;
+  /** Structured "Documented by" selection — counts as clinician-application evidence for splint/strapping codes. */
+  documentedBy?: string;
+  /** Structured Patient response field (tolerance). */
+  patientResponse?: string;
+  /** Structured post-procedure instructions selections. */
+  postInstructions?: string[];
+  /** Structured infusion start time, HH:MM 24-hour (conditional input for the injection/infusion family). */
+  infusionStartTime?: string;
+  /** Structured infusion stop time, HH:MM 24-hour; earlier than the start time means it crossed midnight. */
+  infusionStopTime?: string;
 }
 
 /**
