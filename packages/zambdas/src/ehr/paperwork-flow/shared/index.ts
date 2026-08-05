@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
@@ -8,6 +8,7 @@ import {
   getAllFhirSearchPages,
   getSecret,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
+  makeOptimisticLockIfMatchHeader,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
@@ -215,4 +216,57 @@ export function getFlowModes(q: Questionnaire): ServiceMode[] {
     .map((e) => e.valueCode)
     .filter((c): c is ServiceMode => c === ServiceMode['in-person'] || c === ServiceMode.virtual);
   return Object.values(ServiceMode).filter((m) => modes.includes(m));
+}
+
+// The ottehr-managed (service, mode) assignment lives as a SYSTEM_MANAGED_SERVICE_TAG_SYSTEM meta.tag
+// on the flow Questionnaire that owns it (there's no HealthcareService extension for these services).
+// If flowServices includes any ottehr managed services, find any other active flows that share a visit
+// mode and already carry that tag, and strip it so only the flow being saved owns that (service, mode).
+export function makeAdditionalFlowQuestionnairePatches(input: {
+  modes: ServiceMode[];
+  ottehrManagedServices: FlowService[];
+  flowQuestionnaires: Questionnaire[];
+  targetFlowId?: string;
+}): BatchInputPatchRequest<Questionnaire>[] {
+  const { modes, ottehrManagedServices, flowQuestionnaires, targetFlowId } = input;
+  const patchRequests: BatchInputPatchRequest<Questionnaire>[] = [];
+
+  if (ottehrManagedServices.length === 0) {
+    console.log(
+      'No ottehr managed services are included in this flow, no patches need to be made to remove from elsewhere'
+    );
+    return patchRequests;
+  }
+
+  const ottehrManagedServiceIds = new Set(ottehrManagedServices.map((service) => service.id));
+
+  flowQuestionnaires.forEach((q) => {
+    if (targetFlowId && q.id === targetFlowId) return;
+
+    // this flow doesn't share a visit mode with the flow being saved, so it isn't competing for the same slot
+    const sharesMode = getFlowModes(q).some((mode) => modes.includes(mode));
+    if (!sharesMode) return;
+
+    const existingTags = q.meta?.tag ?? [];
+    const remainingTags = existingTags.filter((t) => {
+      const systemManagedServiceTag = t.system === SYSTEM_MANAGED_SERVICE_TAG_SYSTEM;
+      if (!systemManagedServiceTag) return true;
+
+      return !t.code || !ottehrManagedServiceIds.has(t.code);
+    });
+
+    // nothing to remove from this flow's tags
+    if (remainingTags.length === existingTags.length) return;
+
+    const operations: Operation[] = [{ op: 'replace', path: '/meta/tag', value: remainingTags }];
+
+    patchRequests.push({
+      method: 'PATCH',
+      url: `Questionnaire/${q.id}`,
+      operations,
+      ifMatch: makeOptimisticLockIfMatchHeader(q),
+    });
+  });
+
+  return patchRequests;
 }

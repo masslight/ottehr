@@ -15,6 +15,7 @@ import {
   getFlowModes,
   getFormCanonicals,
   getPatchOperationForExtensionUpsert,
+  makeAdditionalFlowQuestionnairePatches,
   makeFlowModeExtensions,
   makeOttehrManagedServiceTags,
 } from './index';
@@ -226,5 +227,130 @@ describe('getFlowModes', () => {
     } as Questionnaire;
 
     expect(getFlowModes(q)).toEqual([ServiceMode.virtual]);
+  });
+});
+
+describe('makeAdditionalFlowQuestionnairePatches', () => {
+  const inPersonModeExtension = { url: PAPERWORK_FLOW_MODE_EXTENSION_URL, valueCode: 'in-person' };
+  const virtualModeExtension = { url: PAPERWORK_FLOW_MODE_EXTENSION_URL, valueCode: 'virtual' };
+  const urgentCareTag = { system: SYSTEM_MANAGED_SERVICE_TAG_SYSTEM, code: 'urgent-care', display: 'Urgent Care' };
+  const otherServiceTag = { system: SYSTEM_MANAGED_SERVICE_TAG_SYSTEM, code: 'other-service', display: 'Other' };
+  const urgentCare: FlowService = { id: 'urgent-care', label: 'Urgent Care', ottehrManagedService: true };
+
+  it('returns no patches when the flow includes no ottehr managed services', () => {
+    const otherFlow: Questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'other-flow',
+      status: 'active',
+      extension: [inPersonModeExtension],
+      meta: { tag: [PAPERWORK_FLOW_TAG, urgentCareTag] },
+    };
+
+    const patches = makeAdditionalFlowQuestionnairePatches({
+      modes: [ServiceMode['in-person']],
+      ottehrManagedServices: [],
+      flowQuestionnaires: [otherFlow],
+    });
+
+    expect(patches).toEqual([]);
+  });
+
+  it('strips the tag from another active flow that shares a mode and already claims the service', () => {
+    const otherFlow: Questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'other-flow',
+      status: 'active',
+      meta: { tag: [PAPERWORK_FLOW_TAG, urgentCareTag], versionId: '1' },
+      extension: [inPersonModeExtension],
+    };
+
+    const patches = makeAdditionalFlowQuestionnairePatches({
+      modes: [ServiceMode['in-person']],
+      ottehrManagedServices: [urgentCare],
+      flowQuestionnaires: [otherFlow],
+    });
+
+    expect(patches).toEqual([
+      {
+        method: 'PATCH',
+        url: 'Questionnaire/other-flow',
+        operations: [{ op: 'replace', path: '/meta/tag', value: [PAPERWORK_FLOW_TAG] }],
+        ifMatch: 'W/"1"',
+      },
+    ]);
+  });
+
+  it('leaves other flows untouched when they do not share a visit mode', () => {
+    const otherFlow: Questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'other-flow',
+      status: 'active',
+      meta: { tag: [PAPERWORK_FLOW_TAG, urgentCareTag] },
+      extension: [virtualModeExtension],
+    };
+
+    const patches = makeAdditionalFlowQuestionnairePatches({
+      modes: [ServiceMode['in-person']],
+      ottehrManagedServices: [urgentCare],
+      flowQuestionnaires: [otherFlow],
+    });
+
+    expect(patches).toEqual([]);
+  });
+
+  it('leaves tags for other services untouched even when the flow shares a mode', () => {
+    const otherFlow: Questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'other-flow',
+      status: 'active',
+      meta: { tag: [PAPERWORK_FLOW_TAG, otherServiceTag] },
+      extension: [inPersonModeExtension],
+    };
+
+    const patches = makeAdditionalFlowQuestionnairePatches({
+      modes: [ServiceMode['in-person']],
+      ottehrManagedServices: [urgentCare],
+      flowQuestionnaires: [otherFlow],
+    });
+
+    expect(patches).toEqual([]);
+  });
+
+  it('excludes the flow being saved when targetFlowId matches', () => {
+    const targetFlow: Questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'target-flow',
+      status: 'active',
+      meta: { tag: [PAPERWORK_FLOW_TAG, urgentCareTag] },
+      extension: [inPersonModeExtension],
+    };
+
+    const patches = makeAdditionalFlowQuestionnairePatches({
+      modes: [ServiceMode['in-person']],
+      ottehrManagedServices: [urgentCare],
+      flowQuestionnaires: [targetFlow],
+      targetFlowId: 'target-flow',
+    });
+
+    expect(patches).toEqual([]);
+  });
+
+  it('does not exclude any flow when targetFlowId is omitted (create flow)', () => {
+    const otherFlow: Questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'other-flow',
+      status: 'active',
+      meta: { tag: [PAPERWORK_FLOW_TAG, urgentCareTag] },
+      extension: [inPersonModeExtension],
+    };
+
+    const patches = makeAdditionalFlowQuestionnairePatches({
+      modes: [ServiceMode['in-person']],
+      ottehrManagedServices: [urgentCare],
+      flowQuestionnaires: [otherFlow],
+    });
+
+    expect(patches).toHaveLength(1);
+    expect(patches[0].url).toBe('Questionnaire/other-flow');
   });
 });
