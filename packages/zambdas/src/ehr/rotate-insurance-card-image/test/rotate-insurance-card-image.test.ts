@@ -15,24 +15,9 @@ import { isRedAt, makeOrientedSceneJpeg } from '../../extract-insurance-card/tes
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
 
-vi.mock('../../../shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared')>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn(),
-    createClinicalOystehrClient: vi.fn(),
-    createPresignedUrl: vi.fn(),
-    uploadObjectToZ3: vi.fn(),
-  };
-});
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
-  return {
-    ...actual,
-    getPresignedURL: vi.fn(),
-  };
-});
+// checkOrCreateM2MClientToken, createClinicalOystehrClient, createPresignedUrl, uploadObjectToZ3,
+// and getPresignedURL are canonical suite-wide mocks (vitest.unit-mocks.setup.ts); behavior is
+// installed per-test via vi.mocked(...) below.
 
 const DOC_REF_ID = '0a4f6f4e-2e1f-4a3b-9d5c-8e7f6a5b4c3d';
 const Z3_URL = 'https://project-api.zapehr.com/v1/z3/insurance-cards-bucket/patient-1/insurance-card-front.jpg';

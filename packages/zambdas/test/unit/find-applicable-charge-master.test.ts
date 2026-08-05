@@ -1,27 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-// Stub shared module so the handler can be imported without real secrets/auth
-// Note: vi.mock is hoisted, so we must inline the constant rather than referencing a variable.
-vi.mock('../../src/shared', () => ({
-  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-  createClinicalOystehrClient: vi.fn(),
-  RCM_TAG_SYSTEM: 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm',
-  wrapHandler: (_name: string, handler: any) => handler,
-  ZambdaInput: {},
-  safeValidate: (schema: any, input: unknown) => schema.parse(input),
-  safeJsonParse: (body: string) => JSON.parse(body),
-}));
-
-const RCM_TAG_SYSTEM = 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm';
-
 import { getPayerUrl } from 'utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index as _handler } from '../../src/rcm/charge-masters/find-applicable-charge-master/index';
-import { createClinicalOystehrClient } from '../../src/shared';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, RCM_TAG_SYSTEM } from '../../src/shared';
 import { ZambdaInput } from '../../src/shared/types';
 
-// Our mock replaces wrapHandler so it returns the raw single-arg function, not the 3-arg Lambda handler.
+// checkOrCreateM2MClientToken and createClinicalOystehrClient are canonical suite-wide mocks
+// (vitest.unit-mocks.setup.ts); the real wrapHandler applies, so results are response envelopes.
 const handler = _handler as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 // ---------------------------------------------------------------------------
@@ -108,7 +94,11 @@ function stubSearch(chargeMasters: ChargeItemDefinition[]): void {
 }
 
 function makeInput(body: Record<string, any>): any {
-  return { body: JSON.stringify(body), headers: null, secrets: { FHIR_API: 'x', PROJECT_API: 'x' } } as any;
+  return {
+    body: JSON.stringify(body),
+    headers: null,
+    secrets: { FHIR_API: 'x', PROJECT_API: 'x', ENVIRONMENT: 'local' },
+  } as any;
 }
 
 function parseBody(result: any): any {
@@ -121,6 +111,8 @@ function parseBody(result: any): any {
 describe('find-applicable-charge-master', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockImplementation(() => undefined as never);
   });
 
   // -----------------------------------------------------------------------

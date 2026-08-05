@@ -29,13 +29,11 @@ import {
   getAssociatedDxFromMaAndRequests,
 } from '../../src/ehr/apply-template/apply-in-house-medications';
 import { TemplateEncounterResource } from '../../src/ehr/shared/template-helpers';
+import { getMyPractitionerId } from '../../src/shared';
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/shared')>();
-  return {
-    ...actual,
-    getMyPractitionerId: vi.fn().mockResolvedValue('pract-1'),
-  };
+// getMyPractitionerId is a canonical suite-wide mock (vitest.unit-mocks.setup.ts).
+beforeEach(() => {
+  vi.mocked(getMyPractitionerId).mockResolvedValue('pract-1');
 });
 
 // ─── Factories ────────────────────────────────────────────────────────────────

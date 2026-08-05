@@ -7,30 +7,32 @@ import {
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
   VISIT_NOTE_SUMMARY_CODE,
 } from 'utils';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { hasRetryChild, isRetryable, performEffect, resolveDocumentReference } from '../../src/ehr/retry-action-log';
+import { getEmailClient, makeAddressUrl } from '../../src/shared/communication';
+import { createOutboundDeliveryAttemptIdempotently } from '../../src/shared/outbound-delivery';
+import { getAppointmentAndRelatedResources } from '../../src/shared/pdf/visit-details-pdf/get-video-resources';
+import { createMockSecrets } from './validate-request-parameters/helpers';
 
+// getEmailClient, makeAddressUrl, and getAppointmentAndRelatedResources are canonical
+// suite-wide mocks (vitest.unit-mocks.setup.ts); this file's defaults are installed here.
 const mockSendEmail = vi.fn();
-vi.mock('../../src/shared/communication', () => ({
-  getEmailClient: () => ({
+beforeEach(() => {
+  vi.mocked(getEmailClient).mockReturnValue({
     getFeatureFlag: () => true,
     sendVirtualCompletionEmail: mockSendEmail,
     sendInPersonCompletionEmail: mockSendEmail,
-  }),
-  makeAddressUrl: (address: string) => `https://maps.example.test/?q=${encodeURIComponent(address)}`,
-}));
-
-vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', () => ({
-  getAppointmentAndRelatedResources: vi.fn().mockResolvedValue({
+  } as unknown as ReturnType<typeof getEmailClient>);
+  vi.mocked(makeAddressUrl).mockImplementation(
+    (address: string) => `https://maps.example.test/?q=${encodeURIComponent(address)}`
+  );
+  vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue({
     appointment: { resourceType: 'Appointment', id: 'appointment-1', status: 'fulfilled' },
     patient: { resourceType: 'Patient', id: 'patient-1' },
     location: { resourceType: 'Location', id: 'location-1', name: 'Virtual' },
     timezone: 'America/New_York',
-  }),
-}));
-
-import { hasRetryChild, isRetryable, performEffect, resolveDocumentReference } from '../../src/ehr/retry-action-log';
-import { createOutboundDeliveryAttemptIdempotently } from '../../src/shared/outbound-delivery';
-import { createMockSecrets } from './validate-request-parameters/helpers';
+  } as unknown as Awaited<ReturnType<typeof getAppointmentAndRelatedResources>>);
+});
 
 const emailTask: Task = {
   ...makeOutboundDeliveryAttempt({

@@ -9,27 +9,8 @@ import { EXTRACTION_PROMPT, parseModelResponse, photoIdResponseSchema } from '..
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
 
-vi.mock('../../../shared/ai', () => ({
-  invokeChatbotVertexAI: vi.fn(),
-  VERTEX_AI_MODEL: 'gemini-3.1-flash-lite',
-}));
-
-vi.mock('../../../shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared')>();
-  return {
-    ...actual,
-    getAuth0Token: vi.fn(),
-  };
-});
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
-  return {
-    ...actual,
-    createOystehrClient: vi.fn(),
-    getPresignedURL: vi.fn(),
-  };
-});
+// invokeChatbotVertexAI, getAuth0Token, createOystehrClient, and getPresignedURL are canonical
+// suite-wide mocks (vitest.unit-mocks.setup.ts); per-test behavior is installed in beforeEach/tests.
 
 const Z3_URL = 'https://project-api.zapehr.com/v1/z3/photo-id-cards-bucket/patient-1/photo-id-front.jpg';
 const PRESIGNED_URL = 'https://signed.example.com/photo-id-front.jpg';
@@ -111,7 +92,7 @@ const mockOystehr = { fhir: { search: mockSearch, patch: mockPatch } };
 const fetchMock = vi.fn();
 
 async function invokeHandler(input: ZambdaInput): Promise<APIGatewayProxyResult> {
-  // vitest.setup.ts mocks sentry's wrapHandler as a pass-through, so the handler is directly callable
+  // the real wrapHandler applies suite-wide (Sentry itself is mocked), so errors surface as response envelopes
   return (await (index as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)(input))!;
 }
 

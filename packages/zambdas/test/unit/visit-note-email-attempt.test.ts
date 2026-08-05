@@ -1,26 +1,13 @@
 import { Task } from 'fhir/r4b';
 import { getOutboundDeliveryInput, OUTBOUND_DELIVERY_INPUT_CODES } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const { mockSendEmail, mockGetFeatureFlag, mockGetEmailClient } = vi.hoisted(() => {
-  const sendEmail = vi.fn();
-  const getFeatureFlag = vi.fn(() => true);
-  return {
-    mockSendEmail: sendEmail,
-    mockGetFeatureFlag: getFeatureFlag,
-    mockGetEmailClient: vi.fn(() => ({
-      getFeatureFlag,
-      sendVirtualCompletionEmail: sendEmail,
-      sendInPersonCompletionEmail: sendEmail,
-    })),
-  };
-});
-vi.mock('../../src/shared/communication', () => ({
-  makeAddressUrl: (address: string) => `https://maps.example.test/?q=${encodeURIComponent(address)}`,
-  getEmailClient: mockGetEmailClient,
-}));
-
+import { getEmailClient, makeAddressUrl } from '../../src/shared/communication';
 import { buildVisitNoteEmailTemplate, sendVisitNoteEmailAttempt } from '../../src/shared/visit-note-email';
+
+// getEmailClient and makeAddressUrl are canonical suite-wide mocks (vitest.unit-mocks.setup.ts);
+// this file's defaults are installed in beforeEach below.
+const mockSendEmail = vi.fn();
+const mockGetFeatureFlag = vi.fn(() => true);
 
 describe('visit-note email attempt', () => {
   const create = vi.fn();
@@ -29,6 +16,14 @@ describe('visit-note email attempt', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getEmailClient).mockReturnValue({
+      getFeatureFlag: mockGetFeatureFlag,
+      sendVirtualCompletionEmail: mockSendEmail,
+      sendInPersonCompletionEmail: mockSendEmail,
+    } as unknown as ReturnType<typeof getEmailClient>);
+    vi.mocked(makeAddressUrl).mockImplementation(
+      (address: string) => `https://maps.example.test/?q=${encodeURIComponent(address)}`
+    );
     create.mockImplementation((task: Task) => Promise.resolve({ ...task, id: 'attempt-1' }));
     patch.mockImplementation(({ operations }: any) =>
       Promise.resolve({ resourceType: 'Task', id: 'attempt-1', status: operations[0].value, intent: 'order' })
@@ -124,7 +119,7 @@ describe('visit-note email attempt', () => {
       existingEmailClient
     );
 
-    expect(mockGetEmailClient).not.toHaveBeenCalled();
+    expect(getEmailClient).not.toHaveBeenCalled();
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
   });
 

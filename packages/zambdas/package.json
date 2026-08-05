@@ -54,7 +54,7 @@
     "probe-outreach-action-ids": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/probe-outreach-action-ids.ts",
     "probe-outreach-retries": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/probe-outreach-retries.ts",
     "test": "ENV=${ENV:-local} vitest run",
-    "test:unit:ci": "ENV=${ENV:-local} vitest run --project unit --maxWorkers=6 --coverage --coverage.reportsDirectory=./coverage/unit --passWithNoTests --reporter=dot --reporter=github-actions",
+    "test:unit:ci": "ENV=${ENV:-local} vitest run --project unit --no-isolate --minWorkers=6 --maxWorkers=6 --coverage --coverage.reportsDirectory=./coverage/unit --passWithNoTests --reporter=dot --reporter=github-actions",
     "test:integration:ci": "ENV=${ENV:-local} vitest run --project integration --minWorkers=12 --maxWorkers=12 --no-isolate --coverage --passWithNoTests --reporter=dot --reporter=github-actions",
     "test:watch": "ENV=${ENV:-local} vitest watch",
     "test:coverage": "c8 npm run test",
