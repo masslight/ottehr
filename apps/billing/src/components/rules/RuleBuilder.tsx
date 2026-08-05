@@ -932,7 +932,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <FormHelperText>
             Prices each matched line from the best charge master for the claim's billing type (the insurance or self-pay
             default, most recent effective date on or before the date of service). A matched line the charge master
-            cannot price fails the rule and holds the claim.
+            cannot price keeps its existing charges.
           </FormHelperText>
         </Box>
       )}

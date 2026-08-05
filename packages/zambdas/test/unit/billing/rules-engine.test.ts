@@ -815,15 +815,43 @@ describe('apply charge master prices action', () => {
     expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain('date of service');
   });
 
-  it('fails without changing any line when a matched line has no price entry (all-or-nothing)', () => {
+  it('prices the lines the charge master has entries for and leaves the rest unchanged', () => {
     const m = makeModel();
-    addLine(m, '99999', 200);
+    addLine(m, '99999', 200); // no charge master entry for this code
+    addLine(m, '99213', 90, '25'); // entry exists but only modifier-less -> no match for this line
     m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
     const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
-    expect(error).toContain('99999');
-    // The claim must never persist half-priced: the priceable 99213 line stays untouched too.
-    expect(lineCharges(m)).toEqual(['125.5', '200']);
-    expect(m.claim.total?.value).toBe(125.5);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '200', '90']);
+    expect(m.claim.total?.value).toBe(440);
+  });
+
+  it('skips a matched line with no CPT code instead of failing', () => {
+    const m = makeModel();
+    m.claim.item = [
+      ...(m.claim.item ?? []),
+      {
+        sequence: 2,
+        productOrService: { coding: [] },
+        servicedPeriod: { start: '2026-01-05' },
+        net: { value: 40, currency: 'USD' },
+      },
+    ];
+    m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '40']);
+    expect(m.claim.total?.value).toBe(190);
+  });
+
+  it('leaves the claim untouched (including the total) when no matched line has an entry', () => {
+    const m = makeModel();
+    addLine(m, '99999', 200); // addLine does not recompute the fixture total, so a recompute would change it
+    m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '90000', amount: 10 }])];
+    const before = JSON.stringify(m.claim);
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(JSON.stringify(m.claim)).toBe(before);
   });
 
   it('holds the claim via executeRule when pricing fails', () => {

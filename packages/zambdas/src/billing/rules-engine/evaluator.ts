@@ -294,9 +294,10 @@ const applyServiceLineUpdate = (
 // Re-price every line matching the predicate from the best applicable charge master. The charge
 // master is selected at apply time so it reflects whatever earlier rules did to the claim: the
 // billing type comes from whether the claim carries a real coverage, the date of service from the
-// claim's (first line's) service date. Every price is resolved before any line is written, so a
-// claim held by this action is either fully re-priced or untouched — never half-priced. Zero
-// matching lines is a no-op, but a matched line the charge master cannot price fails the rule.
+// claim's (first line's) service date. Each matched line is priced independently: a line the charge
+// master has no valid price for (no CPT code, or no entry for the code/modifier combination) keeps
+// its existing charges rather than failing the rule. Zero matching lines is a no-op, but a missing
+// date of service or the absence of an applicable charge master fails the rule.
 const applyChargeMasterPricing = (
   action: Extract<RuleAction, { type: 'applyChargeMasterPrices' }>,
   model: RulesEngineClaimModel
@@ -317,33 +318,20 @@ const applyChargeMasterPricing = (
       `${kind} default and effective on or before ${dateOfService}`
     );
   }
-  const chargeMasterName = chargeMaster.title ?? `ChargeItemDefinition/${chargeMaster.id}`;
 
-  // Phase 1: resolve (and validate) every matched line's price before mutating anything.
-  const prices: { line: ClaimServiceLine; price: number }[] = [];
+  let changed = false;
   for (const line of matching) {
     const cptCode = asScalar(readServiceLineProperty(line, 'cptCode'));
-    if (!cptCode) {
-      return `could not apply charge master prices — service line ${line.sequence} has no CPT code`;
-    }
+    if (!cptCode) continue;
     const modifiers = readServiceLineProperty(line, 'modifiers');
     const modifierList = Array.isArray(modifiers) ? modifiers : [];
     const price = getChargeMasterPrice(chargeMaster, cptCode, modifierList);
-    if (price == null || !Number.isFinite(price) || price < 0) {
-      const modifierNote = modifierList.length ? ` with modifier(s) ${modifierList.join(', ')}` : '';
-      return (
-        `could not apply charge master prices — charge master "${chargeMasterName}" has no valid price ` +
-        `for CPT ${cptCode}${modifierNote} (service line ${line.sequence})`
-      );
-    }
-    prices.push({ line, price });
-  }
-
-  // Phase 2: apply. The charges writer cannot fail for a validated non-negative finite price.
-  for (const { line, price } of prices) {
+    if (price == null || !Number.isFinite(price) || price < 0) continue;
+    // The charges writer cannot fail for a validated non-negative finite price.
     writeServiceLineProperty(line, 'charges', String(price), 'set');
+    changed = true;
   }
-  recomputeClaimTotal(claim);
+  if (changed) recomputeClaimTotal(claim);
   return undefined;
 };
 
