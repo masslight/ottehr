@@ -1,4 +1,3 @@
-import { deepStrictEqual } from 'node:assert';
 import Oystehr, {
   BatchInputDeleteRequest,
   BatchInputPatchRequest,
@@ -86,6 +85,7 @@ import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
+  billingCopyMatches,
   BillingFhirResource,
   clinicalPatientIdentifier,
   createBillingClient,
@@ -208,10 +208,7 @@ export async function performEffect(
   } else {
     const updatedMainPatient = copyPatient(clinicalResources.patient);
     updatedMainPatient.id = mainPatient.id;
-    try {
-      deepStrictEqual(mainPatient, updatedMainPatient);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_) {
+    if (!billingCopyMatches(mainPatient, updatedMainPatient)) {
       mainPatient = updatedMainPatient;
       requests.push({ method: 'PUT', url: `/Patient/${mainPatient.id}`, resource: updatedMainPatient });
       order.push('patient');
@@ -268,42 +265,38 @@ export async function performEffect(
       // Update billing copy if changed
       let accountCopy = copyAccount(a, mainPatient.id!, billingResources.coverages);
       accountCopy.id = existingBillingAccount.id;
-      try {
-        deepStrictEqual(existingBillingAccount, accountCopy);
+      seenBillingAccountIds.add(existingBillingAccount.id!);
+      if (billingCopyMatches(existingBillingAccount, accountCopy)) {
         mainPatientCoverages.push(...billingResources.coverages);
         mainPatientSubscribers.push(...billingResources.subscribers);
         return existingBillingAccount;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (_) {
-        // This leaks coverages, but we decided it is safe to do
-        const [covRequests, covOrder] = copyCoverageAndSubscriberForAccount(
-          billingOystehr,
-          clinicalResources.coverages,
-          a,
-          mainPatient.id!,
-          clinicalResources.payors
-        );
-        mainPatientCoverages.push(
-          ...covRequests
-            .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
-            .map((cov) => cov.resource)
-        );
-        mainPatientSubscribers.push(
-          ...covRequests
-            .filter(
-              (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
-            )
-            .map((rp) => rp.resource)
-        );
-        requests.push(...covRequests);
-        order.push(...covOrder);
-        accountCopy = copyAccount(a, mainPatient.id!, mainPatientCoverages);
-        requests.push({ method: 'PUT', url: `/Account/${existingBillingAccount.id}`, resource: accountCopy });
-        order.push('account');
-        return accountCopy;
-      } finally {
-        seenBillingAccountIds.add(existingBillingAccount.id!);
       }
+      // This leaks coverages, but we decided it is safe to do
+      const [covRequests, covOrder] = copyCoverageAndSubscriberForAccount(
+        billingOystehr,
+        clinicalResources.coverages,
+        a,
+        mainPatient.id!,
+        clinicalResources.payors
+      );
+      mainPatientCoverages.push(
+        ...covRequests
+          .filter((cov): cov is BatchInputPostRequest<Coverage> => cov.method === 'POST' && cov.url === '/Coverage')
+          .map((cov) => cov.resource)
+      );
+      mainPatientSubscribers.push(
+        ...covRequests
+          .filter(
+            (rp): rp is BatchInputPostRequest<RelatedPerson> => rp.method === 'POST' && rp.url === '/RelatedPerson'
+          )
+          .map((rp) => rp.resource)
+      );
+      requests.push(...covRequests);
+      order.push(...covOrder);
+      accountCopy = copyAccount(a, mainPatient.id!, mainPatientCoverages);
+      requests.push({ method: 'PUT', url: `/Account/${existingBillingAccount.id}`, resource: accountCopy });
+      order.push('account');
+      return accountCopy;
     }
   });
   billingResources.accounts

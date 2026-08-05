@@ -1,3 +1,4 @@
+import { deepStrictEqual } from 'node:assert';
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig } from '@oystehr/sdk';
 import {
   Account,
@@ -246,6 +247,21 @@ export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier
     system: SOURCE_IDENTIFIER_SYSTEM,
     value: clinicalPatientId,
   };
+}
+
+export function billingCopyMatches<T extends Resource>(stored: T, copy: T): boolean {
+  try {
+    deepStrictEqual(withoutMeta(stored), withoutMeta(copy));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function withoutMeta<T extends Resource>(resource: T): Omit<T, 'meta'> {
+  const fields = { ...resource };
+  delete fields.meta;
+  return fields;
 }
 
 // Claim.MD stamps the check number as a searchable identifier; process-era only sets

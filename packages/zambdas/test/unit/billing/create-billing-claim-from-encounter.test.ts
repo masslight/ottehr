@@ -1869,7 +1869,6 @@ describe('create-billing-claim-from-encounter', () => {
     it('creates appropriate billing resources and claim when all exist', async () => {
       const txFn = vi.fn().mockResolvedValueOnce({
         entry: [
-          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
           { resource: { resourceType: 'Patient', id: 'claim-patient' } },
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
@@ -2024,7 +2023,6 @@ describe('create-billing-claim-from-encounter', () => {
     it('reuses the existing person and account instead of duplicating them on a repeat visit', async () => {
       const txFn = vi.fn().mockResolvedValueOnce({
         entry: [
-          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
           { resource: { resourceType: 'Patient', id: 'claim-patient' } },
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
@@ -2072,6 +2070,17 @@ describe('create-billing-claim-from-encounter', () => {
       const requests = txFn.mock.calls[0][0].requests as CreateClaimFromEncounterRequests;
       expect(requests.filter((r) => r.method === 'POST' && r.url === '/Person')).toHaveLength(0);
       expect(requests.filter((r) => r.method === 'POST' && r.url === '/Account')).toHaveLength(0);
+
+      // Nothing about the patient or their coverage changed, so the shared originals are not
+      // rewritten either. Comparing meta made these look changed on every single visit.
+      expect(requests.filter((r) => r.method === 'PUT' && r.url.startsWith('/Patient/'))).toHaveLength(0);
+      expect(requests.filter((r) => r.method === 'PUT' && r.url.startsWith('/Account/'))).toHaveLength(0);
+      const coverageCopyPosts = requests.filter(
+        (r): r is BatchInputPostRequest<Coverage | RelatedPerson> =>
+          r.method === 'POST' && (r.url === '/Coverage' || r.url === '/RelatedPerson')
+      );
+      expect(coverageCopyPosts).toHaveLength(2);
+      coverageCopyPosts.forEach((r) => expect(r.resource.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG));
 
       // The only patient created is the per-claim working copy; the main billing patient is reused.
       const patientPosts = requests.filter(
