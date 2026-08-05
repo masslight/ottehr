@@ -12,6 +12,7 @@ export const CLAIM_PROVENANCE_ACTIVITY_CODES = {
   statusChange: 'STATUS CHANGE',
   tagChange: 'TAG CHANGE',
   submit: 'SUBMIT',
+  note: 'NOTE',
 } as const;
 
 export type ClaimProvenanceActivityKey = keyof typeof CLAIM_PROVENANCE_ACTIVITY_CODES;
@@ -29,6 +30,7 @@ export const CLAIM_PROVENANCE_ACTIVITY: Record<ClaimProvenanceActivityKey, Codin
   statusChange: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.statusChange, 'Status change'),
   tagChange: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.tagChange, 'Tag change'),
   submit: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.submit, 'Submit'),
+  note: claimActivityCoding(CLAIM_PROVENANCE_ACTIVITY_CODES.note, 'Note'),
 };
 
 // Distinguishes a human user from an automated software actor (e.g. the rules engine)
@@ -42,6 +44,9 @@ export const CLAIM_PROVENANCE_AGENT_TYPE: Record<'human' | 'system', Coding> = {
 
 // Extension on the Provenance whose valueString holds a JSON-serialized ClaimFieldChange[].
 export const CLAIM_PROVENANCE_DIFF_EXTENSION_URL = ottehrExtensionUrl('claim-history-change-set');
+
+export const CLAIM_PROVENANCE_NOTE_EXTENSION_URL = ottehrExtensionUrl('claim-history-note');
+export const CLAIM_NOTE_MAX_LENGTH = 2000;
 
 // Extension on a Provenance.entity linking its Reference-typed `what` back to a change in the diff
 // JSON — see changeRefEntities in packages/zambdas/src/billing/provenance.ts.
@@ -106,6 +111,7 @@ export interface ClaimHistoryEntry {
   activity: string;
   actor: ClaimHistoryActor;
   changes: ClaimFieldChange[];
+  message?: string;
 }
 
 export interface GetClaimHistoryResponse {

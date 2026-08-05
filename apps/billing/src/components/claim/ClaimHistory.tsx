@@ -13,25 +13,18 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { ClaimHistoryEntry, ClaimHistoryLink, getApiError } from 'utils';
 import { getBillingClaimHistory } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { otherColors } from '../../themes/ottehr/colors';
+import { formatDateTime } from '../../utils/format';
 
 const thSx = { color: 'primary.dark', fontWeight: 600, fontSize: 13 };
 
-function formatWhen(recorded: string): string {
-  if (!recorded) return '-';
-  const dateTime = DateTime.fromISO(recorded);
-  if (!dateTime.isValid) return recorded;
-  return dateTime.toLocaleString(DateTime.DATETIME_MED);
-}
-
 function formatValue(value: string | null): string {
-  return value && value.length ? value : '—';
+  return value && value.length ? value : '-';
 }
 
 // A single before/after value: a link to the resource's screen when one is available, otherwise text.
@@ -56,6 +49,45 @@ function HistoryValue({
     <Box component="span" sx={{ color }}>
       {formatValue(value)}
     </Box>
+  );
+}
+
+function HistoryDetail({ entry }: { entry: ClaimHistoryEntry }): ReactElement {
+  // for claim notes
+  if (entry.message) {
+    return (
+      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+        {entry.message}
+      </Typography>
+    );
+  }
+
+  if (entry.changes.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        -
+      </Typography>
+    );
+  }
+
+  return (
+    <>
+      {entry.changes.map((change, idx) => (
+        <Typography variant="body2" key={`${entry.id}-${change.field}-${idx}`} sx={{ py: 0.25 }}>
+          <Box component="span" sx={{ fontWeight: 500, color: change.label === 'Error' ? 'error.main' : undefined }}>
+            {change.label}:
+          </Box>{' '}
+          {change.label !== 'Error' ? (
+            <>
+              <HistoryValue value={change.previousValue} link={change.previousLink} muted /> →{' '}
+            </>
+          ) : (
+            <></>
+          )}
+          <HistoryValue value={change.newValue} link={change.newLink} />
+        </Typography>
+      ))}
+    </>
   );
 }
 
@@ -112,7 +144,7 @@ export function ClaimHistory({ claimId }: { claimId: string }): ReactElement {
         <TableBody>
           {entries.map((entry) => (
             <TableRow key={entry.id} sx={{ verticalAlign: 'top', '& td': { borderColor: otherColors.lightDivider } }}>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatWhen(entry.recorded)}</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(entry.recorded)}</TableCell>
               <TableCell>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="body2">{entry.actor.display}</Typography>
@@ -123,30 +155,7 @@ export function ClaimHistory({ claimId }: { claimId: string }): ReactElement {
               </TableCell>
               <TableCell>{entry.activity}</TableCell>
               <TableCell>
-                {entry.changes.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    —
-                  </Typography>
-                ) : (
-                  entry.changes.map((change, idx) => (
-                    <Typography variant="body2" key={`${entry.id}-${change.field}-${idx}`} sx={{ py: 0.25 }}>
-                      <Box
-                        component="span"
-                        sx={{ fontWeight: 500, color: change.label === 'Error' ? 'error.main' : undefined }}
-                      >
-                        {change.label}:
-                      </Box>{' '}
-                      {change.label !== 'Error' ? (
-                        <>
-                          <HistoryValue value={change.previousValue} link={change.previousLink} muted /> →{' '}
-                        </>
-                      ) : (
-                        <></>
-                      )}
-                      <HistoryValue value={change.newValue} link={change.newLink} />
-                    </Typography>
-                  ))
-                )}
+                <HistoryDetail entry={entry} />
               </TableCell>
             </TableRow>
           ))}
