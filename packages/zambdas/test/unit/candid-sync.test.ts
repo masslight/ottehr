@@ -1,14 +1,27 @@
 import { Encounter, PaymentNotice } from 'fhir/r4b';
+import {
+  getOptionalSecret,
+  getOrCreateCandidApiClient,
+  getSecret,
+  getStripeAccountForAppointmentOrEncounter,
+} from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  createClinicalOystehrClient,
+  createPatientPaymentReceiptPdf,
+  getAuth0Token,
+  getStripeClient,
+  performCandidPreEncounterSync,
+} from '../../src/shared';
+import { patchTaskStatus } from '../../src/subscriptions/helpers';
+import { index as _index } from '../../src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index';
+import { validateRequestParameters } from '../../src/subscriptions/task/validateRequestParameters';
 
-// ── Mocks ──────────────────────────────────────────────────────────────────────
+// All shared-module mocks (src/shared, utils, subscriptions helpers/validateRequestParameters,
+// @sentry/aws-serverless) are registered suite-wide in vitest.unit-mocks.setup.ts; per-test
+// behavior is installed below via vi.mocked(...).
 
-const mockPerformCandidPreEncounterSync = vi.fn();
-const mockCreatePatientPaymentReceiptPdf = vi.fn();
-const mockGetAuth0Token = vi.fn().mockResolvedValue('test-token');
-const mockCreateOystehrClient = vi.fn();
-const mockGetStripeClient = vi.fn();
-const mockPatchTaskStatus = vi.fn();
+const index = _index as unknown as (input: any) => Promise<{ statusCode: number; body: string }>;
 
 const mockFhirSearch = vi.fn();
 const mockFhirGet = vi.fn();
@@ -29,56 +42,6 @@ const mockStripeClient = {
     retrieve: vi.fn(),
   },
 };
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    performCandidPreEncounterSync: mockPerformCandidPreEncounterSync,
-    createPatientPaymentReceiptPdf: mockCreatePatientPaymentReceiptPdf,
-    getAuth0Token: mockGetAuth0Token,
-    createClinicalOystehrClient: mockCreateOystehrClient,
-    getStripeClient: mockGetStripeClient,
-    wrapHandler: (_name: string, handler: any) => handler,
-    STRIPE_PAYMENT_ID_SYSTEM: 'https://fhir.oystehr.com/PaymentIdSystem/stripe',
-  };
-});
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_test'),
-    getOptionalSecret: vi.fn().mockReturnValue('candid-client-id-value'),
-    // tests don't drive real candid traffic, so any non-empty string is fine
-    getSecret: vi.fn().mockReturnValue('test-value'),
-    // stub to avoid reading the unmocked secret, skipping performCandidPreEncounterSync
-    getOrCreateCandidApiClient: vi.fn().mockResolvedValue({}),
-  };
-});
-
-vi.mock('../../src/subscriptions/helpers', () => ({
-  patchTaskStatus: (...args: any[]) => mockPatchTaskStatus(...args),
-}));
-
-vi.mock('../../src/subscriptions/task/validateRequestParameters', () => ({
-  validateRequestParameters: vi.fn(),
-}));
-
-vi.mock('@sentry/aws-serverless', () => ({
-  captureException: vi.fn(),
-}));
-
-// ── Imports (after mocks) ──────────────────────────────────────────────────────
-
-const { validateRequestParameters } = await import('../../src/subscriptions/task/validateRequestParameters');
-
-// The mock for wrapHandler makes `index` a plain async function (input) => result
-// so we cast to the simplified signature for test ergonomics.
-const { index: _index } = await import(
-  '../../src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index'
-);
-const index = _index as unknown as (input: any) => Promise<{ statusCode: number; body: string }>;
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -116,11 +79,18 @@ const makeEncounter = (id: string, patientId: string): Encounter => ({
 describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateOystehrClient.mockReturnValue(mockOystehrClient);
-    mockGetStripeClient.mockReturnValue(mockStripeClient);
-    mockPerformCandidPreEncounterSync.mockResolvedValue(undefined);
-    mockCreatePatientPaymentReceiptPdf.mockResolvedValue({ url: 'https://example.com/receipt.pdf' });
-    mockPatchTaskStatus.mockResolvedValue({ status: 'completed', statusReason: { text: 'success' } });
+    vi.mocked(getAuth0Token).mockResolvedValue('test-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as any);
+    vi.mocked(getStripeClient).mockReturnValue(mockStripeClient as any);
+    vi.mocked(performCandidPreEncounterSync).mockResolvedValue(undefined);
+    vi.mocked(createPatientPaymentReceiptPdf).mockResolvedValue({ url: 'https://example.com/receipt.pdf' } as any);
+    vi.mocked(patchTaskStatus).mockResolvedValue({ status: 'completed', statusReason: { text: 'success' } } as any);
+    vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue('acct_test');
+    vi.mocked(getOptionalSecret).mockReturnValue('candid-client-id-value');
+    // tests don't drive real candid traffic, so any non-empty string is fine
+    vi.mocked(getSecret).mockReturnValue('test-value');
+    // stub to avoid reading the unmocked secret, skipping performCandidPreEncounterSync
+    vi.mocked(getOrCreateCandidApiClient).mockResolvedValue({} as any);
   });
 
   function setupValidatedParams(taskId: string, paymentNoticeId: string, encounterId: string): void {
@@ -168,7 +138,7 @@ describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic
     const result = await index({ headers: {}, body: '{}', secrets: {} });
 
     expect(result.statusCode).toBe(200);
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(
+    expect(performCandidPreEncounterSync).toHaveBeenCalledWith(
       expect.objectContaining({
         encounterId: 'enc-100',
         amountCents: 2500, // $25.00 = 2500 cents
@@ -192,7 +162,7 @@ describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic
     const result = await index({ headers: {}, body: '{}', secrets: {} });
 
     expect(result.statusCode).toBe(200);
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(
+    expect(performCandidPreEncounterSync).toHaveBeenCalledWith(
       expect.objectContaining({
         encounterId: 'enc-200',
         amountCents: undefined, // Stripe payment → do NOT record in Candid
@@ -216,8 +186,8 @@ describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic
     await index({ headers: {}, body: '{}', secrets: {} });
 
     // Sync is always called, even for Stripe — only the payment amount is skipped
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledTimes(1);
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(
+    expect(performCandidPreEncounterSync).toHaveBeenCalledTimes(1);
+    expect(performCandidPreEncounterSync).toHaveBeenCalledWith(
       expect.objectContaining({
         encounterId: 'enc-300',
         candidApiClient: expect.anything(),
@@ -239,7 +209,7 @@ describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic
     const result = await index({ headers: {}, body: '{}', secrets: {} });
 
     expect(result.statusCode).toBe(200);
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(
+    expect(performCandidPreEncounterSync).toHaveBeenCalledWith(
       expect.objectContaining({
         amountCents: 1500, // $15.00 = 1500 cents
       })
@@ -262,7 +232,7 @@ describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic
     const result = await index({ headers: {}, body: '{}', secrets: {} });
 
     expect(result.statusCode).toBe(200);
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(
+    expect(performCandidPreEncounterSync).toHaveBeenCalledWith(
       expect.objectContaining({
         amountCents: undefined, // Terminal/card-reader payment → skip Candid
       })
@@ -279,13 +249,16 @@ describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic
 
     setupValidatedParams('task-6', 'pn-fail-1', 'enc-600');
     setupFhirSearches(paymentNotice, encounter);
-    mockPerformCandidPreEncounterSync.mockRejectedValue(new Error('Candid API down'));
-    mockPatchTaskStatus.mockResolvedValue({ status: 'failed', statusReason: { text: 'Candid sync failed' } });
+    vi.mocked(performCandidPreEncounterSync).mockRejectedValue(new Error('Candid API down'));
+    vi.mocked(patchTaskStatus).mockResolvedValue({
+      status: 'failed',
+      statusReason: { text: 'Candid sync failed' },
+    } as any);
 
     const result = await index({ headers: {}, body: '{}', secrets: {} });
 
     expect(result.statusCode).toBe(200);
-    expect(mockPatchTaskStatus).toHaveBeenCalledWith(
+    expect(patchTaskStatus).toHaveBeenCalledWith(
       expect.objectContaining({
         taskStatusToUpdate: 'failed',
       }),
@@ -306,7 +279,7 @@ describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic
 
     await index({ headers: {}, body: '{}', secrets: {} });
 
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(
+    expect(performCandidPreEncounterSync).toHaveBeenCalledWith(
       expect.objectContaining({
         amountCents: 1299,
       })
@@ -327,7 +300,7 @@ describe('sub-patient-payment-candid-sync-and-receipt: Stripe payment skip logic
     await index({ headers: {}, body: '{}', secrets: {} });
 
     // $0 cash payment → amountCents = 0, still passed (performCandidPreEncounterSync handles falsy check)
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(
+    expect(performCandidPreEncounterSync).toHaveBeenCalledWith(
       expect.objectContaining({
         amountCents: 0,
       })

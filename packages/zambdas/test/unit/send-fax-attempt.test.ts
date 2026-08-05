@@ -1,7 +1,13 @@
 import { Appointment, Bundle, DocumentReference, Patient, Task } from 'fhir/r4b';
 import { getOutboundDeliveryInput, OUTBOUND_DELIVERY_INPUT_CODES, VISIT_NOTE_SUMMARY_CODE } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { index } from '../../src/ehr/send-fax';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient, getUser } from '../../src/shared';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
+
+// src/shared is mocked suite-wide in vitest.unit-mocks.setup.ts; per-test behavior is
+// installed in beforeEach via vi.mocked(...). The real wrapHandler applies, so handler
+// errors resolve to a structured error envelope instead of rejecting.
 
 const mockFhirSearch = vi.fn();
 const mockFhirGet = vi.fn();
@@ -12,16 +18,6 @@ const mockOystehrClient = {
   fhir: { search: mockFhirSearch, get: mockFhirGet, create: mockFhirCreate, patch: mockFhirPatch },
   fax: { send: mockFaxSend },
 };
-
-vi.mock('../../src/shared', async (importOriginal) => ({
-  ...((await importOriginal()) as Record<string, unknown>),
-  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-  createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-  getUser: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/prac-1' }),
-  wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-}));
-
-import { index } from '../../src/ehr/send-fax';
 
 const APPOINTMENT_ID = '650e8400-e29b-41d4-a716-446655440000';
 
@@ -57,6 +53,9 @@ function makeSearchBundle(pcpFax: string, system: 'fax' | 'phone' = 'fax'): unkn
 describe('send-fax outbound attempt', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as never);
+    vi.mocked(getUser).mockResolvedValue({ id: 'user-1', profile: 'Practitioner/prac-1' } as never);
     mockFhirSearch.mockResolvedValue(makeSearchBundle('(212) 555-1234'));
     mockFhirGet.mockResolvedValue({ resourceType: 'Practitioner', id: 'prac-1', name: [{ family: 'Sender' }] });
     mockFhirCreate.mockImplementation((task: Task) => Promise.resolve({ ...task, id: 'attempt-1' }));
@@ -90,14 +89,15 @@ describe('send-fax outbound attempt', () => {
 
   it('retains and marks the attempt failed when the provider rejects the send', async () => {
     mockFaxSend.mockRejectedValue(new Error('provider unavailable'));
-    await expect(
-      (index as any)(
-        createMockZambdaInput(
-          { appointmentId: APPOINTMENT_ID, faxNumber: '2125551234' },
-          { secrets: createMockSecrets() }
-        )
+    // The real wrapHandler turns the rethrown provider error into a structured 500 response.
+    const response = await (index as any)(
+      createMockZambdaInput(
+        { appointmentId: APPOINTMENT_ID, faxNumber: '2125551234' },
+        { secrets: createMockSecrets() }
       )
-    ).rejects.toThrow('provider unavailable');
+    );
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body)).toEqual({ error: 'Internal error' });
     expect(mockFhirCreate).toHaveBeenCalledTimes(1);
     expect(mockFhirPatch).toHaveBeenCalledWith(
       expect.objectContaining({ operations: expect.arrayContaining([expect.objectContaining({ value: 'failed' })]) })
@@ -121,14 +121,16 @@ describe('send-fax outbound attempt', () => {
   it('keeps a visible pending attempt when completion persistence exhausts its retries', async () => {
     mockFhirPatch.mockRejectedValue(new Error('FHIR unavailable'));
 
-    await expect(
-      (index as any)(
-        createMockZambdaInput(
-          { appointmentId: APPOINTMENT_ID, faxNumber: '2125551234' },
-          { secrets: createMockSecrets() }
-        )
+    // The real wrapHandler turns the thrown "outbound attempt could not be completed" error into a
+    // structured 500 response.
+    const response = await (index as any)(
+      createMockZambdaInput(
+        { appointmentId: APPOINTMENT_ID, faxNumber: '2125551234' },
+        { secrets: createMockSecrets() }
       )
-    ).rejects.toThrow('outbound attempt could not be completed');
+    );
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body)).toEqual({ error: 'Internal error' });
     expect(mockFaxSend).toHaveBeenCalledTimes(1);
     expect(mockFhirCreate).toHaveBeenCalledTimes(1);
     expect(mockFhirPatch).toHaveBeenCalledTimes(3);

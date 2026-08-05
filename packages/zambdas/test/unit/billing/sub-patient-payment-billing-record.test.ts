@@ -1,62 +1,33 @@
 import { Encounter, PaymentNotice, Task } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL, Secrets } from 'utils';
+import {
+  getOrCreateCandidApiClient,
+  getStripeAccountForAppointmentOrEncounter,
+  PAYMENT_METHOD_EXTENSION_URL,
+  Secrets,
+} from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingPatientPayment } from '../../../src/billing/payments';
+import { createBillingClient } from '../../../src/billing/shared';
+import {
+  createClinicalOystehrClient,
+  createPatientPaymentReceiptPdf,
+  getAuth0Token,
+  getStripeClient,
+  performCandidPreEncounterSync,
+} from '../../../src/shared';
+import { patchTaskStatus } from '../../../src/subscriptions/helpers';
+import { index as _index } from '../../../src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index';
+import { validateRequestParameters } from '../../../src/subscriptions/task/validateRequestParameters';
 
-const mockPerformCandidPreEncounterSync = vi.fn();
-const mockCreatePatientPaymentReceiptPdf = vi.fn();
-const mockRecordBillingPatientPayment = vi.fn();
-const mockPatchTaskStatus = vi.fn();
-const mockCreateClinicalOystehrClient = vi.fn();
-const mockGetStripeClient = vi.fn();
+// All shared-module mocks (src/shared, src/billing/*, src/subscriptions/*, utils, @sentry) are
+// registered suite-wide in vitest.unit-mocks.setup.ts; per-test behavior is installed below
+// via vi.mocked(...).
+
+const index = _index as unknown as (input: unknown) => Promise<{ statusCode: number; body: string }>;
 
 const mockFhirSearch = vi.fn();
 const mockOystehrClient = { fhir: { search: mockFhirSearch } };
 const mockStripeClient = { paymentIntents: { retrieve: vi.fn() } };
-
-vi.mock('../../../src/shared', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  performCandidPreEncounterSync: mockPerformCandidPreEncounterSync,
-  createPatientPaymentReceiptPdf: mockCreatePatientPaymentReceiptPdf,
-  getAuth0Token: vi.fn().mockResolvedValue('test-token'),
-  createClinicalOystehrClient: mockCreateClinicalOystehrClient,
-  getStripeClient: mockGetStripeClient,
-  wrapHandler: (_name: string, handler: unknown) => handler,
-}));
-
-vi.mock('../../../src/billing/payments', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  recordBillingPatientPayment: mockRecordBillingPatientPayment,
-}));
-
-vi.mock('../../../src/billing/shared', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  createBillingClient: vi.fn().mockReturnValue({}),
-}));
-
-vi.mock('utils', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_test'),
-  getOrCreateCandidApiClient: vi.fn().mockResolvedValue({}),
-}));
-
-vi.mock('../../../src/subscriptions/helpers', () => ({
-  patchTaskStatus: (...args: unknown[]) => mockPatchTaskStatus(...args),
-}));
-
-vi.mock('../../../src/subscriptions/task/validateRequestParameters', () => ({
-  validateRequestParameters: vi.fn(),
-}));
-
-vi.mock('@sentry/aws-serverless', () => ({
-  captureException: vi.fn(),
-}));
-
-const { validateRequestParameters } = await import('../../../src/subscriptions/task/validateRequestParameters');
-const { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM } = await import('../../../src/billing/payments');
-const { index: _index } = await import(
-  '../../../src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index'
-);
-const index = _index as unknown as (input: unknown) => Promise<{ statusCode: number; body: string }>;
 
 const STRIPE_PAYMENT_ID_SYSTEM = 'https://fhir.oystehr.com/PaymentIdSystem/stripe';
 
@@ -131,15 +102,23 @@ function setupFhirSearches(paymentNotice: PaymentNotice, encounter: Encounter): 
   });
 }
 
+// The real wrapHandler applies suite-wide; it reads the ENVIRONMENT secret from the
+// invocation input ('local' keeps error reporting inert).
+const zambdaInput = { headers: {}, body: '{}', secrets: { ENVIRONMENT: 'local' } };
+
 describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateClinicalOystehrClient.mockReturnValue(mockOystehrClient);
-    mockGetStripeClient.mockReturnValue(mockStripeClient);
-    mockPerformCandidPreEncounterSync.mockResolvedValue(undefined);
-    mockCreatePatientPaymentReceiptPdf.mockResolvedValue({ url: 'https://example.com/receipt.pdf' });
-    mockRecordBillingPatientPayment.mockResolvedValue({ notice: { id: 'billing-pn-1' } });
-    mockPatchTaskStatus.mockResolvedValue({ status: 'completed', statusReason: { text: 'success' } });
+    vi.mocked(getAuth0Token).mockResolvedValue('test-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as never);
+    vi.mocked(getStripeClient).mockReturnValue(mockStripeClient as never);
+    vi.mocked(performCandidPreEncounterSync).mockResolvedValue(undefined);
+    vi.mocked(createPatientPaymentReceiptPdf).mockResolvedValue({ url: 'https://example.com/receipt.pdf' } as never);
+    vi.mocked(recordBillingPatientPayment).mockResolvedValue({ notice: { id: 'billing-pn-1' } } as never);
+    vi.mocked(patchTaskStatus).mockResolvedValue({ status: 'completed', statusReason: { text: 'success' } } as never);
+    vi.mocked(createBillingClient).mockReturnValue({} as never);
+    vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue('acct_test');
+    vi.mocked(getOrCreateCandidApiClient).mockResolvedValue({} as never);
   });
 
   function setup(notice: PaymentNotice, encounterId: string, billingIntegration?: string): void {
@@ -153,11 +132,11 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
     const notice = makePaymentNotice({ id: 'pn-1', amountDollars: 25, encounterId: 'enc-1' });
     setup(notice, 'enc-1', 'ottehr');
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(200);
-    expect(mockRecordBillingPatientPayment).toHaveBeenCalledTimes(1);
-    expect(mockRecordBillingPatientPayment.mock.calls[0][1]).toMatchObject({
+    expect(recordBillingPatientPayment).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(recordBillingPatientPayment).mock.calls[0][1]).toMatchObject({
       encounterId: 'enc-1',
       amountInCents: 2500,
       paymentMethod: 'cash',
@@ -167,8 +146,8 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
       description: 'cash collected from patient',
       submitterRef: { reference: 'Practitioner/front-desk' },
     });
-    expect(mockPerformCandidPreEncounterSync).not.toHaveBeenCalled();
-    expect(mockPatchTaskStatus).toHaveBeenCalledWith(
+    expect(performCandidPreEncounterSync).not.toHaveBeenCalled();
+    expect(patchTaskStatus).toHaveBeenCalledWith(
       expect.objectContaining({ taskStatusToUpdate: 'completed' }),
       expect.anything()
     );
@@ -178,12 +157,12 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
     const notice = makePaymentNotice({ id: 'pn-2', amountDollars: 10, encounterId: 'enc-2' });
     setup(notice, 'enc-2', 'all');
 
-    await index({ headers: {}, body: '{}', secrets: {} });
+    await index(zambdaInput);
 
-    expect(mockRecordBillingPatientPayment).toHaveBeenCalledTimes(1);
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledTimes(1);
-    expect(mockRecordBillingPatientPayment.mock.invocationCallOrder[0]).toBeLessThan(
-      mockPerformCandidPreEncounterSync.mock.invocationCallOrder[0]
+    expect(recordBillingPatientPayment).toHaveBeenCalledTimes(1);
+    expect(performCandidPreEncounterSync).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(recordBillingPatientPayment).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(performCandidPreEncounterSync).mock.invocationCallOrder[0]
     );
   });
 
@@ -191,10 +170,10 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
     const notice = makePaymentNotice({ id: 'pn-3', amountDollars: 10, encounterId: 'enc-3' });
     setup(notice, 'enc-3', 'candid');
 
-    await index({ headers: {}, body: '{}', secrets: {} });
+    await index(zambdaInput);
 
-    expect(mockRecordBillingPatientPayment).not.toHaveBeenCalled();
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledTimes(1);
+    expect(recordBillingPatientPayment).not.toHaveBeenCalled();
+    expect(performCandidPreEncounterSync).toHaveBeenCalledTimes(1);
   });
 
   it('skips billing for Stripe-identified notices', async () => {
@@ -208,23 +187,23 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
     setup(notice, 'enc-4', 'all');
     mockStripeClient.paymentIntents.retrieve.mockResolvedValue({ id: 'pi_123', status: 'succeeded' });
 
-    await index({ headers: {}, body: '{}', secrets: {} });
+    await index(zambdaInput);
 
-    expect(mockRecordBillingPatientPayment).not.toHaveBeenCalled();
-    expect(mockPerformCandidPreEncounterSync).toHaveBeenCalledWith(expect.objectContaining({ amountCents: undefined }));
+    expect(recordBillingPatientPayment).not.toHaveBeenCalled();
+    expect(performCandidPreEncounterSync).toHaveBeenCalledWith(expect.objectContaining({ amountCents: undefined }));
   });
 
   it('skips candid and fails the task when the billing record fails, receipt still runs', async () => {
     const notice = makePaymentNotice({ id: 'pn-5', amountDollars: 20, encounterId: 'enc-5' });
     setup(notice, 'enc-5', 'all');
-    mockRecordBillingPatientPayment.mockRejectedValue(new Error('billing store down'));
+    vi.mocked(recordBillingPatientPayment).mockRejectedValue(new Error('billing store down'));
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(200);
-    expect(mockPerformCandidPreEncounterSync).not.toHaveBeenCalled();
-    expect(mockCreatePatientPaymentReceiptPdf).toHaveBeenCalledTimes(1);
-    const patch = mockPatchTaskStatus.mock.calls[0][0];
+    expect(performCandidPreEncounterSync).not.toHaveBeenCalled();
+    expect(createPatientPaymentReceiptPdf).toHaveBeenCalledTimes(1);
+    const patch = vi.mocked(patchTaskStatus).mock.calls[0][0];
     expect(patch.taskStatusToUpdate).toBe('failed');
     expect(patch.statusReasonToUpdate).toContain('Ottehr billing payment record failed');
     expect(patch.statusReasonToUpdate).toContain('Candid sync skipped');
@@ -234,9 +213,14 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
     const notice = makePaymentNotice({ id: 'pn-7', amountDollars: 10, encounterId: 'enc-other' });
     setup(notice, 'enc-7', 'ottehr');
 
-    await expect(index({ headers: {}, body: '{}', secrets: {} })).rejects.toThrow('expected Encounter/enc-7');
-    expect(mockRecordBillingPatientPayment).not.toHaveBeenCalled();
-    expect(mockPatchTaskStatus).toHaveBeenCalledWith(
+    // The real wrapHandler turns the thrown "references ..., expected Encounter/enc-7" error into
+    // a structured 500 response instead of rejecting.
+    const result = await index(zambdaInput);
+
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
+    expect(recordBillingPatientPayment).not.toHaveBeenCalled();
+    expect(patchTaskStatus).toHaveBeenCalledWith(
       expect.objectContaining({ taskStatusToUpdate: 'failed' }),
       expect.anything()
     );
@@ -252,11 +236,11 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
     const notice = makePaymentNotice({ id: 'pn-8', amountDollars: 10, encounterId: 'enc-8', ...override });
     setup(notice, 'enc-8', 'ottehr');
 
-    const result = await index({ headers: {}, body: '{}', secrets: {} });
+    const result = await index(zambdaInput);
 
     expect(result.statusCode).toBe(200);
-    expect(mockRecordBillingPatientPayment).not.toHaveBeenCalled();
-    const patch = mockPatchTaskStatus.mock.calls[0][0];
+    expect(recordBillingPatientPayment).not.toHaveBeenCalled();
+    const patch = vi.mocked(patchTaskStatus).mock.calls[0][0];
     expect(patch.taskStatusToUpdate).toBe('failed');
     expect(patch.statusReasonToUpdate).toContain(reason);
   });
@@ -270,9 +254,9 @@ describe('sub-patient-payment-candid-sync-and-receipt: Ottehr billing record', (
     });
     setup(notice, 'enc-9', 'ottehr');
 
-    await index({ headers: {}, body: '{}', secrets: {} });
+    await index(zambdaInput);
 
-    expect(mockRecordBillingPatientPayment.mock.calls[0][1]).toMatchObject({
+    expect(vi.mocked(recordBillingPatientPayment).mock.calls[0][1]).toMatchObject({
       paymentDate: '2026-04-22',
       description: undefined,
       submitterRef: undefined,
