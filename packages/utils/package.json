@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "1.40.4",
-  "main": "dist/main.cjs",
+  "main": "dist/main.mjs",
   "types": "lib/main.ts",
   "sideEffects": false,
   "engines": {
