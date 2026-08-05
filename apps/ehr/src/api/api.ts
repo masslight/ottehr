@@ -211,6 +211,7 @@ import {
   RotateInsuranceCardImageResponse,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
+  SavePreliminaryRadiologyReportZambdaInput,
   SaveRadiologyReportZambdaInput,
   SaveRadiologyReportZambdaOutput,
   ScheduleDTO,
@@ -1210,7 +1211,7 @@ export const radiologyLaunchViewer = async (
 
 export const savePreliminaryReport = async (
   oystehr: Oystehr,
-  parameters: SaveRadiologyReportZambdaInput
+  parameters: SavePreliminaryRadiologyReportZambdaInput
 ): Promise<SaveRadiologyReportZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({

@@ -1,13 +1,17 @@
-import { SaveRadiologyReportZambdaInput, SaveRadiologyReportZambdaInputSchema, Secrets } from 'utils';
+import {
+  SavePreliminaryRadiologyReportZambdaInput,
+  SavePreliminaryRadiologyReportZambdaInputSchema,
+  Secrets,
+} from 'utils';
 import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
 
 export interface ValidatedInput {
-  body: SaveRadiologyReportZambdaInput;
+  body: SavePreliminaryRadiologyReportZambdaInput;
   callerAccessToken: string;
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  const body = safeValidate(SaveRadiologyReportZambdaInputSchema, validateJsonBody(input));
+  const body = safeValidate(SavePreliminaryRadiologyReportZambdaInputSchema, validateJsonBody(input));
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
