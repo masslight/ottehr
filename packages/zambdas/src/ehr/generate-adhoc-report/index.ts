@@ -13,7 +13,7 @@ import {
   Secrets,
 } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
-import { DEFAULT_VERTEX_MODEL, invokeChatbotVertexAI } from '../../shared/ai';
+import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -50,7 +50,7 @@ const ZAMBDA_NAME = 'generate-adhoc-report';
 // Vertex model used to GENERATE the report code. Code generation benefits from a stronger model than
 // the default flash-lite, so this is split out for easy tuning — bump to a larger Gemini model
 // (one provisioned in this project) to improve generated-report quality.
-const REPORT_MODEL = DEFAULT_VERTEX_MODEL;
+const REPORT_MODEL = VERTEX_AI_MODEL;
 
 const RESPONSE_SCHEMA = {
   type: 'object',

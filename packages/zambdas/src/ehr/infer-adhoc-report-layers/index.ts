@@ -2,7 +2,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { fixAndParseJsonObjectFromString, InferAdHocLayersOutput, InferAdHocLayersOutputSchema } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
-import { DEFAULT_VERTEX_MODEL, invokeChatbotVertexAI } from '../../shared/ai';
+import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -55,7 +55,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       [{ text: buildPrompt(layers, request) }],
       secrets,
       RESPONSE_SCHEMA,
-      DEFAULT_VERTEX_MODEL
+      VERTEX_AI_MODEL
     );
     const parsed = fixAndParseJsonObjectFromString(raw) as { layerIds?: unknown };
     if (Array.isArray(parsed?.layerIds)) {
