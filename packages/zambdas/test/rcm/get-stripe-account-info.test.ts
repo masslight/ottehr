@@ -1,6 +1,7 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/rcm/payments/get-stripe-account-info/validateRequestParameters';
+import { getStripeClient } from '../../src/shared/stripeIntegration';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 // ---------------------------------------------------------------------------
@@ -8,14 +9,19 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 // ---------------------------------------------------------------------------
 
 function makeInput(body: Record<string, unknown> | null): ZambdaInput {
-  return { headers: null, body: body ? JSON.stringify(body) : (null as unknown as string), secrets: null };
+  // ENVIRONMENT is required by the real wrapHandler (configSentry) that now wraps the handler.
+  return {
+    headers: null,
+    body: body ? JSON.stringify(body) : (null as unknown as string),
+    secrets: { ENVIRONMENT: 'local' },
+  };
 }
 
 describe('get-stripe-account-info validateRequestParameters', () => {
   it('returns validated params for valid input', () => {
     const result = validateRequestParameters(makeInput({ stripeAccountId: 'acct_123abc' }));
     expect(result).toMatchObject({ stripeAccountId: 'acct_123abc' });
-    expect(result.secrets).toBeNull();
+    expect(result.secrets).toEqual({ ENVIRONMENT: 'local' });
   });
 
   it('throws when stripeAccountId is missing', () => {
@@ -60,19 +66,11 @@ const mockStripeClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
+// getStripeClient is a canonical suite-wide mock (vitest.unit-mocks.setup.ts); this
+// file's default is installed here.
+beforeEach(() => {
+  vi.mocked(getStripeClient).mockReturnValue(mockStripeClient as unknown as ReturnType<typeof getStripeClient>);
 });
-
-vi.mock('../../src/shared/stripeIntegration', () => ({
-  getStripeClient: vi.fn(() => mockStripeClient),
-}));
 
 const { index: handler } = (await import('../../src/rcm/payments/get-stripe-account-info/index')) as unknown as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;

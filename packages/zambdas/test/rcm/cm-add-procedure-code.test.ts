@@ -1,8 +1,9 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/rcm/charge-masters/cm-add-procedure-code/validateRequestParameters';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 // ---------------------------------------------------------------------------
@@ -12,7 +13,8 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
 function makeInput(body: Record<string, unknown>): ZambdaInput {
-  return { headers: null, body: JSON.stringify(body), secrets: null };
+  // ENVIRONMENT is required by the real wrapHandler (configSentry) that now wraps the handler.
+  return { headers: null, body: JSON.stringify(body), secrets: { ENVIRONMENT: 'local' } };
 }
 
 describe('cm-add-procedure-code validateRequestParameters', () => {
@@ -80,22 +82,21 @@ const fakeExisting = (propertyGroup: ChargeItemDefinition['propertyGroup']): Cha
     propertyGroup: propertyGroup || [],
   }) as ChargeItemDefinition;
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
 const mockOystehrClient = {
   fhir: {
     get: vi.fn(),
     update: vi.fn(),
   },
 };
+
+// checkOrCreateM2MClientToken and createClinicalOystehrClient are canonical suite-wide
+// mocks (vitest.unit-mocks.setup.ts); this file's defaults are installed here.
+beforeEach(() => {
+  vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+  vi.mocked(createClinicalOystehrClient).mockReturnValue(
+    mockOystehrClient as unknown as ReturnType<typeof createClinicalOystehrClient>
+  );
+});
 
 const { index: handler } = (await import('../../src/rcm/charge-masters/cm-add-procedure-code/index')) as unknown as {
   index: (input: ZambdaInput) => Promise<APIGatewayProxyResult>;

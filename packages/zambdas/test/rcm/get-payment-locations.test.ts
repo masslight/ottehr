@@ -1,7 +1,8 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/rcm/payments/get-payment-locations/validateRequestParameters';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 // ---------------------------------------------------------------------------
@@ -9,12 +10,13 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 // ---------------------------------------------------------------------------
 
 function makeInput(): ZambdaInput {
-  return { headers: null, body: JSON.stringify({}), secrets: null };
+  // ENVIRONMENT is required by the real wrapHandler (configSentry) that now wraps the handler.
+  return { headers: null, body: JSON.stringify({}), secrets: { ENVIRONMENT: 'local' } };
 }
 
 describe('get-payment-locations validateRequestParameters', () => {
   it('returns secrets from input', () => {
-    const result = validateRequestParameters(makeInput());
+    const result = validateRequestParameters({ headers: null, body: JSON.stringify({}), secrets: null });
     expect(result).toMatchObject({ secrets: null });
   });
 });
@@ -29,14 +31,13 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
+// checkOrCreateM2MClientToken and createClinicalOystehrClient are canonical suite-wide
+// mocks (vitest.unit-mocks.setup.ts); this file's defaults are installed here.
+beforeEach(() => {
+  vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+  vi.mocked(createClinicalOystehrClient).mockReturnValue(
+    mockOystehrClient as unknown as ReturnType<typeof createClinicalOystehrClient>
+  );
 });
 
 const { index: handler } = (await import('../../src/rcm/payments/get-payment-locations/index')) as unknown as {
