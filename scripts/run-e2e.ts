@@ -269,6 +269,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
 
   // Login is never filtered — it produces the auth state (user.json) the whitelisted specs need
   if (PR_CI_TEST === 'true' && testType !== 'login') {
+    console.log('PR CI mode: running only specs tagged @pr-ci (zero matches still pass via --pass-with-no-tests)');
     // --pass-with-no-tests: a suite with no @pr-ci-tagged tests (e.g. a downstream repo) should pass, not fail
     extraArgs.push('--grep', '@pr-ci', '--pass-with-no-tests');
   }
