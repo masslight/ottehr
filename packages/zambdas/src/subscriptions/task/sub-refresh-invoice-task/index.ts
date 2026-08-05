@@ -12,7 +12,9 @@ import {
   getLatestTaskOutput,
   getOrCreateCandidApiClient,
   getStartTimeFromEncounterStatusHistory,
+  InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
+  patchWithOptimisticLock,
   SearchBillingPatientARClaimsResponse,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
@@ -76,66 +78,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // The `task` we were handed is the subscription payload — a snapshot taken when the event was
     // queued. It can be stale by the time we get here (duplicate deliveries, redelivery after a
-    // timeout, a concurrent update-invoice-task write), and every op below whose `op` depends on a
-    // path already existing (`replace`, `remove`) is rejected outright if that guess is wrong.
-    // Re-read the resource so those decisions are based on what is actually stored.
-    const currentTask = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
+    // timeout, a concurrent update-invoice-task write), and an op that assumes a path exists
+    // (`replace`, `remove`) is rejected outright if that guess is wrong. Re-read the resource so the
+    // patch is built against what is actually stored.
+    const currentTask = (await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId })) as Task & { id: string };
 
-    const isZeroBalance = invoiceTaskInput.amountCents === 0;
-    const updateOperations: Operation[] = [
-      { op: 'replace', path: '/input', value: createInvoiceTaskInput(invoiceTaskInput) },
-    ];
+    // Re-reading narrows the window in which a concurrent write can invalidate a path we expect to
+    // exist, but it cannot close it. Patching under the version we read turns that lost race into a
+    // 412 rather than a patch built on a guess that no longer holds, and since every operation is a
+    // pure function of the stored Task, the retry recomputes them against what the winning write left.
+    await patchWithOptimisticLock(oystehr, currentTask, (freshTask) =>
+      buildUpdateOperations(freshTask, invoiceTaskInput)
+    );
 
-    if (invoiceTaskInput.finalizationDate) {
-      updateOperations.push({
-        op: currentTask.authoredOn ? 'replace' : 'add',
-        path: '/authoredOn',
-        value: invoiceTaskInput.finalizationDate,
-      });
-    }
-
-    // Ensure executionPeriod.end stays in sync with start (appointment date).
-    // executionPeriod encodes the appointment date on both bounds so FHIR _sort=period
-    // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
-    // both directions sort by the appointment date correctly.
-    if (currentTask.executionPeriod?.start && currentTask.executionPeriod.end !== currentTask.executionPeriod.start) {
-      updateOperations.push({
-        op: currentTask.executionPeriod.end ? 'replace' : 'add',
-        path: '/executionPeriod/end',
-        value: currentTask.executionPeriod.start,
-      });
-    }
-
-    if (isZeroBalance) {
-      updateOperations.push({
-        op: currentTask.businessStatus ? 'replace' : 'add',
-        path: '/businessStatus',
-        value: ZERO_BALANCE_BUSINESS_STATUS,
-      });
-    } else if (invoiceTaskInput.amountCents !== undefined && currentTask.businessStatus) {
-      updateOperations.push({ op: 'remove', path: '/businessStatus' });
-    }
-
-    // Also read off the stored task: a send that finished after this event was queued has already
-    // written its output and status, and deriving the status from the stale payload would roll that
-    // back to "ready".
-    const getLastTaskOutput = getLatestTaskOutput(currentTask);
-    if (getLastTaskOutput?.type === 'success') {
-      updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('sent') });
-    } else if (getLastTaskOutput?.type === 'error') {
-      updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') });
-    } else {
-      updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('ready') });
-    }
-
-    const droppedOperations = await patchTaskTolerantOfMissingPaths(oystehr, taskId, updateOperations);
     console.log(`Updated task input for task id: "${taskId}"`);
-    const droppedNote = droppedOperations.length
-      ? ` Operations that no longer applied were dropped: ${describeOperations(droppedOperations)}.`
-      : '';
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: `Task was successfully updated.${droppedNote}` }),
+      body: JSON.stringify({ message: 'Task was successfully updated.' }),
     };
   }
 
@@ -155,61 +114,59 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 /**
- * Statuses the FHIR API may answer with when a patch targets a path that does not exist. Both are
- * plausible for what is ultimately a client error, and the exact choice is a server detail — pinning
- * this to a single code risks making the fallback below silently inert, which is the failure mode it
- * exists to prevent. For the same reason the status is read structurally instead of through
- * `instanceof Oystehr.OystehrSdkError`.
+ * Builds the patch for the refreshed invoice data against the Task as it is currently stored. Every
+ * decision here — `add` vs `replace`, whether to remove `businessStatus`, which status the send's
+ * output implies — is read off `currentTask` rather than the subscription payload, so re-running this
+ * with a re-fetched Task after an optimistic-locking conflict yields a patch valid for that version.
  */
-const PATCH_PATH_REJECTION_STATUSES = new Set([400, 422]);
+function buildUpdateOperations(currentTask: Task, invoiceTaskInput: InvoiceTaskInput): Operation[] {
+  const isZeroBalance = invoiceTaskInput.amountCents === 0;
+  const updateOperations: Operation[] = [
+    { op: 'replace', path: '/input', value: createInvoiceTaskInput(invoiceTaskInput) },
+  ];
 
-const describeOperations = (operations: Operation[]): string =>
-  operations.map((operation) => `${operation.op} ${operation.path}`).join(', ');
-
-/**
- * Applies `operations` to the Task, retrying once without the `remove` ops if the whole patch is
- * rejected over a path that does not exist. Returns the ops that had to be dropped — empty when the
- * first attempt succeeded.
- *
- * Re-reading the Task before building the patch narrows the window in which a concurrent write can
- * invalidate a path we expect to exist, but it cannot close it. `remove` is the only op here that
- * hard-fails on an already-absent path (RFC 6902), and since the patch is applied atomically that
- * one lost race would otherwise discard the input/authoredOn/status updates too, leaving the task
- * stuck in "updating". Dropping the removes and retrying converges on the same end state, because
- * the field we wanted gone is already gone. The retry is a strict subset of the original ops, so a
- * rejection with some other cause simply fails again and propagates.
- *
- * The caller is expected to surface the returned ops: a retry that succeeds still means we gave up
- * on clearing a field, and that has to be visible rather than reported as an unqualified success.
- */
-async function patchTaskTolerantOfMissingPaths(
-  oystehr: Oystehr,
-  taskId: string,
-  operations: Operation[]
-): Promise<Operation[]> {
-  try {
-    await oystehr.fhir.patch({ resourceType: 'Task', id: taskId, operations });
-    return [];
-  } catch (error) {
-    const status =
-      (error as { code?: number; statusCode?: number })?.code ?? (error as { statusCode?: number })?.statusCode;
-    const removals = operations.filter((operation) => operation.op === 'remove');
-    if (!PATCH_PATH_REJECTION_STATUSES.has(status as number) || removals.length === 0) {
-      throw error;
-    }
-    console.warn(
-      `Patch for task "${taskId}" was rejected with status ${status}; retrying without ${describeOperations(
-        removals
-      )}. Original error:`,
-      error
-    );
-    await oystehr.fhir.patch({
-      resourceType: 'Task',
-      id: taskId,
-      operations: operations.filter((operation) => operation.op !== 'remove'),
+  if (invoiceTaskInput.finalizationDate) {
+    updateOperations.push({
+      op: currentTask.authoredOn ? 'replace' : 'add',
+      path: '/authoredOn',
+      value: invoiceTaskInput.finalizationDate,
     });
-    return removals;
   }
+
+  // Ensure executionPeriod.end stays in sync with start (appointment date).
+  // executionPeriod encodes the appointment date on both bounds so FHIR _sort=period
+  // FHIR sorts Period by lower bound (asc) and upper bound (desc) — setting start == end makes
+  // both directions sort by the appointment date correctly.
+  if (currentTask.executionPeriod?.start && currentTask.executionPeriod.end !== currentTask.executionPeriod.start) {
+    updateOperations.push({
+      op: currentTask.executionPeriod.end ? 'replace' : 'add',
+      path: '/executionPeriod/end',
+      value: currentTask.executionPeriod.start,
+    });
+  }
+
+  if (isZeroBalance) {
+    updateOperations.push({
+      op: currentTask.businessStatus ? 'replace' : 'add',
+      path: '/businessStatus',
+      value: ZERO_BALANCE_BUSINESS_STATUS,
+    });
+  } else if (invoiceTaskInput.amountCents !== undefined && currentTask.businessStatus) {
+    updateOperations.push({ op: 'remove', path: '/businessStatus' });
+  }
+
+  // A send that finished after this event was queued has already written its output and status, and
+  // deriving the status from the stale payload would roll that back to "ready".
+  const getLastTaskOutput = getLatestTaskOutput(currentTask);
+  if (getLastTaskOutput?.type === 'success') {
+    updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('sent') });
+  } else if (getLastTaskOutput?.type === 'error') {
+    updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('error') });
+  } else {
+    updateOperations.push({ op: 'replace', path: '/status', value: mapDisplayToInvoiceTaskStatus('ready') });
+  }
+
+  return updateOperations;
 }
 
 async function getBillingRefreshData(oystehr: Oystehr, task: Task): Promise<RefreshedInvoiceData | undefined> {

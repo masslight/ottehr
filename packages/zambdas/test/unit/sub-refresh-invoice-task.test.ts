@@ -58,6 +58,8 @@ const billingTask = (overrides: Partial<Task> = {}): Task =>
     },
     authoredOn: '2026-07-01T00:00:00Z',
     meta: {
+      // The handler patches under this version, so it has to be present for the lock to be exercised.
+      versionId: '7',
       tag: [invoiceTaskSourceTag('ottehr-billing')],
     },
     identifier: [
@@ -89,11 +91,15 @@ const arItem = (overrides: Record<string, unknown> = {}): Record<string, unknown
 });
 
 /**
- * `task` is the subscription payload; `storedTask` is what the handler will read back from FHIR
- * right before patching. They differ when a concurrent write has moved the resource on.
+ * `task` is the subscription payload; `stored` is what the handler will read back from FHIR right
+ * before patching. They differ when a concurrent write has moved the resource on. Pass an array to
+ * make successive reads differ — the handler re-reads once per optimistic-locking retry, and the last
+ * entry answers every read after that.
  */
-const runHandler = (task: Task, storedTask: Task = task): Promise<APIGatewayProxyResult> => {
-  mockClinicalClient.fhir.get.mockResolvedValue(storedTask);
+const runHandler = (task: Task, stored: Task | Task[] = task): Promise<APIGatewayProxyResult> => {
+  const reads = Array.isArray(stored) ? stored : [stored];
+  reads.slice(0, -1).forEach((read) => mockClinicalClient.fhir.get.mockResolvedValueOnce(read));
+  mockClinicalClient.fhir.get.mockResolvedValue(reads[reads.length - 1]);
   return handler({
     headers: null,
     body: JSON.stringify(task),
@@ -240,36 +246,39 @@ describe('sub-refresh-invoice-task', () => {
     expect(authoredOnOp?.op).toBe('add');
   });
 
-  // The FHIR API's exact rejection for a patch against a missing path is a server detail, and it is
-  // reported on `code` or `statusCode` depending on how the SDK wrapped it — so all of these shapes
-  // have to reach the retry.
-  it.each([
-    { label: 'code 422', rejection: { code: 422 } },
-    { label: 'code 400', rejection: { code: 400 } },
-    { label: 'statusCode 422', rejection: { statusCode: 422 } },
-  ])('retries without the remove operation when the patch is rejected with $label', async ({ rejection }) => {
+  it('patches under the version it read', async () => {
     nonZeroBalanceAr();
-    mockClinicalClient.fhir.patch
-      .mockRejectedValueOnce(Object.assign(new Error('path that does not exist'), rejection))
-      .mockResolvedValueOnce({});
 
-    const taskWithZeroBalanceFlag = billingTask({ businessStatus: ZERO_BALANCE_BUSINESS_STATUS });
-    const result = await runHandler(taskWithZeroBalanceFlag);
+    await runHandler(billingTask(), billingTask({ meta: { versionId: '9' } }));
+
+    expect(mockClinicalClient.fhir.patch.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '9' });
+  });
+
+  it('recomputes the patch against the winning write when the optimistic lock rejects it', async () => {
+    nonZeroBalanceAr();
+    mockClinicalClient.fhir.patch.mockRejectedValueOnce(Object.assign(new Error('conflict'), { code: 412 }));
+
+    // The read that built the first patch still saw the zero-balance flag; the write that beat us to
+    // it had already cleared the flag and recorded a successful send.
+    await runHandler(billingTask(), [
+      billingTask({ businessStatus: ZERO_BALANCE_BUSINESS_STATUS }),
+      billingTask({
+        businessStatus: undefined,
+        output: [{ type: RcmTaskCodings.sendInvoiceOutputInvoiceId, valueString: 'invoice-1' }],
+      }),
+    ]);
 
     expect(patchedOperations(0)).toContainEqual({ op: 'remove', path: '/businessStatus' });
 
+    // The remove is gone because the field is, and the status follows the output the winner wrote
+    // rather than the "ready" the first attempt derived.
     const retriedOperations = patchedOperations(1);
-    expect(retriedOperations.some((op) => op.op === 'remove')).toBe(false);
-    expect(retriedOperations).toContainEqual({ op: 'replace', path: '/status', value: 'ready' });
+    expect(retriedOperations.find((op) => op.path === '/businessStatus')).toBeUndefined();
+    expect(retriedOperations).toContainEqual({ op: 'replace', path: '/status', value: 'completed' });
     expect(retriedOperations.some((op) => op.path === '/input')).toBe(true);
-
-    // A retry that succeeded still gave up on clearing businessStatus; the response has to say so.
-    const message = JSON.parse(result.body).message as string;
-    expect(message).toContain('successfully updated');
-    expect(message).toContain('remove /businessStatus');
   });
 
-  it('reports an unqualified success when nothing had to be dropped', async () => {
+  it('reports an unqualified success', async () => {
     nonZeroBalanceAr();
 
     const result = await runHandler(billingTask({ businessStatus: ZERO_BALANCE_BUSINESS_STATUS }));
@@ -278,21 +287,20 @@ describe('sub-refresh-invoice-task', () => {
     expect(JSON.parse(result.body).message).toBe('Task was successfully updated.');
   });
 
-  it('propagates patch failures that are not path rejections', async () => {
-    nonZeroBalanceAr();
-    mockClinicalClient.fhir.patch.mockRejectedValue(Object.assign(new Error('conflict'), { code: 409 }));
-
-    await expect(runHandler(billingTask({ businessStatus: ZERO_BALANCE_BUSINESS_STATUS }))).rejects.toThrow('conflict');
-    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not retry a path rejection when the patch carries no remove operation', async () => {
+  it('propagates patch failures that are not version conflicts', async () => {
     nonZeroBalanceAr();
     mockClinicalClient.fhir.patch.mockRejectedValue(Object.assign(new Error('bad path'), { code: 422 }));
 
-    // No stored businessStatus means no `remove` op, so there is nothing to drop and retry.
-    await expect(runHandler(billingTask())).rejects.toThrow('bad path');
+    await expect(runHandler(billingTask({ businessStatus: ZERO_BALANCE_BUSINESS_STATUS }))).rejects.toThrow('bad path');
     expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives up rather than retrying a conflict forever', async () => {
+    nonZeroBalanceAr();
+    mockClinicalClient.fhir.patch.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
+
+    await expect(runHandler(billingTask())).rejects.toThrow('conflict');
+    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledTimes(3);
   });
 
   it('derives the status from the stored task output, not the queued payload', async () => {
