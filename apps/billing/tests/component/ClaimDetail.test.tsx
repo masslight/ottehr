@@ -499,6 +499,38 @@ describe('ClaimDetail: notes drawer', () => {
     expect(await screen.findByLabelText('Add a note')).toBeInTheDocument();
   });
 
+  it('drops an unsent draft when the user moves to another claim', async () => {
+    const otherClaim = {
+      id: 'claim-2',
+      status: '',
+      arStage: AR_STAGE.patient,
+      serviceDate: '2026-01-02',
+      payerName: 'Acme Health',
+      billed: 100,
+      cptCodes: ['99213'],
+    };
+    getBillingClaimDetailMock.mockImplementation((_client: unknown, { claimId }: { claimId: string }) =>
+      Promise.resolve({
+        ...makeClaim(AR_STAGE.patient),
+        id: claimId,
+        otherClaims: claimId === 'claim-1' ? [otherClaim] : [],
+      })
+    );
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: 'Notes' }));
+    const draft = await screen.findByLabelText('Add a note');
+    fireEvent.change(draft, { target: { value: 'draft for the first claim' } });
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    await user.click(screen.getByRole('tab', { name: 'Other claims' }));
+    await user.click(await screen.findByText('claim-2'));
+
+    await user.click(await screen.findByRole('button', { name: 'Notes' }));
+    expect(await screen.findByLabelText('Add a note')).toHaveValue('');
+  });
+
   it('shows a note posted from the drawer on the already-open History tab', async () => {
     const user = userEvent.setup();
     renderDetail();

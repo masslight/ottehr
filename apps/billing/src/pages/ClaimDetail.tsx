@@ -458,6 +458,7 @@ export default function ClaimDetail(): ReactElement {
       />
 
       <ClaimNotesDrawer
+        key={claim.id}
         open={notesOpen}
         onClose={() => setNotesOpen(false)}
         claimId={claim.id}
