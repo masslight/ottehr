@@ -241,6 +241,13 @@ export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
 }
 
+export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier {
+  return {
+    system: SOURCE_IDENTIFIER_SYSTEM,
+    value: clinicalPatientId,
+  };
+}
+
 // Claim.MD stamps the check number as a searchable identifier; process-era only sets
 // paymentIdentifier.
 export function getEraCheckNumber(

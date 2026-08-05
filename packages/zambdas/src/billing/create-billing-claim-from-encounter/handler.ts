@@ -87,6 +87,7 @@ import {
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
+  clinicalPatientIdentifier,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -162,7 +163,7 @@ interface ClaimResources {
   billingTags?: Array<string>;
 }
 
-type CreateClaimFromEncounterRequests = Array<
+export type CreateClaimFromEncounterRequests = Array<
   | BatchInputPostRequest<BillingFhirResource | Provenance>
   | BatchInputPatchRequest<BillingFhirResource>
   | BatchInputPutRequest<BillingFhirResource>
@@ -337,15 +338,17 @@ export async function performEffect(
   // Create or update billing person that links patients
   if (billingResources.person) {
     requests.push({
-      method: 'PATCH',
+      method: 'PUT',
       url: `/Person/${billingResources.person.id!}`,
-      operations: [
-        {
-          op: 'replace',
-          path: '/link',
-          value: [...(billingResources.person.link ?? []), { target: uuidOrUrnReference('Patient', claimPatient.id) }],
-        },
-      ],
+      resource: {
+        ...billingResources.person,
+        link: [
+          ...(billingResources.person.link ?? []),
+          {
+            target: uuidOrUrnReference('Patient', claimPatient.id),
+          },
+        ],
+      },
       ifMatch: `W/"${billingResources.person.meta?.versionId}"`,
     });
   } else {
@@ -354,16 +357,13 @@ export async function performEffect(
       url: '/Person',
       resource: {
         resourceType: 'Person',
+        identifier: [clinicalPatientIdentifier(clinicalResources.patient.id!)],
         link: [
-          { target: uuidOrUrnReference('Patient', mainPatient.id!) },
-          { target: uuidOrUrnReference('Patient', claimPatient.id) },
-        ],
-        extension: [
           {
-            url: SOURCE_IDENTIFIER_SYSTEM,
-            valueReference: {
-              reference: `Patient/${clinicalResources.patient.id!}`,
-            },
+            target: uuidOrUrnReference('Patient', mainPatient.id!),
+          },
+          {
+            target: uuidOrUrnReference('Patient', claimPatient.id),
           },
         ],
       },
@@ -947,11 +947,12 @@ async function findExistingBillingResources(
   secrets: Secrets
 ): Promise<BillingResources> {
   // Find billing cross-Patient Person resource
+  const personIdentifier = clinicalPatientIdentifier(clinicalResources.patient.id!);
   const personSearch = (
     await billingOystehr.fhir.search<Person | Patient | Account>({
       resourceType: 'Person',
       params: [
-        { name: 'link', value: `Patient/${clinicalResources.patient.id}` },
+        { name: 'identifier', value: `${personIdentifier.system}|${personIdentifier.value}` },
         { name: '_include', value: 'Person:patient' },
         {
           // Include account coverages
