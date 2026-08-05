@@ -8,10 +8,16 @@ import {
   chooseJson,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateCardDocumentReferenceInput,
+  CreateCardDocumentReferenceResponse,
   CreateSlotParams,
+  DeleteCardDocumentReferenceInput,
+  DeleteCardDocumentReferenceResponse,
   GetAppointmentDetailsResponse,
   GetBookingQuestionnaireParams,
   GetBookingQuestionnaireResponse,
+  GetCardExtractionInput,
+  GetCardExtractionResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
@@ -60,6 +66,9 @@ const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = 'telemed-get-appointments';
 const IN_PERSON_GET_APPOINTMENTS_ZAMBDA_ID = 'intake-get-appointments';
 const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
 const GET_PRESIGNED_FILE_URL = 'get-presigned-file-url';
+const CREATE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID = 'create-card-document-reference';
+const DELETE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID = 'delete-card-document-reference';
+const GET_CARD_EXTRACTION_ZAMBDA_ID = 'get-card-extraction';
 const GET_APPOINTMENT_DETAILS = 'get-appointment-details';
 const PATCH_PAPERWORK_ZAMBDA_ID = 'patch-paperwork';
 const SUBMIT_PAPERWORK_ZAMBDA_ID = 'submit-paperwork';
@@ -393,6 +402,69 @@ class API {
       throw apiErrorToThrow(error);
     }
   }
+
+  // creates the card DocumentReference right after a successful card image upload so the
+  // OCR extraction subscriptions fire while the patient is still in the paperwork wizard
+  async createCardDocumentReference(
+    params: CreateCardDocumentReferenceInput,
+    zambdaClient: ZambdaClient
+  ): Promise<CreateCardDocumentReferenceResponse> {
+    try {
+      const { appointmentID, cardType, z3URL } = params;
+
+      const response = await zambdaClient.executePublic(CREATE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID, {
+        appointmentID,
+        cardType,
+        z3URL,
+      });
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  // removes the upload-time card DocumentReference when the patient clears the card image before
+  // saving the page, so the orphaned doc doesn't linger in the EHR's visit files or get OCR'd
+  async deleteCardDocumentReference(
+    params: DeleteCardDocumentReferenceInput,
+    zambdaClient: ZambdaClient
+  ): Promise<DeleteCardDocumentReferenceResponse> {
+    try {
+      const { appointmentID, cardType, z3URL } = params;
+
+      const response = await zambdaClient.executePublic(DELETE_CARD_DOCUMENT_REFERENCE_ZAMBDA_ID, {
+        appointmentID,
+        cardType,
+        z3URL,
+      });
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  // reads the card OCR extraction the extract-* subscriptions store asynchronously on the
+  // upload-time card DocumentReference (created by createCardDocumentReference); returns
+  // status 'pending' while the extraction is still in flight, so callers poll
+  async getCardExtraction(
+    params: GetCardExtractionInput,
+    zambdaClient: ZambdaClient
+  ): Promise<GetCardExtractionResponse> {
+    try {
+      const { appointmentID, cardType } = params;
+
+      const response = await zambdaClient.executePublic(GET_CARD_EXTRACTION_ZAMBDA_ID, {
+        appointmentID,
+        cardType,
+      });
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
   async getEligibility(input: GetEligibilityParameters, zambdaClient: ZambdaClient): Promise<GetEligibilityResponse> {
     try {
       if (GET_ELIGIBILITY_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {

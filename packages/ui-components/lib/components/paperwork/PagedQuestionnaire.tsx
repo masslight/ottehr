@@ -62,7 +62,10 @@ import {
   RadioInput,
   RadioListInput,
 } from './form-components';
+import { AiFilledBadge, CardAutofillSlotNote, CarrierHintNote } from './form-components/CardAutofillNotes';
+import { isExtractableCardSlot } from './hooks/cardAutofillEngine';
 import { useAutoFillValues } from './hooks/useAutofill';
+import { useCardAutofill } from './hooks/useCardAutofill';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useDisplayFilteredOptions, useFilterAnswersOptions } from './hooks/useFilterAnswersOptions';
 import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './hooks/useFormHelpers';
@@ -238,6 +241,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
       <FormProvider {...methods}>
         {pageItem && pageSubtitle ? <PaperworkPageTitle pageItem={pageItem} pageSubtitle={pageSubtitle} /> : null}
         <PaperworkFormRoot
+          pageId={pageId}
           pageItem={pageItem}
           items={items}
           onSubmit={onSubmit}
@@ -280,6 +284,7 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, pageSubtitl
 };
 
 interface PaperworkRootInput {
+  pageId: string;
   pageItem?: IntakeQuestionnaireItem;
   items: IntakeQuestionnaireItem[];
   onSubmit: (data: QuestionnaireFormFields) => void;
@@ -288,6 +293,7 @@ interface PaperworkRootInput {
   parentIsSaving?: boolean;
 }
 const PaperworkFormRoot: FC<PaperworkRootInput> = ({
+  pageId,
   pageItem,
   items,
   onSubmit,
@@ -310,6 +316,9 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const visibleItems = useStyledItems({ formItems: items });
   const errorMessage = makeFormErrorMessage(visibleItems, errors);
   const { formValues } = useQRState();
+
+  // auto-fill engine: OCR of card images uploaded this session → carrier/member-id/address fields
+  useCardAutofill({ items, pageId });
 
   // Only run credit-card auto-save when the current page actually contains a Credit Card input.
   // The credit card store is module-scoped and survives across navigations, so without this guard
@@ -540,6 +549,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
                 item.text
               )}
             </BoldPurpleInputLabel>
+            <AiFilledBadge linkId={item.linkId} />
             <FormInputField
               renderProps={renderProps}
               itemProps={props}
@@ -547,6 +557,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
               parentItem={parentItem}
               fieldId={fieldId}
             />
+            <CarrierHintNote linkId={item.linkId} />
             {item.secondaryInfoText ? (
               <LightToolTip
                 title={item.secondaryInfoText}
@@ -810,15 +821,18 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
         );
       case 'Attachment':
         return (
-          <FileInput
-            fileName={item.linkId}
-            fieldName={fieldId}
-            attachmentType={attachmentType}
-            value={unwrappedValue}
-            onChange={smartOnChange}
-            description={item.attachmentText ?? ''}
-            usePaperworkContext={usePaperworkContext}
-          />
+          <>
+            <FileInput
+              fileName={item.linkId}
+              fieldName={fieldId}
+              attachmentType={attachmentType}
+              value={unwrappedValue}
+              onChange={smartOnChange}
+              description={item.attachmentText ?? ''}
+              usePaperworkContext={usePaperworkContext}
+            />
+            {isExtractableCardSlot(item.linkId) && <CardAutofillSlotNote slotLinkId={item.linkId} />}
+          </>
         );
       case 'Group':
         // will this ever be reached??

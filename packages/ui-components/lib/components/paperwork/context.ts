@@ -4,8 +4,14 @@ import { createContext, useContext } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   AppointmentSummary,
+  CreateCardDocumentReferenceInput,
+  CreateCardDocumentReferenceResponse,
   CreditCardInfo,
+  DeleteCardDocumentReferenceInput,
+  DeleteCardDocumentReferenceResponse,
   GetAnswerOptionsRequest,
+  GetCardExtractionInput,
+  GetCardExtractionResponse,
   HandleAnswerInput,
   IntakeQuestionnaireItem,
   PaperworkPatient,
@@ -24,6 +30,14 @@ export interface PaperworkComponentHelpers {
   createZ3Object:
     | ((input: { appointmentID: string; fileType: string; fileFormat: string; file: File }) => Promise<any>)
     | undefined;
+  /** FileInput */
+  createCardDocumentReference:
+    | ((input: CreateCardDocumentReferenceInput) => Promise<CreateCardDocumentReferenceResponse>)
+    | undefined;
+  /** FileInput */
+  deleteCardDocumentReference:
+    | ((input: DeleteCardDocumentReferenceInput) => Promise<DeleteCardDocumentReferenceResponse>)
+    | undefined;
   /** AiInterview */
   aIInterviewStart: ((input: StartInterviewInput) => Promise<QuestionnaireResponse>) | undefined;
   /** AiInterview */
@@ -32,6 +46,8 @@ export interface PaperworkComponentHelpers {
   setDefaultPaymentMethod: ((input: PaymentMethodSetDefaultParameters) => Promise<unknown>) | undefined;
   /** FreeMultiSelectInput */
   getAnswerOptions: ((input: GetAnswerOptionsRequest) => Promise<QuestionnaireItemAnswerOption[]>) | undefined;
+  /** useCardExtraction */
+  getCardExtraction: ((input: GetCardExtractionInput) => Promise<GetCardExtractionResponse>) | undefined;
 }
 
 export interface PaperworkContext

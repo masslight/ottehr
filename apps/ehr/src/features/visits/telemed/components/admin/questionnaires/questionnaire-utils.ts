@@ -80,10 +80,13 @@ export function stubPaperworkContext(
     paperworkComponentHelpers: {
       handleSearchPlaces: undefined,
       createZ3Object: undefined,
+      createCardDocumentReference: undefined,
+      deleteCardDocumentReference: undefined,
       aIInterviewStart: undefined,
       aIInterviewHandleAnswer: undefined,
       setDefaultPaymentMethod: undefined,
       getAnswerOptions: undefined,
+      getCardExtraction: undefined,
     },
   };
 }

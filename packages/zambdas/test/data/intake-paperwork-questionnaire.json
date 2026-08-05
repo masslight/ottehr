@@ -1,7 +1,7 @@
 {
   "resourceType": "Questionnaire",
   "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-  "version": "1.2.5",
+  "version": "1.2.7",
   "name": "in-person_pre-visit_paperwork",
   "title": "in-person pre-visit paperwork",
   "status": "active",
@@ -11,6 +11,57 @@
       "type": "group",
       "text": "Contact information",
       "item": [
+        {
+          "linkId": "photo-id-page-caption",
+          "type": "display",
+          "text": "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child. ",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+              "valueString": "p"
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-front",
+          "type": "attachment",
+          "text": "Take a picture of the front side of your Photo ID (optional)",
+          "required": false,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
+              "valueString": "Take a picture of the **front side** of your Photo ID"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Image"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+              "valueString": "55188-7"
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-back",
+          "type": "attachment",
+          "text": "Take a picture of the back side of your Photo ID (optional)",
+          "required": false,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
+              "valueString": "Take a picture of the **back side** of your Photo ID"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Image"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+              "valueString": "55188-7"
+            }
+          ]
+        },
         {
           "linkId": "contact-page-address-text",
           "type": "display",
@@ -1158,6 +1209,94 @@
           ]
         },
         {
+          "linkId": "insurance-card-front",
+          "type": "attachment",
+          "text": "Front side of the insurance card (optional)",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "payment-option",
+              "operator": "=",
+              "answerString": "I have insurance"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
+              "valueString": "Take a picture of the **front side** of your card and upload it here"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Image"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+              "valueString": "64290-0"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "payment-option"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "!="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueString": "I have insurance"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-card-back",
+          "type": "attachment",
+          "text": "Back side of the insurance card (optional)",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "payment-option",
+              "operator": "=",
+              "answerString": "I have insurance"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
+              "valueString": "Take a picture of the **back side** of your card and upload it here"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Image"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+              "valueString": "64290-0"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                  "valueString": "payment-option"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                  "valueString": "!="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                  "valueString": "I have insurance"
+                }
+              ]
+            }
+          ]
+        },
+        {
           "linkId": "insurance-carrier",
           "type": "choice",
           "text": "Insurance carrier",
@@ -2128,94 +2267,6 @@
           ]
         },
         {
-          "linkId": "insurance-card-front",
-          "type": "attachment",
-          "text": "Front side of the insurance card (optional)",
-          "required": false,
-          "enableWhen": [
-            {
-              "question": "payment-option",
-              "operator": "=",
-              "answerString": "I have insurance"
-            }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
-              "valueString": "Take a picture of the **front side** of your card and upload it here"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-              "valueString": "Image"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-              "valueString": "64290-0"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
-                  "valueString": "payment-option"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
-                  "valueString": "!="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
-                  "valueString": "I have insurance"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "linkId": "insurance-card-back",
-          "type": "attachment",
-          "text": "Back side of the insurance card (optional)",
-          "required": false,
-          "enableWhen": [
-            {
-              "question": "payment-option",
-              "operator": "=",
-              "answerString": "I have insurance"
-            }
-          ],
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
-              "valueString": "Take a picture of the **back side** of your card and upload it here"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-              "valueString": "Image"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-              "valueString": "64290-0"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
-                  "valueString": "payment-option"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
-                  "valueString": "!="
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
-                  "valueString": "I have insurance"
-                }
-              ]
-            }
-          ]
-        },
-        {
           "linkId": "display-secondary-insurance",
           "type": "boolean",
           "text": "Add secondary insurance",
@@ -2288,6 +2339,46 @@
               "linkId": "insurance-details-text-2",
               "type": "display",
               "text": "Secondary insurance details"
+            },
+            {
+              "linkId": "insurance-card-front-2",
+              "type": "attachment",
+              "text": "Front side of the insurance card (optional)",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
+                  "valueString": "Take a picture of the **front side** of your card and upload it here"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                  "valueString": "Image"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                  "valueString": "64290-0"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-back-2",
+              "type": "attachment",
+              "text": "Back side of the insurance card (optional)",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
+                  "valueString": "Take a picture of the **back side** of your card and upload it here"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                  "valueString": "Image"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
+                  "valueString": "64290-0"
+                }
+              ]
             },
             {
               "linkId": "insurance-carrier-2",
@@ -2709,46 +2800,6 @@
                   "valueString": "Other"
                 }
               ]
-            },
-            {
-              "linkId": "insurance-card-front-2",
-              "type": "attachment",
-              "text": "Front side of the insurance card (optional)",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
-                  "valueString": "Take a picture of the **front side** of your card and upload it here"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                  "valueString": "Image"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-                  "valueString": "64290-0"
-                }
-              ]
-            },
-            {
-              "linkId": "insurance-card-back-2",
-              "type": "attachment",
-              "text": "Back side of the insurance card (optional)",
-              "required": false,
-              "extension": [
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
-                  "valueString": "Take a picture of the **back side** of your card and upload it here"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                  "valueString": "Image"
-                },
-                {
-                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-                  "valueString": "64290-0"
-                }
-              ]
             }
           ],
           "text": "Secondary insurance",
@@ -2915,6 +2966,7 @@
               "valueString": "Payment Validation"
             },
             {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
               "extension": [
                 {
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
@@ -2928,8 +2980,7 @@
                   "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
                   "valueBoolean": true
                 }
-              ],
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when"
+              ]
             }
           ]
         },
@@ -4423,64 +4474,6 @@
           "question": "contact-information-page.reason-for-visit",
           "operator": "=",
           "answerString": "Auto accident"
-        }
-      ]
-    },
-    {
-      "linkId": "photo-id-page",
-      "type": "group",
-      "text": "Photo ID",
-      "item": [
-        {
-          "linkId": "photo-id-page-caption",
-          "type": "display",
-          "text": "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child. ",
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
-              "valueString": "p"
-            }
-          ]
-        },
-        {
-          "linkId": "photo-id-front",
-          "type": "attachment",
-          "text": "Take a picture of the front side of your Photo ID (optional)",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
-              "valueString": "Take a picture of the **front side** of your Photo ID"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-              "valueString": "Image"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-              "valueString": "55188-7"
-            }
-          ]
-        },
-        {
-          "linkId": "photo-id-back",
-          "type": "attachment",
-          "text": "Take a picture of the back side of your Photo ID (optional)",
-          "required": false,
-          "extension": [
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text",
-              "valueString": "Take a picture of the **back side** of your Photo ID"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-              "valueString": "Image"
-            },
-            {
-              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/document-type",
-              "valueString": "55188-7"
-            }
-          ]
         }
       ]
     },

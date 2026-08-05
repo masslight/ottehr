@@ -175,14 +175,12 @@ export class Locators {
   pcpEditButton: Locator;
   insuranceDetailsEditButton: Locator;
   responsiblePartyEditButton: Locator;
-  photoIdEditButton: Locator;
   consentFormsEditButton: Locator;
   contactInformationChipStatus: Locator;
   patientDetailsChipStatus: Locator;
   pcpChipStatus: Locator;
   insuranceDetailsChipStatus: Locator;
   responsiblePartyChipStatus: Locator;
-  photoIdChipStatus: Locator;
   consentFormsChipStatus: Locator;
   relayServiceNo: Locator;
   relayServiceYes: Locator;
@@ -532,14 +530,12 @@ export class Locators {
     this.pcpEditButton = page.getByTestId('primary-care-physician-page-edit');
     this.insuranceDetailsEditButton = page.getByTestId('payment-option-page-edit');
     this.responsiblePartyEditButton = page.getByTestId('responsible-party-page-edit');
-    this.photoIdEditButton = page.getByTestId('photo-id-page-edit');
     this.consentFormsEditButton = page.getByTestId('consent-forms-page-edit');
     this.contactInformationChipStatus = page.locator('[data-testid="contact-information-page-status"] div');
     this.patientDetailsChipStatus = page.locator('[data-testid="patient-details-page-status"] div');
     this.pcpChipStatus = page.locator('[data-testid="primary-care-physician-page-status"] div');
     this.insuranceDetailsChipStatus = page.locator('[data-testid="payment-option-page-status"] div');
     this.responsiblePartyChipStatus = page.locator('[data-testid="responsible-party-page-status"] div');
-    this.photoIdChipStatus = page.locator('[data-testid="photo-id-page-status"] div');
     this.consentFormsChipStatus = page.locator('[data-testid="consent-forms-page-status"] div');
 
     // Paperwork Telemed - Review and Submit locators

@@ -30,7 +30,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.6';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.7';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
@@ -99,6 +99,28 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
         },
       },
       items: {
+        photoIdCaption: {
+          key: 'photo-id-page-caption',
+          text: "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child. ",
+          type: 'display',
+          element: 'p',
+        },
+        photoIdFront: {
+          key: 'photo-id-front',
+          label: 'Take a picture of the front side of your Photo ID (optional)',
+          type: 'attachment',
+          dataType: 'Image',
+          attachmentText: 'Take a picture of the **front side** of your Photo ID',
+          documentType: '55188-7',
+        },
+        photoIdBack: {
+          key: 'photo-id-back',
+          label: 'Take a picture of the back side of your Photo ID (optional)',
+          type: 'attachment',
+          dataType: 'Image',
+          attachmentText: 'Take a picture of the **back side** of your Photo ID',
+          documentType: '55188-7',
+        },
         addressText: {
           key: 'contact-page-address-text',
           text: 'Primary address',
@@ -573,6 +595,52 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           ],
           disabledDisplay: 'hidden',
         },
+        insuranceCardFront: {
+          key: 'insurance-card-front',
+          label: 'Front side of the insurance card (optional)',
+          type: 'attachment',
+          attachmentText: 'Take a picture of the **front side** of your card and upload it here',
+          dataType: 'Image',
+          documentType: INSURANCE_CARD_CODE,
+          triggers: [
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['enable'],
+              operator: '=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['filter'],
+              operator: '!=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
+        insuranceCardBack: {
+          key: 'insurance-card-back',
+          label: 'Back side of the insurance card (optional)',
+          type: 'attachment',
+          attachmentText: 'Take a picture of the **back side** of your card and upload it here',
+          dataType: 'Image',
+          documentType: INSURANCE_CARD_CODE,
+          triggers: [
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['enable'],
+              operator: '=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['filter'],
+              operator: '!=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
         insuranceCarrier: {
           key: 'insurance-carrier',
           label: 'Insurance carrier',
@@ -907,52 +975,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
           ],
         },
-        insuranceCardFront: {
-          key: 'insurance-card-front',
-          label: 'Front side of the insurance card (optional)',
-          type: 'attachment',
-          attachmentText: 'Take a picture of the **front side** of your card and upload it here',
-          dataType: 'Image',
-          documentType: INSURANCE_CARD_CODE,
-          triggers: [
-            {
-              targetQuestionLinkId: 'payment-option',
-              effect: ['enable'],
-              operator: '=',
-              answerString: INSURANCE_PAY_OPTION,
-            },
-            {
-              targetQuestionLinkId: 'payment-option',
-              effect: ['filter'],
-              operator: '!=',
-              answerString: INSURANCE_PAY_OPTION,
-            },
-          ],
-          disabledDisplay: 'hidden',
-        },
-        insuranceCardBack: {
-          key: 'insurance-card-back',
-          label: 'Back side of the insurance card (optional)',
-          type: 'attachment',
-          attachmentText: 'Take a picture of the **back side** of your card and upload it here',
-          dataType: 'Image',
-          documentType: INSURANCE_CARD_CODE,
-          triggers: [
-            {
-              targetQuestionLinkId: 'payment-option',
-              effect: ['enable'],
-              operator: '=',
-              answerString: INSURANCE_PAY_OPTION,
-            },
-            {
-              targetQuestionLinkId: 'payment-option',
-              effect: ['filter'],
-              operator: '!=',
-              answerString: INSURANCE_PAY_OPTION,
-            },
-          ],
-          disabledDisplay: 'hidden',
-        },
         displaySecondaryInsurance: {
           key: 'display-secondary-insurance',
           label: 'Add secondary insurance',
@@ -991,6 +1013,22 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               key: 'insurance-details-text-2',
               text: 'Secondary insurance details',
               type: 'display',
+            },
+            insuranceCardFront: {
+              key: 'insurance-card-front-2',
+              label: 'Front side of the insurance card (optional)',
+              type: 'attachment',
+              attachmentText: 'Take a picture of the **front side** of your card and upload it here',
+              dataType: 'Image',
+              documentType: INSURANCE_CARD_CODE,
+            },
+            insuranceCardBack: {
+              key: 'insurance-card-back-2',
+              label: 'Back side of the insurance card (optional)',
+              type: 'attachment',
+              attachmentText: 'Take a picture of the **back side** of your card and upload it here',
+              dataType: 'Image',
+              documentType: INSURANCE_CARD_CODE,
             },
             insuranceCarrier: {
               key: 'insurance-carrier-2',
@@ -1134,22 +1172,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               label: "Patient's relationship to insured",
               type: 'choice',
               options: valueSets.relationshipToInsuredOptions,
-            },
-            insuranceCardFront: {
-              key: 'insurance-card-front-2',
-              label: 'Front side of the insurance card (optional)',
-              type: 'attachment',
-              attachmentText: 'Take a picture of the **front side** of your card and upload it here',
-              dataType: 'Image',
-              documentType: INSURANCE_CARD_CODE,
-            },
-            insuranceCardBack: {
-              key: 'insurance-card-back-2',
-              label: 'Back side of the insurance card (optional)',
-              type: 'attachment',
-              attachmentText: 'Take a picture of the **back side** of your card and upload it here',
-              dataType: 'Image',
-              documentType: INSURANCE_CARD_CODE,
             },
           },
           triggers: [
@@ -1945,36 +1967,6 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
       },
       hiddenFields: [],
       requiredFields: ['attorney-mva-has-attorney'],
-    },
-    photoId: {
-      linkId: 'photo-id-page',
-      title: 'Photo ID',
-      items: {
-        caption: {
-          key: 'photo-id-page-caption',
-          text: "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child. ",
-          type: 'display',
-          element: 'p',
-        },
-        photoIdFront: {
-          key: 'photo-id-front',
-          label: 'Take a picture of the front side of your Photo ID (optional)',
-          type: 'attachment',
-          dataType: 'Image',
-          attachmentText: 'Take a picture of the **front side** of your Photo ID',
-          documentType: '55188-7',
-        },
-        photoIdBack: {
-          key: 'photo-id-back',
-          label: 'Take a picture of the back side of your Photo ID (optional)',
-          type: 'attachment',
-          dataType: 'Image',
-          attachmentText: 'Take a picture of the **back side** of your Photo ID',
-          documentType: '55188-7',
-        },
-      },
-      hiddenFields: [],
-      requiredFields: [],
     },
     consentForms: {
       linkId: 'consent-forms-page',
