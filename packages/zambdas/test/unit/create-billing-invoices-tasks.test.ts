@@ -16,6 +16,13 @@ vi.mock('../../src/shared', async (importOriginal) => {
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+    // Override to bypass the FEATURE_FLAGS_CONFIG gate (unset in test env) while still
+    // respecting the BILLING_INTEGRATION secret so candid-only instances return false.
+    isOttehrBillingInvoicingEnabled: vi
+      .fn()
+      .mockImplementation((secrets: { BILLING_INTEGRATION?: string } | null) =>
+        ['ottehr', 'all'].includes(secrets?.BILLING_INTEGRATION ?? '')
+      ),
     wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
   };
 });
