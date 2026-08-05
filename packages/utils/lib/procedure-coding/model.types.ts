@@ -1,5 +1,5 @@
 // Core types for the procedure coding model (see procedure-coding-assist-design.md §2/§3).
-// Pure data types (plus one message-composition helper) — no React, no FHIR SDK, no network.
+// Pure data types (plus small composition helpers) — no React, no FHIR SDK, no network.
 
 /**
  * Requirement level of a documentation element, per the functional requirements §4:
@@ -124,6 +124,11 @@ export interface FamilyEvaluation {
   notAssessedReason?: string;
   /** Entry-level payer footnotes (requirement C3). */
   payerNotes?: string[];
+}
+
+/** A fresh, empty per-direction evaluation for a family model to fill in. */
+export function emptyFamilyEvaluation(): FamilyEvaluation {
+  return { findings: [], supportedCodes: [], notAssessedCodes: [] };
 }
 
 export interface EvaluationResult extends FamilyEvaluation {

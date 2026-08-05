@@ -1,12 +1,20 @@
 // Family-agnostic evaluators: detect the family, run its extraction, and return an
 // EvaluationResult. Unknown families are reported "not assessed", never guessed (requirement B7).
 
+import { cerumenFamily } from './families/cerumen';
+import { foreignBodyFamily } from './families/foreign-body';
+import { incisionDrainageFamily } from './families/incision-drainage';
 import { lacerationFamily } from './families/laceration';
 import { EvaluationResult, FamilyEvaluation, ProcedureFactsInput, ProcedureFamilyModel } from './model.types';
 import { CPT_RULES_VINTAGE } from './provenance';
 
-/** Registered family models, checked in order. Laceration only in slice 1; the other six follow. */
-export const PROCEDURE_FAMILIES: ProcedureFamilyModel[] = [lacerationFamily];
+/** Registered family models, checked in order (first match wins); laceration stays first. */
+export const PROCEDURE_FAMILIES: ProcedureFamilyModel[] = [
+  lacerationFamily,
+  incisionDrainageFamily,
+  foreignBodyFamily,
+  cerumenFamily,
+];
 
 export function detectProcedureFamily(input: ProcedureFactsInput): ProcedureFamilyModel | undefined {
   return PROCEDURE_FAMILIES.find((family) => family.detect(input));

@@ -1,6 +1,8 @@
-// Deterministic fact extraction for the laceration family (design §4, priority 1-2 only —
+// Deterministic fact extraction for the laceration family, plus the text helpers and
+// cross-family patterns the other family models build on (design §4, priority 1-2 only —
 // structured fields first, then details-text patterns). No AI in this layer.
 // Every text-derived fact carries the verbatim sourceText snippet it was read from.
+// Per-family patterns stay colocated with their family model (families/*.ts).
 
 import { FactConfidence, FactValue, ProcedureFactsInput, RepairDepthSelection } from './model.types';
 
@@ -123,13 +125,14 @@ function isNegated(text: string, index: number): boolean {
 }
 
 /** Snippet of the source text around a match, for citation. */
-function snippetAround(text: string, index: number, length: number): string {
+export function snippetAround(text: string, index: number, length: number): string {
   const start = Math.max(0, index - 30);
   const end = Math.min(text.length, index + length + 30);
   return text.slice(start, end).trim();
 }
 
-function firstMatch(text: string, pattern: RegExp): { match: string; index: number } | undefined {
+/** First non-negated match of `pattern` in `text` (the negation guard skips "no …"/"without …"). */
+export function firstMatch(text: string, pattern: RegExp): { match: string; index: number } | undefined {
   const regex = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
   let result: RegExpExecArray | null;
   while ((result = regex.exec(text)) !== null) {
@@ -140,7 +143,8 @@ function firstMatch(text: string, pattern: RegExp): { match: string; index: numb
   return undefined;
 }
 
-function textFlag(text: string, pattern: RegExp): FactValue<true> | undefined {
+/** Negation-guarded boolean fact from a text pattern, with the verbatim snippet it cites. */
+export function textFlag(text: string, pattern: RegExp): FactValue<true> | undefined {
   const found = firstMatch(text, pattern);
   if (!found) return undefined;
   return { value: true, confidence: 'text', sourceText: snippetAround(text, found.index, found.match.length) };
@@ -313,13 +317,15 @@ const STAPLE_EVIDENCE_PATTERN = /stapl\w*/i;
 const TISSUE_ADHESIVE_PATTERN = /dermabond|tissue\s+adhesive|skin\s+adhesive|skin\s+glue|\bglued?\b/i;
 const ADHESIVE_STRIPS_PATTERN = /steri[-\s]?strips?|adhesive\s+strips?|butterfly\s+(?:strips?|closures?|bandage)/i;
 
-const ANESTHESIA_PATTERN =
-  /lidocaine|bupivacaine|marcaine|septocaine|\bLET\b|anesthe\w*|digital\s+block|field\s+block/i;
+/** Anesthetic language, shared across families (topical agents included for eye/ear procedures). */
+export const ANESTHESIA_PATTERN =
+  /lidocaine|bupivacaine|marcaine|septocaine|tetracaine|proparacaine|\bLET\b|anesthe\w*|digital\s+block|field\s+block/i;
 const TETANUS_PATTERN = /tetanus|tdap|dtap|\btd\s+(?:given|administered|up\s+to\s+date)/i;
 
 // ── Main extraction ────────────────────────────────────────────────────────────
 
-function extractSite(input: ProcedureFactsInput, text: string): FactValue<AnatomicSite> | undefined {
+/** Entry-level anatomic site: the structured body-site fields first, then text keywords. */
+export function extractSite(input: ProcedureFactsInput, text: string): FactValue<AnatomicSite> | undefined {
   const structured = normalizeAnatomicSite(input.bodySite) ?? normalizeAnatomicSite(input.otherBodySite);
   if (structured) {
     return { value: structured, confidence: 'structured' };
@@ -395,9 +401,30 @@ function extractClosureCount(text: string): FactValue<number> | undefined {
   return undefined;
 }
 
-function suppliesContain(input: ProcedureFactsInput, keyword: RegExp): boolean {
+/** True when a structured supply (or the free-text Other supply) matches `keyword`. */
+export function suppliesContain(input: ProcedureFactsInput, keyword: RegExp): boolean {
   const supplies = [...(input.suppliesUsed ?? []), input.otherSuppliesUsed ?? ''];
   return supplies.some((supply) => keyword.test(supply));
+}
+
+// ── Cross-family shared facts ──────────────────────────────────────────────────
+
+/** Incision narrative, shared by the I&D and foreign-body families (negation-guarded via textFlag). */
+export const INCISION_PATTERN = /\bincis\w+\b|scalpel|#\s*11\s+blade|\b11[-\s]?blade\b/i;
+
+/** Lesion/wound size documentation: the structured cm input, or any cm/mm figure in the text. */
+export function lesionSizeDocumented(input: ProcedureFactsInput, text: string): boolean {
+  return input.lengthCm !== undefined || /\d(?:[.,]\d+)?\s*(?:cm|mm)\b/i.test(text);
+}
+
+/** Anesthesia documentation: anesthetic language in the text, or the structured medication field. */
+export function extractAnesthesiaDocumented(input: ProcedureFactsInput, text: string): FactValue<true> | undefined {
+  const fromText = textFlag(text, ANESTHESIA_PATTERN);
+  if (fromText) return fromText;
+  if (input.medicationUsed && input.medicationUsed.trim().length > 0) {
+    return { value: true, confidence: 'structured' };
+  }
+  return undefined;
 }
 
 /** Deterministic laceration fact extraction: structured fields first, then details-text patterns. */
@@ -422,7 +449,7 @@ export function extractLacerationFacts(input: ProcedureFactsInput): LacerationFa
     contaminationDocumented: textFlag(text, CONTAMINATION_PATTERN),
     extensiveCleaningDocumented: textFlag(text, EXTENSIVE_CLEANING_PATTERN),
     irrigationDocumented: textFlag(text, IRRIGATION_PATTERN),
-    anesthesiaDocumented: textFlag(text, ANESTHESIA_PATTERN),
+    anesthesiaDocumented: extractAnesthesiaDocumented(input, text),
     tetanusDocumented: textFlag(text, TETANUS_PATTERN),
     lateralityDocumented: Boolean(input.bodySide),
   };
@@ -436,11 +463,6 @@ export function extractLacerationFacts(input: ProcedureFactsInput): LacerationFa
   }
   if (!facts.tissueAdhesiveDocumented && suppliesContain(input, /dermabond|adhesive(?!\s+strip)|glue/i)) {
     facts.tissueAdhesiveDocumented = { value: true, confidence: 'structured' };
-  }
-
-  // Structured medication field documents anesthesia.
-  if (!facts.anesthesiaDocumented && input.medicationUsed && input.medicationUsed.trim().length > 0) {
-    facts.anesthesiaDocumented = { value: true, confidence: 'structured' };
   }
 
   // Extensive cleaning counts toward the contaminated-wound path only alongside contamination language.
