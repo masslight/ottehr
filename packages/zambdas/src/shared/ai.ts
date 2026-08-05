@@ -129,7 +129,7 @@ export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
   responseSchema?: object,
-  model: string = DEFAULT_VERTEX_MODEL
+  model: string = VERTEX_AI_MODEL
 ): Promise<string> {
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
