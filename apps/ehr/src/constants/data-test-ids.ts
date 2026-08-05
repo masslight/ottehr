@@ -700,6 +700,10 @@ export const dataTestIds = {
     pencilIconButton: 'EditOutlinedIcon',
   },
 
+  updateMedicationPage: {
+    medicationDatabaseAlert: 'medication-database-alert',
+  },
+
   editNoteDialog: {
     cancelButton: 'edit-note-dialog-cancel-button',
     proceedButton: 'edit-note-dialog-proceed-button',
