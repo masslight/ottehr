@@ -29,9 +29,9 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
       result: handleFinalReport(order.finalReport),
     }));
 
-  const radiologyOrders = allRadiologyOrders.filter((order) => !order.finalReport).map((order) => order.studyType);
+  const pendingOrderNames = allRadiologyOrders.filter((order) => !order.finalReport).map((order) => order.studyType);
 
-  return { radiology, radiologyOrders };
+  return { radiology, radiologyOrders: pendingOrderNames };
 };
 
 export const createRadiologySection = <TData extends { radiology?: RadiologyData }>(): PdfSection<
