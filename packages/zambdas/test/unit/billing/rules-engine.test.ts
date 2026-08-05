@@ -1,5 +1,15 @@
-import { Basic, ChargeItemDefinition, Claim, Location, Organization, Practitioner } from 'fhir/r4b';
 import {
+  Basic,
+  ChargeItemDefinition,
+  Claim,
+  Coverage,
+  Location,
+  Organization,
+  Practitioner,
+  RelatedPerson,
+} from 'fhir/r4b';
+import {
+  BillingInsuranceType,
   BillingRule,
   CLAIM_TAG_SYSTEM,
   CPT_CODE_SYSTEM,
@@ -953,6 +963,205 @@ describe('provider/facility reference swap', () => {
     expect(writeField(m, 'renderingProvider.ref', '')).toBe(false); // no "clear the provider"
     expect(m.createdCopyIds).toBeUndefined();
     expect(m.claim.provider).toEqual({});
+  });
+});
+
+describe('primary coverage from patient swap', () => {
+  // The reference patient's coverages as the engine's loadPatientCoverageContext assembles them:
+  // primary held through a standalone policy holder, workers comp held by the patient (Self).
+  const makeCoverageContext = (): NonNullable<RulesEngineClaimModel['patientCoverageContext']> => {
+    const primarySource: Coverage = {
+      resourceType: 'Coverage',
+      id: 'cov-src-primary',
+      status: 'active',
+      beneficiary: { reference: 'Patient/src-patient' },
+      subscriber: { reference: 'RelatedPerson/rp-src' },
+      subscriberId: 'PRIM-001',
+      payor: [{ reference: getPayerUrl('111222') }],
+      class: [{ type: { coding: [{ code: 'plan' }] }, value: '111222', name: 'Prime Health' }],
+    };
+    const wcSource: Coverage = {
+      resourceType: 'Coverage',
+      id: 'cov-src-wc',
+      status: 'active',
+      beneficiary: { reference: 'Patient/src-patient' },
+      subscriber: { reference: 'Patient/src-patient' },
+      subscriberId: 'WC-789',
+      payor: [{ reference: getPayerUrl('999001') }],
+      class: [{ type: { coding: [{ code: 'plan' }] }, value: '999001', name: 'WorkSafe' }],
+    };
+    const rpSource: RelatedPerson = {
+      resourceType: 'RelatedPerson',
+      id: 'rp-src',
+      patient: { reference: 'Patient/src-patient' },
+      name: [{ given: ['Sam'], family: 'Guardian' }],
+      birthDate: '1975-02-02',
+      gender: 'male',
+    };
+    return {
+      byType: {
+        primary: { coverage: primarySource, subscriber: rpSource },
+        workersComp: { coverage: wcSource },
+      },
+      typeByCoverageRef: new Map<string, BillingInsuranceType>([
+        ['Coverage/cov-src-primary', 'primary'],
+        ['Coverage/cov-src-wc', 'workersComp'],
+      ]),
+    };
+  };
+
+  it('reads the slot the primary coverage was copied from; absent without a source or context', () => {
+    const m = makeModel();
+    m.patientCoverageContext = makeCoverageContext();
+    // The claim's primary coverage carries no source stamp yet.
+    expect(readField(m, 'insurance.coverageFromPatient')).toBeUndefined();
+    m.coverages[0].extension = [
+      { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Coverage/cov-src-wc' } },
+    ];
+    expect(readField(m, 'insurance.coverageFromPatient')).toBe('workersComp');
+    // A source that no longer occupies a slot on the patient reads as absent.
+    m.coverages[0].extension = [{ url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Coverage/cov-gone' } }];
+    expect(readField(m, 'insurance.coverageFromPatient')).toBeUndefined();
+    // Without the prefetched context (no rule referenced the field, or no reference patient).
+    m.coverages[0].extension = [
+      { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Coverage/cov-src-wc' } },
+    ];
+    m.patientCoverageContext = undefined;
+    expect(readField(m, 'insurance.coverageFromPatient')).toBeUndefined();
+  });
+
+  it("swaps the primary coverage to a fresh working copy of the patient's coverage (self policy holder)", () => {
+    const m = makeModel();
+    m.patientCoverageContext = makeCoverageContext();
+    const original = m.patientCoverageContext.byType.workersComp!.coverage;
+
+    expect(writeField(m, 'insurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    // The model's primary slot holds a working copy of the patient's coverage under a placeholder id...
+    const copy = m.coverages[0];
+    expect(copy).not.toBe(original);
+    expect(copy.id).toBeDefined();
+    expect(copy.id).not.toBe('cov-src-wc');
+    expect(copy.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
+    expect(copy.extension).toContainEqual({
+      url: SOURCE_IDENTIFIER_SYSTEM,
+      valueReference: { reference: 'Coverage/cov-src-wc' },
+    });
+    expect(m.createdCopyIds?.has(copy.id!)).toBe(true);
+    // ...re-pointed at the claim's working-copy patient, like the claim editor's attach.
+    expect(copy.beneficiary).toEqual({ reference: 'Patient/p1' });
+    expect(copy.subscriber).toEqual({ reference: 'Patient/p1' });
+    expect(copy.subscriberId).toBe('WC-789');
+    // The original reference coverage is untouched.
+    expect(original.beneficiary).toEqual({ reference: 'Patient/src-patient' });
+
+    // The claim's focal entry points at the copy through the temporary urn with a payer display,
+    // the secondary entry survives, and the insurer follows the new coverage's payor.
+    expect(m.claim.insurance).toEqual([
+      {
+        sequence: 1,
+        focal: true,
+        coverage: { reference: `urn:uuid:${copy.id}`, display: 'WorkSafe (999001)' },
+      },
+      { sequence: 2, focal: false, coverage: { reference: 'Coverage/cov-secondary' } },
+    ]);
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('999001'), display: 'WorkSafe (999001)' });
+
+    // The swapped-out primary's policy-holder copy leaves the model with it.
+    expect(m.subscribers).toEqual([]);
+
+    // Later rules read and edit the new copy — never the original.
+    expect(readField(m, 'insurance.coverageFromPatient')).toBe('workersComp');
+    expect(readField(m, 'insurance.memberId')).toBe('WC-789');
+    expect(writeField(m, 'insurance.memberId', 'WC-NEW')).toBe(true);
+    expect(copy.subscriberId).toBe('WC-NEW');
+    expect(original.subscriberId).toBe('WC-789');
+  });
+
+  it('copies the standalone policy holder and resolves it for later policy-holder rules', () => {
+    const m = makeModel();
+    m.patientCoverageContext = makeCoverageContext();
+    const rpOriginal = m.patientCoverageContext.byType.primary!.subscriber!;
+
+    expect(writeField(m, 'insurance.coverageFromPatient', 'primary')).toBe(true);
+
+    // The policy holder was copied alongside the coverage and re-pointed at the claim's patient;
+    // the old primary's subscriber copy (rp-1) left the model.
+    expect(m.subscribers).toHaveLength(1);
+    const subscriberCopy = m.subscribers[0];
+    expect(subscriberCopy.id).not.toBe('rp-src');
+    expect(subscriberCopy.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
+    expect(subscriberCopy.patient).toEqual({ reference: 'Patient/p1' });
+    expect(m.coverages[0].subscriber).toEqual({ reference: `urn:uuid:${subscriberCopy.id}` });
+    expect(m.createdCopyIds?.size).toBe(2);
+    expect(m.createdCopyIds?.has(m.coverages[0].id!)).toBe(true);
+    expect(m.createdCopyIds?.has(subscriberCopy.id!)).toBe(true);
+
+    // policyHolder.* rules resolve the urn-referenced copy and edit it, not the original.
+    expect(readField(m, 'policyHolder.firstName')).toBe('Sam');
+    expect(writeField(m, 'policyHolder.firstName', 'Pat')).toBe(true);
+    expect(subscriberCopy.name?.[0]?.given?.[0]).toBe('Pat');
+    expect(rpOriginal.name?.[0]?.given?.[0]).toBe('Sam');
+  });
+
+  it('attaches coverage to a self-pay claim (no-coverage stub) and flips the billing type', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.coverages = [];
+    m.subscribers = [];
+    m.patientCoverageContext = makeCoverageContext();
+    expect(readField(m, 'billingType')).toBe('Self Pay');
+
+    expect(writeField(m, 'insurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    expect(m.claim.insurance).toHaveLength(1);
+    expect(m.claim.insurance?.[0]?.coverage?.reference).toBe(`urn:uuid:${m.coverages[0].id}`);
+    expect(readField(m, 'billingType')).toBe('Insurance Pay');
+  });
+
+  it('supersedes pending coverage and policy-holder copies when swapped twice in one run', () => {
+    const m = makeModel();
+    m.patientCoverageContext = makeCoverageContext();
+
+    expect(writeField(m, 'insurance.coverageFromPatient', 'primary')).toBe(true);
+    const firstCoverageCopyId = m.coverages[0].id!;
+    const firstSubscriberCopyId = m.subscribers[0].id!;
+    expect(writeField(m, 'insurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    // Only the surviving copy is pending creation — superseded copies must never be POSTed.
+    expect(m.createdCopyIds?.has(firstCoverageCopyId)).toBe(false);
+    expect(m.createdCopyIds?.has(firstSubscriberCopyId)).toBe(false);
+    expect(m.createdCopyIds?.size).toBe(1);
+    expect(m.subscribers).toEqual([]);
+    expect(m.claim.insurance?.[0]?.coverage?.reference).toBe(`urn:uuid:${m.coverages[0].id}`);
+  });
+
+  it('fails without touching the claim when the slot cannot be resolved', () => {
+    const m = makeModel();
+    const insuranceBefore = structuredClone(m.claim.insurance);
+
+    // No prefetched context at all (no reference patient, or the loader found nothing).
+    expect(writeField(m, 'insurance.coverageFromPatient', 'primary')).toBe(false);
+
+    m.patientCoverageContext = makeCoverageContext();
+    expect(writeField(m, 'insurance.coverageFromPatient', '')).toBe(false); // no "clear the coverage"
+    expect(writeField(m, 'insurance.coverageFromPatient', 'tertiary')).toBe(false); // unknown slot
+    expect(writeField(m, 'insurance.coverageFromPatient', 'secondary')).toBe(false); // slot not populated
+
+    // A coverage held through a policy holder the context could not resolve must not be attached.
+    m.patientCoverageContext.byType.primary!.subscriber = undefined;
+    expect(writeField(m, 'insurance.coverageFromPatient', 'primary')).toBe(false);
+
+    expect(m.claim.insurance).toEqual(insuranceBefore);
+    expect(m.coverages[0].id).toBe('cov-primary');
+    expect(m.subscribers).toHaveLength(1);
+    expect(m.createdCopyIds).toBeUndefined();
+
+    // A claim without a working-copy patient reference cannot take an attach.
+    const noPatient = makeModel();
+    noPatient.patientCoverageContext = makeCoverageContext();
+    noPatient.claim.patient = {};
+    expect(writeField(noPatient, 'insurance.coverageFromPatient', 'workersComp')).toBe(false);
   });
 });
 

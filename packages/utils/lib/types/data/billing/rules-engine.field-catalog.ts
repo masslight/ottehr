@@ -5,6 +5,7 @@ import { VALUE_SETS } from '../../../ottehr-config/value-sets';
 import { isoDateRegex, taxIdRegex, zipRegex } from '../../../validation';
 import { AllStates, stateCodeToFullName } from '../../common';
 import { PERSON_GENDER_OPTIONS } from './billing.constants';
+import { BILLING_INSURANCE_TYPE_OPTIONS } from './billing.types';
 import { CLAIM_STATUS_FIELDS } from './claim-status';
 import {
   AddServiceLineInput,
@@ -183,6 +184,14 @@ const PLAN_TYPE_OPTIONS: RuleFieldOption[] = VALUE_SETS.insuranceTypeOptions.map
 const RELATIONSHIP_OPTIONS: RuleFieldOption[] = SUBSCRIBER_RELATIONSHIPS.map((relationship) => ({
   value: relationship,
   label: relationship,
+}));
+
+// The patient-coverage slots (primary / secondary / workers comp on the patient's billing
+// accounts) the "Coverage (from patient)" field can name — the same options the coverage screens
+// use.
+const PATIENT_COVERAGE_SLOT_OPTIONS: RuleFieldOption[] = BILLING_INSURANCE_TYPE_OPTIONS.map((option) => ({
+  value: option.value,
+  label: option.label,
 }));
 
 // The same US state list the billing address forms use (AllStates labels are the bare codes; show
@@ -516,6 +525,22 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
   ...personFields('patient', 'patient', true),
 
   // --- Primary insurance ---
+  {
+    id: 'insurance.coverageFromPatient',
+    label: 'Coverage (from patient)',
+    group: 'insurance',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description:
+      "Which of the patient's coverages the claim uses as its primary coverage, looked up on the claim " +
+      "patient's reference record via the patient's billing accounts. Conditions compare against the coverage " +
+      "the claim's current primary coverage was copied from; setting it creates a fresh working copy of the " +
+      'chosen coverage (and its policy holder) and re-points the claim — later rules read and edit the new ' +
+      'copy. If the patient has no active coverage of the chosen type, the rule fails and the claim is held.',
+    requiredOnSet: true,
+    options: PATIENT_COVERAGE_SLOT_OPTIONS,
+  },
   {
     id: 'insurance.memberId',
     label: 'Member ID',
@@ -1043,6 +1068,43 @@ export function ruleUsesChargeMasterPrices(rule: { conditional: RuleConditional 
     if (action.type === 'applyChargeMasterPrices') uses = true;
   });
   return uses;
+}
+
+// Walk every condition in a rule's conditional tree (branch conditions, nested groups, and
+// conditionals reached through outcomes) in tree order — the condition-side counterpart of
+// forEachRuleAction.
+function forEachRuleCondition(rule: { conditional: RuleConditional }, visit: (condition: RuleCondition) => void): void {
+  const visitCondition = (condition: RuleCondition): void => {
+    visit(condition);
+    if (condition.type === 'group') condition.conditions.forEach(visitCondition);
+  };
+  const visitOutcome = (outcome: RuleOutcome): void => {
+    if (outcome.type === 'conditional') visitConditional(outcome.conditional);
+  };
+  const visitConditional = (conditional: RuleConditional): void => {
+    for (const branch of conditional.branches) {
+      visitCondition(branch.condition);
+      visitOutcome(branch.outcome);
+    }
+    if (conditional.otherwise) visitOutcome(conditional.otherwise);
+  };
+  visitConditional(rule.conditional);
+}
+
+export const PATIENT_COVERAGE_FIELD_ID = 'insurance.coverageFromPatient';
+
+// Whether the rule references the "Coverage (from patient)" field in any condition or setField
+// action. The field's reader and writer both need the reference patient's coverage context, which
+// the engine prefetches only for rule sets that use the field (like the charge-master prefetch).
+export function ruleReferencesPatientCoverage(rule: { conditional: RuleConditional }): boolean {
+  let references = false;
+  forEachRuleCondition(rule, (condition) => {
+    if (condition.type === 'field' && condition.field === PATIENT_COVERAGE_FIELD_ID) references = true;
+  });
+  forEachRuleAction(rule, (action) => {
+    if (action.type === 'setField' && action.field === PATIENT_COVERAGE_FIELD_ID) references = true;
+  });
+  return references;
 }
 
 // The provider/facility reference values a rule's setField actions assign (deduped, in tree

@@ -22,6 +22,7 @@ import {
   makeOptimisticLockIfMatchHeader,
   resourceHasTag,
   RULE_ACTION_TYPE,
+  ruleReferencesPatientCoverage,
   RULES_ENGINES,
   RulesEngineType,
   ruleUsesChargeMasterPrices,
@@ -42,11 +43,17 @@ import { applyAction, executeRule } from '../../../billing/rules-engine/evaluato
 import {
   BILLING_WORKING_COPY_TAG,
   createBillingClient,
+  EXCLUDE_WORKING_COPIES_PARAMS,
   fetchById,
   fetchClaimGraph,
+  findPatientBillingAccount,
+  findPatientWorkersCompAccount,
   findRulesEngineList,
+  getCoverageInsuranceType,
+  getPatientAccounts,
   hasTag,
   listToRulesReportingMalformed,
+  SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared';
 import { wrapTaskHandler } from '../helpers';
@@ -117,19 +124,22 @@ export async function complexValidation(
 ): Promise<ValidatedRulesRun> {
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters] = await Promise.all([
+  const [referenceResources, chargeMasters, patientCoverageContext] = await Promise.all([
     loadReferenceResources(oystehr, rules),
     loadChargeMasters(oystehr, rules),
+    loadPatientCoverageContext(oystehr, rules, model.patient),
   ]);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
+  model.patientCoverageContext = patientCoverageContext;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
       `billingProvider=${model.billingProvider?.id ?? 'none'}, ` +
       `serviceFacility=${model.serviceFacility?.id ?? 'none'}, subscribers=${model.subscribers.length}` +
       (model.referenceResources ? `, referenceResources=${model.referenceResources.size}` : '') +
-      (model.chargeMasters ? `, chargeMasters=${model.chargeMasters.length}` : '')
+      (model.chargeMasters ? `, chargeMasters=${model.chargeMasters.length}` : '') +
+      (model.patientCoverageContext ? `, patientCoverages=${model.patientCoverageContext.typeByCoverageRef.size}` : '')
   );
   return { engine, claimId, rules, model };
 }
@@ -181,6 +191,66 @@ async function loadChargeMasters(
     params: activeDefaultChargeMasterSearchParams(['insurance', 'self-pay']),
   });
   return result.unbundle();
+}
+
+// The reference patient's coverages resolved to their insurance-type slots (primary / secondary /
+// workers comp), for the "Coverage (from patient)" field: the reader maps the claim's current
+// primary coverage back to its slot, and the writer copies the chosen slot's coverage onto the
+// claim. Fetched only when an enabled rule references the field. The reference patient is the
+// source the claim's working-copy Patient was copied from; when there is none (no working-copy
+// patient, or a copy made before the source extension existed) the context stays absent — a
+// setField then fails the rule and holds the claim, and a condition reads as empty.
+async function loadPatientCoverageContext(
+  oystehr: Oystehr,
+  rules: BillingRule[],
+  patient: Patient | undefined
+): Promise<RulesEngineClaimModel['patientCoverageContext']> {
+  if (!rules.some((rule) => rule.enabled && ruleReferencesPatientCoverage(rule))) return undefined;
+  const sourcePatientId = patient?.extension
+    ?.find((ext) => ext.url === SOURCE_IDENTIFIER_SYSTEM)
+    ?.valueReference?.reference?.replace('Patient/', '');
+  if (!sourcePatientId) return undefined;
+
+  const [coverageBundle, subscriberBundle, accounts] = await Promise.all([
+    oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: 'beneficiary', value: `Patient/${sourcePatientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    oystehr.fhir.search<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      params: [{ name: 'patient', value: `Patient/${sourcePatientId}` }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    }),
+    getPatientAccounts(oystehr, sourcePatientId),
+  ]);
+
+  const pbillAccount = findPatientBillingAccount(accounts);
+  const wcompAccount = findPatientWorkersCompAccount(accounts);
+  const subscribersById = new Map(
+    subscriberBundle
+      .unbundle()
+      .filter((rp): rp is RelatedPerson & { id: string } => !!rp.id)
+      .map((rp) => [rp.id, rp])
+  );
+
+  const context: NonNullable<RulesEngineClaimModel['patientCoverageContext']> = {
+    byType: {},
+    typeByCoverageRef: new Map(),
+  };
+  for (const coverage of coverageBundle.unbundle()) {
+    // The engine must never attach a cancelled coverage (mirrors findCoverageOfType); working
+    // copies are already excluded by the search. The first active occupant of a slot wins, so a
+    // coverage that lost its slot to another reads as absent rather than as that slot.
+    if (!coverage.id || coverage.status === 'cancelled') continue;
+    const insuranceType = getCoverageInsuranceType(coverage, pbillAccount, wcompAccount);
+    if (!insuranceType || context.byType[insuranceType]) continue;
+    const subscriberRef = coverage.subscriber?.reference;
+    const subscriber = subscriberRef?.startsWith('RelatedPerson/')
+      ? subscribersById.get(subscriberRef.slice('RelatedPerson/'.length))
+      : undefined;
+    context.byType[insuranceType] = { coverage, subscriber };
+    context.typeByCoverageRef.set(`Coverage/${coverage.id}`, insuranceType);
+  }
+  return context;
 }
 
 export async function performEffect(
