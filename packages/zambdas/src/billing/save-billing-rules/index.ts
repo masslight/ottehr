@@ -136,9 +136,6 @@ export async function performEffect(
     );
   } else {
     saved = await oystehr.fhir.create<List>(newList);
-    // Best-effort: seed the system-managed tag definitions the first time rules are configured.
-    // Never fails the save — the Tags page reports system-managed tags whether or not their
-    // definitions exist.
     try {
       await ensureSystemManagedTags(oystehr);
     } catch (error) {

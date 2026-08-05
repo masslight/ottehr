@@ -437,9 +437,6 @@ export async function performEffect(
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
     billingTags.push(AUTO_ACCIDENT_TAG_NAME);
-    // Best-effort: make sure the system-managed tag definitions exist before the claim references
-    // one by name. Never fails claim creation — the definitions are cosmetic (search-billing-tags
-    // reports system-managed tags whether or not their Basics exist).
     try {
       await ensureSystemManagedTags(billingOystehr);
     } catch (error) {
