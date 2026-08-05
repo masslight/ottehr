@@ -1,14 +1,19 @@
 import { Encounter, Invoice } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { produceDischargeOutreach } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-discharge-outreach';
+import { produceInvoiceIssuedOutreach } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-invoice-issued-outreach';
+import { produceOutreachTasks } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
+import {
+  getOrCreateOutreachConfig,
+  parsePlanDefinitionToActions,
+} from '../../../src/rcm/scheduled-outreach-config/helpers';
+
+// produceOutreachTasks, getOrCreateOutreachConfig, and parsePlanDefinitionToActions are canonical
+// suite-wide mocks (vitest.unit-mocks.setup.ts); per-file defaults are installed in beforeEach below.
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
-const mockProduceOutreachTasks = vi.fn();
-
-vi.mock('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks', () => ({
-  produceOutreachTasks: mockProduceOutreachTasks,
-  OUTREACH_TASK_TAG_SYSTEM: 'https://fhir.ottehr.com/r4/outreach-task',
-}));
+const mockProduceOutreachTasks = vi.mocked(produceOutreachTasks);
 
 const mockOystehr = {
   fhir: {
@@ -18,33 +23,25 @@ const mockOystehr = {
   },
 };
 
-vi.mock('../../../src/rcm/scheduled-outreach-config/helpers', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getOrCreateOutreachConfig: vi
-      .fn()
-      .mockResolvedValue({ resourceType: 'PlanDefinition', id: 'plan-1', status: 'active', action: [] }),
-    parsePlanDefinitionToActions: vi.fn().mockReturnValue([]),
-  };
-});
-
 function defaultOutreachResult(): { created: never[]; skipped: never[] } {
   return { created: [], skipped: [] };
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockProduceOutreachTasks.mockResolvedValue(defaultOutreachResult());
+  vi.mocked(getOrCreateOutreachConfig).mockResolvedValue({
+    resourceType: 'PlanDefinition',
+    id: 'plan-1',
+    status: 'active',
+    action: [],
+  });
+  vi.mocked(parsePlanDefinitionToActions).mockReturnValue([]);
+});
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('produceDischargeOutreach', () => {
-  let produceDischargeOutreach: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-discharge-outreach').produceDischargeOutreach;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    mockProduceOutreachTasks.mockResolvedValue(defaultOutreachResult());
-    const mod = await import('../../../src/rcm/scheduled-outreach/producers/shared/produce-discharge-outreach');
-    produceDischargeOutreach = mod.produceDischargeOutreach;
-  });
-
   it('fetches the encounter and produces tasks for both discharge-time and date-of-visit triggers', async () => {
     const encounter: Encounter = {
       resourceType: 'Encounter',
@@ -124,15 +121,6 @@ describe('produceDischargeOutreach', () => {
 });
 
 describe('produceInvoiceIssuedOutreach', () => {
-  let produceInvoiceIssuedOutreach: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-invoice-issued-outreach').produceInvoiceIssuedOutreach;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    mockProduceOutreachTasks.mockResolvedValue(defaultOutreachResult());
-    const mod = await import('../../../src/rcm/scheduled-outreach/producers/shared/produce-invoice-issued-outreach');
-    produceInvoiceIssuedOutreach = mod.produceInvoiceIssuedOutreach;
-  });
-
   it('produces tasks for invoice-issued trigger', async () => {
     const invoice: Invoice = {
       resourceType: 'Invoice',

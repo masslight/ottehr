@@ -1,5 +1,14 @@
+import { FEATURE_FLAGS_CONFIG } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
+import { produceOutreachTasks } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
+import {
+  getOrCreateOutreachConfig,
+  type OutreachAction,
+  parsePlanDefinitionToActions,
+} from '../../../src/rcm/scheduled-outreach-config/helpers';
+
+// FEATURE_FLAGS_CONFIG, getOrCreateOutreachConfig, and parsePlanDefinitionToActions are canonical
+// suite-wide mocks (vitest.unit-mocks.setup.ts); behavior is installed per-test via vi.mocked(...).
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -16,50 +25,6 @@ const mockOystehrClient = {
     transaction: vi.fn(),
   },
 };
-
-const mockFeatureFlags = {
-  automatedPatientOutreachEnabled: true,
-  mailingPaperStatementsEnabled: true,
-};
-
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    FEATURE_FLAGS_CONFIG: mockFeatureFlags,
-  };
-});
-
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('../../../src/shared/helpers', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getPatchBinary: vi.fn(),
-  };
-});
-
-// Mock the config helpers to return our test PlanDefinition
-const mockGetOrCreateOutreachConfig = vi.fn();
-const mockParsePlanDefinitionToActions = vi.fn();
-
-vi.mock('../../../src/rcm/scheduled-outreach-config/helpers', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    getOrCreateOutreachConfig: (...args: unknown[]) => mockGetOrCreateOutreachConfig(...args),
-    parsePlanDefinitionToActions: (...args: unknown[]) => mockParsePlanDefinitionToActions(...args),
-  };
-});
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -84,23 +49,20 @@ function makeAction(overrides?: Partial<OutreachAction>): OutreachAction {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('produceOutreachTasks — producer-level filtering', () => {
-  let produceOutreachTasks: typeof import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks').produceOutreachTasks;
-
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    mockFeatureFlags.automatedPatientOutreachEnabled = true;
-    mockFeatureFlags.mailingPaperStatementsEnabled = true;
+    Object.assign(FEATURE_FLAGS_CONFIG, {
+      automatedPatientOutreachEnabled: true,
+      mailingPaperStatementsEnabled: true,
+    });
 
-    mockGetOrCreateOutreachConfig.mockResolvedValue({
+    vi.mocked(getOrCreateOutreachConfig).mockResolvedValue({
       resourceType: 'PlanDefinition',
       id: 'plan-1',
       status: 'active',
     });
     mockSearch.mockResolvedValue(mockBundle([])); // no existing tasks
     mockCreate.mockImplementation((task: any) => Promise.resolve({ ...task, id: 'task-new' }));
-
-    const mod = await import('../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks');
-    produceOutreachTasks = mod.produceOutreachTasks;
   });
 
   it('skips refer-to-collections actions (not yet implemented)', async () => {
@@ -112,7 +74,7 @@ describe('produceOutreachTasks — producer-level filtering', () => {
       }),
       makeAction({ id: 'sms-1', actionType: 'send-notification' }),
     ];
-    mockParsePlanDefinitionToActions.mockReturnValue(actions);
+    vi.mocked(parsePlanDefinitionToActions).mockReturnValue(actions);
 
     const result = await produceOutreachTasks({
       triggerEvent: 'invoice-due',
@@ -132,7 +94,7 @@ describe('produceOutreachTasks — producer-level filtering', () => {
   });
 
   it('skips paper-mail-only notification when mailingPaperStatementsEnabled is false', async () => {
-    mockFeatureFlags.mailingPaperStatementsEnabled = false;
+    Object.assign(FEATURE_FLAGS_CONFIG, { mailingPaperStatementsEnabled: false });
 
     const actions: OutreachAction[] = [
       makeAction({
@@ -142,7 +104,7 @@ describe('produceOutreachTasks — producer-level filtering', () => {
       }),
       makeAction({ id: 'sms-1', actionType: 'send-notification' }),
     ];
-    mockParsePlanDefinitionToActions.mockReturnValue(actions);
+    vi.mocked(parsePlanDefinitionToActions).mockReturnValue(actions);
 
     const result = await produceOutreachTasks({
       triggerEvent: 'invoice-due',
@@ -160,7 +122,7 @@ describe('produceOutreachTasks — producer-level filtering', () => {
   });
 
   it('does NOT skip paper-mail notification when feature is enabled', async () => {
-    mockFeatureFlags.mailingPaperStatementsEnabled = true;
+    Object.assign(FEATURE_FLAGS_CONFIG, { mailingPaperStatementsEnabled: true });
 
     const actions: OutreachAction[] = [
       makeAction({
@@ -169,7 +131,7 @@ describe('produceOutreachTasks — producer-level filtering', () => {
         sendNotificationConfig: { mediums: ['paper-mail'], smsTemplate: '', emailTemplate: '' },
       }),
     ];
-    mockParsePlanDefinitionToActions.mockReturnValue(actions);
+    vi.mocked(parsePlanDefinitionToActions).mockReturnValue(actions);
 
     const result = await produceOutreachTasks({
       triggerEvent: 'invoice-due',
@@ -184,7 +146,7 @@ describe('produceOutreachTasks — producer-level filtering', () => {
   });
 
   it('does NOT skip multi-medium notification that includes paper-mail when feature is disabled', async () => {
-    mockFeatureFlags.mailingPaperStatementsEnabled = false;
+    Object.assign(FEATURE_FLAGS_CONFIG, { mailingPaperStatementsEnabled: false });
 
     const actions: OutreachAction[] = [
       makeAction({
@@ -193,7 +155,7 @@ describe('produceOutreachTasks — producer-level filtering', () => {
         sendNotificationConfig: { mediums: ['sms', 'paper-mail'], smsTemplate: 'hi', emailTemplate: '' },
       }),
     ];
-    mockParsePlanDefinitionToActions.mockReturnValue(actions);
+    vi.mocked(parsePlanDefinitionToActions).mockReturnValue(actions);
 
     const result = await produceOutreachTasks({
       triggerEvent: 'invoice-due',

@@ -1,7 +1,23 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  checkOrCreateM2MClientToken,
+  createClinicalOystehrClient,
+  fillOutreachTemplate,
+  getEmailClient,
+  getStripeClient,
+  resolveTemplatePlaceholders,
+  sendSmsForPatient,
+} from '../../../src/shared';
 import type { ZambdaInput } from '../../../src/shared/types/common';
+import { index as subOutreachLogIndex } from '../../../src/subscriptions/task/sub-outreach-log/index';
+import { index as subOutreachReferToCollectionsIndex } from '../../../src/subscriptions/task/sub-outreach-refer-to-collections/index';
+
+// All the src/shared exports stubbed here are canonical suite-wide mocks
+// (vitest.unit-mocks.setup.ts); per-file defaults are installed in beforeEach below.
+// The REAL wrapHandler now wraps the handlers, so plain thrown errors surface as a
+// 500 error envelope instead of a rejected promise.
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -21,24 +37,20 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-    fillOutreachTemplate: vi.fn((_t: string, _p: any) => 'resolved message'),
-    resolveTemplatePlaceholders: vi.fn().mockResolvedValue({}),
-    sendSmsForPatient: vi.fn(),
-    getEmailClient: vi.fn().mockReturnValue({ send: vi.fn() }),
-    getStripeClient: vi.fn(),
-  };
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+  vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as any);
+  vi.mocked(fillOutreachTemplate).mockReturnValue('resolved message');
+  vi.mocked(resolveTemplatePlaceholders).mockResolvedValue({} as any);
+  vi.mocked(sendSmsForPatient).mockImplementation(() => undefined as never);
+  vi.mocked(getEmailClient).mockReturnValue({ send: vi.fn() } as any);
+  vi.mocked(getStripeClient).mockImplementation(() => undefined as never);
 });
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-const testSecrets = { test: 'secret' };
+const testSecrets = { test: 'secret', ENVIRONMENT: 'local' };
 
 function makeTaskInput(overrides?: Partial<Task>): Task {
   return {
@@ -70,13 +82,7 @@ function makeZambdaInput(task: Task): ZambdaInput {
 // ── Executor: sub-outreach-log ─────────────────────────────────────────────
 
 describe('sub-outreach-log', () => {
-  let handler: ZambdaHandler;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    const mod = await import('../../../src/subscriptions/task/sub-outreach-log/index');
-    handler = mod.index as ZambdaHandler;
-  });
+  const handler = subOutreachLogIndex as unknown as ZambdaHandler;
 
   it('marks task as in-progress then completed', async () => {
     const task = makeTaskInput({ input: [{ type: { text: 'action-type' }, valueString: 'log' }] });
@@ -118,37 +124,33 @@ describe('sub-outreach-log', () => {
     expect(result.statusCode).toBe(500);
   });
 
-  it('throws when body is missing', async () => {
-    await expect(handler({ headers: null, body: null, secrets: testSecrets })).rejects.toThrow(
-      'No request body provided'
-    );
+  it('returns a 500 error envelope when body is missing', async () => {
+    // The real wrapHandler converts the thrown 'No request body provided' into an error envelope
+    const result = await handler({ headers: null, body: null, secrets: testSecrets });
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
   });
 
   it('throws when secrets are missing', async () => {
+    // configSentry reads the ENVIRONMENT secret before the top-level catch,
+    // so a null-secrets invocation still rejects.
     const task = makeTaskInput();
-    await expect(handler({ headers: null, body: JSON.stringify(task), secrets: null })).rejects.toThrow(
-      'Secrets are not defined'
-    );
+    await expect(handler({ headers: null, body: JSON.stringify(task), secrets: null })).rejects.toThrow();
   });
 
-  it('throws when resource type is not Task', async () => {
+  it('returns a 500 error envelope when resource type is not Task', async () => {
     const notATask = { resourceType: 'Patient', id: 'pat-1' };
-    await expect(handler({ headers: null, body: JSON.stringify(notATask), secrets: testSecrets })).rejects.toThrow(
-      'Expected Task resource'
-    );
+    const result = await handler({ headers: null, body: JSON.stringify(notATask), secrets: testSecrets });
+    expect(result.statusCode).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Internal error' });
+    expect(mockPatch).not.toHaveBeenCalled();
   });
 });
 
 // ── Executor: sub-outreach-refer-to-collections ─────────────────────────────
 
 describe('sub-outreach-refer-to-collections', () => {
-  let handler: ZambdaHandler;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    const mod = await import('../../../src/subscriptions/task/sub-outreach-refer-to-collections/index');
-    handler = mod.index as ZambdaHandler;
-  });
+  const handler = subOutreachReferToCollectionsIndex as unknown as ZambdaHandler;
 
   it('marks task as in-progress then rejected (not yet implemented)', async () => {
     const task = makeTaskInput({
