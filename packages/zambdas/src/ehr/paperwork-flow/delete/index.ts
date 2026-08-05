@@ -4,7 +4,7 @@ import { HealthcareService, Questionnaire } from 'fhir/r4b';
 import { makeOptimisticLockIfMatchHeader } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { getFlowModes, healthcareServiceExtensionUrlMap, searchServiceCategoryHealthcareServices } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { ValidatedRequest, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'paperwork-flow-delete';
@@ -12,13 +12,34 @@ const ZAMBDA_NAME = 'paperwork-flow-delete';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started`);
   const validated = validateRequestParameters(input);
-  const { flowId, secrets } = validated;
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, validated.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, validated.secrets);
 
-  console.log('getting resources to retire flow');
-  const { targetFlowQuestionnaire, services } = await getResources(oystehr, flowId);
+  const effectInput = await complexValidation(validated, oystehr);
+  await performEffect(effectInput, oystehr);
+
+  return { statusCode: 200, body: JSON.stringify({}) };
+});
+
+interface EffectInput extends ValidatedRequest {
+  targetFlowQuestionnaire: Questionnaire;
+  services: HealthcareService[];
+}
+
+async function complexValidation(input: ValidatedRequest, oystehr: Oystehr): Promise<EffectInput> {
+  const { flowId } = input;
+  console.log('searching questionnaire and service resources');
+  const [targetFlowQuestionnaire, services] = await Promise.all([
+    oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: flowId }),
+    searchServiceCategoryHealthcareServices(oystehr),
+  ]);
+
+  return { ...input, targetFlowQuestionnaire, services };
+}
+
+async function performEffect(input: EffectInput, oystehr: Oystehr): Promise<void> {
+  const { flowId, targetFlowQuestionnaire, services } = input;
 
   const retireQPatch = makeRetireQPatch(targetFlowQuestionnaire);
 
@@ -29,22 +50,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`making fhir transaction for ${requests.length} requests`);
   await oystehr.fhir.transaction({ requests });
-
-  return { statusCode: 200, body: JSON.stringify({}) };
-});
-
-interface ResourceConfig {
-  targetFlowQuestionnaire: Questionnaire;
-  services: HealthcareService[];
-}
-async function getResources(oystehr: Oystehr, flowId: string): Promise<ResourceConfig> {
-  console.log('searching questionnaire and service resources');
-  const [targetFlowQuestionnaire, services] = await Promise.all([
-    oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: flowId }),
-    searchServiceCategoryHealthcareServices(oystehr),
-  ]);
-
-  return { targetFlowQuestionnaire, services };
 }
 
 function makeRetireQPatch(flow: Questionnaire): BatchInputPatchRequest<Questionnaire> {
