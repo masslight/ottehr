@@ -527,5 +527,9 @@ export async function makePatientEducationPdfDocumentReference(
     ],
     listResources,
   });
-  return docRefs[0];
+  const docRef = docRefs[0];
+  if (!docRef) {
+    throw new Error('createFilesDocumentReferences returned no DocumentReference for patient education PDF');
+  }
+  return docRef;
 }

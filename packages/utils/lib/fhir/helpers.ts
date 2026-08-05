@@ -340,7 +340,9 @@ export async function createFilesDocumentReferences(
       // If different version exists, mark it as superseded
       const oldDoc = docsJson.find((doc) => {
         if (!isLabsResultDoc) {
-          return doc.content[0]?.attachment.title === file.title;
+          return (
+            doc.content[0]?.attachment.title === file.title && doc.content[0]?.attachment.language === file.language
+          );
         } else {
           console.log('isLabsResultDoc');
           const isLabGeneratedDocRef = docRefIsLabGeneratedResult(doc);
@@ -381,6 +383,7 @@ export async function createFilesDocumentReferences(
                 url: file.url,
                 contentType,
                 title: file.title,
+                language: file.language,
               },
             },
           ],
