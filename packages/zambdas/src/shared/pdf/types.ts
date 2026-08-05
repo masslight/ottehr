@@ -892,7 +892,7 @@ export interface PatientInfoForDischargeSummary extends PdfData {
 
 export interface RadiologyData extends PdfData {
   /** Study names for orders that have no final report yet — rendered under "Pending Results" in the PDF. */
-  radiologyOrders: string[];
+  radiologyOrders?: string[];
   radiology?: {
     name: string;
     performedBy?: string;
