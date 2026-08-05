@@ -152,6 +152,10 @@ export interface GetRadiologyOrderListZambdaOrder extends RadiologyDTO {
   appointmentId: string;
   visitDateTime: string;
   orderAddedDateTime: string;
+  /**
+   * The visit's attending provider (the requester who placed the order only when the visit has no attender) —
+   * orders are frequently placed by a nurse on the provider's behalf, but the provider gets the credit.
+   */
   providerName: string;
   /** Practitioner id of the ordering provider (`providerName`); used to populate the "Performed by" options. */
   providerId: string;
