@@ -34,7 +34,6 @@ import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   AR_STAGE,
-  BILLING_RESOURCE_TAG,
   CLAIM_TAG_SYSTEM,
   claimStatusValuesToTags,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -84,7 +83,6 @@ import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../prove
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
-  BILLING_WORKING_COPY_TAG,
   billingCopyMatches,
   BillingFhirResource,
   clinicalPatientIdentifier,
@@ -92,6 +90,7 @@ import {
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
+  EXCLUDE_WORKING_COPIES_PARAMS,
   findRef,
   getClaimTypeCoding,
   kickOffRulesEngine,
@@ -335,12 +334,7 @@ export async function performEffect(
       url: `/Person/${billingResources.person.id!}`,
       resource: {
         ...billingResources.person,
-        link: [
-          ...(billingResources.person.link ?? []),
-          {
-            target: uuidOrUrnReference('Patient', claimPatient.id),
-          },
-        ],
+        link: [...(billingResources.person.link ?? []), { target: uuidOrUrnReference('Patient', claimPatient.id) }],
       },
       ifMatch: `W/"${billingResources.person.meta?.versionId}"`,
     });
@@ -350,13 +344,16 @@ export async function performEffect(
       url: '/Person',
       resource: {
         resourceType: 'Person',
-        identifier: [clinicalPatientIdentifier(clinicalResources.patient.id!)],
         link: [
+          { target: uuidOrUrnReference('Patient', mainPatient.id!) },
+          { target: uuidOrUrnReference('Patient', claimPatient.id) },
+        ],
+        extension: [
           {
-            target: uuidOrUrnReference('Patient', mainPatient.id!),
-          },
-          {
-            target: uuidOrUrnReference('Patient', claimPatient.id),
+            url: SOURCE_IDENTIFIER_SYSTEM,
+            valueReference: {
+              reference: `Patient/${clinicalResources.patient.id!}`,
+            },
           },
         ],
       },
@@ -637,6 +634,9 @@ function copyPatient(patient: Patient, workingCopy?: boolean): Patient {
   const copy = workingCopy
     ? prepareWorkingCopy<Patient>(patient, patient.id!)
     : prepareCopy<Patient>(patient, patient.id!);
+  if (!workingCopy) {
+    copy.identifier = [clinicalPatientIdentifier(patient.id!)];
+  }
   let friendlyId = patient.identifier?.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value;
   friendlyId ??= patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
   if (friendlyId) {
@@ -939,40 +939,20 @@ async function findExistingBillingResources(
   clinicalResources: ClinicalResources,
   secrets: Secrets
 ): Promise<BillingResources> {
-  // Find billing cross-Patient Person resource
-  const personIdentifier = clinicalPatientIdentifier(clinicalResources.patient.id!);
-  const personSearch = (
-    await billingOystehr.fhir.search<Person | Patient | Account>({
-      resourceType: 'Person',
+  // Main patient is the patient of record on billing app side that we stamp out per-claim copies from
+  const mainPatientIdentifier = clinicalPatientIdentifier(clinicalResources.patient.id!);
+  const existingMainPatients = (
+    await billingOystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
       params: [
-        { name: 'identifier', value: `${personIdentifier.system}|${personIdentifier.value}` },
-        { name: '_include', value: 'Person:patient' },
         {
-          // Include account coverages
-          name: '_revinclude',
-          value: 'Account:patient:Patient',
+          name: 'identifier',
+          value: `${mainPatientIdentifier.system}|${mainPatientIdentifier.value}`,
         },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
       ],
     })
   ).unbundle();
-  const existingPersons = personSearch.filter((r): r is Person => r.resourceType === 'Person');
-  if (existingPersons.length > 1) {
-    await sendErrors(
-      new Error(`More than one billing person for Patient/${clinicalResources.patient.id}`),
-      getSecret(SecretsKeys.ENVIRONMENT, secrets)
-    );
-  }
-  const existingPerson = existingPersons.length ? existingPersons[0] : undefined;
-
-  // Main patient is the patient of record on billing app side that we stamp out per-claim copies from
-  const existingMainPatients = personSearch.filter(
-    (r): r is Patient =>
-      r.resourceType === 'Patient' &&
-      !!r.meta?.tag?.some((t) => t.system === BILLING_RESOURCE_TAG.system && t.code === BILLING_RESOURCE_TAG.code) &&
-      !r.meta?.tag?.some(
-        (t) => t.system === BILLING_WORKING_COPY_TAG.system && t.code === BILLING_WORKING_COPY_TAG.code
-      )
-  );
   if (existingMainPatients.length > 1) {
     await sendErrors(
       new Error(`More than one main billing patient for Patient/${clinicalResources.patient.id}`),
@@ -981,8 +961,36 @@ async function findExistingBillingResources(
   }
   const existingMainPatient = existingMainPatients.length ? existingMainPatients[0] : undefined;
 
-  // Account resources that link billing-side Coverages with the main billing Patient
-  const existingAccounts = personSearch.filter((r): r is Account => r.resourceType === 'Account');
+  let existingPerson: Person | undefined;
+  let existingAccounts: Account[] = [];
+  if (existingMainPatient) {
+    // Find billing cross-Patient Person resource
+    const personSearch = (
+      await billingOystehr.fhir.search<Person | Patient | Account>({
+        resourceType: 'Person',
+        params: [
+          { name: 'link', value: `Patient/${existingMainPatient.id}` },
+          { name: '_include', value: 'Person:patient' },
+          {
+            // Include account coverages
+            name: '_revinclude',
+            value: 'Account:patient:Patient',
+          },
+        ],
+      })
+    ).unbundle();
+    const existingPersons = personSearch.filter((r): r is Person => r.resourceType === 'Person');
+    if (existingPersons.length > 1) {
+      await sendErrors(
+        new Error(`More than one billing person for Patient/${clinicalResources.patient.id}`),
+        getSecret(SecretsKeys.ENVIRONMENT, secrets)
+      );
+    }
+    existingPerson = existingPersons.length ? existingPersons[0] : undefined;
+
+    // Account resources that link billing-side Coverages with the main billing Patient
+    existingAccounts = personSearch.filter((r): r is Account => r.resourceType === 'Account');
+  }
 
   // Separately look up coverages and subscribers because FHIR doesn't support Account:coverage include
   const coverageIds = existingAccounts.flatMap<string>((account) =>

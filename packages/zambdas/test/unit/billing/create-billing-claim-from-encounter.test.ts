@@ -66,6 +66,7 @@ import {
   buildNoCoverageStub,
   clinicalPatientIdentifier,
   CURRENT_STATUS_TAG_SYSTEM,
+  EXCLUDE_WORKING_COPIES_PARAMS,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
@@ -291,7 +292,6 @@ const billingResources: {
   person: {
     resourceType: 'Person',
     id: 'billing-person-123',
-    identifier: [clinicalPatientIdentifier('patient-123')],
     link: [
       {
         target: {
@@ -307,6 +307,7 @@ const billingResources: {
   patient: {
     resourceType: 'Patient',
     id: 'billing-patient-123',
+    identifier: [clinicalPatientIdentifier('patient-123')],
     extension: [
       { url: 'https://fhir.ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
     ],
@@ -1055,6 +1056,11 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
+            // Main billing patient, by the identifier copyPatient stamps on it
+            unbundle: () => [billingResources.patient],
+          })
+          .mockResolvedValueOnce({
+            // Person linking the main patient, with its accounts rev-included
             unbundle: () => [billingResources.person, billingResources.patient, billingResources.account],
           })
           .mockResolvedValueOnce({
@@ -1124,22 +1130,23 @@ describe('create-billing-claim-from-encounter', () => {
           { encounterId, secrets: tc.secrets ?? {} }
         )
       );
-      if (tc.expectedError) {
-        await expectPromise.rejects.toThrow(expect.objectContaining(tc.expectedError));
-        return;
+      if (tc.expectedError) await expectPromise.rejects.toThrow(expect.objectContaining(tc.expectedError));
+      else {
+        await expectPromise.resolves.toStrictEqual(tc.expectedResult);
+        // The lookup must search the same identifier copyPatient stamps on the main billing patient
+        expect(tc.billingOystehrSearch).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resourceType: 'Patient',
+            params: expect.arrayContaining([
+              {
+                name: 'identifier',
+                value: `${SOURCE_IDENTIFIER_SYSTEM}|patient-123`,
+              },
+              ...EXCLUDE_WORKING_COPIES_PARAMS,
+            ]),
+          })
+        );
       }
-      await expectPromise.resolves.toStrictEqual(tc.expectedResult);
-      expect(tc.billingOystehrSearch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          resourceType: 'Person',
-          params: expect.arrayContaining([
-            {
-              name: 'identifier',
-              value: `${SOURCE_IDENTIFIER_SYSTEM}|patient-123`,
-            },
-          ]),
-        })
-      );
     });
   });
 
@@ -2094,7 +2101,6 @@ describe('create-billing-claim-from-encounter', () => {
         method: 'PUT',
         ifMatch: 'W/"3"',
         resource: {
-          identifier: [clinicalPatientIdentifier('patient-123')],
           link: [
             {
               target: {
@@ -3082,6 +3088,7 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:main-patient',
             resource: {
               resourceType: 'Patient',
+              identifier: [clinicalPatientIdentifier('patient-123')],
               extension: [
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/patient-123' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },

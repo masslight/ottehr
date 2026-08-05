@@ -4,12 +4,12 @@ import { Patient } from 'fhir/r4b';
 import { BillingPatientOption } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  clinicalPatientIdOfCopy,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   fhirName,
   formatAddress,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
-  SOURCE_IDENTIFIER_SYSTEM,
 } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -71,9 +71,7 @@ async function performEffect(
 
   const patients = results.map((p) => {
     const clinicalFriendlyId = p.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
-    const clinicalId = p.extension
-      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-      ?.valueReference?.reference?.replace('Patient/', '');
+    const clinicalId = clinicalPatientIdOfCopy(p);
 
     return {
       id: p.id,

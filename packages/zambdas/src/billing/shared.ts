@@ -249,6 +249,12 @@ export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier
   };
 }
 
+export function clinicalPatientIdOfCopy(patient: Patient): string | undefined {
+  return patient.extension
+    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+    ?.valueReference?.reference?.replace('Patient/', '');
+}
+
 export function billingCopyMatches<T extends Resource>(stored: T, copy: T): boolean {
   try {
     deepStrictEqual(withoutMeta(stored), withoutMeta(copy));
