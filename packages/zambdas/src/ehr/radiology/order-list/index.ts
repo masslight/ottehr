@@ -283,14 +283,21 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
+  const radiologyDTO = makeRadiologyDTO(serviceRequest, preliminaryDiagnosticReport, bestFinalReport);
+
   const history = isExternal
     ? buildExternalHistory(serviceRequest, providerName, resultDocRefs)
-    : buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName, finalReviewTask);
+    : buildHistory(
+        serviceRequest,
+        bestFinalReport,
+        preliminaryDiagnosticReport,
+        providerName,
+        radiologyDTO.performedBy?.name,
+        finalReviewTask
+      );
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
-
-  const radiologyDTO = makeRadiologyDTO(serviceRequest, preliminaryDiagnosticReport, bestFinalReport);
 
   return {
     ...radiologyDTO,
@@ -299,6 +306,7 @@ const parseResultsToOrder = (
     visitDateTime: '', // TODO
     orderAddedDateTime,
     providerName,
+    providerId: myRequestingProvider.id ?? '',
     status,
     isStat: serviceRequest.priority === 'stat',
     history,
@@ -343,6 +351,7 @@ const buildHistory = (
   bestDiagnosticReport: DiagnosticReport | undefined,
   preliminaryDiagnosticReport: DiagnosticReport | undefined,
   orderingProviderName: string,
+  performedByName: string | undefined,
   finalReviewTask?: Task
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
@@ -364,7 +373,7 @@ const buildHistory = (
   if (performedHistoryExtensionValue) {
     history.push({
       status: RadiologyOrderStatus.performed,
-      performer: '',
+      performer: performedByName ?? '',
       date: performedHistoryExtensionValue,
     });
   }

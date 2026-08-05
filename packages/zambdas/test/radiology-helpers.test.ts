@@ -266,4 +266,24 @@ describe('makeRadiologyDTO', () => {
     expect(dto.clinicalHistory).toBeUndefined();
     expect(dto.studyName).toBeUndefined();
   });
+
+  test('extracts performedBy from the Practitioner performer', () => {
+    const sr = makeServiceRequest({
+      performer: [{ reference: 'Practitioner/prac-1', display: 'Dr. Performer' }],
+    });
+
+    expect(makeRadiologyDTO(sr).performedBy).toEqual({ id: 'prac-1', name: 'Dr. Performer' });
+  });
+
+  test('falls back to the practitioner id when the performer reference has no display', () => {
+    const sr = makeServiceRequest({ performer: [{ reference: 'Practitioner/prac-1' }] });
+
+    expect(makeRadiologyDTO(sr).performedBy).toEqual({ id: 'prac-1', name: 'prac-1' });
+  });
+
+  test('ignores a contained performing Organization (external orders)', () => {
+    const sr = makeServiceRequest({ performer: [{ reference: '#performing-organization' }] });
+
+    expect(makeRadiologyDTO(sr).performedBy).toBeUndefined();
+  });
 });

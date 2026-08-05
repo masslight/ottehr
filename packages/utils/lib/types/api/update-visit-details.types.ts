@@ -134,6 +134,10 @@ export interface UpdateVisitFilesInput {
   attachment: Attachment;
 }
 
+export interface UpdateVisitFilesOutput {
+  documentReferenceId: string;
+}
+
 export interface DeleteVisitFilesInput {
   documentId: string;
   patientId: string;

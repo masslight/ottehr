@@ -35,7 +35,8 @@ interface ExternalRxSuggestionsProps {
 }
 
 export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedMedications, onSelectMedication }) => {
-  const { isLoading, isAvailable, externalMedications } = useExternalMedicationHistory(chartedMedications);
+  const { isLoading, isAvailable, isPermissionDenied, externalMedications } =
+    useExternalMedicationHistory(chartedMedications);
   const [expanded, setExpanded] = useState(false);
   // Track medication IDs that were just clicked (optimistic hide).
   const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
@@ -150,7 +151,9 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
           </Box>
         ) : !isAvailable ? (
           <Typography variant="body2" color="text.secondary">
-            Not available
+            {isPermissionDenied
+              ? 'Not available — your role does not have access to external medication history.'
+              : 'Not available'}
           </Typography>
         ) : visibleMedications.length === 0 ? (
           <Typography variant="body2" color="text.secondary">

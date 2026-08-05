@@ -94,11 +94,13 @@ export const assertNoLeakedResourcesForRun = async (oystehr: Oystehr, runId: str
   };
 
   // FHIR search is eventually consistent; let just-deleted resources settle, and only treat a
-  // resource as leaked if it persists across a re-check.
-  await sleep(5000);
+  // resource as leaked if it persists across re-checks. Short waits with retries (instead of two
+  // fixed 5s sleeps) let the clean case — the common one — exit fast while still giving stragglers
+  // up to ~8s total to settle out of the search index.
+  await sleep(2000);
   let survivors = await findSurvivors();
-  if (survivors.length > 0) {
-    await sleep(5000);
+  for (let recheck = 0; survivors.length > 0 && recheck < 3; recheck++) {
+    await sleep(2000);
     survivors = await findSurvivors();
   }
 

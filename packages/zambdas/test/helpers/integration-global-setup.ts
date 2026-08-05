@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { Patient, Practitioner } from 'fhir/r4b';
 import { Server } from 'http';
 import type { AddressInfo } from 'net';
-import { M2MClientMockType, RoleType } from 'utils';
+import { FHIR_IDENTIFIER_NPI, M2MClientMockType, RoleType } from 'utils';
 import type { TestProject } from 'vitest/node';
 import app from '../../src/local-server/index';
 import { getAuth0Token } from '../../src/shared';
@@ -104,6 +104,9 @@ async function provisionSharedClient(
             name: [{ given: ['Integration'], family: 'TestsProvider' }],
             birthDate: '1990-01-01',
             telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
+            // NPI is required for NPI-gated actions (sign, external labs, imaging, in-house med orders).
+            // The shared provider fixture stands in for a full Provider, so give it a (valid) NPI.
+            identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1234567893' }],
           },
           runId
         ) as Practitioner
@@ -235,8 +238,12 @@ export default async function setup(project: TestProject): Promise<() => Promise
   // teardown can verify they were all cleaned up — isolated from any concurrent run on this backend.
   const runId = randomUUID();
 
-  const provider = await provisionSharedClient(oystehrAdmin, M2MClientMockType.provider, runId);
-  const patient = await provisionSharedClient(oystehrAdmin, M2MClientMockType.patient, runId);
+  // The two clients are independent (distinct per-run names, profiles, and roles), so provision
+  // them concurrently to keep the suite's serial startup cost down.
+  const [provider, patient] = await Promise.all([
+    provisionSharedClient(oystehrAdmin, M2MClientMockType.provider, runId),
+    provisionSharedClient(oystehrAdmin, M2MClientMockType.patient, runId),
+  ]);
 
   project.provide('ADMIN_TOKEN', adminToken);
   project.provide('INTEGRATION_TEST_RUN_ID', runId);

@@ -37,7 +37,12 @@ interface UsePatientRadiologyOrdersResult {
     studyType: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
-  handleSaveReport: (serviceRequestId: string, report: string, reportType: 'preliminary' | 'final') => Promise<void>;
+  handleSaveReport: (
+    serviceRequestId: string,
+    report: string,
+    reportType: 'preliminary' | 'final',
+    performedById?: string
+  ) => Promise<void>;
   handleSendForFinalRead: (serviceRequestId: string) => Promise<void>;
   handleUpdateConsent: (serviceRequestId: string, consentObtained: boolean) => Promise<void>;
   isSavingReport: boolean;
@@ -218,7 +223,12 @@ export const usePatientRadiologyOrders = (options: {
   );
 
   const handleSaveReport = useCallback(
-    async (serviceRequestId: string, report: string, reportType: 'preliminary' | 'final'): Promise<void> => {
+    async (
+      serviceRequestId: string,
+      report: string,
+      reportType: 'preliminary' | 'final',
+      performedById?: string
+    ): Promise<void> => {
       if (!report) {
         enqueueSnackbar(`Please enter a ${reportType} report before saving.`, { variant: 'error' });
         return;
@@ -235,7 +245,7 @@ export const usePatientRadiologyOrders = (options: {
 
       try {
         if (reportType === 'preliminary') {
-          await savePreliminaryReport(oystehrZambda, { serviceRequestId, report });
+          await savePreliminaryReport(oystehrZambda, { serviceRequestId, report, performedById });
         } else {
           await saveFinalReport(oystehrZambda, { serviceRequestId, report });
         }

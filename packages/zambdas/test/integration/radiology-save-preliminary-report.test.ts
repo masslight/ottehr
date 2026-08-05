@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { ServiceRequest } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -7,15 +8,25 @@ import {
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
 
-// Happy path for radiology-save-preliminary-report: create a radiology order, then exercise the endpoint.
-// AdvaPACS calls are mocked by the global setup. Created radiology resources are
+// radiology-save-preliminary-report: create a radiology order, then exercise the endpoint's preconditions
+// and its happy path. AdvaPACS calls are mocked by the global setup. Created radiology resources are
 // removed afterwards.
-describe('radiology-save-preliminary-report integration — happy path', () => {
+describe('radiology-save-preliminary-report integration', () => {
   let oystehrAdmin: Oystehr;
   let oystehrZambdas: Oystehr;
   let base: InsertFullAppointmentDataBaseResult;
   let serviceRequestId: string;
+  let orderingPractitionerId: string;
   let cleanup: () => Promise<void>;
+
+  // What the PACS webhook does in production once the study has been performed. Idempotent.
+  const markPerformed = async (): Promise<void> => {
+    await oystehrAdmin.fhir.patch<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+      operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+    });
+  };
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('radiology-save-preliminary-report.test.ts', M2MClientMockType.provider);
@@ -35,6 +46,11 @@ describe('radiology-save-preliminary-report integration — happy path', () => {
       consentObtained: false,
     });
     serviceRequestId = (created.output as { serviceRequestId: string }).serviceRequestId;
+    const serviceRequest = await oystehrAdmin.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+    });
+    orderingPractitionerId = serviceRequest.requester?.reference?.split('/')[1] as string;
   }, 60_000);
 
   afterAll(async () => {
@@ -54,12 +70,49 @@ describe('radiology-save-preliminary-report integration — happy path', () => {
     await cleanup();
   });
 
-  it('saves a preliminary radiology report', async () => {
+  // Runs before the study is marked performed, so it must come first.
+  it('rejects a preliminary report on an order that has not been performed', async () => {
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'radiology-save-preliminary-report',
+        serviceRequestId,
+        report: 'Integration test preliminary report',
+      })
+    ).rejects.toThrow();
+  });
+
+  it('rejects a performedById that is not a Practitioner', async () => {
+    await markPerformed();
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'radiology-save-preliminary-report',
+        serviceRequestId,
+        report: 'Integration test preliminary report',
+        performedById: '00000000-0000-0000-0000-000000000000',
+      })
+    ).rejects.toThrow();
+
+    const serviceRequest = await oystehrAdmin.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+    });
+    expect(serviceRequest.performer).toBeUndefined();
+  });
+
+  it('saves a preliminary radiology report and records the performer', async () => {
+    await markPerformed();
     const response = await oystehrZambdas.zambda.execute({
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
+      performedById: orderingPractitionerId,
     });
     expect(response.output).toBeDefined();
+
+    const serviceRequest = await oystehrAdmin.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+    });
+    expect(serviceRequest.performer?.map((ref) => ref.reference)).toEqual([`Practitioner/${orderingPractitionerId}`]);
   });
 });

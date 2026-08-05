@@ -894,6 +894,7 @@ export interface RadiologyData extends PdfData {
   radiologyOrders: string[];
   radiology?: {
     name: string;
+    performedBy?: string;
     result?: string;
   }[];
 }

@@ -108,6 +108,8 @@ import {
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
   EmCodeOutput,
+  ExtractCardInput,
+  ExtractCardResponse,
   GetActionLogsInput,
   GetActionLogsOutput,
   GetAllergyQuickPicksResponse,
@@ -205,8 +207,11 @@ import {
   RenameCustomFolderOutput,
   RetryActionLogInput,
   RetryActionLogOutput,
+  RotateInsuranceCardImageInput,
+  RotateInsuranceCardImageResponse,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
+  SavePreliminaryRadiologyReportZambdaInput,
   SaveRadiologyReportZambdaInput,
   SaveRadiologyReportZambdaOutput,
   ScheduleDTO,
@@ -249,6 +254,7 @@ import {
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  UpdateVisitFilesOutput,
   UploadDotVisionDocumentInput,
   UploadDotVisionDocumentOutput,
   UploadPatientConditionPhotoInput,
@@ -332,6 +338,7 @@ const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
+const ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID = 'rotate-insurance-card-image';
 const ADMIN_GET_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-picks';
 const ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-pick';
 const ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID = 'admin-update-quick-pick';
@@ -1204,7 +1211,7 @@ export const radiologyLaunchViewer = async (
 
 export const savePreliminaryReport = async (
   oystehr: Oystehr,
-  parameters: SaveRadiologyReportZambdaInput
+  parameters: SavePreliminaryRadiologyReportZambdaInput
 ): Promise<SaveRadiologyReportZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -1910,12 +1917,45 @@ export const updatePatientVisitDetails = async (
   }
 };
 
-export const updateVisitFiles = async (oystehr: Oystehr, parameters: UpdateVisitFilesInput): Promise<void> => {
+export const updateVisitFiles = async (
+  oystehr: Oystehr,
+  parameters: UpdateVisitFilesInput
+): Promise<UpdateVisitFilesOutput> => {
   try {
-    await oystehr.zambda.execute({
+    const response = await oystehr.zambda.execute({
       id: 'update-visit-files',
       ...parameters,
     });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const extractInsuranceCard = async (
+  oystehr: Oystehr,
+  parameters: ExtractCardInput
+): Promise<ExtractCardResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'extract-insurance-card',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const extractPhotoId = async (oystehr: Oystehr, parameters: ExtractCardInput): Promise<ExtractCardResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'extract-photo-id',
+      ...parameters,
+    });
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -1944,6 +1984,25 @@ export const bulkUpdateInsuranceStatus = async (
     }
     const response = await oystehr.zambda.execute({
       id: BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const rotateInsuranceCardImage = async (
+  oystehr: Oystehr,
+  parameters: RotateInsuranceCardImageInput
+): Promise<RotateInsuranceCardImageResponse> => {
+  try {
+    if (ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID == null) {
+      throw new Error('rotate insurance card image zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
