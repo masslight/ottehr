@@ -1,3 +1,5 @@
+import BlurOffIcon from '@mui/icons-material/BlurOff';
+import BlurOnIcon from '@mui/icons-material/BlurOn';
 import CallEndIcon from '@mui/icons-material/CallEnd';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
@@ -5,14 +7,20 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
 import { Box, useTheme } from '@mui/material';
-import { useLocalVideo, useMeetingManager, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
+import {
+  useLocalVideo,
+  useMeetingManager,
+  useToggleLocalMute,
+  useVideoInputs,
+} from 'amazon-chime-sdk-component-library-react';
 import { FC, useState } from 'react';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useVideoCallStore } from '../../state/video-call/video-call.store';
+import { useApplyVirtualBackground } from '../../hooks/useApplyVirtualBackground';
+import { useVideoCallStore, VirtualBackgroundSetting } from '../../state/video-call/video-call.store';
 import { CallSettings } from './CallSettings';
 
 export const VideoControls: FC = () => {
@@ -23,6 +31,9 @@ export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const { muted, toggleMute } = useToggleLocalMute();
   const meetingManager = useMeetingManager();
+  const { devices: videoDevices, selectedDevice: selectedVideoDevice } = useVideoInputs();
+  const virtualBackground = useVideoCallStore((s) => s.virtualBackground);
+  const { applyBackground, isBackgroundBlurSupported } = useApplyVirtualBackground();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -32,6 +43,18 @@ export const VideoControls: FC = () => {
 
   const closeSettings = (): void => {
     setIsSettingsOpen(false);
+  };
+
+  const handleToggleBlur = async (): Promise<void> => {
+    if (!isBackgroundBlurSupported) return;
+    const rawDeviceId =
+      typeof selectedVideoDevice === 'string'
+        ? selectedVideoDevice
+        : (selectedVideoDevice as MediaDeviceInfo)?.deviceId || videoDevices[0]?.deviceId;
+    if (!rawDeviceId) return;
+    const newBg: VirtualBackgroundSetting = virtualBackground.mode === 'blur' ? { mode: 'none' } : { mode: 'blur' };
+    useVideoCallStore.setState({ virtualBackground: newBg });
+    await applyBackground(rawDeviceId, newBg);
   };
 
   const cleanup = async (): Promise<void> => {
@@ -66,6 +89,17 @@ export const VideoControls: FC = () => {
           gap: 2,
         }}
       >
+        <IconButtonContained
+          onClick={() => void handleToggleBlur()}
+          variant={virtualBackground.mode === 'blur' ? 'primary' : 'primary.lighter'}
+          disabled={!isBackgroundBlurSupported}
+        >
+          {virtualBackground.mode === 'blur' ? (
+            <BlurOffIcon sx={{ color: theme.palette.primary.contrastText }} />
+          ) : (
+            <BlurOnIcon sx={{ color: theme.palette.primary.contrastText }} />
+          )}
+        </IconButtonContained>
         <IconButtonContained onClick={toggleVideo} variant="primary.lighter">
           {isVideoEnabled ? (
             <VideocamIcon sx={{ color: theme.palette.primary.contrastText }} />
