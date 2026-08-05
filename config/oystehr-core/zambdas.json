@@ -2326,15 +2326,6 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/PROCESS-TELEMED-RECORDING/id}"
-    "HANDLE_INBOUND_FAX_SUBSCRIPTION": {
-      "resource": {
-        "resourceType": "Subscription",
-        "status": "active",
-        "reason": "Inbound fax received",
-        "criteria": "Communication?medium=FAXWRIT&status=completed",
-        "channel": {
-          "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-INBOUND-FAX/id}"
         },
         "extension": [
           {
