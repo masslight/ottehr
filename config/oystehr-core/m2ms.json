@@ -83,6 +83,11 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Z3:#{var/PROJECT_ID}-fax-received/*"],
+          "action": ["Z3:GetObject", "Z3:DeleteObject"],
+          "effect": "Allow"
+        },
+        {
           "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
           "resource": ["*"]
