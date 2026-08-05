@@ -11,7 +11,7 @@ import {
   searchMedicationLocation,
   searchRouteByCode,
 } from 'utils';
-import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { ottehrExtensionUrl } from 'utils';
 import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
 export const CONTAINED_MEDICATION_ID = 'medication';

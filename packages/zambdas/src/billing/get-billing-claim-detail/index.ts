@@ -15,7 +15,7 @@ import {
   getTaxID,
   SubscriberRelationship,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
   extractClaimResponseAmounts,

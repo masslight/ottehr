@@ -139,7 +139,7 @@ import {
   VALUE_SETS,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
-import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import { deduplicateUnbundledResources } from 'utils';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
 import { createPdfBytes } from '../../../shared';

@@ -1,6 +1,6 @@
 import { Practitioner } from 'fhir/r4b';
 import { formatDateToMDYWithTime } from 'utils';
-import { ParticipantInfo } from 'utils/lib/types/data/appointments/appointments.types';
+import { ParticipantInfo } from 'utils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, PhysicianData } from '../../types';
 import { FullAppointmentResourcePackage } from '../../visit-details-pdf/types';

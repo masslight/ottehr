@@ -1,5 +1,5 @@
 import { RulesEngineType } from 'utils';
-import { ottehrCodeSystemUrl, ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl } from 'utils';
 
 // FHIR identifiers for the rules engines' storage and kickoff resources. These are backend-only:
 // the billing app talks to the rules via the get/save zambdas and never touches the FHIR encoding.

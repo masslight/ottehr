@@ -1,5 +1,5 @@
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
-import { UserActivationZambdaInputSchema } from 'utils/lib/types/api/user-activation.types';
+import { UserActivationZambdaInputSchema } from 'utils';
 import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
 import { UserActivationZambdaInputValidated } from './index';
 

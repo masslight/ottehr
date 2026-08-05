@@ -20,7 +20,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { getInvoiceTaskSource } from 'utils';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
 import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
 import {

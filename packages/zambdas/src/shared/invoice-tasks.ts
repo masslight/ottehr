@@ -12,8 +12,8 @@ import {
   Secrets,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
-import { ParsedInvoiceConfig } from 'utils/lib/helpers/rcm/invoice-config';
-import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { ParsedInvoiceConfig } from 'utils';
+import { createInvoiceTaskInput } from 'utils';
 import { shouldUseCandid, shouldUseOttehrBilling } from './candid';
 
 interface InvoicingFlags {

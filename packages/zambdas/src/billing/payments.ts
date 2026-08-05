@@ -10,7 +10,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 import { z } from 'zod';
 import { safeValidate } from '../shared';
 import { reconcilePaymentNoticesForClaim } from './shared';

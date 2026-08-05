@@ -11,7 +11,7 @@ import {
   removePrefix,
   SearchBillingPatientARClaimsResponse,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 import { fetchAllPages } from '../../shared';
 import {
   ClaimPaymentSummary,

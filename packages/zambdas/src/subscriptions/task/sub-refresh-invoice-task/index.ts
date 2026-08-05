@@ -18,7 +18,7 @@ import {
   SearchBillingPatientARClaimsResponse,
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils';
-import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,

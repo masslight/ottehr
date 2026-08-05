@@ -10,7 +10,7 @@ import {
   PRECONDITION_FAILED,
   SecretsKeys,
 } from 'utils';
-import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { ottehrExtensionUrl } from 'utils';
 import { z } from 'zod';
 import { formatZodError, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { getInsuranceOverrideList, ListName } from '../get-insurance-override-list/handler';

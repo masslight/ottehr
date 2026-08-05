@@ -3,7 +3,7 @@ import Oystehr from '@oystehr/sdk';
 import { List, ListEntry, Organization } from 'fhir/r4b';
 import * as fs from 'fs';
 import { FHIR_EXTENSION, getPayerId, getPayerUrl } from 'utils';
-import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { ottehrExtensionUrl } from 'utils';
 import { getInsuranceOverrideList } from '../rcm/get-insurance-override-list/handler';
 import { createClinicalOystehrClient, getAuth0Token } from '../shared';
 

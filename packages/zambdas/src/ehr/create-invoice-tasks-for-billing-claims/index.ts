@@ -9,7 +9,7 @@ import {
   CreateInvoiceTasksForBillingClaimsResponse,
   RcmTaskCodings,
 } from 'utils';
-import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils';
 import {
   getOrCreateInvoicingConfig,
   ParsedInvoicingConfig,

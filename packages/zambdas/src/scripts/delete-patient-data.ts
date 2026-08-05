@@ -11,7 +11,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { chunkThings, NEVER_DELETE, resourceBelongsToRunTag } from 'utils';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getAllFhirSearchPages } from 'utils';
 
 const CHUNK_SIZE = 50;
 // in this script, deleting RelatedPersons is expected

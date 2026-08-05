@@ -15,7 +15,7 @@ import {
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE,
   VideoChatNotificationResponse,
 } from 'utils';
-import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
+import { ottehrCodeSystemUrl } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,

@@ -46,7 +46,11 @@ export default defineConfig({
     },
     server: {
       deps: {
-        inline: [/@sentry/, /utils/],
+        // SPIKE: utils is no longer inlined. It resolves to its prebuilt dist/main.cjs, so Node
+        // loads it natively once per worker process instead of vite transforming + re-executing
+        // ~339 TS source modules for every isolated test file.
+        inline: [/@sentry/],
+        external: [/utils\/dist/],
       },
     },
     coverage: {

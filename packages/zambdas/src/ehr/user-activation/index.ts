@@ -2,11 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { captureException, captureMessage } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFetchClientWithOystehrAuth, FetchClientWithOysterAuth, getSecret, Secrets } from 'utils';
-import {
-  ErxUnenrollmentOutcome,
-  UserActivationZambdaInput,
-  UserActivationZambdaOutput,
-} from 'utils/lib/types/api/user-activation.types';
+import { ErxUnenrollmentOutcome, UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 

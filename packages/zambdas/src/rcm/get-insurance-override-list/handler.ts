@@ -1,6 +1,6 @@
 import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { List } from 'fhir/r4b';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 
 export enum ListName {
   Patient = 'patient',

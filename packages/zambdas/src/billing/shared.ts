@@ -82,7 +82,7 @@ import {
   withArStageInitialization,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 import { sendErrors } from '../shared';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';

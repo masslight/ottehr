@@ -17,7 +17,7 @@ import {
   X12_ADJUSTMENT_GROUP_CODE,
   X12AdjustmentGroupCode,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 import { fetchAllPages } from '../shared';
 import { isEraProcessingProvenance } from './shared';
 

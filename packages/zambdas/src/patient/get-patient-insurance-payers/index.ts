@@ -11,7 +11,7 @@ import {
   MISSING_REQUEST_SECRETS,
   SecretsKeys,
 } from 'utils';
-import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { ottehrExtensionUrl } from 'utils';
 import { getInsuranceOverrideList, ListName } from '../../rcm/get-insurance-override-list/handler';
 import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
 import { getAllInsurancePayers } from '../get-all-insurance-payers';

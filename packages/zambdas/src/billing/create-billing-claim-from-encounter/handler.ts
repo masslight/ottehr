@@ -72,7 +72,7 @@ import {
   TIMEZONES,
   withArStageInitialization,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 import {
   assertDefined,
   chartDataResourceHasMetaTagByCode,

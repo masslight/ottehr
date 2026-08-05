@@ -11,7 +11,7 @@ import {
   SecretsKeys,
   TASK_CATEGORY_IDENTIFIER,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { createTask } from '../../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';

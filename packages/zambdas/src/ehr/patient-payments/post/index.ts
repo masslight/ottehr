@@ -25,7 +25,7 @@ import {
   TaskIndicator,
   TIMEZONES,
 } from 'utils';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrIdentifierSystem } from 'utils';
 import {
   createClinicalOystehrClient,
   getAuth0Token,

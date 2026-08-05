@@ -1,8 +1,5 @@
 import { MISSING_REQUEST_BODY } from 'utils';
-import {
-  SendReceiptByEmailZambdaInput,
-  SendReceiptByEmailZambdaInputSchema,
-} from 'utils/lib/types/api/send-receipt-by-email.types';
+import { SendReceiptByEmailZambdaInput, SendReceiptByEmailZambdaInputSchema } from 'utils';
 import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(

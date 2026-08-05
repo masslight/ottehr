@@ -102,7 +102,7 @@ import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
   EXTENSION_URL_CPT_MODIFIER,
-} from 'utils/lib/helpers/rcm';
+} from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
