@@ -6,7 +6,6 @@ import {
   FlowService,
   getSecret,
   IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
-  isPaperworkFlowQuestionnaire,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
@@ -167,9 +166,7 @@ function makeServiceIdsByFlowUrlMap(services: HealthcareService[]): Map<string, 
 function toPaperworkFlowQuestionnaire(
   flow: Questionnaire,
   forms: Map<string, Questionnaire>
-): PaperworkFlowQuestionnaire | null {
-  if (!isPaperworkFlowQuestionnaire(flow)) return null;
-
+): PaperworkFlowQuestionnaire {
   return {
     qId: flow.id ?? '',
     name: flow.title ?? 'flow',

@@ -10,7 +10,7 @@ import {
   VIRTUAL_INTAKE_PAPERWORK_URL,
 } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
-import { INTAKE_PAPERWORK_QR_TAG, PAPERWORK_FLOW_TAG } from './constants';
+import { INTAKE_PAPERWORK_QR_TAG } from './constants';
 
 // todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
 const getQuestionnaires = (): Array<Questionnaire> => [
@@ -120,13 +120,6 @@ export const getQuestionnaireForQR = async (qr: QuestionnaireResponse, oystehr: 
   return questionnaire;
 };
 
-/** True when a Questionnaire is a paperwork flow (bundles other Questionnaires via derivedFrom, tagged PAPERWORK_FLOW_TAG). */
-export const isPaperworkFlowQuestionnaire = (questionnaire: Questionnaire): boolean => {
-  return (questionnaire.meta?.tag ?? []).some(
-    (tag) => tag.system === PAPERWORK_FLOW_TAG.system && tag.code === PAPERWORK_FLOW_TAG.code
-  );
-};
-
 /**
  * Assembles a paperwork flow's constituent forms into a single ordered top-level item list. For each
  * canonical in `flowQuestionnaire.derivedFrom` the referenced form Questionnaire is resolved
@@ -169,17 +162,16 @@ export const handleFlowQuestionnaireItem = (assembledItems: QuestionnaireItem[])
 };
 
 /**
- * Returns the effective Questionnaire to render / pre-fill against. A paperwork flow has no `item` of
- * its own (only derivedFrom), so this returns a copy with `item` assembled from its constituent forms
- * in derivedFrom order. Non-flow questionnaires are returned unchanged.
+ * Returns the effective Questionnaire to render / pre-fill against.
+ * If the questionnaire has no derivedFrom property then there's nothing to flatten and the function will returns the questionnaire unchanged.
+ * If the questionnaire passed does have derivedFrom this returns a copy with `item` assembled from its constituent forms in derivedFrom order
  */
 export const resolveEffectiveQuestionnaire = async (
   questionnaire: Questionnaire,
   oystehr: Oystehr
 ): Promise<Questionnaire> => {
-  if (!isPaperworkFlowQuestionnaire(questionnaire)) {
-    return questionnaire;
-  }
+  if (!questionnaire.derivedFrom) return questionnaire;
+
   const item = await assembleFlowQuestionnaireItems(questionnaire, oystehr);
   return { ...questionnaire, item };
 };

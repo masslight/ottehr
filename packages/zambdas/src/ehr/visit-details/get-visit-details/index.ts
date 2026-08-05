@@ -32,7 +32,6 @@ import {
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
   isAnnotationFollowupEncounter,
-  isPaperworkFlowQuestionnaire,
   isPracticeManagedQ,
   isValidUUID,
   makeStandaloneFormDTO,
@@ -367,11 +366,9 @@ const getStandaloneFormsForAppointment = async (
     .map((r) => r.value);
 };
 
-// Builds one StandaloneFormDTO per custom (practice-managed) form bundled in the visit's paperwork
-// flow, so those responses render in the Custom Paperwork area alongside standalone forms. The flow's
-// custom-form answers live inside the single intake QR passed here; the system-managed questionnaires
-// (in-person / virtual pre-visit, consent-only) carry no practice-managed tag and are excluded — their
-// data is already surfaced elsewhere on visit details / the patient profile.
+/**
+ * Builds one StandaloneFormDTO per form bundled in the visit's paperwork so those responses render in the Custom Paperwork area alongside standalone forms.
+ */
 const getIntakePaperworkFlowForms = async (
   qr: QuestionnaireResponse,
   oystehr: Oystehr,
@@ -390,7 +387,7 @@ const getIntakePaperworkFlowForms = async (
     await sendErrors(errorMessage, ENVIRONMENT);
   }
 
-  if (!questionnaire || !isPaperworkFlowQuestionnaire(questionnaire)) return;
+  if (!questionnaire || !questionnaire.derivedFrom) return;
   const flowQuestionnaire = questionnaire;
 
   const results = await Promise.allSettled(
