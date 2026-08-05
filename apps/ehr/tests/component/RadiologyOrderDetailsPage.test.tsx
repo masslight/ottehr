@@ -340,7 +340,14 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
 
       await waitFor(() =>
-        expect(mockHandleSaveReport).toHaveBeenCalledWith(SERVICE_REQUEST_ID, 'Prelim findings', 'preliminary', ['A00'])
+        expect(mockHandleSaveReport).toHaveBeenCalledWith(
+          SERVICE_REQUEST_ID,
+          'Prelim findings',
+          'preliminary',
+          ['A00'],
+          // The performer select defaults to the current user, so a save always carries one.
+          CURRENT_USER_ID
+        )
       );
     });
 
@@ -421,14 +428,19 @@ describe('RadiologyOrderDetailsPage - final report', () => {
 
         await user.click(getPerformedBySelect());
         await user.click(screen.getByRole('option', { name: 'Dr. Test' }));
+        // A diagnosis is required alongside the performer, otherwise the save is blocked.
+        await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
         await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
         await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
 
-        expect(mockHandleSaveReport).toHaveBeenCalledWith(
-          SERVICE_REQUEST_ID,
-          'No acute findings',
-          'preliminary',
-          ORDERING_PROVIDER_ID
+        await waitFor(() =>
+          expect(mockHandleSaveReport).toHaveBeenCalledWith(
+            SERVICE_REQUEST_ID,
+            'No acute findings',
+            'preliminary',
+            ['A00'],
+            ORDERING_PROVIDER_ID
+          )
         );
       });
 
@@ -460,6 +472,8 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         );
         renderPage();
 
+        // The diagnosis is validated first, so it has to be filled in for the performer check to run.
+        await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
         await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
         await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
 
