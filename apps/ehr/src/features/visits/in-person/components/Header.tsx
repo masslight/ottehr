@@ -405,9 +405,10 @@ export const Header = (): JSX.Element => {
                   wrap="nowrap"
                   sx={{
                     overflowX: 'auto',
-                    '&::-webkit-scrollbar': { display: 'none' },
-                    msOverflowStyle: 'none',
-                    scrollbarWidth: 'none',
+                    overflowY: 'hidden',
+                    scrollbarWidth: 'thin',
+                    '&::-webkit-scrollbar': { height: '4px', width: 0 },
+                    '&::-webkit-scrollbar-thumb': { borderRadius: '2px', backgroundColor: 'rgba(0,0,0,0.2)' },
                   }}
                 >
                   <Grid item>
