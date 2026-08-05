@@ -3,6 +3,7 @@ import { DocumentReference, ServiceRequest } from 'fhir/r4b';
 import { PDFDocument } from 'pdf-lib';
 import {
   DISCHARGE_SUMMARY_CODE,
+  FAX_DOCUMENT_ORDER,
   FAX_DOCUMENT_UNAVAILABLE_REASONS,
   FAX_PACKET_MAX_BYTES,
   FAX_PACKET_MAX_PAGES,
@@ -253,6 +254,28 @@ describe('collectFaxParts', () => {
     const parts = await collect(['patient-education']);
 
     expect(parts.map((part) => part.documentReferenceId)).toEqual(['edu-1']);
+  });
+
+  it('keeps patient education on a full-order request when there is no discharge summary to merge into', async () => {
+    // Production always requests the full FAX_DOCUMENT_ORDER, so the dedup must key off the actual
+    // discharge summary document, not merely both kinds being requested.
+    store.progressNote = [docRef({ id: 'note-1' })];
+    store.education = [docRef({ id: 'edu-1' })];
+
+    const parts = await collect(FAX_DOCUMENT_ORDER);
+
+    expect(parts.map((part) => part.kind)).toContain('patient-education');
+    expect(parts.find((part) => part.kind === 'patient-education')?.documentReferenceId).toBe('edu-1');
+  });
+
+  it('still drops patient education on a full-order request when a discharge summary exists', async () => {
+    store.progressNote = [docRef({ id: 'note-1' })];
+    store.dischargeSummary = [docRef({ id: 'ds-1' })];
+    store.education = [docRef({ id: 'edu-1' })];
+
+    const parts = await collect(FAX_DOCUMENT_ORDER);
+
+    expect(parts.map((part) => part.kind)).not.toContain('patient-education');
   });
 
   it('drops lab results that have not been reviewed', async () => {

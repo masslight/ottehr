@@ -214,14 +214,19 @@ export async function collectFaxParts(args: {
   const appointmentId = visitResources.appointment.id!;
   const encounterId = visitResources.encounter.id!;
 
+  const documents = await findVisitDocuments(oystehr, appointmentId, encounterId);
+
   const requested = new Set(kinds);
-  // The discharge summary PDF already contains the education pages; including both duplicates them.
-  if (requested.has('discharge-summary') && requested.has('patient-education')) {
-    console.log('Skipping patient education parts: already merged into the requested discharge summary');
+
+  if (
+    requested.has('patient-education') &&
+    requested.has('discharge-summary') &&
+    documents['discharge-summary'].length > 0
+  ) {
+    console.log('Skipping patient education parts: already merged into the discharge summary');
     requested.delete('patient-education');
   }
 
-  const documents = await findVisitDocuments(oystehr, appointmentId, encounterId);
   const parts: FaxPacketPart[] = [];
 
   for (const kind of FAX_DOCUMENT_ORDER) {

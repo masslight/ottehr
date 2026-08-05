@@ -1358,17 +1358,40 @@ export interface PcpContactDetails {
   active: boolean;
 }
 
-/**
- * Patch ops that persist a PCP from plain contact fields, so callers outside the paperwork flow (e.g. the
- * outbound fax dialog) don't have to know the `pcp-*` QuestionnaireResponse linkId contract.
- */
 export const getPcpPatchOpsFromDetails = (details: PcpContactDetails, patient: Patient): Operation[] => {
+  const currentPcpRef = patient.generalPractitioner?.[0]?.reference;
+
+  const existingPcp = currentPcpRef
+    ? patient.contained?.find(
+        (resource): resource is Practitioner =>
+          resource.resourceType === 'Practitioner' && `#${resource.id}` === currentPcpRef
+      )
+    : undefined;
+
+  const existingFirstName = existingPcp?.name?.[0]?.given?.[0];
+  const existingLastName = existingPcp?.name?.[0]?.family;
+
+  const existingPractice = existingPcp?.extension?.find(
+    (extension) => extension.url === `${PRIVATE_EXTENSION_BASE_URL}/practice-name`
+  )?.valueString;
+
+  const existingAddress = existingPcp?.address?.[0]?.text;
+  const existingPhone = existingPcp?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+  const existingFax = existingPcp?.telecom?.find((telecom) => telecom.system === 'fax')?.value;
+
+  const firstName = details.firstName ?? existingFirstName;
+  const lastName = details.lastName ?? existingLastName;
+  const practiceName = details.practiceName ?? existingPractice;
+  const phone = details.phone ?? existingPhone;
+  const fax = details.fax ?? existingFax;
+
   const items: QuestionnaireResponseItem[] = [
-    { linkId: 'pcp-first', answer: details.firstName ? [{ valueString: details.firstName }] : undefined },
-    { linkId: 'pcp-last', answer: details.lastName ? [{ valueString: details.lastName }] : undefined },
-    { linkId: 'pcp-practice', answer: details.practiceName ? [{ valueString: details.practiceName }] : undefined },
-    { linkId: 'pcp-number', answer: details.phone ? [{ valueString: details.phone }] : undefined },
-    { linkId: 'pcp-fax', answer: details.fax ? [{ valueString: details.fax }] : undefined },
+    { linkId: 'pcp-first', answer: firstName ? [{ valueString: firstName }] : undefined },
+    { linkId: 'pcp-last', answer: lastName ? [{ valueString: lastName }] : undefined },
+    { linkId: 'pcp-practice', answer: practiceName ? [{ valueString: practiceName }] : undefined },
+    { linkId: 'pcp-address', answer: existingAddress ? [{ valueString: existingAddress }] : undefined },
+    { linkId: 'pcp-number', answer: phone ? [{ valueString: phone }] : undefined },
+    { linkId: 'pcp-fax', answer: fax ? [{ valueString: fax }] : undefined },
     { linkId: 'pcp-active', answer: [{ valueBoolean: details.active }] },
   ];
   return getPCPPatchOps(items, patient);

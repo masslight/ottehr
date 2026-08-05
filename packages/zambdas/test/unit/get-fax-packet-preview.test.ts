@@ -87,16 +87,26 @@ describe('get-fax-packet-preview', () => {
     );
   });
 
-  it('maps the contained PCP practitioner onto a fax recipient', async () => {
+  it('maps the contained PCP practitioner onto a fax recipient, normalizing numbers to ten digits', async () => {
     const output = await runPreview(patientWith([pcpPractitioner()]));
 
     expect(output.hasSavedPcp).toBe(true);
+    // Stored as +1-prefixed, but handed to the masked field as bare ten digits so it isn't shifted.
     expect(output.pcp).toEqual({
       name: 'Olivia Green',
       organization: 'Green Family Practice',
-      faxNumber: '+12125551234',
-      phoneNumber: '+12125559999',
+      faxNumber: '2125551234',
+      phoneNumber: '2125559999',
     });
+  });
+
+  it('omits a fax number that is not cleanly ten digits rather than mangling it', async () => {
+    const output = await runPreview(
+      patientWith([pcpPractitioner({ telecom: [{ system: 'fax', value: '+12125551234 ext. 22' }] })])
+    );
+
+    expect(output.hasSavedPcp).toBe(true);
+    expect(output.pcp).toBeUndefined();
   });
 
   it('reports a saved PCP but returns no prefill when the PCP has no fax number', async () => {

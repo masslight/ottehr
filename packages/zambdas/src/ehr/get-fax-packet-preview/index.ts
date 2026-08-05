@@ -7,6 +7,7 @@ import {
   GetFaxPacketPreviewOutput,
   getFullestAvailableName,
   PRACTICE_NAME_URL,
+  toTenDigitPhoneNumber,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -47,7 +48,7 @@ export const findContainedPcp = (patient: Patient | undefined): Practitioner | u
 export const mapPcpToRecipient = (pcp: Practitioner | undefined): FaxRecipient | undefined => {
   if (!pcp) return undefined;
 
-  const faxNumber = pcp.telecom?.find((telecom) => telecom.system === 'fax')?.value?.trim();
+  const faxNumber = toTenDigitPhoneNumber(pcp.telecom?.find((telecom) => telecom.system === 'fax')?.value);
 
   if (!faxNumber) return undefined;
 
@@ -55,7 +56,7 @@ export const mapPcpToRecipient = (pcp: Practitioner | undefined): FaxRecipient |
     name: pcp.name?.length ? getFullestAvailableName(pcp) : undefined,
     organization: pcp.extension?.find((extension) => extension.url === PRACTICE_NAME_URL)?.valueString?.trim(),
     faxNumber,
-    phoneNumber: pcp.telecom?.find((telecom) => telecom.system === 'phone')?.value?.trim(),
+    phoneNumber: toTenDigitPhoneNumber(pcp.telecom?.find((telecom) => telecom.system === 'phone')?.value),
   };
 };
 
