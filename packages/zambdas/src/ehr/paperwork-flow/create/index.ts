@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Coding, HealthcareService, Questionnaire } from 'fhir/r4b';
@@ -20,6 +20,7 @@ import {
   getOttehrManagedQuestionnaires,
   getPatchOperationForExtensionUpsert,
   healthcareServiceExtensionUrlMap,
+  makeAdditionalFlowQuestionnairePatches,
   PAPERWORK_FLOW_BASE_VERSION,
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
@@ -39,6 +40,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const resources = await getResources(oystehr, secrets);
   const slug = await makeUniqueFlowSlug(oystehr, slugify(flow.name));
 
+  const ottehrManagedServices = flowServices.filter((s) => s.ottehrManagedService);
+
   console.log('configuring questionnaire resource');
   const flowQuestionnaire = configFlowQuestionnaire(resources.formQuestionnaires, slug, flow, flowServices);
 
@@ -54,9 +57,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     flowQuestionnaire
   );
 
-  const requests: (BatchInputPostRequest<Questionnaire> | BatchInputPatchRequest<HealthcareService>)[] = [
+  // Ottehr-managed (service, mode) assignment lives as a meta.tag on the flow Questionnaire, not on the
+  // HealthcareService — strip that tag from any other active flow that shares a mode and already claims it.
+  const additionalQuestionnairePatches = makeAdditionalFlowQuestionnairePatches({
+    modes: flow.modes,
+    ottehrManagedServices,
+    flowQuestionnaires: resources.flowQuestionnaires,
+  });
+
+  const requests: BatchInputRequest<Questionnaire | HealthcareService>[] = [
     { method: 'POST', resource: flowQuestionnaire, url: '/Questionnaire' },
     ...hsPatchRequests,
+    ...additionalQuestionnairePatches,
   ];
 
   console.log(`making fhir transaction for ${requests.length} requests`);
@@ -89,20 +101,22 @@ async function makeUniqueFlowSlug(oystehr: Oystehr, desired: string): Promise<st
 
 interface ResourceConfig {
   formQuestionnaires: Questionnaire[];
+  flowQuestionnaires: Questionnaire[];
   services: HealthcareService[];
 }
 
 async function getResources(oystehr: Oystehr, secrets: Secrets | null): Promise<ResourceConfig> {
   console.log('searching questionnaire and service resources');
-  const [formQuestionnaires, ottehrManagedQuestionnaires, services] = await Promise.all([
+  const [formQuestionnaires, ottehrManagedQuestionnaires, flowQuestionnaires, services] = await Promise.all([
     searchActiveQuestionnairesByTag(oystehr, PRACTICE_MANAGED_QUESTIONNAIRE_TAG),
     getOttehrManagedQuestionnaires(oystehr, secrets),
+    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
     searchServiceCategoryHealthcareServices(oystehr),
   ]);
 
   const allFormQuestionnaires = [...formQuestionnaires, ...ottehrManagedQuestionnaires];
 
-  return { formQuestionnaires: allFormQuestionnaires, services };
+  return { formQuestionnaires: allFormQuestionnaires, flowQuestionnaires, services };
 }
 
 function configFlowQuestionnaire(

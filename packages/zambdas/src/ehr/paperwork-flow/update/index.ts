@@ -1,6 +1,5 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
 import { Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import {
@@ -12,17 +11,16 @@ import {
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   Secrets,
   ServiceMode,
-  SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { patchQuestionnaireVersion } from '../../practice-managed-questionnaire/helpers';
 import {
   buildFlowQuestionnaire,
   getCanonicalUrlFromQ,
-  getFlowModes,
   getFormCanonicals,
   getOttehrManagedQuestionnaires,
   healthcareServiceExtensionUrlMap,
+  makeAdditionalFlowQuestionnairePatches,
   PAPERWORK_FLOW_BASE_VERSION,
   searchActiveQuestionnairesByTag,
   searchServiceCategoryHealthcareServices,
@@ -164,59 +162,6 @@ function makeTargetFlowQuestionnaireRequests(input: {
   };
 
   return { retirePatch, createPost };
-}
-
-// make additional questionnaire patches (if necessary)
-// if flowServices includes any ottehr managed services, check if any flows with the passed visit modes already contain it
-// // yes -> remove the tag
-// // no -> do nothing
-function makeAdditionalFlowQuestionnairePatches(input: {
-  modes: ServiceMode[];
-  ottehrManagedServices: FlowService[];
-  flowQuestionnaires: Questionnaire[];
-  targetFlowId: string;
-}): BatchInputPatchRequest<Questionnaire>[] {
-  const { modes, ottehrManagedServices, flowQuestionnaires, targetFlowId } = input;
-  const patchRequests: BatchInputPatchRequest<Questionnaire>[] = [];
-
-  if (ottehrManagedServices.length === 0) {
-    console.log(
-      'No ottehr managed services are included in this flow, no patches need to be made to remove from elsewhere'
-    );
-    return patchRequests;
-  }
-
-  const ottehrManagedServiceIds = new Set(ottehrManagedServices.map((service) => service.id));
-
-  flowQuestionnaires.forEach((q) => {
-    if (q.id === targetFlowId) return;
-
-    // this flow doesn't share a visit mode with the flow being saved, so it isn't competing for the same slot
-    const sharesMode = getFlowModes(q).some((mode) => modes.includes(mode));
-    if (!sharesMode) return;
-
-    const existingTags = q.meta?.tag ?? [];
-    const remainingTags = existingTags.filter((t) => {
-      const systemManagedServiceTag = t.system === SYSTEM_MANAGED_SERVICE_TAG_SYSTEM;
-      if (!systemManagedServiceTag) return true;
-
-      return !t.code || !ottehrManagedServiceIds.has(t.code);
-    });
-
-    // nothing to remove from this flow's tags
-    if (remainingTags.length === existingTags.length) return;
-
-    const operations: Operation[] = [{ op: 'replace', path: '/meta/tag', value: remainingTags }];
-
-    patchRequests.push({
-      method: 'PATCH',
-      url: `Questionnaire/${q.id}`,
-      operations,
-      ifMatch: makeOptimisticLockIfMatchHeader(q),
-    });
-  });
-
-  return patchRequests;
 }
 
 // Builds the full next `extension` array for a service given the modes this flow wants it to carry
