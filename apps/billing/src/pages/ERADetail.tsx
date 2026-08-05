@@ -304,7 +304,7 @@ export default function ERADetail(): ReactElement {
           }}
           onCancel={() => setClaimResponsesToUnmatch(null)}
         >
-          Do you really want to unmatch
+          Do you really want to unmatch?
         </ConfirmDialog>
       )}
       {moreActionsPopoverData ? (

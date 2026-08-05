@@ -3,8 +3,10 @@ import { Operation } from 'fast-json-patch';
 import { Claim, Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
 import {
   AR_STAGE,
+  CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_STATUS_DATE_EXTENSION_URLS,
   ClaimFieldChange,
   ClaimStatusValues,
@@ -155,6 +157,40 @@ describe('claimProvenanceRequest', () => {
       recorded: 't',
     });
     expect(req).not.toBeNull();
+  });
+
+  it('always records a note carrying the text in its own extension even with an empty diff', () => {
+    const req = claimProvenanceRequest({
+      targetReference: CLAIM_REF,
+      claimReference: CLAIM_REF,
+      note: 'Called payer, on hold',
+      agent,
+      activity: 'note',
+      recorded: 't',
+    });
+
+    const provenance = req!.resource as Provenance;
+    expect(provenance.activity?.coding?.[0]).toEqual(CLAIM_PROVENANCE_ACTIVITY.note);
+    expect(provenance.extension).toContainEqual({
+      url: CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
+      valueString: 'Called payer, on hold',
+    });
+    expect(parseChanges(provenance)).toEqual([]);
+  });
+
+  it('omits the note extension when no note is supplied', () => {
+    const req = claimProvenanceRequest({
+      targetReference: 'Coverage/1',
+      claimReference: CLAIM_REF,
+      before: coverage(),
+      after: coverage({ subscriberId: 'M2' }),
+      agent,
+      activity: 'update',
+      recorded: 't',
+    });
+
+    const urls = (req!.resource as Provenance).extension?.map((e) => e.url);
+    expect(urls).not.toContain(CLAIM_PROVENANCE_NOTE_EXTENSION_URL);
   });
 
   it('attaches the prior-version reference when provided', () => {

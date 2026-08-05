@@ -490,7 +490,7 @@ export interface DeletedResponse {
   deleted: true;
 }
 
-export interface TaggedClaimResponse {
+export interface OkResponse {
   ok: true;
 }
 
