@@ -36,6 +36,7 @@ class MockMediaRecorder {
   ondataavailable: ((event: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
   onpause: (() => void) | null = null;
+  onerror: ((event: unknown) => void) | null = null;
   constructor() {
     MockMediaRecorder.instances.push(this);
   }
@@ -60,9 +61,12 @@ class MockMediaRecorder {
   requestData(): void {}
 }
 
-const getUserMedia = vi.fn(async () => ({
-  getTracks: () => [{ stop: trackStop, addEventListener: vi.fn(), removeEventListener: vi.fn() }],
-}));
+const mockStream = (): MediaStream =>
+  ({
+    getTracks: () => [{ stop: trackStop, addEventListener: vi.fn(), removeEventListener: vi.fn() }],
+  }) as unknown as MediaStream;
+
+const getUserMedia = vi.fn(async () => mockStream());
 
 const lastPut = (): { body: Blob; headers: Record<string, string> } => {
   const calls = (
@@ -172,6 +176,76 @@ describe('audioRecording.store', () => {
     await audioRecordingActions.startRecording({ visitID: 'enc-2', oystehr });
     audioRecordingActions.flushActiveSession();
     await vi.waitFor(() => expect(uploadAudioRecording).toHaveBeenCalledWith(oystehr, { visitID: 'enc-2' }));
+  });
+
+  test('a start cancelled while the mic is opening releases it', async () => {
+    const { audioRecordingActions, useAudioRecordingStore } = await import(
+      'src/features/visits/shared/stores/audioRecording.store'
+    );
+
+    let resolveStream: (stream: MediaStream) => void = () => undefined;
+    getUserMedia.mockImplementationOnce(
+      () =>
+        new Promise<MediaStream>((resolve) => {
+          resolveStream = resolve;
+        })
+    );
+
+    // Navigating away while the permission prompt is still up: there is no session yet, so flush has nothing
+    // to stop — but the mic is about to open behind us, with no recorder anything can reach.
+    const starting = audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
+    audioRecordingActions.flushActiveSession();
+    resolveStream(mockStream());
+    await starting;
+
+    expect(trackStop).toHaveBeenCalled(); // mic released rather than left live
+    expect(MockMediaRecorder.instances).toHaveLength(0);
+    expect(useAudioRecordingStore.getState().session).toBeNull();
+    expect(audioRecordingActions.getStream()).toBeNull();
+    expect(uploadAudioRecording).not.toHaveBeenCalled();
+
+    // And the abandoned attempt must not wedge the single-recording slot.
+    await audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
+    expect(useAudioRecordingStore.getState().session?.visitID).toBe('enc-1');
+  });
+
+  test('a denied microphone tells the provider instead of failing silently', async () => {
+    const { audioRecordingActions, useAudioRecordingStore } = await import(
+      'src/features/visits/shared/stores/audioRecording.store'
+    );
+
+    getUserMedia.mockRejectedValueOnce(new Error('NotAllowedError'));
+
+    await audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
+
+    // A silent no-op reads as a dead Record button, and the provider keeps talking to a mic that never opened.
+    expect(enqueueSnackbar).toHaveBeenCalledWith(expect.stringContaining('microphone'), { variant: 'error' });
+    expect(useAudioRecordingStore.getState().session).toBeNull();
+
+    await audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
+    expect(useAudioRecordingStore.getState().session?.visitID).toBe('enc-1');
+  });
+
+  test("a stale recorder's failure cannot stop the next recording for the same visit", async () => {
+    const { audioRecordingActions, useAudioRecordingStore } = await import(
+      'src/features/visits/shared/stores/audioRecording.store'
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
+    const first = MockMediaRecorder.instances[0];
+    audioRecordingActions.stop();
+    await vi.waitFor(() => expect(uploadAudioRecording).toHaveBeenCalledWith(oystehr, { visitID: 'enc-1' }));
+
+    await audioRecordingActions.startRecording({ visitID: 'enc-1', oystehr });
+    // The dead recorder reports what killed it (or its track fires `ended`) after the provider has already
+    // pressed Record again. Keyed on visitID rather than capture identity, this stopped the *new* recording.
+    first.onerror?.({ error: new Error('device lost') });
+
+    expect(useAudioRecordingStore.getState().session).toMatchObject({ visitID: 'enc-1', status: 'RECORDING' });
+    expect(MockMediaRecorder.instances[1].state).toBe('recording');
+
+    warn.mockRestore();
   });
 
   test('only one recording can be active at a time', async () => {

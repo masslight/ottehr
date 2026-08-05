@@ -6,7 +6,9 @@ const ascii = (head: Uint8Array, offset: number, length: number): string =>
 
 // One entry per container MediaRecorder may produce (see MIME_TYPES in audioRecording.store), mapping magic
 // bytes to the MIME type those bytes *are*. MP4 carries `ftyp` in the second word; the others lead with theirs.
-const CONTAINERS: { mimeType: string; matches: (head: Uint8Array) => boolean }[] = [
+// `aliases` are other spellings MIME_TYPES uses for the same container: a recording declared one of those is
+// still a recording we have a signature for, so a missing header has to fail rather than pass through.
+const CONTAINERS: { mimeType: string; aliases?: string[]; matches: (head: Uint8Array) => boolean }[] = [
   { mimeType: 'audio/mp4', matches: (head) => ascii(head, 4, 4) === 'ftyp' }, // iOS Safari
   {
     mimeType: 'audio/webm', // desktop
@@ -15,6 +17,7 @@ const CONTAINERS: { mimeType: string; matches: (head: Uint8Array) => boolean }[]
   { mimeType: 'audio/wav', matches: (head) => ascii(head, 0, 4) === 'RIFF' && ascii(head, 8, 4) === 'WAVE' },
   {
     mimeType: 'audio/mpeg',
+    aliases: ['audio/mp3'],
     matches: (head) => ascii(head, 0, 3) === 'ID3' || (head[0] === 0xff && (head[1] & 0xe0) === 0xe0),
   },
 ];
@@ -36,7 +39,9 @@ export const detectAudioContainerType = async (blob: Blob, declaredType: string)
   const container = CONTAINERS.find(({ matches }) => matches(head));
   // Worthless on its own (`audio/mp3` is really `audio/mpeg`), but it tells the two no-match cases apart.
   const normalizedDeclared = declaredType.split(';')[0].trim();
-  const declared = CONTAINERS.find(({ mimeType }) => mimeType === normalizedDeclared);
+  const declared = CONTAINERS.find(
+    ({ mimeType, aliases }) => mimeType === normalizedDeclared || aliases?.includes(normalizedDeclared)
+  );
 
   if (container) {
     if (declared && declared !== container) {

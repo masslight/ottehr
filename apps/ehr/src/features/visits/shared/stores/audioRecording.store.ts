@@ -55,10 +55,12 @@ interface ActiveCapture {
 const capture: {
   active: ActiveCapture | null;
   starting: boolean; // claimed synchronously, before the getUserMedia await
+  startCancelled: boolean; // a flush landed mid-await; the resolving start must release the mic and bail
   timer: ReturnType<typeof setInterval> | null;
 } = {
   active: null,
   starting: false,
+  startCancelled: false,
   timer: null,
 };
 
@@ -152,8 +154,10 @@ const finalizeAndUpload = async (active: ActiveCapture): Promise<void> => {
 
 // The mic can disappear out-of-band (OS interruption, revoked permission, device unplug). Route it through
 // stop() so we finalize what we captured (or at least release the mic) instead of getting stuck on RECORDING.
-const handleCaptureLost = (visitID: string, reason: unknown): void => {
-  if (useAudioRecordingStore.getState().session?.visitID !== visitID) return; // stale listener after teardown
+const handleCaptureLost = (active: ActiveCapture, reason: unknown): void => {
+  // Identity, not visitID: a stale recorder's late `error`/`ended` would otherwise stop a freshly started
+  // recording for the same visit (its predecessor's upload can still be in flight when Record is pressed again).
+  if (capture.active !== active) return;
   console.warn('Ambient Scribe capture lost; finalizing recording', reason);
   audioRecordingActions.stop();
 };
@@ -170,7 +174,18 @@ export const audioRecordingActions = {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (error) {
+        // Denied/busy mic is the most common failure of the three here; silence reads to the provider as a
+        // dead Record button, and they keep talking believing the visit is being captured.
         console.error('Error accessing the microphone', error);
+        enqueueSnackbar('The microphone could not be accessed. Check the browser mic permission and try again.', {
+          variant: 'error',
+        });
+        return;
+      }
+
+      // Nothing was recorded yet, so there is nothing to save — just don't leave the mic we just opened live.
+      if (capture.startCancelled) {
+        releaseMic(stream);
         return;
       }
 
@@ -202,12 +217,12 @@ export const audioRecordingActions = {
         recorder.onstop = (): void => {
           void finalizeAndUpload(active);
         };
-        recorder.onerror = (event): void => handleCaptureLost(visitID, event);
+        recorder.onerror = (event): void => handleCaptureLost(active, event);
         // A track ending on its own never fires onstop, so listen for it. Programmatic track.stop() (in
         // releaseMic) does not emit 'ended', so this won't double-fire on the normal path.
         stream
           .getTracks()
-          .forEach((track) => track.addEventListener('ended', () => handleCaptureLost(visitID, 'track ended')));
+          .forEach((track) => track.addEventListener('ended', () => handleCaptureLost(active, 'track ended')));
 
         capture.active = active;
         recorder.start(1000);
@@ -223,6 +238,7 @@ export const audioRecordingActions = {
       }
     } finally {
       capture.starting = false;
+      capture.startCancelled = false; // only ever set while a start is pending
     }
   },
 
@@ -276,6 +292,10 @@ export const audioRecordingActions = {
   // Stop any active recording and kick off its upload. Reliable for in-SPA navigation and rotation, but
   // best-effort on real tab close/reload: the async upload chain usually can't finish before page unload.
   flushActiveSession(): void {
+    // A start still awaiting getUserMedia has no session and no recorder for stop() to reach, so flag it and
+    // let it release the mic when it resolves — otherwise navigating away in that window leaves a live mic and
+    // a recording nothing will ever stop or upload.
+    if (capture.starting) capture.startCancelled = true;
     if (useAudioRecordingStore.getState().session) {
       audioRecordingActions.stop();
     }

@@ -30,6 +30,16 @@ describe('detectAudioContainerType', () => {
     );
   });
 
+  test('a headerless recording is rejected under either spelling of its container', async () => {
+    const moofFragment = [0x00, 0x00, 0x01, 0x24, 0x6d, 0x6f, 0x6f, 0x66, 0x00, 0x00, 0x00, 0x00];
+
+    // MIME_TYPES lists `audio/mp3` next to `audio/mpeg`. Without the alias this took the pass-through branch
+    // as a "container we have no signature for", uploading the corrupt recording the check exists to catch.
+    await expect(detectAudioContainerType(blobOf(...moofFragment), 'audio/mp3')).rejects.toThrow(
+      /no audio\/mpeg container header/
+    );
+  });
+
   test('rejects an empty recording', async () => {
     await expect(detectAudioContainerType(new Blob([]), 'audio/webm')).rejects.toThrow('recording is empty');
   });
