@@ -6,7 +6,7 @@ import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, Laye
 
 export const BillingBaseRowSchema = z.object({
   // --- Visit ---
-  appointmentId: z.string().describe('Visit id; link href="/in-person/"+appointmentId+"/review-and-sign".'),
+  appointmentId: z.string().describe('Visit id.'),
   encounterId: z.string().optional().describe('Encounter id (internal — dedupe/joins).'),
   date: z.string().nullable().describe('Visit date (yyyy-MM-dd).'),
   visitType: z.enum(['In-Person', 'Telemed', 'Unknown']).describe('Visit modality.'),
@@ -14,7 +14,7 @@ export const BillingBaseRowSchema = z.object({
   visitStatus: z.string().describe('completed / arrived / cancelled / no-show …'),
   encounterType: z.enum(['main', 'follow-up', 'scheduled-follow-up']).describe('Kind of encounter row.'),
   // --- Patient ---
-  patientId: z.string().describe('Patient id; link href="/patient/"+patientId. Count UNIQUE patients.'),
+  patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
   patientName: z.string().describe('Patient full name.'),
   dateOfBirth: z.string().nullable().describe('Patient date of birth (yyyy-MM-dd).'),
   sex: z.string().describe('Patient sex/gender label.'),

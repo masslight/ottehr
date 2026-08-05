@@ -1,9 +1,9 @@
 import { DateTime } from 'luxon';
 import { ADHOC_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 
-// Format a raw ISO instant as the VIEWER-LOCAL yyyy-MM-dd day ('' when absent/unparseable). The
-// ad-hoc zambdas emit raw ISO instants and never zone-format dates (a report can mix locations across
-// timezones), so all day-level derivation happens here in the browser-local zone.
+// ISO instant → viewer-local yyyy-MM-dd, or null when absent/unparseable. utils' formatDate() does
+// the same parse/format but returns '-' on missing/invalid; here null must be preserved (date fields
+// are nullable and downstream treats null as "no date"), so this stays a small dedicated helper.
 export const toLocalYmd = (iso: string | null | undefined): string | null => {
   if (!iso) return null;
   const dt = DateTime.fromISO(iso);

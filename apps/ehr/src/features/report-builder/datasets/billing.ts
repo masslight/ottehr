@@ -47,7 +47,7 @@ async function fetchAdHocBilling({
     dedupeByEncounter
   );
 
-  return rows as unknown as AdHocRow[];
+  return rows;
 }
 
 export const billingDataset: AdHocDataset = {

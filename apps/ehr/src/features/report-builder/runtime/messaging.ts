@@ -1,9 +1,6 @@
-// Messaging from the sandboxed iframe to the SPA. Two kinds of message cross the boundary, both
-// plain JSON — never functions or code:
-//   - frame lifecycle (internal plumbing): { type: 'ready' | 'rendered' | 'resize' | 'error', ... }
-//   - integration events (the app contract):   { event: string, options: { type, ...fields } }
-// The SPA validates integration events against its whitelist (AdHocFrameEventSchema), ignores the rest.
-// Type-only import: keep the utils package out of the iframe bundle.
+// iframe→SPA messages, always plain JSON (never code): frame lifecycle ({ type: ready|rendered|
+// resize|error }) and integration events ({ event, options }) validated against AdHocFrameEventSchema.
+// Type-only import: keep utils out of the iframe bundle.
 import type { AdHocFrameEvent } from 'utils';
 
 export type LifecycleMessage =

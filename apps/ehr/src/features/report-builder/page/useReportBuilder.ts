@@ -13,7 +13,6 @@ import {
 } from 'utils';
 import { generateAdHocReport, inferAdHocReportLayers, listAdHocReports, saveAdHocReport } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { AdHocCriteria, clearAdHocCriteria, peekAdHocCriteria } from '../customize/seed';
 import { AD_HOC_DATASETS, getDataset, otherDatasetsFor } from '../datasets/registry';
 import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
@@ -77,7 +76,6 @@ function partialWarningFor(rows: AdHocRow[]): string | null {
 
 type UseReportBuilder = {
   oystehrZambda: ReturnType<typeof useApiClients>['oystehrZambda'];
-  criteria: AdHocCriteria | null;
   datasetId: string;
   dateRange: AdHocDateRangeFilter;
   customDate: string;
@@ -121,39 +119,25 @@ type UseReportBuilder = {
   openSaveDialog: () => void;
 };
 
-// Coordinates the client-side pipeline (infer layers → fetch rows → generate code → needsLayers
-// backfill) plus save/load. Fetch stays client-side by necessity: the rows must reach the sandboxed
-// iframe in the browser and never the LLM (which only ever sees the Zod-derived column schema).
-//
-// There is NO refinement: the user edits the original request and regenerates. The only multi-turn
-// mechanism is the technical auto-repair — when the code crashes at runtime the previous code +
-// error go back to the generator once (previousAttempt), invisibly to the user.
+// Client-side pipeline (infer layers → fetch → generate → needsLayers backfill) + save/load. Fetch
+// stays client-side: rows reach the sandboxed iframe, never the LLM (which sees only the Zod schema).
+// No refinement; the only multi-turn path is the auto-repair (previousAttempt) on a runtime crash.
 export function useReportBuilder(): UseReportBuilder {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const { enqueueSnackbar } = useSnackbar();
 
-  // "Customize" hand-off: capture stashed criteria once (peek is StrictMode-safe), then clear it.
-  const [criteria] = useState(() => peekAdHocCriteria());
-  useEffect(() => {
-    clearAdHocCriteria();
-  }, []);
-
-  const initialDatasetId = criteria?.datasetId ?? AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive';
+  const initialDatasetId = AD_HOC_DATASETS[0]?.id ?? 'encounters-comprehensive';
   const [datasetId, setDatasetId] = useState<string>(initialDatasetId);
-  const [dateRange, setDateRange] = useState<AdHocDateRangeFilter>(
-    (criteria?.dateRange as AdHocDateRangeFilter) ?? 'last-30-days'
-  );
-  const [customDate, setCustomDate] = useState<string>(criteria?.customDate ?? DateTime.now().toFormat('yyyy-MM-dd'));
+  const [dateRange, setDateRange] = useState<AdHocDateRangeFilter>('last-30-days');
+  const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customStartDate, setCustomStartDate] = useState<string>(
-    criteria?.customStartDate ?? DateTime.now().minus({ days: 30 }).toFormat('yyyy-MM-dd')
+    DateTime.now().minus({ days: 30 }).toFormat('yyyy-MM-dd')
   );
-  const [customEndDate, setCustomEndDate] = useState<string>(
-    criteria?.customEndDate ?? DateTime.now().toFormat('yyyy-MM-dd')
-  );
-  const [datasetOptions, setDatasetOptions] = useState<Record<string, boolean>>(
-    () => criteria?.options ?? defaultOptionsFor(initialDatasetId)
+  const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [datasetOptions, setDatasetOptions] = useState<Record<string, boolean>>(() =>
+    defaultOptionsFor(initialDatasetId)
   );
 
   const [rows, setRows] = useState<AdHocRow[] | null>(null);
@@ -243,15 +227,6 @@ export function useReportBuilder(): UseReportBuilder {
     setDatasetId(id);
     setDatasetOptions(defaultOptionsFor(id));
   }, []);
-
-  // Customize hand-off: dataset + range are pre-set, so fetch immediately. Skipped for ?saved=.
-  const criteriaFetchedRef = useRef(false);
-  useEffect(() => {
-    if (!criteria || criteriaFetchedRef.current || !oystehrZambda || searchParams.get('saved')) return;
-    criteriaFetchedRef.current = true;
-    void fetchWithOptions(criteria?.options ?? defaultOptionsFor(datasetId));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [oystehrZambda]);
 
   // Which opt-in layers this request needs. Falls back to defaults; generate's needsLayers backfills misses.
   const inferOptions = useCallback(
@@ -425,7 +400,7 @@ export function useReportBuilder(): UseReportBuilder {
   useEffect(() => {
     const savedId = searchParams.get('saved');
 
-    if (!savedId || !oystehrZambda || criteria || loadAttemptedRef.current) return;
+    if (!savedId || !oystehrZambda || loadAttemptedRef.current) return;
 
     loadAttemptedRef.current = true;
 
@@ -474,13 +449,13 @@ export function useReportBuilder(): UseReportBuilder {
         autoRetryRef.current = 0;
 
         if ((saved.runtimeVersion ?? 0) !== ADHOC_RUNTIME_VERSION) {
-          // The stored code targets an older runtime — regenerate from the original prompt. The
-          // successful render then persists the regenerated code back (handleRendered). Deferred
-          // through state so the regeneration runs over the saved dataset/range just committed
-          // above, not this render's stale closures.
           showAdHocDebugLog('saved', 'runtime version mismatch — regenerating from prompt', {
             saved: saved.runtimeVersion,
             current: ADHOC_RUNTIME_VERSION,
+          });
+
+          enqueueSnackbar('This report was rebuilt for an updated report engine.', {
+            variant: 'info',
           });
           autoFixedRef.current = true;
           setPendingRegenerate(saved.request);
@@ -494,6 +469,9 @@ export function useReportBuilder(): UseReportBuilder {
         setLoading(false);
       }
     })();
+    // Must run only when the client becomes available. Re-running on searchParams changes
+    // would re-load the saved report from scratch (refetch data, rebuild schema, re-set the code →
+    // the frame remounts), discarding the report currently on screen. So oystehrZambda is the sole dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [oystehrZambda]);
 
@@ -562,7 +540,6 @@ export function useReportBuilder(): UseReportBuilder {
 
   return {
     oystehrZambda,
-    criteria,
     datasetId,
     dateRange,
     customDate,

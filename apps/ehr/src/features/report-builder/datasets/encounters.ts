@@ -14,14 +14,8 @@ import { ADHOC_QUERY_STALE_MS, dedupeByEncounter, fetchBatchedRange, toLocalYmd 
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, AdHocDatasetOption, AdHocRow, FetchContext } from './types';
 
-// Comprehensive one-row-per-encounter dataset. Visit/patient/location come back on every fetch;
-// opt-in layers (checkboxes) add weight only when asked for. Checkboxes derive from the Zod layer
-// map (id/label/description).
 export const ADHOC_ENCOUNTERS_OPTIONS: AdHocDatasetOption[] = layerOptions(ENCOUNTER_LAYERS);
 
-// Zone-dependent derivation happens here in the browser (zambda emits raw ISO only): `date` becomes
-// the viewer-local day, and trackingBoardHref is built client-side with the same visit-type branching
-// the Complete Encounters report uses for its appointment-time link.
 function localizeEncounterRow(row: AdHocEncounterRow): AdHocEncounterRow {
   return {
     ...row,
@@ -47,14 +41,11 @@ async function fetchAdHocEncounters({
 }: FetchContext): Promise<AdHocRow[]> {
   const opts = options ?? {};
 
-  // One include<Layer> flag per layer, derived from the layer map.
   const flags = layerIncludeFlags(ENCOUNTER_LAYERS, opts);
 
   const rows = await fetchBatchedRange(
     dateRange,
     (range) =>
-      // Through react-query so identical window fetches are deduped/cached (no duplicate zambda calls
-      // from StrictMode re-runs, re-renders, or the infer→needsLayers pipeline).
       queryClient
         .fetchQuery({
           queryKey: ['adhoc-encounters', range, flags],
@@ -65,7 +56,7 @@ async function fetchAdHocEncounters({
     dedupeByEncounter
   );
 
-  return rows as unknown as AdHocRow[];
+  return rows;
 }
 
 export const adhocEncountersDataset: AdHocDataset = {

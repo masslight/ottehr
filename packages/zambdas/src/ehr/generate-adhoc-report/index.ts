@@ -10,6 +10,7 @@ import {
   LlmDatasetSchema,
   REPORT_FACTORY_NAME,
   REPORT_ROOT_NAME,
+  Secrets,
 } from 'utils';
 import { wrapHandler, ZambdaInput } from '../../shared';
 import { DEFAULT_VERTEX_MODEL, invokeChatbotVertexAI } from '../../shared/ai';
@@ -181,14 +182,13 @@ const MAX_ATTEMPTS = 3;
 // but a fenced body still parses as a string and would then fail transpilation confusingly).
 const stripFences = (code: string): string => code.replace(/^\s*```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '');
 
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { schema, request, previousAttempt, secrets } = validateRequestParameters(input);
-
+const performEffect = async (
+  { schema, request, previousAttempt }: GenerateAdHocReportInput,
+  secrets: Secrets
+): Promise<GenerateAdHocReportOutput> => {
   const basePrompt = buildPrompt(schema, request, previousAttempt);
   let lastError = '';
 
-  // The model is effectively deterministic per prompt, so a plain retry would reproduce the same bad
-  // output — each retry appends the prior failure so the prompt (and thus the output) changes.
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const prompt =
       attempt === 0
@@ -214,15 +214,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     const source = stripFences(parsed.code);
 
-    // No code execution happens here — the zambda only checks the RESPONSE SHAPE. The code itself
-    // is validated where it runs: the client hands it to the sandboxed iframe (transpile + execute
-    // over the real rows), and a failure comes back as previousAttempt through the client's bounded
-    // auto-repair. That keeps untrusted generated code off the server entirely and validates
-    // against the real environment instead of stubs.
+    // No code execution happens here — the zambda only checks the RESPONSE SHAPE. The code is
+    // validated where it runs: the client hands it to the sandboxed iframe (transpile + execute over
+    // the real rows), and a failure comes back as previousAttempt through the bounded auto-repair.
     const needsLayers = Array.isArray(parsed.needsLayers)
       ? parsed.needsLayers.filter((id): id is string => typeof id === 'string')
       : undefined;
-    const output: GenerateAdHocReportOutput = validateOutputWithSchema(
+
+    return validateOutputWithSchema(
       GenerateAdHocReportOutputSchema,
       {
         code: source,
@@ -231,11 +230,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
       ZAMBDA_NAME
     );
-    return { statusCode: 200, body: JSON.stringify(output) };
   }
 
   throw INVALID_INPUT_ERROR(
     `Could not generate a valid report after ${MAX_ATTEMPTS} attempts (${lastError}). Please rephrase ` +
       `your request and try again.`
   );
+};
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { secrets, ...params } = validateRequestParameters(input);
+  const output = await performEffect(params, secrets);
+
+  return { statusCode: 200, body: JSON.stringify(output) };
 });

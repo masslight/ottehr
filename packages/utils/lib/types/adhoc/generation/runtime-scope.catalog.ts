@@ -1,16 +1,7 @@
-// DATA half of the runtime-scope single source of truth: everything that exists inside the report
-// iframe — the injected scope parameters, the Report component toolkit, the MUI subset, the value
-// formats, the link routes — declared exactly once, here.
-//
-// This file is deliberately ZOD-FREE and side-effect-free: the iframe runtime bundle deep-imports it
-// (for the function wrapper, the scope order, the ValueFormat type) and must not pull zod in. The
-// VALIDATION and the prompt rendering live next door in runtime-scope.ts, which parses this catalog
-// with real Zod schemas at module load — so a malformed entry fails loud instead of silently feeding
-// the model (or the runtime) a broken contract.
-//
-// Nothing component-related may be hardcoded anywhere else: the generation prompt renders its
-// EXECUTION CONTRACT and COMPONENTS sections from this catalog, and the iframe's scope.ts binds the
-// real components against the NAMES derived here (a compile error if the two ever drift).
+// The runtime-scope catalog: what exists inside the report iframe (injected scope params, Report
+// components, MUI subset, value formats, link routes), declared once. Kept ZOD-FREE and
+// side-effect-free so the iframe bundle can import it without pulling zod in; validation and prompt
+// rendering live in runtime-scope.ts.
 import type { AdHocLinkRoute } from '../sandbox/events';
 
 /** The root component the generated body must define and return. */

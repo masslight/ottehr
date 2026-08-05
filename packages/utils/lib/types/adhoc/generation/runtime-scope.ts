@@ -1,14 +1,6 @@
-// VALIDATION + RENDERING half of the runtime-scope single source of truth. The data lives in
-// ./runtime-scope.catalog (zod-free, so the iframe bundle can deep-import it); this module parses it
-// with real Zod schemas AT MODULE LOAD — a malformed entry throws here instead of silently feeding
-// the model a broken contract — and renders the generation prompt's EXECUTION CONTRACT and
-// COMPONENTS sections entirely from it.
-//
-// Consequences worth keeping true:
-// - nothing component- or scope-related is hardcoded in the prompt (or in any helper); every name,
-//   signature, route, format and rule is interpolated from the catalog;
-// - the component NAMES are exported as TYPES, which the iframe's scope.ts imports type-only to bind
-//   the real React components — a compile error if the two ever drift.
+// Validates the runtime-scope catalog (./runtime-scope.catalog, kept zod-free so the iframe can
+// import it without pulling in zod) at module load, and renders the prompt's EXECUTION CONTRACT +
+// COMPONENTS sections from it — so nothing component-related is hardcoded in the prompt.
 import { z } from 'zod';
 import { ADHOC_LINK_ROUTES } from '../sandbox/events';
 import {

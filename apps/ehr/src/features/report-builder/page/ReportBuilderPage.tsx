@@ -51,24 +51,6 @@ export default function ReportBuilderPage(): React.ReactElement {
             </Typography>
           </Box>
 
-          {rb.criteria?.sourceLabel && (
-            <Box
-              sx={{
-                mb: 3,
-                p: 2,
-                bgcolor: '#eef4ff',
-                border: '1px solid',
-                borderColor: 'primary.light',
-                borderRadius: 1,
-              }}
-            >
-              <Typography variant="body2">
-                Customized from <strong>{rb.criteria.sourceLabel}</strong>. Adjust the dataset or date range below and
-                re-fetch, or describe the report you want.
-              </Typography>
-            </Box>
-          )}
-
           <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 180 }}>
               <InputLabel>Dataset</InputLabel>

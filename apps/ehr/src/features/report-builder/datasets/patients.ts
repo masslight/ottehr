@@ -92,7 +92,7 @@ async function fetchAdHocPatients({
     mergePatientRows
   );
 
-  return rows as unknown as AdHocRow[];
+  return rows;
 }
 
 export const patientsDataset: AdHocDataset = {

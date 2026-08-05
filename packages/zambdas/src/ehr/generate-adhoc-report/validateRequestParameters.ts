@@ -16,6 +16,12 @@ export function validateRequestParameters(input: ZambdaInput): GenerateAdHocRepo
     throw MISSING_REQUEST_SECRETS;
   }
 
+  const { GOOGLE_CLOUD_PROJECT_ID, GOOGLE_CLOUD_API_KEY } = input.secrets;
+
+  if (!GOOGLE_CLOUD_PROJECT_ID || !GOOGLE_CLOUD_API_KEY) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
   // The Zod input schema is the endpoint's single source of truth (it also derives the TS type).
   const parsed = GenerateAdHocReportInputSchema.safeParse(JSON.parse(input.body));
   if (!parsed.success) {

@@ -46,10 +46,9 @@ function toElement(returned: unknown, scope: Record<RuntimeScopeParamName, unkno
   throw new Error(`the generated code must return a React component, e.g. \`return ${REPORT_ROOT_NAME};\``);
 }
 
-// The generated body runs via indirect eval, wrapped as a named source ("report-code.js"), so a
-// thrown error's stack points INTO the report code. sucrase is line-preserving and the wrapper puts
-// the body's first line on line 2, so (stack line − REPORT_BODY_LINE_OFFSET) is the line in the
-// model's OWN JSX — a precise repair-prompt pointer with no source-map library and no bundle growth.
+// Run the body via indirect eval named "report-code.js" so a thrown error's stack points into the
+// report code. sucrase (the bundled transpiler) preserves line numbers, so stack line − offset maps
+// back to the model's own JSX for the repair prompt — no source-map lib needed.
 const REPORT_CODE_URL = 'report-code.js';
 const REPORT_BODY_LINE_OFFSET = 1; // line 1 is the wrapper `(function (…) {`; the body starts at line 2
 const MAX_ERROR_LENGTH = 600;
@@ -126,11 +125,9 @@ function start(): void {
     // Height updates degrade gracefully without ResizeObserver.
   }
 
-  // Errors thrown outside React's render pass (event handlers, timers) would otherwise vanish into
-  // the frame's console; forward them so the SPA can react. Before the first clean render they are
-  // generation failures (fatal → bounded auto-repair); after it, interaction/async errors of a
-  // WORKING report (fatal=false → the SPA only logs). ResizeObserver "loop" warnings are browser
-  // noise, not report bugs.
+  // Forward errors thrown outside React's render pass (handlers, timers). Before the first clean
+  // render they're generation failures (fatal → auto-repair); after, interaction errors of a working
+  // report (fatal=false → log only). ResizeObserver "loop" warnings are browser noise.
   window.addEventListener('error', (ev) => {
     const message = ev?.message || '';
     if (/ResizeObserver loop/i.test(message)) return;

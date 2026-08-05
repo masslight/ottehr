@@ -2,10 +2,15 @@
 // the Report components) and exposes it to the app as a virtual module:
 //
 //   import runtimeBundle from 'virtual:adhoc-report-runtime'; // → the bundle source as a string
+import browserslistToEsbuild from 'browserslist-to-esbuild';
 import { build } from 'esbuild';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { Plugin } from 'vite';
+
+// Match the app's own build target (derived from browserslist), so the frame bundle uses the same
+// browser baseline instead of a hardcoded year.
+const BUILD_TARGET = browserslistToEsbuild();
 
 const VIRTUAL_ID = 'virtual:adhoc-report-runtime';
 const RESOLVED_ID = `\0${VIRTUAL_ID}`;
@@ -27,7 +32,7 @@ export function adHocReportRuntime(): Plugin {
       write: false,
       format: 'iife',
       platform: 'browser',
-      target: 'es2019',
+      target: BUILD_TARGET,
       minify: true,
       legalComments: 'none',
       metafile: true,
