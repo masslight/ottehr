@@ -33,7 +33,7 @@ export const VideoControls: FC = () => {
   const meetingManager = useMeetingManager();
   const { devices: videoDevices, selectedDevice: selectedVideoDevice } = useVideoInputs();
   const virtualBackground = useVideoCallStore((s) => s.virtualBackground);
-  const { applyBackground } = useApplyVirtualBackground();
+  const { applyBackground, isBackgroundBlurSupported } = useApplyVirtualBackground();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -46,6 +46,7 @@ export const VideoControls: FC = () => {
   };
 
   const handleToggleBlur = async (): Promise<void> => {
+    if (!isBackgroundBlurSupported) return;
     const rawDeviceId =
       typeof selectedVideoDevice === 'string'
         ? selectedVideoDevice
@@ -91,6 +92,7 @@ export const VideoControls: FC = () => {
         <IconButtonContained
           onClick={() => void handleToggleBlur()}
           variant={virtualBackground.mode === 'blur' ? 'primary' : 'primary.lighter'}
+          disabled={!isBackgroundBlurSupported}
         >
           {virtualBackground.mode === 'blur' ? (
             <BlurOffIcon sx={{ color: theme.palette.primary.contrastText }} />

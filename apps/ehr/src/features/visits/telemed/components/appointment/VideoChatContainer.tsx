@@ -82,8 +82,9 @@ export const VideoChatContainer: FC = () => {
 
         const rawDeviceId =
           preferredVideoDeviceId ||
-          (selectedDevice as string) ||
-          (selectedDevice as MediaDeviceInfo)?.deviceId ||
+          (typeof selectedDevice === 'string'
+            ? selectedDevice
+            : (selectedDevice as MediaDeviceInfo | null | undefined)?.deviceId) ||
           videoDevices[0]?.deviceId;
 
         if (rawDeviceId) {

@@ -20,11 +20,16 @@ import {
   DefaultDeviceController,
   DefaultVideoTransformDevice,
   VideoFrameProcessor,
+  VideoInputDevice,
 } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApplyVirtualBackground } from '../../hooks/useApplyVirtualBackground';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VirtualBackgroundSettings } from './VirtualBackgroundSettings';
+
+// VideoInputDevice can be a transform device or constraints object; only a plain string is a usable device ID.
+const toRawDeviceId = (device: VideoInputDevice | undefined): string | undefined =>
+  typeof device === 'string' ? device : undefined;
 
 interface CallSettingsProps {
   onClose: () => void;
@@ -41,13 +46,13 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
   const [selectedAudioDevice, setSelectedAudioDevice] = useState(initialAudioDevice);
   // When blur or image background is active, useVideoInputs().selectedDevice is the
   // DefaultVideoTransformDevice, not a plain device ID. Use the raw ID stored by applyBackground.
-  const [selectedVideoPreviewDeviceId, setSelectedVideoPreviewDeviceId] = useState<
-    string | MediaDeviceInfo | null | undefined
-  >(currentRawVideoDeviceId ?? initialVideoDevice);
+  const [selectedVideoPreviewDeviceId, setSelectedVideoPreviewDeviceId] = useState<string | undefined>(
+    currentRawVideoDeviceId ?? toRawDeviceId(initialVideoDevice)
+  );
 
   // Sync when devices are enumerated asynchronously after mount (only if not already set).
   useEffect(() => {
-    setSelectedVideoPreviewDeviceId((prev) => prev || currentRawVideoDeviceId || initialVideoDevice);
+    setSelectedVideoPreviewDeviceId((prev) => prev || currentRawVideoDeviceId || toRawDeviceId(initialVideoDevice));
   }, [currentRawVideoDeviceId, initialVideoDevice]);
 
   const virtualBackground = useVideoCallStore((s) => s.virtualBackground);
@@ -65,7 +70,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
     await stopAudioVideoPreviewAndUsage();
 
     const targetDeviceId =
-      selectedVideoPreviewDeviceId?.toString() || initialVideoDevice?.toString() || videoDevices[0]?.deviceId;
+      selectedVideoPreviewDeviceId || toRawDeviceId(initialVideoDevice) || videoDevices[0]?.deviceId;
 
     if (targetDeviceId) {
       await applyBackground(targetDeviceId);
@@ -156,7 +161,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
     if (selectedVideoPreviewDeviceId) {
       setTimeout(() => {
         if (!isDisposed) {
-          void startVideoPreview(selectedVideoPreviewDeviceId.toString());
+          void startVideoPreview(selectedVideoPreviewDeviceId);
         }
       }, 200);
     }
@@ -171,7 +176,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
       <DialogContent>
         <FormControl fullWidth margin="normal">
           <InputLabel>Camera</InputLabel>
-          <Select value={selectedVideoPreviewDeviceId?.toString()} onChange={handleVideoDeviceChange} label="Camera">
+          <Select value={selectedVideoPreviewDeviceId} onChange={handleVideoDeviceChange} label="Camera">
             {videoDevices.map((device) => (
               <MenuItem key={device.deviceId} value={device.deviceId}>
                 {device.label}
@@ -209,7 +214,7 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
 
         <Typography sx={{ mt: 3 }}>
           Functional microphone, sound and camera are required to proceed with the visit. If something is not working
-          for you, please contact out support team.
+          for you, please contact our support team.
         </Typography>
       </DialogContent>
       <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
