@@ -84,7 +84,10 @@ const performEffect = async (
   const educationListRes = (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
-      params: [{ name: 'subject', value: `Patient/${patientId}` }],
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: 'title', value: BUCKET_NAMES.PATIENT_EDUCATION },
+      ],
     })
   ).unbundle();
 

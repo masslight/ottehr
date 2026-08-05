@@ -341,7 +341,8 @@ export async function createFilesDocumentReferences(
       const oldDoc = docsJson.find((doc) => {
         if (!isLabsResultDoc) {
           return (
-            doc.content[0]?.attachment.title === file.title && doc.content[0]?.attachment.language === file.language
+            doc.content[0]?.attachment.title === file.title &&
+            (doc.content[0]?.attachment.language ?? 'en') === (file.language ?? 'en')
           );
         } else {
           console.log('isLabsResultDoc');
