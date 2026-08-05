@@ -1,6 +1,12 @@
 import { Mic } from '@mui/icons-material';
 import { Container, Fab, Paper } from '@mui/material';
-import { GlobalStyles, lightTheme, MeetingProvider } from 'amazon-chime-sdk-component-library-react';
+import {
+  BackgroundBlurProvider,
+  BackgroundReplacementProvider,
+  GlobalStyles,
+  lightTheme,
+  MeetingProvider,
+} from 'amazon-chime-sdk-component-library-react';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { CommandPaletteInPersonRegistrations } from 'src/components/CommandPaletteRegistrations';
@@ -123,9 +129,13 @@ export const InPersonLayout: React.FC = () => {
       {virtual && meetingData && (
         <ThemeProvider theme={lightTheme}>
           <GlobalStyles />
-          <MeetingProvider>
-            <VideoChatContainer />
-          </MeetingProvider>
+          <BackgroundBlurProvider>
+            <BackgroundReplacementProvider>
+              <MeetingProvider>
+                <VideoChatContainer />
+              </MeetingProvider>
+            </BackgroundReplacementProvider>
+          </BackgroundBlurProvider>
         </ThemeProvider>
       )}
     </div>
