@@ -5,7 +5,7 @@ import { AllChartData } from '../../visit-details-pdf/types';
 
 export const composeRadiology: DataComposer<{ allChartData: AllChartData }, RadiologyData> = ({ allChartData }) => {
   const { additionalChartData } = allChartData;
-  const allRadiologyOrders = additionalChartData?.radiologyOrders ?? [];
+  const chartDataRadiologyOrders = additionalChartData?.radiologyOrders ?? [];
 
   const handleFinalReport = (finalReport: string | undefined): string => {
     let result = '';
@@ -21,7 +21,7 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
     return result;
   };
 
-  const radiology = allRadiologyOrders
+  const radiology = chartDataRadiologyOrders
     .filter((order) => !!order.finalReport)
     .map((order) => ({
       name: order.studyType,
@@ -29,7 +29,9 @@ export const composeRadiology: DataComposer<{ allChartData: AllChartData }, Radi
       result: handleFinalReport(order.finalReport),
     }));
 
-  const pendingOrderNames = allRadiologyOrders.filter((order) => !order.finalReport).map((order) => order.studyType);
+  const pendingOrderNames = chartDataRadiologyOrders
+    .filter((order) => !order.finalReport)
+    .map((order) => order.studyType);
 
   return { radiology, radiologyOrders: pendingOrderNames };
 };
@@ -41,11 +43,11 @@ export const createRadiologySection = <TData extends { radiology?: RadiologyData
   return createConfiguredSection(null, () => ({
     title: 'Radiology',
     dataSelector: (data) => data.radiology,
-    shouldRender: (sectionData) => !!sectionData.radiology?.length || !!sectionData.radiologyOrders?.length,
+    shouldRender: (sectionData) => !!sectionData.radiology?.length || !!sectionData.pendingRadiologyOrders?.length,
     render: (client, data, styles) => {
-      if (data.radiologyOrders?.length) {
+      if (data.pendingRadiologyOrders?.length) {
         client.drawText('Pending Results:', styles.textStyles.subHeader);
-        data.radiologyOrders.forEach((name) => client.drawText(name, styles.textStyles.regularText));
+        data.pendingRadiologyOrders.forEach((name) => client.drawText(name, styles.textStyles.regularText));
         if (data.radiology?.length) {
           client.newLine(8);
         }
