@@ -98,7 +98,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     });
   };
 
-  const handleSavePreliminaryReport = async (): Promise<void> => {
+  const handleSavePreliminaryReport = async (performedById: string): Promise<void> => {
     // Write the diagnosis to the encounter first; a failure here must block the read so the two never
     // diverge. The dedupe above makes a re-save safe after a partial failure.
     try {
@@ -111,7 +111,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
       serviceRequestId,
       preliminaryReport || '',
       'preliminary',
-      preliminaryReportDx.map((d) => d.code)
+      preliminaryReportDx.map((d) => d.code),
+      performedById
     );
   };
   const canEditPerformedBy = order?.status === RadiologyOrderStatus.performed && !order.preliminaryReport;
@@ -451,13 +452,12 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   setMissingPreliminaryReportDx(true);
                   return;
                 }
-                void handleSavePreliminaryReport();
                 // This is the only screen that records the performer, so it's captured here or never.
                 if (!selectedPerformedBy) {
                   setMissingPerformedBy(true);
                   return;
                 }
-                void handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary', selectedPerformedBy.id);
+                void handleSavePreliminaryReport(selectedPerformedBy.id);
               })}
 
             {order.status === 'preliminary' &&

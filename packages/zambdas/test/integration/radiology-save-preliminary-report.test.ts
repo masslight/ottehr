@@ -93,22 +93,6 @@ describe('radiology-save-preliminary-report integration', () => {
     ).rejects.toThrow();
   });
 
-  it('saves a preliminary radiology report with a diagnosis', async () => {
-    const response = await oystehrZambdas.zambda.execute({
-      id: 'radiology-save-preliminary-report',
-      serviceRequestId,
-      report: 'Integration test preliminary report',
-      diagnosisCodes: ['E11.9'],
-    });
-    expect(response.output).toBeDefined();
-
-    const serviceRequest = await oystehrAdmin.fhir.get<ServiceRequest>({
-      resourceType: 'ServiceRequest',
-      id: serviceRequestId,
-    });
-    expect(serviceRequest.performer?.map((ref) => ref.reference)).toEqual([`Practitioner/${orderingPractitionerId}`]);
-  });
-
   it('rejects a performedById that is not a Practitioner', async () => {
     await markPerformed();
     await expect(
@@ -116,6 +100,7 @@ describe('radiology-save-preliminary-report integration', () => {
         id: 'radiology-save-preliminary-report',
         serviceRequestId,
         report: 'Integration test preliminary report',
+        diagnosisCodes: ['E11.9'],
         performedById: '00000000-0000-0000-0000-000000000000',
       })
     ).rejects.toThrow();
@@ -127,12 +112,15 @@ describe('radiology-save-preliminary-report integration', () => {
     expect(serviceRequest.performer).toBeUndefined();
   });
 
-  it('saves a preliminary radiology report and records the performer', async () => {
+  // The endpoint rejects a second report on the same order, so the happy path is exercised once and
+  // asserts on both of the things it records: the diagnosis and the performer.
+  it('saves a preliminary radiology report, its diagnosis and the performer', async () => {
     await markPerformed();
     const response = await oystehrZambdas.zambda.execute({
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
+      diagnosisCodes: ['E11.9'],
       performedById: orderingPractitionerId,
     });
     expect(response.output).toBeDefined();
@@ -141,6 +129,9 @@ describe('radiology-save-preliminary-report integration', () => {
       resourceType: 'ServiceRequest',
       id: serviceRequestId,
     });
+    expect(serviceRequest.reasonCode?.flatMap((reason) => reason.coding?.map((coding) => coding.code) ?? [])).toEqual([
+      'E11.9',
+    ]);
     expect(serviceRequest.performer?.map((ref) => ref.reference)).toEqual([`Practitioner/${orderingPractitionerId}`]);
   });
 });
