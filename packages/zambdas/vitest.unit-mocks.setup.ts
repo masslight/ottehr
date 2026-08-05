@@ -322,3 +322,18 @@ vi.mock('./src/rcm/employers/candid-sync', async (importOriginal) =>
     'toggleCandidEmployerPayer',
   ])
 );
+
+// ---------------------------------------------------------------------------------------
+// Deterministic mock-graph formation. candid and harvest genuinely cycle: real candid.ts
+// imports src/ehr/shared/harvest, and real harvest imports the src/shared barrel, which
+// re-exports candid. If a MOCKED module's factory is the first entry into that cycle, the
+// re-entrant import hits vitest's factory cycle guard, which hands back the RAW module —
+// baking unmocked exports into whichever namespace happened to be mid-construction and
+// silently killing vi.mocked(...) overrides for the rest of the worker. Entering through
+// the BARREL is safe: the barrel is not itself mocked, so its in-progress namespace is
+// resolved by ordinary use-site (call-time) bindings rather than the cycle guard, and
+// every submodule factory (candid → harvest → ...) completes with wrapped exports. Which
+// module gets imported first otherwise depends on file scheduling, so pin it here once
+// per worker.
+await import('./src/shared');
+await import('./src/ehr/shared/harvest');

@@ -349,11 +349,11 @@ describe('sub-send-claim', () => {
     );
   });
 
-  it('handles null candidEncounterId from createEncounterFromAppointment (no patch ops)', async () => {
+  it('handles a nullish candidEncounterId from createEncounterFromAppointment (no patch ops)', async () => {
     setupValidatedParams('task-9', 'appt-9');
     const visitResources = makeVisitResources({ encounterId: 'enc-9' });
     vi.mocked(getAppointmentAndRelatedResources).mockResolvedValue(visitResources);
-    vi.mocked(createEncounterFromAppointment).mockResolvedValue(null);
+    vi.mocked(createEncounterFromAppointment).mockResolvedValue(undefined);
     mockFhirPatch.mockResolvedValue({
       resourceType: 'Task',
       id: 'task-9',
