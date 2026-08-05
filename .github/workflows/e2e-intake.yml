@@ -424,9 +424,7 @@ jobs:
           IS_PR="${{ github.event_name == 'pull_request' }}"
           RUN_FULL_SUITE="${{ contains(github.event.pull_request.body || '', '/run-full-intake-e2e') }}"
 
-          # Pull request runs execute only the whitelisted tests tagged @pr-ci; the nightly
-          # run covers the full suites. Add /run-full-intake-e2e to the PR description to run
-          # the full suite on a specific PR.
+          # Pull request runs execute only the whitelisted tests tagged @pr-ci
           if [ "$MODE" == "pr-ci" ] || { [ "$IS_PR" == "true" ] && [ "$RUN_FULL_SUITE" != "true" ]; }; then
             echo "PR CI mode: running only tests tagged @pr-ci (add /run-full-intake-e2e to the PR description to run the full suite)"
             export PR_CI_TEST=true
