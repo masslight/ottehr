@@ -86,7 +86,7 @@ describe('process-telemed-recording subscription', () => {
   });
 
   it('skips when the encounter has no attending practitioner', async () => {
-    getAttendingPractitionerId.mockReturnValue(undefined);
+    vi.mocked(getAttendingPractitionerId).mockReturnValue(undefined);
 
     const result = await invoke(telemedRecordingDocRef());
 
