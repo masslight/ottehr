@@ -11,11 +11,7 @@ import {
   uploadObjectToZ3,
   ZambdaInput,
 } from '../../../shared';
-import { sha256Hex } from '../../../subscriptions/document-reference/extract-insurance-card/helpers';
-import {
-  isRedAt,
-  makeOrientedSceneJpeg,
-} from '../../../subscriptions/document-reference/extract-insurance-card/test/image-fixtures';
+import { isRedAt, makeOrientedSceneJpeg } from '../../extract-insurance-card/test/image-fixtures';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
 
@@ -84,7 +80,6 @@ function makeStoredExtraction(overrides: Partial<InsuranceCardExtraction> = {}):
     readable: false, // the "looks rotated" hint the manual rotate must clear
     sourceDocRefId: DOC_REF_ID,
     sourceAttachmentUrl: Z3_URL,
-    imageHash: sha256Hex(IMAGE_BYTES),
     model: 'gemini-3.1-flash-lite',
     extractedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -216,14 +211,13 @@ describe('rotate-insurance-card-image handler', () => {
     expect(isRedAt(image, 0, SCENE_W - 1)).toBe(false); // bottom-left (where a CCW bug would put it)
     expect(isRedAt(image, SCENE_H - 1, SCENE_W - 1)).toBe(false); // bottom-right
 
-    // one patch: attachment size updated + extraction rewritten with readable=null and the new hash
+    // one patch: attachment size updated + extraction rewritten with readable=null
     const operations = getPatchOperations();
     expect(operations).toContainEqual({ op: 'add', path: '/content/0/attachment/size', value: uploaded.length });
     const extensionOp = operations.find((op) => op.path === '/extension/0');
     expect(extensionOp?.op).toBe('replace');
     const rewritten = JSON.parse(extensionOp!.value.valueString) as InsuranceCardExtraction;
     expect(rewritten.readable).toBeNull();
-    expect(rewritten.imageHash).toBe(sha256Hex(uploaded));
     // everything else about the extraction is preserved
     expect(rewritten.fields).toEqual(makeStoredExtraction().fields);
     expect(rewritten.sourceAttachmentUrl).toBe(Z3_URL);

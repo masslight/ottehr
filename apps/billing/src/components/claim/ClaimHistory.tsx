@@ -130,10 +130,19 @@ export function ClaimHistory({ claimId }: { claimId: string }): ReactElement {
                 ) : (
                   entry.changes.map((change, idx) => (
                     <Typography variant="body2" key={`${entry.id}-${change.field}-${idx}`} sx={{ py: 0.25 }}>
-                      <Box component="span" sx={{ fontWeight: 500 }}>
+                      <Box
+                        component="span"
+                        sx={{ fontWeight: 500, color: change.label === 'Error' ? 'error.main' : undefined }}
+                      >
                         {change.label}:
                       </Box>{' '}
-                      <HistoryValue value={change.previousValue} link={change.previousLink} muted /> →{' '}
+                      {change.label !== 'Error' ? (
+                        <>
+                          <HistoryValue value={change.previousValue} link={change.previousLink} muted /> →{' '}
+                        </>
+                      ) : (
+                        <></>
+                      )}
                       <HistoryValue value={change.newValue} link={change.newLink} />
                     </Typography>
                   ))

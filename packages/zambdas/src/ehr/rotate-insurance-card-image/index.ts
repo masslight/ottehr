@@ -21,12 +21,8 @@ import {
   buildAttachmentMetadataOperations,
   buildExtractionPatchOperation,
   getExistingExtraction,
-  sha256Hex,
-} from '../../subscriptions/document-reference/extract-insurance-card/helpers';
-import {
-  RotatedInsuranceCardImage,
-  rotateImageClockwise,
-} from '../../subscriptions/document-reference/extract-insurance-card/normalize-image';
+} from '../extract-insurance-card/helpers';
+import { RotatedInsuranceCardImage, rotateImageClockwise } from '../extract-insurance-card/normalize-image';
 import { assertRotatableCardImage } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -114,8 +110,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Keep the DocumentReference honest about the new stored object: attachment contentType/size,
   // plus the insurance-card extraction extension when one exists — the staff member just fixed the
   // orientation by hand, so the model's stale `readable` judgment is reset to null (clearing the
-  // "looks rotated" hint) and imageHash is updated to describe the stored bytes. A DocRef without
-  // the extraction extension (extraction pending or feature off) skips that part gracefully.
+  // "looks rotated" hint). A DocRef without the extraction extension (extraction pending or
+  // feature off) skips that part gracefully.
   const operations: Operation[] = buildAttachmentMetadataOperations(
     documentReference,
     rotated.contentType,
@@ -127,7 +123,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       buildExtractionPatchOperation(documentReference.extension, extensionIndex, {
         ...extraction,
         readable: null,
-        imageHash: sha256Hex(rotated.bytes),
       })
     );
   }

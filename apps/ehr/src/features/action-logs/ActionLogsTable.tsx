@@ -227,7 +227,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
           ) : (
             logs.map((log) => (
               <TableRow key={log.attemptId}>
-                <TableCell>{log.documentReferenceId ? 'Discharge Summary' : '-'}</TableCell>
+                <TableCell>{log.documentReferenceId ? 'Visit Note' : '-'}</TableCell>
                 {!patientId && <TableCell>{log.patientName ?? '-'}</TableCell>}
                 <TableCell>
                   {log.appointmentId ? (

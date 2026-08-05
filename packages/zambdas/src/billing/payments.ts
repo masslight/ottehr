@@ -3,6 +3,7 @@ import { Claim, Money, PaymentNotice, PaymentReconciliation, Reference } from 'f
 import {
   BILLING_RECORDABLE_PAYMENT_METHODS,
   BILLING_RESOURCE_TAG,
+  getContainedReconciliation,
   getSecret,
   MANUAL_PAYMENT_CONFLICT_ERROR,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -66,11 +67,8 @@ export interface RecordBillingPatientPaymentInput {
   submitterRef?: Reference;
 }
 
-const containedReconciliation = (notice: PaymentNotice): PaymentReconciliation | undefined =>
-  notice.contained?.find((r): r is PaymentReconciliation => r.resourceType === 'PaymentReconciliation');
-
 const paymentFingerprint = (notice: PaymentNotice): string => {
-  const reconciliation = containedReconciliation(notice);
+  const reconciliation = getContainedReconciliation(notice);
   return JSON.stringify({
     amount: notice.amount?.value,
     currency: notice.amount?.currency,

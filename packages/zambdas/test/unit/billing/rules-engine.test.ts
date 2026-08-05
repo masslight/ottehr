@@ -1,19 +1,26 @@
-import { Basic, Claim } from 'fhir/r4b';
+import { Basic, ChargeItemDefinition, Claim, Location, Organization, Practitioner } from 'fhir/r4b';
 import {
   BillingRule,
   CLAIM_TAG_SYSTEM,
+  CPT_CODE_SYSTEM,
+  EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDENTIFIER_NPI,
   getPayerUrl,
   HOLD_TAG_NAME,
   RULE_FIELD_CATALOG,
   RULES_ENGINE_TYPES,
+  SERVICE_LINE_PROPERTY_CATALOG,
 } from 'utils';
 import { describe, expect, it } from 'vitest';
 import {
   READABLE_FIELD_IDS,
   readField,
+  readServiceLineProperty,
   RulesEngineClaimModel,
+  SERVICE_LINE_READABLE_PROPERTY_IDS,
+  SERVICE_LINE_WRITABLE_PROPERTY_IDS,
   WRITABLE_FIELD_IDS,
+  writeField,
 } from '../../../src/billing/rules-engine/claim-model';
 import {
   RULE_DEFINITION_EXTENSION_URL,
@@ -22,8 +29,20 @@ import {
   RULES_ENGINE_TASK_SYSTEM,
   rulesEngineForTaskCode,
 } from '../../../src/billing/rules-engine/constants';
-import { evaluateCondition, evaluateOperator, executeRule } from '../../../src/billing/rules-engine/evaluator';
+import {
+  applyAction,
+  evaluateCondition,
+  evaluateOperator,
+  executeRule,
+} from '../../../src/billing/rules-engine/evaluator';
 import { buildRulesEngineKickoffTask, listToRules, rulesToList } from '../../../src/billing/rules-engine/serialization';
+import {
+  BILLING_WORKING_COPY_TAG,
+  buildNoCoverageStub,
+  CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  PROVIDER_ROLE_TAG,
+  SOURCE_IDENTIFIER_SYSTEM,
+} from '../../../src/billing/shared';
 
 const makeModel = (): RulesEngineClaimModel => ({
   claim: {
@@ -35,20 +54,46 @@ const makeModel = (): RulesEngineClaimModel => ({
     created: '2026-01-01',
     provider: {},
     priority: { coding: [] },
-    insurance: [],
+    insurance: [
+      { sequence: 1, focal: true, coverage: { reference: 'Coverage/cov-primary' } },
+      { sequence: 2, focal: false, coverage: { reference: 'Coverage/cov-secondary' } },
+    ],
+    diagnosis: [{ sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } }],
+    item: [
+      {
+        sequence: 1,
+        productOrService: { coding: [{ code: '99213' }] },
+        servicedPeriod: { start: '2026-01-05' },
+        locationCodeableConcept: { coding: [{ code: '20' }] },
+        net: { value: 125.5, currency: 'USD' },
+      },
+    ],
+    total: { value: 125.5, currency: 'USD' },
   } as Claim,
   patient: {
     resourceType: 'Patient',
     name: [{ given: ['Jane'], family: 'Doe' }],
     birthDate: '1990-01-01',
     gender: 'female',
+    address: [{ line: ['1 Main St'], city: 'Oakland', state: 'CA', postalCode: '94601' }],
   },
   coverages: [
     {
       resourceType: 'Coverage',
+      id: 'cov-primary',
       status: 'active',
       beneficiary: { reference: 'Patient/p1' },
+      subscriber: { reference: 'RelatedPerson/rp-1' },
+      subscriberId: 'MEM-123',
       payor: [{ reference: getPayerUrl('123456') }],
+    },
+    {
+      resourceType: 'Coverage',
+      id: 'cov-secondary',
+      status: 'active',
+      beneficiary: { reference: 'Patient/p1' },
+      subscriberId: 'MEM-456',
+      payor: [{ reference: getPayerUrl('222222') }],
     },
   ],
   renderingProvider: {
@@ -56,12 +101,27 @@ const makeModel = (): RulesEngineClaimModel => ({
     name: [{ family: 'Smith' }],
     identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1234567890' }],
   },
+  billingProvider: {
+    resourceType: 'Organization',
+    name: 'Acme Medical Group',
+    identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '8888888888' }],
+  },
   serviceFacility: {
     resourceType: 'Location',
     name: 'Main Clinic',
     address: { state: 'CA' },
     identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '9999999999' }],
   },
+  subscribers: [
+    {
+      resourceType: 'RelatedPerson',
+      id: 'rp-1',
+      patient: { reference: 'Patient/p1' },
+      name: [{ given: ['Pat'], family: 'Holder' }],
+      birthDate: '1980-05-05',
+      gender: 'male',
+    },
+  ],
 });
 
 const claimTags = (model: RulesEngineClaimModel): string[] =>
@@ -75,6 +135,13 @@ describe('field catalog / claim-model pairing', () => {
     expect([...READABLE_FIELD_IDS].sort()).toEqual([...catalogIds].sort());
     const settableIds = RULE_FIELD_CATALOG.filter((f) => f.settable).map((f) => f.id);
     expect([...WRITABLE_FIELD_IDS].sort()).toEqual([...settableIds].sort());
+  });
+
+  it('every service line property has a reader, and exactly the settable ones have writers', () => {
+    const propertyIds = SERVICE_LINE_PROPERTY_CATALOG.map((p) => p.id);
+    expect([...SERVICE_LINE_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
+    const settableIds = SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
+    expect([...SERVICE_LINE_WRITABLE_PROPERTY_IDS].sort()).toEqual([...settableIds].sort());
   });
 });
 
@@ -92,6 +159,70 @@ describe('rules-engine evaluator', () => {
     expect(evaluateOperator('notExists', undefined)).toBe(true);
   });
 
+  it('matches string prefixes with startsWith / notStartsWith', () => {
+    expect(evaluateOperator('startsWith', 'XKD-4451', 'XKD')).toBe(true);
+    expect(evaluateOperator('startsWith', 'AXKD-4451', 'XKD')).toBe(false);
+    expect(evaluateOperator('notStartsWith', 'AXKD-4451', 'XKD')).toBe(true);
+    expect(evaluateOperator('notStartsWith', 'XKD-4451', 'XKD')).toBe(false);
+    // Prefix matching is for text values: lists and missing values never start with anything.
+    expect(evaluateOperator('startsWith', ['XKD-1'], 'XKD')).toBe(false);
+    expect(evaluateOperator('startsWith', undefined, 'XKD')).toBe(false);
+    expect(evaluateOperator('startsWith', 'XKD-4451', undefined)).toBe(false);
+    expect(evaluateOperator('notStartsWith', undefined, 'XKD')).toBe(true);
+  });
+
+  it('evaluates the canonical "member id starts with XKD" condition', () => {
+    const m = makeModel();
+    m.coverages[0].subscriberId = 'XKD-889-12';
+    expect(
+      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'XKD' }, m)
+    ).toBe(true);
+    expect(
+      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'ZZZ' }, m)
+    ).toBe(false);
+  });
+
+  it('compares numerically when both sides are numbers, lexicographically for ISO dates', () => {
+    // Numeric: "9" > "100" as strings but not as numbers.
+    expect(evaluateOperator('gt', '9', '100')).toBe(false);
+    expect(evaluateOperator('gt', '125.5', '100')).toBe(true);
+    expect(evaluateOperator('gte', '100', '100')).toBe(true);
+    expect(evaluateOperator('lt', '99.99', '100')).toBe(true);
+    expect(evaluateOperator('lte', '100', '100')).toBe(true);
+    expect(evaluateOperator('lte', '100.01', '100')).toBe(false);
+    // Dates: ISO strings order chronologically.
+    expect(evaluateOperator('lt', '2005-12-31', '2008-07-14')).toBe(true);
+    expect(evaluateOperator('gt', '2026-01-05', '2025-12-31')).toBe(true);
+    expect(evaluateOperator('gte', '2026-01-05', '2026-01-05')).toBe(true);
+    // Missing/empty values never satisfy a comparison.
+    expect(evaluateOperator('gt', undefined, '100')).toBe(false);
+    expect(evaluateOperator('lt', undefined, '100')).toBe(false);
+    expect(evaluateOperator('lte', '', '100')).toBe(false);
+    expect(evaluateOperator('gt', '100', undefined)).toBe(false);
+  });
+
+  it('eq/neq/in/notIn compare numerically for number-typed properties only', () => {
+    // Amounts: readers normalize ('125.5') while rule values keep the author's formatting ('125.50').
+    expect(evaluateOperator('eq', '100', '100.00', { numeric: true })).toBe(true);
+    expect(evaluateOperator('neq', '100', '100.00', { numeric: true })).toBe(false);
+    expect(evaluateOperator('in', '30.5', ['20', '30.50'], { numeric: true })).toBe(true);
+    expect(evaluateOperator('notIn', '30.5', ['20', '30.50'], { numeric: true })).toBe(false);
+    // Ids stay exact strings even when they parse as numbers: member id '00123' is not '123'.
+    expect(evaluateOperator('eq', '00123', '123')).toBe(false);
+    expect(evaluateOperator('eq', '100', '100.00')).toBe(false);
+    // The numeric flag never weakens empty/missing semantics ('' is not 0).
+    expect(evaluateOperator('eq', '', '0', { numeric: true })).toBe(false);
+    expect(evaluateOperator('eq', '0', '', { numeric: true })).toBe(false);
+
+    // End to end: evaluateCondition passes the flag for the number-typed billed amount.
+    const m = makeModel();
+    expect(readField(m, 'billed')).toBe('125.5');
+    expect(evaluateCondition({ type: 'field', field: 'billed', operator: 'eq', value: '125.50' }, m)).toBe(true);
+    expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'MEM-123' }, m)).toBe(
+      true
+    );
+  });
+
   it('reads logical fields that span resources', () => {
     const m = makeModel();
     expect(readField(m, 'payerId')).toBe('123456');
@@ -101,6 +232,731 @@ describe('rules-engine evaluator', () => {
     expect(readField(m, 'tags')).toEqual([]);
   });
 
+  it('reads the claim-level fields (type, dates, amounts, code lists, billing type)', () => {
+    const m = makeModel();
+    expect(readField(m, 'type')).toBe('professional');
+    expect(readField(m, 'created')).toBe('2026-01-01');
+    expect(readField(m, 'serviceDate')).toBe('2026-01-05');
+    expect(readField(m, 'billed')).toBe('125.5');
+    expect(readField(m, 'billingType')).toBe('Insurance Pay');
+    expect(readField(m, 'diagnosisCodes')).toEqual(['J06.9']);
+    expect(readField(m, 'cptCodes')).toEqual(['99213']);
+    expect(readField(m, 'placeOfServiceCodes')).toEqual(['20']);
+  });
+
+  it('reads insurance, policy holder, secondary insurance, and billing provider fields', () => {
+    const m = makeModel();
+    expect(readField(m, 'insurance.memberId')).toBe('MEM-123');
+    expect(readField(m, 'policyHolder.firstName')).toBe('Pat');
+    expect(readField(m, 'policyHolder.birthDate')).toBe('1980-05-05');
+    expect(readField(m, 'secondaryInsurance.payerId')).toBe('222222');
+    expect(readField(m, 'secondaryInsurance.memberId')).toBe('MEM-456');
+    expect(readField(m, 'billingProvider.lastName')).toBe('Acme Medical Group');
+    expect(readField(m, 'billingProvider.npi')).toBe('8888888888');
+    expect(readField(m, 'patient.city')).toBe('Oakland');
+    expect(readField(m, 'patient.addressLine1')).toBe('1 Main St');
+  });
+
+  it('writes claim status fields with validation and AR-stage initialization', () => {
+    const m = makeModel();
+    expect(readField(m, 'status.arStage')).toBeUndefined();
+    expect(writeField(m, 'status.arStage', 'insurance-payer-ar')).toBe(true);
+    expect(readField(m, 'status.arStage')).toBe('insurance-payer-ar');
+    // Entering an AR stage initializes that stage's progress status, like the claim screens do.
+    expect(readField(m, 'status.insuranceArStatus')).toBe('created');
+    // Invalid codes are rejected (the engine will hold the claim).
+    expect(writeField(m, 'status.adjudicationStatus', 'not-a-real-code')).toBe(false);
+    expect(writeField(m, 'status.adjudicationStatus', 'denied')).toBe(true);
+    // Clearing back to None removes the tag.
+    expect(writeField(m, 'status.adjudicationStatus', null)).toBe(true);
+    expect(readField(m, 'status.adjudicationStatus')).toBeUndefined();
+  });
+
+  it('writes claim type, service category, and service date', () => {
+    const m = makeModel();
+    expect(writeField(m, 'type', 'institutional')).toBe(true);
+    expect(readField(m, 'type')).toBe('institutional');
+    expect(writeField(m, 'type', 'dental')).toBe(false);
+
+    expect(writeField(m, 'service', 'urgent-care')).toBe(true);
+    expect(readField(m, 'service')).toBe('urgent-care');
+
+    expect(writeField(m, 'serviceDate', '2026-02-02')).toBe(true);
+    expect(readField(m, 'serviceDate')).toBe('2026-02-02');
+    expect(m.claim.item?.[0]?.servicedPeriod?.start).toBe('2026-02-02');
+    // A claim with no service lines has nothing to date — the write must fail, not no-op.
+    m.claim.item = [];
+    expect(writeField(m, 'serviceDate', '2026-02-02')).toBe(false);
+  });
+
+  it('writes coverage fields (member id, plan type) and the secondary payer', () => {
+    const m = makeModel();
+    expect(writeField(m, 'insurance.memberId', 'NEW-MEM')).toBe(true);
+    expect(m.coverages[0].subscriberId).toBe('NEW-MEM');
+    expect(writeField(m, 'insurance.planType', '12')).toBe(true);
+    expect(readField(m, 'insurance.planType')).toBe('12');
+    expect(writeField(m, 'insurance.planType', 'not-a-plan-type')).toBe(false);
+
+    expect(writeField(m, 'secondaryInsurance.payerId', '333333')).toBe(true);
+    expect(m.coverages[1].payor?.[0]?.reference).toContain('333333');
+    // The primary payer and the claim's insurer are untouched by a secondary payer change.
+    expect(readField(m, 'payerId')).toBe('123456');
+  });
+
+  it('writes policy holder fields on the subscriber working copy, failing when there is none', () => {
+    const m = makeModel();
+    expect(writeField(m, 'policyHolder.lastName', 'Newname')).toBe(true);
+    expect(m.subscribers[0].name?.[0]?.family).toBe('Newname');
+    expect(writeField(m, 'policyHolder.addressLine1', '2 Elm St')).toBe(true);
+    expect(readField(m, 'policyHolder.addressLine1')).toBe('2 Elm St');
+
+    // Self-subscribed coverage (no RelatedPerson): the target is missing, so the write fails.
+    m.coverages[0].subscriber = { reference: 'Patient/p1' };
+    expect(writeField(m, 'policyHolder.lastName', 'X')).toBe(false);
+  });
+
+  it('writes provider and facility detail fields', () => {
+    const m = makeModel();
+    // First name only applies to individual providers; the billing provider is an organization.
+    expect(writeField(m, 'renderingProvider.firstName', 'Sam')).toBe(true);
+    expect(readField(m, 'renderingProvider.firstName')).toBe('Sam');
+    expect(writeField(m, 'billingProvider.firstName', 'Sam')).toBe(false);
+
+    expect(writeField(m, 'billingProvider.taxId', '123456789')).toBe(true);
+    expect(readField(m, 'billingProvider.taxId')).toBe('123456789');
+    expect(writeField(m, 'renderingProvider.taxonomy', '207Q00000X')).toBe(true);
+    expect(readField(m, 'renderingProvider.taxonomy')).toBe('207Q00000X');
+
+    expect(writeField(m, 'serviceFacility.posCode', '11')).toBe(true);
+    expect(readField(m, 'serviceFacility.posCode')).toBe('11');
+    expect(writeField(m, 'serviceFacility.clia', '05D1234567')).toBe(true);
+    expect(readField(m, 'serviceFacility.clia')).toBe('05D1234567');
+    expect(writeField(m, 'serviceFacility.addressLine1', '500 Care Way')).toBe(true);
+    expect(writeField(m, 'serviceFacility.zip', '94123')).toBe(true);
+    expect(readField(m, 'serviceFacility.addressLine1')).toBe('500 Care Way');
+    expect(readField(m, 'serviceFacility.zip')).toBe('94123');
+  });
+
+  it('preserves the middle name when writing the first name, and vice versa', () => {
+    const m = makeModel();
+    expect(writeField(m, 'patient.middleName', 'Q')).toBe(true);
+    expect(writeField(m, 'patient.firstName', 'Janet')).toBe(true);
+    expect(m.patient?.name?.[0]?.given).toEqual(['Janet', 'Q']);
+    expect(readField(m, 'patient.middleName')).toBe('Q');
+  });
+
+  it('clears provider last name and facility name to undefined, never a literal empty string', () => {
+    const m = makeModel();
+    expect(writeField(m, 'billingProvider.lastName', '')).toBe(true);
+    expect((m.billingProvider as Organization).name).toBeUndefined();
+    expect(writeField(m, 'renderingProvider.lastName', '')).toBe(true);
+    expect((m.renderingProvider as Practitioner).name?.[0]?.family).toBeUndefined();
+    expect(writeField(m, 'serviceFacility.name', '')).toBe(true);
+    expect(m.serviceFacility?.name).toBeUndefined();
+  });
+
+  it('fails positional name/address writes that would leave a leading empty slot', () => {
+    const m = makeModel();
+    // A middle name with no first name would store given: ['', 'M'] — invalid FHIR.
+    m.patient!.name = [{ family: 'Doe' }];
+    expect(writeField(m, 'patient.middleName', 'M')).toBe(false);
+    expect(m.patient?.name?.[0]?.given).toBeUndefined();
+
+    // Clearing the first name while a middle name remains is rejected; clearing back to front works.
+    m.patient!.name = [{ given: ['Jane', 'Q'], family: 'Doe' }];
+    expect(writeField(m, 'patient.firstName', '')).toBe(false);
+    expect(m.patient?.name?.[0]?.given).toEqual(['Jane', 'Q']);
+    expect(writeField(m, 'patient.middleName', '')).toBe(true);
+    expect(writeField(m, 'patient.firstName', '')).toBe(true);
+    expect(m.patient?.name?.[0]?.given).toBeUndefined();
+
+    // Same rule for address lines, on persons and the facility.
+    m.patient!.address = [{ line: ['1 Main St', 'Apt 2'], city: 'Oakland' }];
+    expect(writeField(m, 'patient.addressLine1', '')).toBe(false);
+    expect(m.patient?.address?.[0]?.line).toEqual(['1 Main St', 'Apt 2']);
+    expect(writeField(m, 'patient.addressLine2', '')).toBe(true);
+    expect(writeField(m, 'patient.addressLine1', '')).toBe(true);
+    expect(m.patient?.address?.[0]?.line).toBeUndefined();
+
+    m.serviceFacility!.address = {};
+    expect(writeField(m, 'serviceFacility.addressLine2', 'Suite 5')).toBe(false);
+    expect(m.serviceFacility?.address?.line).toBeUndefined();
+  });
+
+  it('rejects invalid written values (the same checks save-time validation runs)', () => {
+    const m = makeModel();
+    expect(writeField(m, 'patient.state', 'XX')).toBe(false);
+    expect(writeField(m, 'patient.state', 'CA')).toBe(true);
+    expect(writeField(m, 'patient.state', null)).toBe(true); // clearing stays legal
+
+    expect(writeField(m, 'serviceFacility.zip', '123')).toBe(false);
+    expect(writeField(m, 'serviceFacility.zip', '94123-1234')).toBe(true);
+
+    // NPI validation uses the CMS checksum, matching the provider forms.
+    expect(writeField(m, 'renderingProvider.npi', '1234567890')).toBe(false);
+    expect(writeField(m, 'renderingProvider.npi', '1234567893')).toBe(true);
+
+    expect(writeField(m, 'serviceFacility.posCode', '99x')).toBe(false);
+    expect(writeField(m, 'serviceFacility.posCode', '11')).toBe(true);
+
+    expect(writeField(m, 'serviceFacility.clia', '05d1234567')).toBe(false);
+    expect(writeField(m, 'serviceFacility.clia', '05D1234567')).toBe(true);
+
+    expect(writeField(m, 'patient.birthDate', '01/01/1990')).toBe(false);
+    expect(writeField(m, 'patient.birthDate', '1990-01-01')).toBe(true);
+    expect(writeField(m, 'serviceDate', '02/02/2026')).toBe(false);
+
+    expect(writeField(m, 'billingProvider.taxonomy', '207Q')).toBe(false);
+    expect(writeField(m, 'billingProvider.taxId', '12-3456789')).toBe(false);
+  });
+});
+
+describe('service line actions', () => {
+  const addLine = (m: RulesEngineClaimModel, cptCode: string, charges = 100): void => {
+    m.claim.item = [
+      ...(m.claim.item ?? []),
+      {
+        sequence: (m.claim.item?.length ?? 0) + 1,
+        productOrService: { coding: [{ code: cptCode }] },
+        servicedPeriod: { start: '2026-01-05' },
+        net: { value: charges, currency: 'USD' },
+      },
+    ];
+  };
+
+  it('updates only the lines matching the predicate ("change that line\'s CPT code")', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+        set: { property: 'cptCode', value: '99215' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(readField(m, 'cptCodes')).toEqual(['99215', '99214']);
+  });
+
+  it('treats zero matching lines as a no-op, not a failure', () => {
+    const m = makeModel();
+    const before = JSON.stringify(m.claim);
+    const error = applyAction(
+      {
+        type: 'updateServiceLines',
+        match: { type: 'field', property: 'cptCode', operator: 'eq', value: '00000' },
+        set: { property: 'units', value: '3' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(JSON.stringify(m.claim)).toBe(before);
+  });
+
+  it('recomputes the billed total when line charges change', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    const error = applyAction(
+      { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'charges', value: '50' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(m.claim.total?.value).toBe(100);
+    expect(readField(m, 'billed')).toBe('100');
+  });
+
+  it('stops the rule with an error when the value is invalid', () => {
+    const m = makeModel();
+    const rule: BillingRule = {
+      id: 'r-bad-units',
+      name: 'Bad units',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'units', value: 'lots' } },
+                { type: 'setField', field: 'patient.lastName', value: 'ShouldNotApply' },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.error).toContain('units');
+    // The run stops at the failed action; later actions must not apply.
+    expect(readField(m, 'patient.lastName')).toBe('Doe');
+  });
+
+  it('adds, removes, and replaces modifiers via the set operation', () => {
+    const m = makeModel();
+    const modifiersOfLine = (): string | string[] | undefined => readServiceLineProperty(m.claim.item![0], 'modifiers');
+    const setModifiers = (value: string, operation?: 'set' | 'add' | 'remove'): string | undefined =>
+      applyAction(
+        { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'modifiers', value, operation } },
+        m
+      );
+
+    expect(setModifiers('25', 'add')).toBeUndefined();
+    expect(modifiersOfLine()).toEqual(['25']);
+    expect(setModifiers('25', 'add')).toBeUndefined(); // adding an existing modifier is a no-op
+    expect(modifiersOfLine()).toEqual(['25']);
+    expect(setModifiers('GT, 59')).toBeUndefined(); // default operation replaces the list
+    expect(modifiersOfLine()).toEqual(['GT', '59']);
+    expect(setModifiers('GT', 'remove')).toBeUndefined();
+    expect(modifiersOfLine()).toEqual(['59']);
+    expect(setModifiers('')).toBeUndefined(); // set to empty clears
+    expect(modifiersOfLine()).toEqual([]);
+    // add/remove need a modifier value; add/remove on a non-list property is rejected by the writer.
+    expect(setModifiers('', 'add')).toContain('modifiers');
+    expect(
+      applyAction(
+        {
+          type: 'updateServiceLines',
+          match: { type: 'all' },
+          set: { property: 'units', value: '2', operation: 'add' },
+        },
+        m
+      )
+    ).toContain('units');
+  });
+
+  it('removes matching lines, re-sequences survivors, and recomputes the total', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    addLine(m, '99215', 300);
+    const error = applyAction(
+      { type: 'removeServiceLines', match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99214' } },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(readField(m, 'cptCodes')).toEqual(['99213', '99215']);
+    expect(m.claim.item?.map((line) => line.sequence)).toEqual([1, 2]);
+    expect(m.claim.total?.value).toBe(425.5);
+  });
+
+  it('removes all lines when the match is "all"', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    const error = applyAction({ type: 'removeServiceLines', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(m.claim.item).toBeUndefined();
+    expect(m.claim.total?.value).toBe(0);
+    expect(readField(m, 'serviceLineCount')).toBe('0');
+    expect(readField(m, 'cptCodes')).toEqual([]);
+  });
+
+  it('adds a service line with every field specified and recomputes the total', () => {
+    const m = makeModel();
+    const error = applyAction(
+      {
+        type: 'addServiceLine',
+        line: {
+          cptCode: '87880',
+          modifiers: 'QW, 59',
+          units: '2',
+          charges: '45.25',
+          placeOfService: '11',
+          serviceDate: '2026-02-02',
+          diagnosisPointers: '1',
+        },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(m.claim.item).toHaveLength(2);
+    const added = m.claim.item![1];
+    expect(added.sequence).toBe(2);
+    expect(readServiceLineProperty(added, 'cptCode')).toBe('87880');
+    expect(readServiceLineProperty(added, 'modifiers')).toEqual(['QW', '59']);
+    expect(readServiceLineProperty(added, 'units')).toBe('2');
+    expect(readServiceLineProperty(added, 'charges')).toBe('45.25');
+    expect(readServiceLineProperty(added, 'placeOfService')).toBe('11');
+    expect(readServiceLineProperty(added, 'serviceDate')).toBe('2026-02-02');
+    expect(added.diagnosisSequence).toEqual([1]);
+    expect(m.claim.total?.value).toBe(170.75);
+    expect(readField(m, 'billed')).toBe('170.75');
+  });
+
+  it('fills the claim editor defaults for blank optional fields on an added line', () => {
+    const m = makeModel();
+    m.claim.careTeam = [{ sequence: 1, provider: { reference: 'Practitioner/rp' } }];
+    const error = applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30' } }, m);
+    expect(error).toBeUndefined();
+    const added = m.claim.item![1];
+    expect(readServiceLineProperty(added, 'units')).toBe('1');
+    // Inherited from the claim's first line.
+    expect(readServiceLineProperty(added, 'serviceDate')).toBe('2026-01-05');
+    // Points at the first diagnosis, and ties to the rendering provider, like the claim editor.
+    expect(added.diagnosisSequence).toEqual([1]);
+    expect(added.careTeamSequence).toEqual([1]);
+    expect(readServiceLineProperty(added, 'modifiers')).toEqual([]);
+    expect(readServiceLineProperty(added, 'placeOfService')).toBeUndefined();
+  });
+
+  it('fails adding a line without an inheritable service date or with invalid values', () => {
+    const m = makeModel();
+    m.claim.item = [];
+    expect(applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30' } }, m)).toContain(
+      'service date'
+    );
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', serviceDate: '2026-02-02' } }, m)
+    ).toBeUndefined();
+    expect(m.claim.item).toHaveLength(1);
+    expect(m.claim.item![0].sequence).toBe(1);
+    expect(m.claim.total?.value).toBe(30);
+
+    expect(applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: 'abc' } }, m)).toContain('charges');
+    expect(applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', units: '0' } }, m)).toContain(
+      'units'
+    );
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', diagnosisPointers: '3' } }, m)
+    ).toContain('diagnosis pointer 3');
+    // The failed adds must not have appended anything.
+    expect(m.claim.item).toHaveLength(1);
+  });
+
+  it('rejects invalid line place-of-service and service-date values instead of silently dropping them', () => {
+    const m = makeModel();
+    expect(
+      applyAction(
+        { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'placeOfService', value: '99x' } },
+        m
+      )
+    ).toContain('placeOfService');
+    expect(
+      applyAction(
+        { type: 'updateServiceLines', match: { type: 'all' }, set: { property: 'serviceDate', value: '02/02/2026' } },
+        m
+      )
+    ).toContain('serviceDate');
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', placeOfService: '99x' } }, m)
+    ).toContain('place of service');
+    expect(
+      applyAction({ type: 'addServiceLine', line: { cptCode: '99050', charges: '30', serviceDate: '2026-2-2' } }, m)
+    ).toContain('service date');
+    // The failed actions must not have changed the claim's lines.
+    expect(m.claim.item).toHaveLength(1);
+    expect(readServiceLineProperty(m.claim.item![0], 'placeOfService')).toBe('20');
+  });
+
+  it('detects duplicate CPT codes and executes the canonical hold-on-duplicates rule', () => {
+    const m = makeModel();
+    expect(readField(m, 'duplicateCptCodes')).toEqual([]);
+    addLine(m, '99213'); // duplicates the fixture line's code
+    addLine(m, '99214');
+    expect(readField(m, 'duplicateCptCodes')).toEqual(['99213']);
+    expect(readField(m, 'serviceLineCount')).toBe('3');
+
+    const rule: BillingRule = {
+      id: 'r-dup',
+      name: 'Hold duplicate CPT billing',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'field', field: 'duplicateCptCodes', operator: 'exists' },
+            outcome: { type: 'actions', actions: [{ type: 'applyTag', tag: HOLD_TAG_NAME }] },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.held).toBe(true);
+    expect(claimTags(m)).toContain(HOLD_TAG_NAME);
+  });
+});
+
+describe('apply charge master prices action', () => {
+  const makeChargeMaster = (
+    kind: 'insurance' | 'self-pay',
+    date: string,
+    prices: { code: string; amount: number; modifier?: string }[],
+    over?: Partial<ChargeItemDefinition>
+  ): ChargeItemDefinition => ({
+    resourceType: 'ChargeItemDefinition',
+    url: `urn:uuid:charge-master:${kind}:${date}`,
+    title: `${kind} ${date}`,
+    status: 'active',
+    date,
+    meta: { tag: [{ system: CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, code: kind }] },
+    propertyGroup: prices.map((price) => ({
+      priceComponent: [
+        {
+          type: 'base' as const,
+          code: { coding: [{ system: CPT_CODE_SYSTEM, code: price.code }] },
+          amount: { value: price.amount, currency: 'USD' },
+          ...(price.modifier ? { extension: [{ url: EXTENSION_URL_CPT_MODIFIER, valueCode: price.modifier }] } : {}),
+        },
+      ],
+    })),
+    ...over,
+  });
+
+  const addLine = (m: RulesEngineClaimModel, cptCode: string, charges: number, modifier?: string): void => {
+    m.claim.item = [
+      ...(m.claim.item ?? []),
+      {
+        sequence: (m.claim.item?.length ?? 0) + 1,
+        productOrService: { coding: [{ code: cptCode }] },
+        servicedPeriod: { start: '2026-01-05' },
+        net: { value: charges, currency: 'USD' },
+        ...(modifier ? { modifier: [{ coding: [{ code: modifier }] }] } : {}),
+      },
+    ];
+  };
+
+  const lineCharges = (m: RulesEngineClaimModel): (string | string[] | undefined)[] =>
+    (m.claim.item ?? []).map((line) => readServiceLineProperty(line, 'charges'));
+
+  it('re-prices matched lines from the insurance default (modifier-aware) and recomputes the total', () => {
+    const m = makeModel(); // the fixture claim carries a real coverage -> insurance billing type
+    addLine(m, '99214', 200, '25');
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [
+        { code: '99213', amount: 150 },
+        { code: '99214', amount: 250, modifier: '25' },
+      ]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '250']);
+    expect(m.claim.total?.value).toBe(400);
+  });
+
+  it('prices only the lines matching the predicate', () => {
+    const m = makeModel();
+    addLine(m, '99214', 200);
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [
+        { code: '99213', amount: 150 },
+        { code: '99214', amount: 250 },
+      ]),
+    ];
+    const error = applyAction(
+      {
+        type: 'applyChargeMasterPrices',
+        match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['150', '200']);
+    expect(m.claim.total?.value).toBe(350);
+  });
+
+  it('selects the self-pay default when the claim carries no real coverage', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }]),
+      makeChargeMaster('self-pay', '2025-06-01', [{ code: '99213', amount: 60 }]),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['60']);
+  });
+
+  it('selects the most recent charge master effective on or before the date of service', () => {
+    const m = makeModel(); // fixture line's service date is 2026-01-05
+    m.chargeMasters = [
+      makeChargeMaster('insurance', '2025-01-01', [{ code: '99213', amount: 100 }]),
+      makeChargeMaster('insurance', '2026-01-01', [{ code: '99213', amount: 120 }]),
+      makeChargeMaster('insurance', '2026-02-01', [{ code: '99213', amount: 999 }]), // effective after DOS
+      makeChargeMaster('insurance', '2026-01-04', [{ code: '99213', amount: 555 }], { status: 'retired' }),
+    ];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toBeUndefined();
+    expect(lineCharges(m)).toEqual(['120']);
+  });
+
+  it('treats zero matching lines as a no-op, even with no charge masters loaded', () => {
+    const m = makeModel();
+    const before = JSON.stringify(m.claim);
+    const error = applyAction(
+      {
+        type: 'applyChargeMasterPrices',
+        match: { type: 'field', property: 'cptCode', operator: 'eq', value: '00000' },
+      },
+      m
+    );
+    expect(error).toBeUndefined();
+    expect(JSON.stringify(m.claim)).toBe(before);
+  });
+
+  it('fails the rule when no applicable charge master exists, leaving the claim untouched', () => {
+    const m = makeModel();
+    const before = JSON.stringify(m.claim);
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain(
+      'no active charge master'
+    );
+    m.chargeMasters = [makeChargeMaster('insurance', '2026-02-01', [{ code: '99213', amount: 100 }])];
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain(
+      'no active charge master'
+    );
+    expect(JSON.stringify(m.claim)).toBe(before);
+  });
+
+  it('fails the rule when the claim has no date of service to select a charge master by', () => {
+    const m = makeModel();
+    delete m.claim.item![0].servicedPeriod;
+    m.chargeMasters = [makeChargeMaster('insurance', '2025-01-01', [{ code: '99213', amount: 100 }])];
+    expect(applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m)).toContain('date of service');
+  });
+
+  it('fails without changing any line when a matched line has no price entry (all-or-nothing)', () => {
+    const m = makeModel();
+    addLine(m, '99999', 200);
+    m.chargeMasters = [makeChargeMaster('insurance', '2025-06-01', [{ code: '99213', amount: 150 }])];
+    const error = applyAction({ type: 'applyChargeMasterPrices', match: { type: 'all' } }, m);
+    expect(error).toContain('99999');
+    // The claim must never persist half-priced: the priceable 99213 line stays untouched too.
+    expect(lineCharges(m)).toEqual(['125.5', '200']);
+    expect(m.claim.total?.value).toBe(125.5);
+  });
+
+  it('holds the claim via executeRule when pricing fails', () => {
+    const m = makeModel();
+    const rule: BillingRule = {
+      id: 'r-cm',
+      name: 'Price from charge master',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: { type: 'actions', actions: [{ type: 'applyChargeMasterPrices', match: { type: 'all' } }] },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.error).toContain('charge master');
+    expect(result.appliedActions).toHaveLength(0);
+  });
+});
+
+describe('provider/facility reference swap', () => {
+  it("reads the working copy's source reference; copies without one read as absent", () => {
+    const m = makeModel();
+    expect(readField(m, 'billingProvider.ref')).toBeUndefined();
+    m.billingProvider!.extension = [
+      { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Organization/org-src' } },
+    ];
+    expect(readField(m, 'billingProvider.ref')).toBe('Organization/org-src');
+    expect(readField(m, 'renderingProvider.ref')).toBeUndefined();
+    expect(readField(m, 'serviceFacility.ref')).toBeUndefined();
+  });
+
+  it('swaps the billing provider to a fresh working copy of the picked reference resource', () => {
+    const m = makeModel();
+    const original: Organization = {
+      resourceType: 'Organization',
+      id: 'org-new',
+      name: 'New Billing Group',
+      meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: 'billing' }] },
+    };
+    m.referenceResources = new Map([['Organization/org-new', original]]);
+
+    expect(writeField(m, 'billingProvider.ref', 'Organization/org-new')).toBe(true);
+
+    // The model slot holds a working copy of the original under a local placeholder id...
+    const copy = m.billingProvider!;
+    expect(copy).not.toBe(original);
+    expect(copy.name).toBe('New Billing Group');
+    expect(copy.id).toBeDefined();
+    expect(copy.id).not.toBe('org-new');
+    expect(copy.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
+    expect(copy.extension).toContainEqual({
+      url: SOURCE_IDENTIFIER_SYSTEM,
+      valueReference: { reference: 'Organization/org-new' },
+    });
+    expect(m.createdCopyIds?.has(copy.id!)).toBe(true);
+    // ...and the claim points at it through the temporary urn, with a display name.
+    expect(m.claim.provider).toEqual({ reference: `urn:uuid:${copy.id}`, display: 'New Billing Group' });
+
+    // Later rules see and edit the new copy — never the original reference resource.
+    expect(readField(m, 'billingProvider.ref')).toBe('Organization/org-new');
+    expect(writeField(m, 'billingProvider.lastName', 'Renamed Group')).toBe(true);
+    expect(copy.name).toBe('Renamed Group');
+    expect(original.name).toBe('New Billing Group');
+  });
+
+  it('re-points careTeam sequence 1 and every item when swapping the rendering provider', () => {
+    const m = makeModel();
+    m.claim.careTeam = [
+      { sequence: 1, provider: { reference: 'Practitioner/old-copy' } },
+      { sequence: 2, provider: { reference: 'Practitioner/referrer' } },
+    ];
+    m.claim.item![0].careTeamSequence = [2];
+    const original: Practitioner = {
+      resourceType: 'Practitioner',
+      id: 'doc-2',
+      name: [{ given: ['Nina'], family: 'Nguyen' }],
+      meta: { tag: [{ system: PROVIDER_ROLE_TAG, code: 'rendering' }] },
+    };
+    m.referenceResources = new Map([['Practitioner/doc-2', original]]);
+
+    expect(writeField(m, 'renderingProvider.ref', 'Practitioner/doc-2')).toBe(true);
+
+    const copy = m.renderingProvider!;
+    const seq1 = m.claim.careTeam!.find((member) => member.sequence === 1)!;
+    expect(seq1.provider?.reference).toBe(`urn:uuid:${copy.id}`);
+    expect(seq1.provider?.display).toBeDefined();
+    expect(seq1.role?.coding?.[0]?.code).toBe('82');
+    // The other care-team member survives, and every item points at sequence 1 plus what it had.
+    expect(m.claim.careTeam).toHaveLength(2);
+    expect(m.claim.item?.[0]?.careTeamSequence).toEqual([1, 2]);
+  });
+
+  it('swaps the service facility and supersedes an earlier pending copy in the same run', () => {
+    const m = makeModel();
+    const facilityA: Location = { resourceType: 'Location', id: 'loc-a', name: 'Clinic A' };
+    const facilityB: Location = { resourceType: 'Location', id: 'loc-b', name: 'Clinic B' };
+    m.referenceResources = new Map([
+      ['Location/loc-a', facilityA],
+      ['Location/loc-b', facilityB],
+    ]);
+
+    expect(writeField(m, 'serviceFacility.ref', 'Location/loc-a')).toBe(true);
+    const firstCopyId = m.serviceFacility!.id!;
+    expect(writeField(m, 'serviceFacility.ref', 'Location/loc-b')).toBe(true);
+
+    expect(m.claim.facility?.reference).toBe(`urn:uuid:${m.serviceFacility!.id}`);
+    expect(m.claim.facility?.display).toBe('Clinic B');
+    // Only the surviving copy is pending creation — the superseded one must never be POSTed.
+    expect(m.createdCopyIds?.has(firstCopyId)).toBe(false);
+    expect(m.createdCopyIds?.size).toBe(1);
+  });
+
+  it('fails the write when the reference is missing, type-mismatched, or empty', () => {
+    const m = makeModel();
+    expect(writeField(m, 'billingProvider.ref', 'Organization/nope')).toBe(false); // nothing prefetched
+    m.referenceResources = new Map<string, Practitioner | Organization | Location>([
+      ['Location/loc-1', { resourceType: 'Location', id: 'loc-1', name: 'Clinic' }],
+      ['Practitioner/doc-1', { resourceType: 'Practitioner', id: 'doc-1' }],
+    ]);
+    expect(writeField(m, 'billingProvider.ref', 'Location/loc-1')).toBe(false); // a facility is not a provider
+    expect(writeField(m, 'serviceFacility.ref', 'Practitioner/doc-1')).toBe(false); // a provider is not a facility
+    expect(writeField(m, 'renderingProvider.ref', '')).toBe(false); // no "clear the provider"
+    expect(m.createdCopyIds).toBeUndefined();
+    expect(m.claim.provider).toEqual({});
+  });
+});
+
+describe('rules-engine rule execution', () => {
   it('evaluateCondition handles all / field / and / or groups', () => {
     const m = makeModel();
     expect(evaluateCondition({ type: 'all' }, m)).toBe(true);
@@ -288,13 +1144,41 @@ describe('rules-engine serialization', () => {
         ],
       },
     },
+    {
+      id: 'rule-c',
+      name: 'Rule C',
+      description: 'service line actions',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'field', field: 'cptCodes', operator: 'contains', value: '99213' },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'updateServiceLines',
+                  match: { type: 'field', property: 'cptCode', operator: 'eq', value: '99213' },
+                  set: { property: 'modifiers', value: '25', operation: 'add' },
+                },
+                {
+                  type: 'removeServiceLines',
+                  match: { type: 'field', property: 'charges', operator: 'eq', value: '0' },
+                },
+                { type: 'addServiceLine', line: { cptCode: '99050', charges: '25' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
   ];
 
   it('round-trips rules through a contained-Basic List preserving order', () => {
     const list = rulesToList('claim-submission', rules);
     expect(list.resourceType).toBe('List');
-    expect(list.contained).toHaveLength(2);
-    expect(list.entry?.map((e) => e.item?.reference)).toEqual(['#rule-a', '#rule-b']);
+    expect(list.contained).toHaveLength(3);
+    expect(list.entry?.map((e) => e.item?.reference)).toEqual(['#rule-a', '#rule-b', '#rule-c']);
     expect(listToRules(list)).toEqual(rules);
   });
 
@@ -322,10 +1206,11 @@ describe('rules-engine serialization', () => {
     definition!.valueString = '{not valid json';
 
     const parsed = listToRules(list);
-    expect(parsed).toHaveLength(2);
+    expect(parsed).toHaveLength(3);
     // The broken rule survives (so a full-list save doesn't delete it) but is disabled and inert.
     expect(parsed[0]).toMatchObject({ id: 'rule-a', name: 'Rule A', enabled: false, conditional: { branches: [] } });
     expect(parsed[1]).toEqual(rules[1]);
+    expect(parsed[2]).toEqual(rules[2]);
   });
 });
 

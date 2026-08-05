@@ -700,6 +700,10 @@ export const dataTestIds = {
     pencilIconButton: 'EditOutlinedIcon',
   },
 
+  updateMedicationPage: {
+    medicationDatabaseAlert: 'medication-database-alert',
+  },
+
   editNoteDialog: {
     cancelButton: 'edit-note-dialog-cancel-button',
     proceedButton: 'edit-note-dialog-proceed-button',
@@ -713,7 +717,10 @@ export const dataTestIds = {
     orderMenuButton: 'radiology-order-menu-button',
     externalOrderMenuItem: 'radiology-external-order-menu-item',
     submitOrderButton: 'radiology-submit-order-button',
+    performedBySelect: 'radiology-performed-by-select',
+    performedByValue: 'radiology-performed-by-value',
     radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
+    externalOrderLabel: (serviceRequestId: string) => `radiology-external-order-label-${serviceRequestId}`,
     deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
   },
 

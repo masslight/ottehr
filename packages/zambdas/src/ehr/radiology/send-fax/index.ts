@@ -20,8 +20,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { createRadiologyOrderFormPDF } from '../../../shared/pdf/radiology-order-form-pdf';
-import { gatherRadiologyOrderFormInput } from '../shared/order-form-resources';
+import { getOrCreateRadiologyOrderForm } from '../shared/order-form-resources';
 import { validateInput, validateSecrets } from './validation';
 
 let m2mToken: string;
@@ -52,33 +51,19 @@ const performEffect = async (
   const { serviceRequestId, faxNumber } = body;
   const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-  // Regenerate the order-form PDF so the faxed copy reflects the current order, then fax the Z3 media.
-  const { input, refs } = await gatherRadiologyOrderFormInput(serviceRequestId, oystehr);
-  const { documentReference } = await createRadiologyOrderFormPDF(input, refs, secrets, token);
-  const media = documentReference.content?.[0]?.attachment?.url;
-  if (!media) {
-    throw new Error('Radiology order form PDF has no media URL to fax');
-  }
+  // Fax the form on file so the recipient gets the document that was printed and reviewed here.
+  const { mediaUrl: media, patientId } = await getOrCreateRadiologyOrderForm(serviceRequestId, secrets, token, oystehr);
 
   console.log('Sending radiology order fax to', faxNumber);
   const { communicationResource: fax } = await oystehr.fax.send({
     media,
     quality: 'standard',
-    patient: `Patient/${refs.patientId}`,
+    patient: `Patient/${patientId}`,
     recipientNumber: faxNumber,
     sender: `Organization/${organizationId}`,
   });
 
-  await writeFaxProvenance(
-    fax.id!,
-    fax.sent,
-    refs.serviceRequestId,
-    refs.patientId,
-    faxNumber,
-    organizationId,
-    user,
-    oystehr
-  );
+  await writeFaxProvenance(fax.id!, fax.sent, serviceRequestId, patientId, faxNumber, organizationId, user, oystehr);
 
   return { communicationId: fax.id! };
 };

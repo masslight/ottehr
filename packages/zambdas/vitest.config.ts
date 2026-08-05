@@ -23,9 +23,27 @@ export default defineConfig({
     // never times out.
     teardownTimeout: 60000,
     // Root-only in vitest 3. Caps concurrent workers to keep write pressure on the shared backend
-    // modest during integration tests (matches the prior single-config behavior).
+    // modest during integration tests (matches the prior single-config behavior). The CI scripts
+    // override this per project via --maxWorkers: the integration suite is I/O-bound (its wall time
+    // is FHIR round-trips, and with ~2 tests per file behind a shared beforeAll graph, files in
+    // flight are the only concurrency axis), so CI raises its cap — but that only pays off when the
+    // CPU-bound co-suites are worker-capped too; uncapped, the extra forks just thrash the runner
+    // (measured: 10 workers ≈ 6 workers under oversubscription, plus co-suite timeouts).
     maxWorkers: 6,
     minWorkers: 1,
+    // Root-only, applies to every forked test worker (unit and integration). The CI job's
+    // NODE_OPTIONS sets an 8GB heap allowance, which every fork inherits; with that allowance V8
+    // feels no GC pressure and long-lived workers balloon. Under --no-isolate on a 16GB standard
+    // runner that got the pool OOM-killed by the kernel (silently: both attempts aborted at the
+    // same elapsed time with ThreadTermination and no error from the killed worker). A 1GB cap
+    // forces GC discipline per worker — one test file's module graph fits comfortably — and a
+    // worker that truly exceeds it dies with a loud V8 heap error that names itself instead of a
+    // silent SIGKILL.
+    poolOptions: {
+      forks: {
+        execArgv: ['--max-old-space-size=1024'],
+      },
+    },
     server: {
       deps: {
         inline: [/@sentry/, /utils/],
@@ -33,6 +51,9 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
+      // AST-aware remapping (vitest 3.2+) replaces the much slower source-map-based v8 report
+      // remapping — measured as part of the integration suite's large non-test overhead share.
+      experimentalAstAwareRemapping: true,
       reporter: ['lcov', 'text-summary', 'json'],
       reportsDirectory: './coverage/integration',
       include: ['src/**/*.ts'],

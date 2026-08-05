@@ -24,6 +24,12 @@ export const RadiologyPerformingOrganizationSchema = z.object({
 });
 export type RadiologyPerformingOrganization = z.infer<typeof RadiologyPerformingOrganizationSchema>;
 
+/** The practitioner who performed an in-house study, read back from `ServiceRequest.performer`. */
+export interface RadiologyPerformedBy {
+  id: string;
+  name: string;
+}
+
 export const RadiologyLateralityModifierSchema = z.object({
   display: z.string(),
   code: z.string(),
@@ -136,15 +142,21 @@ export interface RadiologyDTO {
   studyName?: string;
   // External (print-only) order fields — populated only for external orders.
   external?: boolean;
+  /** External orders only: true once a result file is uploaded (order `reviewed`); progress note uses this
+   * instead of `preliminaryReport`/`finalReport`, which external orders never have. */
+  externalResultReviewed?: boolean;
   performingOrganization?: RadiologyPerformingOrganization;
   timeWindow?: string;
   safetyFlags?: RadiologySafetyFlag[];
+  performedBy?: RadiologyPerformedBy;
 }
 export interface GetRadiologyOrderListZambdaOrder extends RadiologyDTO {
   appointmentId: string;
   visitDateTime: string;
   orderAddedDateTime: string;
   providerName: string;
+  /** Practitioner id of the ordering provider (`providerName`); used to populate the "Performed by" options. */
+  providerId: string;
   status: RadiologyOrderStatus;
   isStat: boolean;
   history?: RadiologyOrderHistoryRow[];
@@ -171,6 +183,16 @@ export const SaveRadiologyReportZambdaInputSchema = z.object({
   diagnosisCodes: z.array(z.string()).optional(),
 });
 export type SaveRadiologyReportZambdaInput = z.infer<typeof SaveRadiologyReportZambdaInputSchema>;
+
+/**
+ * The preliminary read is where "Performed by" is captured, so it takes the base report payload plus that
+ * optional selection. The final-report endpoint keeps the base contract. Only the Practitioner id travels —
+ * the zambda resolves the display name, so the performer can't be an arbitrary client-supplied name.
+ */
+export const SavePreliminaryRadiologyReportZambdaInputSchema = SaveRadiologyReportZambdaInputSchema.extend({
+  performedById: z.string().min(1, 'performedById is required and must be a string').optional(),
+});
+export type SavePreliminaryRadiologyReportZambdaInput = z.infer<typeof SavePreliminaryRadiologyReportZambdaInputSchema>;
 
 export type SaveRadiologyReportZambdaOutput = Record<string, never>;
 

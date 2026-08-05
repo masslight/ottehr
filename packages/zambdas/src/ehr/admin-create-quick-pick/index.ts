@@ -49,14 +49,29 @@ const CATEGORIES: CategoryConfig[] = [
     category: INSURANCE_QUICK_PICK_CATEGORY,
     requiredStringFields: ['name', 'payerId', 'organizationReference'],
     validator: async (oystehr, quickPick, quickPickId) => {
+      // Optional metadata must be an array of { key, value } strings when provided.
+      if (quickPick.metadata !== undefined) {
+        const metadata = quickPick.metadata;
+        const isValidMetadata =
+          Array.isArray(metadata) &&
+          metadata.every(
+            (entry) =>
+              entry != null &&
+              typeof entry === 'object' &&
+              typeof (entry as Record<string, unknown>).key === 'string' &&
+              typeof (entry as Record<string, unknown>).value === 'string'
+          );
+        if (!isValidMetadata) {
+          throw INVALID_INPUT_ERROR('quickPick.metadata must be an array of { key, value } strings when provided');
+        }
+      }
+
+      // A quick pick's name is now an arbitrary label (multiple picks may reference the same payer),
+      // so enforce uniqueness on the name rather than the payer reference.
+      const name = String(quickPick.name).trim().toLowerCase();
       const existing = await searchQuickPicks(oystehr, INSURANCE_QUICK_PICK_CATEGORY);
-      if (
-        existing.some(
-          (p) =>
-            p.organizationReference === quickPick.organizationReference && (quickPickId ? p.id !== quickPickId : true)
-        )
-      ) {
-        throw INVALID_INPUT_ERROR(`An insurance quick pick for ${quickPick.name} already exists`);
+      if (existing.some((p) => p.name.trim().toLowerCase() === name && (quickPickId ? p.id !== quickPickId : true))) {
+        throw INVALID_INPUT_ERROR(`An insurance quick pick named "${quickPick.name}" already exists`);
       }
     },
   },

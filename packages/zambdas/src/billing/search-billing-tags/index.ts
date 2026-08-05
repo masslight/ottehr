@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Bundle } from 'fhir/r4b';
 import { BillingTag, CLAIM_TAG_SYSTEM } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createBillingClient, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
+import { createBillingClient, searchTagBasics, TAG_DESCRIPTION_URL } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-tags';
@@ -17,16 +17,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr): Promise<{ tags: BillingTag[] }> {
-  const bundle = await oystehr.fhir.search<Basic>({
-    resourceType: 'Basic',
-    params: [
-      { name: 'code', value: `${TAG_CODE_SYSTEM}|tag` },
-      { name: '_sort', value: '-_lastUpdated' },
-      { name: '_count', value: '200' },
-    ],
-  });
-
-  const basics = bundle.unbundle();
+  const basics = await searchTagBasics(oystehr);
   const usageCounts = await getTagUsageCounts(oystehr, basics);
 
   const tags: BillingTag[] = basics.map((b) => {

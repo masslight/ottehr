@@ -24,7 +24,6 @@ import {
   getSupportDialog,
   practiceManagedQuestionnaireCreate,
   practiceManagedQuestionnaireGet,
-  practiceManagedQuestionnaireList,
   practiceManagedQuestionnaireUpdate,
   removeQuickPick,
   updateEmCode,
@@ -67,7 +66,6 @@ import {
   PracticeManagedQuestionnaireCreateOutput,
   PracticeManagedQuestionnaireGetInput,
   PracticeManagedQuestionnaireGetOutput,
-  PracticeManagedQuestionnaireListOutput,
   PracticeManagedQuestionnaireUpdateInput,
   PracticeManagedQuestionnaireUpdateOutput,
   ProcedureQuickPickData,
@@ -756,22 +754,6 @@ export const useGetPracticeManagedQuestionnaireGet = (
     queryKey: ['practice-managed-questionnaire-get', input.questionnaireId],
     queryFn: async () => {
       return practiceManagedQuestionnaireGet(oystehrZambda!, input);
-    },
-    enabled: !!oystehrZambda,
-    staleTime: 30_000, // 30 sec
-  });
-};
-
-export const usePracticeManagedQuestionnaireList = (): UseQueryResult<
-  PracticeManagedQuestionnaireListOutput,
-  Error
-> => {
-  const { oystehrZambda } = useApiClients();
-
-  return useQuery({
-    queryKey: ['practice-managed-questionnaire-list'],
-    queryFn: async () => {
-      return practiceManagedQuestionnaireList(oystehrZambda!);
     },
     enabled: !!oystehrZambda,
     staleTime: 30_000, // 30 sec

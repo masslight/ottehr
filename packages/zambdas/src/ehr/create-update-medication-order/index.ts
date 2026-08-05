@@ -40,6 +40,7 @@ import {
   checkOrCreateM2MClientToken,
   createClinicalOystehrClient,
   getMyPractitionerId,
+  requirePractitionerNPI,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -123,6 +124,10 @@ async function performEffect(
       id: orderId,
     };
   } else if (orderData) {
+    // Ordering (creating) an in-house medication order is an NPI-gated action — block callers without
+    // an NPI (e.g. Clinician role). Administering / changing the status of an existing order (handled by
+    // the branches above) stays allowed, since that is a routine nurse/MA task.
+    await requirePractitionerNPI(oystehr, practitionerIdCalledZambda);
     const medicationAdministrationId = await createOrder(
       oystehr,
       orderData,

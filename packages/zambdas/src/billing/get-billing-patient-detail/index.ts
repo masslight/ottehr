@@ -1,15 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Patient, Person } from 'fhir/r4b';
-import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PatientDetailResponse } from 'utils';
+import { Claim, Patient } from 'fhir/r4b';
+import { PatientDetailResponse } from 'utils';
 import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
-import { fetchClaimResponsesByClaimIds, summarizeClaimPayments } from '../claim-amounts';
+import {
+  fetchClaimResponsesByClaimIds,
+  fetchPatientPaidByClaimId,
+  summarizeClaimPayments,
+  summarizePatientBalance,
+} from '../claim-amounts';
 import {
   createBillingClient,
   fetchById,
   formatAddress,
   getClaimStatus,
+  isWorkingCopy,
+  patientSearchParam,
+  resolveLinkedPatientIds,
   resolvePayersByRef,
+  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  SOURCE_IDENTIFIER_SYSTEM,
   toAddressParts,
 } from '../shared';
 import { GetPatientDetailParams, validateRequestParameters } from './validateRequestParameters';
@@ -31,8 +41,24 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
 
   const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
 
-  const ids = patient.identifier ?? [];
-  const friendlyId = ids.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value ?? '';
+  let clinicalId = patient.extension
+    ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+    ?.valueReference?.reference?.replace('Patient/', '');
+  let clinicalFriendlyId = patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+  let workingCopyReferenceResourceId: string | undefined;
+  if (isWorkingCopy(patient)) {
+    workingCopyReferenceResourceId = patient.extension
+      ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+      ?.valueReference?.reference?.replace('Patient/', '');
+    if (workingCopyReferenceResourceId) {
+      const referencePatient = await fetchById<Patient>(oystehr, 'Patient', workingCopyReferenceResourceId);
+      clinicalId = referencePatient.extension
+        ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
+        ?.valueReference?.reference?.replace('Patient/', '');
+      clinicalFriendlyId = referencePatient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)
+        ?.valueString;
+    }
+  }
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
   const addr = patient.address?.[0];
@@ -47,7 +73,9 @@ async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): 
     email,
     address: formatAddress(addr),
     addressParts: toAddressParts(addr),
-    friendlyId,
+    clinicalId: clinicalId ?? '',
+    clinicalFriendlyId: clinicalFriendlyId ?? '',
+    workingCopyReferenceResourceId,
     active: patient.active !== false,
     balance,
     claims,
@@ -61,21 +89,10 @@ async function fetchPatientClaims(
   claims: PatientDetailResponse['claims'];
   balance: PatientDetailResponse['balance'];
 }> {
-  let patientIds = [patientId];
-  const personResult = await oystehr.fhir.search<Person>({
-    resourceType: 'Person',
-    params: [{ name: 'link', value: `Patient/${patientId}` }],
+  const patientIds = await resolveLinkedPatientIds({
+    oystehr,
+    patientId,
   });
-  const person = personResult.unbundle()[0];
-  if (person?.link) {
-    const linkedIds = person.link
-      .map((l) => l.target?.reference)
-      .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
-      .map((ref) => ref.replace('Patient/', ''));
-    patientIds = [...new Set([...patientIds, ...linkedIds])];
-  }
-
-  const patientParam = patientIds.map((pid) => `Patient/${pid}`).join(',');
 
   const claims: Claim[] = [];
 
@@ -83,7 +100,7 @@ async function fetchPatientClaims(
     const bundle = await oystehr.fhir.search<Claim>({
       resourceType: 'Claim',
       params: [
-        { name: 'patient', value: patientParam },
+        patientSearchParam(patientIds),
         { name: '_sort', value: '-created' },
         { name: '_count', value: String(count) },
         { name: '_offset', value: String(offset) },
@@ -93,16 +110,24 @@ async function fetchPatientClaims(
     return bundle;
   }, 100);
 
-  const [payersByRef, claimResponsesByClaimId] = await Promise.all([
+  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
     ),
     fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchPatientPaidByClaimId({
+      oystehr,
+      claims,
+    }),
   ]);
 
   const summaries = claims.map((c) =>
-    summarizeClaimPayments(claimResponsesByClaimId.get(c.id ?? '') ?? [], c.total?.value ?? 0)
+    summarizeClaimPayments(
+      claimResponsesByClaimId.get(c.id ?? '') ?? [],
+      c.total?.value ?? 0,
+      patientPaidByClaimId.get(c.id ?? '') ?? 0
+    )
   );
 
   const claimItems = claims.map((c, idx) => {
@@ -120,14 +145,7 @@ async function fetchPatientClaims(
     };
   });
 
-  // only adjudicated claims count toward the patient's balance. an un-adjudicated claim's billed
-  // amount is pending insurance, not patient-owed
-  const adjudicatedBalances = summaries.filter((s) => s.adjudicated).map((s) => s.balance);
-  const balance = {
-    claimsWithPatientBalance: adjudicatedBalances.filter((b) => b > 0).length,
-    pendingPayments: 0,
-    currentBalance: adjudicatedBalances.reduce((sum, b) => sum + b, 0),
-  };
+  const balance = summarizePatientBalance(summaries);
 
   return {
     claims: claimItems,

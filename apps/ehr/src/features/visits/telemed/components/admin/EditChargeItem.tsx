@@ -330,7 +330,6 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
             <CustomBreadcrumbs
               chain={[
                 { link: '/admin', children: 'Admin' },
-                { link: BILLING_URL, children: 'Billing Configuration' },
                 { link: `${BILLING_URL}/${billingSubTab}`, children: entityLabelPlural },
                 {
                   link: '#',

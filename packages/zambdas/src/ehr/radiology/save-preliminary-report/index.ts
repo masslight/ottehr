@@ -1,13 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, ServiceRequest } from 'fhir/r4b';
+import {
+  CodeableConcept,
+  DiagnosticReport as DiagnosticReport4B,
+  Practitioner,
+  Reference as Reference4B,
+  ServiceRequest,
+} from 'fhir/r4b';
 import { DiagnosticReport, Reference } from 'fhir/r5';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
   createOurDiagnosticReport,
   fetchServiceRequestFromAdvaPACS,
+  FHIR_EXTENSION,
+  getExtension,
+  getFullestAvailableName,
   getSecret,
   RADIOLOGY_ERROR,
   SaveRadiologyReportZambdaOutput,
@@ -45,7 +54,7 @@ async function performEffect(
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<SaveRadiologyReportZambdaOutput> {
-  const { serviceRequestId, report: preliminaryReport, diagnosisCodes } = validatedInput.body;
+  const { serviceRequestId, report: preliminaryReport, diagnosisCodes, performedById } = validatedInput.body;
 
   // Diagnosis is optional at order time but required to save a preliminary read (enforced in
   // validateInput). Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
@@ -59,6 +68,19 @@ async function performEffect(
   });
   console.groupEnd();
   console.debug('Service request fetched successfully');
+
+  console.group('Validating the order accepts a preliminary report');
+  await validateOrderAcceptsPreliminaryReport(serviceRequest, oystehr);
+  console.groupEnd();
+
+  // Record who performed the study before writing the report; a report failure downstream then leaves the
+  // selection saved for the retry rather than discarding it.
+  if (performedById) {
+    console.group('Saving performed by on the service request');
+    await savePerformedBy(serviceRequest, performedById, oystehr);
+    console.groupEnd();
+    console.debug('Performed by saved successfully');
+  }
 
   // Extract the accession number from the service request (read-only guard — do this before any
   // write so an order missing its accession fails without a partial mutation).
@@ -113,6 +135,75 @@ async function performEffect(
 
   return {};
 }
+
+/**
+ * In-house, performed, not yet reported — checked here because the performer patch below runs before AdvaPACS
+ * gets a chance to reject a duplicate report, and would rewrite an already-locked `performer`.
+ */
+const validateOrderAcceptsPreliminaryReport = async (
+  serviceRequest: ServiceRequest,
+  oystehr: Oystehr
+): Promise<void> => {
+  const isExternal = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
+    ?.valueBoolean;
+  if (isExternal) {
+    throw RADIOLOGY_ERROR('External radiology orders cannot have a preliminary report.');
+  }
+
+  // `completed` is what the order list reads as the `performed` status.
+  if (serviceRequest.status !== 'completed') {
+    throw RADIOLOGY_ERROR('This study has not been performed yet, a preliminary report cannot be saved.');
+  }
+
+  const existingReports = (
+    await oystehr.fhir.search<DiagnosticReport4B>({
+      resourceType: 'DiagnosticReport',
+      params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequest.id}` }],
+    })
+  )
+    .unbundle()
+    .filter((report) => report.status !== 'entered-in-error');
+  if (existingReports.length > 0) {
+    throw RADIOLOGY_ERROR('This report has already been saved, please refresh the page.');
+  }
+};
+
+/**
+ * Records the practitioner who performed the study on `ServiceRequest.performer`, taking the display name
+ * from the Practitioner (which also verifies it exists). Any non-Practitioner performer (an external order's
+ * contained performing Organization) is preserved.
+ */
+const savePerformedBy = async (
+  serviceRequest: ServiceRequest,
+  performedById: string,
+  oystehr: Oystehr
+): Promise<void> => {
+  let practitioner: Practitioner;
+  try {
+    practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: performedById });
+  } catch (error) {
+    console.error(`Could not fetch Practitioner/${performedById} for performedBy`, error);
+    throw RADIOLOGY_ERROR('The selected performer could not be found.');
+  }
+
+  const otherPerformers = (serviceRequest.performer ?? []).filter((ref) => !ref.reference?.startsWith('Practitioner/'));
+  const performer: Reference4B[] = [
+    ...otherPerformers,
+    { reference: `Practitioner/${practitioner.id}`, display: getFullestAvailableName(practitioner) },
+  ];
+
+  await oystehr.fhir.patch<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    id: serviceRequest.id!,
+    operations: [
+      {
+        op: serviceRequest.performer ? 'replace' : 'add',
+        path: '/performer',
+        value: performer,
+      },
+    ],
+  });
+};
 
 /**
  * Creates a DiagnosticReport in AdvaPACS for a ServiceRequest with preliminary findings

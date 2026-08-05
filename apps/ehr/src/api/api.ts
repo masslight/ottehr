@@ -108,6 +108,8 @@ import {
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
   EmCodeOutput,
+  ExtractCardInput,
+  ExtractCardResponse,
   GetActionLogsInput,
   GetActionLogsOutput,
   GetAllergyQuickPicksResponse,
@@ -209,6 +211,7 @@ import {
   RotateInsuranceCardImageResponse,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
+  SavePreliminaryRadiologyReportZambdaInput,
   SaveRadiologyReportZambdaInput,
   SaveRadiologyReportZambdaOutput,
   ScheduleDTO,
@@ -251,6 +254,7 @@ import {
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  UpdateVisitFilesOutput,
   UploadDotVisionDocumentInput,
   UploadDotVisionDocumentOutput,
   UploadPatientConditionPhotoInput,
@@ -1207,7 +1211,7 @@ export const radiologyLaunchViewer = async (
 
 export const savePreliminaryReport = async (
   oystehr: Oystehr,
-  parameters: SaveRadiologyReportZambdaInput
+  parameters: SavePreliminaryRadiologyReportZambdaInput
 ): Promise<SaveRadiologyReportZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -1913,12 +1917,45 @@ export const updatePatientVisitDetails = async (
   }
 };
 
-export const updateVisitFiles = async (oystehr: Oystehr, parameters: UpdateVisitFilesInput): Promise<void> => {
+export const updateVisitFiles = async (
+  oystehr: Oystehr,
+  parameters: UpdateVisitFilesInput
+): Promise<UpdateVisitFilesOutput> => {
   try {
-    await oystehr.zambda.execute({
+    const response = await oystehr.zambda.execute({
       id: 'update-visit-files',
       ...parameters,
     });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const extractInsuranceCard = async (
+  oystehr: Oystehr,
+  parameters: ExtractCardInput
+): Promise<ExtractCardResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'extract-insurance-card',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const extractPhotoId = async (oystehr: Oystehr, parameters: ExtractCardInput): Promise<ExtractCardResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'extract-photo-id',
+      ...parameters,
+    });
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -1956,11 +1993,6 @@ export const bulkUpdateInsuranceStatus = async (
   }
 };
 
-/**
- * Rotates a stored insurance-card image `rotationDegrees` CLOCKWISE, server-side and in place
- * (same attachment url), so the fix persists everywhere the image is consumed. Also clears the
- * extraction's "looks rotated" (`readable=false`) hint.
- */
 export const rotateInsuranceCardImage = async (
   oystehr: Oystehr,
   parameters: RotateInsuranceCardImageInput

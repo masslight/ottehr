@@ -1,13 +1,15 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Checkbox, Chip, TextField, Tooltip, Typography } from '@mui/material';
+import { Button, Checkbox, Chip, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { DiagnosisDTO } from 'utils';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { DiagnosisDTO, RadiologyOrderStatus } from 'utils';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyDiagnosis, RadiologyDiagnosisField } from '../components/RadiologyDiagnosisField';
@@ -27,6 +29,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
   const [preliminaryReportDx, setPreliminaryReportDx] = useState<RadiologyDiagnosis[]>([]);
   const [missingPreliminaryReportDx, setMissingPreliminaryReportDx] = useState(false);
+  const [performedById, setPerformedById] = useState('');
+  const [missingPerformedBy, setMissingPerformedBy] = useState(false);
   const [finalReportByUser, setFinalReportByUser] = useState(false);
   const [finalReport, setFinalReport] = useState<string | undefined>();
   const [missingFinalReport, setMissingFinalReport] = useState(false);
@@ -34,6 +38,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData } = useSaveChartData();
   const { chartData, setPartialChartData } = useChartData();
+  const currentUser = useEvolveUser();
 
   const {
     orders,
@@ -109,6 +114,37 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
       preliminaryReportDx.map((d) => d.code)
     );
   };
+  const canEditPerformedBy = order?.status === RadiologyOrderStatus.performed && !order.preliminaryReport;
+
+  const performedByOptions = useMemo(() => {
+    const options: { id: string; name: string }[] = [];
+    const addOption = (id: string | undefined, name: string | undefined): void => {
+      if (!id || options.some((option) => option.id === id)) return;
+      options.push({ id, name: name || id });
+    };
+    addOption(currentUser?.profileResource?.id, currentUser?.userName);
+    addOption(order?.providerId, order?.providerName);
+    addOption(order?.performedBy?.id, order?.performedBy?.name);
+    return options;
+  }, [currentUser, order?.performedBy, order?.providerId, order?.providerName]);
+
+  const selectedPerformedBy = performedByOptions.find((option) => option.id === performedById);
+
+  // So a selection can't leak onto the next order viewed.
+  useEffect(() => {
+    setPerformedById('');
+    setMissingPerformedBy(false);
+  }, [serviceRequestId]);
+
+  // Gated on `order`: `currentUser` is served from an already-populated store while the orders are still
+  // fetching, so an unguarded default would latch onto them and the order's recorded performer never win.
+  useEffect(() => {
+    if (!order || performedById) return;
+    const defaultId = order.performedBy?.id ?? currentUser?.profileResource?.id;
+    if (defaultId) {
+      setPerformedById(defaultId);
+    }
+  }, [currentUser?.profileResource?.id, order, performedById]);
 
   const saveReportButton = (label: string, loading?: boolean, btnOnClick?: () => void): JSX.Element => {
     const btn = (
@@ -224,6 +260,45 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     {order.clinicalHistory}
                   </Typography>
                 </Box>
+              )}
+
+              {canEditPerformedBy ? (
+                <Box sx={{ mt: 2 }}>
+                  <TextField
+                    data-testid={dataTestIds.radiologyPage.performedBySelect}
+                    id="performed-by-field"
+                    select
+                    label="Performed by"
+                    fullWidth
+                    size="small"
+                    value={performedById}
+                    onChange={(e) => {
+                      setMissingPerformedBy(false);
+                      setPerformedById(e.target.value);
+                    }}
+                    error={missingPerformedBy}
+                    helperText={missingPerformedBy ? 'Performed by is required' : ''}
+                    disabled={isReadOnly}
+                  >
+                    {!performedById && <MenuItem value="">Select</MenuItem>}
+                    {performedByOptions.map((option) => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Box>
+              ) : (
+                order.performedBy && (
+                  <Box sx={{ mt: 2 }} data-testid={dataTestIds.radiologyPage.performedByValue}>
+                    <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                      Performed by
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {order.performedBy.name}
+                    </Typography>
+                  </Box>
+                )
               )}
 
               {order.status === 'performed' && !order.preliminaryReport && (
@@ -377,6 +452,12 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   return;
                 }
                 void handleSavePreliminaryReport();
+                // This is the only screen that records the performer, so it's captured here or never.
+                if (!selectedPerformedBy) {
+                  setMissingPerformedBy(true);
+                  return;
+                }
+                void handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary', selectedPerformedBy.id);
               })}
 
             {order.status === 'preliminary' &&
