@@ -1,0 +1,58 @@
+# Ejection coverage — safety gate for the self-service-scheduling TF ejection.
+#
+# Fails the PR if any oystehr_fhir_resource would leave Terraform management without a
+# `removed { destroy = false }` block backed by a config/runtime-seed entry — i.e. would be
+# DESTROYED on apply rather than ejected. Computed against the PR's target branch.
+# Context: docs/self-service-scheduling.md (Part I → Safeguards) · Logic: deploy/check-ejection-coverage.ts
+#
+# For this to actually guard merges, make it a REQUIRED status check and enable
+# "Require branches to be up to date before merging" on the protected branches — otherwise
+# a stale PR can merge against a target that drifted after this ran (see the spec's
+# Drift/TOCTOU section).
+
+name: Ejection coverage
+
+on:
+  pull_request:
+    # Only runs when the generated resource set could change.
+    paths:
+      - 'config/**'
+      - 'deploy/**'
+
+jobs:
+  ejection-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (PR head)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the base ref available for the second generate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc' # falls back to repo convention; pin here if no .nvmrc
+          cache: npm
+
+      - name: Install deps (head)
+        run: npm ci
+
+      # Resource KEYS are env-invariant (values come from #{var/…}), so any committed env
+      # works — use the same one on both refs. `production` is stable and always present.
+      - name: Generate resources — PR head
+        working-directory: deploy
+        run: ENV=production npm run generate
+
+      # The target branch's managed set: generate in a worktree of the PR base commit.
+      - name: Generate resources — target branch
+        run: |
+          git worktree add ../base-ref "${{ github.event.pull_request.base.sha }}"
+          npm --prefix ../base-ref ci
+          ( cd ../base-ref/deploy && ENV=production npm run generate )
+
+      - name: Check ejection coverage
+        working-directory: deploy
+        run: >-
+          npx tsx check-ejection-coverage.ts
+          --base-dir ../base-ref/deploy/oystehr
+          --head-dir ./oystehr
+          --seed-dir ../config/runtime-seed
