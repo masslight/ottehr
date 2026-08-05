@@ -536,65 +536,60 @@ test.describe('Insurance Information Section mutating tests', () => {
     );
   });
 
-  test(
-    'Set and remove Additional Insurance Information for both primary and secondary insurance, then verify it is cleared after save',
-    { tag: '@pr-ci' },
-    async ({ page }) => {
-      const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Set and remove Additional Insurance Information for both primary and secondary insurance, then verify it is cleared after save', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
 
-      const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-      const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-      await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
-      await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
-      await primaryInsuranceCard.selectFieldOption(
-        insuranceSection.items[0].insurancePlanType.key,
-        PATIENT_INSURANCE_PLAN_TYPE
-      );
-      await secondaryInsuranceCard.selectFieldOption(
-        insuranceSection.items[1].insurancePlanType.key,
-        PATIENT_INSURANCE_PLAN_TYPE_2
-      );
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await primaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[0].insurancePlanType.key,
+      PATIENT_INSURANCE_PLAN_TYPE
+    );
+    await secondaryInsuranceCard.selectFieldOption(
+      insuranceSection.items[1].insurancePlanType.key,
+      PATIENT_INSURANCE_PLAN_TYPE_2
+    );
 
-      await primaryInsuranceCard.enterTextField(
-        insuranceSection.items[0].additionalInformation.key,
-        'Primary test info'
-      );
-      await secondaryInsuranceCard.enterTextField(
-        insuranceSection.items[1].additionalInformation.key,
-        'Secondary test info'
-      );
+    await primaryInsuranceCard.enterTextField(insuranceSection.items[0].additionalInformation.key, 'Primary test info');
+    await secondaryInsuranceCard.enterTextField(
+      insuranceSection.items[1].additionalInformation.key,
+      'Secondary test info'
+    );
 
-      await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
-      await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
 
-      await patientInformationPage.clickSaveChangesButton();
-      await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
 
-      await patientInformationPage.reloadPatientInformationPage();
-      await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
-      await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await patientInformationPage.reloadPatientInformationPage();
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
 
-      await primaryInsuranceCard.verifyTextField(
-        insuranceSection.items[0].additionalInformation.key,
-        'Primary test info'
-      );
-      await secondaryInsuranceCard.verifyTextField(
-        insuranceSection.items[1].additionalInformation.key,
-        'Secondary test info'
-      );
+    await primaryInsuranceCard.verifyTextField(
+      insuranceSection.items[0].additionalInformation.key,
+      'Primary test info'
+    );
+    await secondaryInsuranceCard.verifyTextField(
+      insuranceSection.items[1].additionalInformation.key,
+      'Secondary test info'
+    );
 
-      await primaryInsuranceCard.enterTextField(insuranceSection.items[0].additionalInformation.key, '');
-      await secondaryInsuranceCard.enterTextField(insuranceSection.items[1].additionalInformation.key, '');
+    await primaryInsuranceCard.enterTextField(insuranceSection.items[0].additionalInformation.key, '');
+    await secondaryInsuranceCard.enterTextField(insuranceSection.items[1].additionalInformation.key, '');
 
-      await patientInformationPage.clickSaveChangesButton();
-      await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
 
-      await patientInformationPage.reloadPatientInformationPage();
+    await patientInformationPage.reloadPatientInformationPage();
 
-      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].additionalInformation.key, '');
-      await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].additionalInformation.key, '');
-    }
-  );
+    await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].additionalInformation.key, '');
+    await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].additionalInformation.key, '');
+  });
 
   test('Check [Add insurance] button is hidden when both primary and secondary insurances are present,[Add insurance] button is present if primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Primary"', async ({
     page,
