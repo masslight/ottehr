@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import {
+  CodeableConcept,
   DiagnosticReport as DiagnosticReport4B,
   Practitioner,
   Reference as Reference4B,
@@ -22,6 +24,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { validateICD10Codes } from '../create-order/validation';
 import { extractDiagnosticsFromAdvaPACSErrorBody } from '../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
@@ -51,7 +54,11 @@ async function performEffect(
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<SaveRadiologyReportZambdaOutput> {
-  const { serviceRequestId, report: preliminaryReport, performedById } = validatedInput.body;
+  const { serviceRequestId, report: preliminaryReport, diagnosisCodes, performedById } = validatedInput.body;
+
+  // Diagnosis is optional at order time but required to save a preliminary read (enforced in
+  // validateInput). Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
+  const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
 
   // Get the existing service request from Oystehr
   console.group('Fetching service request from Oystehr');
@@ -75,7 +82,8 @@ async function performEffect(
     console.debug('Performed by saved successfully');
   }
 
-  // Extract the accession number from the service request
+  // Extract the accession number from the service request (read-only guard — do this before any
+  // write so an order missing its accession fails without a partial mutation).
   const accessionNumber = serviceRequest.identifier?.find(
     (identifier) => identifier.system === ACCESSION_NUMBER_CODE_SYSTEM
   )?.value;
@@ -83,6 +91,25 @@ async function performEffect(
   if (!accessionNumber) {
     throw new Error('No accession number found in service request, cannot save preliminary report to AdvaPACS.');
   }
+
+  // Persist the diagnosis onto the order *before* creating the DiagnosticReport. AdvaPACS report
+  // creation is single-shot (a re-attempt is rejected as "already saved"), so if we patched the
+  // diagnosis after it and that patch failed, the order would be stranded without a diagnosis and
+  // could never be retried. Writing it first makes a failed run safe to re-run: the patch is
+  // idempotent (replace) and dedupes on retry, and the report creation still runs afterwards.
+  console.group('Updating service request diagnosis in Oystehr');
+  const reasonCode: CodeableConcept[] = diagnoses.map((diagnosis) => ({ coding: [diagnosis] }));
+  const hasExistingReasonCode = Array.isArray(serviceRequest.reasonCode) && serviceRequest.reasonCode.length > 0;
+  const reasonCodeOperation: Operation = hasExistingReasonCode
+    ? { op: 'replace', path: '/reasonCode', value: reasonCode }
+    : { op: 'add', path: '/reasonCode', value: reasonCode };
+  await oystehr.fhir.patch({
+    resourceType: 'ServiceRequest',
+    id: serviceRequestId,
+    operations: [reasonCodeOperation],
+  });
+  console.groupEnd();
+  console.debug('Service request diagnosis updated successfully');
 
   // Fetch the corresponding service request from AdvaPACS using the accession number
   console.group('Fetching service request from AdvaPACS');

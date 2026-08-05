@@ -37,6 +37,19 @@ vi.mock('../../src/features/radiology/components/RadiologyOrderHistoryCard', () 
   RadiologyOrderHistoryCard: () => <div data-testid="order-history-card" />,
 }));
 
+// Stub the ICD-10 diagnosis picker (it uses react-query internally); expose a button that
+// selects a fixed diagnosis and surface the validation message so tests can drive the flow.
+vi.mock('../../src/features/radiology/components/RadiologyDiagnosisField', () => ({
+  RadiologyDiagnosisField: ({ onChange, error, helperText }: any) => (
+    <div data-testid="report-dx-field">
+      <button type="button" onClick={() => onChange([{ code: 'A00', display: 'Cholera' }])}>
+        mock-add-dx
+      </button>
+      {error ? <span>{helperText}</span> : null}
+    </div>
+  ),
+}));
+
 vi.mock('src/themes/ottehr/icons/mui-radiology.svg', () => ({
   default: 'radiology-icon.svg',
 }));
@@ -48,6 +61,19 @@ vi.mock('../../src/features/visits/shared/components/PageTitle', () => ({
 
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: vi.fn(),
+}));
+
+// The order-details page writes the read-time diagnosis to the encounter chart/Assessment through the
+// appointment store. Stub it so saveChartData resolves synchronously (echoing the submitted diagnosis)
+// and expose the spies so tests can assert what gets written to the Assessment.
+const { mockSaveChartData, mockSetPartialChartData } = vi.hoisted(() => ({
+  mockSaveChartData: vi.fn((vars: any, opts: any) => opts?.onSuccess?.({ chartData: { diagnosis: vars.diagnosis } })),
+  mockSetPartialChartData: vi.fn(),
+}));
+
+vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useSaveChartData: () => ({ mutate: mockSaveChartData }),
+  useChartData: () => ({ chartData: { diagnosis: [] }, setPartialChartData: mockSetPartialChartData }),
 }));
 
 vi.mock('src/hooks/useEvolveUser', () => ({
@@ -79,6 +105,10 @@ const SEND_FOR_FINAL_READ_BTN_LABEL = 'Send for Final Read';
 const SAVE_AS_FINAL_BTN_LABEL = 'Save as Final';
 const FINAL_REPORT_TEXTBOX_LABEL = 'Final Report';
 const FINAL_REPORT_REQUIRED_MESSAGE = 'Final report is required';
+const SAVE_PRELIMINARY_REPORT_BTN_LABEL = 'Save Preliminary Report';
+const PRELIMINARY_REPORT_TEXTBOX_LABEL = 'Preliminary Report';
+const DIAGNOSIS_REQUIRED_MESSAGE = 'Please enter a diagnosis to continue';
+const ADD_DX_BTN_LABEL = 'mock-add-dx';
 
 // MUI Checkbox doesn't create an accessible <label>. The text sits in a sibling
 // Typography element, so we find it by text then walk up to the flex container and
@@ -275,196 +305,268 @@ describe('RadiologyOrderDetailsPage - final report', () => {
     });
   });
 
-  describe('"Performed by"', () => {
-    const makePerformedOrder = (
-      overrides: Partial<GetRadiologyOrderListZambdaOrder> = {}
-    ): GetRadiologyOrderListZambdaOrder => makeMockOrder({ status: RadiologyOrderStatus.performed, ...overrides });
+  describe('preliminary report — diagnosis (status "performed")', () => {
+    const performedHookResult = (overrides = {}): ReturnType<typeof usePatientRadiologyOrders> =>
+      makeHookResult({ orders: [makeMockOrder({ status: RadiologyOrderStatus.performed })], ...overrides });
 
-    const getPerformedBySelect = (): HTMLElement => screen.getByRole('combobox', { name: PERFORMED_BY_LABEL });
-
-    it('defaults the select to the current user', () => {
-      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makePerformedOrder()] }));
+    it('shows the diagnosis field and the Save Preliminary Report button', () => {
+      mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult());
       renderPage();
 
-      expect(getPerformedBySelect()).toHaveTextContent(CURRENT_USER_NAME);
+      expect(screen.getByTestId('report-dx-field')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).toBeInTheDocument();
     });
 
-    it('offers the current user and the ordering provider as options', async () => {
-      const user = userEvent.setup();
-      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makePerformedOrder()] }));
-      renderPage();
-
-      await user.click(getPerformedBySelect());
-
-      expect(screen.getByRole('option', { name: CURRENT_USER_NAME })).toBeInTheDocument();
-      expect(screen.getByRole('option', { name: 'Dr. Test' })).toBeInTheDocument();
-    });
-
-    it('lists only the current user when they are also the ordering provider', async () => {
-      const user = userEvent.setup();
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({ orders: [makePerformedOrder({ providerId: CURRENT_USER_ID, providerName: 'Dr. Current' })] })
-      );
-      renderPage();
-
-      await user.click(getPerformedBySelect());
-
-      expect(screen.getAllByRole('option')).toHaveLength(1);
-      expect(screen.getByRole('option', { name: CURRENT_USER_NAME })).toBeInTheDocument();
-    });
-
-    it('defaults to the performer already recorded on the order', () => {
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({
-          orders: [makePerformedOrder({ performedBy: { id: ORDERING_PROVIDER_ID, name: 'Dr. Test' } })],
-        })
-      );
-      renderPage();
-
-      expect(getPerformedBySelect()).toHaveTextContent('Dr. Test');
-    });
-
-    it('passes the selected performer to handleSaveReport', async () => {
+    it('shows a validation error and does not call handleSaveReport when no diagnosis is selected', async () => {
       const user = userEvent.setup();
       const mockHandleSaveReport = vi.fn();
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({ orders: [makePerformedOrder()], handleSaveReport: mockHandleSaveReport })
-      );
+      mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult({ handleSaveReport: mockHandleSaveReport }));
+
       renderPage();
+      await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
 
-      await user.click(getPerformedBySelect());
-      await user.click(screen.getByRole('option', { name: 'Dr. Test' }));
-      await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
-      await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
-
-      expect(mockHandleSaveReport).toHaveBeenCalledWith(
-        SERVICE_REQUEST_ID,
-        'No acute findings',
-        'preliminary',
-        ORDERING_PROVIDER_ID
-      );
-    });
-
-    it('defaults to the recorded performer even when the order arrives after the first render', async () => {
-      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [], loading: true }));
-      const { rerender } = renderPage();
-
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({
-          orders: [makePerformedOrder({ performedBy: { id: ORDERING_PROVIDER_ID, name: 'Dr. Test' } })],
-        })
-      );
-      rerender(
-        <BrowserRouter>
-          <RadiologyOrderDetailsPage />
-        </BrowserRouter>
-      );
-
-      await waitFor(() => expect(getPerformedBySelect()).toHaveTextContent('Dr. Test'));
-    });
-
-    it('shows a validation error and does not save when no performer can be defaulted or selected', async () => {
-      const user = userEvent.setup();
-      const mockHandleSaveReport = vi.fn();
-      // No profileResource and no ordering provider id => nothing to default to and nothing to pick.
-      mockUseEvolveUser.mockReturnValue({ userName: CURRENT_USER_NAME } as any);
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({ orders: [makePerformedOrder({ providerId: '' })], handleSaveReport: mockHandleSaveReport })
-      );
-      renderPage();
-
-      await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
-      await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
-
-      expect(screen.getByText(PERFORMED_BY_REQUIRED_MESSAGE)).toBeInTheDocument();
+      expect(screen.getByText(DIAGNOSIS_REQUIRED_MESSAGE)).toBeInTheDocument();
       expect(mockHandleSaveReport).not.toHaveBeenCalled();
     });
 
-    it.each([
-      RadiologyOrderStatus.preliminary,
-      RadiologyOrderStatus.pendingFinal,
-      RadiologyOrderStatus.final,
-      RadiologyOrderStatus.reviewed,
-    ])('shows the recorded performer read-only for status "%s"', (status) => {
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({
-          orders: [makeMockOrder({ status, performedBy: { id: CURRENT_USER_ID, name: CURRENT_USER_NAME } })],
-        })
+    it('calls handleSaveReport with the report text and selected diagnosis codes', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult({ handleSaveReport: mockHandleSaveReport }));
+
+      renderPage();
+      await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+      await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), 'Prelim findings');
+      await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
+
+      await waitFor(() =>
+        expect(mockHandleSaveReport).toHaveBeenCalledWith(
+          SERVICE_REQUEST_ID,
+          'Prelim findings',
+          'preliminary',
+          ['A00'],
+          // The performer select defaults to the current user, so a save always carries one.
+          CURRENT_USER_ID
+        )
       );
-      renderPage();
-
-      expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
-      expect(screen.getByText(PERFORMED_BY_LABEL)).toBeInTheDocument();
-      expect(screen.getByText(CURRENT_USER_NAME)).toBeInTheDocument();
     });
 
-    it('renders nothing when the order has no recorded performer and is past performed', () => {
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({ orders: [makeMockOrder({ status: RadiologyOrderStatus.final })] })
+    it('writes the selected diagnosis to the encounter chart/Assessment before saving the read', async () => {
+      const user = userEvent.setup();
+      const mockHandleSaveReport = vi.fn();
+      mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult({ handleSaveReport: mockHandleSaveReport }));
+
+      renderPage();
+      await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+      await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), 'Prelim findings');
+      await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
+
+      await waitFor(() =>
+        expect(mockSaveChartData).toHaveBeenCalledWith(
+          { diagnosis: [{ code: 'A00', display: 'Cholera', isPrimary: false }] },
+          expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) })
+        )
       );
-      renderPage();
+      expect(mockHandleSaveReport).toHaveBeenCalled();
+    });
+    describe('"Performed by"', () => {
+      const makePerformedOrder = (
+        overrides: Partial<GetRadiologyOrderListZambdaOrder> = {}
+      ): GetRadiologyOrderListZambdaOrder => makeMockOrder({ status: RadiologyOrderStatus.performed, ...overrides });
 
-      expect(screen.queryByText(PERFORMED_BY_LABEL)).not.toBeInTheDocument();
+      const getPerformedBySelect = (): HTMLElement => screen.getByRole('combobox', { name: PERFORMED_BY_LABEL });
+
+      it('defaults the select to the current user', () => {
+        mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makePerformedOrder()] }));
+        renderPage();
+
+        expect(getPerformedBySelect()).toHaveTextContent(CURRENT_USER_NAME);
+      });
+
+      it('offers the current user and the ordering provider as options', async () => {
+        const user = userEvent.setup();
+        mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makePerformedOrder()] }));
+        renderPage();
+
+        await user.click(getPerformedBySelect());
+
+        expect(screen.getByRole('option', { name: CURRENT_USER_NAME })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: 'Dr. Test' })).toBeInTheDocument();
+      });
+
+      it('lists only the current user when they are also the ordering provider', async () => {
+        const user = userEvent.setup();
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({ orders: [makePerformedOrder({ providerId: CURRENT_USER_ID, providerName: 'Dr. Current' })] })
+        );
+        renderPage();
+
+        await user.click(getPerformedBySelect());
+
+        expect(screen.getAllByRole('option')).toHaveLength(1);
+        expect(screen.getByRole('option', { name: CURRENT_USER_NAME })).toBeInTheDocument();
+      });
+
+      it('defaults to the performer already recorded on the order', () => {
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [makePerformedOrder({ performedBy: { id: ORDERING_PROVIDER_ID, name: 'Dr. Test' } })],
+          })
+        );
+        renderPage();
+
+        expect(getPerformedBySelect()).toHaveTextContent('Dr. Test');
+      });
+
+      it('passes the selected performer to handleSaveReport', async () => {
+        const user = userEvent.setup();
+        const mockHandleSaveReport = vi.fn();
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({ orders: [makePerformedOrder()], handleSaveReport: mockHandleSaveReport })
+        );
+        renderPage();
+
+        await user.click(getPerformedBySelect());
+        await user.click(screen.getByRole('option', { name: 'Dr. Test' }));
+        // A diagnosis is required alongside the performer, otherwise the save is blocked.
+        await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+        await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
+        await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
+
+        await waitFor(() =>
+          expect(mockHandleSaveReport).toHaveBeenCalledWith(
+            SERVICE_REQUEST_ID,
+            'No acute findings',
+            'preliminary',
+            ['A00'],
+            ORDERING_PROVIDER_ID
+          )
+        );
+      });
+
+      it('defaults to the recorded performer even when the order arrives after the first render', async () => {
+        mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [], loading: true }));
+        const { rerender } = renderPage();
+
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [makePerformedOrder({ performedBy: { id: ORDERING_PROVIDER_ID, name: 'Dr. Test' } })],
+          })
+        );
+        rerender(
+          <BrowserRouter>
+            <RadiologyOrderDetailsPage />
+          </BrowserRouter>
+        );
+
+        await waitFor(() => expect(getPerformedBySelect()).toHaveTextContent('Dr. Test'));
+      });
+
+      it('shows a validation error and does not save when no performer can be defaulted or selected', async () => {
+        const user = userEvent.setup();
+        const mockHandleSaveReport = vi.fn();
+        // No profileResource and no ordering provider id => nothing to default to and nothing to pick.
+        mockUseEvolveUser.mockReturnValue({ userName: CURRENT_USER_NAME } as any);
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({ orders: [makePerformedOrder({ providerId: '' })], handleSaveReport: mockHandleSaveReport })
+        );
+        renderPage();
+
+        // The diagnosis is validated first, so it has to be filled in for the performer check to run.
+        await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+        await user.type(screen.getByRole('textbox', { name: 'Preliminary Report' }), 'No acute findings');
+        await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
+
+        expect(screen.getByText(PERFORMED_BY_REQUIRED_MESSAGE)).toBeInTheDocument();
+        expect(mockHandleSaveReport).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        RadiologyOrderStatus.preliminary,
+        RadiologyOrderStatus.pendingFinal,
+        RadiologyOrderStatus.final,
+        RadiologyOrderStatus.reviewed,
+      ])('shows the recorded performer read-only for status "%s"', (status) => {
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [makeMockOrder({ status, performedBy: { id: CURRENT_USER_ID, name: CURRENT_USER_NAME } })],
+          })
+        );
+        renderPage();
+
+        expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
+        expect(screen.getByText(PERFORMED_BY_LABEL)).toBeInTheDocument();
+        expect(screen.getByText(CURRENT_USER_NAME)).toBeInTheDocument();
+      });
+
+      it('renders nothing when the order has no recorded performer and is past performed', () => {
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({ orders: [makeMockOrder({ status: RadiologyOrderStatus.final })] })
+        );
+        renderPage();
+
+        expect(screen.queryByText(PERFORMED_BY_LABEL)).not.toBeInTheDocument();
+      });
+
+      it('is not editable once a preliminary report exists on a performed order', () => {
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({ orders: [makePerformedOrder({ preliminaryReport: btoa('Prelim') })] })
+        );
+        renderPage();
+
+        expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
+      });
     });
 
-    it('is not editable once a preliminary report exists on a performed order', () => {
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({ orders: [makePerformedOrder({ preliminaryReport: btoa('Prelim') })] })
-      );
-      renderPage();
+    describe('non-preliminary statuses', () => {
+      it.each([
+        RadiologyOrderStatus.pending,
+        RadiologyOrderStatus.performed,
+        RadiologyOrderStatus.pendingFinal,
+        RadiologyOrderStatus.final,
+        RadiologyOrderStatus.reviewed,
+      ])('does not show the final report checkbox for status "%s"', (status) => {
+        mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makeMockOrder({ status })] }));
+        renderPage();
+        expect(screen.queryByText(WRITE_FINAL_REPORT_CHECKBOX_LABEL)).not.toBeInTheDocument();
+      });
 
-      expect(screen.queryByRole('combobox', { name: PERFORMED_BY_LABEL })).not.toBeInTheDocument();
-    });
-  });
-
-  describe('non-preliminary statuses', () => {
-    it.each([
-      RadiologyOrderStatus.pending,
-      RadiologyOrderStatus.performed,
-      RadiologyOrderStatus.pendingFinal,
-      RadiologyOrderStatus.final,
-      RadiologyOrderStatus.reviewed,
-    ])('does not show the final report checkbox for status "%s"', (status) => {
-      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makeMockOrder({ status })] }));
-      renderPage();
-      expect(screen.queryByText(WRITE_FINAL_REPORT_CHECKBOX_LABEL)).not.toBeInTheDocument();
-    });
-
-    it.each([
-      RadiologyOrderStatus.pending,
-      RadiologyOrderStatus.performed,
-      RadiologyOrderStatus.pendingFinal,
-      RadiologyOrderStatus.final,
-      RadiologyOrderStatus.reviewed,
-    ])('does not show "Send for Final Read" or "Save as Final" for status "%s"', (status) => {
-      mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makeMockOrder({ status })] }));
-      renderPage();
-      expect(screen.queryByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL })).not.toBeInTheDocument();
-    });
-  });
-
-  describe('existing report display', () => {
-    it('shows the decoded final report when the order already has one', () => {
-      const reportText = 'Radiology final: no findings.';
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({
-          orders: [makeMockOrder({ status: RadiologyOrderStatus.final, finalReport: btoa(reportText) })],
-        })
-      );
-      renderPage();
-      expect(screen.getByText(reportText)).toBeInTheDocument();
+      it.each([
+        RadiologyOrderStatus.pending,
+        RadiologyOrderStatus.performed,
+        RadiologyOrderStatus.pendingFinal,
+        RadiologyOrderStatus.final,
+        RadiologyOrderStatus.reviewed,
+      ])('does not show "Send for Final Read" or "Save as Final" for status "%s"', (status) => {
+        mockUsePatientRadiologyOrders.mockReturnValue(makeHookResult({ orders: [makeMockOrder({ status })] }));
+        renderPage();
+        expect(screen.queryByRole('button', { name: SEND_FOR_FINAL_READ_BTN_LABEL })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL })).not.toBeInTheDocument();
+      });
     });
 
-    it('shows the decoded preliminary report when the order already has one', () => {
-      const reportText = 'Preliminary: suspected fracture.';
-      mockUsePatientRadiologyOrders.mockReturnValue(
-        makeHookResult({
-          orders: [makeMockOrder({ preliminaryReport: btoa(reportText) })],
-        })
-      );
-      renderPage();
-      expect(screen.getByText(reportText)).toBeInTheDocument();
+    describe('existing report display', () => {
+      it('shows the decoded final report when the order already has one', () => {
+        const reportText = 'Radiology final: no findings.';
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [makeMockOrder({ status: RadiologyOrderStatus.final, finalReport: btoa(reportText) })],
+          })
+        );
+        renderPage();
+        expect(screen.getByText(reportText)).toBeInTheDocument();
+      });
+
+      it('shows the decoded preliminary report when the order already has one', () => {
+        const reportText = 'Preliminary: suspected fracture.';
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [makeMockOrder({ preliminaryReport: btoa(reportText) })],
+          })
+        );
+        renderPage();
+        expect(screen.getByText(reportText)).toBeInTheDocument();
+      });
     });
   });
 });

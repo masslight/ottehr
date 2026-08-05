@@ -1,15 +1,18 @@
 import { LoadingButton } from '@mui/lab';
 import { Button, Checkbox, Chip, MenuItem, TextField, Tooltip, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
+import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { DetailTaskCard } from 'src/features/tasks/components/DetailTaskCard';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { RadiologyOrderStatus } from 'utils';
+import { DiagnosisDTO, RadiologyOrderStatus } from 'utils';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import { RadiologyDiagnosis, RadiologyDiagnosisField } from '../components/RadiologyDiagnosisField';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
@@ -24,6 +27,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const theme = useTheme();
 
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
+  const [preliminaryReportDx, setPreliminaryReportDx] = useState<RadiologyDiagnosis[]>([]);
+  const [missingPreliminaryReportDx, setMissingPreliminaryReportDx] = useState(false);
   const [performedById, setPerformedById] = useState('');
   const [missingPerformedBy, setMissingPerformedBy] = useState(false);
   const [finalReportByUser, setFinalReportByUser] = useState(false);
@@ -31,6 +36,8 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [missingFinalReport, setMissingFinalReport] = useState(false);
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { mutate: saveChartData } = useSaveChartData();
+  const { chartData, setPartialChartData } = useChartData();
   const currentUser = useEvolveUser();
 
   const {
@@ -55,6 +62,59 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
   const order = orders.find((order) => order.serviceRequestId === serviceRequestId);
 
+  // Seed the preliminary-read diagnosis picker with any diagnosis already on the order (diagnosis is
+  // optional at order time, so this may be empty). Runs once when the order first loads.
+  useEffect(() => {
+    if (order?.status === 'performed' && !order.preliminaryReport && order.diagnoses) {
+      setPreliminaryReportDx(order.diagnoses.map((d) => ({ code: d.code, display: d.display })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.serviceRequestId]);
+
+  // The diagnosis captured with the preliminary read is also written to the encounter's chart /
+  // Assessment (the billing/claims diagnosis list), mirroring what the order form does at order time.
+  // The save-preliminary-report zambda separately stores it on the order's reasonCode; without this
+  // step a diagnosis entered only at read time would never reach the Assessment.
+  const addReportDxToEncounter = async (dxList: RadiologyDiagnosis[]): Promise<void> => {
+    const existingDiagnoses = chartData?.diagnosis;
+    const newDx: DiagnosisDTO[] = dxList
+      .filter((dx) => !existingDiagnoses?.some((d) => d.code === dx.code))
+      .map((dx) => ({ code: dx.code, display: dx.display, isPrimary: false }));
+    if (newDx.length === 0) {
+      return;
+    }
+    await new Promise<void>((resolve, reject) => {
+      saveChartData(
+        { diagnosis: newDx },
+        {
+          onSuccess: (data) => {
+            const returnedDiagnosis = data.chartData.diagnosis || [];
+            setPartialChartData({ diagnosis: [...returnedDiagnosis, ...(existingDiagnoses || [])] });
+            resolve();
+          },
+          onError: (err) => reject(err),
+        }
+      );
+    });
+  };
+
+  const handleSavePreliminaryReport = async (performedById: string): Promise<void> => {
+    // Write the diagnosis to the encounter first; a failure here must block the read so the two never
+    // diverge. The dedupe above makes a re-save safe after a partial failure.
+    try {
+      await addReportDxToEncounter(preliminaryReportDx);
+    } catch {
+      enqueueSnackbar('Failed to save the diagnosis to the encounter. Please try again.', { variant: 'error' });
+      return;
+    }
+    await handleSaveReport(
+      serviceRequestId,
+      preliminaryReport || '',
+      'preliminary',
+      preliminaryReportDx.map((d) => d.code),
+      performedById
+    );
+  };
   const canEditPerformedBy = order?.status === RadiologyOrderStatus.performed && !order.preliminaryReport;
 
   const performedByOptions = useMemo(() => {
@@ -243,21 +303,36 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               )}
 
               {order.status === 'performed' && !order.preliminaryReport && (
-                <Box sx={{ mt: 2 }}>
-                  <TextField
-                    id="preliminary-report-field"
-                    label="Preliminary Report"
-                    placeholder="Enter preliminary report for the radiology order"
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    maxRows={10}
-                    size="small"
-                    value={preliminaryReport}
-                    onChange={(e) => setPreliminaryReport(e.target.value)}
-                    disabled={isReadOnly}
-                  />
-                </Box>
+                <>
+                  <Box sx={{ mt: 2 }}>
+                    <RadiologyDiagnosisField
+                      value={preliminaryReportDx}
+                      onChange={(dx) => {
+                        setMissingPreliminaryReportDx(false);
+                        setPreliminaryReportDx(dx);
+                      }}
+                      quickPickOptions={chartData?.diagnosis}
+                      disabled={isReadOnly}
+                      error={missingPreliminaryReportDx}
+                      helperText={missingPreliminaryReportDx ? 'Please enter a diagnosis to continue' : undefined}
+                    />
+                  </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <TextField
+                      id="preliminary-report-field"
+                      label="Preliminary Report"
+                      placeholder="Enter preliminary report for the radiology order"
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      maxRows={10}
+                      size="small"
+                      value={preliminaryReport}
+                      onChange={(e) => setPreliminaryReport(e.target.value)}
+                      disabled={isReadOnly}
+                    />
+                  </Box>
+                </>
               )}
 
               {order.preliminaryReport != null ? (
@@ -373,12 +448,16 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
             {order.status === 'performed' &&
               !order.preliminaryReport &&
               saveReportButton('Save Preliminary Report', isSavingReport, () => {
+                if (preliminaryReportDx.length === 0) {
+                  setMissingPreliminaryReportDx(true);
+                  return;
+                }
                 // This is the only screen that records the performer, so it's captured here or never.
                 if (!selectedPerformedBy) {
                   setMissingPerformedBy(true);
                   return;
                 }
-                void handleSaveReport(serviceRequestId, preliminaryReport || '', 'preliminary', selectedPerformedBy.id);
+                void handleSavePreliminaryReport(selectedPerformedBy.id);
               })}
 
             {order.status === 'preliminary' &&

@@ -70,6 +70,17 @@ describe('radiology-save-preliminary-report integration', () => {
     await cleanup();
   });
 
+  it('rejects a preliminary radiology report without a diagnosis', async () => {
+    // Diagnosis is required when saving a preliminary read (it is optional at order time).
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'radiology-save-preliminary-report',
+        serviceRequestId,
+        report: 'Integration test preliminary report',
+      })
+    ).rejects.toThrow();
+  });
+
   // Runs before the study is marked performed, so it must come first.
   it('rejects a preliminary report on an order that has not been performed', async () => {
     await expect(
@@ -77,6 +88,7 @@ describe('radiology-save-preliminary-report integration', () => {
         id: 'radiology-save-preliminary-report',
         serviceRequestId,
         report: 'Integration test preliminary report',
+        diagnosisCodes: ['E11.9'],
       })
     ).rejects.toThrow();
   });
@@ -88,6 +100,7 @@ describe('radiology-save-preliminary-report integration', () => {
         id: 'radiology-save-preliminary-report',
         serviceRequestId,
         report: 'Integration test preliminary report',
+        diagnosisCodes: ['E11.9'],
         performedById: '00000000-0000-0000-0000-000000000000',
       })
     ).rejects.toThrow();
@@ -99,12 +112,15 @@ describe('radiology-save-preliminary-report integration', () => {
     expect(serviceRequest.performer).toBeUndefined();
   });
 
-  it('saves a preliminary radiology report and records the performer', async () => {
+  // The endpoint rejects a second report on the same order, so the happy path is exercised once and
+  // asserts on both of the things it records: the diagnosis and the performer.
+  it('saves a preliminary radiology report, its diagnosis and the performer', async () => {
     await markPerformed();
     const response = await oystehrZambdas.zambda.execute({
       id: 'radiology-save-preliminary-report',
       serviceRequestId,
       report: 'Integration test preliminary report',
+      diagnosisCodes: ['E11.9'],
       performedById: orderingPractitionerId,
     });
     expect(response.output).toBeDefined();
@@ -113,6 +129,9 @@ describe('radiology-save-preliminary-report integration', () => {
       resourceType: 'ServiceRequest',
       id: serviceRequestId,
     });
+    expect(serviceRequest.reasonCode?.flatMap((reason) => reason.coding?.map((coding) => coding.code) ?? [])).toEqual([
+      'E11.9',
+    ]);
     expect(serviceRequest.performer?.map((ref) => ref.reference)).toEqual([`Practitioner/${orderingPractitionerId}`]);
   });
 });

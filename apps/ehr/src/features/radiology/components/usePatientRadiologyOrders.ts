@@ -41,6 +41,7 @@ interface UsePatientRadiologyOrdersResult {
     serviceRequestId: string,
     report: string,
     reportType: 'preliminary' | 'final',
+    diagnosisCodes?: string[],
     performedById?: string
   ) => Promise<void>;
   handleSendForFinalRead: (serviceRequestId: string) => Promise<void>;
@@ -227,6 +228,7 @@ export const usePatientRadiologyOrders = (options: {
       serviceRequestId: string,
       report: string,
       reportType: 'preliminary' | 'final',
+      diagnosisCodes?: string[],
       performedById?: string
     ): Promise<void> => {
       if (!report) {
@@ -245,7 +247,8 @@ export const usePatientRadiologyOrders = (options: {
 
       try {
         if (reportType === 'preliminary') {
-          await savePreliminaryReport(oystehrZambda, { serviceRequestId, report, performedById });
+          // Diagnosis is captured with the preliminary read (it is optional at order time).
+          await savePreliminaryReport(oystehrZambda, { serviceRequestId, report, diagnosisCodes, performedById });
         } else {
           await saveFinalReport(oystehrZambda, { serviceRequestId, report });
         }
