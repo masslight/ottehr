@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  AddClaimNoteInputSchema,
   apiErrorToThrow,
   BillingChargeItemDefinition,
   BillingCodeOption,
@@ -39,6 +40,7 @@ import {
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   MatchClaimResponseToClaimInputSchema,
+  OkResponse,
   PatientDetailResponse,
   RecordBillingManualPaymentInputSchema,
   RecordBillingManualPaymentResponse,
@@ -72,7 +74,7 @@ import {
   SearchServiceFacilitiesResponse,
   ServiceFacilityItem,
   TagBillingClaimInputSchema,
-  TaggedClaimResponse,
+  UnmatchClaimResponseInputSchema,
   UpdateBillingCoverageInputSchema,
   UpdateBillingPatientInputSchema,
   UpdateBillingProviderInputSchema,
@@ -179,7 +181,12 @@ export const updateBillingResource = (
 export const tagBillingClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof TagBillingClaimInputSchema>
-): Promise<TaggedClaimResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'tag-billing-claim', parameters);
+
+export const addBillingClaimNote = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof AddClaimNoteInputSchema>
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'add-billing-claim-note', parameters);
 
 // --- Providers ---
 
@@ -340,6 +347,11 @@ export const matchClaimResponseToClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof MatchClaimResponseToClaimInputSchema>
 ): Promise<any> => executeBillingZambda(oystehr, 'match-claim-response', parameters);
+
+export const unmatchClaimResponse = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof UnmatchClaimResponseInputSchema>
+): Promise<any> => executeBillingZambda(oystehr, 'unmatch-claim-response', parameters);
 
 // --- ChargeItemDefinitions --
 

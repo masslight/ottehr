@@ -5,6 +5,7 @@ import {
   Coding,
   Coverage,
   Device,
+  Extension,
   FhirResource,
   Location,
   Organization,
@@ -23,6 +24,7 @@ import {
   CLAIM_PROVENANCE_AGENT_TYPE,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   CLAIM_STATUS_FIELDS,
@@ -415,6 +417,7 @@ export interface ClaimProvenanceArgs {
   // Additional change entries the projection diff can't see (e.g. policy-holder edits folded into
   // the owning Coverage's record).
   extraChanges?: ClaimFieldChange[];
+  note?: string;
 }
 
 // Multi-reference fields (the claim's coverage field) join their references with ', '.
@@ -463,12 +466,12 @@ function storedChange(change: ClaimFieldChange): ClaimFieldChange {
 
 /**
  * Build the POST request for a Provenance describing a single change. Returns null for an update
- * whose diff is empty (a no-op mutation gets no history entry); creates/deletes always produce a
- * record. target[0] is the changed resource; the claim is appended as a second target.
+ * whose diff is empty (a no-op mutation gets no history entry); creates, deletes and notes always
+ * produce a record. target[0] is the changed resource; the claim is appended as a second target.
  */
 export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPostRequest<Provenance> | null {
   const changes = [...diffResources(args.before, args.after), ...(args.extraChanges ?? [])];
-  if (args.activity !== 'create' && args.activity !== 'delete' && changes.length === 0) return null;
+  if (args.activity !== 'create' && args.activity !== 'delete' && !args.note && changes.length === 0) return null;
 
   const target = [{ reference: args.targetReference }];
   if (args.claimReference !== args.targetReference) target.push({ reference: args.claimReference });
@@ -480,16 +483,37 @@ export function claimProvenanceRequest(args: ClaimProvenanceArgs): BatchInputPos
     ...changeRefEntities(changes),
   ];
 
+  const extension: Extension[] = [
+    {
+      url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+      valueString: JSON.stringify(changes.map(storedChange)),
+    },
+    ...(args.note
+      ? [
+          {
+            url: CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
+            valueString: args.note,
+          },
+        ]
+      : []),
+  ];
+
   const provenance: Provenance = {
     resourceType: 'Provenance',
     target,
     recorded: args.recorded,
-    activity: { coding: [CLAIM_PROVENANCE_ACTIVITY[args.activity]] },
+    activity: {
+      coding: [CLAIM_PROVENANCE_ACTIVITY[args.activity]],
+    },
     agent: [args.agent],
     ...(entity.length > 0 ? { entity } : {}),
-    extension: [{ url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL, valueString: JSON.stringify(changes.map(storedChange)) }],
+    extension,
   };
-  return { method: 'POST', url: '/Provenance', resource: provenance };
+  return {
+    method: 'POST',
+    url: '/Provenance',
+    resource: provenance,
+  };
 }
 
 /**
@@ -617,6 +641,31 @@ export async function commitClaimMetaTagsWithProvenance(
   });
   const requests: BatchInputRequest<FhirResource>[] = [patch, ...(provenance ? [provenance] : [])];
   await oystehr.fhir.transaction<FhirResource>({ requests });
+}
+
+/**
+ * Record a user-authored note against a claim. Notes are append-only, which is why they ride the
+ * Provenance stream: get-billing-claim-history reads them from the same search as every other
+ * history entry.
+ */
+export async function commitClaimNote(
+  oystehr: Oystehr,
+  claim: Claim,
+  message: string,
+  agent: ProvenanceAgent
+): Promise<void> {
+  const claimReference = `Claim/${claim.id}`;
+  const provenance = claimProvenanceRequest({
+    targetReference: claimReference,
+    claimReference,
+    note: message,
+    activity: 'note',
+    agent,
+    recorded: recordedNow(),
+    priorVersionReference: versionedReference(claim),
+  });
+  if (!provenance) throw new Error('Note provenance unexpectedly null');
+  await oystehr.fhir.transaction<FhirResource>({ requests: [provenance] });
 }
 
 export async function addErrorProvenanceForClaimSubmission(

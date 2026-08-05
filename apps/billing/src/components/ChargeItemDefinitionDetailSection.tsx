@@ -367,7 +367,7 @@ function AddProcedureCodeDialog({
       await handleSave({
         code: code.code,
         description: code.display,
-        modifier,
+        modifier: modifier || undefined,
         amount,
       });
       onClose();
@@ -433,7 +433,7 @@ function AddProcedureCodeDialog({
                 type="number"
                 fullWidth
                 value={amount}
-                onChange={(e) => setAmount(parseInt(e.target.value, 10))}
+                onChange={(e) => setAmount(Number(e.target.value))}
               />
             </Field>
           </Box>

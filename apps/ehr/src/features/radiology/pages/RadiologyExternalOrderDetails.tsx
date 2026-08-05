@@ -18,10 +18,10 @@ import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { LATERALITY_SELECTORS, RadiologyResultDTO, VitalFieldNames } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import {
   createZ3Object,
   deleteRadiologyResult,
-  getRadiologyOrderPdf,
   listRadiologyResults,
   sendRadiologyOrderFax,
   uploadRadiologyResult,
@@ -36,6 +36,7 @@ import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
 import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
 import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
 import { SAFETY_FLAG_LABELS } from '../constants';
+import { generateAndOpenRadiologyOrderForm } from '../orderPdf';
 
 const DetailRow: React.FC<{ label: string; value?: React.ReactNode; icon?: React.ReactNode }> = ({
   label,
@@ -153,11 +154,10 @@ export const RadiologyExternalOrderDetailsPage: React.FC = () => {
     if (!oystehrZambda) return;
     setPrinting(true);
     try {
-      const { presignedURL } = await getRadiologyOrderPdf(oystehrZambda, { serviceRequestId });
-      window.open(presignedURL, '_blank');
+      await generateAndOpenRadiologyOrderForm(oystehrZambda, serviceRequestId);
     } catch (e) {
-      console.error('Failed to generate radiology order PDF', e);
       enqueueSnackbar('Failed to generate the order PDF', { variant: 'error' });
+      safelyCaptureException(e);
     } finally {
       setPrinting(false);
     }

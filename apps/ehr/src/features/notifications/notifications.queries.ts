@@ -1,12 +1,14 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import { Communication, Encounter, Extension, FhirResource, Location } from 'fhir/r4b';
+import { Communication, Encounter, Extension, FhirResource, Location, Task as FhirTask } from 'fhir/r4b';
 import {
   AppointmentProviderNotificationTypes,
+  FAX_TASK,
   getAllFhirSearchPages,
   getAllNotificationRows,
   getPatchBinary,
   getProviderNotificationPreferencesV2,
+  getTaskInputValue,
   isPhoneNumberValid,
   PROVIDER_NOTIFICATION_PREFERENCES_V2_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
@@ -22,6 +24,22 @@ export type ProviderNotification = {
   appointmentID: string;
   encounter?: Encounter;
   communication: Communication;
+  // Pre-resolved navigation target for notifications that aren't tied to an appointment
+  // (currently inbound-fax notifications, which link to the fax match page).
+  link?: string;
+};
+
+/**
+ * Destination for a task-backed notification that has no appointment to fall back on. Keyed off the
+ * task the notification is `basedOn` rather than the notification type, so it holds for every way a
+ * task notification is produced (category subscription, assignment, …).
+ */
+const getTaskNotificationLink = (task: FhirTask | undefined): string | undefined => {
+  if (task?.groupIdentifier?.value !== FAX_TASK.category) {
+    return undefined;
+  }
+  const faxCommunicationID = getTaskInputValue(task, FAX_TASK.input.communicationId);
+  return faxCommunicationID ? `/inbound-fax/${faxCommunicationID}/match` : undefined;
 };
 
 export const useGetProviderNotifications = (
@@ -45,6 +63,13 @@ export const useGetProviderNotifications = (
             {
               name: '_include',
               value: 'Communication:encounter',
+            },
+            {
+              // Task notifications have no encounter; their Communication is basedOn the Task, which
+              // is what `getTaskNotificationLink` needs to resolve a destination (e.g. an inbound fax's
+              // match page, via the fax Communication id on the Task's input).
+              name: '_include',
+              value: 'Communication:based-on',
             },
             {
               name: 'recipient',
@@ -74,16 +99,25 @@ export const useGetProviderNotifications = (
       const encounterResources = notificationResources?.filter(
         (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Encounter'
       ) as Encounter[];
+      const taskResources = notificationResources?.filter(
+        (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Task'
+      ) as FhirTask[];
 
       return communicationResources.map((communicationResource) => {
         const encounterID = communicationResource.encounter?.reference?.replace('Encounter/', '');
         const encounter = encounterResources.find((encounterTemp) => encounterID === encounterTemp.id);
         const appointmentID = encounter?.appointment?.[0].reference?.replace('Appointment/', '');
 
+        const basedOnTaskID = communicationResource.basedOn
+          ?.find((ref) => ref.reference?.startsWith('Task/'))
+          ?.reference?.split('/')?.[1];
+        const link = getTaskNotificationLink(taskResources?.find((taskTemp) => taskTemp.id === basedOnTaskID));
+
         const notification: ProviderNotification = {
           appointmentID: appointmentID || '',
           encounter,
           communication: communicationResource,
+          link,
         };
         return notification;
       });

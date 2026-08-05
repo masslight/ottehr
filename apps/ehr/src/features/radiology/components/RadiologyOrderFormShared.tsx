@@ -19,13 +19,11 @@ import { ClearIcon } from '@mui/x-date-pickers';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import {
-  useGetCPTHCPCSSearch,
-  useICD10SearchNew,
-} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useChartData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPTCodeDTO, DiagnosisDTO, LATERALITY_SELECTORS, LateralityValue, radiologyStudiesConfig } from 'utils';
+import { RadiologyDiagnosisField } from './RadiologyDiagnosisField';
 
 /**
  * Field state, search wiring, and chart-data plumbing shared by the in-house
@@ -55,13 +53,8 @@ export interface UseRadiologyOrderFormResult {
   setLaterality: React.Dispatch<React.SetStateAction<LateralityValue | ''>>;
   /** modifier payload derived from the current laterality selection */
   lateralityModifier: { display: string; code: string } | undefined;
-  dxSearch: {
-    // encounter diagnoses (DiagnosisDTO) or raw ICD-10 search results
-    options: { code: string; display: string }[];
-    loading: boolean;
-    noOptionsText: string;
-    onInputChange: (value: string) => void;
-  };
+  /** encounter diagnoses already on the chart, offered as quick picks in the diagnosis field */
+  chartDiagnoses: DiagnosisDTO[];
   cptSearch: {
     // CPT search results or the static radiologyStudiesConfig fallback (optional codes)
     options: { code?: string; display?: string }[];
@@ -91,15 +84,6 @@ export const useRadiologyOrderForm = (initial?: RadiologyOrderFormInitialValues)
   const [studyName, setStudyName] = useState<string | undefined>(initial?.studyName);
   const [clinicalHistory, setClinicalHistory] = useState<string>(initial?.clinicalHistory ?? '');
   const [laterality, setLaterality] = useState<LateralityValue | ''>(initial?.laterality ?? '');
-
-  // used to fetch dx icd10 codes
-  const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingDx, data: dxData } = useICD10SearchNew({ search: dxDebouncedSearchTerm });
-  const icdSearchOptions = dxDebouncedSearchTerm === '' && diagnosis ? diagnosis : dxData?.codes || [];
-  const { debounce: debounceDx } = useDebounce(800);
-  const debouncedDxHandleInputChange = (data: string): void => {
-    debounceDx(() => setDxDebouncedSearchTerm(data));
-  };
 
   // used to fetch cpt codes
   const [cptDebouncedSearchTerm, setCptDebouncedSearchTerm] = useState('');
@@ -157,12 +141,7 @@ export const useRadiologyOrderForm = (initial?: RadiologyOrderFormInitialValues)
     setLaterality,
     lateralityModifier,
     defaultDx,
-    dxSearch: {
-      options: icdSearchOptions,
-      loading: isSearchingDx,
-      noOptionsText: noOptionsText(dxDebouncedSearchTerm, icdSearchOptions),
-      onInputChange: debouncedDxHandleInputChange,
-    },
+    chartDiagnoses: diagnosis ?? [],
     cptSearch: {
       options: cptSearchOptions,
       loading: isSearchingCpt,
@@ -187,31 +166,10 @@ export const RadiologyOrderCoreFields: React.FC<{
   return (
     <>
       <Grid item xs={12}>
-        <Autocomplete
-          multiple
-          disableCloseOnSelect
-          id="select-dx"
-          size="small"
-          fullWidth
-          filterOptions={(x) => x}
-          filterSelectedOptions
-          noOptionsText={form.dxSearch.noOptionsText}
+        <RadiologyDiagnosisField
           value={form.orderDx}
-          isOptionEqualToValue={(option, value) => value.code === option.code}
-          onChange={(_event: any, selectedDx: any) => form.setOrderDx(selectedDx)}
-          loading={form.dxSearch.loading}
-          options={form.dxSearch.options}
-          getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              onChange={(e) => form.dxSearch.onInputChange(e.target.value)}
-              label="Diagnosis"
-              placeholder="Select diagnosis from list or search"
-              multiline
-              InputLabelProps={{ shrink: true }}
-            />
-          )}
+          onChange={(dx) => form.setOrderDx(dx as DiagnosisDTO[])}
+          quickPickOptions={form.chartDiagnoses}
         />
       </Grid>
       <Grid item xs={12}>
@@ -323,7 +281,8 @@ export const RadiologyOrderFormActions: React.FC<{
   onCancel?: () => void;
   cancelUrl?: string;
   clearFormButton?: React.ReactNode;
-}> = ({ appointmentId, submitting, submitLabel, errors, onCancel, cancelUrl, clearFormButton }) => {
+  disabled?: boolean;
+}> = ({ appointmentId, submitting, submitLabel, errors, onCancel, cancelUrl, clearFormButton, disabled }) => {
   const navigate = useNavigate();
   const theme = useTheme();
   return (
@@ -347,6 +306,7 @@ export const RadiologyOrderFormActions: React.FC<{
         <LoadingButton
           data-testid={dataTestIds.radiologyPage.submitOrderButton}
           loading={submitting}
+          disabled={disabled}
           type="submit"
           variant="contained"
           sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}

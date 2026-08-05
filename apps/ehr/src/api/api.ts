@@ -116,6 +116,8 @@ import {
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
   EmCodeOutput,
+  ExtractCardInput,
+  ExtractCardResponse,
   GenerateAdHocReportInput,
   GenerateAdHocReportOutput,
   GetActionLogsInput,
@@ -218,10 +220,13 @@ import {
   RenameCustomFolderOutput,
   RetryActionLogInput,
   RetryActionLogOutput,
+  RotateInsuranceCardImageInput,
+  RotateInsuranceCardImageResponse,
   SaveAdHocReportInput,
   SaveAdHocReportOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
+  SavePreliminaryRadiologyReportZambdaInput,
   SaveRadiologyReportZambdaInput,
   SaveRadiologyReportZambdaOutput,
   ScheduleDTO,
@@ -264,6 +269,7 @@ import {
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  UpdateVisitFilesOutput,
   UploadDotVisionDocumentInput,
   UploadDotVisionDocumentOutput,
   UploadPatientConditionPhotoInput,
@@ -353,6 +359,7 @@ const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
+const ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID = 'rotate-insurance-card-image';
 const ADMIN_GET_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-picks';
 const ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-pick';
 const ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID = 'admin-update-quick-pick';
@@ -393,6 +400,8 @@ const MANAGED_QUESTIONNAIRE_LIST_ZAMBDA_ID = 'practice-managed-questionnaire-lis
 const MANAGED_QUESTIONNAIRE_UPDATE_ZAMBDA_ID = 'practice-managed-questionnaire-update';
 const MANAGED_QUESTIONNAIRE_CREATE_ZAMBDA_ID = 'practice-managed-questionnaire-create';
 const SEND_PATIENT_FORM = 'send-patient-form';
+const FILE_INBOUND_FAX_ZAMBDA_ID = 'file-inbound-fax';
+const DELETE_INBOUND_FAX_ZAMBDA_ID = 'delete-inbound-fax';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = createClinicalOystehrClient(token);
@@ -1345,7 +1354,7 @@ export const radiologyLaunchViewer = async (
 
 export const savePreliminaryReport = async (
   oystehr: Oystehr,
-  parameters: SaveRadiologyReportZambdaInput
+  parameters: SavePreliminaryRadiologyReportZambdaInput
 ): Promise<SaveRadiologyReportZambdaOutput> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -2051,12 +2060,45 @@ export const updatePatientVisitDetails = async (
   }
 };
 
-export const updateVisitFiles = async (oystehr: Oystehr, parameters: UpdateVisitFilesInput): Promise<void> => {
+export const updateVisitFiles = async (
+  oystehr: Oystehr,
+  parameters: UpdateVisitFilesInput
+): Promise<UpdateVisitFilesOutput> => {
   try {
-    await oystehr.zambda.execute({
+    const response = await oystehr.zambda.execute({
       id: 'update-visit-files',
       ...parameters,
     });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const extractInsuranceCard = async (
+  oystehr: Oystehr,
+  parameters: ExtractCardInput
+): Promise<ExtractCardResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'extract-insurance-card',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const extractPhotoId = async (oystehr: Oystehr, parameters: ExtractCardInput): Promise<ExtractCardResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'extract-photo-id',
+      ...parameters,
+    });
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -2085,6 +2127,25 @@ export const bulkUpdateInsuranceStatus = async (
     }
     const response = await oystehr.zambda.execute({
       id: BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const rotateInsuranceCardImage = async (
+  oystehr: Oystehr,
+  parameters: RotateInsuranceCardImageInput
+): Promise<RotateInsuranceCardImageResponse> => {
+  try {
+    if (ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID == null) {
+      throw new Error('rotate insurance card image zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -2548,6 +2609,42 @@ export const createProcedureQuickPick = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export interface FileInboundFaxInput {
+  taskId: string;
+  communicationId: string;
+  patientId: string;
+  /**
+   * A real folder `List` id, or the `synthetic:${internalName}` sentinel for a folder the patient
+   * has no List for yet. The zambda resolves (and lazily creates) the latter.
+   */
+  folderId: string;
+  internalName?: string;
+  documentName: string;
+  // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative
+  // url from the verified inbound-fax Task's stored input.
+}
+
+export interface FileInboundFaxOutput {
+  documentRefId: string;
+  folderId: string;
+}
+
+export const fileInboundFax = async (
+  oystehr: Oystehr,
+  parameters: FileInboundFaxInput
+): Promise<FileInboundFaxOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: FILE_INBOUND_FAX_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -3379,5 +3476,24 @@ export const removeQuickPick = async (oystehr: Oystehr, quickPickId: string): Pr
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export interface DeleteInboundFaxInput {
+  taskId: string;
+  communicationId: string;
+  // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative
+  // url from the verified inbound-fax Task's stored input.
+}
+
+export const deleteInboundFax = async (oystehr: Oystehr, parameters: DeleteInboundFaxInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: DELETE_INBOUND_FAX_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };

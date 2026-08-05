@@ -1,13 +1,11 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { randomUUID } from 'crypto';
-import { DocumentReference } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { List } from 'fhir/r4b';
 import {
   BUCKET_NAMES,
+  FileDocDataForDocReference,
   getSecret,
   normalizePatientEducationLanguage,
-  PATIENT_EDUCATION_DOC_TYPE_CODE,
   SavePatientEducationPdfInput,
   SavePatientEducationPdfOutput,
   SecretsKeys,
@@ -19,7 +17,10 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { createPatientEducationPdf } from '../../shared/pdf/patient-education-pdf';
+import {
+  createPatientEducationPdf,
+  makePatientEducationPdfDocumentReference,
+} from '../../shared/pdf/patient-education-pdf';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -80,45 +81,30 @@ const performEffect = async (
   // approved PDF without a second round-trip (DocumentReference fetch + presign).
   const presignedDownloadUrl = await createPresignedUrl(token, z3Url, 'download');
 
-  const docRefRequest: BatchInputPostRequest<DocumentReference> = {
-    method: 'POST',
-    fullUrl: randomUUID(),
-    url: '/DocumentReference',
-    resource: {
-      resourceType: 'DocumentReference',
-      status: 'current',
-      type: {
-        coding: [
-          {
-            system: 'https://fhir.ottehr.com/CodeSystem/document-type',
-            code: PATIENT_EDUCATION_DOC_TYPE_CODE,
-            display: 'Patient Education',
-          },
-        ],
-      },
-      date: DateTime.now().setZone('UTC').toISO() ?? '',
-      subject: { reference: `Patient/${patientId}` },
-      context: {
-        encounter: [{ reference: `Encounter/${encounterId}` }],
-      },
-      content: [
-        {
-          attachment: {
-            url: z3Url,
-            contentType: 'application/pdf',
-            title,
-            language,
-          },
-        },
+  const educationListRes = (
+    await oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: 'title', value: BUCKET_NAMES.PATIENT_EDUCATION },
       ],
-    },
+    })
+  ).unbundle();
+
+  const fileDoc: FileDocDataForDocReference = {
+    url: z3Url,
+    title,
+    language,
   };
 
-  const result = await oystehr.fhir.transaction<DocumentReference>({
-    requests: [docRefRequest],
-  });
+  const docRef = await makePatientEducationPdfDocumentReference(
+    oystehr,
+    fileDoc,
+    patientId,
+    encounterId,
+    educationListRes
+  );
 
-  const docRef = result.entry?.[0]?.resource;
   if (!docRef?.id) {
     throw new Error('Failed to create DocumentReference for patient education PDF');
   }

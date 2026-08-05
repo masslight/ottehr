@@ -6,6 +6,7 @@ import {
   CLAIM_PROVENANCE_ACTIVITY_CODES,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+  CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
   ClaimFieldChange,
   ClaimHistoryEntry,
@@ -173,6 +174,7 @@ function toHistoryEntry(
   }
 
   const resourceType = targetRef?.split('/')[0] ?? '';
+  const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -182,6 +184,7 @@ function toHistoryEntry(
       type: agentTypeCode === 'system' ? 'system' : 'user',
     },
     changes: parseChanges(provenance, environment),
+    ...(message ? { message } : {}),
   };
 }
 
@@ -286,6 +289,8 @@ function activityDisplay(code: string, resourceType: string): string {
       return 'Tag change';
     case CLAIM_PROVENANCE_ACTIVITY_CODES.submit:
       return `Submit ${label}`;
+    case CLAIM_PROVENANCE_ACTIVITY_CODES.note:
+      return 'Note';
     default:
       return label;
   }

@@ -1,6 +1,7 @@
 import { ErxGetMedicationHistoryResponse, ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { isPermissionDeniedError } from 'src/helpers/apiErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { MedicationDTO } from 'utils';
 import { ExtractObjectType } from '../stores/appointment/appointment.queries';
@@ -30,6 +31,8 @@ export interface UseExternalMedicationHistoryResult {
   isAvailable: boolean;
   externalMedications: ExternalMedication[];
   error: Error | null;
+  /** True when the history is unavailable because the signed-in user's role cannot read eRx data. */
+  isPermissionDenied: boolean;
 }
 
 // Mock data for development/testing — remove when real eRx data is available
@@ -234,7 +237,10 @@ export const useExternalMedicationHistory = (
       try {
         const history = await oystehr.erx.getMedicationHistory({ patientId });
         if (history.length > 0) return history;
-      } catch {
+      } catch (error) {
+        // Surface a permission denial instead of swallowing it: the user's role simply cannot read eRx
+        // history, so it must not be reported as "history hasn't arrived yet" and polled forever.
+        if (isPermissionDeniedError(error)) throw error;
         /* fall through to mock data in sandbox */
       }
       // In sandbox environments, fall back to stub data when no real data is available
@@ -243,10 +249,11 @@ export const useExternalMedicationHistory = (
     },
     enabled: !!oystehr && !!patientId,
     staleTime: 5 * 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => !isPermissionDeniedError(error) && failureCount < 1,
     // Poll every 10s while the eRx service is still populating history.
-    // Once data arrives, stop polling.
+    // Once data arrives — or once we know this user isn't allowed to read it — stop polling.
     refetchInterval: (query) => {
+      if (isPermissionDeniedError(query.state.error)) return false;
       const data = query.state.data;
       if (!data || data.length === 0) return 10_000;
       return false;
@@ -335,5 +342,6 @@ export const useExternalMedicationHistory = (
     isAvailable: !historyError,
     externalMedications,
     error: historyError ?? null,
+    isPermissionDenied: isPermissionDeniedError(historyError),
   };
 };

@@ -123,9 +123,7 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   procedures: AiObservationField.Procedures,
 };
 
-// Default Vertex model — small/fast/cheap. Callers that need stronger reasoning (e.g. code
-// generation for ad-hoc reports) can pass a larger model via the `model` argument.
-export const DEFAULT_VERTEX_MODEL = 'gemini-3.1-flash-lite';
+export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],

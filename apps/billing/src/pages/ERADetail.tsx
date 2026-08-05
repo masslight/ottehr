@@ -1,4 +1,4 @@
-import { ArrowBack as ArrowBackIcon, Search as SearchIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, MoreVert as MoreVertIcon, Search as SearchIcon } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -10,8 +10,14 @@ import {
   IconButton,
   InputAdornment,
   InputLabel,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
   MenuItem,
+  Popover,
   Select,
+  Stack,
   Tab,
   TextField,
   Typography,
@@ -20,8 +26,9 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { EraDetailResponse, formatCurrency, getApiError } from 'utils';
-import { getBillingEraDetail } from '../api/api';
+import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { Row } from '../components/Row';
 import { useApiClients } from '../hooks/useAppClients';
@@ -48,6 +55,12 @@ export default function ERADetail(): ReactElement {
   const [claimSearch, setClaimSearch] = useState('');
   const [claimStatusFilter, setClaimStatusFilter] = useState('');
   const [claimResponseToMatch, setClaimResponseToMatch] = useState<string | null>(null);
+  const [claimResponsesToUnmatch, setClaimResponsesToUnmatch] = useState<string[] | null>(null);
+  const [unmatching, setUnmatching] = useState(false);
+  const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
+    element: HTMLButtonElement;
+    claimResponseIds: string[];
+  } | null>(null);
 
   const claimColumns: GridColDef[] = [
     {
@@ -83,13 +96,25 @@ export default function ERADetail(): ReactElement {
       width: 140,
       renderCell: ({ value, row }) =>
         value ? (
-          <Chip
-            label={!row.matched ? 'unmatched' : String(value)}
-            color={value === 'complete' && row.matched ? 'success' : 'warning'}
-            variant="outlined"
-            size="small"
-            sx={{ borderRadius: '4px', fontSize: 12 }}
-          />
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Chip
+              label={!row.matched ? 'unmatched' : String(value)}
+              color={value === 'complete' && row.matched ? 'success' : 'warning'}
+              variant="outlined"
+              size="small"
+              sx={{ borderRadius: '4px', fontSize: 12 }}
+            />
+            {row.matched && (
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMoreActionsPopoverData({ element: e.currentTarget, claimResponseIds: row.claimResponseIds });
+                }}
+              >
+                <MoreVertIcon fontSize="medium" />
+              </IconButton>
+            )}
+          </Stack>
         ) : (
           '—'
         ),
@@ -256,6 +281,56 @@ export default function ERADetail(): ReactElement {
           onClose={() => setClaimResponseToMatch(null)}
         />
       )}
+      {claimResponsesToUnmatch && (
+        <ConfirmDialog
+          open={true}
+          title="Unmatch"
+          confirmLabel="Unmatch"
+          loading={unmatching}
+          onConfirm={async () => {
+            if (!oystehrZambda) return;
+            setUnmatching(true);
+            try {
+              for (const claimResponseId of claimResponsesToUnmatch) {
+                await unmatchClaimResponse(oystehrZambda, {
+                  claimResponseId,
+                });
+              }
+            } finally {
+              setUnmatching(false);
+              setClaimResponsesToUnmatch(null);
+              await fetchDetail();
+            }
+          }}
+          onCancel={() => setClaimResponsesToUnmatch(null)}
+        >
+          Do you really want to unmatch?
+        </ConfirmDialog>
+      )}
+      {moreActionsPopoverData ? (
+        <Popover
+          open={true}
+          anchorEl={moreActionsPopoverData.element}
+          onClose={() => setMoreActionsPopoverData(null)}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+        >
+          <List>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={async () => {
+                  setMoreActionsPopoverData(null);
+                  setClaimResponsesToUnmatch(moreActionsPopoverData.claimResponseIds);
+                }}
+              >
+                <ListItemText primary="Unmatch" />
+              </ListItemButton>
+            </ListItem>
+          </List>
+        </Popover>
+      ) : null}
     </Box>
   );
 }

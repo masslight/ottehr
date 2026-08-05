@@ -30,6 +30,7 @@ import {
   getUiTaskCategoryForCode,
   getVideoRoomResourceExtension,
   hasExplicitProviderNotificationPreferencesV2,
+  normalizePhoneNumber,
   notificationRowMatchesLocation,
   NotificationRowPref,
   OTTEHR_MODULE,
@@ -88,12 +89,7 @@ export function resolveTaskRecipients(
 let m2mToken: string;
 
 export const index = wrapHandler('notification-Updater', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const sendSMSPractitionerCommunications: {
-    [key: string]: {
-      practitioner: Practitioner;
-      communications: { communication: Communication; method: ProviderNotificationMethod | undefined }[];
-    };
-  } = {};
+  const sendSMSPractitionerCommunications: SMSBufferByPractitionerId = {};
 
   const createCommunicationRequests: BatchInputPostRequest<Communication>[] = [];
   const updateCommunicationRequests: BatchInputRequest<Communication>[] = [];
@@ -519,30 +515,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
   // SMS is sent only AFTER the FHIR transaction commits: if the idempotency tags aren't stamped, no SMS
   // goes out, so the next run can retry without double-texting.
-  const smsToSend: { practitionerRef: string; message: string }[] = [];
-  Object.keys(sendSMSPractitionerCommunications).forEach((id) => {
-    try {
-      const { practitioner, communications } = sendSMSPractitionerCommunications[id];
-      const hasSmsTelecom = practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value));
-      if (!hasSmsTelecom) return;
-      communications.forEach(({ communication, method }) => {
-        const smsEligible =
-          method === ProviderNotificationMethod.phone || method === ProviderNotificationMethod['phone and computer'];
-        if (smsEligible && communication.payload?.[0].contentString) {
-          smsToSend.push({
-            practitionerRef: `Practitioner/${practitioner.id!}`,
-            message: communication.payload[0].contentString,
-          });
-        }
-      });
-    } catch (error) {
-      console.error(
-        `Error trying to prepare SMS notifications for practitioner ${sendSMSPractitionerCommunications[id].practitioner.id}`,
-        error
-      );
-      captureException(error);
-    }
-  });
+  const smsToSend = buildSMSSendList(sendSMSPractitionerCommunications);
 
   console.log(`Update appointment requests: ${JSON.stringify(updateAppointmentRequests)}`);
   console.log(`Create communications requests: ${JSON.stringify(createCommunicationRequests)}`);
@@ -865,6 +838,66 @@ export function buildRecentlyAssignedTasksMap(
 
 export function getCommunicationStatus(notificationSettings: ProviderNotificationSettings): Communication['status'] {
   return communicationStatusForMethod(notificationSettings.method);
+}
+
+/** Per-practitioner buffer of notifications that still need an SMS, accumulated over one cron run. */
+export type SMSBufferByPractitionerId = {
+  [practitionerId: string]: {
+    practitioner: Practitioner;
+    communications: { communication: Communication; method: ProviderNotificationMethod | undefined }[];
+  };
+};
+
+/**
+ * Flattens the per-practitioner SMS buffer into the actual send list, at most one text per handset per
+ * distinct message.
+ *
+ * Both telemed notifications fan out to EVERY provider whose row matches, so one event legitimately
+ * produces one Communication per provider. But several Practitioner records can resolve to the SAME
+ * `sms` number — a duplicated staff record, a shared practice line, or (in test environments) one
+ * tester's number saved on several provider accounts — and a single Practitioner can carry the same
+ * number in more than one `sms` telecom. Each of those lands as the same text on the same handset while
+ * only ONE in-app notification exists for the logged-in user, which is exactly the reported
+ * "one notification on the computer but two SMS".
+ *
+ * The bell can't collapse these (it filters Communications by `recipient`, so it only ever shows the
+ * logged-in provider's own copy), so the de-dup has to happen here, on (handset, message).
+ */
+export function buildSMSSendList(buffer: SMSBufferByPractitionerId): { practitionerRef: string; message: string }[] {
+  const smsToSend: { practitionerRef: string; message: string }[] = [];
+  const alreadyQueued = new Set<string>();
+
+  Object.keys(buffer).forEach((id) => {
+    try {
+      const { practitioner, communications } = buffer[id];
+      const smsTelecom = practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value));
+      if (!smsTelecom) return;
+      const practitionerRef = `Practitioner/${practitioner.id!}`;
+      // Key on the number so two Practitioner records sharing a handset collapse into one text; fall back
+      // to the reference when the stored value can't be normalized (then we can only de-dup per record).
+      const handset = normalizePhoneNumber(smsTelecom.value) || practitionerRef;
+
+      communications.forEach(({ communication, method }) => {
+        const smsEligible =
+          method === ProviderNotificationMethod.phone || method === ProviderNotificationMethod['phone and computer'];
+        const message = communication.payload?.[0].contentString;
+        if (!smsEligible || !message) return;
+
+        const dedupeKey = `${handset}|${message}`;
+        if (alreadyQueued.has(dedupeKey)) {
+          console.log(`Skipping duplicate SMS for ${practitionerRef}: same message already queued for this number`);
+          return;
+        }
+        alreadyQueued.add(dedupeKey);
+        smsToSend.push({ practitionerRef, message });
+      });
+    } catch (error) {
+      console.error(`Error trying to prepare SMS notifications for practitioner ${buffer[id].practitioner.id}`, error);
+      captureException(error);
+    }
+  });
+
+  return smsToSend;
 }
 
 /** Phone-only → 'completed' (drives SMS-only); anything using the computer → 'in-progress' (lights the bell). */

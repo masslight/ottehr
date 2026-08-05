@@ -16,6 +16,7 @@ import {
   PHOTO_ID_CARD_CODE,
   Secrets,
   UpdateVisitFilesInput,
+  UpdateVisitFilesOutput,
   ValidEHRUploadTypes,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
@@ -34,11 +35,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
   const effectInput = await complexValidation(validatedParameters, oystehr);
 
-  const files = await performEffect(effectInput, oystehr);
+  const result = await performEffect(effectInput, oystehr);
 
   return {
     statusCode: 200,
-    body: JSON.stringify(files),
+    body: JSON.stringify(result),
   };
 });
 
@@ -64,8 +65,7 @@ const PHOTO_ID_CARD_TYPE_CODING = {
   text: 'Photo ID cards',
 };
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
-  // no-op for now
+const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<UpdateVisitFilesOutput> => {
   const { fileType, attachment, patientId, listResources } = input;
 
   console.log('performEffect called with:', { fileType, attachment, patientId });
@@ -98,7 +98,12 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
 
   console.log('Created DocumentReferences:', JSON.stringify(docRefs, null, 2));
 
-  return;
+  const documentReferenceId = docRefs[0]?.id;
+  if (!documentReferenceId) {
+    throw new Error('createFilesDocumentReferences did not return a DocumentReference id');
+  }
+
+  return { documentReferenceId };
 };
 
 interface EffectInput extends Omit<Input, 'appointmentId' | 'patientId'> {

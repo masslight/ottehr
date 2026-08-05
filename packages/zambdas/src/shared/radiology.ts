@@ -6,6 +6,7 @@ import {
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
   RADIOLOGY_RESULT_DOC_REF_DOCTYPE,
   RadiologyDTO,
+  RadiologyPerformedBy,
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
@@ -114,6 +115,7 @@ export const makeRadiologyDTO = (
     .filter((code): code is RadiologySafetyFlag => code != null);
 
   const performingOrganization = extractPerformingOrganization(serviceRequest);
+  const performedBy = extractPerformedBy(serviceRequest);
 
   const dto: RadiologyDTO = {
     serviceRequestId: serviceRequest.id!,
@@ -131,9 +133,20 @@ export const makeRadiologyDTO = (
     performingOrganization,
     timeWindow,
     safetyFlags: safetyFlags && safetyFlags.length > 0 ? safetyFlags : undefined,
+    performedBy,
   };
 
   return dto;
+};
+
+const extractPerformedBy = (serviceRequest: ServiceRequest): RadiologyPerformedBy | undefined => {
+  const performer = serviceRequest.performer?.find((ref) => ref.reference?.startsWith('Practitioner/'));
+  const id = performer?.reference?.split('/')[1];
+  if (!id) {
+    return undefined;
+  }
+  // `display` is written from the Practitioner's name; fall back to the id rather than rendering nothing.
+  return { id, name: performer?.display || id };
 };
 
 const extractPerformingOrganization = (serviceRequest: ServiceRequest): RadiologyPerformingOrganization | undefined => {
