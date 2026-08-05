@@ -7,17 +7,8 @@ import { fetchClaimEraLinks, fetchClaimResponsesByClaimIds } from '../../../src/
 import { performEffect } from '../../../src/billing/get-billing-claim-detail';
 import { fetchClaimGraph, resolvePayersByRef } from '../../../src/billing/shared';
 
-vi.mock('../../../src/billing/shared', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  fetchClaimGraph: vi.fn(),
-  resolvePayersByRef: vi.fn(),
-}));
-
-vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  fetchClaimResponsesByClaimIds: vi.fn(),
-  fetchClaimEraLinks: vi.fn(),
-}));
+// src/billing/shared and src/billing/claim-amounts are mocked suite-wide in
+// vitest.unit-mocks.setup.ts; behaviors are installed in beforeEach below.
 
 const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 

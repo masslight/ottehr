@@ -9,15 +9,21 @@ import {
   SaveServiceFacilityInput,
 } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { index as deleteIndex } from '../../src/billing/delete-billing-service-facility/index';
+import { index as saveIndex } from '../../src/billing/save-billing-service-facility/index';
 import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';
 import { applyServiceFacilityInput, mapServiceFacility } from '../../src/billing/service-facility.helpers';
+import { createBillingClient } from '../../src/billing/shared';
+import { checkOrCreateM2MClientToken } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
+
+// src/shared and src/billing/shared are mocked suite-wide in vitest.unit-mocks.setup.ts.
 
 function makeInput(body: Record<string, unknown> | null): ZambdaInput {
   return {
     headers: null,
     body: body ? JSON.stringify(body) : (null as unknown as string),
-    secrets: {} as ZambdaInput['secrets'],
+    secrets: { ENVIRONMENT: 'local' } as ZambdaInput['secrets'],
   };
 }
 
@@ -30,21 +36,10 @@ const mockOystehrClient = {
   },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('../../src/billing/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    createBillingClient: vi.fn(() => mockOystehrClient),
-  };
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+  vi.mocked(createBillingClient).mockReturnValue(mockOystehrClient as never);
 });
 
 const validPayload: SaveServiceFacilityInput = {
@@ -517,15 +512,7 @@ describe('mapServiceFacility', () => {
 
 describe('save-billing-service-facility handler', () => {
   type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-  let saveHandler!: ZambdaHandler;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    vi.resetModules();
-    ({ index: saveHandler } = (await import('../../src/billing/save-billing-service-facility/index')) as unknown as {
-      index: ZambdaHandler;
-    });
-  });
+  const saveHandler = saveIndex as unknown as ZambdaHandler;
 
   it('updates an existing facility with the optimistic-lock version id', async () => {
     const existing: Location = {
@@ -574,15 +561,7 @@ describe('save-billing-service-facility handler', () => {
 
 describe('delete-billing-service-facility handler', () => {
   type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
-  let deleteHandler!: ZambdaHandler;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    vi.resetModules();
-    ({ index: deleteHandler } = (await import('../../src/billing/delete-billing-service-facility/index')) as {
-      index: ZambdaHandler;
-    });
-  });
+  const deleteHandler = deleteIndex as unknown as ZambdaHandler;
 
   it('deactivates the facility with the optimistic-lock version id', async () => {
     const existing: Location = {

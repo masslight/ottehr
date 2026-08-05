@@ -1,9 +1,11 @@
 import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { index } from '../../src/ehr/mailed-statements-report/index';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
 // ---------------------------------------------------------------------------
-// Mocks
+// Mocks — src/shared is mocked suite-wide in vitest.unit-mocks.setup.ts
 // ---------------------------------------------------------------------------
 
 const mockOystehrClient = {
@@ -11,18 +13,6 @@ const mockOystehrClient = {
     search: vi.fn(),
   },
 };
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-import { index } from '../../src/ehr/mailed-statements-report/index';
 
 const MAIL_VENDOR_EXTENSION_URL = 'https://extensions.fhir.ottehr.com/mail-vendor';
 
@@ -34,7 +24,7 @@ function makeInput(body: Record<string, unknown>): ZambdaInput {
   return {
     headers: null,
     body: JSON.stringify(body),
-    secrets: { POSTGRID_API_KEY: 'test' },
+    secrets: { POSTGRID_API_KEY: 'test', ENVIRONMENT: 'local' },
   };
 }
 
@@ -117,6 +107,8 @@ function makeAppointment(id: string): Appointment {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+  vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehrClient as never);
   // Default fallback so the trailing sync-state Basic search (getMailedStatementSyncState)
   // and any otherwise-unmatched search resolve to an empty bundle.
   mockOystehrClient.fhir.search.mockResolvedValue(makeSearchBundle([]));

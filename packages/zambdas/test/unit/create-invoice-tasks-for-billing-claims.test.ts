@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Encounter, Task } from 'fhir/r4b';
 import {
@@ -8,7 +9,13 @@ import {
   RcmTaskCodings,
 } from 'utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { index } from '../../src/ehr/create-invoice-tasks-for-billing-claims/index';
+import { getOrCreateInvoicingConfig, parseInvoicingConfig } from '../../src/rcm/invoice-config/helpers';
+import { checkOrCreateM2MClientToken, createClinicalOystehrClient } from '../../src/shared';
 import type { ZambdaInput } from '../../src/shared/types/common';
+
+// Shared modules (src/shared, invoice-config helpers, @sentry/aws-serverless) are mocked
+// suite-wide in vitest.unit-mocks.setup.ts; defaults are re-established in beforeEach below.
 
 const CLAIM_1 = '11111111-1111-4111-8111-111111111111';
 const CLAIM_2 = '22222222-2222-4222-8222-222222222222';
@@ -24,34 +31,11 @@ const mockClinicalClient = {
     create: vi.fn(),
   },
 };
-const mockCaptureException = vi.fn();
-
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    createClinicalOystehrClient: () => mockClinicalClient,
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
-
-vi.mock('../../src/rcm/invoice-config/helpers', () => ({
-  getOrCreateInvoicingConfig: vi.fn().mockResolvedValue({ questionnaireResponse: {} }),
-  parseInvoicingConfig: () => ({
-    dueDaysFromGeneration: 30,
-    defaultSmsTemplate: 'sms template',
-    defaultInvoiceMemo: 'memo template',
-  }),
-}));
-
-vi.mock('@sentry/aws-serverless', () => ({
-  captureException: (...args: unknown[]) => mockCaptureException(...args),
-}));
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-let handler!: ZambdaHandler;
+const handler = index as unknown as ZambdaHandler;
+
 let warnSpy!: ReturnType<typeof vi.spyOn>;
 
 const claimInput = (overrides: Partial<BillingInvoiceTaskClaim> = {}): BillingInvoiceTaskClaim => ({
@@ -117,23 +101,27 @@ const runHandler = (claims: BillingInvoiceTaskClaim[]): Promise<APIGatewayProxyR
   handler({
     headers: null,
     body: JSON.stringify({ claims }),
-    secrets: {},
+    secrets: { ENVIRONMENT: 'local' },
   });
 
 describe('create-invoice-tasks-for-billing-claims', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.mocked(checkOrCreateM2MClientToken).mockResolvedValue('mock-token');
+    vi.mocked(createClinicalOystehrClient).mockReturnValue(mockClinicalClient as never);
+    vi.mocked(getOrCreateInvoicingConfig).mockResolvedValue({ questionnaireResponse: {} } as never);
+    vi.mocked(parseInvoicingConfig).mockReturnValue({
+      dueDaysFromGeneration: 30,
+      defaultSmsTemplate: 'sms template',
+      defaultInvoiceMemo: 'memo template',
+    });
     mockClinicalClient.fhir.create.mockImplementation((task: Task) =>
       Promise.resolve({
         ...task,
         id: 'created-1',
       })
     );
-    ({ index: handler } = (await import('../../src/ehr/create-invoice-tasks-for-billing-claims/index')) as unknown as {
-      index: ZambdaHandler;
-    });
   });
 
   afterEach(() => {
@@ -211,7 +199,7 @@ describe('create-invoice-tasks-for-billing-claims', () => {
 
     expect(JSON.parse(result.body)).toEqual({ created: 0, skipped: 1 });
     expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
-    expect(mockCaptureException).not.toHaveBeenCalled();
+    expect(captureException).not.toHaveBeenCalled();
   });
 
   it('warns naming the candid source when a legacy candid task blocks the encounter', async () => {

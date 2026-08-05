@@ -6,9 +6,8 @@ import { validateRequestParameters } from '../../../src/billing/get-billing-pati
 import { fetchAllActivePatientArClaims } from '../../../src/billing/search-billing-patient-ar-claims/handler';
 import { createMockSecrets, createMockZambdaInput } from '../validate-request-parameters/helpers';
 
-vi.mock('../../../src/billing/search-billing-patient-ar-claims/handler', () => ({
-  fetchAllActivePatientArClaims: vi.fn(),
-}));
+// src/billing/search-billing-patient-ar-claims/handler is mocked suite-wide in
+// vitest.unit-mocks.setup.ts.
 
 const oystehr = {} as unknown as Oystehr;
 
