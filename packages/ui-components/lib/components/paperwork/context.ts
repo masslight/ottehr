@@ -24,8 +24,6 @@ import {
 export interface CardSuggestionsInput {
   appointmentID: string;
   fileURL: string;
-  // Deliberately not named "contentType" on the wire — see the matching comment on
-  // GetInsuranceCardSuggestionsInput/GetPhotoIdSuggestionsInput in utils.
   fileContentType?: string;
   cardSlot: string;
 }

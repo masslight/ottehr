@@ -120,7 +120,6 @@ const FileInput: FC<FileInputProps> = ({
 
   useEffect(() => {
     const saveObjectToZ3 = async (file: File, appointmentId: string): Promise<void> => {
-      console.log('saveObjectToZ3', file, appointmentId, createZ3Object);
       if (!createZ3Object) return;
 
       try {
@@ -169,7 +168,6 @@ const FileInput: FC<FileInputProps> = ({
         setSaveButtonDisabled(false);
       }
     };
-    console.log('pendingZ3Upload', pendingZ3Upload, 'appointment?.id', appointment?.id, 'z3UploadState', z3UploadState);
     if (pendingZ3Upload && appointment?.id && z3UploadState === UploadState.initial) {
       void saveObjectToZ3(pendingZ3Upload, appointment.id);
     }
