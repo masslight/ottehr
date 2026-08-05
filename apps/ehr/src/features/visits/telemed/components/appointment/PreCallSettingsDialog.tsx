@@ -23,6 +23,7 @@ import {
 } from 'amazon-chime-sdk-js';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VirtualBackgroundSettings } from './VirtualBackgroundSettings';
 
@@ -235,7 +236,12 @@ export const PreCallSettingsDialog: FC<PreCallSettingsDialogProps> = ({ open, on
         <Button onClick={onClose} variant="text" disabled={isConnecting} sx={{ marginRight: 1 }}>
           Cancel
         </Button>
-        <LoadingButton loading={isConnecting} onClick={() => void handleConnect()} variant="contained">
+        <LoadingButton
+          loading={isConnecting}
+          onClick={() => void handleConnect()}
+          variant="contained"
+          data-testid={dataTestIds.dialog.proceedButton}
+        >
           Connect to Patient
         </LoadingButton>
       </DialogActions>
