@@ -36,7 +36,7 @@ describe('llm-schema serialization (Zod → prompt)', () => {
     const byName = Object.fromEntries(fields.map((f) => [f.name, f]));
 
     expect(byName.appointmentId).toMatchObject({ type: 'string' });
-    expect(byName.appointmentId.description).toContain('/in-person/');
+    expect(byName.appointmentId.description).toContain('Visit id');
     expect(byName.date).toMatchObject({ type: 'string', nullable: true });
     expect(byName.scheduledSlotMinutes).toMatchObject({ type: 'number', nullable: true });
   });

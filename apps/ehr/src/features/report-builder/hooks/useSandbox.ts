@@ -1,17 +1,9 @@
-// SPA side of the report sandbox. The hook builds the iframe content (runtime bundle), hands it the
-// generated code + fetched data at creation, and surfaces the frame's whitelisted integration
-// events. The SPA renders no part of the report and never reads the frame's DOM.
-//
-// Security properties (must not regress):
-//   - sandbox="allow-scripts" and nothing else: no allow-same-origin (opaque origin — no access to
-//     the app's DOM / cookies / storage / token), no allow-popups (no window.open inside).
-//   - srcDoc (not a served URL); generated code is NOT in the HTML — it arrives via postMessage, so
-//     no HTML-injection surface.
-//   - CSP: default-src 'none', connect-src 'none' — no network egress. Inline script/style + eval
-//     allowed only because the runtime bundle and generated code run from strings.
-//   - Only JSON crosses the boundary. Incoming messages are frame lifecycle
-//     ({ type: ready|rendered|resize|error }) or events validated against AdHocFrameEventSchema;
-//     everything else is ignored.
+// SPA side of the report sandbox. Security invariants:
+//   - sandbox="allow-scripts" only: opaque origin (no app DOM/cookies/storage/token), no allow-popups.
+//   - srcDoc, not a served URL; generated code arrives via postMessage, never in the HTML.
+//   - CSP default-src 'none', connect-src 'none' — no network egress.
+//   - only JSON crosses the boundary; events are validated against AdHocFrameEventSchema.
+import { captureException } from '@sentry/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AdHocFrameEventSchema, AdHocRow, LlmDatasetSchema } from 'utils';
 import { showAdHocDebugLog } from '../debug';
@@ -116,6 +108,7 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
       const frame = ref.current;
       if (frame) frame.srcdoc = '<!DOCTYPE html><html><body></body></html>';
       console.error('[AdHocReport] report frame attempted to navigate away — blanked for safety');
+      captureException(new Error('Ad-hoc report frame attempted to navigate away — blanked for safety'));
       onErrorRef.current('The report was stopped because it attempted to navigate away from the page.');
     }
   }, []);
@@ -154,6 +147,7 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
       })
       .catch((e) => {
         console.error('[AdHocReport] failed to load the report runtime bundle', e);
+        captureException(e);
         if (alive) onErrorRef.current('Could not load the report runtime.');
       });
     return () => {
@@ -189,7 +183,9 @@ export function useSandbox({ code, data, schema, onError, onRendered }: UseSandb
           return;
         }
         if (timerRef.current) clearTimeout(timerRef.current);
-        onErrorRef.current(msg.message || 'The report code threw an error.');
+        const errorMessage = msg.message || 'The report code threw an error.';
+        onErrorRef.current(errorMessage);
+        captureException(new Error(errorMessage));
       }
     };
     window.addEventListener('message', handler);

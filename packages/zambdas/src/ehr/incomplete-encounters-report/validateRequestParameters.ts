@@ -46,6 +46,12 @@ export function validateRequestParameters(
     throw MISSING_REQUEST_SECRETS;
   }
 
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE } = input.secrets;
+
+  if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
   return {
     dateRange,
     encounterStatus,

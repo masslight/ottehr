@@ -6,7 +6,7 @@ import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, Laye
 
 export const PatientBaseRowSchema = z.object({
   // --- Patient ---
-  patientId: z.string().describe('Patient id; link href="/patient/"+patientId. Count UNIQUE patients.'),
+  patientId: z.string().describe('Patient id.'),
   firstName: z.string().describe('Patient first name.'),
   lastName: z.string().describe('Patient last name.'),
   patientName: z.string().describe('Patient full name.'),

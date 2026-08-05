@@ -1,4 +1,10 @@
-import { INVALID_INPUT_ERROR, SaveAdHocReportInput, SaveAdHocReportInputSchema, Secrets } from 'utils';
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_SECRETS,
+  SaveAdHocReportInput,
+  SaveAdHocReportInputSchema,
+  Secrets,
+} from 'utils';
 import { ZambdaInput } from '../../shared';
 import { validateWithSchema } from '../../shared/validate-zod';
 
@@ -10,6 +16,12 @@ const MAX_DEFINITION_LENGTH = 256 * 1024;
 
 export function validateRequestParameters(input: ZambdaInput): SaveAdHocReportInput & { secrets: Secrets } {
   const parsed = validateWithSchema(SaveAdHocReportInputSchema, input);
+
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE } = parsed.secrets;
+
+  if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE) {
+    throw MISSING_REQUEST_SECRETS;
+  }
 
   if (JSON.stringify(parsed.definition).length > MAX_DEFINITION_LENGTH) {
     throw INVALID_INPUT_ERROR(

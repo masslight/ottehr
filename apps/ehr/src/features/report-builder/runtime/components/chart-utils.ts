@@ -67,11 +67,8 @@ function isFaceted(spec: Record<string, unknown>): boolean {
   return SELF_SIZING_KEYS.some((k) => k in spec) || isEncodingFaceted(spec);
 }
 
-// Force charts to fill the container width instead of Vega-Lite's tiny default. The component owns
-// sizing (not the generated code): width→"container", default height when none given, fit-x
-// autosize. Faceted/concat/repeat specs size their own sub-views and REJECT width:"container" +
-// autosize:fit (rendering blank), so those get the invalid container width stripped instead; for
-// encoding-facets a per-facet cell height keeps the panels from being squished flat.
+// Make charts fill the container (the component owns sizing, not the generated code). Faceted/concat/
+// repeat specs size their own sub-views and reject width:"container", so those get it stripped.
 export function withResponsiveSize(spec: Record<string, unknown>): Record<string, unknown> {
   if (isFaceted(spec)) {
     const clone = { ...spec };

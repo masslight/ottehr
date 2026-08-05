@@ -8,7 +8,7 @@ import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, Laye
 // Base columns — always present on every row.
 export const EncounterBaseRowSchema = z.object({
   // --- Visit ---
-  appointmentId: z.string().describe('Visit id; link href="/in-person/"+appointmentId+"/review-and-sign".'),
+  appointmentId: z.string().describe('Visit id.'),
   encounterId: z.string().optional().describe('Encounter id (internal — dedupe/joins).'),
   date: z.string().nullable().describe('Viewer-local visit day (yyyy-MM-dd); day-level companion of startTime.'),
   startTime: z
@@ -19,9 +19,7 @@ export const EncounterBaseRowSchema = z.object({
   trackingBoardHref: z
     .string()
     .optional()
-    .describe(
-      "Ready-made tracking-board link for the visit ('' when none). Render startTime as an anchor with href=trackingBoardHref only when non-empty."
-    ),
+    .describe("Ready-made internal link for the visit ('' when none); pass to Report.Link href=."),
   visitType: z.enum(['In-Person', 'Telemed', 'Unknown']).describe('Visit modality.'),
   appointmentType: z.string().describe('Walk-in, pre-booked, or post-telemed.'),
   serviceCategory: z.string().describe('Service line (e.g. "Urgent Care").'),
@@ -30,7 +28,7 @@ export const EncounterBaseRowSchema = z.object({
   reason: z.string().describe('Reason for visit (free text).'),
   scheduledSlotMinutes: z.number().nullable().describe('Booked slot length in minutes.'),
   // --- Patient ---
-  patientId: z.string().describe('Patient id; link href="/patient/"+patientId. Count UNIQUE patients.'),
+  patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
   firstName: z.string().describe('Patient first name.'),
   lastName: z.string().describe('Patient last name.'),
   patientName: z.string().describe('Patient full name.'),
@@ -185,11 +183,11 @@ export const ENCOUNTER_LAYERS = {
     }),
   },
   imaging: {
-    label: 'Imaging orders',
-    description: 'Radiology / imaging studies ordered on the visit (names + counts).',
+    label: 'Radiology orders',
+    description: 'Radiology studies ordered on the visit (names + counts).',
     schema: z.object({
-      imagingOrders: z.array(z.string()).describe('Imaging/radiology studies ordered (excl. cancelled).'),
-      imagingOrderCount: z.number().describe('Number of imaging studies ordered. 0 when none.'),
+      imagingOrders: z.array(z.string()).describe('Radiology studies ordered (excl. cancelled).'),
+      imagingOrderCount: z.number().describe('Number of radiology studies ordered. 0 when none.'),
     }),
   },
   immunizations: {

@@ -1,7 +1,14 @@
-import { AdHocEncountersInput, AdHocEncountersInputSchema, Secrets } from 'utils';
+import { AdHocEncountersInput, AdHocEncountersInputSchema, MISSING_REQUEST_SECRETS, Secrets } from 'utils';
 import { ZambdaInput } from '../../shared';
 import { validateWithSchema } from '../../shared/validate-zod';
 
 export function validateRequestParameters(input: ZambdaInput): AdHocEncountersInput & { secrets: Secrets } {
-  return validateWithSchema(AdHocEncountersInputSchema, input);
+  const parsed = validateWithSchema(AdHocEncountersInputSchema, input);
+
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE } = parsed.secrets;
+  if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE) {
+    throw MISSING_REQUEST_SECRETS;
+  }
+
+  return parsed;
 }
