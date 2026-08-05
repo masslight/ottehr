@@ -11,7 +11,8 @@ import { openVisitsPage } from '../../page/VisitsPage';
 const SELECTED_TAB_STORAGE_KEY = 'selectedAppointmentTab';
 
 test.describe('Tracking board ?tab= URL state', () => {
-  test('writes ?tab= on first load when none is in the URL', async ({ page }) => {
+  // @pr-ci whitelists this test into the pull-request CI run (see E2E_README.md "PR CI Test Whitelist")
+  test('writes ?tab= on first load when none is in the URL', { tag: '@pr-ci' }, async ({ page }) => {
     await openVisitsPage(page);
 
     await expect(page).toHaveURL(/[?&]tab=in-office\b/);

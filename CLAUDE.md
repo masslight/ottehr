@@ -86,7 +86,9 @@ npm run intake:e2e:local           # Intake E2E tests
 npm run intake:e2e:local:ui        # Intake E2E with Playwright UI
 ```
 
-E2E tests for EHR live in `apps/ehr/tests/e2e/specs/`; for intake in `apps/intake/tests/specs/`.
+E2E tests for EHR live in `apps/ehr/tests/e2e/specs/`; for intake in `apps/intake/tests/e2e/`.
+
+PR CI runs only E2E tests tagged `@pr-ci` (the whitelist; see "PR CI Test Whitelist" in `E2E_README.md`) — the nightly run covers the full suites. Reproduce the PR selection locally with `npm run ehr:e2e:local:pr-ci` / `npm run intake:e2e:local:pr-ci`.
 
 To create a test appointment for Playwright MCP testing:
 ```bash

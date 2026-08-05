@@ -53,7 +53,8 @@ test.describe('Walk-in deeplink flows', () => {
     }
   });
 
-  test('Open location deeplink navigates to check-in landing page', async ({ page }) => {
+  // @pr-ci whitelists this test into the pull-request CI run (see E2E_README.md "PR CI Test Whitelist")
+  test('Open location deeplink navigates to check-in landing page', { tag: '@pr-ci' }, async ({ page }) => {
     // Build the deeplink URL
     // Location names may have spaces which need to be replaced with underscores for URL
     const locationSlug = openLocationName.replace(/\s+/g, '_');
