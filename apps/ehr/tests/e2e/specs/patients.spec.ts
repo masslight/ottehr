@@ -55,7 +55,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
       PATIENT_LINE + ', ' + PATIENT_LINE_2 + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTAL_CODE,
   };
 
-  test('Search by Last name', async ({ page }) => {
+  test('Search by Last name', { tag: '@pr-ci' }, async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);

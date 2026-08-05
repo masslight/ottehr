@@ -110,7 +110,7 @@ const MEDICATION_NOTE_1_EDITED = 'Test medication note 1 edited';
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 const LMP_DATE_UNSURE = '01/20/2024';
 
-test.describe('In-Person Visit Chart Data', async () => {
+test.describe('In-Person Visit Chart Data', { tag: '@pr-ci' }, async () => {
   let page: Page;
   let context: BrowserContext;
 

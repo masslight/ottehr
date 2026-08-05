@@ -63,7 +63,7 @@ test.afterAll(async () => {
 // See: tests/component/AddPatientValidation.test.tsx
 // These tests run much faster (~4s vs ~60s) and are more reliable
 
-test.describe('For new patient', () => {
+test.describe('For new patient', { tag: '@pr-ci' }, () => {
   test(
     'Add walk-in visit for new patient',
     {

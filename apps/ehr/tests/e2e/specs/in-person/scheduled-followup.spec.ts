@@ -22,7 +22,7 @@ test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test.describe.serial('Scheduled Follow-up Visit E2E', () => {
+test.describe.serial('Scheduled Follow-up Visit E2E', { tag: '@pr-ci' }, () => {
   test('Follow-up page shows Annotation and Scheduled Visit toggle', async () => {
     const patientId = resourceHandler.patient?.id;
     expect(patientId).toBeTruthy();

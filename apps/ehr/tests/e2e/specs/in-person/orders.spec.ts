@@ -188,7 +188,7 @@ test.afterAll(async () => {
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Procedures Page', () => {
+test.describe('Procedures Page', { tag: '@pr-ci' }, () => {
   test('Procedures happy path', async () => {
     await test.step('Create a procedure', async () => {
       const documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
@@ -239,7 +239,7 @@ test.describe('Procedures Page', () => {
   });
 });
 
-test.describe('In-house labs page', async () => {
+test.describe('In-house labs page', { tag: '@pr-ci' }, async () => {
   test.skip(
     !FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED,
     'In-house labs feature flag is false (aka inhouse labs are not enabled), skipping tests'
@@ -769,7 +769,7 @@ test.describe('In-house labs page', async () => {
   }
 });
 
-test.describe('External labs page', async () => {
+test.describe('External labs page', { tag: '@pr-ci' }, async () => {
   test.skip(
     !FEATURE_FLAGS.LAB_ORDERS_ENABLED,
     'External labs feature flag is false (aka labs are not enabled), skipping tests'
@@ -938,7 +938,7 @@ test.describe('External labs page', async () => {
   });
 });
 
-test.describe('Nursing Orders Page', () => {
+test.describe('Nursing Orders Page', { tag: '@pr-ci' }, () => {
   interface NursingOrderInfo {
     notes: string;
     status: string;

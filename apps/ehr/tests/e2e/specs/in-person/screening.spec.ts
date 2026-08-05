@@ -11,7 +11,7 @@ import { ASQKeys, asqLabels, patientScreeningQuestionsConfig } from 'utils';
 
 const resourceHandler = new ResourceHandler(`screening-mutating-${DateTime.now().toMillis()}`);
 
-test.describe('Screening Page mutating tests', () => {
+test.describe('Screening Page mutating tests', { tag: '@pr-ci' }, () => {
   test.beforeEach(async ({ page }) => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);

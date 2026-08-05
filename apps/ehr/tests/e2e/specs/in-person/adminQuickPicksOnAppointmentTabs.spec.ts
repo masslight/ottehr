@@ -13,7 +13,7 @@ const SEARCH_TIMEOUT = { timeout: 25000 };
 const ALLERGY_SEARCH_TERM = 'Tetracycline';
 const MEDICAL_CONDITION_SEARCH_TERM = 'J06';
 
-test.describe('Admin-added quick picks are visible and usable on appointment tabs', () => {
+test.describe('Admin-added quick picks are visible and usable on appointment tabs', { tag: '@pr-ci' }, () => {
   test.describe.configure({ mode: 'serial' });
 
   let context: BrowserContext;

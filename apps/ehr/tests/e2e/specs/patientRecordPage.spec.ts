@@ -275,7 +275,7 @@ const populateAllRequiredFields = async (
   }
 };
 
-test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
+test.describe('Patient Record Page tests', { tag: ['@smoke', '@pr-ci'] }, () => {
   const PROCESS_ID = `patientRecordPage-mutating-patient-info-fields-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID);
 

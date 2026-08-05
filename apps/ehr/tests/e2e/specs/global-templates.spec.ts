@@ -34,7 +34,7 @@ async function openVisit(page: Page, resourceHandler: ResourceHandler): Promise<
   await inPersonHeader.selectProviderPractitioner();
 }
 
-test.describe('Global Templates E2E', () => {
+test.describe('Global Templates E2E', { tag: '@pr-ci' }, () => {
   test.describe.configure({ mode: 'serial' });
 
   let page: Page;

@@ -62,7 +62,7 @@ const SUPERVISOR_APPROVAL_ENABLED = process.env.VITE_APP_IS_SUPERVISOR_APPROVAL_
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99202 New Patient - E/M Level 2';
 
-test.describe('In-person visit', async () => {
+test.describe('In-person visit', { tag: '@pr-ci' }, async () => {
   // test('Book appointment, go to Hospitalization page and complete Intake, check statuses', async ({ page }) => {
   //   const patientInfoPage = await intakeTestAppointment(page, resourceHandler);
   //   const hospitalizationPage = await patientInfoPage.sideMenu().clickHospitalization();
