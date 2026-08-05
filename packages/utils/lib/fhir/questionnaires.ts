@@ -132,7 +132,7 @@ export const assembleFlowQuestionnaireItems = async (
 ): Promise<QuestionnaireItem[]> => {
   const derivedFrom = flowQuestionnaire.derivedFrom ?? [];
 
-  const formItemLists = await Promise.all(
+  const results = await Promise.allSettled(
     derivedFrom.map(async (canonical) => {
       const { url, version } = deconstructCanonicalUrl(canonical, flowQuestionnaire);
       const form = await getCanonicalQuestionnaire({ url, version }, oystehr);
@@ -140,6 +140,19 @@ export const assembleFlowQuestionnaireItems = async (
     })
   );
 
+  const failures = results.flatMap((result, index) =>
+    result.status === 'rejected' ? [{ canonical: derivedFrom[index], reason: result.reason }] : []
+  );
+  if (failures.length > 0) {
+    const details = failures
+      .map(({ canonical, reason }) => `"${canonical}": ${reason instanceof Error ? reason.message : String(reason)}`)
+      .join('; ');
+    throw new Error(
+      `Failed to resolve constituent form(s) for paperwork flow Questionnaire/${flowQuestionnaire.id}: ${details}`
+    );
+  }
+
+  const formItemLists = (results as PromiseFulfilledResult<QuestionnaireItem[]>[]).map((result) => result.value);
   const assembledItems = formItemLists.flat();
   return handleFlowQuestionnaireItem(assembledItems);
 };
