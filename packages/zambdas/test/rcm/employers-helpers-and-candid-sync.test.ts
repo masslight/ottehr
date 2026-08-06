@@ -7,7 +7,7 @@ const { mockGetOrCreateCandidApiClient } = vi.hoisted(() => ({
   mockGetOrCreateCandidApiClient: vi.fn(),
 }));
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('utils/lib/helpers/candidApi', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
