@@ -150,10 +150,12 @@ export async function invokeChatbotVertexAI(
   );
 
   let resolved = false;
+  let terminal = false; // a non-retryable status came back; further attempts would just resend the payload
   const requests = backoffTimes.map(async (backoffTime) => {
     await new Promise((resolve) => setTimeout(resolve, backoffTime));
 
-    if (resolved) return null;
+    // Reject rather than resolve, so a skipped attempt can never become Promise.any's winning value.
+    if (resolved || terminal) throw new Error('Vertex AI attempt superseded');
 
     try {
       const response = await fetch(
@@ -179,11 +181,14 @@ export async function invokeChatbotVertexAI(
       );
 
       if (!response.ok && shouldRetry(response.status)) {
-        throw new Error(`Retryable error: ${response.status}`);
+        // Carry Vertex's own message: if every attempt fails this is all the caller gets to go on.
+        throw new Error(`Retryable error: ${response.status} ${(await response.text()).slice(0, 500)}`);
       }
 
       if (response.ok) {
         resolved = true;
+      } else {
+        terminal = true;
       }
       return response;
     } catch (error) {
@@ -193,25 +198,45 @@ export async function invokeChatbotVertexAI(
     }
   });
 
-  const response = await (await Promise.any(requests))?.json();
+  let settled: Response;
+  try {
+    settled = await Promise.any(requests);
+  } catch (error) {
+    // AggregateError's own message is just "All promises were rejected", so unpack the reasons — otherwise
+    // the most common failure mode stays as opaque as the TypeError this used to throw.
+    const reasons =
+      error instanceof AggregateError
+        ? error.errors.map((reason) => (reason instanceof Error ? reason.message : String(reason)))
+        : [error instanceof Error ? error.message : String(error)];
+    throw new Error(`Vertex AI request failed after ${requests.length} attempts: ${reasons.join('; ')}`);
+  }
 
-  console.log(JSON.stringify(response));
-  // Guard the response shape before drilling into it: a "skipped" request resolves to null (so
-  // `response` is undefined), and a safety-filter / recitation block returns a body with empty
-  // candidates or a candidate with no content.parts. Reading candidates[0].content.parts[0].text
-  // unguarded throws an opaque "Cannot read properties of undefined" — throw a descriptive error
-  // instead so callers can see (and retry on) the actual failure mode.
-  if (response == null) {
-    throw new Error('Vertex AI returned no response body (the winning request resolved without a response)');
+  const body = await settled.text();
+  // Unchecked, an error body fell through to `candidates[0]` and every Vertex failure surfaced as
+  // `TypeError: Cannot read properties of undefined` with an empty stack.
+  if (!settled.ok) {
+    throw new Error(`Vertex AI request failed: ${settled.status} ${settled.statusText} ${body.slice(0, 1000)}`);
+  }
+
+  // Size only: on a transcription call the body is the transcript, which is PHI.
+  console.log(`Vertex AI responded with ${body.length} bytes`);
+  let response: any;
+  try {
+    response = JSON.parse(body);
+  } catch {
+    // A proxy's HTML error page or a truncated response would otherwise throw a bare SyntaxError.
+    throw new Error(`Vertex AI returned a non-JSON body: ${body.slice(0, 1000)}`);
   }
   const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof text !== 'string') {
-    const candidateCount = Array.isArray(response.candidates) ? response.candidates.length : 'missing';
-    const finishReason = response?.candidates?.[0]?.finishReason ?? 'unknown';
-    const blockReason = response?.promptFeedback?.blockReason ?? 'none';
-    throw new Error(
-      `Vertex AI response contained no candidate text (candidates: ${candidateCount}, finishReason: ${finishReason}, promptFeedback.blockReason: ${blockReason})`
-    );
+    // No candidate text means the model refused or was cut off (safety block, MAX_TOKENS finishReason).
+    // Report the reason, not the body — a cut-off candidate can still carry partial transcript.
+    const reason = JSON.stringify({
+      finishReason: response?.candidates?.[0]?.finishReason,
+      promptFeedback: response?.promptFeedback,
+      usageMetadata: response?.usageMetadata,
+    });
+    throw new Error(`Vertex AI returned no text: ${reason}`);
   }
   return text;
 }

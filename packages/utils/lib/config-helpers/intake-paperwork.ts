@@ -19,9 +19,6 @@ export const getIntakeFormPageSubtitle = (
   if (config.getIntakeFormPageSubtitle) {
     return config.getIntakeFormPageSubtitle(pageLinkId, patientName);
   }
-  if (pageLinkId === 'photo-id-page') {
-    return `Adult Guardian for ${patientName}`;
-  }
   return patientName;
 };
 

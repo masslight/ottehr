@@ -20,6 +20,7 @@ export const getInputTypes = (name: string): string => {
     case 'patient-number':
     case 'guardian-number':
     case 'pcp-number':
+    case 'pcp-fax':
     case 'pharmacy-phone':
     case 'responsible-party-number':
     case 'person-accompanying-minor-phone-number':

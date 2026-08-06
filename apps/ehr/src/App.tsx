@@ -300,7 +300,12 @@ function App(): ReactElement {
                 <Route path="*" element={<Navigate to={'/'} />} />
               </>
             )}
-            {currentUser?.hasRole([RoleType.Staff, RoleType.Provider, RoleType.CustomerSupport]) && (
+            {currentUser?.hasRole([
+              RoleType.Staff,
+              RoleType.Provider,
+              RoleType.Clinician,
+              RoleType.CustomerSupport,
+            ]) && (
               <>
                 <Route path="/" element={<Navigate to="/visits" />} />
                 <Route path="/logout" element={<Logout />} />

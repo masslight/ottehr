@@ -58,10 +58,12 @@ import {
   LightToolTip,
   LinkRenderer,
   MultiAnswerHeader,
+  PaperworkAiSuggestionRow,
   PharmacyCollection,
   RadioInput,
   RadioListInput,
 } from './form-components';
+import { hasPaperworkAiSuggestion } from './form-components/PaperworkAiSuggestionRow';
 import { useAutoFillValues } from './hooks/useAutofill';
 import { useCreditCardSave } from './hooks/useCreditCardSave';
 import { useDisplayFilteredOptions, useFilterAnswersOptions } from './hooks/useFilterAnswersOptions';
@@ -474,6 +476,8 @@ const NestedInput: FC<NestedInputProps> = (props) => {
   const otherColors = usePaperworkOtherColors();
   const { trigger } = useFormContext();
   const [isFocused, setIsFocused] = useState(false);
+  const { appointment } = usePaperworkContext();
+  const hasAiSuggestion = hasPaperworkAiSuggestion(item.linkId);
 
   // fieldId returns the path to the scalar value (the thing that the inputs manipulate directly)
   // call site 2: ignores result when no parent item
@@ -576,6 +580,9 @@ const NestedInput: FC<NestedInputProps> = (props) => {
               showHelperTextIcon={showHelperTextIcon}
               errorMessage={errorMessage}
             />
+            {hasAiSuggestion && (
+              <PaperworkAiSuggestionRow linkId={item.linkId} fieldId={fieldId} appointmentId={appointment?.id} />
+            )}
           </FormControl>
         )}
       />

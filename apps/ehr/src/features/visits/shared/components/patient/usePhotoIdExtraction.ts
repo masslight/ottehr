@@ -1,5 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DocumentReference } from 'fhir/r4b';
+import { useEffect, useRef } from 'react';
+import { extractPhotoId } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   DocumentType,
@@ -39,17 +41,20 @@ export const readNewestFrontExtractionFields = (
 };
 
 /**
- * Reads the OCR extraction the extract-photo-id zambda stored on the patient's current
- * photo-ID front DocumentReference. Read-only: OCR is never invoked here — an ID either
- * has the extension (suggestions render), has a notAPhotoId marker, or has no extension
- * yet (extraction in flight / failed), in which case nothing renders.
+ * Reads the OCR extraction the extract-photo-id zambda stored on the patient's current photo-ID
+ * front DocumentReference: an ID either has the extension (suggestions render), has a
+ * notAPhotoId marker, or has no extension yet. That last case is backfilled below rather than
+ * left to render nothing forever — see the matching comment on useInsuranceCardExtraction for why
+ * (a card that arrives via intake's paperwork harvest, rather than a staff upload through the
+ * EHR's own upload button, would otherwise never get OCR'd).
  */
 export const usePhotoIdExtraction = (patientId: string | undefined): UsePhotoIdExtractionResult => {
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
   const enabled = Boolean(oystehr && patientId);
   const { data, isLoading } = useQuery({
     queryKey: ['photo-id-extraction', patientId],
-    queryFn: async (): Promise<PhotoIdExtractionFields | null> => {
+    queryFn: async (): Promise<{ front: DocumentReference | undefined; fields: PhotoIdExtractionFields | null }> => {
       const bundle = await oystehr!.fhir.search<DocumentReference>({
         resourceType: 'DocumentReference',
         params: [
@@ -59,11 +64,32 @@ export const usePhotoIdExtraction = (patientId: string | undefined): UsePhotoIdE
           { name: '_sort', value: '-_lastUpdated' },
         ],
       });
-      return readNewestFrontExtractionFields(bundle.unbundle());
+      const docRefsNewestFirst = bundle.unbundle();
+      const front = docRefsNewestFirst.find(
+        (docRef) => docRef.content?.[0]?.attachment?.title === DocumentType.PhotoIdFront
+      );
+      return { front, fields: readNewestFrontExtractionFields(docRefsNewestFirst) };
     },
     enabled,
   });
-  return { fields: data ?? null, isLoading: enabled && isLoading };
+
+  // Try the not-yet-extracted front image once per mount — see useInsuranceCardExtraction's
+  // matching effect for the retry/backfill rationale.
+  const attemptedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const front = data?.front;
+    if (!front?.id || !oystehrZambda) return;
+    if (readStoredExtraction(front) != null) return;
+    if (attemptedRef.current.has(front.id)) return;
+    attemptedRef.current.add(front.id);
+    void extractPhotoId(oystehrZambda, { documentReferenceId: front.id })
+      .catch((error) =>
+        console.error(`Failed to backfill photo-id extraction for DocumentReference/${front.id}:`, error)
+      )
+      .then(() => queryClient.invalidateQueries({ queryKey: ['photo-id-extraction', patientId] }));
+  }, [data?.front, oystehrZambda, queryClient, patientId]);
+
+  return { fields: data?.fields ?? null, isLoading: enabled && isLoading };
 };
 
 /**

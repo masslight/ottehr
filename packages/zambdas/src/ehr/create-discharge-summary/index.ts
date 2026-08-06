@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { PDFDocument } from 'pdf-lib';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
@@ -15,6 +14,7 @@ import { fetchErxPharmacies } from '../../shared/erx';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
+import { countPdfPages, downloadPdfBytes, mergePdfDocuments } from '../../shared/pdf/merge-pdfs';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { getChartData } from '../get-chart-data';
@@ -143,31 +143,19 @@ export const performEffect = async (
     if (educationDocRefs.length > 0) {
       console.log(`Found ${educationDocRefs.length} patient education PDF(s) to append`);
 
-      // Download the discharge summary PDF
-      const dischargePdfUrl = await createPresignedUrl(m2mToken, pdfInfo.uploadURL, 'download');
-      const dischargeResponse = await fetch(dischargePdfUrl);
-      if (!dischargeResponse.ok) {
-        throw new Error(
-          `Failed to download discharge summary PDF: ${dischargeResponse.status} ${dischargeResponse.statusText}`
-        );
-      }
-      const dischargeBytes = new Uint8Array(await dischargeResponse.arrayBuffer());
-      const mergedPdf = await PDFDocument.load(dischargeBytes);
+      const dischargeBytes = await downloadPdfBytes(pdfInfo.uploadURL, m2mToken);
+      const parts: Uint8Array[] = [dischargeBytes];
 
-      // Download and merge each education PDF
       for (const docRef of educationDocRefs) {
         const z3Url = docRef.content?.[0]?.attachment?.url;
         if (!z3Url) continue;
         try {
-          const eduPdfUrl = await createPresignedUrl(m2mToken, z3Url, 'download');
-          const eduResponse = await fetch(eduPdfUrl);
-          if (!eduResponse.ok) {
-            throw new Error(`Failed to download education PDF: ${eduResponse.status} ${eduResponse.statusText}`);
-          }
-          const eduBytes = new Uint8Array(await eduResponse.arrayBuffer());
-          const eduPdf = await PDFDocument.load(eduBytes);
-          const pages = await mergedPdf.copyPages(eduPdf, eduPdf.getPageIndices());
-          pages.forEach((page) => mergedPdf.addPage(page));
+          const eduBytes = await downloadPdfBytes(z3Url, m2mToken);
+
+          // parses the document so a malformed PDF is caught (and skipped) here rather than at merge time
+          await countPdfPages(eduBytes);
+
+          parts.push(eduBytes);
           console.log(`Appended education PDF from DocumentReference/${docRef.id}`);
         } catch (err) {
           console.error(`Failed to append education PDF DocumentReference/${docRef.id}:`, err);
@@ -176,7 +164,7 @@ export const performEffect = async (
       }
 
       // Re-upload the merged PDF to the same Z3 URL
-      const mergedBytes = await mergedPdf.save();
+      const { bytes: mergedBytes } = await mergePdfDocuments(parts);
       const uploadUrl = await createPresignedUrl(m2mToken, pdfInfo.uploadURL, 'upload');
       await uploadObjectToZ3(mergedBytes, uploadUrl);
       console.log('Re-uploaded merged discharge summary with education PDFs');

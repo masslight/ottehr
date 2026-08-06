@@ -2,6 +2,7 @@ import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
   Box,
@@ -28,6 +29,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchButton';
+import { SendFaxDialog, useSendFax } from 'src/features/fax';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
@@ -329,6 +331,7 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [headerMenuAnchorEl, setHeaderMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const sendFaxDialog = useSendFax(appointmentID);
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -720,8 +723,23 @@ export const Header = (): JSX.Element => {
                     </ListItemIcon>
                     Create Task
                   </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      setHeaderMenuAnchorEl(null);
+                      sendFaxDialog.open();
+                    }}
+                    disabled={!appointmentID}
+                    sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
+                    data-testid={dataTestIds.faxDialog.menuItem}
+                  >
+                    <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+                      <FaxOutlinedIcon fontSize="small" />
+                    </ListItemIcon>
+                    Fax Documents
+                  </MenuItem>
                 </Menu>
                 <CreateTaskDialog open={showCreateTaskDialog} handleClose={() => setShowCreateTaskDialog(false)} />
+                <SendFaxDialog controller={sendFaxDialog} />
               </Grid>
             </Grid>
           </Grid>
