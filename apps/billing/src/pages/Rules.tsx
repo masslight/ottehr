@@ -125,7 +125,12 @@ function RulesForEngine({ engine }: { engine: RulesEngineType }): ReactElement {
           </Typography>
         </Box>
 
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate(`/rules/${engine}/new`)}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => navigate(`/rules/${engine}/new`)}
+          style={{ flexShrink: 0 }}
+        >
           Add Rule
         </Button>
       </Box>
