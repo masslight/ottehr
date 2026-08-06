@@ -22,6 +22,10 @@ import {
   GetCreateInHouseLabOrderResourcesInput,
   GetCreateInHouseLabOrderResourcesOutput,
   GetCreateLabOrderResources,
+  GetFaxPacketPreviewInput,
+  GetFaxPacketPreviewOutput,
+  GetFaxPacketStatusInput,
+  GetFaxPacketStatusOutput,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
   GetMergePatientsTaskInput,
@@ -55,7 +59,8 @@ import {
   SavePatientInstructionInput,
   SearchPlacesInput,
   SearchPlacesOutput,
-  SendFaxZambdaInput,
+  SendFaxPacketInput,
+  SendFaxPacketOutput,
   SignAppointmentInput,
   SignAppointmentResponse,
   SyncUserResponse,
@@ -96,7 +101,9 @@ enum ZambdaNames {
   'update patient account' = 'update patient account',
   'remove patient coverage' = 'remove patient coverage',
   'merge patients' = 'merge patients',
-  'send fax' = 'send fax',
+  'send fax packet' = 'send fax packet',
+  'get fax packet preview' = 'get fax packet preview',
+  'get fax packet status' = 'get fax packet status',
   'external lab resource search' = 'external lab resource search',
   'get unsolicited results resources' = 'get unsolicited results resources',
   'update lab order resources' = 'update lab order resources',
@@ -135,7 +142,9 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'update patient account': false,
   'remove patient coverage': false,
   'merge patients': false,
-  'send fax': false,
+  'send fax packet': false,
+  'get fax packet preview': false,
+  'get fax packet status': false,
   'external lab resource search': false,
   'get unsolicited results resources': false,
   'update lab order resources': false,
@@ -185,7 +194,9 @@ export const getOystehrTelemedAPI = (
   removePatientCoverage: typeof removePatientCoverage;
   mergePatients: typeof mergePatients;
   getMergePatientsTask: typeof getMergePatientsTask;
-  sendFax: typeof sendFax;
+  sendFaxPacket: typeof sendFaxPacket;
+  getFaxPacketPreview: typeof getFaxPacketPreview;
+  getFaxPacketStatus: typeof getFaxPacketStatus;
   getCreateExternalLabResources: typeof getCreateExternalLabResources;
   getUnsolicitedResultsResources: typeof getUnsolicitedResultsResources;
   updateLabOrderResources: typeof updateLabOrderResources;
@@ -223,7 +234,9 @@ export const getOystehrTelemedAPI = (
     updatePatientAccountZambdaID,
     removePatientCoverageZambdaID,
     mergePatientsZambdaID,
-    sendFaxZambdaID,
+    sendFaxPacketZambdaID,
+    getFaxPacketPreviewZambdaID,
+    getFaxPacketStatusZambdaID,
     externalLabResourceSearchID,
     getUnsolicitedResultsResourcesID,
     updateLabOrderResourcesID,
@@ -262,7 +275,9 @@ export const getOystehrTelemedAPI = (
     'update patient account': updatePatientAccountZambdaID,
     'remove patient coverage': removePatientCoverageZambdaID,
     'merge patients': mergePatientsZambdaID,
-    'send fax': sendFaxZambdaID,
+    'send fax packet': sendFaxPacketZambdaID,
+    'get fax packet preview': getFaxPacketPreviewZambdaID,
+    'get fax packet status': getFaxPacketStatusZambdaID,
     'external lab resource search': externalLabResourceSearchID,
     'get unsolicited results resources': getUnsolicitedResultsResourcesID,
     'update lab order resources': updateLabOrderResourcesID,
@@ -418,8 +433,16 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('merge patients', { ...parameters, requestMode: 'status' });
   };
 
-  const sendFax = async (parameters: SendFaxZambdaInput): Promise<void> => {
-    return await makeZapRequest('send fax', parameters);
+  const sendFaxPacket = async (parameters: SendFaxPacketInput): Promise<SendFaxPacketOutput> => {
+    return await makeZapRequest('send fax packet', parameters);
+  };
+
+  const getFaxPacketPreview = async (parameters: GetFaxPacketPreviewInput): Promise<GetFaxPacketPreviewOutput> => {
+    return await makeZapRequest('get fax packet preview', parameters);
+  };
+
+  const getFaxPacketStatus = async (parameters: GetFaxPacketStatusInput): Promise<GetFaxPacketStatusOutput> => {
+    return await makeZapRequest('get fax packet status', parameters);
   };
 
   const getCreateExternalLabResources = async (
@@ -514,7 +537,9 @@ export const getOystehrTelemedAPI = (
     removePatientCoverage,
     mergePatients,
     getMergePatientsTask,
-    sendFax,
+    sendFaxPacket,
+    getFaxPacketPreview,
+    getFaxPacketStatus,
     getCreateExternalLabResources,
     getUnsolicitedResultsResources,
     updateLabOrderResources,
