@@ -1,4 +1,4 @@
-import { RecentPatientsReportZambdaInput, Secrets } from 'utils';
+import { MISSING_REQUEST_SECRETS, RecentPatientsReportZambdaInput, Secrets } from 'utils';
 import { safeJsonParse, ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): {
@@ -35,6 +35,12 @@ export function validateRequestParameters(input: ZambdaInput): {
 
   if (!input.secrets) {
     throw new Error('Input did not have any secrets');
+  }
+
+  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE } = input.secrets;
+
+  if (!AUTH0_ENDPOINT || !AUTH0_CLIENT || !AUTH0_SECRET || !AUTH0_AUDIENCE) {
+    throw MISSING_REQUEST_SECRETS;
   }
 
   return {

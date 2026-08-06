@@ -21,8 +21,9 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "config-types": "*",
     "lodash-es": "^4.17.21",
-    "config-types": "*"
+    "sucrase": "^3.35.0"
   },
   "devDependencies": {
     "@types/lodash-es": "^4.17.12",
