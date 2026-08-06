@@ -18,19 +18,26 @@ vi.mock('../../../shared/ai', () => ({
   VERTEX_AI_MODEL: 'gemini-3.1-flash-lite',
 }));
 
-vi.mock('../../../shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared')>();
+vi.mock('../../../shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/getAuth0Token')>();
   return {
     ...actual,
     getAuth0Token: vi.fn(),
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/helpers/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/helpers')>();
   return {
     ...actual,
     createOystehrClient: vi.fn(),
+  };
+});
+
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>();
+  return {
+    ...actual,
     getPresignedURL: vi.fn(),
   };
 });

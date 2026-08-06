@@ -4,8 +4,8 @@ import { userMe } from 'utils/lib/auth/user-me.helper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMyPractitionerId } from '../src/shared';
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/auth/user-me.helper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/auth/user-me.helper')>();
   return {
     ...actual,
     userMe: vi.fn(),

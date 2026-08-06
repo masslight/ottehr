@@ -4,20 +4,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Stub shared module
 // Note: vi.mock is hoisted, so we must inline the constant rather than referencing a variable.
-vi.mock('../../src/shared', () => ({
+vi.mock('../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   createClinicalOystehrClient: vi.fn(),
   RCM_TAG_SYSTEM: 'https://fhir.zapehr.com/r4/StructureDefinitions/rcm',
+}));
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   wrapHandler: (_name: string, handler: any) => handler,
-  ZambdaInput: {},
+}));
+
+vi.mock('../../src/shared/validation', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   safeValidate: (schema: any, input: unknown) => schema.parse(input),
   safeJsonParse: (body: string) => JSON.parse(body),
 }));
 
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { index as _handler } from '../../src/rcm/fee-schedules/find-applicable-fee-schedule/index';
-import { createClinicalOystehrClient } from '../../src/shared';
-import { ZambdaInput } from '../../src/shared/types';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 // Our mock replaces wrapHandler so it returns the raw single-arg function, not the 3-arg Lambda handler.
 const handler = _handler as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;

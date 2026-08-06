@@ -30,8 +30,8 @@ import {
 } from '../../src/ehr/apply-template/apply-in-house-medications';
 import { TemplateEncounterResource } from '../../src/ehr/shared/template-helpers';
 
-vi.mock('../../src/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/shared')>();
+vi.mock('../../src/shared/practitioners', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/shared/practitioners')>();
   return {
     ...actual,
     getMyPractitionerId: vi.fn().mockResolvedValue('pract-1'),

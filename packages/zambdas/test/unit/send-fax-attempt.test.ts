@@ -15,11 +15,17 @@ const mockOystehrClient = {
   fax: { send: mockFaxSend },
 };
 
-vi.mock('../../src/shared', async (importOriginal) => ({
+vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-  createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
   getUser: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/prac-1' }),
+}));
+vi.mock('../../src/shared/helpers', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  createClinicalOystehrClient: vi.fn(() => mockOystehrClient),
+}));
+vi.mock('../../src/shared/sentry', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
   wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
 }));
 

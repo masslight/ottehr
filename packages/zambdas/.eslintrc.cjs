@@ -20,6 +20,7 @@ module.exports = {
     //   import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
     //
     // packages/zambdas/scripts/debarrel.ts can do the rewrite for you.
+    // Ban the `utils` package barrel (exact specifier; `utils/lib/...` stays allowed).
     'no-restricted-imports': [
       'error',
       {
@@ -30,13 +31,17 @@ module.exports = {
               "Import from the declaring module instead, e.g. 'utils/lib/types/errors'. Barrel imports create dependency cycles and make every test file load the whole package. See scripts/debarrel.ts.",
           },
         ],
-        patterns: [
-          {
-            group: ['**/shared', '!**/shared/*'],
-            message:
-              "Import from the declaring module instead, e.g. '../../shared/auth'. Barrel imports create dependency cycles and make every test file load the whole package. See scripts/debarrel.ts.",
-          },
-        ],
+      },
+    ],
+    // Ban relative barrel imports that end in `/shared`, while allowing `/shared/<module>`.
+    // no-restricted-imports patterns use gitignore semantics, where `**/shared` also matches
+    // everything beneath it, so an AST selector with an anchored regex is used instead.
+    'no-restricted-syntax': [
+      'error',
+      {
+        selector: 'ImportDeclaration[source.value=/shared$/]',
+        message:
+          "Import from the declaring module instead, e.g. '../../shared/auth'. Barrel imports create dependency cycles and make every test file load the whole package. See scripts/debarrel.ts.",
       },
     ],
   },

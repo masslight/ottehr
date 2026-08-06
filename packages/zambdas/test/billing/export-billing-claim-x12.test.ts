@@ -76,16 +76,15 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
 
 const { claimToX12Mock } = vi.hoisted(() => ({ claimToX12Mock: vi.fn() }));
 
-vi.mock('../../src/shared', async () => {
-  const { safeValidate } = await import('../../src/shared/validation');
-  const { validateJsonBody } = await import('../../src/shared/helpers');
-  return {
-    safeValidate,
-    validateJsonBody,
-    checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
-    wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
-  };
-});
+vi.mock('../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('mock-token'),
+}));
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+}));
 
 vi.mock('../../src/billing/shared', () => ({
   createBillingClient: () => ({

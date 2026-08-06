@@ -14,19 +14,33 @@ import { isRedAt, makeOrientedSceneJpeg } from '../../extract-insurance-card/tes
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';
 
-vi.mock('../../../shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared')>();
+vi.mock('../../../shared/auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/auth')>();
   return {
     ...actual,
     checkOrCreateM2MClientToken: vi.fn(),
+  };
+});
+
+vi.mock('../../../shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/helpers')>();
+  return {
+    ...actual,
     createClinicalOystehrClient: vi.fn(),
+  };
+});
+
+vi.mock('../../../shared/z3Utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../shared/z3Utils')>();
+  return {
+    ...actual,
     createPresignedUrl: vi.fn(),
     uploadObjectToZ3: vi.fn(),
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('utils')>();
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>();
   return {
     ...actual,
     getPresignedURL: vi.fn(),
