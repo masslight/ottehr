@@ -140,33 +140,39 @@ const performEffect = async (
     throw new Error('Error creating service request, id is missing');
   }
 
+  // External (print-only) orders are documented locally and printed/faxed — never transmitted to
+  // AdvaPACS — and the outside facility performs and bills for the study. We therefore write no
+  // billing Procedure, which keeps the CPT off the chart's Assessment / Payment Considerations.
+  if (body.external) {
+    return {
+      serviceRequestId: ourServiceRequest.id,
+      cptCodesSaved: undefined,
+    };
+  }
+
   const { cptCodeDTO, procedure } = await writeOurProcedure(ourServiceRequest, body, secrets, oystehr);
-  const cptCodesSaved = cptCodeDTO ? [cptCodeDTO] : undefined;
 
-  // External (print-only) orders are documented locally and printed/faxed — never transmitted to AdvaPACS.
-  if (!body.external) {
-    // Grab advapacs location id from schedule owner extension if any
-    const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
-      { encounterId: body.encounter.id },
-      oystehr
-    );
+  // Grab advapacs location id from schedule owner extension if any
+  const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
+    { encounterId: body.encounter.id },
+    oystehr
+  );
 
-    // Send the order to AdvaPACS
-    try {
-      await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, advaPACSLocationId, secrets, oystehr);
-    } catch (error) {
-      captureException(error);
-      console.error('Error sending order to AdvaPACS: ', error);
-      await rollbackOurServiceRequest(ourServiceRequest, oystehr);
-      await rollbackOurProcedure(procedure, oystehr);
-      // The order no longer exists — surface the failure instead of returning its id as a success.
-      throw error;
-    }
+  // Send the order to AdvaPACS
+  try {
+    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, advaPACSLocationId, secrets, oystehr);
+  } catch (error) {
+    captureException(error);
+    console.error('Error sending order to AdvaPACS: ', error);
+    await rollbackOurServiceRequest(ourServiceRequest, oystehr);
+    await rollbackOurProcedure(procedure, oystehr);
+    // The order no longer exists — surface the failure instead of returning its id as a success.
+    throw error;
   }
 
   return {
     serviceRequestId: ourServiceRequest.id,
-    cptCodesSaved,
+    cptCodesSaved: cptCodeDTO ? [cptCodeDTO] : undefined,
   };
 };
 
