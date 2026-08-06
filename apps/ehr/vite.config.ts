@@ -8,6 +8,7 @@ import { defineConfig, loadEnv, UserConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import viteTsconfigPaths from 'vite-tsconfig-paths';
 import { devStampRestartPlugin } from '../../vite/dev-stamp-restart';
+import { adHocReportRuntime } from './adhoc-report-runtime-plugin';
 
 const coreRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -17,7 +18,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
 
-  const plugins = [devStampRestartPlugin(coreRoot), react(), viteTsconfigPaths(), svgr()];
+  const plugins = [devStampRestartPlugin(coreRoot), react(), viteTsconfigPaths(), svgr(), adHocReportRuntime()];
 
   const shouldUploadSentrySourceMaps =
     Boolean(env.SENTRY_AUTH_TOKEN) && Boolean(env.SENTRY_ORG) && Boolean(env.SENTRY_PROJECT);

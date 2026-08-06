@@ -39,8 +39,8 @@ export class ClaudeClient {
       anthropicApiKey,
       temperature: 0,
       clientOptions: {
-        timeout: 5000, // 5 seconds (in milliseconds)
-        maxRetries: 5, // Number of retries on failure
+        timeout: 5000,
+        maxRetries: 5,
       },
     });
   }
@@ -51,7 +51,6 @@ export class ClaudeClient {
 }
 
 let chatbot: ChatAnthropic;
-// let chatbotVertexAI: ChatVertexAI;
 
 export function getPrompt(patientInfoDetails: string, fields: string): string {
   return `I'll give you a transcript of a chat between a healthcare provider and a patient.
@@ -129,9 +128,9 @@ export const VERTEX_AI_MODEL = 'gemini-3.1-flash-lite';
 export async function invokeChatbotVertexAI(
   input: MessageContentComplex[],
   secrets: Secrets | null,
-  responseSchema?: object
+  responseSchema?: object,
+  model: string = VERTEX_AI_MODEL
 ): Promise<string> {
-  // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
@@ -160,7 +159,7 @@ export async function invokeChatbotVertexAI(
 
     try {
       const response = await fetch(
-        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${VERTEX_AI_MODEL}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/${model}:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
         {
           method: 'POST',
           headers: {
@@ -299,8 +298,8 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
       clientOptions: {
-        timeout: 10000, // 5 seconds (in milliseconds)
-        maxRetries: 1, // Number of retries on failure
+        timeout: 10000,
+        maxRetries: 1,
       },
     });
   }
