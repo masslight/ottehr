@@ -1,10 +1,6 @@
 import * as fs from 'fs';
-import {
-  createClinicalOystehrClient,
-  fhirApiUrlFromAuth0Audience,
-  getAuth0Token,
-  projectApiUrlFromAuth0Audience,
-} from '../packages/zambdas/src/shared';
+import { getAuth0Token } from '../packages/zambdas/src/shared/getAuth0Token';
+import { createClinicalOystehrClient, fhirApiUrlFromAuth0Audience, projectApiUrlFromAuth0Audience } from '../packages/zambdas/src/shared/helpers';
 
 async function main(): Promise<void> {
   const env = process.argv[2];
