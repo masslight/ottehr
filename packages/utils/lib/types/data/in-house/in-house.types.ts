@@ -2,8 +2,8 @@ import { ProcedureModifier } from 'candidhealth/api/index.js';
 import { Account, Coverage, Encounter, Location, Patient } from 'fhir/r4b';
 import { CPTCodeDTO, DiagnosisDTO } from '../../api/chart-data/chart-data.types';
 import { InHouseLabSetDTO, LabSetDTO } from '../labs/lab-set.schema';
-import { OBSERVATION_CODES, REFLEX_TEST_CONDITION_LANGUAGES } from './in-house.constants';
 import { Pagination } from '../pagination.types';
+import { OBSERVATION_CODES, REFLEX_TEST_CONDITION_LANGUAGES } from './in-house.constants';
 
 export const EntryMode = {
   Initial: 'initial',

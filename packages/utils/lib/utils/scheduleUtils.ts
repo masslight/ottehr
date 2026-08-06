@@ -33,17 +33,17 @@ import {
   TIMEZONE_EXTENSION_URL,
   WALKIN_APPOINTMENT_TYPE_CODE,
 } from '../fhir/constants';
+import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
+import { isAnnotationFollowupEncounter } from '../fhir/encounter';
 import { codingContainedInList, scheduleStrategyForHealthcareService } from '../fhir/helpers';
+import { isLocationVirtual, locationSupportsServiceMode } from '../fhir/location';
 import { getFullName } from '../fhir/patient';
 import { getPatchOperationForNewMetaTag } from '../fhir/resourcePatch';
-import { isAnnotationFollowupEncounter } from '../fhir/encounter';
-import { isLocationVirtual, locationSupportsServiceMode } from '../fhir/location';
 import { resolveServiceCategory } from '../fhir/serviceCategoryResolution';
-import { SERVICE_CATEGORY_SYSTEM } from '../fhir/constants';
 import { ServiceCategoryCode } from '../ottehr-config/booking';
-import { Closure, ClosureType, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode, Timezone } from '../types/common';
 import { CreateSlotParams } from '../types/api/prebook-create-appointment/prebook-create-appointment.types';
 import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { Closure, ClosureType, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode, Timezone } from '../types/common';
 import { TIMEZONES } from '../types/constants';
 import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
 import { getDateTimeFromDateAndTime } from './date';

@@ -13,18 +13,18 @@ import {
 import { DateTime } from 'luxon';
 import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG } from '../fhir/constants';
 import { isLocationVirtual } from '../fhir/location';
-import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../ottehr-config/intake-paperwork';
 import { ServiceCategoryCode } from '../ottehr-config/booking';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../ottehr-config/intake-paperwork';
 import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../ottehr-config/intake-paperwork-virtual';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
 } from '../types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { PersonSex, ServiceMode } from '../types/common';
 import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from '../types/constants';
 import { PatchPaperworkParameters, SubmitPaperworkParameters } from '../types/data/paperwork/paperwork.types';
 import { PatientInfo } from '../types/data/telemed/appointments/create-appointment.types';
-import { PersonSex, ServiceMode } from '../types/common';
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,

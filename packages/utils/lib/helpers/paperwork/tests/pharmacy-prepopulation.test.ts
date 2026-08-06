@@ -1,7 +1,7 @@
 import { Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { PHARMACY_COLLECTION_LINK_IDS } from '../../../types/data/search-places';
 import { PREFERRED_PHARMACY_MANUAL_ENTRY_URL, PREFERRED_PHARMACY_PLACES_ID_URL } from '../../../fhir/constants';
+import { PHARMACY_COLLECTION_LINK_IDS } from '../../../types/data/search-places';
 import { makePrepopulatedItemsFromPatientRecord } from '../prePopulation';
 
 const patient: Patient = {

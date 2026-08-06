@@ -1,7 +1,6 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
-import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
@@ -17,6 +16,7 @@ import {
   SERVICE_LINE_MATCH_TYPE,
   ServiceLineMatch,
 } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.helpers';
 import { claimHasRealCoverage } from '../shared';
 import {

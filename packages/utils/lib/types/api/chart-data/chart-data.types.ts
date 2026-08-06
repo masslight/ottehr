@@ -15,10 +15,10 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { ObservationDTO } from '../../data/screening-questions/types';
-import { RadiologyDTO } from '../radiology';
 import z from 'zod';
+import { ObservationDTO } from '../../data/screening-questions/types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
+import { RadiologyDTO } from '../radiology';
 import {
   AiObservationField,
   ASQ_FIELD,

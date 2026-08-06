@@ -1,12 +1,12 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle } from 'fhir/r4b';
-import { BillingTag } from 'utils/lib/types/data/billing/billing.types';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { BillingTag } from 'utils/lib/types/data/billing/billing.types';
 import { SYSTEM_MANAGED_TAGS } from 'utils/lib/types/data/billing/system-tags';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createBillingClient, isSystemTag, searchTagBasics, TAG_DESCRIPTION_URL } from '../shared';
 
 let m2mToken: string;

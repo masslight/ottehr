@@ -20,9 +20,11 @@ import {
 } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
+import { AnswerLoadingOptions } from '../../../../config-types/config/fhir';
+import { AnswerOptionSource } from '../../../../config-types/config/fhir';
 import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir/constants';
 import { getCanonicalQuestionnaire } from '../../fhir/questionnaires';
-import { AnswerLoadingOptions } from '../../../../config-types/config/fhir';
+import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwork.types';
 import {
   ConditionKeyObject,
   FormDisplayElementList,
@@ -36,8 +38,6 @@ import {
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
 } from '../../types/data/paperwork/paperwork.types';
-import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwork.types';
-import { AnswerOptionSource } from '../../../../config-types/config/fhir';
 import { prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork/prepareQuestionnaireItemsForHarvest';
 import { DOB_DATE_FORMAT } from '../../utils/date';
 

@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, HealthcareService, Location, Practitioner, PractitionerRole, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AvailableLocationInformation, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode } from '../types/common';
 import { ScheduleListItem } from '../types/api/schedules';
+import { AvailableLocationInformation, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode } from '../types/common';
 import { TIMEZONES } from '../types/constants';
 import { TelemedLocation } from '../types/data/telemed/get-telemed-locations.types';
 import { DOW, getScheduleExtension, getTimezone } from '../utils/scheduleUtils';

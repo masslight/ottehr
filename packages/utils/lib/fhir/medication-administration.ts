@@ -6,19 +6,6 @@ import {
   CODE_SYSTEM_NDC,
 } from '../helpers/rcm/constants';
 import {
-  AllergyInteraction,
-  DrugInteraction,
-  ExtendedMedicationDataForResponse,
-  MedicationApplianceLocation,
-  medicationApplianceLocations,
-  MedicationApplianceRoute,
-  medicationApplianceRoutes,
-  MedicationData,
-  MedicationInteractions,
-  MedicationOrderStatusesType,
-  UpdateMedicationOrderInput,
-} from '../types/api/medication-administration.types';
-import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   INTERACTIONS_UNAVAILABLE,
@@ -36,6 +23,19 @@ import {
   PRACTITIONER_ORDERED_MEDICATION_CODE,
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
 } from '../types/api/medication-administration.constants';
+import {
+  AllergyInteraction,
+  DrugInteraction,
+  ExtendedMedicationDataForResponse,
+  MedicationApplianceLocation,
+  medicationApplianceLocations,
+  MedicationApplianceRoute,
+  medicationApplianceRoutes,
+  MedicationData,
+  MedicationInteractions,
+  MedicationOrderStatusesType,
+  UpdateMedicationOrderInput,
+} from '../types/api/medication-administration.types';
 import { getCoding } from './helpers';
 
 // Local const so that DEPRECATED system doesn't get imported from utils

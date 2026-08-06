@@ -8,13 +8,13 @@ import {
 } from 'fhir/r4b';
 import { FHIR_EXTENSION } from '../fhir/constants';
 import { getFirstName, getLastName, getMiddleName } from '../fhir/patient';
-import { makeAnswer } from '../helpers/paperwork/prePopulation';
 import { pickFirstValueFromAnswerItem } from '../helpers/paperwork/paperwork';
+import { makeAnswer } from '../helpers/paperwork/prePopulation';
 import { BOOKING_CONFIG, type StrongCoding } from '../ottehr-config/booking';
-import { PATIENT_NO_EMAIL_URL } from '../types/constants';
-import { PatientInfo } from '../types/data/telemed/appointments/create-appointment.types';
 import { PersonSex } from '../types/common';
+import { PATIENT_NO_EMAIL_URL } from '../types/constants';
 import { flattenQuestionnaireAnswers } from '../types/data/paperwork/paperwork.types';
+import { PatientInfo } from '../types/data/telemed/appointments/create-appointment.types';
 
 // Questionnaire fields that distinguish between "not provided" (undefined) vs "cleared" ('')
 // Cleared fields trigger FHIR resource removal in harvest/update-visit-details zambdas

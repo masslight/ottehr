@@ -15,12 +15,12 @@ import {
   VitalsWeightObservationDTO,
 } from '../../types/api/chart-data/chart-data.types';
 import { formatDateTimeToZone } from '../../utils/date';
-import { VitalsVisitNoteData } from '../vitals/vitals-visit-note-data.types';
-import { celsiusToFahrenheit } from '../vitals/vitals-temperature.helper';
 import { formatBMIWithUnit } from '../vitals/vitals-bmi.helper';
 import { formatHeightObservationValue } from '../vitals/vitals-height.helper';
-import { formatWeightKg, formatWeightLbs } from '../vitals/vitals-weight.helper';
+import { celsiusToFahrenheit } from '../vitals/vitals-temperature.helper';
 import { getDotVisionScreeningLines, getVisionExtraOptionsFormattedString } from '../vitals/vitals-vision.helper';
+import { VitalsVisitNoteData } from '../vitals/vitals-visit-note-data.types';
+import { formatWeightKg, formatWeightLbs } from '../vitals/vitals-weight.helper';
 
 export const mapVitalsToDisplay = (
   vitalsObservations: VitalsObservationDTO[],

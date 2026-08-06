@@ -27,9 +27,10 @@ import {
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir/constants';
-import { LANGUAGE_OPTIONS, LanguageOption } from '../../fhir/patientMasterRecord';
 import { genderMap } from '../../fhir/helpers';
 import { getFirstName, getLastName, getMiddleName, getNameSuffix, getPronounsFromExtension } from '../../fhir/patient';
+import { LANGUAGE_OPTIONS, LanguageOption } from '../../fhir/patientMasterRecord';
+import { PatientAccountResponse } from '../../types/api/patient-account';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -43,7 +44,6 @@ import {
   RESPONSIBLE_PARTY_NO_EMAIL_URL,
 } from '../../types/constants';
 import { PHARMACY_COLLECTION_LINK_IDS } from '../../types/data/search-places';
-import { PatientAccountResponse } from '../../types/api/patient-account';
 import { isValidUUID } from '../../validation/helper';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
 

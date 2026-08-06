@@ -1,6 +1,6 @@
+import { AnswerOptionSource } from '../../../../../../config-types/config/fhir';
 import { VisitStatusLabel } from '../../../api/appointment.types';
 import { FileURLInfo, FileURLs } from '../../../common';
-import { AnswerOptionSource } from '../../../../../../config-types/config/fhir';
 import { PatientInfo } from './create-appointment.types';
 export interface CancelAppointmentRequestParams {
   appointmentID: string;

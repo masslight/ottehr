@@ -20,23 +20,23 @@ import {
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir/constants';
+import { allLicensesForPractitioner } from '../fhir/helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from '../fhir/insurance';
 import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
-import { allLicensesForPractitioner } from '../fhir/helpers';
 import { getFullName } from '../fhir/patient';
 import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import { CashPaymentDTO } from '../types/api/patient-payment-types';
-import { FhirAppointmentType } from '../types/common';
 import {
   PHYSICIAN_TYPES,
   PractitionerQualificationCode,
   PROVIDER_TYPE_VALUES,
   ProviderTypeCode,
 } from '../types/api/practitioner.types';
-import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
 import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { FhirAppointmentType } from '../types/common';
 import { appointmentTypeLabels, appointmentTypeMap } from '../types/data/appointments/appointments.types';
+import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
 import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation/regex';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {

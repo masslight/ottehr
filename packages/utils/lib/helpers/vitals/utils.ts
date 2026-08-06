@@ -8,8 +8,8 @@ import {
   VitalAlertCriticality,
   VitalFieldNames,
 } from '../../types/api/chart-data/chart-data.constants';
-import { GetVitalsResponseData } from '../../types/api/chart-data/get-vitals.types';
 import { VitalsObservationDTO } from '../../types/api/chart-data/chart-data.types';
+import { GetVitalsResponseData } from '../../types/api/chart-data/get-vitals.types';
 
 export const convertVitalsListToMap = (list: VitalsObservationDTO[]): GetVitalsResponseData => {
   const vitalsMap: Partial<GetVitalsResponseData> = {};

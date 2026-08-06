@@ -12,13 +12,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPatientFirstName, getPatientFriendlyId, getPatientLastName } from '../../fhir/patient';
-import {
-  CreateLabPaymentMethod,
-  ExternalLabsLabelConfig,
-  LabPaymentMethod,
-  LabsTableColumn,
-  LabType,
-} from '../../types/data/labs/labs.types';
+import { LabSetStatus } from '../../types/data/labs/lab-set.schema';
 import {
   DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
   DYMO_30334_LABEL_CONFIG,
@@ -40,8 +34,14 @@ import {
   OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
 } from '../../types/data/labs/labs.constants';
+import {
+  CreateLabPaymentMethod,
+  ExternalLabsLabelConfig,
+  LabPaymentMethod,
+  LabsTableColumn,
+  LabType,
+} from '../../types/data/labs/labs.types';
 import { EXTERNAL_LAB_ERROR } from '../../types/errors';
-import { LabSetStatus } from '../../types/data/labs/lab-set.schema';
 import { isInHouseLabServiceRequest } from '../in-house-labs';
 
 export const nameLabTest = (

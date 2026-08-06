@@ -8,20 +8,7 @@ import {
   ValueSet,
 } from 'fhir/r4b';
 import { evaluate } from 'fhirpath';
-import { CODE_SYSTEM_CPT, CODE_SYSTEM_CPT_MODIFIER, EXTENSION_URL_CPT_MODIFIER } from '../rcm/constants';
 import { CPTCodeDTO, DiagnosisDTO } from '../../types/api/chart-data/chart-data.types';
-import {
-  CodeableConceptDataEntryComponent,
-  DataEntryComponent,
-  DataEntryComponentType,
-  DataEntryTestItem,
-  LabComponentValueSetConfig,
-  ObservationCode,
-  QuantityDataEntryComponent,
-  StringDataEntryComponent,
-  TestComponentResult,
-  Validation,
-} from '../../types/data/in-house/in-house.types';
 import {
   IN_HOUSE_LAB_DISPLAY_TYPES,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
@@ -43,6 +30,19 @@ import {
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
 } from '../../types/data/in-house/in-house.constants';
+import {
+  CodeableConceptDataEntryComponent,
+  DataEntryComponent,
+  DataEntryComponentType,
+  DataEntryTestItem,
+  LabComponentValueSetConfig,
+  ObservationCode,
+  QuantityDataEntryComponent,
+  StringDataEntryComponent,
+  TestComponentResult,
+  Validation,
+} from '../../types/data/in-house/in-house.types';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_CPT_MODIFIER, EXTENSION_URL_CPT_MODIFIER } from '../rcm/constants';
 
 export const extractAbnormalValueSetValues = (
   obsDef: ObservationDefinition,

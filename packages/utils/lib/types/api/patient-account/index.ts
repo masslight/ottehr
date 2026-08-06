@@ -1,6 +1,6 @@
 import { Organization, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
-import { InsuranceCheckStatusWithDate } from '../../data/telemed/eligibility.types';
 import { PatientAccountAndCoverageResources } from '../../data/account';
+import { InsuranceCheckStatusWithDate } from '../../data/telemed/eligibility.types';
 
 export interface GetPatientAccountZambdaInput {
   patientId: string;

@@ -1,5 +1,5 @@
 import { CodeableConcept, Observation, ObservationComponent, Practitioner, Reference } from 'fhir/r4b';
-import { ObservationDTO } from '../types/data/screening-questions/types';
+import { getVitalObservationFhirComponentInterpretations } from '../helpers/vitals/utils';
 import {
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
@@ -25,8 +25,8 @@ import {
   VitalsWeightOption,
   VitalsWeightPatientRefusedDTO,
 } from '../types/api/chart-data/chart-data.types';
-import { getVitalObservationFhirComponentInterpretations } from '../helpers/vitals/utils';
 import { PATIENT_VITALS_META_SYSTEM } from '../types/api/chart-data/chart-data.types';
+import { ObservationDTO } from '../types/data/screening-questions/types';
 import { PRIVATE_EXTENSION_BASE_URL } from './constants';
 import { getFullName } from './patient';
 

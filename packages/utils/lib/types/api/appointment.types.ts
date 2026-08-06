@@ -1,7 +1,7 @@
 import { Appointment, Encounter, Period, Slot } from 'fhir/r4b';
 import { z } from 'zod';
-import { AvailableLocationInformation, ServiceMode } from '../common';
 import { SlotListItem } from '../../utils/scheduleUtils';
+import { AvailableLocationInformation, ServiceMode } from '../common';
 
 export const AppointmentTypeOptions = ['walk-in', 'pre-booked', 'post-telemed'] as const;
 export type AppointmentType = (typeof AppointmentTypeOptions)[number];

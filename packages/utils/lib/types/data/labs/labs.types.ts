@@ -12,12 +12,12 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { CPTCodeOption, LabelConfig } from '../../common';
 import { DiagnosisDTO } from '../../api/chart-data/chart-data.types';
-import { LAB_DR_TYPE_TAG } from './labs.constants';
+import { CPTCodeOption, LabelConfig } from '../../common';
 import { Pagination } from '../pagination.types';
 import { LabelPdf } from '../printing';
 import { ExternalLabSetDTO, LabSetDTO } from './lab-set.schema';
+import { LAB_DR_TYPE_TAG } from './labs.constants';
 
 // todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
