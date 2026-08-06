@@ -5,7 +5,7 @@
       "resource": {
         "resourceType": "ValueSet",
         "url": "https://fhir.ottehr.com/ValueSet/procedure-body-sites",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "name": "Procedures - Body site",
         "status": "active",
         "expansion": {
@@ -70,6 +70,36 @@
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
               "code": "neck",
               "display": "Neck"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "finger",
+              "display": "Finger"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "chest",
+              "display": "Chest"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "shoulder",
+              "display": "Shoulder"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "hip",
+              "display": "Hip"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "knee",
+              "display": "Knee"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "ankle",
+              "display": "Ankle"
             },
             {
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",

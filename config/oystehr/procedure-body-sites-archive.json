@@ -5,7 +5,7 @@
       "resource": {
         "resourceType": "ValueSet",
         "url": "https://fhir.ottehr.com/ValueSet/procedure-body-sites",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "name": "Procedures - Body site",
         "status": "active",
         "expansion": {
@@ -55,6 +55,21 @@
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
               "code": "eye",
               "display": "Eye"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "hand",
+              "display": "Hand"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "foot",
+              "display": "Foot"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+              "code": "neck",
+              "display": "Neck"
             },
             {
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",

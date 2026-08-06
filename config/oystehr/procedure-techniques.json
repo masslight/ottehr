@@ -5,7 +5,7 @@
       "resource": {
         "resourceType": "ValueSet",
         "url": "https://fhir.ottehr.com/ValueSet/procedure-techniques",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "name": "Procedures - Technique",
         "status": "active",
         "expansion": {
@@ -30,6 +30,91 @@
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
               "code": "field",
               "display": "Field"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "curette",
+              "display": "Curette"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "cerumen-loop",
+              "display": "Cerumen Loop"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "micro-suction",
+              "display": "Micro-suction"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "irrigation-lavage",
+              "display": "Irrigation / Lavage"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "slit-lamp",
+              "display": "Slit Lamp"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "forceps",
+              "display": "Forceps"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "splinter-forceps",
+              "display": "Splinter Forceps"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "blunt-dissection",
+              "display": "Blunt Dissection"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "probing",
+              "display": "Probing"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "short-arm-splint",
+              "display": "Short Arm Splint"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "long-arm-splint",
+              "display": "Long Arm Splint"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "short-leg-splint",
+              "display": "Short Leg Splint"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "long-leg-splint",
+              "display": "Long Leg Splint"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "sugar-tong-splint",
+              "display": "Sugar-Tong Splint"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "posterior-splint",
+              "display": "Posterior Splint"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "finger-splint",
+              "display": "Finger Splint"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+              "code": "strapping",
+              "display": "Strapping"
             }
           ]
         }
