@@ -272,8 +272,9 @@ export async function performEffect(
       accountCopy.id = existingBillingAccount.id;
       seenBillingAccountIds.add(existingBillingAccount.id!);
       if (billingCopyMatches(existingBillingAccount, accountCopy)) {
-        mainPatientCoverages.push(...billingResources.coverages);
-        mainPatientSubscribers.push(...billingResources.subscribers);
+        const accountCoverages = coveragesForAccount(existingBillingAccount, billingResources.coverages);
+        mainPatientCoverages.push(...accountCoverages);
+        mainPatientSubscribers.push(...subscribersForCoverages(accountCoverages, billingResources.subscribers));
         return existingBillingAccount;
       }
       // This leaks coverages, but we decided it is safe to do
@@ -686,6 +687,18 @@ export function copyAccount(account: Account, patientId: string, billingCoverage
   return copy;
 }
 
+export function coveragesForAccount(account: Account, coverages: Coverage[]): Coverage[] {
+  return coverages.filter((cov) =>
+    (account.coverage ?? []).some((acov) => acov.coverage.reference?.replace('Coverage/', '') === cov.id)
+  );
+}
+
+export function subscribersForCoverages(coverages: Coverage[], subscribers: RelatedPerson[]): RelatedPerson[] {
+  return subscribers.filter((sub) =>
+    coverages.some((cov) => cov.subscriber?.reference?.replace('RelatedPerson/', '') === sub.id)
+  );
+}
+
 export function copyCoverageAndSubscriberForAccount(
   billingOystehr: Oystehr,
   coverages: Coverage[],
@@ -696,15 +709,11 @@ export function copyCoverageAndSubscriberForAccount(
   const requests: CreateClaimFromEncounterRequests = [];
   const order: string[] = [];
   // Find full Coverage resources related to this Account
-  coverages
-    .filter((ccov) =>
-      (account.coverage ?? []).some((acov) => acov.coverage.reference?.replace('Coverage/', '') === ccov.id)
-    )
-    .forEach((ccov) => {
-      const [covRequests, covOrder] = copyCoverageAndSubscriber(billingOystehr, ccov, patientUuidOrUrn, payors);
-      requests.push(...covRequests);
-      order.push(...covOrder);
-    });
+  coveragesForAccount(account, coverages).forEach((ccov) => {
+    const [covRequests, covOrder] = copyCoverageAndSubscriber(billingOystehr, ccov, patientUuidOrUrn, payors);
+    requests.push(...covRequests);
+    order.push(...covOrder);
+  });
   return [requests, order];
 }
 

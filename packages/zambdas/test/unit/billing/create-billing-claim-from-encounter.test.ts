@@ -2122,6 +2122,173 @@ describe('create-billing-claim-from-encounter', () => {
         ],
       });
     });
+    it('copies each coverage once when the patient has more than one unchanged account', async () => {
+      const clinicalWorkersCompAccount: Account = {
+        resourceType: 'Account',
+        id: 'account-456',
+        status: 'active',
+        type: {
+          coding: [
+            {
+              system: ACCOUNT_TYPE_CODE_SYSTEM,
+              code: 'WCOMPACCT',
+            },
+          ],
+        },
+        coverage: [
+          {
+            coverage: {
+              reference: 'Coverage/coverage-456',
+            },
+            priority: 1,
+          },
+        ],
+        subject: [
+          {
+            reference: 'Patient/patient-123',
+          },
+        ],
+      };
+      const billingWorkersCompAccount: Account = {
+        resourceType: 'Account',
+        id: 'billing-account-456',
+        status: 'active',
+        type: {
+          coding: [
+            {
+              system: ACCOUNT_TYPE_CODE_SYSTEM,
+              code: 'WCOMPACCT',
+            },
+          ],
+        },
+        coverage: [
+          {
+            coverage: {
+              reference: 'Coverage/billing-coverage-456',
+            },
+            priority: 1,
+          },
+        ],
+        subject: [
+          {
+            reference: 'Patient/billing-patient-123',
+          },
+        ],
+        extension: [
+          {
+            url: SOURCE_IDENTIFIER_SYSTEM,
+            valueReference: {
+              reference: 'Account/account-456',
+            },
+          },
+        ],
+      };
+      const billingWorkersCompCoverage: Coverage = {
+        resourceType: 'Coverage',
+        id: 'billing-coverage-456',
+        payor: [
+          {
+            reference: 'https://rcm-api.zapehr.com/v1/payer/payer-123',
+          },
+        ],
+        status: 'active',
+        beneficiary: {
+          reference: 'Patient/billing-patient-123',
+        },
+        subscriber: {
+          reference: 'RelatedPerson/billing-related-person-456',
+        },
+        subscriberId: '456',
+        extension: [
+          {
+            url: SOURCE_IDENTIFIER_SYSTEM,
+            valueReference: {
+              reference: 'Coverage/coverage-456',
+            },
+          },
+        ],
+      };
+      const billingWorkersCompRelatedPerson: RelatedPerson = {
+        resourceType: 'RelatedPerson',
+        id: 'billing-related-person-456',
+        patient: {
+          reference: 'Patient/billing-patient-123',
+        },
+      };
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-wc-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-wc-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person-123' } },
+          { resource: { resourceType: 'Practitioner', id: 'claim-rendering-provider' } },
+          { resource: { resourceType: 'Organization', id: 'claim-billing-provider' } },
+          { resource: { resourceType: 'Location', id: 'claim-service-facility' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: {
+          transaction: txFn,
+          patch: vi.fn().mockResolvedValue({}),
+        },
+        rcm: {
+          constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
+        },
+      } as unknown as Oystehr;
+
+      await performEffect(
+        billingOystehr,
+        {
+          clinicalResources: {
+            accounts: [clinicalResources.account, clinicalWorkersCompAccount],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [...clinicalResources.conditions],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [billingResources.account, billingWorkersCompAccount],
+            billingProvider: billingResources.billingProvider,
+            coverages: [billingResources.coverage, billingWorkersCompCoverage],
+            mainPatient: billingResources.patient,
+            person: billingResources.person,
+            practitioners: [billingResources.practitioner],
+            renderingProvider: billingResources.practitioner,
+            serviceFacility: billingResources.location,
+            subscribers: [billingResources.relatedPerson, billingWorkersCompRelatedPerson],
+            billingService: billingResources.billingService,
+          },
+        },
+        TEST_PROVENANCE_AGENT
+      );
+
+      const requests = txFn.mock.calls[0][0].requests as CreateClaimFromEncounterRequests;
+      const coveragePosts = requests.filter(
+        (r): r is BatchInputPostRequest<Coverage> => r.method === 'POST' && r.url === '/Coverage'
+      );
+      expect(coveragePosts.map((r) => r.fullUrl)).toEqual([
+        'urn:uuid:claim-coverage-billing-coverage-123',
+        'urn:uuid:claim-coverage-billing-coverage-456',
+      ]);
+      const subscriberPosts = requests.filter(
+        (r): r is BatchInputPostRequest<RelatedPerson> => r.method === 'POST' && r.url === '/RelatedPerson'
+      );
+      expect(subscriberPosts.map((r) => r.fullUrl)).toEqual([
+        'urn:uuid:claim-coverage-rp-billing-coverage-123',
+        'urn:uuid:claim-coverage-rp-billing-coverage-456',
+      ]);
+      expect(requests.filter((r) => r.method === 'DELETE')).toHaveLength(0);
+    });
     it('creates claim with correct billing service', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
