@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import { InventoryRecord } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { DateTime } from 'luxon';
-import { getOptionalSecret, getSecret, MISSING_REQUEST_SECRETS, Secrets, SecretsKeys } from 'utils';
+import { MISSING_REQUEST_SECRETS } from '../types/errors';
+import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from '../secrets';
 
 export async function findClaimsBy(input: {
   candid: CandidApiClient;

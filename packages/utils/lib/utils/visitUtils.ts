@@ -1,12 +1,12 @@
 import { Appointment, Encounter, EncounterParticipant, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { InPersonAppointmentInformation } from '../types/data/appointments/appointments.types';
 import {
-  InPersonAppointmentInformation,
   SupervisorApprovalStatus,
   VisitStatusHistoryEntry,
   VisitStatusHistoryLabel,
   VisitStatusLabel,
-} from 'utils';
+} from '../types/api/appointment.types';
 import { FHIR_EXTENSION } from '../fhir/constants';
 
 export const NON_LOS_STATUSES: VisitStatusHistoryLabel[] = [

@@ -1,10 +1,13 @@
 import { CodeableConcept, Observation, ObservationComponent, Practitioner, Reference } from 'fhir/r4b';
+import { ObservationDTO } from '../types/data/screening-questions/types';
 import {
-  getVitalObservationFhirComponentInterpretations,
-  ObservationDTO,
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
+  VitalsOxygenSatObservationMethod,
+  VitalTemperatureObservationMethod,
+} from '../types/api/chart-data/chart-data.constants';
+import {
   VitalsBaseObservationDTO,
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
@@ -14,7 +17,6 @@ import {
   VitalsLastMenstrualPeriodObservationDTO,
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
-  VitalsOxygenSatObservationMethod,
   VitalsRespirationRateObservationDTO,
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
@@ -22,8 +24,8 @@ import {
   VitalsWeightObservationDTO,
   VitalsWeightOption,
   VitalsWeightPatientRefusedDTO,
-  VitalTemperatureObservationMethod,
-} from 'utils';
+} from '../types/api/chart-data/chart-data.types';
+import { getVitalObservationFhirComponentInterpretations } from '../helpers/vitals/utils';
 import { PATIENT_VITALS_META_SYSTEM } from '../types/api/chart-data/chart-data.types';
 import { PRIVATE_EXTENSION_BASE_URL } from './constants';
 import { getFullName } from './patient';

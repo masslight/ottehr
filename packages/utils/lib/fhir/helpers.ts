@@ -38,29 +38,20 @@ import {
   TaskInput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addOperation,
-  CODE_SYSTEM_COVERAGE_CLASS,
-  createPatientDocumentList,
-  docRefIsLabGeneratedResult,
-  docRefIsOgHl7Transmission,
-  findExistingListByDocumentTypeCode,
-  getMimeType,
-  getPatchOperationsForNewMetaTags,
-  getPatchOperationToRemoveMetaTags,
-  getPayerId,
-  getPayerUrl,
-  isValidUUID,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  PatientMasterRecordResourceType,
-  replaceOperation,
-  TASK_INPUT_TYPE_CODES,
-  TASK_INPUT_TYPE_SYSTEM,
-  TaskCoding,
-  TELEMED_VIDEO_ROOM_CODE,
-  User,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { CODE_SYSTEM_COVERAGE_CLASS } from '../helpers/rcm/constants';
+import { LAB_RESULT_DOC_REF_CODING_CODE } from '../types/data/labs/labs.constants';
+import { PatientMasterRecordResourceType } from './patientMasterRecord';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskCoding } from '../types/common';
+import { TELEMED_VIDEO_ROOM_CODE } from '../types/constants';
+import { User } from '../types/api/user.types';
+import { VisitStatusWithoutUnknown } from '../types/api/appointment.types';
+import { addOperation, replaceOperation } from '../helpers/operations';
+import { createPatientDocumentList, findExistingListByDocumentTypeCode } from './list';
+import { docRefIsLabGeneratedResult, docRefIsOgHl7Transmission } from '../helpers/labs/helpers';
+import { getMimeType } from '../utils/file';
+import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from './resourcePatch';
+import { getPayerId, getPayerUrl } from '../helpers/helpers';
+import { isValidUUID } from '../validation/helper';
 import { PROJECT_WEBSITE } from '../ottehr-config/branding';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,

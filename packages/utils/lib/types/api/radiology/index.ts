@@ -1,4 +1,8 @@
-import { CPTCodeDTO, isValidUUID, LateralityValue, Pagination, Task } from 'utils';
+import { CPTCodeDTO } from '../chart-data/chart-data.types';
+import { LateralityValue } from '../../../fhir/radiology';
+import { Pagination } from '../../data/pagination.types';
+import { Task } from '../../data/tasks/types';
+import { isValidUUID } from '../../../validation/helper';
 import { z } from 'zod';
 
 /** Patient-safety flags surfaced on an external radiology order. Form-only — never derived from chart data. */

@@ -20,23 +20,26 @@ vi.mock('candidhealth', () => {
   return { CandidApiClient, CandidApiEnvironment };
 });
 
-// candidApi.ts imports getOptionalSecret/getSecret from the 'utils' package entrypoint, so the
-// mock target stays 'utils' even though this test now lives inside the utils package.
-vi.mock('utils', () => {
-  return {
-    getOptionalSecret: vi.fn().mockReturnValue('configured'),
-    getSecret: vi.fn().mockReturnValue('test-value'),
-    MISSING_REQUEST_SECRETS: {
-      code: 4204,
-      message: 'The request was missing secrets required to process it',
-    },
-    SecretsKeys: {
-      CANDID_CLIENT_ID: 'CANDID_CLIENT_ID',
-      CANDID_CLIENT_SECRET: 'CANDID_CLIENT_SECRET',
-      CANDID_ENV: 'CANDID_ENV',
-    },
-  };
-});
+// candidApi.ts imports these from their declaring modules rather than the package barrel, so the
+// mocks target those modules directly. Mocking 'utils' here would no longer intercept anything.
+vi.mock('../secrets', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getOptionalSecret: vi.fn().mockReturnValue('configured'),
+  getSecret: vi.fn().mockReturnValue('test-value'),
+  SecretsKeys: {
+    CANDID_CLIENT_ID: 'CANDID_CLIENT_ID',
+    CANDID_CLIENT_SECRET: 'CANDID_CLIENT_SECRET',
+    CANDID_ENV: 'CANDID_ENV',
+  },
+}));
+
+vi.mock('../types/errors', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  MISSING_REQUEST_SECRETS: {
+    code: 4204,
+    message: 'The request was missing secrets required to process it',
+  },
+}));
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -239,11 +242,12 @@ describe('getOrCreateCandidApiClient — error tolerance', () => {
 
 describe('getOrCreateCandidApiClient', () => {
   it('throws when any CANDID_* secret is missing', async () => {
-    const utils = await import('utils');
-    vi.mocked(utils.getOptionalSecret).mockReturnValueOnce(undefined);
+    const { getOptionalSecret } = await import('../secrets');
+    const { MISSING_REQUEST_SECRETS } = await import('../types/errors');
+    vi.mocked(getOptionalSecret).mockReturnValueOnce(undefined);
 
     const oystehr = makeMockOystehr();
-    await expect(getOrCreateCandidApiClient(oystehr as any, {} as any)).rejects.toBe(utils.MISSING_REQUEST_SECRETS);
+    await expect(getOrCreateCandidApiClient(oystehr as any, {} as any)).rejects.toBe(MISSING_REQUEST_SECRETS);
   });
 
   it('builds the client when all CANDID_* secrets are configured', async () => {

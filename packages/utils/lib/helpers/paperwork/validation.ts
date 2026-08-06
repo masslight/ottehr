@@ -6,20 +6,14 @@ import {
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { DATE_ERROR_MESSAGE, REQUIRED_FIELD_ERROR_MESSAGE } from '../../validation/constants';
+import { DOB_DATE_FORMAT } from '../../utils/date';
 import {
-  DATE_ERROR_MESSAGE,
-  DOB_DATE_FORMAT,
-  emailRegex,
-  emojiRegex,
   IntakeQuestionnaireItem,
-  isoDateRegex,
-  phoneRegex,
-  pickFirstValueFromAnswerItem,
   QuestionnaireItemConditionDefinition,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-  ssnRegex,
-  zipRegex,
-} from 'utils';
+} from '../../types/data/paperwork/paperwork.types';
+import { emailRegex, emojiRegex, isoDateRegex, phoneRegex, ssnRegex, zipRegex } from '../../validation/regex';
+import { pickFirstValueFromAnswerItem } from './paperwork';
 import * as Yup from 'yup';
 
 interface ValidatableQuestionnaireItem extends IntakeQuestionnaireItem {

@@ -15,7 +15,8 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { ObservationDTO, RadiologyDTO } from 'utils';
+import { ObservationDTO } from '../../data/screening-questions/types';
+import { RadiologyDTO } from '../radiology';
 import z from 'zod';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import {
