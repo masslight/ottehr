@@ -58,8 +58,3 @@ export function rulesEngineForTaskCode(taskCode: string | undefined): RulesEngin
     (engine) => RULES_ENGINE_FHIR[engine].taskCode === taskCode
   );
 }
-
-// Description on the seeded Hold system-tag definition (the tag name itself, HOLD_TAG_NAME, lives in
-// utils because the rule schemas canonicalize against it and the rule-builder UI displays it).
-export const HOLD_TAG_DESCRIPTION =
-  'Claim was placed on hold either by a user or by a rule and requires review before it can proceed.';
