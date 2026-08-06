@@ -1,13 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { collidingSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
-import { ZambdaInput } from '../../shared/types/common';
 import { createBillingClient, fetchById, isSystemTag, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
 import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -24,8 +25,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-// When updating, load the tag being edited and confirm it exists. No-op for create.
-async function complexValidation(oystehr: Oystehr, params: SaveBillingTagParams): Promise<Basic | undefined> {
+// System-managed tag names are reserved (case-insensitively, so a "hold" can't masquerade as
+// Hold): a tag can neither be created with one nor renamed onto one. When updating, additionally
+// load the tag being edited and confirm it exists and isn't itself system-managed.
+export async function complexValidation(oystehr: Oystehr, params: SaveBillingTagParams): Promise<Basic | undefined> {
+  const collision = collidingSystemManagedTagName(params.name);
+  if (collision) {
+    throw INVALID_INPUT_ERROR(`"${collision}" is a system-managed tag name — pick a different name`);
+  }
   if (!params.tagId) return undefined;
   const tag = await fetchById<Basic>(oystehr, 'Basic', params.tagId);
   if (isSystemTag(tag)) {

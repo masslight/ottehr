@@ -3,6 +3,7 @@ import {
   Account,
   Appointment,
   Basic,
+  Claim,
   Condition,
   Coverage,
   Encounter,
@@ -14,7 +15,6 @@ import {
   Procedure,
   RelatedPerson,
 } from 'fhir/r4b';
-import { getDefaultClaimSubmissionExtensions } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_RESOURCE_TAG,
@@ -24,9 +24,17 @@ import {
   PARTICIPATION_CODE_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { PaymentVariant } from 'utils/lib/fhir/encounter';
+import {
+  APIError,
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+} from 'utils/lib/types/errors';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { AUTO_ACCIDENT_SYSTEM_TAG, AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
@@ -41,15 +49,9 @@ import {
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
-import {
-  APIError,
-  FHIR_RESOURCE_NOT_FOUND,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-} from 'utils/lib/types/errors';
+import { PaymentVariant } from 'utils/lib/fhir/encounter';
+import { getDefaultClaimSubmissionExtensions } from 'utils/lib/fhir/billing';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Mock, vi } from 'vitest';
 import {
   complexValidation,
@@ -62,16 +64,12 @@ import {
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 import { validateRequestParameters } from '../../../src/billing/create-billing-claim-from-encounter/validateRequestParameters';
 import {
-  AUTO_ACCIDENT_TAG_DESCRIPTION,
-  AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
   CURRENT_STATUS_TAG_SYSTEM,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
-  TAG_CODE_SYSTEM,
-  TAG_DESCRIPTION_URL,
-  TAG_IS_SYSTEM_TAG_URL,
+  systemTagBasic,
 } from '../../../src/billing/shared';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
@@ -286,7 +284,6 @@ const billingResources: {
   location: Location;
   practitioner: Practitioner;
   billingProvider: Organization;
-  autoAccidentTag: Basic;
   billingService: Basic;
 } = {
   person: {
@@ -359,14 +356,6 @@ const billingResources: {
   billingProvider: {
     resourceType: 'Organization',
     id: 'billing-organization-123',
-  },
-  autoAccidentTag: {
-    resourceType: 'Basic',
-    code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-    extension: [
-      { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
-      { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-    ],
   },
   billingService: {
     resourceType: 'Basic',
@@ -753,7 +742,6 @@ describe('create-billing-claim-from-encounter', () => {
             renderingProvider: undefined,
             serviceFacility: undefined,
             subscribers: [],
-            autoAccidentTag: undefined,
             billingService: undefined,
           },
         },
@@ -849,7 +837,6 @@ describe('create-billing-claim-from-encounter', () => {
             renderingProvider: undefined,
             serviceFacility: undefined,
             subscribers: [],
-            autoAccidentTag: undefined,
             billingService: undefined,
           },
         },
@@ -933,7 +920,6 @@ describe('create-billing-claim-from-encounter', () => {
             renderingProvider: undefined,
             serviceFacility: undefined,
             subscribers: [],
-            autoAccidentTag: undefined,
             billingService: undefined,
           },
         },
@@ -1009,7 +995,6 @@ describe('create-billing-claim-from-encounter', () => {
             renderingProvider: undefined,
             serviceFacility: undefined,
             subscribers: [],
-            autoAccidentTag: undefined,
             billingService: undefined,
           },
         },
@@ -1059,10 +1044,6 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [billingResources.billingProvider],
           })
           .mockResolvedValueOnce({
-            // Auto accident tag
-            unbundle: () => [billingResources.autoAccidentTag],
-          })
-          .mockResolvedValueOnce({
             // Billing service
             unbundle: () => [billingResources.billingService],
           }),
@@ -1092,7 +1073,6 @@ describe('create-billing-claim-from-encounter', () => {
             renderingProvider: billingResources.practitioner,
             serviceFacility: billingResources.location,
             subscribers: [billingResources.relatedPerson],
-            autoAccidentTag: billingResources.autoAccidentTag,
             billingService: billingResources.billingService,
           },
         },
@@ -2463,7 +2443,7 @@ describe('create-billing-claim-from-encounter', () => {
         ]),
       });
     });
-    it('creates claim with auto accident tag, creating the tag along the way', async () => {
+    it('creates claim with auto accident tag, seeding the tag definition along the way', async () => {
       const txFn = vi.fn().mockResolvedValue({
         entry: [
           { resource: { resourceType: 'Patient', id: 'billing-patient' } },
@@ -2474,14 +2454,16 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
           { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
           { resource: { resourceType: 'Person', id: 'billing-person' } },
-          { resource: { resourceType: 'Basic', id: 'auto-accident-tag' } },
           { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
           { resource: { resourceType: 'Claim', id: 'claim' } },
           { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
+      // ensureSystemManagedTags: no tag definitions exist yet, so the missing ones get created.
+      const searchFn = vi.fn().mockResolvedValue({ unbundle: () => [] });
+      const createFn = vi.fn().mockImplementation(async (resource: Basic) => resource);
       const billingOystehr = {
-        fhir: { transaction: txFn },
+        fhir: { transaction: txFn, search: searchFn, create: createFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
       } as unknown as Oystehr;
       const cvo: ComplexValidationOutput = {
@@ -2515,6 +2497,7 @@ describe('create-billing-claim-from-encounter', () => {
       };
       const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
       expect(result.claimId).toEqual('claim');
+      expect(createFn).toHaveBeenCalledWith(systemTagBasic(AUTO_ACCIDENT_SYSTEM_TAG));
       expect(txFn).toHaveBeenCalledWith({
         requests: expect.arrayContaining([
           {
@@ -2598,6 +2581,69 @@ describe('create-billing-claim-from-encounter', () => {
             },
           },
         ]),
+      });
+    });
+    it('still creates the auto accident claim when seeding the tag definition fails', async () => {
+      const txFn = vi.fn().mockResolvedValue({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'billing-patient' } },
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'billing-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'billing-coverage' } },
+          { resource: { resourceType: 'Account', id: 'billing-account' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person' } },
+          { resource: { resourceType: 'Basic', id: 'billing-service-basic' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const billingOystehr = {
+        fhir: {
+          transaction: txFn,
+          search: vi.fn().mockRejectedValue(new Error('FHIR is down')),
+          create: vi.fn(),
+        },
+        rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
+      } as unknown as Oystehr;
+      const cvo: ComplexValidationOutput = {
+        clinicalResources: {
+          accounts: [clinicalResources.account],
+          appointment: {
+            ...clinicalResources.appointment,
+            description: 'Auto accident',
+          },
+          billingProvider: clinicalResources.billingProvider,
+          coverages: [clinicalResources.coverage],
+          diagnoses: [...clinicalResources.conditions],
+          encounter: clinicalResources.encounter,
+          location: clinicalResources.location,
+          patient: clinicalResources.patient,
+          payors: [oystehrResources.payor],
+          practitioners: [clinicalResources.practitioner],
+          procedures: [clinicalResources.procedure],
+        },
+        billingResources: {
+          accounts: [],
+          billingProvider: undefined,
+          coverages: [],
+          mainPatient: undefined,
+          person: undefined,
+          practitioners: [],
+          renderingProvider: undefined,
+          serviceFacility: undefined,
+          subscribers: [],
+        },
+      };
+      const result = await performEffect(billingOystehr, cvo, TEST_PROVENANCE_AGENT);
+      expect(result.claimId).toEqual('claim');
+      const claimRequest = txFn.mock.calls[0][0].requests.find(
+        (r: { url: string }) => r.url === '/Claim'
+      ) as BatchInputPostRequest<Claim>;
+      expect(claimRequest.resource.meta?.tag).toContainEqual({
+        system: CLAIM_TAG_SYSTEM,
+        code: AUTO_ACCIDENT_TAG_NAME,
       });
     });
     it('swaps Oystehr-invalid HCPCS system URL for HL7 system URL', async () => {

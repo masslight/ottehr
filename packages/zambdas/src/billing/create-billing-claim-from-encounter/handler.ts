@@ -32,8 +32,6 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
-import { getDefaultClaimSubmissionExtensions, setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_RESOURCE_TAG,
@@ -42,12 +40,13 @@ import {
   PARTICIPATION_CODE_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
-import { getCoding } from 'utils/lib/fhir/helpers';
-import { getNPIIdentifier } from 'utils/lib/fhir/patient';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
-import { InternalError } from 'utils/lib/helpers/oystehrApi';
+import {
+  AR_STAGE,
+  claimStatusValuesToTags,
+  withArStageInitialization,
+} from 'utils/lib/types/data/billing/claim-status';
+import { AUTO_ACCIDENT_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
@@ -60,32 +59,33 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { TIMEZONES } from 'utils/lib/types/constants';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import {
-  AR_STAGE,
-  claimStatusValuesToTags,
-  withArStageInitialization,
-} from 'utils/lib/types/data/billing/claim-status';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { InternalError } from 'utils/lib/helpers/oystehrApi';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getDefaultClaimSubmissionExtensions, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { chartDataResourceHasMetaTagByCode } from '../../shared/chart-data';
-import { sendErrors } from '../../shared/errors';
-import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { ZambdaInput } from '../../shared/types/common';
+import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
+import { chartDataResourceHasMetaTagByCode } from '../../shared/chart-data';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { sendErrors } from '../../shared/errors';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
-  AUTO_ACCIDENT_TAG_DESCRIPTION,
-  AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   BillingFhirResource,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
   ensureClaimInsurance,
+  ensureSystemManagedTags,
   findRef,
   getClaimTypeCoding,
   kickOffRulesEngine,
@@ -98,9 +98,6 @@ import {
   resourceDisplayName,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
-  TAG_CODE_SYSTEM,
-  TAG_DESCRIPTION_URL,
-  TAG_IS_SYSTEM_TAG_URL,
 } from '../shared';
 import { CreateClaimFromEncounterParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -135,7 +132,6 @@ interface BillingResources {
   renderingProvider?: Practitioner;
   serviceFacility?: Location;
   billingProvider?: Organization;
-  autoAccidentTag?: Basic;
   billingService?: Basic;
 }
 
@@ -435,21 +431,11 @@ export async function performEffect(
 
   const billingTags = [];
   if (clinicalResources.appointment.description?.toLowerCase() === 'auto accident') {
-    billingTags.push('auto-accident');
-    if (!billingResources.autoAccidentTag) {
-      requests.push({
-        method: 'POST',
-        url: '/Basic',
-        resource: {
-          resourceType: 'Basic',
-          code: { text: AUTO_ACCIDENT_TAG_NAME, coding: [{ system: TAG_CODE_SYSTEM, code: 'tag' }] },
-          extension: [
-            { url: TAG_DESCRIPTION_URL, valueString: AUTO_ACCIDENT_TAG_DESCRIPTION },
-            { url: TAG_IS_SYSTEM_TAG_URL, valueBoolean: true },
-          ],
-        },
-      });
-      order.push('auto-accident-tag');
+    billingTags.push(AUTO_ACCIDENT_TAG_NAME);
+    try {
+      await ensureSystemManagedTags(billingOystehr);
+    } catch (error) {
+      console.error('Failed to ensure system-managed tags exist:', error);
     }
   }
 
@@ -1080,15 +1066,6 @@ async function findExistingBillingResources(
   ).unbundle();
   const matchingBillingProvider = billingProviderSearch.length > 0 ? billingProviderSearch[0] : undefined;
 
-  // Look for the auto-accident tag
-  const tagSearch = (
-    await billingOystehr.fhir.search<Basic>({
-      resourceType: 'Basic',
-      params: [{ name: 'code', value: `${TAG_CODE_SYSTEM}|tag` }],
-    })
-  ).unbundle();
-  const autoAccidentTag = tagSearch.find((tag) => tag.code.text === AUTO_ACCIDENT_TAG_NAME);
-
   // Look for the "billing service" (urgent-care, workers-comp, etc) matching the appointment's serviceCategory
   let billingService: Basic | undefined;
   const appointmentService = getService(clinicalResources.appointment);
@@ -1114,7 +1091,6 @@ async function findExistingBillingResources(
     renderingProvider: renderingProvider,
     serviceFacility: matchingServiceFacility,
     billingProvider: matchingBillingProvider,
-    autoAccidentTag,
     billingService,
   };
 }

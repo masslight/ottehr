@@ -1,7 +1,7 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
-import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,

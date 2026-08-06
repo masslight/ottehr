@@ -19,7 +19,8 @@ import {
 } from 'utils/lib/fhir/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { HOLD_TAG_NAME, RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
+import { RULES_ENGINES, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   collectSetResourceRefs,
   ruleUsesChargeMasterPrices,

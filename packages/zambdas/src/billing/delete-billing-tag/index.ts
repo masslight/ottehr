@@ -21,7 +21,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
-async function performEffect(oystehr: Oystehr, params: DeleteBillingTagParams): Promise<{ deleted: true }> {
+export async function performEffect(oystehr: Oystehr, params: DeleteBillingTagParams): Promise<{ deleted: true }> {
   const tagBundle = await oystehr.fhir.search<Basic>({
     resourceType: 'Basic',
     params: [

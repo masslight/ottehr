@@ -12,7 +12,7 @@ import {
   claimStatusValuesToTags,
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
-import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RulesEngineClaimModel, writeField } from '../../../src/billing/rules-engine/claim-model';

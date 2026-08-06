@@ -45,7 +45,7 @@ import {
   formatClaimStatusValue,
   getClaimStatusValues,
 } from 'utils/lib/types/data/billing/claim-status';
-import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
