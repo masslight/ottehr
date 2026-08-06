@@ -64,7 +64,6 @@ import {
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
-  clinicalPatientIdentifier,
   CURRENT_STATUS_TAG_SYSTEM,
   EXCLUDE_WORKING_COPIES_PARAMS,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
@@ -307,7 +306,6 @@ const billingResources: {
   patient: {
     resourceType: 'Patient',
     id: 'billing-patient-123',
-    identifier: [clinicalPatientIdentifier('patient-123')],
     extension: [
       { url: 'https://fhir.ottehr.com/billing/source-resource', valueReference: { reference: 'Patient/patient-123' } },
     ],
@@ -1056,11 +1054,9 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            // Main billing patient, by the identifier copyPatient stamps on it
             unbundle: () => [billingResources.patient],
           })
           .mockResolvedValueOnce({
-            // Person linking the main patient, with its accounts rev-included
             unbundle: () => [billingResources.person, billingResources.patient, billingResources.account],
           })
           .mockResolvedValueOnce({
@@ -1133,17 +1129,10 @@ describe('create-billing-claim-from-encounter', () => {
       if (tc.expectedError) await expectPromise.rejects.toThrow(expect.objectContaining(tc.expectedError));
       else {
         await expectPromise.resolves.toStrictEqual(tc.expectedResult);
-        // The lookup must search the same identifier copyPatient stamps on the main billing patient
         expect(tc.billingOystehrSearch).toHaveBeenCalledWith(
           expect.objectContaining({
             resourceType: 'Patient',
-            params: expect.arrayContaining([
-              {
-                name: 'identifier',
-                value: `${SOURCE_IDENTIFIER_SYSTEM}|patient-123`,
-              },
-              ...EXCLUDE_WORKING_COPIES_PARAMS,
-            ]),
+            params: expect.arrayContaining([...EXCLUDE_WORKING_COPIES_PARAMS]),
           })
         );
       }
@@ -2078,8 +2067,6 @@ describe('create-billing-claim-from-encounter', () => {
       expect(requests.filter((r) => r.method === 'POST' && r.url === '/Person')).toHaveLength(0);
       expect(requests.filter((r) => r.method === 'POST' && r.url === '/Account')).toHaveLength(0);
 
-      // Nothing about the patient or their coverage changed, so the shared originals are not
-      // rewritten either. Comparing meta made these look changed on every single visit.
       expect(requests.filter((r) => r.method === 'PUT' && r.url.startsWith('/Patient/'))).toHaveLength(0);
       expect(requests.filter((r) => r.method === 'PUT' && r.url.startsWith('/Account/'))).toHaveLength(0);
       const coverageCopyPosts = requests.filter(
@@ -2089,7 +2076,6 @@ describe('create-billing-claim-from-encounter', () => {
       expect(coverageCopyPosts).toHaveLength(2);
       coverageCopyPosts.forEach((r) => expect(r.resource.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG));
 
-      // The only patient created is the per-claim working copy; the main billing patient is reused.
       const patientPosts = requests.filter(
         (r): r is BatchInputPostRequest<Patient> => r.method === 'POST' && r.url === '/Patient'
       );
@@ -2098,22 +2084,26 @@ describe('create-billing-claim-from-encounter', () => {
 
       const personUpdate = requests.find((r) => r.url === `/Person/${billingResources.person.id}`);
       expect(personUpdate).toMatchObject({
-        method: 'PUT',
+        method: 'PATCH',
         ifMatch: 'W/"3"',
-        resource: {
-          link: [
-            {
-              target: {
-                reference: 'Patient/billing-patient-123',
+        operations: [
+          {
+            op: 'replace',
+            path: '/link',
+            value: [
+              {
+                target: {
+                  reference: 'Patient/billing-patient-123',
+                },
               },
-            },
-            {
-              target: {
-                reference: 'urn:uuid:claim-patient',
+              {
+                target: {
+                  reference: 'urn:uuid:claim-patient',
+                },
               },
-            },
-          ],
-        },
+            ],
+          },
+        ],
       });
     });
     it('creates claim with correct billing service', async () => {
@@ -3088,7 +3078,6 @@ describe('create-billing-claim-from-encounter', () => {
             fullUrl: 'urn:uuid:main-patient',
             resource: {
               resourceType: 'Patient',
-              identifier: [clinicalPatientIdentifier('patient-123')],
               extension: [
                 { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Patient/patient-123' } },
                 { url: SOURCE_FRIENDLY_PATIENT_ID_EXTENSION, valueString: '123456' },

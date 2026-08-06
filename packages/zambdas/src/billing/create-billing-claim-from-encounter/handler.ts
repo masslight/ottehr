@@ -85,7 +85,6 @@ import {
   AUTO_ACCIDENT_TAG_NAME,
   billingCopyMatches,
   BillingFhirResource,
-  clinicalPatientIdentifier,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -101,6 +100,7 @@ import {
   PROVIDER_ROLE_TAG,
   reconcilePaymentNoticesForClaim,
   resourceDisplayName,
+  searchOnClinicalIDs,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
   SOURCE_IDENTIFIER_SYSTEM,
   TAG_CODE_SYSTEM,
@@ -330,12 +330,15 @@ export async function performEffect(
   // Create or update billing person that links patients
   if (billingResources.person) {
     requests.push({
-      method: 'PUT',
+      method: 'PATCH',
       url: `/Person/${billingResources.person.id!}`,
-      resource: {
-        ...billingResources.person,
-        link: [...(billingResources.person.link ?? []), { target: uuidOrUrnReference('Patient', claimPatient.id) }],
-      },
+      operations: [
+        {
+          op: 'replace',
+          path: '/link',
+          value: [...(billingResources.person.link ?? []), { target: uuidOrUrnReference('Patient', claimPatient.id) }],
+        },
+      ],
       ifMatch: `W/"${billingResources.person.meta?.versionId}"`,
     });
   } else {
@@ -634,9 +637,6 @@ function copyPatient(patient: Patient, workingCopy?: boolean): Patient {
   const copy = workingCopy
     ? prepareWorkingCopy<Patient>(patient, patient.id!)
     : prepareCopy<Patient>(patient, patient.id!);
-  if (!workingCopy) {
-    copy.identifier = [clinicalPatientIdentifier(patient.id!)];
-  }
   let friendlyId = patient.identifier?.find((id) => id.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE))?.value;
   friendlyId ??= patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
   if (friendlyId) {
@@ -940,26 +940,20 @@ async function findExistingBillingResources(
   secrets: Secrets
 ): Promise<BillingResources> {
   // Main patient is the patient of record on billing app side that we stamp out per-claim copies from
-  const mainPatientIdentifier = clinicalPatientIdentifier(clinicalResources.patient.id!);
-  const existingMainPatients = (
-    await billingOystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        {
-          name: 'identifier',
-          value: `${mainPatientIdentifier.system}|${mainPatientIdentifier.value}`,
-        },
-        ...EXCLUDE_WORKING_COPIES_PARAMS,
-      ],
-    })
-  ).unbundle();
-  if (existingMainPatients.length > 1) {
+  const mainPatientSearch = await searchOnClinicalIDs(
+    billingOystehr,
+    [{ name: '_sort', value: '-_lastUpdated' }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    0,
+    1,
+    clinicalResources.patient.id
+  );
+  if (mainPatientSearch.total > 1) {
     await sendErrors(
       new Error(`More than one main billing patient for Patient/${clinicalResources.patient.id}`),
       getSecret(SecretsKeys.ENVIRONMENT, secrets)
     );
   }
-  const existingMainPatient = existingMainPatients.length ? existingMainPatients[0] : undefined;
+  const existingMainPatient = mainPatientSearch.results[0];
 
   let existingPerson: Person | undefined;
   let existingAccounts: Account[] = [];

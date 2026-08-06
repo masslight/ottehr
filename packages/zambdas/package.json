@@ -35,7 +35,6 @@
     "create-non-insurance-payers": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/create-non-insurance-payers.ts",
     "create-non-insurance-payer-resources": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/create-non-insurance-payer-resources.ts",
     "import-employers": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/import-employers.ts",
-    "backfill-billing-patient-identifiers": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/backfill-billing-patient-identifiers.ts",
     "fix-duplicate-payers": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/fix-duplicate-payers.ts",
     "fix-payer-ids-in-orgs": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/fix-payer-ids-in-orgs.ts",
     "update-insurances-and-payer-orgs": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/update-insurances-and-payer-orgs.ts",

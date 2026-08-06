@@ -1,5 +1,5 @@
 import { deepStrictEqual } from 'node:assert';
-import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, OystehrConfig, SearchParam } from '@oystehr/sdk';
 import {
   Account,
   Address,
@@ -84,7 +84,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { sendErrors } from '../shared';
+import { fetchAllPages, sendErrors } from '../shared';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';
 
@@ -226,6 +226,8 @@ export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing
 export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
 
+const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
+
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
   'https://extensions.fhir.ottehr.com/billing/source-friendly-patient-id';
@@ -242,17 +244,50 @@ export function isEraProcessingProvenance(provenance: Pick<Provenance, 'activity
   return provenance.activity?.coding?.some((coding) => coding.code === ERA_PROCESSING_ACTIVITY_CODE) ?? false;
 }
 
-export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier {
-  return {
-    system: SOURCE_IDENTIFIER_SYSTEM,
-    value: clinicalPatientId,
-  };
-}
-
 export function clinicalPatientIdOfCopy(patient: Patient): string | undefined {
   return patient.extension
     ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
     ?.valueReference?.reference?.replace('Patient/', '');
+}
+
+export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
+  return patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+}
+
+export async function searchOnClinicalIDs(
+  oystehr: Oystehr,
+  baseSearchParams: SearchParam[],
+  baseOffset: number,
+  basePageSize: number,
+  uuid?: string,
+  friendlyId?: string
+): Promise<{ total: number; results: Patient[] }> {
+  let results: Patient[] = [];
+  await fetchAllPages(async (offset, count) => {
+    const response = oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        ...baseSearchParams,
+        {
+          name: '_count',
+          value: String(count),
+        },
+        {
+          name: '_offset',
+          value: String(offset),
+        },
+      ],
+    });
+    results.push(...(await response).unbundle());
+    return response;
+  }, CLINICAL_ID_SCAN_PAGE_SIZE);
+  // Filter by clinical patient MRN
+  if (uuid) results = results.filter((p) => clinicalPatientIdOfCopy(p) === uuid);
+  // Filter by clinical patient friendly ID
+  if (friendlyId) results = results.filter((p) => clinicalFriendlyIdOfCopy(p) === friendlyId);
+  const total = results.length;
+  results = results.slice(baseOffset, baseOffset + basePageSize);
+  return { total, results };
 }
 
 export function billingCopyMatches<T extends Resource>(stored: T, copy: T): boolean {

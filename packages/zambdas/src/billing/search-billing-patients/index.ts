@@ -1,21 +1,21 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { BillingPatientOption } from 'utils';
-import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import {
+  clinicalFriendlyIdOfCopy,
   clinicalPatientIdOfCopy,
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,
   fhirName,
   formatAddress,
-  SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
+  searchOnClinicalIDs,
 } from '../shared';
 import { SearchBillingPatientsParams, validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'search-billing-patients';
-const SCAN_PAGE_SIZE = 200;
 const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_OFFSET = 0;
 
@@ -70,7 +70,7 @@ async function performEffect(
   }
 
   const patients = results.map((p) => {
-    const clinicalFriendlyId = p.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
+    const clinicalFriendlyId = clinicalFriendlyIdOfCopy(p);
     const clinicalId = clinicalPatientIdOfCopy(p);
 
     return {
@@ -87,49 +87,4 @@ async function performEffect(
   });
 
   return { patients, total: total ?? 0, offset, pageSize };
-}
-
-export async function searchOnClinicalIDs(
-  oystehr: Oystehr,
-  baseSearchParams: SearchParam[],
-  baseOffset: number,
-  basePageSize: number,
-  uuid?: string,
-  friendlyId?: string
-): Promise<{ total: number; results: Patient[] }> {
-  let results: Patient[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const response = oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        ...baseSearchParams,
-        {
-          name: '_count',
-          value: String(count),
-        },
-        {
-          name: '_offset',
-          value: String(offset),
-        },
-      ],
-    });
-    results.push(...(await response).unbundle());
-    return response;
-  }, SCAN_PAGE_SIZE);
-  // Filter by clinical patient MRN
-  if (uuid)
-    results = results.filter(
-      (p) =>
-        p.extension
-          ?.find((e) => e.url === SOURCE_IDENTIFIER_SYSTEM)
-          ?.valueReference?.reference?.replace('Patient/', '') === uuid
-    );
-  // Filter by clinical patient friendly ID
-  if (friendlyId)
-    results = results.filter(
-      (p) => p.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString === friendlyId
-    );
-  const total = results.length;
-  results = results.slice(baseOffset, baseOffset + basePageSize);
-  return { total, results };
 }
