@@ -9,6 +9,17 @@ import {
 } from 'utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: {
+      ...(actual.FEATURE_FLAGS_CONFIG as object),
+      skipSendingVisitNoteToPatientPortalEnabled: false,
+    },
+  };
+});
+
 const mockSendEmail = vi.fn();
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({

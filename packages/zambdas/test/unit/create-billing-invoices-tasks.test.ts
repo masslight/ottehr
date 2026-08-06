@@ -11,6 +11,17 @@ const mockBillingClient = {
 };
 const mockFetchAllActivePatientArClaims = vi.fn();
 
+vi.mock('utils', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: {
+      ...(actual.FEATURE_FLAGS_CONFIG as object),
+      ottehrBillingInvoicingEnabled: true,
+    },
+  };
+});
+
 vi.mock('../../src/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
