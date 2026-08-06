@@ -78,7 +78,7 @@ import {
   getExternalLabOrderResourcesViaServiceRequest,
   isLabDrTypeTagCode,
 } from '../../ehr/lab/shared/labs';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import {
   drawFieldLine,

@@ -3,7 +3,7 @@ import { APIGatewayProxyResult, Handler } from 'aws-lambda';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
 import { topLevelCatch } from './lambda';
-import { ZambdaInput } from './types';
+import { ZambdaInput } from './types/common';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
   const environment = getSecret(SecretsKeys.ENVIRONMENT, secrets);

@@ -11,23 +11,20 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG, isLocationVirtual } from '../fhir';
-import {
-  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
-  ServiceCategoryCode,
-  VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE,
-} from '../ottehr-config';
+import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG } from '../fhir/constants';
+import { isLocationVirtual } from '../fhir/location';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../ottehr-config/intake-paperwork';
+import { ServiceCategoryCode } from '../ottehr-config/booking';
+import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from '../ottehr-config/intake-paperwork-virtual';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-  PatchPaperworkParameters,
-  PatientInfo,
-  PersonSex,
-  ServiceMode,
-  SubmitPaperworkParameters,
-} from '../types';
+} from '../types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from '../types/constants';
+import { PatchPaperworkParameters, SubmitPaperworkParameters } from '../types/data/paperwork/paperwork.types';
+import { PatientInfo } from '../types/data/telemed/appointments/create-appointment.types';
+import { PersonSex, ServiceMode } from '../types/common';
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,

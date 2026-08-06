@@ -25,7 +25,8 @@ import {
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
 } from 'utils/lib/types/data/in-house/in-house.constants';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { fillMeta, makeCptModifierExtension } from '..';
+import { fillMeta } from '../helpers';
+import { makeCptModifierExtension } from '../candid';
 import { createTask } from '../tasks';
 
 export interface TestItemRequestData {

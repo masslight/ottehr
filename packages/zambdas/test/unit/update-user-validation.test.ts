@@ -1,7 +1,7 @@
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../src/ehr/update-user/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 const createMockZambdaInput = (body: any): ZambdaInput => ({
   body: JSON.stringify(body),

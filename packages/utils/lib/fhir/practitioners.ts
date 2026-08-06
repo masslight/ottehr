@@ -1,5 +1,6 @@
 import { Encounter, Extension, PractitionerQualification } from 'fhir/r4b';
-import { PRACTITIONER_CODINGS, PractitionerLicense, ProviderTypeCode } from '../types';
+import { PRACTITIONER_CODINGS } from '../types/data/appointments/appointments.types';
+import { PractitionerLicense, ProviderTypeCode } from '../types/api/practitioner.types';
 import {
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,

@@ -6,7 +6,7 @@ import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { accountIsPatientBill, getPrimaryInsurance } from '../../ehr/lab/shared/labs';
 import { TemplateEncounterResource } from '../../ehr/shared/template-helpers';
-import { getMyPractitionerId } from '..';
+import { getMyPractitionerId } from '../practitioners';
 
 export interface InHouseLabOrderContext {
   encounter: Encounter;

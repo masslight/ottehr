@@ -1,14 +1,12 @@
 import { z } from 'zod';
 import { Secrets } from '../../../secrets';
-import {
-  ExtendedMedicationDataForResponse,
-  GetRadiologyOrderListZambdaOrder,
-  PrescribedMedicationDTO,
-} from '../../api';
+import { ExtendedMedicationDataForResponse } from '../../api/medication-administration.types';
+import { GetRadiologyOrderListZambdaOrder } from '../../api/radiology';
+import { PrescribedMedicationDTO } from '../../api/chart-data/chart-data.types';
 import { ProcedureDTO } from '../../api/chart-data/chart-data.types';
-import { ImmunizationOrder } from '../immunization';
-import { InHouseOrderListPageItemDTO } from '../in-house';
-import { LabOrderListPageDTO } from '../labs';
+import { ImmunizationOrder } from '../immunization/types';
+import { InHouseOrderListPageItemDTO } from '../in-house/in-house.types';
+import { LabOrderListPageDTO } from '../labs/labs.types';
 import { NursingOrdersStatus } from './constants';
 
 export const CreateNursingOrderInputSchema = z.object({

@@ -3,7 +3,7 @@ import { APIError, APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateDeleteParams } from '../../src/ehr/delete-inbound-fax/validateRequestParameters';
 import { validateRequestParameters as validateFileParams } from '../../src/ehr/file-inbound-fax/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 import { validateRequestParameters as validateHandleParams } from '../../src/subscriptions/communication/handle-inbound-fax/validateRequestParameters';
 
 const createMockZambdaInput = (body: any): ZambdaInput => ({

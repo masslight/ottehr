@@ -8,7 +8,7 @@ import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import type { TestProject } from 'vitest/node';
 import app from '../../src/local-server/index';
-import { getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import { assertNoLeakedResourcesForRun } from './integration-leak-gate';
 import { addRunTagToResource } from './integration-tags';

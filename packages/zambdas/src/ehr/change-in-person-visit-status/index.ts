@@ -10,13 +10,13 @@ import { Secrets } from 'utils/lib/secrets';
 import { User } from 'utils/lib/types/api/user.types';
 import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import { userMe } from 'utils/lib/auth/user-me.helper';
-import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared';
+import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared/produce-discharge-outreach';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
-import { ZambdaInput } from '../../shared/types';
+import { ZambdaInput } from '../../shared/types/common';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

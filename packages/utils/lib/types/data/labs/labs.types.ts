@@ -12,7 +12,10 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { CPTCodeOption, DiagnosisDTO, LAB_DR_TYPE_TAG, LabelConfig, Pagination } from '../..';
+import { CPTCodeOption, LabelConfig } from '../../common';
+import { DiagnosisDTO } from '../../api/chart-data/chart-data.types';
+import { LAB_DR_TYPE_TAG } from './labs.constants';
+import { Pagination } from '../pagination.types';
 import { LabelPdf } from '../printing';
 import { ExternalLabSetDTO, LabSetDTO } from './lab-set.schema';
 

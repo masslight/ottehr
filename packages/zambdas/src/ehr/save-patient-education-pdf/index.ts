@@ -18,7 +18,7 @@ import {
   createPatientEducationPdf,
   makePatientEducationPdfDocumentReference,
 } from '../../shared/pdf/patient-education-pdf';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 

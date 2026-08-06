@@ -14,7 +14,8 @@ import {
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_LABEL,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { drawBlockHeader, drawRegularText } from '../../helpers/render';
+import { drawBlockHeader } from '../../helpers/render/blockHeader';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { AddendumEntry, PdfSection, PlanData } from '../../types';
 import { AllChartData, FullAppointmentResourcePackage } from '../../visit-details-pdf/types';

@@ -14,7 +14,7 @@ import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { getPatientLastFirstName } from '../patients';
 import { makeRadiologyDTO } from '../radiology';
-import { drawFieldLine } from './helpers/render';
+import { drawFieldLine } from './helpers/render/drawFieldLine';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { calculateAge, rgbNormalized } from './pdf-utils';
 import { AssetPaths, PdfData, PdfSection } from './types';

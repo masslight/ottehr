@@ -18,7 +18,7 @@ import { sendErrors } from '../../../shared/errors';
 import { PDF_CLIENT_STYLES } from '../../../shared/pdf/pdf-consts';
 import { createPdfClient } from '../../../shared/pdf/pdf-utils';
 import { TextStyle } from '../../../shared/pdf/types';
-import { makeZ3Url } from '../../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
 import { createTask } from '../../../shared/tasks';
 
 type HandleReviewTaskAndPdfInput = {

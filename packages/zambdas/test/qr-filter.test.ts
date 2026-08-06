@@ -2,7 +2,8 @@ import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwor
 import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
 import { recursiveGroupTransform } from 'utils/lib/helpers/paperwork/validation';
 import { expect, vi } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../src/shared';
+import { createClinicalOystehrClient } from '../src/shared/helpers';
+import { getAuth0Token } from '../src/shared/getAuth0Token';
 import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 

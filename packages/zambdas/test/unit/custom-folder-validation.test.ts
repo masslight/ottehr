@@ -12,7 +12,7 @@ import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateCreate } from '../../src/ehr/create-custom-folder/validateRequestParameters';
 import { validateRequestParameters as validateDelete } from '../../src/ehr/delete-custom-folder/validateRequestParameters';
 import { validateRequestParameters as validateRename } from '../../src/ehr/rename-custom-folder/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 const mkInput = (body: unknown): ZambdaInput => ({
   body: JSON.stringify(body),

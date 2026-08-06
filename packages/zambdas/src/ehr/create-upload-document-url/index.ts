@@ -15,7 +15,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import {
   findOrCreatePatientCustomFolderList,

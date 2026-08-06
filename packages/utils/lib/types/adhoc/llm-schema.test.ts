@@ -3,29 +3,31 @@ import { z } from 'zod';
 import {
   AdHocEncountersInputSchema,
   AdHocEncountersOutputSchema,
-  AdHocLayerMap,
-  BILLING_DOMAIN_FIELDS,
-  BILLING_INTERNAL_FIELDS,
-  BILLING_LAYERS,
-  BillingBaseRowSchema,
   ENCOUNTER_DOMAIN_FIELDS,
   ENCOUNTER_INTERNAL_FIELDS,
   ENCOUNTER_LAYERS,
   EncounterBaseRowSchema,
-  layerIncludeFlags,
-  layerOptions,
-  layerSchemas,
-  llmFieldsForLayers,
-  llmFieldsFromZodObject,
-  MAX_DOMAIN_VALUE_LENGTH,
-  MAX_DOMAIN_VALUES,
+} from './datasets/encounters';
+import { AdHocLayerMap, layerIncludeFlags, layerOptions, layerSchemas, unloadedLayers } from './datasets/dataset';
+import {
+  BILLING_DOMAIN_FIELDS,
+  BILLING_INTERNAL_FIELDS,
+  BILLING_LAYERS,
+  BillingBaseRowSchema,
+} from './datasets/billing';
+import {
   PATIENT_DOMAIN_FIELDS,
   PATIENT_INTERNAL_FIELDS,
   PATIENT_LAYERS,
   PatientBaseRowSchema,
+} from './datasets/patients';
+import {
+  llmFieldsForLayers,
+  llmFieldsFromZodObject,
+  MAX_DOMAIN_VALUE_LENGTH,
+  MAX_DOMAIN_VALUES,
   sampleDomains,
-  unloadedLayers,
-} from './index';
+} from './datasets/llm-schema';
 
 // The Zod layer map is the single source; the LLM serializer takes id → schema.
 const ENCOUNTER_LAYER_SCHEMAS = layerSchemas(ENCOUNTER_LAYERS);

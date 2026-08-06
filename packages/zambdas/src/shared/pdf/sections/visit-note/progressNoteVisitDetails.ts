@@ -10,7 +10,8 @@ import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/pa
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { getPatientLastFirstName } from '../../../patients';
-import { drawFieldLine, drawRegularText } from '../../helpers/render';
+import { drawFieldLine } from '../../helpers/render/drawFieldLine';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, ProgressNoteVisitDataInput, VisitDetailsForProgressNote } from '../../types';
 import { getBookingTypeForPdf, getVisitTypeForPdf } from '../visitInfo';

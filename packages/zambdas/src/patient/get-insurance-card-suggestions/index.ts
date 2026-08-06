@@ -9,7 +9,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
-import { assertOwnedZ3Url } from '../card-suggestions-shared';
+import { assertOwnedZ3Url } from '../card-suggestions-shared/assert-owned-z3-url';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-insurance-card-suggestions';

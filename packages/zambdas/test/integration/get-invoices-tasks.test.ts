@@ -11,7 +11,8 @@ import {
 import { RcmTaskCodings } from 'utils/lib/fhir/constants';
 import { createInvoiceTaskInput, mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 
 const { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } = SECRETS;

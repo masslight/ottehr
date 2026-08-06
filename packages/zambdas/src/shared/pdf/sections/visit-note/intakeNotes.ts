@@ -1,5 +1,5 @@
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { drawRegularText } from '../../helpers/render';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, IntakeNotes, PdfSection } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

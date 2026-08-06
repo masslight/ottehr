@@ -44,7 +44,8 @@ import {
   SLUG_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { assert, inject } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,

@@ -9,7 +9,7 @@ import {
   MANAGER_RULES,
   PROVIDER_RULES,
   STAFF_RULES,
-} from '../shared/';
+} from './accessPolicies';
 
 export async function getRoleId(roleName: string, token: string, projectApiUrl: string): Promise<string> {
   const headers = {

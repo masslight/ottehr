@@ -3,7 +3,7 @@ import fs from 'fs';
 import { PageSizes, PDFImage } from 'pdf-lib';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, ReceiptData, TextStyle } from './types';

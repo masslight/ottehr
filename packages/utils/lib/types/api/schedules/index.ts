@@ -1,6 +1,6 @@
 import { Address, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { Closure, Timezone } from '../../common';
-import { DailySchedule, ScheduleOverrides } from '../../../utils';
+import { DailySchedule, ScheduleOverrides } from '../../../utils/scheduleUtils';
 
 export interface UpdateScheduleParams {
   scheduleId: string;

@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
-import { vitalsConfig } from '../../ottehr-config';
+import { vitalsConfig } from '../../ottehr-config/vitals';
+import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
 import {
-  VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
   VitalsHeartbeatObservationDTO,
@@ -13,18 +13,14 @@ import {
   VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
   VitalsWeightObservationDTO,
-} from '../../types';
-import { formatDateTimeToZone } from '../../utils';
-import {
-  celsiusToFahrenheit,
-  formatBMIWithUnit,
-  formatHeightObservationValue,
-  formatWeightKg,
-  formatWeightLbs,
-  getDotVisionScreeningLines,
-  getVisionExtraOptionsFormattedString,
-  VitalsVisitNoteData,
-} from '../vitals';
+} from '../../types/api/chart-data/chart-data.types';
+import { formatDateTimeToZone } from '../../utils/date';
+import { VitalsVisitNoteData } from '../vitals/vitals-visit-note-data.types';
+import { celsiusToFahrenheit } from '../vitals/vitals-temperature.helper';
+import { formatBMIWithUnit } from '../vitals/vitals-bmi.helper';
+import { formatHeightObservationValue } from '../vitals/vitals-height.helper';
+import { formatWeightKg, formatWeightLbs } from '../vitals/vitals-weight.helper';
+import { getDotVisionScreeningLines, getVisionExtraOptionsFormattedString } from '../vitals/vitals-vision.helper';
 
 export const mapVitalsToDisplay = (
   vitalsObservations: VitalsObservationDTO[],

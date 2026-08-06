@@ -2,7 +2,8 @@ import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/ch
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { renderScreeningQuestionsForPDF } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
-import { drawBlockHeader, drawRegularText } from '../../helpers/render';
+import { drawBlockHeader } from '../../helpers/render/blockHeader';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { AdditionalQuestions, EncounterInfo, PdfSection } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

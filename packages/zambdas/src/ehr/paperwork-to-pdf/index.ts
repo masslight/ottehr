@@ -18,7 +18,7 @@ import { createClinicalOystehrClient, validateJsonBody, validateString } from '.
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
 

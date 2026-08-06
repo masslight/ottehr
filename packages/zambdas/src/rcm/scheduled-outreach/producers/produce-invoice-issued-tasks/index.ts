@@ -4,7 +4,7 @@ import { ZambdaInput } from '../../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
-import { produceInvoiceIssuedOutreach } from '../shared';
+import { produceInvoiceIssuedOutreach } from '../shared/produce-invoice-issued-outreach';
 
 let m2mToken: string;
 

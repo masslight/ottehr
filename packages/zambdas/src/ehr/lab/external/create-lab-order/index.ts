@@ -8,7 +8,7 @@ import { assertPractitionerHasNPI, checkOrCreateM2MClientToken } from '../../../
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { ZambdaInput } from '../../../../shared/types';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { buildExternalLabOrderRequests } from './build-order';
 import { validateRequestParameters } from './validateRequestParameters';
 

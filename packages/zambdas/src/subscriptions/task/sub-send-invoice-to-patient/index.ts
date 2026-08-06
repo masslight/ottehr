@@ -15,7 +15,7 @@ import { mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
-import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
+import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, resolveTimezone } from '../../../shared/helpers';

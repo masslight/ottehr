@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { getPatientLastFirstName } from '../../../patients';
-import { drawFieldLine } from '../../helpers/render';
+import { drawFieldLine } from '../../helpers/render/drawFieldLine';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PatientInfoForProgressNote, PdfSection, ProgressNotePatientDataInput } from '../../types';
 

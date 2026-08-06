@@ -8,7 +8,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { wrapHandler } from '../../../shared/sentry';
 import { assertDefined, createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { createTask } from '../../../shared/tasks';
-import { ZambdaInput } from '../../../shared/types';
+import { ZambdaInput } from '../../../shared/types/common';
 
 const ZAMBDA_NAME = 'erx-notification-subscription';
 

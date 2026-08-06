@@ -2,7 +2,7 @@ import { User } from '@oystehr/sdk';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMyPractitionerId } from '../src/shared';
+import { getMyPractitionerId } from '../src/shared/practitioners';
 
 vi.mock('utils/lib/auth/user-me.helper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('utils/lib/auth/user-me.helper')>();

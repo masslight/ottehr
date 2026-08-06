@@ -11,7 +11,7 @@ import { validateRequestParameters as validateGeneratePatientEducation } from '.
 import { validateRequestParameters as validateSaveApprovedPatientEducation } from '../../src/ehr/save-approved-patient-education/validateRequestParameters';
 import { validateRequestParameters as validateSavePatientEducationPdf } from '../../src/ehr/save-patient-education-pdf/validateRequestParameters';
 import { findConflictingApprovedEducationIcdCodes } from '../../src/ehr/shared/approved-patient-education-helpers';
-import type { ZambdaInput } from '../../src/shared';
+import type { ZambdaInput } from '../../src/shared/types/common';
 import { fetchMedlineLinks } from '../../src/shared/medlineplus';
 
 // These cover the two load-bearing, easy-to-get-wrong-silently bits of Spanish patient education

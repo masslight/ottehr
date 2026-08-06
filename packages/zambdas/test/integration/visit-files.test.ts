@@ -10,7 +10,8 @@ import { GetPresignedFileURLInput } from 'utils/lib/types/api/get-presigned-file
 import { VisitDocuments } from 'utils/lib/types/data/documents';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { assert, inject } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';

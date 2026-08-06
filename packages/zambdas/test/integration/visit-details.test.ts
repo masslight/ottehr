@@ -23,7 +23,8 @@ import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-hel
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { assert, inject } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';

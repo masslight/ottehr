@@ -10,38 +10,27 @@ import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/modu
 import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
+import { composeAttorneyData, createAttorneyInfoSection } from './sections/attorneyInfo';
+import { composeConsentFormsData, createConsentFormsSection } from './sections/consentFormsInfo';
+import { composeContactData, createContactInfoSection } from './sections/contactInfo';
+import { composeDocumentsData, createDocumentsSection } from './sections/documents';
+import { composeEmergencyContactData, createEmergencyContactInfoSection } from './sections/emergencyContactInfo';
+import { composeEmployerData, createEmployerInfoSection } from './sections/employerInfo';
 import {
-  composeAttorneyData,
-  composeConsentFormsData,
-  composeContactData,
-  composeDocumentsData,
-  composeEmergencyContactData,
-  composeEmployerData,
   composeInsuranceData,
-  composeOccupationalMedicineEmployerData,
-  composePatientData,
-  composePatientDetailsData,
-  composePatientPaymentsData,
-  composePharmacyData,
-  composeResponsiblePartyData,
-  composeVisitData,
-  createAttorneyInfoSection,
-  createConsentFormsSection,
-  createContactInfoSection,
-  createDocumentsSection,
-  createEmergencyContactInfoSection,
-  createEmployerInfoSection,
-  createOccupationalMedicineEmployerSection,
-  createPatientDetailsSection,
-  createPatientHeader,
-  createPatientInfoSection,
-  createPatientPaymentsSection,
-  createPharmacyFormsSection,
   createPrimaryInsuranceSection,
-  createResponsiblePartySection,
   createSecondaryInsuranceSection,
-  createVisitInfoSection,
-} from './sections';
+} from './sections/insuranceInfo';
+import {
+  composeOccupationalMedicineEmployerData,
+  createOccupationalMedicineEmployerSection,
+} from './sections/occupationalMedicineEmployerInfo';
+import { composePatientData, createPatientHeader, createPatientInfoSection } from './sections/patientInfo';
+import { composePatientDetailsData, createPatientDetailsSection } from './sections/patientDetails';
+import { composePatientPaymentsData, createPatientPaymentsSection } from './sections/patientPayments';
+import { composePharmacyData, createPharmacyFormsSection } from './sections/pharmacyInfo';
+import { composeResponsiblePartyData, createResponsiblePartySection } from './sections/responsiblePartyInfo';
+import { composeVisitData, createVisitInfoSection } from './sections/visitInfo';
 import { composePrimaryCarePhysicianData, createPrimaryCarePhysicianSection } from './sections/primaryCarePhysician';
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, PdfResult, VisitDetailsData, VisitDetailsInput } from './types';

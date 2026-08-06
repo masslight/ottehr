@@ -17,7 +17,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 

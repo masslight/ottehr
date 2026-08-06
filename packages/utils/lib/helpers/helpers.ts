@@ -14,32 +14,30 @@ import {
 import { DateTime } from 'luxon';
 import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../config-helpers/shared-questionnaire';
 import {
-  allLicensesForPractitioner,
   BILLING_RESOURCE_TAG,
-  CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
-  getFullName,
-  INSURANCE_CANDID_PLAN_TYPE_CODES,
-  OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
-} from '../fhir';
-import { CONSENT_FORMS_CONFIG } from '../ottehr-config';
+} from '../fhir/constants';
+import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from '../fhir/insurance';
+import { OTTEHR_MODULE } from '../fhir/moduleIdentification';
+import { allLicensesForPractitioner } from '../fhir/helpers';
+import { getFullName } from '../fhir/patient';
+import { CONSENT_FORMS_CONFIG } from '../ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
+import { CashPaymentDTO } from '../types/api/patient-payment-types';
+import { FhirAppointmentType } from '../types/common';
 import {
-  appointmentTypeLabels,
-  appointmentTypeMap,
-  CashPaymentDTO,
-  FhirAppointmentType,
-  PatchPaperworkParameters,
   PHYSICIAN_TYPES,
   PractitionerQualificationCode,
   PROVIDER_TYPE_VALUES,
   ProviderTypeCode,
-  ScheduleOwnerFhirResource,
-} from '../types';
-import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation';
+} from '../types/api/practitioner.types';
+import { PatchPaperworkParameters } from '../types/data/paperwork/paperwork.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { appointmentTypeLabels, appointmentTypeMap } from '../types/data/appointments/appointments.types';
+import { emailRegex, fullZipRegex, npiRegex, phoneRegex, zipRegex } from '../validation/regex';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');

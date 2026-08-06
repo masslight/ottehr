@@ -29,7 +29,7 @@ import {
   makeCreateRequests,
 } from '../../src/ehr/apply-template/index';
 import { validateRequestParameters } from '../../src/ehr/apply-template/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 const createInput = (body: Record<string, unknown>): ZambdaInput => ({
   body: JSON.stringify(body),

@@ -15,7 +15,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from '../fhir/systemUrls';
-import { ScheduleExtension } from '../utils';
+import { ScheduleExtension } from '../utils/scheduleUtils';
 import { TIMEZONES } from './constants';
 
 export interface PatientBaseInfo {

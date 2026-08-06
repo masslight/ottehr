@@ -15,7 +15,8 @@ import {
   HourOfDay,
 } from 'utils/lib/utils/scheduleUtils';
 import { assert, vi } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import { SECRETS } from '../data/secrets';
 import {

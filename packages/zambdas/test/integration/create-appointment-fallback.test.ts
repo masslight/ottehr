@@ -31,7 +31,8 @@ import { SLOT_UNAVAILABLE_ERROR } from 'utils/lib/types/errors';
 import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,

@@ -11,7 +11,7 @@ import { getEmailClient } from '../../../shared/communication';
 import { sendSlackNotification } from '../../../shared/errors';
 import { wrapHandler } from '../../../shared/sentry';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { ZambdaInput } from '../../../shared/types';
+import { ZambdaInput } from '../../../shared/types/common';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

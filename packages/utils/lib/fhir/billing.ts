@@ -18,18 +18,18 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
+import { APIErrorCode } from '../types/errors';
 import {
-  APIErrorCode,
   BillingProviderData,
   BillingProviderResource,
-  CoverageCheckCoverageDetails,
   CoverageCodeToDescriptionMap,
   FinancialDetails,
   InsuranceCheckStatusWithDate,
   InsuranceDetails,
-  InsuranceEligibilityCheckStatus,
   PatientPaymentBenefit,
-} from '../types';
+} from '../types/data/telemed/eligibility.types';
+import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
+import { InsuranceEligibilityCheckStatus } from '../types/data/paperwork/paperwork.types';
 import { getNPI, getTaxID } from './helpers';
 import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
 

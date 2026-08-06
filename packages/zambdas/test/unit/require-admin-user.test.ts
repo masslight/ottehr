@@ -4,7 +4,7 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { userMe } from 'utils/lib/auth/user-me.helper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getUser, requireAdminUser, requireUserWithRole } from '../../src/shared';
+import { getUser, requireAdminUser, requireUserWithRole } from '../../src/shared/auth';
 
 vi.mock('utils/lib/auth/user-me.helper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('utils/lib/auth/user-me.helper')>();

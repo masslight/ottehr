@@ -2,7 +2,7 @@ import { CancelTelemedAppointmentZambdaInput } from 'utils/lib/types/api/cancel-
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validatePrebookCancelParams } from '../../src/patient/appointment/prebook-cancel-appointment/validateRequestParameters';
 import { validateRequestParameters as validateTelemedCancelParams } from '../../src/patient/appointment/telemed-cancel-appointment/validateRequestParameters';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 
 const createMockZambdaInput = (body: any): ZambdaInput => ({
   body: JSON.stringify(body),

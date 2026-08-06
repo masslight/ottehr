@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { isOnDemandVirtualAppointment } from './appointment';
+import { isOnDemandVirtualAppointment } from './appointment/helpers';
 import { getTimeSpentInCurrentStatus, getWaitingTimeForAppointment } from './waitTimeUtils';
 
 export const getTrackingBoardVisitStatus = (

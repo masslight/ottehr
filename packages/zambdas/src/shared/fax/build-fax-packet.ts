@@ -17,7 +17,7 @@ import { downloadPdfBytes, mergePdfDocuments } from '../pdf/merge-pdfs';
 import { PdfInfo } from '../pdf/pdf-utils';
 import { FaxCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { collectFaxParts, FaxPacketPart } from './collect-visit-documents';
 

@@ -8,7 +8,7 @@ import { LabelConfig } from 'utils/lib/types/common';
 import { Secrets } from 'utils/lib/secrets';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { convertLabeConfigToPdfClientStyles } from './external-labs-label-pdf';
 import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';

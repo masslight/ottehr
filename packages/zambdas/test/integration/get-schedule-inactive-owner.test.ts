@@ -11,7 +11,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,

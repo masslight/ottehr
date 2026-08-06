@@ -8,7 +8,7 @@ import {
   validateRequestParameters,
   validateSecrets,
 } from '../../src/ehr/visit-details/delete-visit-files/validation';
-import { ZambdaInput } from '../../src/shared';
+import { ZambdaInput } from '../../src/shared/types/common';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';

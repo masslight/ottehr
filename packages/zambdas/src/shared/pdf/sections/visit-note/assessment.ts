@@ -1,4 +1,5 @@
-import { drawBlockHeader, drawRegularText } from '../../helpers/render';
+import { drawBlockHeader } from '../../helpers/render/blockHeader';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { Assessment, EncounterInfo, PdfSection } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';

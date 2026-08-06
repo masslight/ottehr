@@ -1,6 +1,6 @@
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { getMyPractitionerId } from '../../src/shared';
+import { getMyPractitionerId } from '../../src/shared/practitioners';
 import { SECRETS } from '../data/secrets';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 

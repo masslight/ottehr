@@ -1,7 +1,8 @@
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-display.helper';
-import { drawBlockHeader, drawRegularText } from '../../helpers/render';
+import { drawBlockHeader } from '../../helpers/render/blockHeader';
+import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, PdfSection, ProgressNoteVisitDataInput, Vitals } from '../../types';
 

@@ -20,15 +20,12 @@ import { wrapHandler } from '../../../shared/sentry';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { PdfRenderConfig, renderPdf, StyleFactory } from '../../../shared/pdf/pdf-common';
 import { PdfInfo, rgbNormalized } from '../../../shared/pdf/pdf-utils';
-import {
-  composeVisitData,
-  createCompactPatientHeader,
-  createMedicationsSectionForDischargeSummary,
-  createVisitInfoSection,
-} from '../../../shared/pdf/sections';
+import { composeVisitData, createVisitInfoSection } from '../../../shared/pdf/sections/visitInfo';
+import { createCompactPatientHeader } from '../../../shared/pdf/sections/discharge-summary/patientInfo';
+import { createMedicationsSectionForDischargeSummary } from '../../../shared/pdf/sections/discharge-summary/currentMedications';
 import { AssetPaths, MedicationHistoryInput, PatientInfoForDischargeSummary } from '../../../shared/pdf/types';
-import { makeZ3Url } from '../../../shared/presigned-file-urls';
-import { ZambdaInput } from '../../../shared/types';
+import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

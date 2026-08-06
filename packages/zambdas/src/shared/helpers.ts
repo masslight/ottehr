@@ -22,7 +22,7 @@ import { findQuestionnaireResponseItemLinkId } from 'utils/lib/types/data/paperw
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { pickFirstValueFromAnswerItem } from 'utils/lib/helpers/paperwork/paperwork';
-import { ZambdaInput } from './types';
+import { ZambdaInput } from './types/common';
 import { safeJsonParse } from './validation';
 
 export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {

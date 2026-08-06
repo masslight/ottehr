@@ -6,7 +6,7 @@ import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { Secrets } from 'utils/lib/secrets';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { uploadPDF } from 'utils/lib/utils/pdf';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
 import {

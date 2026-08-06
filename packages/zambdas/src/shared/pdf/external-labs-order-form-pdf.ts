@@ -16,7 +16,7 @@ import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/hel
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatientIdForLabOrder } from 'utils/lib/helpers/labs/helpers';
 import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
-import { makeZ3Url } from '../presigned-file-urls';
+import { makeZ3Url } from '../presigned-file-urls/helpers';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfig } from './lab-pdf-utils';
 import { getLabFileName } from './labs-results-form-pdf';

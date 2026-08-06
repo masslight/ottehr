@@ -25,7 +25,7 @@ import { isLocationInPerson } from 'utils/lib/fhir/location';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { wrapHandler } from '../../../../shared/sentry';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { ZambdaInput } from '../../../../shared/types';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
 import { getOrderableItems } from '../../shared/orderable-items';

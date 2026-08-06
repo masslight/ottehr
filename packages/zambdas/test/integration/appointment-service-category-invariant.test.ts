@@ -14,7 +14,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { ServiceMode } from 'utils/lib/types/common';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,

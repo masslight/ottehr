@@ -53,20 +53,15 @@ import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } f
 import { getPayerId, getPayerUrl } from '../helpers/helpers';
 import { isValidUUID } from '../validation/helper';
 import { PROJECT_WEBSITE } from '../ottehr-config/branding';
-import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  BookableResource,
-  CPTCodeDTO,
-  EncounterVirtualServiceExtension,
-  FHIR_CODE_REGEX,
-  HealthcareServiceWithLocationContext,
-  PractitionerLicense,
-  PractitionerQualificationCode,
-  SCHEDULE_NOT_FOUND_ERROR,
-  ScheduleOwnerFhirResource,
-  ServiceMode,
-  VisitType,
-} from '../types';
+import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from '../types/errors';
+import { BookableResource, ServiceMode } from '../types/common';
+import { CPTCodeDTO } from '../types/api/chart-data/chart-data.types';
+import { EncounterVirtualServiceExtension } from '../types/data/oystehr-api.types.ts/telemed.types';
+import { FHIR_CODE_REGEX } from '../types/constants';
+import { HealthcareServiceWithLocationContext } from '../types/data/paperwork.types';
+import { PractitionerLicense, PractitionerQualificationCode } from '../types/api/practitioner.types';
+import { ScheduleOwnerFhirResource } from '../types/api/schedules';
+import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,

@@ -10,8 +10,9 @@ import {
   RelatedPersonMaps,
   SMSModel,
   SMSRecipient,
-} from '../types';
-import { getPatchBinary, getPatchOperationForNewMetaTag, getSMSNumberForIndividual } from '.';
+} from '../types/api/messaging.types';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from './resourcePatch';
+import { getSMSNumberForIndividual } from './patient';
 
 export const ZAP_SMS_MEDIUM_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationMode';
 export const ZAP_SMS_MEDIUM_CODE = 'SMSWRIT';

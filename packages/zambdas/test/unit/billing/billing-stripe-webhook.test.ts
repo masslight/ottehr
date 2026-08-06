@@ -30,12 +30,9 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import { createBillingClient } from '../../../src/billing/shared';
-import {
-  checkOrCreateM2MClientToken,
-  getStripeClient,
-  STRIPE_PAYMENT_ID_SYSTEM,
-  ZambdaInput,
-} from '../../../src/shared';
+import { ZambdaInput } from '../../../src/shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
+import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 
 const WEBHOOK_SECRET = 'whsec_test_secret';
 const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');

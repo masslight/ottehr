@@ -14,7 +14,8 @@ import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types
 import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { assert, inject } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import {

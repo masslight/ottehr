@@ -22,19 +22,14 @@ import {
 } from '../../config-helpers/shared-questionnaire';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
-  genderMap,
-  getFirstName,
-  getLastName,
-  getMiddleName,
-  getNameSuffix,
-  getPronounsFromExtension,
-  LANGUAGE_OPTIONS,
-  LanguageOption,
   PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL,
   PREFERRED_PHARMACY_MANUAL_ENTRY_URL,
   PREFERRED_PHARMACY_PLACES_ID_URL,
   PRIVATE_EXTENSION_BASE_URL,
-} from '../../fhir';
+} from '../../fhir/constants';
+import { LANGUAGE_OPTIONS, LanguageOption } from '../../fhir/patientMasterRecord';
+import { genderMap } from '../../fhir/helpers';
+import { getFirstName, getLastName, getMiddleName, getNameSuffix, getPronounsFromExtension } from '../../fhir/patient';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -42,14 +37,14 @@ import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_NO_EMAIL_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
-  PatientAccountResponse,
-  PHARMACY_COLLECTION_LINK_IDS,
   PRACTICE_NAME_URL,
   PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   REASON_FOR_VISIT_SEPARATOR,
   RESPONSIBLE_PARTY_NO_EMAIL_URL,
-} from '../../types';
-import { isValidUUID } from '../../validation';
+} from '../../types/constants';
+import { PHARMACY_COLLECTION_LINK_IDS } from '../../types/data/search-places';
+import { PatientAccountResponse } from '../../types/api/patient-account';
+import { isValidUUID } from '../../validation/helper';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params

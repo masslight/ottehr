@@ -1,6 +1,6 @@
 import z from 'zod';
-import { isValidUUID } from '../../validation';
-import { QAndQRResponse } from '../data';
+import { isValidUUID } from '../../validation/helper';
+import { QAndQRResponse } from '../data/paperwork/paperwork.types';
 
 export const GetBookingQuestionnaireParamsSchema = z.object({
   slotId: z

@@ -20,25 +20,26 @@ import {
 } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
-import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir/constants';
+import { getCanonicalQuestionnaire } from '../../fhir/questionnaires';
+import { AnswerLoadingOptions } from '../../../../config-types/config/fhir';
 import {
-  AnswerLoadingOptions,
   ConditionKeyObject,
   FormDisplayElementList,
   FormElement,
   FormSelectionElementList,
   InputWidthOption,
   IntakeQuestionnaireItem,
-  PaperworkPDFResourcePackage,
-  Question,
   QuestionnaireItemConditionDefinition,
   QuestionnaireItemExtension,
   QuestionnaireItemGroupType,
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
-} from '../../types';
-import { AnswerOptionSource, prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork';
-import { DOB_DATE_FORMAT } from '../../utils';
+} from '../../types/data/paperwork/paperwork.types';
+import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwork.types';
+import { AnswerOptionSource } from '../../../../config-types/config/fhir';
+import { prepareQuestionnaireResponseForHarvest } from '../../types/data/paperwork/prepareQuestionnaireItemsForHarvest';
+import { DOB_DATE_FORMAT } from '../../utils/date';
 
 export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
 

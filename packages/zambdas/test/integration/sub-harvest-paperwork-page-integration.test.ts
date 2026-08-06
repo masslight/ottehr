@@ -6,7 +6,8 @@ import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { PATIENT_BILLING_ACCOUNT_TYPE } from 'utils/lib/fhir/constants';
 import { unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { executePageHarvest, HarvestContext } from '../../src/subscriptions/task/sub-harvest-paperwork/page-handlers';
 import questionnaireResponse from '../data/base-qr.json';
 

@@ -1,7 +1,7 @@
 import { Attachment, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { isValidUUID } from '../../validation';
+import { isValidUUID } from '../../validation/helper';
 import { REASON_ADDITIONAL_MAX_CHAR } from '../../validation/constants';
 import {
   INSURANCE_CARD_BACK_2_ID,

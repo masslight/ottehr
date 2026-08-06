@@ -20,7 +20,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { getJSONStatementTemplate } from '../../../shared/statements/get-statement-template';
 import { getStatementDetails } from '../../../shared/statements/get-statement-details';
 import { wrapHandler } from '../../../shared/sentry';
-import { makeZ3Url } from '../../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
 
 const pdfmake = pdfmakeModule as unknown as {
   setFonts: (fonts: Record<string, unknown>) => void;

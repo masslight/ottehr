@@ -21,7 +21,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let oystehrToken: string;

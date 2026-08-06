@@ -3,45 +3,45 @@ import { Secrets } from 'utils/lib/secrets';
 import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
+import { composeAllergies } from './sections/visit-note/allergiesInfo';
+import { composeDiagnoses, createDiagnosesSection } from './sections/discharge-summary/diagnoses';
+import { composeDisposition, createDispositionSection } from './sections/discharge-summary/disposition';
 import {
-  composeAllergies,
-  composeDiagnoses,
-  composeDisposition,
   composeEducationalDocuments,
-  composeErxMedications,
-  composeExternalLabs,
-  composeInHouseLabs,
-  composeInHouseMedicationsForDischargeSummary,
-  composeMedications,
-  composePatientInformationForDischargeSummary,
-  composePatientInstructions,
-  composePhysician,
-  composeProcedures,
-  composeRadiology,
-  composeUpcomingVisits,
-  composeVisitData,
-  composeVitalsForDischargeSummary,
-  composeWorkSchoolExcuseSection,
-  createAllergiesSectionForDischargeSummary,
-  createCompactPatientHeader,
-  createDiagnosesSection,
-  createDispositionSection,
   createEducationalDocumentsSection,
-  createErxMedicationsSection,
-  createExternalLabsSection,
-  createInHouseLabsSection,
+} from './sections/discharge-summary/educationalDocuments';
+import { composeErxMedications, createErxMedicationsSection } from './sections/discharge-summary/erxMedications';
+import { composeExternalLabs, createExternalLabsSection } from './sections/visit-note/externalLabsInfo';
+import { composeInHouseLabs, createInHouseLabsSection } from './sections/visit-note/inHouseLabsInfo';
+import {
+  composeInHouseMedicationsForDischargeSummary,
   createInHouseMedicationsSectionForDischargeSummary,
-  createMedicationsSectionForDischargeSummary,
+} from './sections/discharge-summary/inHouseMedications';
+import { composeMedications } from './sections/visit-note/medicationsInfo';
+import {
+  composePatientInformationForDischargeSummary,
+  createCompactPatientHeader,
+} from './sections/discharge-summary/patientInfo';
+import {
+  composePatientInstructions,
   createPatientInstructionsSection,
-  createPhysicianSection,
-  createProceduresSection,
-  createRadiologySection,
-  createReasonForVisitSection,
-  createUpcomingVisitsSection,
-  createVisitInfoSection,
+} from './sections/discharge-summary/patientInstructions';
+import { composePhysician, createPhysicianSection } from './sections/discharge-summary/physicianInfo';
+import { composeProcedures, createProceduresSection } from './sections/visit-note/procedures';
+import { composeRadiology, createRadiologySection } from './sections/discharge-summary/radiology';
+import { composeUpcomingVisits, createUpcomingVisitsSection } from './sections/upcomingVisits';
+import { composeVisitData, createVisitInfoSection } from './sections/visitInfo';
+import {
+  composeVitalsForDischargeSummary,
   createVitalsSectionForDischargeSummary,
+} from './sections/discharge-summary/vitals';
+import {
+  composeWorkSchoolExcuseSection,
   createWorkSchoolExcuseSection,
-} from './sections';
+} from './sections/discharge-summary/workSchoolExcuse';
+import { createAllergiesSectionForDischargeSummary } from './sections/discharge-summary/allergies';
+import { createMedicationsSectionForDischargeSummary } from './sections/discharge-summary/currentMedications';
+import { createReasonForVisitSection } from './sections/discharge-summary/reasonForVisit';
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, DischargeSummaryData, DischargeSummaryInput, PdfResult } from './types';
 

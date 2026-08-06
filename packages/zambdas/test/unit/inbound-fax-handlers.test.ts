@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, List, Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ZambdaInput } from '../../src/shared';
+import type { ZambdaInput } from '../../src/shared/types/common';
 
 // The exported `index` is typed as an AWS 3-arg Handler, but `wrapHandler` is mocked to
 // return the single-arg inner function; cast the imports to reflect the runtime shape.

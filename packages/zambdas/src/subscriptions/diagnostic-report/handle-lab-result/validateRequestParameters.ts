@@ -1,6 +1,6 @@
 import { DiagnosticReport } from 'fhir/r4b';
 import { safeJsonParse } from '../../../shared/validation';
-import { ZambdaInput } from '../../../shared/types';
+import { ZambdaInput } from '../../../shared/types/common';
 import { ReviewLabResultSubscriptionInput } from '.';
 import { ACCEPTED_RESULTS_STATUS } from './helpers';
 
