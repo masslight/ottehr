@@ -25,19 +25,40 @@ const mockOystehrClient = {
 
 const mockGetAppointmentAndRelatedResources = vi.fn();
 
-vi.mock('../../src/shared', async (importOriginal) => {
+vi.mock('../../src/shared/candid', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     createEncounterFromAppointment: mockCreateEncounterFromAppointment,
-    getAuth0Token: mockGetAuth0Token,
-    createClinicalOystehrClient: mockCreateOystehrClient,
-    wrapHandler: (_name: string, handler: any) => handler,
     CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM: 'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id',
   };
 });
 
-vi.mock('utils', async (importOriginal) => {
+vi.mock('../../src/shared/getAuth0Token', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getAuth0Token: mockGetAuth0Token,
+  };
+});
+
+vi.mock('../../src/shared/helpers', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    createClinicalOystehrClient: mockCreateOystehrClient,
+  };
+});
+
+vi.mock('../../src/shared/sentry', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    wrapHandler: (_name: string, handler: any) => handler,
+  };
+});
+
+vi.mock('utils/lib/helpers/candidApi', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
@@ -72,7 +93,7 @@ const index = _index as unknown as (input: any) => Promise<{ statusCode: number;
 
 const { createCandidDiagnoses, buildRelatedCausesInformation } = await import('../../src/shared/candid');
 const { DiagnosisTypeCode } = await import('candidhealth/api');
-const { ACCIDENT_TYPE_SYSTEM, ACCIDENT_STATE_EXTENSION } = await import('utils');
+const { ACCIDENT_TYPE_SYSTEM, ACCIDENT_STATE_EXTENSION } = await import('utils/lib/fhir/constants');
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

@@ -7,10 +7,18 @@ import { Secrets } from 'utils/lib/secrets';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 
-vi.mock('../../../src/shared', async (importOriginal) => ({
+vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   wrapHandler: (_name: string, handler: unknown) => handler,
+}));
+
+vi.mock('../../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('m2m-token'),
+}));
+
+vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   getStripeClient: vi.fn(),
 }));
 
