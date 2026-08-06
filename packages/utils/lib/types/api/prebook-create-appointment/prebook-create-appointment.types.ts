@@ -55,8 +55,12 @@ export interface CreateSlotParams {
   walkin?: boolean;
   postTelemedLabOnly?: boolean;
   originalBookingUrl?: string;
-  /** Optional questionnaire canonical URL to use for appointments booked on this slot */
+  /** Optional questionnaire canonical URL to use for appointments booked on this slot,
+   * if a practice managed paperwork flow exists for a given project, that questionnaire url wins over this one
+   */
   questionnaireCanonical?: CanonicalUrl;
+  /** pass true when practice managed paperwork flows should be ignored in canonical questionnaire assignment (helps with testing) */
+  byPassPracticeManagedPaperworkFlow?: boolean;
   /**
    * Location the slot is being offered at. Persisted via the slot-at-
    * location extension so create-appointment can read it directly. Omitted

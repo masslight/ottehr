@@ -87,6 +87,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     originalBookingUrl,
     serviceCategoryCode: maybeServiceCategoryCode,
     questionnaireCanonical,
+    byPassPracticeManagedPaperworkFlow,
     atLocationId,
     bookedViaGroupId,
   } = JSON.parse(input.body);
@@ -168,6 +169,11 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
       throw INVALID_INPUT_ERROR('"questionnaireCanonical.version" must be a string');
     }
   }
+  if (byPassPracticeManagedPaperworkFlow) {
+    if (typeof byPassPracticeManagedPaperworkFlow !== 'boolean') {
+      throw INVALID_INPUT_ERROR('"byPassPracticeManagedPaperworkFlow" must be an a boolean');
+    }
+  }
   if (atLocationId != null && typeof atLocationId !== 'string') {
     throw INVALID_INPUT_ERROR('"atLocationId" must be a string if provided');
   }
@@ -205,6 +211,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     originalBookingUrl,
     serviceCategoryCode,
     questionnaireCanonical: questionnaireCanonical as CanonicalUrl | undefined,
+    byPassPracticeManagedPaperworkFlow,
     atLocationId,
     bookedViaGroupId,
   };
@@ -226,6 +233,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     originalBookingUrl,
     serviceCategoryCode,
     questionnaireCanonical,
+    byPassPracticeManagedPaperworkFlow,
     atLocationId,
     bookedViaGroupId,
     secrets,
@@ -467,18 +475,30 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   // handle assigning correct questionnaireCanonical
   // we will check if any flows have been created for this service category x visit modality
   // if yes, the flow questionnaire will take precedence over the questionnaireCanonical
+  // UNLESS byPassPracticeManagedPaperworkFlow is true; in this case the questionnaireCanonical param value always wins
   // this extension is the source of truth for what the booking questionnaire response should point to
-  const flowCanonical = await resolveFlowCanonicalForServiceMode({
-    serviceCategoryCode: effectiveServiceCategoryCode,
-    serviceMode: serviceModality,
-    oystehr,
-    secrets,
-  });
-  console.log(
-    `flowCanonical for ${effectiveServiceCategoryCode} x ${serviceModality}: ${
-      flowCanonical ? `${flowCanonical.url}|${flowCanonical.version}` : 'none'
-    }`
-  );
+
+  let flowCanonical: CanonicalUrl | undefined;
+
+  if (byPassPracticeManagedPaperworkFlow) {
+    console.log(
+      'byPassPracticeManagedPaperworkFlow is true, we will not check for a flow questionnaire and are treating questionnaireCanonical as authority'
+    );
+  } else {
+    flowCanonical = await resolveFlowCanonicalForServiceMode({
+      serviceCategoryCode: effectiveServiceCategoryCode,
+      serviceMode: serviceModality,
+      oystehr,
+      secrets,
+    });
+
+    console.log(
+      `flowCanonical for ${effectiveServiceCategoryCode} x ${serviceModality}: ${
+        flowCanonical ? `${flowCanonical.url}|${flowCanonical.version}` : 'none'
+      }`
+    );
+  }
+
   const winningQuestionnaireCanonical = flowCanonical ?? questionnaireCanonical;
 
   if (winningQuestionnaireCanonical) {

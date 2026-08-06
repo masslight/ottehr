@@ -121,6 +121,7 @@ export const WalkinLanding: FC = () => {
                     serviceMode === ServiceMode.virtual
                       ? BOOKING_CONFIG.virtualQuestionnaireCanonical
                       : BOOKING_CONFIG.inPersonQuestionnaireCanonical;
+                  const byPassPracticeManagedPaperworkFlow = BOOKING_CONFIG.byPassPracticeManagedPaperworkFlow;
                   const createSlotInput: CreateSlotParams = {
                     scheduleId: data.scheduleId,
                     startISO: DateTime.now().toISO(),
@@ -130,6 +131,7 @@ export const WalkinLanding: FC = () => {
                     walkin: true,
                     ...(resolvedServiceCategory ? { serviceCategoryCode: resolvedServiceCategory } : {}),
                     ...(questionnaireCanonical && { questionnaireCanonical }),
+                    byPassPracticeManagedPaperworkFlow,
                   };
                   try {
                     const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);

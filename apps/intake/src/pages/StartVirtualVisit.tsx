@@ -90,6 +90,7 @@ const StartVirtualVisit = (): JSX.Element => {
         ...(BOOKING_CONFIG.virtualQuestionnaireCanonical && {
           questionnaireCanonical: BOOKING_CONFIG.virtualQuestionnaireCanonical,
         }),
+        byPassPracticeManagedPaperworkFlow: BOOKING_CONFIG.byPassPracticeManagedPaperworkFlow,
       };
 
       try {
