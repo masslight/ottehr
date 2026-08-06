@@ -32,24 +32,37 @@ machine. Baseline is `develop` as-is.
   resolved to utils *source*, pulling the whole TypeScript graph back in and silently cancelling
   the externalization.
 
-## Why it caps out
+## Why it caps out — and why module count is not the lever
 
-Module counts, measured with a vite plugin that counts modules transformed for one test file:
+Module counts, measured with a vite plugin counting modules transformed for one test file, **with
+the real setup files loaded** so `@sentry/aws-serverless` is mocked exactly as the suite mocks it:
 
-| Test file imports | Before | After |
+| Test file imports | develop (`utils` = TS source) | Spike (`utils` externalized) |
 |---|---|---|
-| one symbol from `utils` | 368 | **2** |
-| one symbol via the `src/shared` barrel | 779 | **413** |
+| one symbol via the `src/shared` barrel | 435 | **68** |
+| one symbol deep (`src/shared/auth`) | 374 | **7** |
 
-Externalization does exactly what it promises: `utils` goes from 368 modules to 2. But a test that
-touches `src/shared` still pulls **413 modules**, and those are zambdas' *own* source, reached
-through the 45-way `export *` barrel in `src/shared/index.ts`.
+On `develop`, roughly **367 of those 435 modules are `utils` source**. The zambdas barrel's own
+fan-out is only ~61–68 modules. So the package being loaded wholesale for every test was `utils`,
+not zambdas.
 
-**You can externalize a dependency. You cannot externalize the code under test.** Isolation
-re-executes that 413-module graph once per test file, 303 times per run. No amount of dependency
-packaging touches it. The only remaining lever would be breaking up the `src/shared` barrel so each
-test pulls only its subject — a refactor across all of `src` and every test file, larger than the
-mock consolidation in PR #9001, with no guarantee it converges.
+Here is the finding that kills the whole premise: **externalizing `utils` removed ~84% of the
+modules and bought 28% (CJS) or 0% (ESM) of wall time.** Cutting the module graph by five-sixths
+barely moved the clock. Module count is simply not what the isolated suite spends its time on.
+
+What it does spend time on is *re-execution and fixed per-file overhead*, paid 303 times: worker
+handoff, environment setup, re-running setup files, and coverage instrumentation. Coverage alone is
+about a third of it — the same suite on `develop` is 5m02s without `--coverage` and 7m45s with it.
+`--no-isolate` wins (45s) because it pays those costs once per worker instead of once per file.
+
+**Corollary: eliminating the `src/shared` barrel would not rescue isolated mode either.** It would
+take a test from 435 modules to ~374 on `develop` (a 14% cut), and we have direct evidence that an
+84% cut was worth ~0–28%. A 714-file import refactor is not justified by that.
+
+An earlier version of this document reported 779 and 413 for these two rows. Those numbers came
+from a probe that did not load the setup files, so the real `@sentry` SDK was being transformed
+(~350 modules) instead of mocked. The counts above supersede them. The conclusion is unchanged, but
+the reason is different and more decisive: the bottleneck was never graph size.
 
 ## Why the faster variant is the broken one
 
@@ -84,6 +97,9 @@ That inconsistency is worth knowing about regardless of this spike: today some m
    barrel, so every unit test parses them just to import a constant. Making them lazy is small,
    self-contained, and helps both isolated and `--no-isolate`.
 2. **The 32 deep `utils/lib/...` imports**, for the mocking-consistency reason above.
+3. **Coverage is ~35% of the isolated suite's wall time** (5m02s without `--coverage` vs 7m45s
+   with it, same suite on `develop`). If isolation is kept for any reason, that is a bigger and
+   far cheaper lever than any import refactor.
 
 ## Reproducing
 
