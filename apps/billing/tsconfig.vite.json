@@ -1,8 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "moduleResolution": "Bundler",
-    "types": ["node"]
-  },
-  "include": ["vite.config.ts", "vitest.config.ts", "vitest.config.component-tests.ts"]
-}
