@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { detectProcedureFamily } from '../evaluate';
 import { Finding, ProcedureFactsInput } from '../model.types';
-import { CERUMEN_BILATERAL_PAYER_NOTE, CERUMEN_IRRIGATION_PAYER_NOTE, cerumenFamily } from './cerumen';
+import {
+  CERUMEN_BILATERAL_PAYER_NOTE,
+  CERUMEN_IRRIGATION_PAYER_NOTE,
+  cerumenFamily,
+  extractCerumenFacts,
+} from './cerumen';
 import { foreignBodyFamily } from './foreign-body';
 import { lacerationFamily } from './laceration';
 
@@ -166,6 +171,11 @@ describe('cerumen inverse: [R] elements', () => {
       })
     );
     expect(hasFinding(result.findings, 'required', /canal is clear and the TM intact/, '69210')).toBe(true);
+  });
+
+  it.each(['Canals clear.', 'Both canals clear.'])('plural "%s" satisfies the post-procedure exam', (text) => {
+    const facts = extractCerumenFacts(input({ procedureDetails: `Impacted cerumen removed with curette. ${text}` }));
+    expect(facts.postExamDocumented?.value).toBe(true);
   });
 });
 

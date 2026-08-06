@@ -323,6 +323,9 @@ const STITCH_COUNT_LINE_PATTERN = /total\s+(?:stitch|suture|staple)\s+count:?\s*
 // "5 sutures", "4 simple interrupted 5-0 nylon sutures" — the lookbehind keeps "4-0" and "5-0"
 // suture sizes from being read as counts.
 const COUNT_PATTERN = /(?<![\d/–-])(\d+)\s+(?:[\w–-]+\s+){0,4}?(sutures?|stitches?|staples?)\b/i;
+// "5 x 4-0 nylon" — the conventional count-x-gauge shorthand (count first). The unit guard
+// keeps wound dimensions ("2 x 4.0 cm") from being read as counts.
+const COUNT_X_GAUGE_PATTERN = /(?<![\d.,/–-])(\d+)\s*[x×]\s*\d{1,2}[-–/.]0\b(?!\s*(?:cm|mm))/i;
 
 const SUTURE_EVIDENCE_PATTERN = /sutur\w*|stitch\w*/i;
 const STAPLE_EVIDENCE_PATTERN = /stapl\w*/i;
@@ -400,7 +403,7 @@ function extractClosureMaterial(text: string): FactValue<string> | undefined {
 }
 
 function extractClosureCount(text: string): FactValue<number> | undefined {
-  for (const pattern of [STITCH_COUNT_LINE_PATTERN, COUNT_PATTERN]) {
+  for (const pattern of [STITCH_COUNT_LINE_PATTERN, COUNT_X_GAUGE_PATTERN, COUNT_PATTERN]) {
     const regex = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
     let result: RegExpExecArray | null;
     while ((result = regex.exec(text)) !== null) {

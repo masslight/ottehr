@@ -146,7 +146,7 @@ const DEEP_DISSECTION_PATTERN =
   /deep(?:er)?\s+dissect\w*|dissect(?:ed|ion)\s+(?:deep|down)|dissect\w*[^.;\n]{0,30}\b(?:fascia|muscle|deep)|complicated\s+(?:removal|extraction)|extensive\s+dissect\w*/i;
 const SLIT_LAMP_PATTERN = /slit[-\s]?lamp|biomicroscop\w*/i;
 const FOREIGN_BODY_DESCRIPTION_PATTERN =
-  /splinter|\bglass\b|metal(?:lic)?\b|wood(?:en)?\b|\bthorn\b|\bbead\b|\bBB\b|pellet|pebble|gravel|fish\s*-?\s*hook|\bneedle\b|\bpin\b|\btack\b|insect|\bbug\b|\bbean\b|\bseed\b|popcorn|plastic|eraser|\btoy\b|button|batter(?:y|ies)|crayon|\bsand\b|\bdirt\b|cotton|\brock\b|\bstone\b|\bfood\b/i;
+  /splinter|\bglass\b|metal(?:lic)?\b|wood(?:en)?\b|\bthorn\b|\bbead\b|\bBB\b|pellet|pebble|gravel|fish\s*-?\s*hook|\bneedle\b|\bpin\b|\btack\b|insect|\bbug\b|\btick\b|\bbee\b|stinger|\bbean\b|\bseed\b|popcorn|plastic|eraser|\btoy\b|button|batter(?:y|ies)|crayon|\bsand\b|\bdirt\b|cotton|\brock\b|\bstone\b|\bfood\b/i;
 const OUTCOME_PATTERN =
   /(?:removed|retrieved|extracted|expelled)\s+(?:completely|intact|in\s+(?:its\s+)?entirety|in\s+total|whole)|complete(?:ly)?\s+(?:removed|removal|extracted|retrieved)|removal\s+(?:was\s+)?complete|(?:no|without)\s+(?:residual|retained)\s+(?:foreign\s+body|fragments?|material)/i;
 

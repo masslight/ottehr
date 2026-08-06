@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { detectProcedureFamily } from '../evaluate';
 import { Finding, ProcedureFactsInput } from '../model.types';
-import { foreignBodyFamily } from './foreign-body';
+import { extractForeignBodyFacts, foreignBodyFamily } from './foreign-body';
 import { lacerationFamily } from './laceration';
 
 function input(overrides: Partial<ProcedureFactsInput>): ProcedureFactsInput {
@@ -288,6 +288,14 @@ describe('foreign-body inverse: [R] elements name their destination fields', () 
     ).toBe(true);
     expect(hasFinding(result.findings, 'required', /post-removal assessment.*hemostasis/, '10120')).toBe(true);
   });
+
+  it.each(['Engorged tick removed with fine forceps.', 'Bee stinger removed from the left forearm with forceps.'])(
+    '"%s" satisfies the foreign-body description',
+    (text) => {
+      const facts = extractForeignBodyFacts(input({ procedureDetails: text }));
+      expect(facts.descriptionDocumented?.value).toBe(true);
+    }
+  );
 
   it('the post-assessment ask is site-matched: fluorescein for the eye, TM intact for the ear', () => {
     const eye = foreignBodyFamily.defendCodes(

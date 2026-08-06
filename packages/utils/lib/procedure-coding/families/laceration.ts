@@ -352,6 +352,11 @@ const SITE_LABELS: Record<AnatomicSite, string> = {
 
 const LATERALIZABLE_SITES: AnatomicSite[] = ['extremity', 'hand', 'foot', 'ear', 'eyelid', 'axilla'];
 
+/** "an extremity wound" / "a face wound" — indefinite article for a site label. */
+function withArticle(label: string): string {
+  return `${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${label}`;
+}
+
 // ── Repair class resolution ────────────────────────────────────────────────────
 
 type RepairBasis =
@@ -1064,7 +1069,9 @@ function complexCodeFindings(
     codeFindings.push({
       level: 'contradiction',
       cptCode: code,
-      message: `${code} covers ${series.groupLabel}, but the note documents a ${SITE_LABELS[entrySite]} wound.`,
+      message: `${code} covers ${series.groupLabel}, but the note documents ${withArticle(
+        SITE_LABELS[entrySite]
+      )} wound.`,
       sourceText: facts.site?.sourceText,
       confidence: facts.site?.confidence,
     });
@@ -1264,7 +1271,9 @@ function defendLacerationCodes(input: ProcedureFactsInput): FamilyEvaluation {
           codeFindings.push({
             level: 'contradiction',
             cptCode: selectedCode.code,
-            message: `${selectedCode.code} covers ${indexed.series.groupLabel}, but the note documents a ${SITE_LABELS[entrySite]} wound.`,
+            message: `${selectedCode.code} covers ${indexed.series.groupLabel}, but the note documents ${withArticle(
+              SITE_LABELS[entrySite]
+            )} wound.`,
             sourceText: facts.site?.sourceText,
             confidence: facts.site?.confidence,
           });

@@ -159,6 +159,25 @@ describe('extractLacerationFacts: numeric and pattern edge cases', () => {
     expect(facts.closureCount).toBeUndefined();
   });
 
+  it('reads the count-x-gauge shorthand "5 x 4-0 nylon, simple interrupted" fully (count + material + method)', () => {
+    const facts = extractLacerationFacts(input({ procedureDetails: '5 x 4-0 nylon, simple interrupted' }));
+    expect(facts.closureCount?.value).toBe(5);
+    expect(facts.closureMaterial?.value.toLowerCase()).toContain('nylon');
+    expect(facts.closureMethod?.value).toBe('simple interrupted');
+  });
+
+  it('accepts count-x-gauge spacing/case variants but never wound dimensions', () => {
+    expect(extractLacerationFacts(input({ procedureDetails: 'Closed with 5x 4-0 prolene.' })).closureCount?.value).toBe(
+      5
+    );
+    expect(extractLacerationFacts(input({ procedureDetails: 'Closed with 5 X 4.0 nylon.' })).closureCount?.value).toBe(
+      5
+    );
+    expect(
+      extractLacerationFacts(input({ procedureDetails: 'Abrasion measuring 2 x 4.0 cm.' })).closureCount
+    ).toBeUndefined();
+  });
+
   it('subcuticular is a closure method, never depth proof', () => {
     const facts = extractLacerationFacts(input({ procedureDetails: 'Closed with running subcuticular 5-0 Monocryl.' }));
     expect(facts.closureMethod?.value).toBe('subcuticular');

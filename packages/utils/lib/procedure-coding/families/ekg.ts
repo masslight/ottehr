@@ -95,12 +95,18 @@ export interface EkgFacts {
   indicationDocumented?: FactValue<true>;
   /** Comparison to a prior tracing ("compared to prior" / "no prior available" both count). */
   comparisonDocumented?: FactValue<true>;
+  /** The tracing was obtained outside the practice ("over-read", "tracing obtained at …"). */
+  externalTracingDocumented?: FactValue<true>;
 }
 
 const INDICATION_PATTERN =
   /chest\s+pain|palpitat\w*|syncope|dizz\w*|shortness\s+of\s+breath|\bSOB\b|pre-?op\w*|\bindication:?\b/i;
 const COMPARISON_PATTERN =
   /compar(?:ed|ison)\b|prior\s+(?:EKG|ECG|tracing)|previous\s+(?:EKG|ECG|tracing)|no\s+prior(?:\s+(?:EKG|ECG|tracing))?\s+(?:available|for\s+comparison)|baseline\s+(?:EKG|ECG)/i;
+// Signals that the interpreted tracing was obtained externally/previously, so the documentation
+// supports the interpretation & report component only (93010), not the complete service.
+const EXTERNAL_TRACING_PATTERN =
+  /\bover-?read\b|tracing\s+(?:was\s+)?(?:obtained|performed|done|recorded)\s+(?:at|by|elsewhere|outside|previously)|interpretation\s+(?:and|&)\s+report\s+only/i;
 
 /** Deterministic EKG fact extraction: structured diagnoses first, then details-text patterns. */
 export function extractEkgFacts(input: ProcedureFactsInput): EkgFacts {
@@ -119,6 +125,7 @@ export function extractEkgFacts(input: ProcedureFactsInput): EkgFacts {
         ? { value: true, confidence: 'structured' }
         : textMention(text, INDICATION_PATTERN),
     comparisonDocumented: textMention(text, COMPARISON_PATTERN),
+    externalTracingDocumented: textMention(text, EXTERNAL_TRACING_PATTERN),
   };
 }
 
@@ -186,26 +193,37 @@ function suggestEkgCode(input: ProcedureFactsInput): FamilyEvaluation {
     return evaluation;
   }
 
+  // The tracing was obtained externally/previously ("over-read"): the documentation supports
+  // the interpretation & report of the existing tracing (93010), not the complete service.
+  const external = facts.externalTracingDocumented !== undefined;
+  const code = external ? '93010' : '93000';
+
   if (missing.length === 0) {
     evaluation.suggestion = {
-      code: '93000',
-      display: codeCandidate('93000').display,
-      justification: `A full interpretation is documented (${FULL_INTERPRETATION_MENU}) — the practice performs the tracing in the office, so the documentation supports the complete service → 93000.`,
+      code,
+      display: codeCandidate(code).display,
+      justification: external
+        ? `A full interpretation is documented (${FULL_INTERPRETATION_MENU}) of an externally-obtained tracing — the documentation supports the interpretation & report of the existing tracing → 93010.`
+        : `A full interpretation is documented (${FULL_INTERPRETATION_MENU}) — the practice performs the tracing in the office, so the documentation supports the complete service → 93000.`,
     };
     return evaluation;
   }
 
-  // Partial interpretation: the provider is interpreting, so 93000 is the supported direction —
-  // with each missing element asked for individually.
+  // Partial interpretation: the provider is interpreting, so the interpretation component's
+  // code is the supported direction — with each missing element asked for individually.
   evaluation.suggestion = {
-    code: '93000',
-    display: codeCandidate('93000').display,
-    justification: `An interpretation is documented (${documentedElementLabels(
-      facts
-    )}) — with the in-office tracing that supports the complete service → 93000; the missing interpretation elements are listed below.`,
+    code,
+    display: codeCandidate(code).display,
+    justification: external
+      ? `An interpretation is documented (${documentedElementLabels(
+          facts
+        )}) of an externally-obtained tracing — the documentation supports the interpretation & report of the existing tracing → 93010; the missing interpretation elements are listed below.`
+      : `An interpretation is documented (${documentedElementLabels(
+          facts
+        )}) — with the in-office tracing that supports the complete service → 93000; the missing interpretation elements are listed below.`,
   };
   for (const entry of missing) {
-    findings.push(missingElementFinding(entry, '93000'));
+    findings.push(missingElementFinding(entry, code));
   }
   return evaluation;
 }

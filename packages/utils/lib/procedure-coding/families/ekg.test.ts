@@ -75,6 +75,31 @@ describe('ekg forward: interpretation elements determine the component', () => {
     expect(hasFinding(required, 'required', "interpretation's impression is not documented", '93000')).toBe(true);
   });
 
+  it('an over-read of an externally-obtained tracing ⇒ 93010, not the in-office 93000', () => {
+    const result = ekgFamily.suggestCode(
+      input({ procedureDetails: `Over-read of EKG obtained at urgent care. ${FULL_INTERPRETATION_TEXT}` })
+    );
+    expect(result.suggestion?.code).toBe('93010');
+    expect(result.suggestion?.justification).toContain('interpretation & report of the existing tracing');
+    expect(result.findings.filter((f) => f.level === 'required')).toHaveLength(0);
+  });
+
+  it('a partial interpretation of a tracing performed elsewhere ⇒ 93010 with the per-element [R]s', () => {
+    const result = ekgFamily.suggestCode(
+      input({ procedureDetails: 'Interpretation of tracing performed elsewhere: rate 96, sinus rhythm.' })
+    );
+    expect(result.suggestion?.code).toBe('93010');
+    const required = result.findings.filter((f) => f.level === 'required');
+    expect(required).toHaveLength(4);
+    expect(required.every((f) => f.cptCode === '93010')).toBe(true);
+  });
+
+  it('no external-tracing signal ⇒ the in-office 93000 default is unchanged', () => {
+    const result = ekgFamily.suggestCode(input({ procedureDetails: FULL_INTERPRETATION_TEXT }));
+    expect(result.suggestion?.code).toBe('93000');
+    expect(result.suggestion?.justification).toContain('the practice performs the tracing in the office');
+  });
+
   it('a negative assessment still counts as documentation ("no acute ST-T changes")', () => {
     const result = ekgFamily.suggestCode(
       input({

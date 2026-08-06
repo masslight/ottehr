@@ -612,6 +612,19 @@ describe('laceration inverse: pinned contradiction cases', () => {
     );
     expect(hasFinding(result.findings, 'contradiction', 'hand', '12013')).toBe(true);
   });
+
+  it('extremity site mismatch reads "an extremity wound", never "a extremity"', () => {
+    const result = lacerationFamily.defendCodes(
+      input({
+        bodySite: 'Arm',
+        lengthCm: 3.0,
+        cptCodes: [{ code: '12013', display: 'Simple repair face 2.6-5.0 cm' }],
+        procedureDetails: SIMPLE_CLOSURE_TEXT,
+      })
+    );
+    expect(hasFinding(result.findings, 'contradiction', 'an extremity wound', '12013')).toBe(true);
+    expect(result.findings.some((f) => f.message.includes('a extremity'))).toBe(false);
+  });
 });
 
 describe('laceration inverse: missing elements', () => {

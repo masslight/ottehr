@@ -35,7 +35,7 @@ const INSTRUMENTATION_PATTERN =
 const IRRIGATION_PATTERN = /irrigat\w*|lavage|flush\w*|syring(?:e|ed|ing)\b|water\s*pik|rins\w*/i;
 const IMPACTION_TEXT_PATTERN = /impact(?:ed|ion)\b/i;
 const POST_EXAM_PATTERN =
-  /canal\s+(?:is\s+|was\s+|now\s+)?clear|clear\s+(?:external\s+)?(?:auditory\s+)?canal|(?:tympanic\s+membrane|\bTM\b)[^.;\n]{0,30}\b(?:intact|normal|clear|visualized)|intact\s+(?:tympanic\s+membrane|\bTM\b)/i;
+  /canals?\s+(?:is\s+|was\s+|are\s+|were\s+|now\s+)?clear|clear\s+(?:external\s+)?(?:auditory\s+)?canals?\b|(?:tympanic\s+membrane|\bTM\b)[^.;\n]{0,30}\b(?:intact|normal|clear|visualized)|intact\s+(?:tympanic\s+membrane|\bTM\b)/i;
 
 /** ICD-10 H61.2x — impacted cerumen (with or without the dot, either ear). */
 const IMPACTED_CERUMEN_DX_PATTERN = /^H61\.?2/i;
