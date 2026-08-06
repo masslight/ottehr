@@ -15,5 +15,6 @@
       "@ehrDefaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
-  "include": [".", ".eslintrc.cjs"]
+  "include": [".", ".eslintrc.cjs"],
+  "exclude": ["vite.config.ts", "vite.preview.config.ts", "vitest.config.ts", "vitest.config.component-tests.ts"]
 }

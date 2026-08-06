@@ -18,11 +18,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     silent: true,
-    // Root-only in vitest 3 (not a ProjectConfig option). Generous so the integration globalSetup
+    // Root-level rather than project-level. Generous so the integration globalSetup
     // teardown — two 5s settle waits + the leak-gate sweep across many resource types + deletes —
     // never times out.
     teardownTimeout: 60000,
-    // Root-only in vitest 3. Caps concurrent workers to keep write pressure on the shared backend
+    // Root-level rather than project-level. Caps concurrent workers to keep write pressure on the shared backend
     // modest during integration tests (matches the prior single-config behavior). The CI scripts
     // override this per project via --maxWorkers: the integration suite is I/O-bound (its wall time
     // is FHIR round-trips, and with ~2 tests per file behind a shared beforeAll graph, files in
@@ -30,8 +30,7 @@ export default defineConfig({
     // CPU-bound co-suites are worker-capped too; uncapped, the extra forks just thrash the runner
     // (measured: 10 workers ≈ 6 workers under oversubscription, plus co-suite timeouts).
     maxWorkers: 6,
-    minWorkers: 1,
-    // Root-only, applies to every forked test worker (unit and integration). The CI job's
+    // Root-level, applies to every forked test worker (unit and integration). The CI job's
     // NODE_OPTIONS sets an 8GB heap allowance, which every fork inherits; with that allowance V8
     // feels no GC pressure and long-lived workers balloon. Under --no-isolate on a 16GB standard
     // runner that got the pool OOM-killed by the kernel (silently: both attempts aborted at the
@@ -39,11 +38,7 @@ export default defineConfig({
     // forces GC discipline per worker — one test file's module graph fits comfortably — and a
     // worker that truly exceeds it dies with a loud V8 heap error that names itself instead of a
     // silent SIGKILL.
-    poolOptions: {
-      forks: {
-        execArgv: ['--max-old-space-size=1024'],
-      },
-    },
+    execArgv: ['--max-old-space-size=1024'],
     server: {
       deps: {
         inline: [/@sentry/, /utils/],

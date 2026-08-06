@@ -9,5 +9,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["."]
+  "include": ["."],
+  "exclude": ["vite.config.ts", "vitest.config.ts", "vitest.config.component-tests.ts"]
 }
