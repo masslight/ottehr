@@ -107,6 +107,11 @@ export const BILLING_WORKING_COPY_TAG = {
 
 export const CURRENT_STATUS_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/current-status';
 
+export interface ClaimSearchParam {
+  name: string;
+  value: string;
+}
+
 // TODO: this function has fallback chain so it is hard to return enum and we don't have standardized status codes yet
 export function getClaimStatus(claim: Claim): string {
   return claim.meta?.tag?.find((t) => t.system === CURRENT_STATUS_TAG_SYSTEM)?.code ?? claim.status ?? 'unknown';
@@ -242,6 +247,29 @@ export function getEraCheckNumber(
   pr: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier'>
 ): string | undefined {
   return pr.identifier?.find((id) => id.system === ERA_CHECK_SYSTEM)?.value ?? pr.paymentIdentifier?.value;
+}
+
+export const CLAIM_PCN_IDENTIFIER_SYSTEM = 'https://identifiers.fhir.oystehr.com/rcm-claim-patient-control-number';
+
+export function getClaimPcn(claim: Pick<Claim, 'id' | 'identifier'>): string {
+  return (
+    claim.identifier?.find((id) => id.system === CLAIM_PCN_IDENTIFIER_SYSTEM)?.value ??
+    claim.id?.replaceAll('-', '') ??
+    ''
+  );
+}
+
+export function claimIdFromPcn(pcn: string): string | undefined {
+  const minified = pcn.toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(minified)) return undefined;
+  const claimId = [
+    minified.slice(0, 8),
+    minified.slice(8, 12),
+    minified.slice(12, 16),
+    minified.slice(16, 20),
+    minified.slice(20),
+  ].join('-');
+  return isValidUUID(claimId) ? claimId : undefined;
 }
 
 export const TAG_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/tag';
@@ -1083,6 +1111,40 @@ export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: C
   }
   console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
 }
+
+export async function resolveLinkedPatientIds({
+  oystehr,
+  patientId,
+}: {
+  oystehr: Oystehr;
+  patientId: string;
+}): Promise<string[]> {
+  const result = await oystehr.fhir.search<Person>({
+    resourceType: 'Person',
+    params: [
+      {
+        name: 'link',
+        value: `Patient/${patientId}`,
+      },
+    ],
+  });
+  const persons = result.unbundle();
+  const linkedIds = persons
+    .flatMap((person) => person.link ?? [])
+    .map((entry) => entry.target?.reference)
+    .filter((ref): ref is string => !!ref && ref.startsWith('Patient/'))
+    .map((ref) => ref.replace('Patient/', ''));
+  const resolved = [...new Set([patientId, ...linkedIds])];
+  console.debug(
+    `resolveLinkedPatientIds: Patient/${patientId} matched ${persons.length} Person(s), ${resolved.length} patient id(s)`
+  );
+  return resolved;
+}
+
+export const patientSearchParam = (patientIds: string[]): ClaimSearchParam => ({
+  name: 'patient',
+  value: patientIds.map((id) => `Patient/${id}`).join(','),
+});
 
 export function mapProvider(resource: Practitioner | Organization): BillingProviderOption {
   let workingCopyReferenceResourceId: string | undefined;

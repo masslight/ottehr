@@ -1,5 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import { Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
 import { Medication } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -7,10 +7,13 @@ import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import Loading from 'src/components/Loading';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
+  MEDICATION_DATABASE_FORBIDDEN_MESSAGE,
   useGetMedicationDetails,
   useGetMedicationsSearch,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { isPermissionDeniedError } from 'src/helpers/apiErrors';
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import {
@@ -47,12 +50,17 @@ export default function UpdateMedicationPage(): ReactElement {
   const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
 
   const medispanId = getMedispanId(medication);
-  const { isFetching: isSearching, data: medicationDetails } = useGetMedicationDetails(
-    medispanId ? parseInt(medispanId, 10) : 0
-  );
+  const {
+    isFetching: isSearching,
+    data: medicationDetails,
+    error: medicationDetailsError,
+  } = useGetMedicationDetails(medispanId ? parseInt(medispanId, 10) : 0);
   const medispanIdForInteractions = getMedispanIdForInteractions(medication);
-  const { isFetching: isFetchingDetailsForInteractions, data: medicationForInteractionsDetails } =
-    useGetMedicationDetails(medispanIdForInteractions ? parseInt(medispanIdForInteractions, 10) : 0);
+  const {
+    isFetching: isFetchingDetailsForInteractions,
+    data: medicationForInteractionsDetails,
+    error: interactionsDetailsError,
+  } = useGetMedicationDetails(medispanIdForInteractions ? parseInt(medispanIdForInteractions, 10) : 0);
   const { isFetching: isFetchingForPrecheck, data: dataForPrecheck } =
     useGetMedicationsSearch(debouncedSearchTermForPrecheck);
   const isSearchingForPrecheck = isFetchingDetailsForInteractions || isFetchingForPrecheck;
@@ -152,9 +160,21 @@ export default function UpdateMedicationPage(): ReactElement {
     setLoading(false);
   }
 
-  if (!medication || !medicationDetails) {
+  if (!medication || isSearching || isFetchingDetailsForInteractions) {
     return <Loading />;
   }
+
+  // The drug details come from the eRx reference database. When they can't be loaded the obsolete-medication
+  // remap field can't be shown, and submitting the form would clear the stored interactions Medispan ID — so
+  // explain why and block the update rather than rendering a spinner forever (the old behaviour).
+  const medicationDatabaseError = medicationDetailsError ?? interactionsDetailsError;
+  const blockingNotice = isPermissionDeniedError(medicationDatabaseError)
+    ? `${MEDICATION_DATABASE_FORBIDDEN_MESSAGE} Medication details cannot be loaded, so this medication cannot be updated.`
+    : medicationDatabaseError
+    ? 'The medication database could not be reached, so this medication cannot be updated right now. Please try again in a few moments.'
+    : !medicationDetails
+    ? 'Drug details for this medication could not be loaded, so it cannot be updated. Check that it has a Medispan ID.'
+    : null;
 
   return (
     <PageContainer>
@@ -172,6 +192,13 @@ export default function UpdateMedicationPage(): ReactElement {
               <Grid item xs={12}>
                 <Typography variant="h4">Update medication</Typography>
               </Grid>
+              {blockingNotice ? (
+                <Grid item xs={12}>
+                  <Alert severity="warning" data-testid={dataTestIds.updateMedicationPage.medicationDatabaseAlert}>
+                    {blockingNotice}
+                  </Alert>
+                </Grid>
+              ) : null}
               <Grid item xs={6}>
                 <Autocomplete
                   value={medication}
@@ -241,6 +268,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   type="submit"
                   variant="contained"
                   loading={loading}
+                  disabled={Boolean(blockingNotice)}
                   sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
                 >
                   Update Medication

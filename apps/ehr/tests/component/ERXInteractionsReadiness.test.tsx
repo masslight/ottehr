@@ -38,7 +38,7 @@ vi.mock('../../src/features/visits/shared/hooks/useErxPatientVitals', async (imp
   };
 });
 
-let syncReturn: { isFetched: boolean; isLoading: boolean };
+let syncReturn: { isSuccess: boolean; isLoading: boolean };
 let capturedSyncOnError: ((error: { code?: string; message?: string }) => void) | undefined;
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.queries', () => ({
   useSyncERXPatient: (opts: { onError?: (error: { code?: string; message?: string }) => void }) => {
@@ -62,7 +62,7 @@ describe('ERXInteractionsReadiness', () => {
     capturedSyncOnError = undefined;
     erxConfigReturn = { data: { configured: true }, isFetched: true };
     vitalsReturn = { hasVitals: true, isVitalsLoading: false, isVitalsFetched: true };
-    syncReturn = { isFetched: true, isLoading: false };
+    syncReturn = { isSuccess: true, isLoading: false };
   });
 
   it('reaches READY once eRx is configured, vitals are present, and the patient is synced', () => {
@@ -91,7 +91,7 @@ describe('ERXInteractionsReadiness', () => {
   });
 
   it('reports LOADING while the patient is being synced', () => {
-    syncReturn = { isFetched: false, isLoading: true };
+    syncReturn = { isSuccess: false, isLoading: true };
     const onStatusChanged = vi.fn();
     render(<ERXInteractionsReadiness onStatusChanged={onStatusChanged} />);
 
@@ -120,7 +120,7 @@ describe('ERXInteractionsReadiness', () => {
   });
 
   it('reports ERROR and surfaces a message when the patient sync fails', () => {
-    syncReturn = { isFetched: false, isLoading: false };
+    syncReturn = { isSuccess: false, isLoading: false };
     const onStatusChanged = vi.fn();
     render(<ERXInteractionsReadiness onStatusChanged={onStatusChanged} />);
 

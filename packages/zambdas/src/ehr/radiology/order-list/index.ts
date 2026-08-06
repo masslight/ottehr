@@ -13,6 +13,7 @@ import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   FHIR_EXTENSION,
   formatDate,
+  getAttendingPractitionerId,
   getExtension,
   getFullestAvailableName,
   GetRadiologyOrderListZambdaInput,
@@ -119,6 +120,8 @@ export const getRadiologyOrders = async (
     { name: '_revinclude', value: 'DocumentReference:related' },
     { name: '_include', value: 'ServiceRequest:requester' },
     { name: '_include', value: 'ServiceRequest:encounter' },
+    // The visit's attending provider is the ordering provider we display; see `resolveOrderingProvider`.
+    { name: '_include:iterate', value: 'Encounter:participant:Practitioner' },
     { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
     { name: 'status:not', value: 'revoked' },
   ];
@@ -186,13 +189,13 @@ const parseResultsToOrder = (
     throw new Error('Order added date time is unexpectedly null');
   }
 
-  const myRequestingProvider = practitioners.find(
-    (practitioner) => practitioner.id === serviceRequest.requester?.reference?.split('/')[1]
-  );
-  if (!myRequestingProvider) {
+  const encounter = encounters.find((enc) => enc.id === parseEncounterId(serviceRequest));
+
+  const orderingProvider = resolveOrderingProvider(serviceRequest, encounter, practitioners);
+  if (!orderingProvider) {
     throw new Error('Service Request has no requesting provider');
   }
-  const providerName = getFullestAvailableName(myRequestingProvider);
+  const providerName = getFullestAvailableName(orderingProvider);
   if (!providerName) {
     throw new Error('Provider name is unexpectedly null');
   }
@@ -283,14 +286,21 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
+  const radiologyDTO = makeRadiologyDTO(serviceRequest, preliminaryDiagnosticReport, bestFinalReport);
+
   const history = isExternal
     ? buildExternalHistory(serviceRequest, providerName, resultDocRefs)
-    : buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName, finalReviewTask);
+    : buildHistory(
+        serviceRequest,
+        bestFinalReport,
+        preliminaryDiagnosticReport,
+        providerName,
+        radiologyDTO.performedBy?.name,
+        finalReviewTask
+      );
 
   const consentObtained = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.consentObtained.url)
     ?.valueBoolean;
-
-  const radiologyDTO = makeRadiologyDTO(serviceRequest, preliminaryDiagnosticReport, bestFinalReport);
 
   return {
     ...radiologyDTO,
@@ -299,12 +309,34 @@ const parseResultsToOrder = (
     visitDateTime: '', // TODO
     orderAddedDateTime,
     providerName,
+    providerId: orderingProvider.id ?? '',
     status,
     isStat: serviceRequest.priority === 'stat',
     history,
     task: formattedFinalReviewTask,
     consentObtained,
   };
+};
+
+/**
+ * The ordering provider shown on an order is the provider assigned to the visit — orders are often placed by
+ * a nurse or MA on the provider's behalf, and `ServiceRequest.requester` is only whoever placed the order.
+ * Falls back to the requester when the encounter has no attender (or the attender didn't come back in the
+ * bundle). Matches how the order form PDF picks its ordering provider.
+ */
+export const resolveOrderingProvider = (
+  serviceRequest: ServiceRequest,
+  encounter: Encounter | undefined,
+  practitioners: Practitioner[]
+): Practitioner | undefined => {
+  const findPractitioner = (id: string | undefined): Practitioner | undefined =>
+    id ? practitioners.find((practitioner) => practitioner.id === id) : undefined;
+
+  const attendingProvider = findPractitioner(encounter ? getAttendingPractitionerId(encounter) : undefined);
+  const requester = findPractitioner(serviceRequest.requester?.reference?.split('/')[1]);
+
+  // A Practitioner without a name would make the order's provider column blank, so prefer one that has one.
+  return [attendingProvider, requester].find((practitioner) => practitioner && getFullestAvailableName(practitioner));
 };
 
 // External (print-only) orders: a two-row history mirroring the ordered -> reviewed lifecycle.
@@ -343,6 +375,7 @@ const buildHistory = (
   bestDiagnosticReport: DiagnosticReport | undefined,
   preliminaryDiagnosticReport: DiagnosticReport | undefined,
   orderingProviderName: string,
+  performedByName: string | undefined,
   finalReviewTask?: Task
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
@@ -364,7 +397,7 @@ const buildHistory = (
   if (performedHistoryExtensionValue) {
     history.push({
       status: RadiologyOrderStatus.performed,
-      performer: '',
+      performer: performedByName ?? '',
       date: performedHistoryExtensionValue,
     });
   }

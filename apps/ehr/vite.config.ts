@@ -68,6 +68,10 @@ export default ({ mode }: { mode: string }): UserConfig => {
       // "rendering chunks" phase and OOMs the build on a 23k-module app.
       sourcemap: shouldUploadSentrySourceMaps,
     },
+    define: {
+      // Chime SDK background-filter deps reference the Node.js `global` which doesn't exist in browsers.
+      global: 'globalThis',
+    },
     resolve: {
       preserveSymlinks: true,
       alias: {

@@ -61,6 +61,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: false,
       externalMedications: [],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
@@ -73,10 +74,24 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: false,
       externalMedications: [],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
     expect(screen.getByText(/not available/i)).toBeInTheDocument();
+  });
+
+  it('says why the history is unavailable when the role lacks access', () => {
+    vi.mocked(useExternalMedicationHistory).mockReturnValue({
+      isLoading: false,
+      isAvailable: false,
+      externalMedications: [],
+      error: Object.assign(new Error('Forbidden'), { code: 403 }),
+      isPermissionDenied: true,
+    });
+
+    render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
+    expect(screen.getByText(/your role does not have access to external medication history/i)).toBeInTheDocument();
   });
 
   it('shows empty state when all meds reconciled', () => {
@@ -85,6 +100,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: [],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
@@ -97,6 +113,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: [makeMatchedMed('Omeprazole', '20 mg')],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
@@ -109,6 +126,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: [makeExternalMed({ name: 'UnknownDrug' })],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
@@ -135,6 +153,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: [med],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
@@ -151,6 +170,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: meds,
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} onSelectMedication={onSelect} />, { wrapper });
@@ -190,6 +210,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: [med],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} onSelectMedication={onSelect} />, { wrapper });
@@ -210,6 +231,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: [makeExternalMed({ name: 'UnknownDrug' })],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} onSelectMedication={onSelect} />, { wrapper });
@@ -227,6 +249,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: [makeExternalMed({ name: 'TestMed', writtenDate: null, lastFillDate: null })],
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });
@@ -241,6 +264,7 @@ describe('ExternalRxSuggestions', () => {
       isAvailable: true,
       externalMedications: meds,
       error: null,
+      isPermissionDenied: false,
     });
 
     render(<ExternalRxSuggestions chartedMedications={[]} />, { wrapper });

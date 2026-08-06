@@ -119,6 +119,12 @@
         },
         {
           "linkId": "patient-name-suffix"
+        },
+        {
+          "linkId": "photo-id-front"
+        },
+        {
+          "linkId": "photo-id-back"
         }
       ]
     },
@@ -507,17 +513,6 @@
         },
         {
           "linkId": "responsible-party-number"
-        }
-      ]
-    },
-    {
-      "linkId": "photo-id-page",
-      "item": [
-        {
-          "linkId": "photo-id-front"
-        },
-        {
-          "linkId": "photo-id-back"
         }
       ]
     },

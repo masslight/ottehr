@@ -410,6 +410,7 @@ export interface SearchBillingPatientsResponse extends Paginated {
 
 export interface SearchBillingClaimsResponse extends Paginated {
   claims: BillingClaimItem[];
+  incomplete?: boolean;
 }
 
 // amounts in dollars
@@ -489,7 +490,7 @@ export interface DeletedResponse {
   deleted: true;
 }
 
-export interface TaggedClaimResponse {
+export interface OkResponse {
   ok: true;
 }
 

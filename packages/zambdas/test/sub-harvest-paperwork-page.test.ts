@@ -165,11 +165,12 @@ describe('executePageHarvest', () => {
     expect(result).toContain('medical-history-page');
   });
 
-  it('dispatches master-record and erx-contact strategies for contact-information-page', async () => {
+  it('dispatches master-record, erx-contact, and documents strategies for contact-information-page', async () => {
     const result = await executePageHarvest(buildContext('contact-information-page'));
     expect(result).toContain('master record updated');
     expect(result).toContain('contact-information-page');
     expect(result).toContain('erx-contact skipped (no user-relatedperson)');
+    expect(result).toContain('documents created');
   });
 
   it('dispatches pharmacy strategy for pharmacy-page', async () => {
@@ -181,11 +182,6 @@ describe('executePageHarvest', () => {
     const result = await executePageHarvest(buildContext('payment-option-page'));
     expect(result).toContain('account / coverage updated');
     expect(result).toContain('documents created');
-  });
-
-  it('dispatches documents strategy for photo-id-page', async () => {
-    const result = await executePageHarvest(buildContext('photo-id-page'));
-    expect(result).toBe('documents created');
   });
 
   it('dispatches consent strategy for consent-forms-page', async () => {

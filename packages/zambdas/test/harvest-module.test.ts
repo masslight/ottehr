@@ -3668,9 +3668,6 @@ const questionnaireResponse1: QuestionnaireResponse = {
       ],
     },
     {
-      linkId: 'photo-id-page',
-    },
-    {
       linkId: 'consent-forms-page',
     },
   ],
