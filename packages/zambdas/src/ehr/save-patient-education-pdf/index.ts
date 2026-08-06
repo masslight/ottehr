@@ -9,16 +9,16 @@ import {
   SavePatientEducationPdfInput,
   SavePatientEducationPdfOutput,
 } from 'utils/lib/types/data/patient-education.types';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
-import { wrapHandler } from '../../shared/sentry';
 import {
   createPatientEducationPdf,
   makePatientEducationPdfDocumentReference,
 } from '../../shared/pdf/patient-education-pdf';
 import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 

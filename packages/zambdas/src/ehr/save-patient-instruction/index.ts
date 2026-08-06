@@ -1,11 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { wrapHandler } from '../../shared/sentry';
 import { makeCommunicationDTO } from '../../shared/chart-data';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { checkIfProvidersInstruction, createCommunicationResource, updateCommunicationResource } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

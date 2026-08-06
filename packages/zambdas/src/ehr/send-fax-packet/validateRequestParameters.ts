@@ -1,6 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import { SendFaxPacketInput, SendFaxPacketInputSchema } from 'utils/lib/types/api/fax.types';
 import { isPhoneNumberValid, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { SendFaxPacketInput, SendFaxPacketInputSchema } from 'utils/lib/types/api/fax.types';
+import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 

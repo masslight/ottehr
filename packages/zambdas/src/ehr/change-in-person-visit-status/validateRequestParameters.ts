@@ -1,6 +1,6 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { visitStatusArray, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';

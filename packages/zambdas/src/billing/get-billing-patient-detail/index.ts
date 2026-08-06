@@ -2,10 +2,10 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Patient } from 'fhir/r4b';
 import { PatientDetailResponse } from 'utils/lib/types/data/billing/billing.types';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   fetchClaimResponsesByClaimIds,
   fetchPatientPaidByClaimId,

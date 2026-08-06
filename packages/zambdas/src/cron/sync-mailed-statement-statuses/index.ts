@@ -1,11 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { recordMailedStatementSyncRun } from '../../shared/mailed-statement-sync-state';
 import { wrapHandler } from '../../shared/sentry';
 import { syncMailedStatementStatuses } from '../../shared/sync-mailed-statement-statuses';
+import { ZambdaInput } from '../../shared/types/common';
 
 let m2mToken: string;
 

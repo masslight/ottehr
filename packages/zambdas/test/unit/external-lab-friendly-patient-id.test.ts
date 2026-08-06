@@ -1,6 +1,7 @@
 import { Organization, Patient, ServiceRequest } from 'fhir/r4b';
-import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FRIENDLY_PATIENT_ID_SYSTEM_BASE } from 'utils/lib/fhir/constants';
+import { externalLabOrderUsesFriendlyPatientId, getPatientIdForLabOrder } from 'utils/lib/helpers/labs/helpers';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import {
   LAB_ORDER_WITH_FRIENDLY_PATIENT_ID_DETAIL,
@@ -9,7 +10,6 @@ import {
   PSC_HOLD_CONFIG,
 } from 'utils/lib/types/data/labs/labs.constants';
 import { OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
-import { externalLabOrderUsesFriendlyPatientId, getPatientIdForLabOrder } from 'utils/lib/helpers/labs/helpers';
 import { describe, expect, it } from 'vitest';
 import {
   formatServiceRequestConfig,

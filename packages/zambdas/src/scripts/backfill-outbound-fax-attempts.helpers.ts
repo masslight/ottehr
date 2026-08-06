@@ -7,8 +7,8 @@ import {
   PROVENANCE_FAX_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { createOutboundDeliveryAttemptIdempotently } from '../shared/outbound-delivery';
 

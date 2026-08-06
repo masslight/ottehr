@@ -3,12 +3,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Attachment, CodeableConcept, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CreateDocumentReferenceInput, createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { Secrets } from 'utils/lib/secrets';
 import {
   EHRImageUploadType,
   UpdateVisitFilesInput,
   UpdateVisitFilesOutput,
   ValidEHRUploadTypes,
 } from 'utils/lib/types/api/update-visit-details.types';
+import { INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
@@ -16,13 +18,11 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
-import { INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { Secrets } from 'utils/lib/secrets';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 const ZAMBDA_NAME = 'update-visit-files';
 

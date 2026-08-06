@@ -1,9 +1,9 @@
+import { Secrets } from 'utils/lib/secrets';
 import {
   AdminUpdateSupportDialogInput,
   AdminUpdateSupportDialogInputSchema,
 } from 'utils/lib/types/data/support-dialog';
 import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import { Secrets } from 'utils/lib/secrets';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
 

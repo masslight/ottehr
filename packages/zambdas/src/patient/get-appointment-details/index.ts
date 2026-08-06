@@ -1,16 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment as FhirAppointment, HealthcareService, Location, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
-import { AvailableLocationInformation } from 'utils/lib/types/common';
-import { GetAppointmentDetailsResponse } from 'utils/lib/types/api/appointment.types';
-import { getAvailableSlotsForSchedules } from 'utils/lib/utils/scheduleUtils';
 import { getLocationInformation } from 'utils/lib/fhir/location';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../shared/types/common';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { GetAppointmentDetailsResponse } from 'utils/lib/types/api/appointment.types';
+import { AvailableLocationInformation } from 'utils/lib/types/common';
+import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { getAvailableSlotsForSchedules } from 'utils/lib/utils/scheduleUtils';
 import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {

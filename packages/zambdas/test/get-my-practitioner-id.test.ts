@@ -1,6 +1,6 @@
 import { User } from '@oystehr/sdk';
-import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { userMe } from 'utils/lib/auth/user-me.helper';
+import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMyPractitionerId } from '../src/shared/practitioners';
 

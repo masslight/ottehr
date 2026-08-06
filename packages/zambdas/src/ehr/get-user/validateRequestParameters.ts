@@ -1,6 +1,6 @@
+import { Secrets } from 'utils/lib/secrets';
 import { GetUserParams } from 'utils/lib/types/api/get-user.types';
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import { Secrets } from 'utils/lib/secrets';
 import { WithRequired } from 'utils/lib/types/utils';
 import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';

@@ -1,20 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import {
   CheckPatientPaymentTerminalStatusInput,
   CheckPatientPaymentTerminalStatusResponse,
   TerminalPaymentActionStatus,
 } from 'utils/lib/types/api/patient-payment-types';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { ZambdaInput } from '../../../../shared/types/common';
-import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { getAuth0Token } from '../../../../shared/getAuth0Token';
-import { getStripeClient } from '../../../../shared/stripeIntegration';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { lambdaResponse } from '../../../../shared/lambda';
-import { safeJsonParse } from '../../../../shared/validation';
 import { wrapHandler } from '../../../../shared/sentry';
+import { getStripeClient } from '../../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 const ZAMBDA_NAME = 'patient-payments-terminal-check-payment-status';
 

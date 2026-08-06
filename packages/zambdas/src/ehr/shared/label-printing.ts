@@ -11,11 +11,11 @@ import {
   Specimen,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getMiddleName, getPatientFirstName, getPatientFriendlyId, getPatientLastName } from 'utils/lib/fhir/patient';
+import { getOrderNumber, makeExternalLabLabelConfig } from 'utils/lib/helpers/labs/helpers';
 import { DYMO_30334_LABEL_CONFIG, LAB_ACCOUNT_NUMBER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { ExternalLabsLabelConfig } from 'utils/lib/types/data/labs/labs.types';
 import { LABEL_PRINTING_ERROR } from 'utils/lib/types/errors';
-import { getMiddleName, getPatientFirstName, getPatientFriendlyId, getPatientLastName } from 'utils/lib/fhir/patient';
-import { getOrderNumber, makeExternalLabLabelConfig } from 'utils/lib/helpers/labs/helpers';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { VisitLabelConfig } from '../../shared/pdf/visit-label-pdf';
 

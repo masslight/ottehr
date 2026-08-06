@@ -1,6 +1,6 @@
+import { Secrets } from 'utils/lib/secrets';
 import { GetPhotoIdSuggestionsInput } from 'utils/lib/types/api/get-photo-id-suggestions.types';
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import { Secrets } from 'utils/lib/secrets';
 import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';

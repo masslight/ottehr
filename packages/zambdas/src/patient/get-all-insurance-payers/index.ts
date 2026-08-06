@@ -1,6 +1,8 @@
 import Oystehr, { RcmListPayersResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { createOystehrClient, getPayerId } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
   APIError,
@@ -9,11 +11,9 @@ import {
   MISSING_REQUEST_SECRETS,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
-import { createOystehrClient, getPayerId } from 'utils/lib/helpers/helpers';
-import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../shared/types/common';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 interface Input {
   secrets: ZambdaInput['secrets'];

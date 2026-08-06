@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Coverage, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
-import { CreateInHouseLabEnconuterResource } from 'utils/lib/types/data/in-house/in-house.types';
-import { Secrets } from 'utils/lib/secrets';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { Secrets } from 'utils/lib/secrets';
+import { CreateInHouseLabEnconuterResource } from 'utils/lib/types/data/in-house/in-house.types';
 import { accountIsPatientBill, getPrimaryInsurance } from '../../ehr/lab/shared/labs';
 import { TemplateEncounterResource } from '../../ehr/shared/template-helpers';
 import { getMyPractitionerId } from '../practitioners';

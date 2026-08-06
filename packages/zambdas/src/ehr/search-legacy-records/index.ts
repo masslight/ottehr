@@ -1,4 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
   FileType,
   FileTypeMap,
@@ -8,11 +9,10 @@ import {
   SearchLegacyRecordsOutput,
 } from 'utils/lib/types/data/legacy-data/legacy-data.types';
 import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';

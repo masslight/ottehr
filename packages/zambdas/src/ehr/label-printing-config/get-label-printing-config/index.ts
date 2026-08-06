@@ -1,6 +1,7 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device } from 'fhir/r4b';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
   GetLabelPrintingConfigInput,
   LabelOrientationSchema,
@@ -16,12 +17,11 @@ import {
   LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
   LabelPrintingProperty,
 } from 'utils/lib/utils/printing';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { sendErrors } from '../../../shared/errors';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

@@ -17,19 +17,6 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  CoverageAndOrg,
-  CoverageOrgRank,
-  LabPaymentMethod,
-  PaymentResources,
-} from 'utils/lib/types/data/labs/labs.types';
-import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
-import {
-  LAB_ACCOUNT_NUMBER_SYSTEM,
-  ORDER_ITEM_UNKNOWN,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-} from 'utils/lib/types/data/labs/labs.constants';
-import { Secrets } from 'utils/lib/secrets';
-import {
   externalLabOrderUsesFriendlyPatientId,
   getOrderNumber,
   getTestDetailsFromActivityDefinition,
@@ -37,6 +24,19 @@ import {
   paymentMethodFromCoverage,
 } from 'utils/lib/helpers/labs/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  LAB_ACCOUNT_NUMBER_SYSTEM,
+  ORDER_ITEM_UNKNOWN,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+} from 'utils/lib/types/data/labs/labs.constants';
+import {
+  CoverageAndOrg,
+  CoverageOrgRank,
+  LabPaymentMethod,
+  PaymentResources,
+} from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { validate } from 'uuid';
 import {

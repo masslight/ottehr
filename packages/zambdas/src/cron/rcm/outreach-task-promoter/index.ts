@@ -1,17 +1,17 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import {
   getOrCreateOutreachConfig,
   NotificationsTimeRestriction,
   parseNotificationsTimeRestriction,
 } from '../../../rcm/scheduled-outreach-config/helpers';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { dedupeOutreachTasks } from './dedupe-outreach-tasks';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;

@@ -3,7 +3,15 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import type { Account, Encounter, Patient, Questionnaire } from 'fhir/r4b';
 import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { userMe } from 'utils/lib/auth/user-me.helper';
 import { AUDIT_EVENT_OUTCOME_CODE, PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { checkBundleOutcomeOk, getVersionedReferencesFromBundleResources } from 'utils/lib/fhir/helpers';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import { makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { UpdatePatientAccountResponse } from 'utils/lib/types/api/patient-account';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
@@ -11,23 +19,15 @@ import {
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
 } from 'utils/lib/types/errors';
-import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
-import { UpdatePatientAccountResponse } from 'utils/lib/types/api/patient-account';
-import { checkBundleOutcomeOk, getVersionedReferencesFromBundleResources } from 'utils/lib/fhir/helpers';
-import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
-import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
-import { userMe } from 'utils/lib/auth/user-me.helper';
 import { ValidationError } from 'yup';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { getStripeClient } from '../../../shared/stripeIntegration';
-import { safeJsonParse } from '../../../shared/validation';
 import { sendErrors } from '../../../shared/errors';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { getStripeClient } from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 import {
   createMasterRecordPatchOperations,
   createUpdatePharmacyPatchOps,

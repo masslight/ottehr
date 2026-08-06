@@ -1,12 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Encounter } from 'fhir/r4b';
-import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
+import { transcribeAndCreateResourcesFromZ3Audio } from '../../../shared/ai';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { wrapHandler } from '../../../shared/sentry';
-import { transcribeAndCreateResourcesFromZ3Audio } from '../../../shared/ai';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'process-telemed-recording';

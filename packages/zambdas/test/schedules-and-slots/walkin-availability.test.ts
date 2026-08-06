@@ -1,5 +1,5 @@
-import { getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { isWalkinOpen } from 'utils/lib/helpers/check-office-open';
+import { getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { assert, vi } from 'vitest';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import {

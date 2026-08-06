@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Patient } from 'fhir/r4b';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   AR_STAGE,
   CLAIM_STATUS_DATE_EXTENSION_URLS,
@@ -10,7 +11,6 @@ import {
   formatClaimStatusValue,
   isValidClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, vi } from 'vitest';
 import { ClaimPaymentSummary } from '../../../src/billing/claim-amounts';
 import {

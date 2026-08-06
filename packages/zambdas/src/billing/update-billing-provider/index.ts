@@ -2,9 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner, ProvenanceAgent } from 'fhir/r4b';
 import { setNpi } from 'utils/lib/fhir/helpers';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
 import {
   buildAddress,

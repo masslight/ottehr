@@ -1,16 +1,16 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
 import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { ScheduleStrategy } from 'utils/lib/fhir/constants';
+import { scheduleStrategyForHealthcareService } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getProviderType } from 'utils/lib/helpers/helpers';
+import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
 import {
   AppointmentParticipants,
   ParticipantInfo,
   PRACTITIONER_CODINGS,
 } from 'utils/lib/types/data/appointments/appointments.types';
-import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
-import { ScheduleStrategy } from 'utils/lib/fhir/constants';
-import { getProviderType } from 'utils/lib/helpers/helpers';
-import { scheduleStrategyForHealthcareService } from 'utils/lib/fhir/helpers';
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
   firstName: practitioner.name?.[0]?.given?.[0] ?? '',

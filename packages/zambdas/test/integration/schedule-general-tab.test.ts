@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Extension, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import {
   LOCATION_REVIEW_LINK_EXTENSION_URL,
   PUBLIC_EXTENSION_BASE_URL,
@@ -10,7 +11,6 @@ import {
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
-import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { ScheduleDTO } from 'utils/lib/utils/scheduleUtils';
 import { assert } from 'vitest';

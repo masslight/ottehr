@@ -4,8 +4,8 @@ import {
   OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
-import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { getOutboundDeliveryInput, makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
+import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockSendEmail = vi.fn();

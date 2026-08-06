@@ -5,10 +5,10 @@ import {
   ORDER_TYPE_CODE_SYSTEM,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
-import { ZambdaInput } from '../../shared/types/common';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 interface RadiologyStudyReportItem {
   serviceRequestId: string;

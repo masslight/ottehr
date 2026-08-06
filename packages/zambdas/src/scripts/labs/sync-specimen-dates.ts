@@ -3,8 +3,8 @@ import { ServiceRequest, Specimen } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import { OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 const USAGE_STR = `Usage: npm run sync-lab-specimen-dates [ORDER NUMBER] [${VALID_ENVS.join(' | ')}]\n`;

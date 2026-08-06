@@ -1,5 +1,5 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { UploadPatientConditionPhotoInput } from 'utils/lib/types/data/upload-patient-condition-photo.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse } from '../../shared/validation';
 

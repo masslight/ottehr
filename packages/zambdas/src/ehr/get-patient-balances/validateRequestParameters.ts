@@ -1,10 +1,10 @@
+import { Secrets } from 'utils/lib/secrets';
 import { GetPatientBalancesZambdaInput } from 'utils/lib/types/data/payment/payment-method-types';
 import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
-import { Secrets } from 'utils/lib/secrets';
 import { z } from 'zod';
+import { shouldUseOttehrBillingForPatientBalances } from '../../shared/candid';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
-import { shouldUseOttehrBillingForPatientBalances } from '../../shared/candid';
 
 const GetPatientBalancesBodySchema = z.object({
   patientId: z.string().uuid(),

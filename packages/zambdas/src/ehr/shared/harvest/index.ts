@@ -40,6 +40,7 @@ import {
 import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
+import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
 import {
   ATTORNEY_FIRM_EXTENSION_URL,
   EMPLOYER_ORG_IDENTIFIER_SYSTEM,
@@ -55,33 +56,7 @@ import {
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
-import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
-import { COVERAGE_ADDITIONAL_INFORMATION_URL, RESPONSIBLE_PARTY_NO_EMAIL_URL } from 'utils/lib/types/constants';
-import { ConsentSigner, DateComponents } from 'utils/lib/types/common';
-import {
-  INSURANCE_CARD_BACK_2_ID,
-  INSURANCE_CARD_BACK_ID,
-  INSURANCE_CARD_CODE,
-  INSURANCE_CARD_FRONT_2_ID,
-  INSURANCE_CARD_FRONT_ID,
-  PAPERWORK_CONSENT_CODE_UNIQUE,
-  PATIENT_PHOTO_CODE,
-  PATIENT_PHOTO_ID_PREFIX,
-  PHOTO_ID_BACK_ID,
-  PHOTO_ID_CARD_CODE,
-  PHOTO_ID_FRONT_ID,
-  SCHOOL_WORK_NOTE_SCHOOL_ID,
-  SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-  SCHOOL_WORK_NOTE_WORK_ID,
-} from 'utils/lib/types/data/paperwork/paperwork.constants';
-import {
-  OrderedCoverages,
-  OrderedCoveragesWithSubscribers,
-  PatientAccountAndCoverageResources,
-} from 'utils/lib/types/data/account';
-import { PATIENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
-import { PHARMACY_COLLECTION_LINK_IDS } from 'utils/lib/types/data/search-places';
-import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import {
   buildCoverageSubscriberRelatedPerson,
   codeableConcept,
@@ -103,6 +78,14 @@ import {
   mapBirthSexToGender,
   takeContainedOrFind,
 } from 'utils/lib/fhir/helpers';
+import { CANDID_PLAN_TYPE_SYSTEM, INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
+import { isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import {
+  getEmailForIndividual,
+  getFullName,
+  getPhoneNumberForIndividual,
+  makeSSNIdentifier,
+} from 'utils/lib/fhir/patient';
 import {
   buildExtensionObject,
   coverageFieldPaths,
@@ -120,7 +103,6 @@ import {
   createPatchOperationForTelecom,
   normalizePhoneNumber,
 } from 'utils/lib/fhir/resourcePatch';
-import { filterHiddenRemovableFields, isFieldExplicitlyCleared } from 'utils/lib/helpers/paperwork/paperwork';
 import {
   findOrgMatchingReference,
   formatPhoneNumber,
@@ -128,29 +110,47 @@ import {
   getPayerUrl,
   isPayerUrl,
 } from 'utils/lib/helpers/helpers';
+import { filterHiddenRemovableFields, isFieldExplicitlyCleared } from 'utils/lib/helpers/paperwork/paperwork';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { getConsentFormsForLocation } from 'utils/lib/ottehr-config/consent-forms';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ConsentSigner, DateComponents } from 'utils/lib/types/common';
+import { COVERAGE_ADDITIONAL_INFORMATION_URL, RESPONSIBLE_PARTY_NO_EMAIL_URL } from 'utils/lib/types/constants';
+import {
+  OrderedCoverages,
+  OrderedCoveragesWithSubscribers,
+  PatientAccountAndCoverageResources,
+} from 'utils/lib/types/data/account';
+import {
+  INSURANCE_CARD_BACK_2_ID,
+  INSURANCE_CARD_BACK_ID,
+  INSURANCE_CARD_CODE,
+  INSURANCE_CARD_FRONT_2_ID,
+  INSURANCE_CARD_FRONT_ID,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
+  PATIENT_PHOTO_CODE,
+  PATIENT_PHOTO_ID_PREFIX,
+  PHOTO_ID_BACK_ID,
+  PHOTO_ID_CARD_CODE,
+  PHOTO_ID_FRONT_ID,
+  SCHOOL_WORK_NOTE_SCHOOL_ID,
+  SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  SCHOOL_WORK_NOTE_WORK_ID,
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
 import {
   flattenIntakeQuestionnaireItems,
   IntakeQuestionnaireItem,
 } from 'utils/lib/types/data/paperwork/paperwork.types';
-import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
-import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
-import { getConsentFormsForLocation } from 'utils/lib/ottehr-config/consent-forms';
-import {
-  getEmailForIndividual,
-  getFullName,
-  getPhoneNumberForIndividual,
-  makeSSNIdentifier,
-} from 'utils/lib/fhir/patient';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { isValidUUID } from 'utils/lib/validation/helper';
-import { isoStringFromDateComponents } from 'utils/lib/utils/date';
 import {
   prepareQuestionnaireResponseForHarvest,
   QuestionnaireResponseHarvestInput,
 } from 'utils/lib/types/data/paperwork/prepareQuestionnaireItemsForHarvest';
+import { PHARMACY_COLLECTION_LINK_IDS } from 'utils/lib/types/data/search-places';
+import { PATIENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { isoStringFromDateComponents } from 'utils/lib/utils/date';
 import { uploadPDF } from 'utils/lib/utils/pdf';
-import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
 import { createPdfBytes } from '../../../shared/pdf';

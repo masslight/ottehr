@@ -1,12 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CreateResourcesFromAudioRecordingInput } from 'utils/lib/types/api/appointment.types';
-import { Secrets } from 'utils/lib/secrets';
 import { userMe } from 'utils/lib/auth/user-me.helper';
-import { ZambdaInput } from '../../shared/types/common';
+import { Secrets } from 'utils/lib/secrets';
+import { CreateResourcesFromAudioRecordingInput } from 'utils/lib/types/api/appointment.types';
+import { transcribeAndCreateResourcesFromZ3Audio } from '../../shared/ai';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
-import { transcribeAndCreateResourcesFromZ3Audio } from '../../shared/ai';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

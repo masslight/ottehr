@@ -1,15 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
 import { FOLLOWUP_TYPES } from 'utils/lib/fhir/encounter';
+import { Secrets } from 'utils/lib/secrets';
 import {
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
 } from 'utils/lib/types/api/save-followup-encounter.types';
-import { Secrets } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createEncounterResource, updateEncounterResource } from './helpers';
 
 const ZAMBDA_NAME = 'save-followup-encounter';

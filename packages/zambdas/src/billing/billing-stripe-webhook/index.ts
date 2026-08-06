@@ -4,11 +4,11 @@ import { Claim, Money, Organization, PaymentNotice, PaymentReconciliation, Refer
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
 import { shouldUseOttehrBilling } from '../../shared/candid';
 import { wrapHandler } from '../../shared/sentry';
+import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
+import { ZambdaInput } from '../../shared/types/common';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';

@@ -7,13 +7,13 @@ import {
   FAX_SENT_PROVENANCE_ACTIVITY_CODING,
   PARTICIPATION_CODE_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { SendRadiologyOrderFaxZambdaInput, SendRadiologyOrderFaxZambdaOutput } from 'utils/lib/types/api/radiology';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
+import { SendRadiologyOrderFaxZambdaInput, SendRadiologyOrderFaxZambdaOutput } from 'utils/lib/types/api/radiology';
 import { checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getOrCreateRadiologyOrderForm } from '../shared/order-form-resources';
 import { validateInput, validateSecrets } from './validation';
 

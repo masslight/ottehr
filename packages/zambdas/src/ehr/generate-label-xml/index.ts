@@ -6,11 +6,11 @@ import {
   SupportedPrinterManufacturer,
 } from 'utils/lib/types/data/printing';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { wrapHandler } from '../../shared/sentry';
 import { VisitLabelConfig, VisitLabelContent } from '../../shared/pdf/visit-label-pdf';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { getPrintingConfigAndDevice } from '../label-printing-config/get-label-printing-config';
 import { getExternalLabLabelConfig, getVisitLabelConfig } from '../shared/label-printing';
 import { validateRequestParameters } from './validateRequestParameters';

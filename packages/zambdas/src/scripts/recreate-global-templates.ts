@@ -1,8 +1,8 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { List } from 'fhir/r4b';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 import seed from './data/global-templates-seed.json';
 import { performEffectWithEnvFile } from './helpers';
 

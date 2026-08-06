@@ -1,6 +1,6 @@
+import { Secrets } from 'utils/lib/secrets';
 import { AdminGetLabSetDetailInput } from 'utils/lib/types/data/labs/labs.types';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import { Secrets } from 'utils/lib/secrets';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';

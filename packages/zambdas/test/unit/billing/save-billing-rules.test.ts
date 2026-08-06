@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic, Bundle, List, Organization, Resource } from 'fhir/r4b';
-import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import {
   DEFAULT_RULES_ENGINE,
   HOLD_TAG_NAME,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { BillingRuleInput } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from '../../../src/billing/rules-engine/constants';
 import { complexValidation, performEffect } from '../../../src/billing/save-billing-rules';

@@ -1,8 +1,8 @@
-import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import {
   RenameCustomFolderInputSchema,
   RenameCustomFolderInputValidated,
 } from 'utils/lib/types/data/custom-folder.types';
+import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 

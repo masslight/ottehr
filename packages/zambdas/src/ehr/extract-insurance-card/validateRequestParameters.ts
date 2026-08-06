@@ -1,7 +1,7 @@
-import { DocumentType } from 'utils/lib/types/data/documents';
-import { ExtractCardInput } from 'utils/lib/types/api/extract-card.types';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { Secrets } from 'utils/lib/secrets';
+import { ExtractCardInput } from 'utils/lib/types/api/extract-card.types';
+import { DocumentType } from 'utils/lib/types/data/documents';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 
 // The four card *image* slots. Other titles sharing the 64290-0 type code (e.g. the

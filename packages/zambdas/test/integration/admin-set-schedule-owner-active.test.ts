@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 

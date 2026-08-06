@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Encounter, PractitionerRole } from 'fhir/r4b';
-import { UserRole } from 'utils/lib/types/api/user.types';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { UserRole } from 'utils/lib/types/api/user.types';
 import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const unassignParticipantIfPossible = async (

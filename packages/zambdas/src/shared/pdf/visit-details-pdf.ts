@@ -1,12 +1,12 @@
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import { AppointmentContext } from 'utils/lib/config-helpers/patient-record';
+import { getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
 import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { getVisitOccupationalMedicineEmployerFromEncounter } from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { Secrets } from 'utils/lib/secrets';
 import { ServiceMode } from 'utils/lib/types/common';
-import { getCoding } from 'utils/lib/fhir/helpers';
-import { getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
-import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
-import { getVisitOccupationalMedicineEmployerFromEncounter } from 'utils/lib/fhir/encounter';
-import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
@@ -25,13 +25,13 @@ import {
   composeOccupationalMedicineEmployerData,
   createOccupationalMedicineEmployerSection,
 } from './sections/occupationalMedicineEmployerInfo';
-import { composePatientData, createPatientHeader, createPatientInfoSection } from './sections/patientInfo';
 import { composePatientDetailsData, createPatientDetailsSection } from './sections/patientDetails';
+import { composePatientData, createPatientHeader, createPatientInfoSection } from './sections/patientInfo';
 import { composePatientPaymentsData, createPatientPaymentsSection } from './sections/patientPayments';
 import { composePharmacyData, createPharmacyFormsSection } from './sections/pharmacyInfo';
+import { composePrimaryCarePhysicianData, createPrimaryCarePhysicianSection } from './sections/primaryCarePhysician';
 import { composeResponsiblePartyData, createResponsiblePartySection } from './sections/responsiblePartyInfo';
 import { composeVisitData, createVisitInfoSection } from './sections/visitInfo';
-import { composePrimaryCarePhysicianData, createPrimaryCarePhysicianSection } from './sections/primaryCarePhysician';
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, PdfResult, VisitDetailsData, VisitDetailsInput } from './types';
 

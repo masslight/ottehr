@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, Patient } from 'fhir/r4b';
-import { Secrets } from 'utils/lib/secrets';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { Secrets } from 'utils/lib/secrets';
 import {
   complexValidation,
   validateRequestParameters,

@@ -1,7 +1,7 @@
 import { ChargeItemDefinition, ChargeItemDefinitionPropertyGroup } from 'fhir/r4b';
 import { CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
-import { ChargeItemDefinitionDefault, ChargeItemDefinitionType } from 'utils/lib/types/data/billing/billing.types';
 import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { ChargeItemDefinitionDefault, ChargeItemDefinitionType } from 'utils/lib/types/data/billing/billing.types';
 import { CHARGE_ITEM_DEFINITION_TYPE_SYSTEM } from './shared';
 
 // ---------------------------------------------------------------------------

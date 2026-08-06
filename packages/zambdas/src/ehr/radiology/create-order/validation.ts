@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { Secrets } from 'utils/lib/secrets';
 import {
   CreateRadiologyZambdaOrderInputSchema,
   RADIOLOGY_SAFETY_FLAGS,
@@ -8,10 +9,9 @@ import {
   RadiologySafetyFlag,
 } from 'utils/lib/types/api/radiology';
 import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
-import { Secrets } from 'utils/lib/secrets';
+import { validateJsonBody } from '../../../shared/helpers';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeValidate } from '../../../shared/validation';
-import { validateJsonBody } from '../../../shared/helpers';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {

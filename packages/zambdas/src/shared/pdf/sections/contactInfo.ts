@@ -1,5 +1,5 @@
-import { PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL } from 'utils/lib/types/constants';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL } from 'utils/lib/types/constants';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { ContactInfo, PatientDataInput, PdfSection } from '../types';
 

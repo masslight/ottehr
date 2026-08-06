@@ -5,9 +5,9 @@ import {
   PatientArClaimItem,
   PatientBalanceSummary,
 } from 'utils/lib/types/data/billing/billing.types';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { fetchAllActivePatientArClaims } from '../search-billing-patient-ar-claims/handler';
 import { createBillingClient } from '../shared';
 import { GetBillingPatientBalanceParams, validateRequestParameters } from './validateRequestParameters';

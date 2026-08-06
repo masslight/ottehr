@@ -1,12 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { getEmCodes, getEmCodesFhirResources } from 'utils/lib/helpers/em-codes';
 import { EmCodeOutput } from 'utils/lib/types/api/config/em-codes';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
-import { getEmCodes, getEmCodesFhirResources } from 'utils/lib/helpers/em-codes';
-import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

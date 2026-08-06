@@ -2,8 +2,8 @@ import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import fs from 'fs';
 import { Secrets } from 'utils/lib/secrets';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 const clearTasks = async (config: any): Promise<void> => {
   console.log('getting access token');

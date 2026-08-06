@@ -1,17 +1,17 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { LocationKpiMetrics, PracticeKpisReportZambdaOutput } from 'utils/lib/types/api/practice-kpis-report.types';
-import { VisitStatusHistoryEntry } from 'utils/lib/types/api/appointment.types';
 import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
-import { getInPersonVisitStatus, getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { isInPersonAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { ZambdaInput } from '../../shared/types/common';
+import { VisitStatusHistoryEntry } from 'utils/lib/types/api/appointment.types';
+import { LocationKpiMetrics, PracticeKpisReportZambdaOutput } from 'utils/lib/types/api/practice-kpis-report.types';
+import { getInPersonVisitStatus, getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { fetchAllPages } from '../../shared/fhir';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

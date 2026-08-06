@@ -13,6 +13,11 @@ import {
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { chartDataTagSystem, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   ApplyTemplateZambdaInput,
   ApplyTemplateZambdaOutput,
@@ -23,16 +28,11 @@ import {
   TemplateSectionKey,
   TemplateWarning,
 } from 'utils/lib/types/data/apply-template.types';
-import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
-import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { chartDataTagSystem, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils/lib/fhir/constants';
-import { chunkThings } from 'utils/lib/fhir/chat';
-import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
 import { v4 as uuidV4 } from 'uuid';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   getTemplateEncounterBundle,
   hasTemplateRelevantTag,

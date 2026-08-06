@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { APIError, isApiError, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { getOptionalSecret, getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { APIError, isApiError, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   createEncounterFromAppointment,
@@ -12,13 +12,13 @@ import {
   shouldUseCandid,
   shouldUseOttehrBilling,
 } from '../../../shared/candid';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
-import { lambdaResponse } from '../../../shared/lambda';
 import { sendErrors, sendWarning } from '../../../shared/errors';
-import { wrapHandler } from '../../../shared/sentry';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 

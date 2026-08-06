@@ -1,14 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition, FhirResource, List, ServiceRequest } from 'fhir/r4b';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { getTag, resourceHasTagSystem, transactionWasSuccessful } from 'utils/lib/fhir/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { TemplateSectionAction, TemplateWarning } from 'utils/lib/types/data/apply-template.types';
 import {
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils/lib/types/data/in-house/in-house.constants';
-import { Secrets } from 'utils/lib/secrets';
-import { TemplateSectionAction, TemplateWarning } from 'utils/lib/types/data/apply-template.types';
-import { chartDataTagSystem } from 'utils/lib/fhir/constants';
-import { getTag, resourceHasTagSystem, transactionWasSuccessful } from 'utils/lib/fhir/helpers';
 import { makeRequestsForCreateInHouseLabs } from '../../shared/in-house-lab/build-order';
 import { gatherInHouseLabOrderContext } from '../../shared/in-house-lab/gather-context';
 import { TemplateEncounterResource } from '../shared/template-helpers';

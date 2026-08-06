@@ -1,8 +1,8 @@
-import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import {
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaInputSchema,
 } from 'utils/lib/types/api/send-receipt-by-email.types';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse } from '../../shared/validation';
 

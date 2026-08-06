@@ -10,6 +10,8 @@ import {
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
+import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
+import { extractCptCodeModifiersFromCoding } from 'utils/lib/fhir/billing';
 import {
   ACCIDENT_STATE_EXTENSION,
   ACCIDENT_TYPE_SYSTEM,
@@ -20,6 +22,16 @@ import {
   PERFORMER_TYPE_SYSTEM,
   PROCEDURE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { getTag, resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import {
+  getCptCodesFromMA,
+  getDosageUnitsAndRouteOfMedication,
+  searchRouteByCode,
+} from 'utils/lib/fhir/medication-administration';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { collectKnownRosFields, getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   AdminGetTemplateDetailInput,
   AdminGetTemplateDetailOutput,
@@ -33,24 +45,12 @@ import {
   TemplateProcedurePlan,
   TemplateRosFinding,
 } from 'utils/lib/types/data/admin-template.types';
-import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
-import { collectKnownExamFields } from 'utils/lib/config-helpers/exam-observations';
-import { collectKnownRosFields, getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
-import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { extractCptCodeModifiersFromCoding } from 'utils/lib/fhir/billing';
-import {
-  getCptCodesFromMA,
-  getDosageUnitsAndRouteOfMedication,
-  searchRouteByCode,
-} from 'utils/lib/fhir/medication-administration';
-import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { getTag, resourceHasTagSystem } from 'utils/lib/fhir/helpers';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   fetchPlanItemsByLabGuid,
   findExternalLabPlans,

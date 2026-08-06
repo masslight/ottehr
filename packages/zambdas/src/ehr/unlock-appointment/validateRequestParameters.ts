@@ -1,6 +1,6 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
-import { UnlockAppointmentZambdaInputValidated } from 'utils/lib/types/api/unlock-appointment/unlock-appointment.types';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { UnlockAppointmentZambdaInputValidated } from 'utils/lib/types/api/unlock-appointment/unlock-appointment.types';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';

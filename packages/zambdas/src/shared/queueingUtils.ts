@@ -1,7 +1,7 @@
 import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { isOnDemandVirtualAppointment } from './appointment/helpers';
 import { getTimeSpentInCurrentStatus, getWaitingTimeForAppointment } from './waitTimeUtils';

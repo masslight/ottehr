@@ -1,13 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location, Practitioner, Schedule } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { Secrets } from 'utils/lib/secrets';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 interface AdminSetScheduleOwnerActiveInput {
   secrets: Secrets | null;

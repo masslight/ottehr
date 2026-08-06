@@ -1,8 +1,8 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, Coverage, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
-import { EXTENSION_CLAIM_INSURANCE_TYPE } from 'utils/lib/helpers/rcm/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { EXTENSION_CLAIM_INSURANCE_TYPE } from 'utils/lib/helpers/rcm/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-claim/index';
 import { validateRequestParameters } from '../../../src/billing/update-billing-claim/validateRequestParameters';

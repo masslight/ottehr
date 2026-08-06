@@ -19,8 +19,27 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFImage } from 'pdf-lib';
-import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName, getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
+import { convertActivityDefinitionToDataEntryTestItem, quantityRangeFormat } from 'utils/lib/helpers/in-house-labs';
+import {
+  getAdditionalPlacerId,
+  getOrderNumber,
+  getOrderNumberFromDr,
+  getPatientIdForLabOrder,
+  getTestItemCodeFromDr,
+  isPSCOrder,
+} from 'utils/lib/helpers/labs/helpers';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  OBSERVATION_CODES,
+  OBSERVATION_INTERPRETATION_SYSTEM,
+} from 'utils/lib/types/data/in-house/in-house.constants';
 import {
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
@@ -45,27 +64,8 @@ import {
   PERFORMING_SITE_INFO_EXTENSION_URLS,
   SupportedObsImgAttachmentTypes,
 } from 'utils/lib/types/data/labs/labs.constants';
-import {
-  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
-  IN_HOUSE_OBS_DEF_ID_SYSTEM,
-  OBSERVATION_CODES,
-  OBSERVATION_INTERPRETATION_SYSTEM,
-} from 'utils/lib/types/data/in-house/in-house.constants';
 import { LabDrTypeTagCode, LabType } from 'utils/lib/types/data/labs/labs.types';
-import { Secrets } from 'utils/lib/secrets';
 import { compareDates } from 'utils/lib/utils/dateUtils';
-import { convertActivityDefinitionToDataEntryTestItem, quantityRangeFormat } from 'utils/lib/helpers/in-house-labs';
-import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
-import { formatPhoneNumberDisplay, formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
-import {
-  getAdditionalPlacerId,
-  getOrderNumber,
-  getOrderNumberFromDr,
-  getPatientIdForLabOrder,
-  getTestItemCodeFromDr,
-  isPSCOrder,
-} from 'utils/lib/helpers/labs/helpers';
-import { getFullestAvailableName, getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/lab/external/submit-lab-order/helpers';
 import {

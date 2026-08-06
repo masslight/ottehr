@@ -1,8 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
 import { SERVICE_CATEGORY_TAG } from 'utils/lib/fhir/constants';
-import { ZambdaInput } from '../../shared/types/common';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { getClient, ServiceCategory, toRecord } from '../admin-service-categories/helpers';
 
 // No request parameters to validate — kept as a no-op for convention with the

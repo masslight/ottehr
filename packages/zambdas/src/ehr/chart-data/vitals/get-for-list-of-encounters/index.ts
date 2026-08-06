@@ -1,23 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
-import {
-  GetVitalsForListOfEncountersRequestPayload,
-  GetVitalsForListOfEncountersResponseData,
-} from 'utils/lib/types/api/chart-data/get-vitals.types';
-import {
-  PATIENT_VITALS_META_SYSTEM,
-  VitalsBloodPressureObservationDTO,
-  VitalsHeartbeatObservationDTO,
-  VitalsObservationDTO,
-  VitalsOxygenSatObservationDTO,
-  VitalsTemperatureObservationDTO,
-  VitalsVisionObservationDTO,
-} from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { convertVitalsListToMap, getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { getFullName } from 'utils/lib/fhir/patient';
 import {
   extractBloodPressureObservationMethod,
   extractDotVisionScreening,
@@ -30,13 +15,28 @@ import {
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
 } from 'utils/lib/fhir/vitals';
-import { getFullName } from 'utils/lib/fhir/patient';
+import { convertVitalsListToMap, getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import {
+  PATIENT_VITALS_META_SYSTEM,
+  VitalsBloodPressureObservationDTO,
+  VitalsHeartbeatObservationDTO,
+  VitalsObservationDTO,
+  VitalsOxygenSatObservationDTO,
+  VitalsTemperatureObservationDTO,
+  VitalsVisionObservationDTO,
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  GetVitalsForListOfEncountersRequestPayload,
+  GetVitalsForListOfEncountersResponseData,
+} from 'utils/lib/types/api/chart-data/get-vitals.types';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import * as z from 'zod';
-import { ZambdaInput } from '../../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-vitals-for-list-of-encounters';

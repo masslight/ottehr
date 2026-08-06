@@ -1,8 +1,8 @@
 import { Appointment, FhirResource } from 'fhir/r4b';
 import fs from 'fs';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 async function main(): Promise<void> {
   const env = process.argv[2];

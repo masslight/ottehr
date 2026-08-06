@@ -21,20 +21,10 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  AdHocEncounterRow,
-  AdHocEncountersInput,
-  AdHocEncountersOutputSchema,
-} from 'utils/lib/types/adhoc/datasets/encounters';
-import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
-import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
-import {
-  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
-  MEDICATION_DISPENSABLE_DRUG_ID,
-} from 'utils/lib/types/api/medication-administration.constants';
-import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
 import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
+import { getMedicationFromMA, getMedicationName } from 'utils/lib/fhir/medication-administration';
 import {
   getEmailForIndividual,
   getPatientFirstName,
@@ -42,21 +32,31 @@ import {
   getPhoneNumberForIndividual,
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
-import { getMedicationFromMA, getMedicationName } from 'utils/lib/fhir/medication-administration';
+import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
+import {
+  AdHocEncounterRow,
+  AdHocEncountersInput,
+  AdHocEncountersOutputSchema,
+} from 'utils/lib/types/adhoc/datasets/encounters';
+import {
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_DISPENSABLE_DRUG_ID,
+} from 'utils/lib/types/api/medication-administration.constants';
+import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
+import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
-import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
-import { ZambdaInput } from '../../shared/types/common';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { followUpTypeFromPerformerType } from '../../shared/chart-data';
-import { wrapHandler } from '../../shared/sentry';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,
   fetchScopedResources,
   resolveEncounterAppointment,
 } from '../../shared/adhoc-report';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { followUpTypeFromPerformerType } from '../../shared/chart-data';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 

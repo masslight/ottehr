@@ -1,9 +1,9 @@
 import { ValueSet } from 'fhir/r4b';
 import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
-import { EM_CODES_VALUE_SET_URL } from 'utils/lib/types/api/em-codes.constants';
 import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
-import { createClinicalOystehrClient } from '../shared/helpers';
+import { EM_CODES_VALUE_SET_URL } from 'utils/lib/types/api/em-codes.constants';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 import seed from './data/em-codes-seed.json';
 import { performEffectWithEnvFile } from './helpers';
 

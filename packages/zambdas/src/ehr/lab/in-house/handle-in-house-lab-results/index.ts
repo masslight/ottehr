@@ -29,6 +29,16 @@ import {
   ValueSet,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from 'utils/lib/fhir/resourcePatch';
+import {
+  activityDefinitionIsReflexTest,
+  checkIfReflexIsTriggered,
+  extractAbnormalValueSetValues,
+  extractQuantityRange,
+} from 'utils/lib/helpers/in-house-labs';
+import { NonNormalResult } from 'utils/lib/types/api/lab';
 import {
   ABNORMAL_OBSERVATION_INTERPRETATION,
   ABNORMAL_RESULT_DR_TAG,
@@ -50,24 +60,14 @@ import {
   LabComponentValueSetConfig,
   ResultEntryInput,
 } from 'utils/lib/types/data/in-house/in-house.types';
-import { NonNormalResult } from 'utils/lib/types/api/lab';
 import { PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/labs/labs.constants';
-import {
-  activityDefinitionIsReflexTest,
-  checkIfReflexIsTriggered,
-  extractAbnormalValueSetValues,
-  extractQuantityRange,
-} from 'utils/lib/helpers/in-house-labs';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getPatchOperationsForNewMetaTags, getPatchOperationToRemoveMetaTags } from 'utils/lib/fhir/resourcePatch';
-import { ZambdaInput } from '../../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { createInHouseLabResultPDF } from '../../../../shared/pdf/labs-results-form-pdf';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
-import { createInHouseLabResultPDF } from '../../../../shared/pdf/labs-results-form-pdf';
 import { createOwnerReference } from '../../../../shared/tasks';
+import { ZambdaInput } from '../../../../shared/types/common';
 import {
   getInHouseLabTestUrlAndVersionForADFromServiceRequest,
   getRelatedServiceRequests,

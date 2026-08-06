@@ -8,9 +8,9 @@ import {
   fetchEraProcessingProvenances,
 } from '../../../billing/claim-amounts';
 import { createEraReadClient, fetchById, tagEraResources } from '../../../billing/shared';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'sub-tag-era-resources';

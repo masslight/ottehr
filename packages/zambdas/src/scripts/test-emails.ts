@@ -3,7 +3,8 @@ import { randomUUID } from 'crypto';
 import { Appointment, Location, Patient, Slot } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { getAddressString } from 'utils/lib/fhir/helpers';
+import { getFullName } from 'utils/lib/fhir/patient';
 import {
   ErrorReportTemplateData,
   InPersonCancelationTemplateData,
@@ -16,14 +17,13 @@ import {
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
 } from 'utils/lib/ottehr-config/sendgrid';
-import { MIME_TYPES } from 'utils/lib/utils/file';
 import { ServiceMode } from 'utils/lib/types/common';
-import { getAddressString } from 'utils/lib/fhir/helpers';
-import { getFullName } from 'utils/lib/fhir/patient';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 import { getServiceModeFromSlot } from 'utils/lib/utils/scheduleUtils';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
 import { EmailAttachment, getEmailClient } from '../shared/communication';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 const randomVisitId = randomUUID();
 

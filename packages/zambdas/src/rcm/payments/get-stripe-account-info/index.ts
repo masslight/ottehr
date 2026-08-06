@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from '../../../shared/types/common';
 import { wrapHandler } from '../../../shared/sentry';
 import { getStripeClient } from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface StripeAccountInfo {

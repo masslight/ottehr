@@ -1,5 +1,5 @@
-import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EmergencyContactDataInput, EmergencyContactInfo, PdfSection } from '../types';
 

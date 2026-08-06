@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from '../../../shared/types/common';
-import { getHTMLStatementTemplate } from '../../../shared/statements/get-statement-template';
 import { wrapHandler } from '../../../shared/sentry';
+import { getHTMLStatementTemplate } from '../../../shared/statements/get-statement-template';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = wrapHandler(

@@ -32,34 +32,34 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { CanonicalUrl, CREATED_BY_SYSTEM, ServiceMode, TaskIndicator } from 'utils/lib/types/common';
+import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
+import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { createUserResourcesForPatient, getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
+import { formatPhoneNumber, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { makePrepopulatedItemsForPatient } from 'utils/lib/helpers/paperwork/prePopulation';
+import { Secrets } from 'utils/lib/secrets';
+import { FhirAppointmentStatus, FhirEncounterStatus } from 'utils/lib/types/api/appointment.types';
 import {
   CreateAppointmentResponse,
   FollowUpOptions,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
-import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, RETURNING_PATIENT_META_TAG } from 'utils/lib/types/constants';
-import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
-import { FhirAppointmentStatus, FhirEncounterStatus } from 'utils/lib/types/api/appointment.types';
-import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
-import { Secrets } from 'utils/lib/secrets';
 import { User } from 'utils/lib/types/api/user.types';
-import { createUserResourcesForPatient, getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { formatPhoneNumber, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { CanonicalUrl, CREATED_BY_SYSTEM, ServiceMode, TaskIndicator } from 'utils/lib/types/common';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, RETURNING_PATIENT_META_TAG } from 'utils/lib/types/constants';
+import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { getAppointmentDurationFromSlot, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
-import { getCanonicalQuestionnaire } from 'utils/lib/fhir/questionnaires';
-import { getCoding, getTaskResource } from 'utils/lib/fhir/helpers';
-import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { makePrepopulatedItemsForPatient } from 'utils/lib/helpers/paperwork/prePopulation';
-import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { generatePatientRelatedRequests } from '../../../shared/appointment/helpers';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { getUser, isTestUser } from '../../../shared/auth';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
 import {
   createAppointmentComplexValidation,

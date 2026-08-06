@@ -2,6 +2,11 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, Encounter, HealthcareService, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import {
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
+  getReasonForVisitFromAppointment,
+} from 'utils/lib/fhir/appointments';
 import {
   CONSENT_ATTESTATION_SIG_TYPE,
   FHIR_EXTENSION,
@@ -9,22 +14,17 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
 } from 'utils/lib/fhir/constants';
-import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
+import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
+import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
+import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { REASON_ADDITIONAL_MAX_CHAR } from 'utils/lib/validation/constants';
-import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
-import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
-import {
-  getReasonForVisitAndAdditionalDetailsFromAppointment,
-  getReasonForVisitFromAppointment,
-} from 'utils/lib/fhir/appointments';
-import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { assert, inject } from 'vitest';
-import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';

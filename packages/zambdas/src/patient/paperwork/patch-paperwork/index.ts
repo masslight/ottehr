@@ -4,13 +4,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, QuestionnaireResponse, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils/lib/types/common';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils/lib/types/common';
 import { pageHarvestStrategy } from '../../../../../config-types/config/intake-paperwork';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.

@@ -1,8 +1,8 @@
+import { Secrets } from 'utils/lib/secrets';
 import {
   GetUnsolicitedResultsResourcesInput,
   UnsolicitedResultsRequestType,
 } from 'utils/lib/types/data/labs/labs.types';
-import { Secrets } from 'utils/lib/secrets';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';
 

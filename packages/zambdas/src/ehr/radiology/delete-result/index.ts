@@ -1,11 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { DeleteRadiologyResultZambdaOutput } from 'utils/lib/types/api/radiology';
 import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
-import { ZambdaInput } from '../../../shared/types/common';
+import { DeleteRadiologyResultZambdaOutput } from 'utils/lib/types/api/radiology';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { deleteZ3Object } from '../../../shared/z3Utils';
 import { validateInput, validateSecrets } from './validation';
 

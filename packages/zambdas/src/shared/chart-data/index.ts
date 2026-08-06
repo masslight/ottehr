@@ -38,7 +38,25 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
+import { createFilesDocumentReferences, getBooleanExtensionValue } from 'utils/lib/fhir/helpers';
+import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import {
+  addEmptyArrOperation,
+  addOperation,
+  addOrReplaceOperation,
+  removeOperation,
+} from 'utils/lib/helpers/operations';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
+import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
+import {
+  DispositionMetaFieldsNames,
+  ProviderChartDataFieldsNames,
+  SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   AccidentDTO,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -75,37 +93,19 @@ import {
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
-import {
-  DispositionMetaFieldsNames,
-  ProviderChartDataFieldsNames,
-  SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
-} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { SNOMEDCodeConceptInterface } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
-import { OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
+import { TaskCoding } from 'utils/lib/types/common';
+import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { SCHOOL_WORK_NOTE, SCHOOL_WORK_NOTE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import {
   ObservationDateFieldDTO,
   ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
 } from 'utils/lib/types/data/screening-questions/types';
-import { SCHOOL_WORK_NOTE, SCHOOL_WORK_NOTE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { SNOMEDCodeConceptInterface } from 'utils/lib/types/api/chart-data/save-chart-data.types';
-import { TaskCoding } from 'utils/lib/types/common';
-import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
-import {
-  addEmptyArrOperation,
-  addOperation,
-  addOrReplaceOperation,
-  removeOperation,
-} from 'utils/lib/helpers/operations';
-import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
-import { createFilesDocumentReferences, getBooleanExtensionValue } from 'utils/lib/fhir/helpers';
-import { fillVitalObservationAttributes, isVitalObservation, makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
-import { getVitalObservationFhirInterpretations } from 'utils/lib/helpers/vitals/utils';
-import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
-import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { removePrefix } from '../appointment/helpers';
 import { getCptModifierCodeFromProcedure } from '../candid';
 import { fillMeta } from '../helpers';

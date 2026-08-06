@@ -1,7 +1,7 @@
-import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
-import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
+import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PdfSection, PrimaryCarePhysician, PrimaryCarePhysicianInput } from '../types';
 

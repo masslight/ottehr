@@ -4,42 +4,42 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  CANT_CANCEL_CHECKED_IN_APT_ERROR,
-  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
-} from 'utils/lib/types/errors';
-import {
-  CancelAppointmentZambdaInput,
-  CancelAppointmentZambdaOutput,
-} from 'utils/lib/types/api/cancel-appointment.types';
-import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
 import { FHIR_ZAPEHR_URL } from 'utils/lib/fhir/constants';
-import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
-import { ServiceMode } from 'utils/lib/types/common';
-import { formatPhoneNumberDisplay, getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
 import {
   getAddressStringForScheduleResource,
   getAppointmentMetaTagOpForStatusUpdate,
   isPostTelemedAppointment,
 } from 'utils/lib/fhir/helpers';
-import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
-import { getPatientContactEmail, getPatientFirstName } from 'utils/lib/fhir/patient';
-import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
-import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
-import { ZambdaInput } from '../../../shared/types/common';
+import { getPatientContactEmail, getPatientFirstName } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { formatPhoneNumberDisplay, getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import {
+  CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
+} from 'utils/lib/types/api/cancel-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { ServiceMode } from 'utils/lib/types/common';
+import {
+  APPOINTMENT_NOT_FOUND_ERROR,
+  CANT_CANCEL_CHECKED_IN_APT_ERROR,
+  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
+} from 'utils/lib/types/errors';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
 import { checkIsEHRUser, getUser } from '../../../shared/auth';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
-import { getMainEncounterDetails } from '../../../shared/encounters';
-import { reportMissingUserRelatedPerson } from '../../../shared/invariants';
 import { sendSmsToRelatedPersons } from '../../../shared/communication';
-import { validateBundleAndExtractAppointment } from '../../../shared/validateBundleAndExtractAppointment';
-import { wrapHandler } from '../../../shared/sentry';
 import { getEmailClient } from '../../../shared/communication';
+import { getMainEncounterDetails } from '../../../shared/encounters';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { reportMissingUserRelatedPerson } from '../../../shared/invariants';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
+import { validateBundleAndExtractAppointment } from '../../../shared/validateBundleAndExtractAppointment';
 import {
   validateCancellationReasonForAppointmentContext,
   validateRequestParameters,

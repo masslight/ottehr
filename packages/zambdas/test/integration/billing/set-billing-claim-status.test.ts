@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 

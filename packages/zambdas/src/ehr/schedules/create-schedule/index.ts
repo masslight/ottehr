@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Extension, Schedule } from 'fhir/r4b';
+import { SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import { CreateScheduleParams } from 'utils/lib/types/api/schedules';
 import {
   FHIR_RESOURCE_NOT_FOUND,
@@ -8,13 +10,11 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
-import { SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ScheduleExtension } from 'utils/lib/utils/scheduleUtils';
-import { Secrets } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;

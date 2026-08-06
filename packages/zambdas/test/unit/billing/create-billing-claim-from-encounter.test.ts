@@ -14,6 +14,7 @@ import {
   Procedure,
   RelatedPerson,
 } from 'fhir/r4b';
+import { getDefaultClaimSubmissionExtensions } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_RESOURCE_TAG,
@@ -23,16 +24,9 @@ import {
   PARTICIPATION_CODE_SYSTEM,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import {
-  APIError,
-  FHIR_RESOURCE_NOT_FOUND,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-} from 'utils/lib/types/errors';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { PaymentVariant } from 'utils/lib/fhir/encounter';
 import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
@@ -47,9 +41,15 @@ import {
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
-import { PaymentVariant } from 'utils/lib/fhir/encounter';
-import { getDefaultClaimSubmissionExtensions } from 'utils/lib/fhir/billing';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import {
+  APIError,
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+} from 'utils/lib/types/errors';
 import { Mock, vi } from 'vitest';
 import {
   complexValidation,

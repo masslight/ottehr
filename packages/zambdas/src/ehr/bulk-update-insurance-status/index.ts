@@ -1,17 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { Secrets } from 'utils/lib/secrets';
 import {
   BulkUpdateInsuranceStatusInput,
   BulkUpdateInsuranceStatusResponse,
 } from 'utils/lib/types/api/bulk-update-insurance-status.types';
-import { Secrets } from 'utils/lib/secrets';
-import { chunkThings } from 'utils/lib/fhir/chat';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'bulk-update-insurance-status';

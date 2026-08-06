@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, Appointment, Encounter, Location } from 'fhir/r4b';
+import { getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
 import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { TELEMED_VIDEO_ROOM_CODE } from 'utils/lib/types/constants';
 import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
-import { getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
-import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getParticipantFromAppointment } from './helpers';
 
 /**

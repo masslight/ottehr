@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon';
-import { PersonSex } from 'utils/lib/types/common';
-import { RequiredProps } from 'utils/lib/types/typescript-helpers';
 import { Secrets } from 'utils/lib/secrets';
+import { PersonSex } from 'utils/lib/types/common';
 import { UpdateAppointmentRequestParams } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { RequiredProps } from 'utils/lib/types/typescript-helpers';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { phoneRegex, safeJsonParse, safeValidate } from '../../../shared/validation';

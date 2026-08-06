@@ -7,14 +7,8 @@ import {
   MedicationRequest,
   MedicationStatement,
 } from 'fhir/r4b';
-import {
-  AllergyInteraction,
-  DrugInteraction,
-  MedicationApplianceLocation,
-  MedicationApplianceRoute,
-  MedicationData,
-  MedicationInteractions,
-} from 'utils/lib/types/api/medication-administration.types';
+import { createReference } from 'utils/lib/fhir/helpers';
+import { getCreatedTheOrderProviderId } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_ACT_CODE_V3 } from 'utils/lib/helpers/rcm/constants';
 import {
   IN_HOUSE_CONTAINED_MEDICATION_ID,
@@ -33,8 +27,14 @@ import {
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
 } from 'utils/lib/types/api/medication-administration.constants';
-import { createReference } from 'utils/lib/fhir/helpers';
-import { getCreatedTheOrderProviderId } from 'utils/lib/fhir/medication-administration';
+import {
+  AllergyInteraction,
+  DrugInteraction,
+  MedicationApplianceLocation,
+  MedicationApplianceRoute,
+  MedicationData,
+  MedicationInteractions,
+} from 'utils/lib/types/api/medication-administration.types';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { fillMeta } from '../../shared/helpers';
 

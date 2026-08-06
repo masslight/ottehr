@@ -12,10 +12,6 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  CreateAppointmentInputParams,
-  CreateAppointmentResponse,
-} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
-import {
   GROUP_ASSIGNMENT_MODE_SYSTEM,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
@@ -26,13 +22,17 @@ import {
   SLOT_FALLBACK_REROUTED_TAG_SYSTEM,
   SlotServiceCategory,
 } from 'utils/lib/fhir/constants';
+import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
+import {
+  CreateAppointmentInputParams,
+  CreateAppointmentResponse,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { SLOT_UNAVAILABLE_ERROR } from 'utils/lib/types/errors';
-import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
-import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,

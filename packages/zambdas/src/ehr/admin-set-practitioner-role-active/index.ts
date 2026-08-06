@@ -1,5 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
+import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
+import { Secrets } from 'utils/lib/secrets';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
@@ -7,12 +9,10 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
 } from 'utils/lib/types/errors';
-import { Secrets } from 'utils/lib/secrets';
-import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminSetPractitionerRoleActiveInput {

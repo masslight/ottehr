@@ -1,6 +1,6 @@
-import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { createMedicationString } from 'utils/lib/fhir/medication-administration';
 import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
+import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';

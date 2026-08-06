@@ -3,8 +3,8 @@ import { Appointment, Encounter, Location, PaymentNotice } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 // Helper function to convert local date to UTC range
 function getUTCRangeForLocalDate(localDateString: string): { start: Date; end: Date } {

@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from '../../shared/types/common';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { handler } from './handler';
 
 export const index = wrapHandler(

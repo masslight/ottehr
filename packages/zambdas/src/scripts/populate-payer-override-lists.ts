@@ -3,11 +3,11 @@ import Oystehr from '@oystehr/sdk';
 import { List, ListEntry, Organization } from 'fhir/r4b';
 import * as fs from 'fs';
 import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
-import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
+import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { getInsuranceOverrideList } from '../rcm/get-insurance-override-list/handler';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 async function getPayers(oystehr: Oystehr): Promise<Organization[]> {
   console.log('Fetching payer organizations...');

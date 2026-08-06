@@ -1,16 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account } from 'fhir/r4b';
 import Stripe from 'stripe';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { PaymentMethodSetupZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
 import { checkForStripeCustomerDeletedError, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { ensureStripeCustomerId } from '../../../shared/stripeIntegration';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { ensureStripeCustomerId } from '../../../shared/stripeIntegration';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

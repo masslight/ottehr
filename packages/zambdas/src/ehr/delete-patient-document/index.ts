@@ -2,11 +2,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, List } from 'fhir/r4b';
 import { replaceOperation } from 'utils/lib/helpers/operations';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { deleteZ3Object, Z3Error } from '../../shared/z3Utils';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { deleteZ3Object, Z3Error } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'delete-patient-document';

@@ -1,20 +1,20 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Bundle, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import { getEmailForIndividual, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import {
   RecentPatientRecord,
   RecentPatientsReportZambdaOutputSchema,
 } from 'utils/lib/types/api/recent-patients-report.types';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { getEmailForIndividual, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 

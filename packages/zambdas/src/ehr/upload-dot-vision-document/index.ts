@@ -1,14 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Appointment, Encounter, List } from 'fhir/r4b';
-import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
-import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'upload-dot-vision-document';

@@ -1,11 +1,11 @@
 import { Coding } from 'fhir/r4b';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import {
   UpdateVisitDetailsRequest,
   UpdateVisitDetailsRequestSchema,
 } from 'utils/lib/types/api/update-visit-details.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeValidate } from '../../../shared/validation';
 

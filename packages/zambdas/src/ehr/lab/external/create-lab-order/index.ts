@@ -1,13 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
-import { CreateLabOrderZambdaOutput } from 'utils/lib/types/data/labs/labs.types';
-import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { CreateLabOrderZambdaOutput } from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { assertPractitionerHasNPI, checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
-import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { buildExternalLabOrderRequests } from './build-order';
 import { validateRequestParameters } from './validateRequestParameters';

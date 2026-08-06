@@ -9,6 +9,10 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { FHIR_EXTENSION, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getExtension } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   ORDER_TYPE_CODE_SYSTEM,
@@ -16,7 +20,6 @@ import {
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
-import { FHIR_EXTENSION, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
@@ -27,19 +30,16 @@ import {
 import { Pagination } from 'utils/lib/types/data/pagination.types';
 import { RADIOLOGY_TASK, Task as OttehrTask } from 'utils/lib/types/data/tasks/types';
 import { formatDate } from 'utils/lib/utils/date';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { getExtension } from 'utils/lib/fhir/helpers';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { isPositiveNumberOrZero } from 'utils/lib/validation/helper';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { wrapHandler } from '../../../shared/sentry';
 import {
   makeRadiologyDTO,
   takeMostRecentPreliminaryReport,
   takeTheBestFinalDiagnosticReport,
 } from '../../../shared/radiology';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { isCurrentRadiologyResultDocRef } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 

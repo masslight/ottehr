@@ -1,5 +1,5 @@
-import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { describe, expect, test } from 'vitest';
 import { assignNextFlagsByPartition } from '../../src/ehr/get-appointments';
 

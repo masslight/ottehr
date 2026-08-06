@@ -1,13 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration } from 'fhir/r4b';
-import { CancelImmunizationOrderRequest } from 'utils/lib/types/data/immunization/types';
 import { mapFhirToOrderStatus, mapOrderStatusToFhir } from 'utils/lib/fhir/medication-administration';
 import { replaceOperation } from 'utils/lib/helpers/operations';
-import { ZambdaInput } from '../../../shared/types/common';
+import { CancelImmunizationOrderRequest } from 'utils/lib/types/data/immunization/types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 let m2mToken: string;
 

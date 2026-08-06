@@ -2,23 +2,23 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
+import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { Secrets } from 'utils/lib/secrets';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
 import { PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { Secrets } from 'utils/lib/secrets';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { wrapHandler } from '../../shared/sentry';
 import { fetchErxPharmacies } from '../../shared/erx';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
 import { countPdfPages, downloadPdfBytes, mergePdfDocuments } from '../../shared/pdf/merge-pdfs';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';

@@ -8,12 +8,12 @@ import {
   PaymentReconciliation,
   Provenance,
 } from 'fhir/r4b';
-import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
-import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { X12_ADJUSTMENT_GROUP_CODE, X12AdjustmentGroupCode } from 'utils/lib/types/data/billing/billing.constants';
+import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
 import { isEraProcessingProvenance } from './shared';
 

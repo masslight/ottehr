@@ -1,7 +1,7 @@
 import { Appointment, Encounter, Reference } from 'fhir/r4b';
-import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getEncounterPaymentVariantExtension, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it } from 'vitest';
 import { determineArStage } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 

@@ -13,13 +13,8 @@ import {
   Procedure,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  AdHocPatientRow,
-  AdHocPatientsInput,
-  AdHocPatientsOutputSchema,
-} from 'utils/lib/types/adhoc/datasets/patients';
-import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import {
   getAddressForIndividual,
   getEmailForIndividual,
@@ -29,13 +24,18 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import {
+  AdHocPatientRow,
+  AdHocPatientsInput,
+  AdHocPatientsOutputSchema,
+} from 'utils/lib/types/adhoc/datasets/patients';
+import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
-import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
-import { ZambdaInput } from '../../shared/types/common';
+import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../../shared/adhoc-report';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
-import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../../shared/adhoc-report';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';
 

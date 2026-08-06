@@ -1,8 +1,8 @@
 import Oystehr, { Role, User } from '@oystehr/sdk';
-import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
-import { RoleType } from 'utils/lib/types/api/user.types';
-import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { userMe } from 'utils/lib/auth/user-me.helper';
+import { Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getUser, requireAdminUser, requireUserWithRole } from '../../src/shared/auth';
 

@@ -3,6 +3,8 @@ import { Secrets } from 'utils/lib/secrets';
 import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, PdfRenderConfig, renderPdf, StyleFactory, uploadPdfToStorage } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
+import { composeRadiology, createRadiologySection } from './sections/discharge-summary/radiology';
+import { composeUpcomingVisits, createUpcomingVisitsSection } from './sections/upcomingVisits';
 import {
   composeAdditionalQuestions,
   createAdditionalQuestionsSection,
@@ -32,23 +34,21 @@ import { composeMechanismOfInjury, createMechanismOfInjurySection } from './sect
 import { composeMedicalConditions, createMedicalConditionsSection } from './sections/visit-note/medicalConditions';
 import { composeMedicalDecision, createMedicalDecisionSection } from './sections/visit-note/medicalDecision';
 import { composeMedications, createMedicationsSection } from './sections/visit-note/medicationsInfo';
-import {
-  composePatientInformation,
-  createProgressNotePatientInfoSection,
-} from './sections/visit-note/progressNotePatientInfo';
 import { composePlanData, createPlanSection } from './sections/visit-note/plan';
 import { composePrescriptions, createPrescriptionsSection } from './sections/visit-note/prescriptions';
 import { composeProcedures, createProceduresSection } from './sections/visit-note/procedures';
 import {
+  composePatientInformation,
+  createProgressNotePatientInfoSection,
+} from './sections/visit-note/progressNotePatientInfo';
+import {
   composeProgressNoteVisitDetails,
   createProgressNoteVisitDetailsSection,
 } from './sections/visit-note/progressNoteVisitDetails';
-import { composeRadiology, createRadiologySection } from './sections/discharge-summary/radiology';
 import { composeReviewOfSystems, createReviewOfSystemsSection } from './sections/visit-note/reviewOfSystems';
 import { composeRosObservations, createRosObservationsSection } from './sections/visit-note/rosObservations';
 import { composeSignature, createSignatureSection } from './sections/visit-note/signature';
 import { composeSurgicalHistory, createSurgicalHistorySection } from './sections/visit-note/surgicalHistory';
-import { composeUpcomingVisits, createUpcomingVisitsSection } from './sections/upcomingVisits';
 import { composeVitals, createVitalsSection } from './sections/visit-note/vitals';
 import { fetchServiceCategoryCatalog } from './service-category-catalog';
 import { AssetPaths, PdfResult, ProgressNoteData, ProgressNoteInput } from './types';

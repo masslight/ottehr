@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ZambdaInput } from '../../shared/types/common';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 export const index = wrapHandler('failing-endpoint', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);

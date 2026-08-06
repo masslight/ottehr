@@ -9,8 +9,15 @@ import {
   Questionnaire,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import type { HarvestStrategy } from '../../../../../config-types/config/intake-paperwork';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
 import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  getEncounterPaymentVariantExtension,
+  getPaymentVariantFromEncounter,
+  PaymentVariant,
+} from 'utils/lib/fhir/encounter';
+import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
+import { getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import {
   INSURANCE_PAY_OPTION,
   OCC_MED_EMPLOYER_PAY_OPTION,
@@ -19,15 +26,8 @@ import {
 } from 'utils/lib/ottehr-config/value-sets';
 import { Secrets } from 'utils/lib/secrets';
 import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
-import {
-  getEncounterPaymentVariantExtension,
-  getPaymentVariantFromEncounter,
-  PaymentVariant,
-} from 'utils/lib/fhir/encounter';
-import { getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
-import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import type { HarvestStrategy } from '../../../../../config-types/config/intake-paperwork';
 import { pageHarvestStrategy } from '../../../../../config-types/config/intake-paperwork';
-import { patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import {
   createConsentResources,
   createDocumentResources,

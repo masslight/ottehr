@@ -6,20 +6,20 @@ import { captureException } from '@sentry/aws-serverless';
 import { Appointment, Condition, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
-import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { AiSuggestionItem } from 'utils/lib/types/data/screening-questions/types';
 import {
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
   PUBLIC_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { MIME_TYPES } from 'utils/lib/utils/file';
-import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
-import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
+import { AiObservationField } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { AI_OBSERVATION_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { AiSuggestionItem } from 'utils/lib/types/data/screening-questions/types';
+import { MIME_TYPES } from 'utils/lib/utils/file';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';

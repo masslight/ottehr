@@ -1,5 +1,5 @@
-import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
+import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, PdfSection, ProgressNoteVisitDataInput, RosObservations } from '../../types';
 

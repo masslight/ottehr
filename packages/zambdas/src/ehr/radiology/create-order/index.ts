@@ -17,6 +17,8 @@ import {
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import randomstring from 'randomstring';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -36,6 +38,7 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   CreateRadiologyZambdaOrderInput,
@@ -43,15 +46,12 @@ import {
   RadiologyPerformingOrganization,
   RadiologySafetyFlag,
 } from 'utils/lib/types/api/radiology';
-import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { userMe } from 'utils/lib/auth/user-me.helper';
-import { ZambdaInput } from '../../../shared/types/common';
 import { assertPractitionerHasNPI, checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
-import { makeCPTCodeDTO } from '../../../shared/chart-data';
 import { makeCptModifierExtension } from '../../../shared/candid';
+import { makeCPTCodeDTO } from '../../../shared/chart-data';
+import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateInput, validateSecrets } from './validation';
 
 // Types

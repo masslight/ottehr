@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
 import { Communication, Location, Patient, RelatedPerson } from 'fhir/r4b';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getPatientContactEmail } from 'utils/lib/fhir/patient';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import {
   DynamicTemplateDataRecord,
   EmailTemplate,
@@ -20,12 +24,8 @@ import {
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
 } from 'utils/lib/ottehr-config/sendgrid';
-import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
-import { buildLocationSupportPhonesMap, getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
-import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getPatientContactEmail } from 'utils/lib/fhir/patient';
-import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { buildLocationSupportPhonesMap, getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import { sendErrors } from './errors';
 import { reportMissingUserRelatedPerson } from './invariants';
 

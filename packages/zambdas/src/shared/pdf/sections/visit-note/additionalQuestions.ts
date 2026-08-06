@@ -1,7 +1,7 @@
+import { renderScreeningQuestionsForPDF } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
-import { renderScreeningQuestionsForPDF } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';

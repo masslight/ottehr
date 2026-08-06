@@ -2,13 +2,23 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, Practitioner, Slot, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
+import { RCM_TASK_SYSTEM, RcmTaskCode, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS, FollowupSubtype } from 'utils/lib/fhir/encounter';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { Secrets } from 'utils/lib/secrets';
+import { AppointmentTypeOptions, AppointmentTypeSchema } from 'utils/lib/types/api/appointment.types';
 import {
   AppointmentHistoryRow,
   FollowUpVisitHistoryRow,
   GetPatientVisitListInput,
   PatientVisitListResponse,
 } from 'utils/lib/types/api/patient-visit-history.types';
-import { AppointmentTypeOptions, AppointmentTypeSchema } from 'utils/lib/types/api/appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
@@ -16,29 +26,19 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
 } from 'utils/lib/types/errors';
-import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS, FollowupSubtype } from 'utils/lib/fhir/encounter';
-import { RCM_TASK_SYSTEM, RcmTaskCode, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
-import { Secrets } from 'utils/lib/secrets';
-import { ServiceMode } from 'utils/lib/types/common';
-import { TIMEZONES } from 'utils/lib/types/constants';
-import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { getCoding } from 'utils/lib/fhir/helpers';
-import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import {
   getInPersonVisitStatus,
   getTelemedLength,
   getVisitStatusHistory,
   getVisitTotalTime,
 } from 'utils/lib/utils/visitUtils';
-import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { z } from 'zod';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;

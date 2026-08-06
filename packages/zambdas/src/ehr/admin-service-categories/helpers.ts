@@ -6,7 +6,6 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
 } from 'utils/lib/fhir/constants';
-import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import {
   getServiceCategoryCadenceMinutes,
   getServiceCategoryDurationMinutes,
@@ -16,9 +15,10 @@ import {
   parseServiceCategoryAbbreviation,
   serviceCategoryCharacteristics,
 } from 'utils/lib/fhir/healthcareService';
-import { ZambdaInput } from '../../shared/types/common';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types/common';
 
 /**
  * Runtime-editable per-service-category settings. Mirrors the shape of the

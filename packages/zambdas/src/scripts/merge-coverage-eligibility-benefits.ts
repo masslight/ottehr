@@ -9,12 +9,12 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import { Secrets } from 'utils/lib/secrets';
+import { getAuth0Token } from '../shared/getAuth0Token';
 import {
   createClinicalOystehrClient,
   fhirApiUrlFromAuth0Audience,
   projectApiUrlFromAuth0Audience,
 } from '../shared/helpers';
-import { getAuth0Token } from '../shared/getAuth0Token';
 
 const RAW_RESPONSE_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/raw-response';
 const RAW_REQUEST_EXTENSION_URL = 'https://extensions.fhir.oystehr.com/raw-request';

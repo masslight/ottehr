@@ -1,11 +1,11 @@
 import { Organization, Practitioner, Task } from 'fhir/r4b';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
   FAX_PACKET_REQUEST_TASK_INPUT,
   FAX_PACKET_RESULTS_TASK_OUTPUT,
   FaxPacketTaskPayload,
 } from 'utils/lib/types/api/fax.types';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { deliverFaxPacket, savePcpIfRequested } from '../../../shared/fax/run-fax-packet';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';

@@ -2,16 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AI_QUESTIONNAIRE_ID } from 'utils/lib/types/constants';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
-import { StartInterviewInput } from 'utils/lib/types/api/ai-interview.types';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
+import { StartInterviewInput } from 'utils/lib/types/api/ai-interview.types';
+import { AI_QUESTIONNAIRE_ID } from 'utils/lib/types/constants';
+import { invokeChatbot } from '../../../shared/ai';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { validateJsonBody, validateString } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
-import { invokeChatbot } from '../../../shared/ai';
+import { ZambdaInput } from '../../../shared/types/common';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 

@@ -2,8 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import Stripe from 'stripe';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 interface StripeInvoice {
   invoiceId: string;

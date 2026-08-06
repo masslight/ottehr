@@ -8,10 +8,10 @@ import {
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
 } from 'utils/lib/types/api/user-activation.types';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UserActivationZambdaInputValidated extends UserActivationZambdaInput {

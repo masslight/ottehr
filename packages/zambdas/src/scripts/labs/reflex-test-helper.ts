@@ -12,8 +12,8 @@ import {
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import { LAB_DR_TYPE_TAG } from 'utils/lib/types/data/labs/labs.constants';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { DR_REFLEX_TAG } from './lab-script-consts';
 import { createResultAttachmentDocRef } from './lab-script-helpers';
 

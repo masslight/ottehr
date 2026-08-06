@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 
 interface PatchTaskStatusInput {
   task: Pick<Task, 'id'>;

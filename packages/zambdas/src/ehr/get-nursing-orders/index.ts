@@ -1,9 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { GetNursingOrdersInputValidated } from 'utils/lib/types/data/orders/types';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { getNursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

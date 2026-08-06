@@ -1,11 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { EMPTY_PAGINATION } from 'utils/lib/types/data/labs/labs.constants';
 import { ReflexLabDTO } from 'utils/lib/types/data/labs/labs.types';
-import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 import {
   checkForDiagnosticReportDrivenResults,
   getLabResources,

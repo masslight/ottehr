@@ -1,8 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import { APIErrorCode } from 'utils/lib/types/errors';
-import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import {
   PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
@@ -10,9 +8,11 @@ import {
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
 } from 'utils/lib/fhir/constants';
+import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
 import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
-import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 

@@ -6,12 +6,12 @@ import { DocumentReference, List, ListEntry, Meta } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import { BUCKET_NAMES, FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
-import { LAB_DOC_REF_DETAIL_TAGS } from 'utils/lib/types/data/labs/labs.constants';
-import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { addOperation } from 'utils/lib/helpers/operations';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
+import { LAB_DOC_REF_DETAIL_TAGS } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { sendErrors } from '../errors';
 import {
   HEADER_FONT_SIZE,

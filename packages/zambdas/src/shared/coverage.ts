@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Address, HumanName, Patient, RelatedPerson } from 'fhir/r4b';
+import { createFhirHumanName } from 'utils/lib/fhir/helpers';
 import { ELIGIBILITY_RELATED_PERSON_META_TAG } from 'utils/lib/telemed/constants';
 import { GetEligibilityPolicyHolder } from 'utils/lib/types/data/telemed/eligibility.types';
-import { createFhirHumanName } from 'utils/lib/fhir/helpers';
 
 const getGender = (sex: string | undefined): 'male' | 'female' | 'unknown' | 'other' => {
   if (sex != undefined) {

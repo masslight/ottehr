@@ -36,9 +36,9 @@ import {
 } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LabComponentValueSetConfig, Validation } from 'utils/lib/types/data/in-house/in-house.types';
 import { sanitizeForId } from '../../ehr/lab/shared/in-house-labs';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { getAuth0Token } from '../../shared/getAuth0Token';
 import { makeCptModifierExtension } from '../../shared/candid';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { testItems as baseTestItems } from '../data/base-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';

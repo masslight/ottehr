@@ -1,12 +1,12 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Location } from 'fhir/r4b';
-import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
 import {
   FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
 import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/save-billing-service-facility/validateRequestParameters';

@@ -3,11 +3,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { getUser } from '../../../shared/auth';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
 

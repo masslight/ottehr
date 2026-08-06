@@ -3,9 +3,9 @@ import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import Stripe from 'stripe';
 import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
-import { createClinicalOystehrClient } from '../shared/helpers';
-import { getAuth0Token } from '../shared/getAuth0Token';
 import { sendSmsToRelatedPersons } from '../shared/communication';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string, env: string): Promise<void> {
   const relatedPersons = await getRelatedPersonsForPatient(patientId || '', oystehr);

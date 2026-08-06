@@ -2,10 +2,10 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import { BillingPatientOption } from 'utils/lib/types/data/billing/billing.types';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   createBillingClient,
   EXCLUDE_WORKING_COPIES_PARAMS,

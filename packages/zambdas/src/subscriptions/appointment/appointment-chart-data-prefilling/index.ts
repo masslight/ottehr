@@ -1,19 +1,15 @@
 import { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, FhirResource, Patient } from 'fhir/r4b';
-import { ChartDataResources, DispositionDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { FHIR_APPOINTMENT_PREPROCESSED_TAG } from 'utils/lib/fhir/constants';
-import { Secrets } from 'utils/lib/secrets';
 import { chunkThings } from 'utils/lib/fhir/chat';
-import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { FHIR_APPOINTMENT_PREPROCESSED_TAG } from 'utils/lib/fhir/constants';
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { Secrets } from 'utils/lib/secrets';
+import { ChartDataResources, DispositionDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { organizeAccounts } from '../../../ehr/shared/harvest';
 import { makeEncounterAccountPatchOp } from '../../../ehr/shared/harvest';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { getProgressNoteConfigPayload } from '../../../shared/progress-note-config';
-import { saveResourceRequest } from '../../../shared/resources.helpers';
-import { wrapHandler } from '../../../shared/sentry';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
@@ -21,6 +17,10 @@ import {
   updateEncounterPatientInfoConfirmed,
 } from '../../../shared/chart-data';
 import { createClinicalOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
+import { getProgressNoteConfigPayload } from '../../../shared/progress-note-config';
+import { saveResourceRequest } from '../../../shared/resources.helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const CHUNK_SIZE = 50;

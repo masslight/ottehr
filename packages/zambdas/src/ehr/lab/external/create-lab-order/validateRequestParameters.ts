@@ -1,7 +1,7 @@
 import { CreateLabOrderParameters } from 'utils/lib/types/data/labs/labs.types';
 import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
-import { safeJsonParse } from '../../../../shared/validation';
 import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): CreateLabOrderParameters & { secrets: any } {
   if (!input.body) {

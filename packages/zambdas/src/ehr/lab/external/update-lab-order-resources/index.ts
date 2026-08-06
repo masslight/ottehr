@@ -19,34 +19,34 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  LAB_ORDER_UPDATE_RESOURCES_EVENTS,
-  SaveOrderCollectionData,
-  UpdateLabOrderResourcesInput,
-} from 'utils/lib/types/data/labs/labs.types';
-import { PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/labs/labs.constants';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
   getOrderNumber,
   getTestNameFromDr,
   isPSCOrder,
   makeExternalLabLabelConfig,
 } from 'utils/lib/helpers/labs/helpers';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../../shared/types/common';
+import { PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  LAB_ORDER_UPDATE_RESOURCES_EVENTS,
+  SaveOrderCollectionData,
+  UpdateLabOrderResourcesInput,
+} from 'utils/lib/types/data/labs/labs.types';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
-import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { getMyPractitionerId } from '../../../../shared/practitioners';
-import { sendErrors } from '../../../../shared/errors';
 import { sendOrderResultEmailToPatient } from '../../../../shared/communication';
-import { wrapHandler } from '../../../../shared/sentry';
+import { sendErrors } from '../../../../shared/errors';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { createExternalLabsLabelPDF } from '../../../../shared/pdf/external-labs-label-pdf';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../../shared/pdf/labs-results-form-pdf';
+import { getMyPractitionerId } from '../../../../shared/practitioners';
+import { wrapHandler } from '../../../../shared/sentry';
 import { createOwnerReference } from '../../../../shared/tasks';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { diagnosticReportSpecificResultType, getExternalLabOrderResourcesViaServiceRequest } from '../../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,

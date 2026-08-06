@@ -1,11 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { GetTelemedLocationsResponse } from 'utils/lib/types/data/telemed/get-telemed-locations.types';
+import { getTelemedLocations } from 'utils/lib/fhir/location';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { getTelemedLocations } from 'utils/lib/fhir/location';
-import { ZambdaInput } from '../../shared/types/common';
+import { GetTelemedLocationsResponse } from 'utils/lib/types/data/telemed/get-telemed-locations.types';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 let oystehrToken: string;
 const ZAMBDA_NAME = 'get-telemed-locations';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

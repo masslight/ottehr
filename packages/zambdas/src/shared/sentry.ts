@@ -1,7 +1,7 @@
 import { init, isInitialized, setTag, setTags, wrapHandler as sentryWrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult, Handler } from 'aws-lambda';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { topLevelCatch } from './lambda';
 import { ZambdaInput } from './types/common';
 

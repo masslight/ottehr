@@ -1,8 +1,8 @@
 import { GetEraDetailInput, GetEraDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { validateJsonBody } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
-import { validateJsonBody } from '../../shared/helpers';
 
 export interface GetEraDetailParams extends GetEraDetailInput {
   secrets: ZambdaInput['secrets'];

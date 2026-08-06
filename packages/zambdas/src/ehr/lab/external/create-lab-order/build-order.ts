@@ -19,15 +19,16 @@ import {
   SpecimenDefinition,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { flattenBundleResources } from 'utils/lib/fhir/helpers';
 import {
-  CreateLabPaymentMethod,
-  LabPaymentMethod,
-  ModifiedOrderingLocation,
-  OrderableItemSearchResult,
-  OrderableItemSpecimen,
-} from 'utils/lib/types/data/labs/labs.types';
+  createOrderNumber,
+  getOrderNumber,
+  isExternalLabServiceRequest,
+  isPSCOrder,
+  paymentMethodFromCoverage,
+  serviceRequestPaymentMethod,
+} from 'utils/lib/helpers/labs/helpers';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { EXTERNAL_LAB_ERROR, EXTERNAL_LAB_ERROR_MISSING_WC_INFO } from 'utils/lib/types/errors';
 import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
@@ -43,14 +44,13 @@ import {
   WORKERS_COMP_SERVICE_REQUEST_CATEGORY,
 } from 'utils/lib/types/data/labs/labs.constants';
 import {
-  createOrderNumber,
-  getOrderNumber,
-  isExternalLabServiceRequest,
-  isPSCOrder,
-  paymentMethodFromCoverage,
-  serviceRequestPaymentMethod,
-} from 'utils/lib/helpers/labs/helpers';
-import { flattenBundleResources } from 'utils/lib/fhir/helpers';
+  CreateLabPaymentMethod,
+  LabPaymentMethod,
+  ModifiedOrderingLocation,
+  OrderableItemSearchResult,
+  OrderableItemSpecimen,
+} from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR, EXTERNAL_LAB_ERROR_MISSING_WC_INFO } from 'utils/lib/types/errors';
 import { isOtherInsurance } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';

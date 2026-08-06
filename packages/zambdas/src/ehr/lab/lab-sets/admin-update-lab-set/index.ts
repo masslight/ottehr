@@ -2,10 +2,10 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
 import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
-import { ZambdaInput } from '../../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
+import { ZambdaInput } from '../../../../shared/types/common';
 import { formatListEntry } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

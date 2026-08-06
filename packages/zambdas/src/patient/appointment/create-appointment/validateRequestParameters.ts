@@ -2,6 +2,26 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Appointment, Location, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  makeSlotAtLocationExtensionEntry,
+  parseQuestionnaireCanonicalExtension,
+  SERVICE_CATEGORY_SYSTEM,
+  SLOT_FALLBACK_REROUTED_TAG,
+  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { isLocationVirtual, locationSupportsServiceMode } from 'utils/lib/fhir/location';
+import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  CreateAppointmentInputParams,
+  FollowUpOptions,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { AllStates, CanonicalUrl, PersonSex, ServiceMode } from 'utils/lib/types/common';
+import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
+import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import {
   APPOINTMENT_ALREADY_EXISTS_ERROR,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   FHIR_RESOURCE_NOT_FOUND,
@@ -10,17 +30,6 @@ import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLOT_UNAVAILABLE_ERROR,
 } from 'utils/lib/types/errors';
-import { AllStates, CanonicalUrl, PersonSex, ServiceMode } from 'utils/lib/types/common';
-import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
-import {
-  CreateAppointmentInputParams,
-  FollowUpOptions,
-} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
-import { PatientInfo, VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
-import { REASON_FOR_VISIT_SEPARATOR } from 'utils/lib/types/constants';
-import { REASON_MAXIMUM_CHAR_LIMIT } from 'utils/lib/validation/constants';
-import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
-import { Secrets } from 'utils/lib/secrets';
 import {
   checkSlotAvailable,
   getServiceModeFromScheduleOwner,
@@ -28,20 +37,11 @@ import {
   getSlotIsPostTelemed,
   getSlotIsWalkin,
 } from 'utils/lib/utils/scheduleUtils';
-import { isLocationVirtual, locationSupportsServiceMode } from 'utils/lib/fhir/location';
-import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
-import {
-  makeSlotAtLocationExtensionEntry,
-  parseQuestionnaireCanonicalExtension,
-  SERVICE_CATEGORY_SYSTEM,
-  SLOT_FALLBACK_REROUTED_TAG,
-  SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
-} from 'utils/lib/fhir/constants';
-import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
+import { REASON_MAXIMUM_CHAR_LIMIT } from 'utils/lib/validation/constants';
 import { z } from 'zod';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkIsEHRUser, isTestUser, userHasAccessToPatient } from '../../../shared/auth';
 import { resolveBookingLocationId } from '../../../shared/resolveBookingLocationId';
+import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 import { tryGroupMemberFallback } from './groupMemberFallback';

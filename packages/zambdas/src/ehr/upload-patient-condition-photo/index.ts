@@ -1,14 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Appointment, List } from 'fhir/r4b';
+import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { PATIENT_PHOTO_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
-import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'upload-patient-condition-photo';

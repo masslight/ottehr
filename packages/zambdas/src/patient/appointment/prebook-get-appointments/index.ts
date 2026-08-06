@@ -1,18 +1,18 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment as FhirAppointment, Encounter, Location, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils/lib/types/errors';
-import { PatientAppointmentDTO } from 'utils/lib/types/api/appointment.types';
-import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
-import { Secrets } from 'utils/lib/secrets';
-import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
+import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
-import { ZambdaInput } from '../../../shared/types/common';
-import { checkPaperworkComplete, createClinicalOystehrClient } from '../../../shared/helpers';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { Secrets } from 'utils/lib/secrets';
+import { PatientAppointmentDTO } from 'utils/lib/types/api/appointment.types';
+import { NO_READ_ACCESS_TO_PATIENT_ERROR } from 'utils/lib/types/errors';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { getUser } from '../../../shared/auth';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { checkPaperworkComplete, createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetPatientsInput {

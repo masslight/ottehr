@@ -1,12 +1,12 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
-import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
-import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { PROVIDER_TYPE_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
 import { makeProviderTypeExtension } from 'utils/lib/fhir/practitioners';
-import { createClinicalOystehrClient } from '../shared/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
+import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 import { performEffectWithEnvFile } from './helpers';
 
 const BATCH_SIZE = 25;

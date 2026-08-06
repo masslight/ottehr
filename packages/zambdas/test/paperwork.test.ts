@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Consent, Coverage, RelatedPerson } from 'fhir/r4b';
 import { expect, vi } from 'vitest';
-import { createClinicalOystehrClient } from '../src/shared/helpers';
 import { getAuth0Token } from '../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../src/shared/helpers';
 import { SECRETS } from './data/secrets';
 
 export const insuranceData = {

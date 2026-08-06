@@ -2,16 +2,16 @@ import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk'
 import { randomUUID } from 'crypto';
 import { FhirResource, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { APIErrorCode } from 'utils/lib/types/errors';
-import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
-import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
 import {
   PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { ServiceMode } from 'utils/lib/types/common';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
 import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';

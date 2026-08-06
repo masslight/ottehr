@@ -2,30 +2,30 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { SLOT_WALKIN_APPOINTMENT_TYPE_CODING, SlotServiceCategory, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
+import { GetPatientVisitListInput, PatientVisitListResponse } from 'utils/lib/types/api/patient-visit-history.types';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
-import { GetPatientVisitListInput, PatientVisitListResponse } from 'utils/lib/types/api/patient-visit-history.types';
-import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
-import { SLOT_WALKIN_APPOINTMENT_TYPE_CODING, SlotServiceCategory, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import { ServiceMode, Timezone } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
-import { VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
-import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
-import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import {
   getScheduleExtension,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
   getTimezone,
 } from 'utils/lib/utils/scheduleUtils';
-import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
-import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { assert, inject } from 'vitest';
-import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 import {

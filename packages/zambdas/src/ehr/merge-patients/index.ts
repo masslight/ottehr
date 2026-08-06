@@ -1,22 +1,22 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { QuestionnaireResponse, Task } from 'fhir/r4b';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { GetMergePatientsTaskResponse, MergePatientsResponse } from 'utils/lib/types/api/patient-account';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils/lib/types/common';
 import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
 } from 'utils/lib/types/errors';
-import { RoleType } from 'utils/lib/types/api/user.types';
-import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils/lib/types/common';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { safeJsonParse } from '../../shared/validation';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
 const ZAMBDA_NAME = 'merge-patients';
 

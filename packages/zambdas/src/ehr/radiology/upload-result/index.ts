@@ -1,15 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Practitioner, Reference, ServiceRequest } from 'fhir/r4b';
-import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
-import { UploadRadiologyResultZambdaOutput } from 'utils/lib/types/api/radiology';
+import { userMe } from 'utils/lib/auth/user-me.helper';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { userMe } from 'utils/lib/auth/user-me.helper';
-import { ZambdaInput } from '../../../shared/types/common';
+import { RADIOLOGY_RESULT_DOC_REF_DOCTYPE } from 'utils/lib/fhir/radiology';
+import { UploadRadiologyResultZambdaOutput } from 'utils/lib/types/api/radiology';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateInput, validateSecrets } from './validation';
 
 let m2mToken: string;

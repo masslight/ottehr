@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse } from 'fhir/r4b';
-import { AI_QUESTIONNAIRE_ID } from 'utils/lib/types/constants';
 import { VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE } from 'utils/lib/types/api/appointment.types';
+import { AI_QUESTIONNAIRE_ID } from 'utils/lib/types/constants';
 
 // complete AI QuestionnaireResponse if it exists and has user answers to trigger resource creation via subscription
 // so provider can see the resources even for partially completed AI interviews

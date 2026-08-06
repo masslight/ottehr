@@ -2,8 +2,8 @@ import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { Identifier, Location, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import { LAB_ACCOUNT_NUMBER_SYSTEM, OYSTEHR_LAB_GUID_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
-import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 const USAGE_STR = `Usage: npm run update-locations-for-lab-accounts [${VALID_ENVS.join(' | ')}]\n`;

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { Appointment, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Closure, ClosureType, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
+import { convertCapacityMapToSlotList } from 'utils/lib/utils/dateUtils';
 import {
   DOW,
   getAllSlotsAsCapacityMap,
@@ -11,7 +12,6 @@ import {
   getSlotCapacityMapForDayAndSchedule,
   getTimezone,
 } from 'utils/lib/utils/scheduleUtils';
-import { convertCapacityMapToSlotList } from 'utils/lib/utils/dateUtils';
 import { expect, vi } from 'vitest';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotMap, addDateToSlotTimes } from './data/slot-constants';

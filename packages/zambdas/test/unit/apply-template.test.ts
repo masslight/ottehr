@@ -9,16 +9,16 @@ import {
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import {
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
   TemplateSectionKey,
 } from 'utils/lib/types/data/apply-template.types';
-import { chartDataTagSystem } from 'utils/lib/fhir/constants';
-import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
+import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { describe, expect, test } from 'vitest';
 import { isExternalLabPlanServiceRequest } from '../../src/ehr/apply-template/apply-external-labs';
 import { isInHouseLabPlanServiceRequest } from '../../src/ehr/apply-template/apply-in-house-labs';

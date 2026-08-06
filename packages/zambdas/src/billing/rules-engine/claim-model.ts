@@ -11,14 +11,11 @@ import {
   Practitioner,
   RelatedPerson,
 } from 'fhir/r4b';
-import {
-  CLAIM_STATUS_FIELD_KEYS,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  ClaimStatusFieldKey,
-  getClaimStatusFieldValue,
-  isValidClaimStatusValue,
-} from 'utils/lib/types/data/billing/claim-status';
-import { CLAIM_TAG_SYSTEM, PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
+import { getCoveragePlanType, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
+import { getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
+import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
 import {
   CMS_PLACE_OF_SERVICE_CODE_SET,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -28,14 +25,17 @@ import {
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
 } from 'utils/lib/helpers/rcm/constants';
-import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
 import { STATE_CODES } from 'utils/lib/types/common';
-import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
-import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
-import { getCoveragePlanType, setCoveragePlanType } from 'utils/lib/fhir/billing';
-import { getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import { CLAIM_TAG_SYSTEM, PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  CLAIM_STATUS_FIELD_KEYS,
+  CLAIM_STATUS_FIELDS_BY_KEY,
+  ClaimStatusFieldKey,
+  getClaimStatusFieldValue,
+  isValidClaimStatusValue,
+} from 'utils/lib/types/data/billing/claim-status';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {

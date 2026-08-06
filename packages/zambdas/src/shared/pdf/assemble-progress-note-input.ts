@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   progressNoteChartDataRequestedFields,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getChartData } from '../../ehr/get-chart-data';
 import { getMedicationOrders } from '../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../ehr/immunization/get-orders';

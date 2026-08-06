@@ -1,6 +1,6 @@
 import { Condition, Observation, Procedure } from 'fhir/r4b';
-import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { describe, expect, test } from 'vitest';
 import { hasTemplateRelevantTag, isDiagnosisCondition } from '../../src/ehr/shared/template-helpers';
 

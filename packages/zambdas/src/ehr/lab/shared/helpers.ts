@@ -18,6 +18,8 @@ import {
 import { isEqual } from 'lodash';
 import { DateTime } from 'luxon';
 import { COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils/lib/fhir/constants';
+import { getLabListStatus, getLabListType } from 'utils/lib/helpers/labs/helpers';
+import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
 import {
   DR_UNSOLICITED_PATIENT_REF,
   LAB_LIST_CODE_CODING,
@@ -27,9 +29,7 @@ import {
   LAB_LIST_SEARCH_FIELD_NESTED_EXTENSION_URL,
   LabListSearchFieldKey,
 } from 'utils/lib/types/data/labs/labs.constants';
-import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
-import { getLabListStatus, getLabListType } from 'utils/lib/helpers/labs/helpers';
 
 type SoftDeleteLabResourceTypes =
   | 'ServiceRequest'

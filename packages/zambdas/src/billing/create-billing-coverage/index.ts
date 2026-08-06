@@ -3,9 +3,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Coverage } from 'fhir/r4b';
 import { APIErrorCode } from 'utils/lib/types/errors';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import {
   BillingFhirResource,
   buildBillingCoverage,

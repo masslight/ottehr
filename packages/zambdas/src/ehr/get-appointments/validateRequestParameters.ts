@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon';
 import { AppointmentTypeOptions } from 'utils/lib/types/api/appointment.types';
+import { ServiceMode } from 'utils/lib/types/common';
 import { MAX_APPOINTMENT_SEARCH_RANGE_DAYS } from 'utils/lib/types/constants';
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import { ServiceMode } from 'utils/lib/types/common';
 import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';

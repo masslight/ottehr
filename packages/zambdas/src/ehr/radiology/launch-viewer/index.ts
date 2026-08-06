@@ -1,12 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_VIEWER_LAUNCH_URL } from 'utils/lib/fhir/radiology';
-import { RadiologyLaunchViewerZambdaOutput } from 'utils/lib/types/api/radiology';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
+import { RadiologyLaunchViewerZambdaOutput } from 'utils/lib/types/api/radiology';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateInput, validateSecrets } from './validation';
 
 // Types

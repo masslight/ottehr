@@ -65,24 +65,15 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import {
+  isAppointmentAutoAccident,
+  isAppointmentOccupationalMedicine,
+  isAppointmentPreOp,
+  isAppointmentWorkersComp,
+} from 'utils/lib/fhir/appointments';
 import { ACCIDENT_STATE_EXTENSION, ACCIDENT_TYPE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
-import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_PATIENT_COVERAGE_INFO_ERROR,
-  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
-} from 'utils/lib/types/errors';
-import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
-import { Secrets } from 'utils/lib/secrets';
-import { TIMEZONES } from 'utils/lib/types/constants';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { createReference } from 'utils/lib/fhir/helpers';
-import {
-  findOrgMatchingReference,
-  getCandidPlanTypeCodeFromCoverage,
-  getPayerId,
-  getPayerUrl,
-} from 'utils/lib/helpers/helpers';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import {
   getCptCodesFromMA,
   getDosageFromMA,
@@ -90,22 +81,31 @@ import {
   getNdcCodeFromMedication,
   MedicationUnitOptions,
 } from 'utils/lib/fhir/medication-administration';
-import { getEmCodes } from 'utils/lib/helpers/em-codes';
-import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
-import { getTimezone } from 'utils/lib/utils/scheduleUtils';
-import {
-  isAppointmentAutoAccident,
-  isAppointmentOccupationalMedicine,
-  isAppointmentPreOp,
-  isAppointmentWorkersComp,
-} from 'utils/lib/fhir/appointments';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getEmCodes } from 'utils/lib/helpers/em-codes';
+import {
+  findOrgMatchingReference,
+  getCandidPlanTypeCodeFromCoverage,
+  getPayerId,
+  getPayerUrl,
+} from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_CPT_MODIFIER,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm';
+import { Secrets } from 'utils/lib/secrets';
+import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_PATIENT_COVERAGE_INFO_ERROR,
+  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
+} from 'utils/lib/types/errors';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';

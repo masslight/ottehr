@@ -6,8 +6,8 @@ import {
   ProviderNotificationMethod,
   ProviderNotificationSettings,
 } from 'utils/lib/types/api/practitioner.types';
-import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { normalizeNotificationPreferencesV2, NotificationRowPref } from 'utils/lib/types/api/provider-notifications';
+import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
 import {
   buildSMSSendList,

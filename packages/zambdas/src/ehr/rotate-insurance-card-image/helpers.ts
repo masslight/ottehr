@@ -1,8 +1,8 @@
 import { Attachment, DocumentReference } from 'fhir/r4b';
+import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import { DocumentType } from 'utils/lib/types/data/documents';
 import { INSURANCE_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import { NORMALIZABLE_CONTENT_TYPES } from '../extract-insurance-card/normalize-image';
 import { CARD_IMAGE_TITLES } from '../extract-insurance-card/validateRequestParameters';
 

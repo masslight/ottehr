@@ -1,6 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import { OnDemandLabelXmlRequestInput, OnDemandLabelXmlRequestSchema } from 'utils/lib/types/data/printing';
 import { Secrets } from 'utils/lib/secrets';
+import { OnDemandLabelXmlRequestInput, OnDemandLabelXmlRequestSchema } from 'utils/lib/types/data/printing';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 

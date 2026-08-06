@@ -12,21 +12,15 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
-import { InPersonReminderTemplateData } from 'utils/lib/ottehr-config/sendgrid';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
 import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
 import { getPatientContactEmail } from 'utils/lib/fhir/patient';
-import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
+import { InPersonReminderTemplateData } from 'utils/lib/ottehr-config/sendgrid';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
-import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
 import { getNameForOwner } from '../../ehr/schedules/shared';
-import { ZambdaInput } from '../../shared/types/common';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { getAuth0Token } from '../../shared/getAuth0Token';
-import { reportMissingUserRelatedPerson } from '../../shared/invariants';
-import { sendErrors } from '../../shared/errors';
-import { wrapHandler } from '../../shared/sentry';
 import {
   getEmailClient,
   makeAddressUrl,
@@ -35,6 +29,12 @@ import {
   makePaperworkUrl,
   sendSmsToRelatedPersons,
 } from '../../shared/communication';
+import { sendErrors } from '../../shared/errors';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { reportMissingUserRelatedPerson } from '../../shared/invariants';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 let oystehrToken: string;
 

@@ -1,20 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Encounter, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DYMO_30334_LABEL_CONFIG } from 'utils/lib/types/data/labs/labs.constants';
-import { MIME_TYPES } from 'utils/lib/utils/file';
 import { getMiddleName, getPatientFirstName, getPatientFriendlyId, getPatientLastName } from 'utils/lib/fhir/patient';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { DYMO_30334_LABEL_CONFIG } from 'utils/lib/types/data/labs/labs.constants';
+import { MIME_TYPES } from 'utils/lib/utils/file';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { wrapHandler } from '../../shared/sentry';
 import {
   createVisitLabelPDF,
   VISIT_LABEL_PDF_DOC_REF_DOCTYPE,
   VisitLabelConfig,
 } from '../../shared/pdf/visit-label-pdf';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

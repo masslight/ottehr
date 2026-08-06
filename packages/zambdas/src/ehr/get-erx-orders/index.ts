@@ -3,11 +3,11 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationRequest } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
 import { GetErxOrdersInput, GetErxOrdersInputSchema, GetErxOrdersResponse } from 'utils/lib/types/api/erx.types';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient, validateJsonBody } from '../../shared/helpers';
 import { makePrescribedMedicationDTO } from '../../shared/chart-data';
+import { createClinicalOystehrClient, validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-erx-orders';

@@ -22,12 +22,12 @@ import {
   PARTICIPATION_CODE_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
 } from 'utils/lib/fhir/constants';
-import { ChartDataRequestedFields } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { flattenBundleResources, getCoding } from 'utils/lib/fhir/helpers';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
+import { createUserResourcesForPatient } from 'utils/lib/fhir/patient';
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
 import { Secrets } from 'utils/lib/secrets';
-import { createUserResourcesForPatient } from 'utils/lib/fhir/patient';
-import { flattenBundleResources, getCoding } from 'utils/lib/fhir/helpers';
+import { ChartDataRequestedFields } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { getStripeClient } from '../../shared/stripeIntegration';
 import { getChartData } from '../get-chart-data';

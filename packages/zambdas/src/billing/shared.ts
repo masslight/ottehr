@@ -24,6 +24,7 @@ import {
   Resource,
   Task,
 } from 'fhir/r4b';
+import { setCoveragePlanType } from 'utils/lib/fhir/billing';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
   BILLING_RESOURCE_TAG,
@@ -36,6 +37,40 @@ import {
   PATIENT_BILLING_ACCOUNT_TYPE,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
+import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import {
+  buildCoverageSubscriberRelatedPerson,
+  createCoverageMemberIdentifier,
+  getNPI,
+  getResourcesFromBatchInlineRequests,
+  getSubscriberRelationshipCodeableConcept,
+  getTaxID,
+} from 'utils/lib/fhir/helpers';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import {
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
+  CODE_SYSTEM_CLAIM_TYPE,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
+  CODE_SYSTEM_COVERAGE_CLASS,
+  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  EXTENSION_URL_CPT_MODIFIER,
+} from 'utils/lib/helpers/rcm/constants';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import {
+  BillingInsuranceType,
+  BillingPolicyHolderInput,
+  BillingSubscriberRelationship,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import {
+  BILLING_INSURANCE_TYPE_LABELS,
+  BillingChargeItemDefinitionProcedureCode,
+  BillingProviderOption,
+  ChargeItemDefinitionDefault,
+  ChargeItemDefinitionType,
+} from 'utils/lib/types/data/billing/billing.types';
 import {
   AR_STAGE,
   CLAIM_STATUS_FIELDS,
@@ -48,45 +83,10 @@ import {
   isValidClaimStatusValue,
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
-import {
-  BILLING_INSURANCE_TYPE_LABELS,
-  BillingChargeItemDefinitionProcedureCode,
-  BillingProviderOption,
-  ChargeItemDefinitionDefault,
-  ChargeItemDefinitionType,
-} from 'utils/lib/types/data/billing/billing.types';
-import {
-  BillingInsuranceType,
-  BillingPolicyHolderInput,
-  BillingSubscriberRelationship,
-} from 'utils/lib/types/data/billing/billing.schemas';
-import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
-import {
-  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
-  CODE_SYSTEM_CLAIM_TYPE,
-  CODE_SYSTEM_CLAIM_TYPE_CODES,
-  CODE_SYSTEM_COVERAGE_CLASS,
-  CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
-  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  EXTENSION_URL_CPT_MODIFIER,
-} from 'utils/lib/helpers/rcm/constants';
-import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
-import {
-  buildCoverageSubscriberRelatedPerson,
-  createCoverageMemberIdentifier,
-  getNPI,
-  getResourcesFromBatchInlineRequests,
-  getSubscriberRelationshipCodeableConcept,
-  getTaxID,
-} from 'utils/lib/fhir/helpers';
-import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
-import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
-import { getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { setCoveragePlanType } from 'utils/lib/fhir/billing';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { sendErrors } from '../shared/errors';
 import { RULES_ENGINE_FHIR, RULES_ENGINE_TAG_SYSTEM } from './rules-engine/constants';
 import { buildRulesEngineKickoffTask, listToRules } from './rules-engine/serialization';

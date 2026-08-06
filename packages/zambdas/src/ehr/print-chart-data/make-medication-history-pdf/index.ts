@@ -4,27 +4,27 @@ import { randomUUID } from 'crypto';
 import { Appointment, CodeableConcept, ContactPoint, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences, genderMap } from 'utils/lib/fhir/helpers';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { Secrets } from 'utils/lib/secrets';
 import {
   MEDICATION_HISTORY_DOC_REF_CODING,
   MedicationInfoForPrinting,
 } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
-import { Secrets } from 'utils/lib/secrets';
-import { createFilesDocumentReferences, genderMap } from 'utils/lib/fhir/helpers';
 import { formatDOB } from 'utils/lib/utils/dateUtils';
-import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { uploadPDF } from 'utils/lib/utils/pdf';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { getPatientLastFirstName } from '../../../shared/patients';
-import { wrapHandler } from '../../../shared/sentry';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getPatientLastFirstName } from '../../../shared/patients';
 import { PdfRenderConfig, renderPdf, StyleFactory } from '../../../shared/pdf/pdf-common';
 import { PdfInfo, rgbNormalized } from '../../../shared/pdf/pdf-utils';
-import { composeVisitData, createVisitInfoSection } from '../../../shared/pdf/sections/visitInfo';
-import { createCompactPatientHeader } from '../../../shared/pdf/sections/discharge-summary/patientInfo';
 import { createMedicationsSectionForDischargeSummary } from '../../../shared/pdf/sections/discharge-summary/currentMedications';
+import { createCompactPatientHeader } from '../../../shared/pdf/sections/discharge-summary/patientInfo';
+import { composeVisitData, createVisitInfoSection } from '../../../shared/pdf/sections/visitInfo';
 import { AssetPaths, MedicationHistoryInput, PatientInfoForDischargeSummary } from '../../../shared/pdf/types';
 import { makeZ3Url } from '../../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -3,9 +3,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { createBillingClient, isSystemTag, TAG_CODE_SYSTEM } from '../shared';
 import { DeleteBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 

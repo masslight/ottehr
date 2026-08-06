@@ -1,6 +1,6 @@
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 import { getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
 
 async function checkInHouseMedications(config: any): Promise<void> {

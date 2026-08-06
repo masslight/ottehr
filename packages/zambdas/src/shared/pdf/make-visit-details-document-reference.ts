@@ -2,8 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { VISIT_DETAILS_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { VISIT_DETAILS_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { PdfInfo } from './pdf-utils';
 
 export async function makeVisitDetailsPdfDocumentReference(

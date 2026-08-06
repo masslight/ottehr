@@ -9,7 +9,17 @@ import {
   MedicationRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import {
+  getCptCodesFromMA,
+  getDosageUnitsAndRouteOfMedication,
+  getMedicationName,
+  getMediSpanIdForInteraction,
+  searchRouteByCode,
+} from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { Secrets } from 'utils/lib/secrets';
 import {
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
@@ -20,18 +30,8 @@ import {
   TemplateSectionAction,
   TemplateWarning,
 } from 'utils/lib/types/data/apply-template.types';
-import { Secrets } from 'utils/lib/secrets';
-import { chartDataTagSystem } from 'utils/lib/fhir/constants';
-import {
-  getCptCodesFromMA,
-  getDosageUnitsAndRouteOfMedication,
-  getMedicationName,
-  getMediSpanIdForInteraction,
-  searchRouteByCode,
-} from 'utils/lib/fhir/medication-administration';
-import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
-import { getMyPractitionerId } from '../../shared/practitioners';
 import { makeDiagnosisDTO } from '../../shared/chart-data';
+import { getMyPractitionerId } from '../../shared/practitioners';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,

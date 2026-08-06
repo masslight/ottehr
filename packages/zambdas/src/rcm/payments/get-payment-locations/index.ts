@@ -4,12 +4,12 @@ import {
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
-import { getTerminalLocationIdFromDevice } from 'utils/lib/fhir/payments';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import { ZambdaInput } from '../../../shared/types/common';
+import { getTerminalLocationIdFromDevice } from 'utils/lib/fhir/payments';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

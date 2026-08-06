@@ -1,8 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
-import { ZambdaInput } from '../../shared/types/common';
-import { wrapHandler } from '../../shared/sentry';
 import { invokeChatbotVertexAI } from '../../shared/ai';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = wrapHandler(

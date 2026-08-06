@@ -1,17 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Coding, Encounter, PractitionerRole } from 'fhir/r4b';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { Secrets } from 'utils/lib/secrets';
 import {
   AssignPractitionerInput,
   AssignPractitionerResponse,
 } from 'utils/lib/types/api/assign-practitioner/assign-practitioner.types';
-import { Secrets } from 'utils/lib/secrets';
-import { userMe } from 'utils/lib/auth/user-me.helper';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { assignPractitionerIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;

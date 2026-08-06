@@ -1,6 +1,6 @@
 import { Communication } from 'fhir/r4b';
-import { safeJsonParse } from '../../../shared/validation';
 import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 import { CommunicationSubscriptionInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CommunicationSubscriptionInput {

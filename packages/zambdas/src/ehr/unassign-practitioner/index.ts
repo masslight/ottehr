@@ -6,11 +6,11 @@ import {
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
 } from 'utils/lib/types/api/unassign-practitioner/unassign-practitioner.types';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { unassignParticipantIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

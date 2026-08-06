@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Condition, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
-import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { describe, expect, it } from 'vitest';
 import { fetchAdHocBillingRows } from '../src/ehr/adhoc-billing/index';

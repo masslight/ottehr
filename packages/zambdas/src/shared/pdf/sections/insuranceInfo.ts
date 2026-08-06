@@ -1,10 +1,10 @@
 import { Coverage, Reference } from 'fhir/r4b';
+import { genderMap } from 'utils/lib/fhir/helpers';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { insuranceTypeOptionsData } from 'utils/lib/ottehr-config/value-sets';
 import { COVERAGE_ADDITIONAL_INFORMATION_URL } from 'utils/lib/types/constants';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
-import { genderMap } from 'utils/lib/fhir/helpers';
-import { getCandidPlanTypeCodeFromCoverage, getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
-import { getFullName } from 'utils/lib/fhir/patient';
-import { insuranceTypeOptionsData } from 'utils/lib/ottehr-config/value-sets';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { Insurance, InsuranceDataInput, InsuranceInfo, PdfSection } from '../types';
 

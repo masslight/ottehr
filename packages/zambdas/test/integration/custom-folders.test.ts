@@ -1,15 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { List, Patient } from 'fhir/r4b';
-import { APIErrorCode } from 'utils/lib/types/errors';
-import {
-  CreateCustomFolderOutput,
-  makeSyntheticFolderId,
-  SYNTHETIC_FOLDER_ID_PREFIX,
-} from 'utils/lib/types/data/custom-folder.types';
-import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
-import { RoleType } from 'utils/lib/types/api/user.types';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
 import {
   createCustomPatientDocumentList,
   CUSTOM_FOLDERS_CATALOG_IDENTIFIER,
@@ -17,6 +10,13 @@ import {
   parseCustomFoldersCatalog,
   parseCustomFoldersCatalogIncludingDeleted,
 } from 'utils/lib/fhir/list';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import {
+  CreateCustomFolderOutput,
+  makeSyntheticFolderId,
+  SYNTHETIC_FOLDER_ID_PREFIX,
+} from 'utils/lib/types/data/custom-folder.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // These tests cover the three folder catalog zambdas plus the lazy-create path of

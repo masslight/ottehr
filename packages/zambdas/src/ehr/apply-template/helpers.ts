@@ -1,8 +1,8 @@
 import { FhirResource, List, MedicationAdministration, ServiceRequest } from 'fhir/r4b';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { FHIR_IDC10_VALUESET_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { TemplateSectionAction } from 'utils/lib/types/data/apply-template.types';
+import { FHIR_IDC10_VALUESET_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 
 // Local const so that DEPRECATED system doesn't get imported from utils
 const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';

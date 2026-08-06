@@ -2,20 +2,20 @@ import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
+import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   ListInvitedParticipantsInput,
   ListInvitedParticipantsResponse,
 } from 'utils/lib/types/data/telemed/video-chat-invites.types';
-import { createOystehrClient } from 'utils/lib/helpers/helpers';
-import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
-import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { getUser } from '../../../shared/auth';
 import { getVideoEncounterForAppointment } from '../../../shared/encounters';
-import { lambdaResponse } from '../../../shared/lambda';
 import { searchInvitedParticipantResourcesByEncounterId } from '../../../shared/fhir';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

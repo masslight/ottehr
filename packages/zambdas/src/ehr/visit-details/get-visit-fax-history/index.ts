@@ -2,14 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Provenance, Task } from 'fhir/r4b';
 import {
-  GetVisitFaxHistoryInput,
-  GetVisitFaxHistoryInputSchema,
-  GetVisitFaxHistoryInputValidated,
-  GetVisitFaxHistoryInputValidatedSchema,
-  GetVisitFaxHistoryOutput,
-} from 'utils/lib/types/api/visit-details/visit-details.types';
-import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
-import {
   OUTBOUND_DELIVERY_INPUT_CODES,
   OUTBOUND_DELIVERY_TASK_CODES,
   OUTBOUND_DELIVERY_TASK_SYSTEM,
@@ -19,12 +11,20 @@ import {
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getOutboundDeliveryInput, getOutboundDeliveryRecipientSnapshot } from 'utils/lib/fhir/outbound-delivery';
 import { removePrefix } from 'utils/lib/helpers/helpers';
+import {
+  GetVisitFaxHistoryInput,
+  GetVisitFaxHistoryInputSchema,
+  GetVisitFaxHistoryInputValidated,
+  GetVisitFaxHistoryInputValidatedSchema,
+  GetVisitFaxHistoryOutput,
+} from 'utils/lib/types/api/visit-details/visit-details.types';
+import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import { ZodError } from 'zod';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { formatZodError, safeJsonParse } from '../../../shared/validation';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { formatZodError, safeJsonParse } from '../../../shared/validation';
 
 const ZAMBDA_NAME = 'get-visit-fax-history';
 

@@ -1,6 +1,16 @@
 // cSpell:ignore olicy
 import Oystehr from '@oystehr/sdk';
 import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
+import { BillingProviderDataObject, getBillingProviderData, GetBillingProviderInput } from 'utils/lib/fhir/billing';
+import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
+import {
+  BillingProviderResource,
+  GetEligibilityInsuranceData,
+  GetEligibilityPolicyHolder,
+} from 'utils/lib/types/data/telemed/eligibility.types';
+import { InsurancePlanDTO } from 'utils/lib/types/data/telemed/insurances.types';
 import {
   APIErrorCode,
   BILLING_PROVIDER_RESOURCE_NOT_FOUND,
@@ -8,16 +18,6 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
-import { BillingProviderDataObject, getBillingProviderData, GetBillingProviderInput } from 'utils/lib/fhir/billing';
-import {
-  BillingProviderResource,
-  GetEligibilityInsuranceData,
-  GetEligibilityPolicyHolder,
-} from 'utils/lib/types/data/telemed/eligibility.types';
-import { InsurancePlanDTO } from 'utils/lib/types/data/telemed/insurances.types';
-import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
-import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { ZambdaInput } from '../../shared/types/common';

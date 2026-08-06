@@ -1,18 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, FhirResource, List, Location, Practitioner, ServiceRequest } from 'fhir/r4b';
-import { CreateLabPaymentMethod, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { isPSCOrder, locationIsEnabledForLabs } from 'utils/lib/helpers/labs/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { TemplateSectionAction, TemplateWarning } from 'utils/lib/types/data/apply-template.types';
 import {
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils/lib/types/data/labs/labs.constants';
-import { TemplateSectionAction, TemplateWarning } from 'utils/lib/types/data/apply-template.types';
-import { chartDataTagSystem } from 'utils/lib/fhir/constants';
-import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { isPSCOrder, locationIsEnabledForLabs } from 'utils/lib/helpers/labs/helpers';
-import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { CreateLabPaymentMethod, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { buildExternalLabOrderRequests } from '../lab/external/create-lab-order/build-order';
 import { getOrderableItems } from '../lab/shared/orderable-items';

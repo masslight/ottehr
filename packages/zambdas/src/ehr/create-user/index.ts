@@ -1,10 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { APIError, APIErrorCode, USER_ALREADY_EXISTS_ERROR } from 'utils/lib/types/errors';
 import { CreateUserOutput } from 'utils/lib/types/api/create-user.types';
-import { ZambdaInput } from '../../shared/types/common';
+import { APIError, APIErrorCode, USER_ALREADY_EXISTS_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

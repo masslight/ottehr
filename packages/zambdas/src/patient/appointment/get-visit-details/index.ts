@@ -1,14 +1,14 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { FileURLInfo } from 'utils/lib/types/common';
-import { GetVisitDetailsResponse } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { isAnnotationFollowupEncounter, isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { isAnnotationFollowupEncounter, isFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { ZambdaInput } from '../../../shared/types/common';
+import { FileURLInfo } from 'utils/lib/types/common';
+import { GetVisitDetailsResponse } from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { getMedications, getPatientPortalPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -3,8 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
-import { Secrets } from 'utils/lib/secrets';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { Secrets } from 'utils/lib/secrets';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 
 vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
@@ -30,9 +30,9 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import { createBillingClient } from '../../../src/billing/shared';
-import { ZambdaInput } from '../../../src/shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../src/shared/auth';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
+import { ZambdaInput } from '../../../src/shared/types/common';
 
 const WEBHOOK_SECRET = 'whsec_test_secret';
 const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');

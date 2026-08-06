@@ -3,9 +3,9 @@ import { remove as removeDiacritics } from 'diacritics';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib';
+import { getSecret, Secrets } from 'utils/lib/secrets';
 import { ConsentSigner } from 'utils/lib/types/common';
 import { formatDateTimeToLocaleString } from 'utils/lib/utils/date';
-import { getSecret, Secrets } from 'utils/lib/secrets';
 import { triggerSlackAlarm } from './lambda';
 import { getPdfLogo } from './pdf/pdf-utils';
 

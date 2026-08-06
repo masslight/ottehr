@@ -73,10 +73,10 @@ vi.mock('@sentry/aws-serverless', async (importOriginal) => {
   };
 });
 
-import { APIErrorCode } from 'utils/lib/types/errors';
-import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
 import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getUiTaskCategoryForCode } from 'utils/lib/types/api/provider-notifications';
+import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { index as deleteInboundFaxRaw } from '../../src/ehr/delete-inbound-fax/index';
 import { index as fileInboundFaxRaw } from '../../src/ehr/file-inbound-fax/index';
 import { Z3Error } from '../../src/shared/z3Utils';

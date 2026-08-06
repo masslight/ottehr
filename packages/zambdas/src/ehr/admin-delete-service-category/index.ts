@@ -1,9 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService } from 'fhir/r4b';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse } from '../../shared/validation';
-import { wrapHandler } from '../../shared/sentry';
 import { getClient } from '../admin-service-categories/helpers';
 
 interface AdminDeleteServiceCategoryInput {

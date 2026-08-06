@@ -5,6 +5,7 @@ import {
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
 import {
   buildEnableWhenContext,
   evalEnableWhen,
@@ -15,7 +16,6 @@ import {
   flattenIntakeQuestionnaireItems,
   IntakeQuestionnaireItem,
 } from 'utils/lib/types/data/paperwork/paperwork.types';
-import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
 
 /**
  * Generates a valid, instance-agnostic set of paperwork answers for a given

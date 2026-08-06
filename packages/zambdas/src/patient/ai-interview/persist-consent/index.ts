@@ -2,14 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Consent } from 'fhir/r4b';
 import { FHIR_AI_CHAT_CONSENT_CATEGORY_CODE } from 'utils/lib/fhir/constants';
-import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
-import { PersistConsentInput } from 'utils/lib/types/api/ai-interview.types';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
+import { PersistConsentInput } from 'utils/lib/types/api/ai-interview.types';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { validateJsonBody, validateString } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 
 const ZAMBDA_NAME = 'persist-consent';
 

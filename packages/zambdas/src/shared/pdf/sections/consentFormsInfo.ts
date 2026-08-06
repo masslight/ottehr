@@ -1,6 +1,6 @@
+import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
 import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
-import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
 import { DataComposer } from '../pdf-common';
 import { consentFormsInfo, ConsentsDataInput, PdfSection } from '../types';
 

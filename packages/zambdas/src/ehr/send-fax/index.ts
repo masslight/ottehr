@@ -1,17 +1,17 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Patient, Practitioner } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { removePrefix, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { SendFaxZambdaInput } from 'utils/lib/types/api/send-fax.types';
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { removePrefix, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
-import { ZambdaInput } from '../../shared/types/common';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { sendFaxAttempt, SendFaxAttemptInput } from '../../shared/send-fax-attempt';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'send-fax';

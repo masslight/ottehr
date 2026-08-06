@@ -1,15 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Address, ContactPoint, Extension, Location, Schedule } from 'fhir/r4b';
-import { APIErrorCode, MISSING_SCHEDULE_EXTENSION_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
-import { Closure } from 'utils/lib/types/common';
-import {
-  DailySchedule,
-  getScheduleExtension,
-  ScheduleExtension,
-  ScheduleOverrides,
-} from 'utils/lib/utils/scheduleUtils';
-import { LOCATION_IN_PERSON_CODE, LOCATION_PHYSICAL_TYPE_SYSTEM } from 'utils/lib/fhir/location';
+import { userMe } from 'utils/lib/auth/user-me.helper';
 import {
   LOCATION_REVIEW_LINK_EXTENSION_URL,
   PUBLIC_EXTENSION_BASE_URL,
@@ -20,13 +12,21 @@ import {
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
-import { RoleType } from 'utils/lib/types/api/user.types';
+import { LOCATION_IN_PERSON_CODE, LOCATION_PHYSICAL_TYPE_SYSTEM } from 'utils/lib/fhir/location';
 import { ScheduleOwnerFhirResource, TelecomUpdate } from 'utils/lib/types/api/schedules';
-import { userMe } from 'utils/lib/auth/user-me.helper';
-import { ZambdaInput } from '../../../shared/types/common';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { Closure } from 'utils/lib/types/common';
+import { APIErrorCode, MISSING_SCHEDULE_EXTENSION_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import {
+  DailySchedule,
+  getScheduleExtension,
+  ScheduleExtension,
+  ScheduleOverrides,
+} from 'utils/lib/utils/scheduleUtils';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;

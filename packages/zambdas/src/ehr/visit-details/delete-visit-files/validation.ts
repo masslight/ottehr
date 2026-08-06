@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
+import { Secrets } from 'utils/lib/secrets';
 import { DeleteVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
 import {
   FHIR_RESOURCE_NOT_FOUND,
@@ -7,10 +8,9 @@ import {
   MISSING_REQUEST_BODY,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
 } from 'utils/lib/types/errors';
-import { Secrets } from 'utils/lib/secrets';
 import z from 'zod';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkIsEHRUser, getUser, isTestUser, userHasAccessToPatient } from '../../../shared/auth';
+import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
 
 export interface ValidatedInput {

@@ -3,10 +3,10 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { Patient, PlanDefinition, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { phone } from 'phone';
-import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import { isEmailValid } from 'utils/lib/helpers/helpers';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getPatchBinary } from '../../../../shared/helpers';
 import {
   ActionType,

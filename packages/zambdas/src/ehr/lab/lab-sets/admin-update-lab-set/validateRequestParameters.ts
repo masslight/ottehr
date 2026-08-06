@@ -1,7 +1,7 @@
+import { Secrets } from 'utils/lib/secrets';
+import { LabSetDTOSchema } from 'utils/lib/types/data/labs/lab-set.schema';
 import { AdminUpdateLabSetInput } from 'utils/lib/types/data/labs/labs.types';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
-import { LabSetDTOSchema } from 'utils/lib/types/data/labs/lab-set.schema';
-import { Secrets } from 'utils/lib/secrets';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';

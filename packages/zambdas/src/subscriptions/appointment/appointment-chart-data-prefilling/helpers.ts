@@ -1,11 +1,11 @@
 import type { ExamCardComponent } from 'config-types';
 import { CodeableConcept, QuestionnaireResponse } from 'fhir/r4b';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
 import { convertToBoolean } from 'utils/lib/utils/convert';
-import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
-import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 
 export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireResponse): ObservationDTO[] => {
   const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);

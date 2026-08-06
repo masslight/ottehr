@@ -2,6 +2,14 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BookableScheduleData } from 'utils/lib/fhir/constants';
+import { getTaskResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { checkValidBookingTime } from 'utils/lib/helpers/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { UpdateAppointmentParameters } from 'utils/lib/types/api/appointment.types';
+import { ScheduleType, TaskIndicator } from 'utils/lib/types/common';
 import {
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
   CANT_UPDATE_CANCELED_APT_ERROR,
@@ -10,22 +18,14 @@ import {
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
 } from 'utils/lib/types/errors';
-import { BookableScheduleData } from 'utils/lib/fhir/constants';
-import { ScheduleType, TaskIndicator } from 'utils/lib/types/common';
-import { Secrets } from 'utils/lib/secrets';
-import { UpdateAppointmentParameters } from 'utils/lib/types/api/appointment.types';
-import { checkValidBookingTime } from 'utils/lib/helpers/helpers';
 import { getAvailableSlotsForSchedules, normalizeSlotToUTC } from 'utils/lib/utils/scheduleUtils';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getTaskResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
-import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { isValidUUID } from 'utils/lib/validation/helper';
-import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
-import { ZambdaInput } from '../../../shared/types/common';
-import { createClinicalOystehrClient, getParticipantFromAppointment } from '../../../shared/helpers';
-import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { updateAppointmentTime } from '../../../shared/fhir';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { createClinicalOystehrClient, getParticipantFromAppointment } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UpdateAppointmentInput extends UpdateAppointmentParameters {

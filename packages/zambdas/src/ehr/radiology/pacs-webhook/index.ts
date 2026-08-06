@@ -24,10 +24,10 @@ import {
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import {
   advaPacsFetch,
   configReviewResultTask,

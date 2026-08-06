@@ -12,17 +12,25 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import {
+  makeSlotAtLocationExtensionEntry,
+  makeSlotBookedViaGroupExtensionEntry,
+  SCHEDULE_EXTENSION_URL,
+  SERVICE_CATEGORY_SYSTEM,
+  SLUG_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
-import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
-import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import { ServiceMode, Timezone } from 'utils/lib/types/common';
-import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
-import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import {
   createSlotParamsFromSlotAndOptions,
   getOriginalBookingUrlFromSlot,
@@ -35,17 +43,9 @@ import {
   getTimezone,
   SlotListItem,
 } from 'utils/lib/utils/scheduleUtils';
-import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
-import {
-  makeSlotAtLocationExtensionEntry,
-  makeSlotBookedViaGroupExtensionEntry,
-  SCHEDULE_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
-  SLUG_SYSTEM,
-} from 'utils/lib/fhir/constants';
 import { assert, inject } from 'vitest';
-import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import {
   buildSimpleScheduleExt,

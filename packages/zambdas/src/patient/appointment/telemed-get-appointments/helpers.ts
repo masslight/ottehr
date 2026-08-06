@@ -1,7 +1,7 @@
 import Oystehr, { FhirSearchParams } from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient, RelatedPerson, Resource } from 'fhir/r4b';
-import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getVideoRoomResourceExtension } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 
 export type EncounterToAppointmentIdMap = { [appointmentId: string]: Encounter };

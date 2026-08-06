@@ -3,22 +3,22 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { getPaperworkResources, PAPERWORK_PDF_ATTACHMENT_TITLE } from 'utils/lib/helpers/paperwork/paperwork';
+import { Secrets } from 'utils/lib/secrets';
+import { PaperworkToPDFInputValidated } from 'utils/lib/types/data/paperwork.types';
 import {
   EXPORTED_QUESTIONNAIRE_CODE,
   PAPERWORK_PDF_BASE_NAME,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
-import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { PaperworkToPDFInputValidated } from 'utils/lib/types/data/paperwork.types';
-import { Secrets } from 'utils/lib/secrets';
-import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
-import { getPaperworkResources, PAPERWORK_PDF_ATTACHMENT_TITLE } from 'utils/lib/helpers/paperwork/paperwork';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
-import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { getAuth0Token } from '../../shared/getAuth0Token';
-import { wrapHandler } from '../../shared/sentry';
+import { createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
 

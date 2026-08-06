@@ -1,6 +1,6 @@
-import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API } from 'utils/lib/types/data/labs/labs.constants';
 import { OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 
 export type OrderableItemSearch =
   | { textSearch: string }

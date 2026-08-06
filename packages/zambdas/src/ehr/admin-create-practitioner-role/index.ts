@@ -2,13 +2,6 @@ import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
-import { BLANK_SCHEDULE_JSON_TEMPLATE } from 'utils/lib/utils/scheduleUtils';
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
-} from 'utils/lib/types/errors';
 import {
   PRACTITIONER_ROLE_ALL_CATEGORIES_EXTENSION_URL,
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
@@ -16,10 +9,17 @@ import {
   TIMEZONE_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../shared/types/common';
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+  PRACTITIONER_SCHEDULE_CONFLICT_ERROR,
+} from 'utils/lib/types/errors';
+import { BLANK_SCHEDULE_JSON_TEMPLATE } from 'utils/lib/utils/scheduleUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
 import { checkPractitionerRoleConflict } from '../admin-practitioner-role-shared/check-conflict';
 
 interface AdminCreatePractitionerRoleInput {

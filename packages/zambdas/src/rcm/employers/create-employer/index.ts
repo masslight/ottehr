@@ -1,11 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { ZambdaInput } from '../../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { createCandidClientIfConfigured, createCandidEmployerPayer } from '../candid-sync';
 import {
   buildEmployerType,

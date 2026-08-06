@@ -14,12 +14,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  CreateLabPaymentMethod,
-  LabPaymentMethod,
-  ModifiedOrderingLocation,
-  OrderableItemSearchResult,
-} from 'utils/lib/types/data/labs/labs.types';
+import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   FHIR_IDC10_VALUESET_SYSTEM,
@@ -33,7 +28,12 @@ import {
   PSC_HOLD_CONFIG,
   STATIC_COMPENDIUM_LAB_GUID,
 } from 'utils/lib/types/data/labs/labs.constants';
-import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import {
+  CreateLabPaymentMethod,
+  LabPaymentMethod,
+  ModifiedOrderingLocation,
+  OrderableItemSearchResult,
+} from 'utils/lib/types/data/labs/labs.types';
 import { createTask } from '../../../../shared/tasks';
 
 export type CreateLabCoverageDetails =

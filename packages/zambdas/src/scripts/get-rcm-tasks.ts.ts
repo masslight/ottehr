@@ -2,8 +2,8 @@ import Oystehr from '@oystehr/sdk';
 // import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { Task } from 'fhir/r4b';
 import * as fs from 'fs';
-import { createClinicalOystehrClient } from '../shared/helpers';
 import { getAuth0Token } from '../shared/getAuth0Token';
+import { createClinicalOystehrClient } from '../shared/helpers';
 
 async function getTasksByType(oystehr: Oystehr, code: string): Promise<Task[]> {
   console.log(`Fetching tasks for code: ${code}`);

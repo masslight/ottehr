@@ -14,12 +14,22 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AdminCreateTemplateInput, AdminCreateTemplateOutput } from 'utils/lib/types/data/admin-template.types';
+import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import {
+  makeOptimisticLockIfMatchHeader,
+  resourceHasTagSystem,
+  transactionWasSuccessful,
+} from 'utils/lib/fhir/helpers';
+import { isExternalLabServiceRequest, isPSCOrder } from 'utils/lib/helpers/labs/helpers';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { examConfig } from 'utils/lib/ottehr-config/examination';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   INTERACTIONS_UNAVAILABLE,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { AdminCreateTemplateInput, AdminCreateTemplateOutput } from 'utils/lib/types/data/admin-template.types';
+import { TemplateWarning } from 'utils/lib/types/data/apply-template.types';
 import {
   IN_HOUSE_TEST_CODE_SYSTEM,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
@@ -29,22 +39,12 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PSC_HOLD_CONFIG,
 } from 'utils/lib/types/data/labs/labs.constants';
-import { TemplateWarning } from 'utils/lib/types/data/apply-template.types';
-import { chartDataTagSystem, GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from 'utils/lib/fhir/constants';
-import { examConfig } from 'utils/lib/ottehr-config/examination';
-import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { isExternalLabServiceRequest, isPSCOrder } from 'utils/lib/helpers/labs/helpers';
-import {
-  makeOptimisticLockIfMatchHeader,
-  resourceHasTagSystem,
-  transactionWasSuccessful,
-} from 'utils/lib/fhir/helpers';
 import { v4 as uuidV4 } from 'uuid';
-import { ZambdaInput } from '../../shared/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
-import { createClinicalOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types/common';
 import { labOrderCommunicationType } from '../lab/external/get-lab-orders/helpers';
 import { AD_CANONICAL_URL_BASE } from '../lab/shared/in-house-labs';
 import {

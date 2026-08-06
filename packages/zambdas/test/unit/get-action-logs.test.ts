@@ -1,8 +1,8 @@
 import { Appointment, Communication, Patient, Task } from 'fhir/r4b';
-import { ACTION_LOGS_PAGE_SIZE } from 'utils/lib/types/api/action-logs.types';
 import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { RoleType } from 'utils/lib/types/api/user.types';
 import { getOutboundDeliveryAttemptStatus, makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
+import { ACTION_LOGS_PAGE_SIZE } from 'utils/lib/types/api/action-logs.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, it, vi } from 'vitest';
 import { getActionLogViewerRoles, performEffect } from '../../src/ehr/get-action-logs';
 

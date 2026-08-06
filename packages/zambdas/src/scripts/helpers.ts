@@ -16,11 +16,11 @@ import {
   Substance,
 } from 'fhir/r4b';
 import path from 'path';
-import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
-import { createOystehrClient } from 'utils/lib/helpers/helpers';
-import { getMedicationTypeCode } from 'utils/lib/fhir/medication-administration';
 import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
+import { getMedicationTypeCode } from 'utils/lib/fhir/medication-administration';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { getAuth0Token } from '../shared/getAuth0Token';
 
 type GroupMemberType =

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, Practitioner, ServiceRequest } from 'fhir/r4b';
-import { GetRadiologyOrderListZambdaOutput } from 'utils/lib/types/api/radiology';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { GetRadiologyOrderListZambdaOutput } from 'utils/lib/types/api/radiology';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
