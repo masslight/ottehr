@@ -744,7 +744,10 @@ export default function AppointmentTableRow({
       appointment.status === 'provider' ||
       appointment.status === 'awaiting supervisor approval' ||
       appointment.status === 'completed' ||
-      appointment.status === 'discharged'
+      appointment.status === 'discharged' ||
+      appointment.status === 'pending' ||
+      appointment.status === 'arrived' ||
+      appointment.status === 'ready'
     ) {
       return (
         <GoToButton
