@@ -362,4 +362,175 @@ describe('ProceduresNew — deterministic coding assist', () => {
       );
     });
   });
+
+  // --- Conditional infusion Start/Stop time inputs ---
+
+  it('shows the Start/Stop time inputs for an IV-hydration procedure type', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'IV Fluid Administration' });
+    renderComponent();
+    expect(await screen.findByTestId('infusion-start-time-input')).toBeVisible();
+    expect(screen.getByTestId('infusion-stop-time-input')).toBeVisible();
+  });
+
+  it('hides the infusion time inputs for procedure types outside the injection/infusion family', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'Laceration Repair' });
+    const { unmount } = renderComponent();
+    await screen.findByTestId('length-cm-input');
+    expect(screen.queryByTestId('infusion-start-time-input')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('infusion-stop-time-input')).not.toBeInTheDocument();
+    unmount();
+
+    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG' });
+    renderComponent();
+    await waitFor(() => {
+      expect(screen.queryByTestId('infusion-start-time-input')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('infusion-stop-time-input')).not.toBeInTheDocument();
+    });
+  });
+
+  it('restores saved infusion times into the inputs', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'IV Fluid Administration',
+      infusionStartTime: '13:00',
+      infusionStopTime: '13:42',
+    });
+    renderComponent();
+    const startInput = await screen.findByTestId('infusion-start-time-input');
+    const stopInput = screen.getByTestId('infusion-stop-time-input');
+    expect(startInput).toHaveValue('01:00 PM');
+    expect(stopInput).toHaveValue('01:42 PM');
+  });
+
+  it('round-trips the infusion times through the save payload', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'IV Fluid Administration',
+      infusionStartTime: '13:00',
+      infusionStopTime: '13:42',
+    });
+    renderComponent();
+    await screen.findByTestId('infusion-start-time-input');
+    await user.click(screen.getByText('Save'));
+    await waitFor(() => {
+      expect(saveChartDataMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          procedures: [expect.objectContaining({ infusionStartTime: '13:00', infusionStopTime: '13:42' })],
+        })
+      );
+    });
+  });
+
+  it('shows the computed duration caption when both times are set', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'IV Fluid Administration',
+      infusionStartTime: '13:00',
+      infusionStopTime: '13:42',
+    });
+    renderComponent();
+    const caption = await screen.findByTestId('infusion-duration-caption');
+    expect(caption).toHaveTextContent('42 min');
+  });
+
+  it('hides the duration caption while a time is missing', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'IV Fluid Administration',
+      infusionStartTime: '13:00',
+    });
+    renderComponent();
+    await screen.findByTestId('infusion-start-time-input');
+    expect(screen.queryByTestId('infusion-duration-caption')).not.toBeInTheDocument();
+  });
+
+  it('renders the 96365 short-duration contradiction when typed start/stop times total under 31 minutes', async () => {
+    const user = userEvent.setup();
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'IV Fluid Administration',
+      cptCodes: [{ code: '96365', display: 'IV hydration infusion; initial, 31 minutes to 1 hour' }],
+    });
+    renderComponent();
+    const startInput = await screen.findByTestId('infusion-start-time-input');
+    await user.type(startInput, '0205PM');
+    const stopInput = screen.getByTestId('infusion-stop-time-input');
+    await user.type(stopInput, '0230PM');
+    // Times entered through the real inputs land in state → facts → the defense evaluation.
+    expect(await screen.findByTestId('infusion-duration-caption')).toHaveTextContent('25 min');
+    // The findings box can first render from the pre-typing debounce tick; wait for the re-evaluation.
+    await waitFor(
+      () => {
+        const findings = screen.getByTestId('coding-defense-findings');
+        expect(findings).toHaveTextContent('96365');
+        expect(findings).toHaveTextContent(/requires at least 31 minutes/i);
+        expect(findings).toHaveTextContent(/total 25 minutes/i);
+      },
+      { timeout: 3000 }
+    );
+  });
+
+  // --- Structured facts wiring (performerType / documentedBy / patientResponse / postInstructions) ---
+
+  it('renders the tolerance best-practice line for 96372 until Patient response is documented', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Intramuscular (IM) Medication Injection',
+      cptCodes: [{ code: '96372', display: 'Therapeutic injection; subcutaneous or intramuscular' }],
+    });
+    const { unmount } = renderComponent();
+    let findings = await screen.findByTestId('coding-defense-findings', undefined, { timeout: 3000 });
+    expect(findings).toHaveTextContent(/patient tolerance is not documented/i);
+    unmount();
+
+    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Intramuscular (IM) Medication Injection',
+      cptCodes: [{ code: '96372', display: 'Therapeutic injection; subcutaneous or intramuscular' }],
+      patientResponse: 'Tolerated well',
+    });
+    renderComponent();
+    findings = await screen.findByTestId('coding-defense-findings', undefined, { timeout: 3000 });
+    expect(findings).not.toHaveTextContent(/patient tolerance is not documented/i);
+  });
+
+  it('counts Performed by as clinician-application evidence for a splint code', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Splint Application',
+      cptCodes: [{ code: '29125', display: 'Application of short arm splint; static' }],
+    });
+    const { unmount } = renderComponent();
+    let findings = await screen.findByTestId('coding-defense-findings', undefined, { timeout: 3000 });
+    expect(findings).toHaveTextContent(/application by the clinician is not documented/i);
+    unmount();
+
+    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Splint Application',
+      cptCodes: [{ code: '29125', display: 'Application of short arm splint; static' }],
+      performerType: 'Provider',
+    });
+    renderComponent();
+    findings = await screen.findByTestId('coding-defense-findings', undefined, { timeout: 3000 });
+    expect(findings).not.toHaveTextContent(/application by the clinician is not documented/i);
+  });
+
+  it('counts Post-procedure instructions (including Other free text) as instructions documented', async () => {
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Splint Application',
+      cptCodes: [{ code: '29125', display: 'Application of short arm splint; static' }],
+    });
+    const { unmount } = renderComponent();
+    let findings = await screen.findByTestId('coding-defense-findings', undefined, { timeout: 3000 });
+    expect(findings).toHaveTextContent(/patient instructions are not documented/i);
+    unmount();
+
+    // The "Other" chip + free text combine the same way the save path stores them.
+    useProcedureStore.getState().clearDraft(ENCOUNTER_ID);
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, {
+      procedureType: 'Splint Application',
+      cptCodes: [{ code: '29125', display: 'Application of short arm splint; static' }],
+      postInstructions: ['Other'],
+      otherPostInstructions: 'Splint care and elevation reviewed',
+    });
+    renderComponent();
+    findings = await screen.findByTestId('coding-defense-findings', undefined, { timeout: 3000 });
+    expect(findings).not.toHaveTextContent(/patient instructions are not documented/i);
+  });
 });

@@ -185,6 +185,8 @@ export interface ProcedureFamilyModel {
   usesStructuredLength?: boolean;
   /** True when this family's code selection uses the structured Repair depth select (design §6). */
   usesStructuredRepairDepth?: boolean;
+  /** True when this family's code selection uses the structured infusion Start/Stop time inputs (design §6). */
+  usesStructuredInfusionTimes?: boolean;
   /** Family detection from the procedureType string and/or selected CPT codes. */
   detect(input: ProcedureFactsInput): boolean;
   /** Deterministic fact extraction (structured fields first, then details-text patterns). */

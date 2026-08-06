@@ -59,6 +59,7 @@ import {
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
+  extractInfusionDuration,
   FHIR_CODE_REGEX,
   Finding,
   IcdSearchResponse,
@@ -163,6 +164,13 @@ const mergeCptCodes = (
 const stripCodePrefix = (display: string, code: string): string =>
   display.startsWith(code) ? display.slice(code.length).replace(/^\s*[—–-]\s*/, '') : display;
 
+// Infusion times persist as HH:MM 24-hour strings; these convert at the TimePicker boundary.
+const timeStringToDateTime = (value: string | undefined): DateTime | null =>
+  value != null ? DateTime.fromFormat(value, 'HH:mm') : null;
+
+const dateTimeToTimeString = (value: DateTime | null): string | undefined =>
+  value?.isValid ? value.toFormat('HH:mm') : undefined;
+
 interface LocalPageState extends Omit<ProcedurePageState, 'procedureDate' | 'procedureTime'> {
   procedureDate?: DateTime | null;
   procedureTime?: DateTime | null;
@@ -214,6 +222,8 @@ function pageStateToDraft(pageState: LocalPageState): ProcedurePageState {
     procedureDetails: pageState.procedureDetails,
     lengthCm: pageState.lengthCm,
     repairDepth: pageState.repairDepth,
+    infusionStartTime: pageState.infusionStartTime,
+    infusionStopTime: pageState.infusionStopTime,
     specimenSent: pageState.specimenSent,
     complications: pageState.complications,
     otherComplications: pageState.otherComplications,
@@ -281,6 +291,8 @@ export default function ProceduresNew(): ReactElement {
     procedureDetails: draft.procedureDetails,
     lengthCm: draft.lengthCm,
     repairDepth: draft.repairDepth,
+    infusionStartTime: draft.infusionStartTime,
+    infusionStopTime: draft.infusionStopTime,
     specimenSent: draft.specimenSent,
     complications: draft.complications,
     otherComplications: draft.otherComplications,
@@ -347,8 +359,10 @@ export default function ProceduresNew(): ReactElement {
   };
 
   // Deterministic coding engine (client-side, synchronous) — separate from the AI call below.
-  const procedureFacts = useMemo<ProcedureFactsInput>(
-    () => ({
+  const procedureFacts = useMemo<ProcedureFactsInput>(() => {
+    // Instructions collapse to the same combined string the save path stores.
+    const combinedPostInstructions = combineMultipleValuesForSave(state.postInstructions, state.otherPostInstructions);
+    return {
       procedureType: formValues.procedureType,
       bodySite: state.bodySite,
       otherBodySite: state.otherBodySite,
@@ -364,9 +378,14 @@ export default function ProceduresNew(): ReactElement {
       diagnoses: state.diagnoses,
       lengthCm: state.lengthCm,
       repairDepth: isRepairDepthSelection(state.repairDepth) ? state.repairDepth : undefined,
-    }),
-    [formValues.procedureType, state]
-  );
+      performerType: state.performerType,
+      documentedBy: state.documentedBy,
+      patientResponse: state.patientResponse,
+      postInstructions: combinedPostInstructions != null ? [combinedPostInstructions] : undefined,
+      infusionStartTime: state.infusionStartTime,
+      infusionStopTime: state.infusionStopTime,
+    };
+  }, [formValues.procedureType, state]);
   const codingAssist = useProcedureCoding(procedureFacts);
 
   useEffect(() => {
@@ -446,6 +465,8 @@ export default function ProceduresNew(): ReactElement {
       procedureDetails: procedure.procedureDetails,
       lengthCm: procedure.lengthCm,
       repairDepth: procedure.repairDepth,
+      infusionStartTime: procedure.infusionStartTime,
+      infusionStopTime: procedure.infusionStopTime,
       specimenSent: procedure.specimenSent,
       complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
       otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
@@ -512,6 +533,8 @@ export default function ProceduresNew(): ReactElement {
             procedureDetails: state.procedureDetails,
             lengthCm: state.lengthCm,
             repairDepth: state.repairDepth,
+            infusionStartTime: state.infusionStartTime,
+            infusionStopTime: state.infusionStopTime,
             specimenSent: state.specimenSent,
             complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
             patientResponse: state.patientResponse,
@@ -799,6 +822,14 @@ export default function ProceduresNew(): ReactElement {
     defense != null &&
     defense.notAssessedCodes.length > 0 &&
     (amberBoxVisible || positiveStateVisible || deterministicSuggestionVisible);
+
+  // Small duration caption next to the Stop time input, present only when both times parse.
+  const infusionDuration = codingAssist.showInfusionTimeInputs
+    ? extractInfusionDuration(
+        { infusionStartTime: state.infusionStartTime, infusionStopTime: state.infusionStopTime },
+        ''
+      )
+    : undefined;
 
   const defenseFindingLine = (finding: Finding, key: number | string): ReactElement => (
     <Typography key={key} variant="body2">
@@ -1354,6 +1385,54 @@ export default function ProceduresNew(): ReactElement {
                   ))}
                 </Select>
               </FormControl>
+            )}
+            {codingAssist.showInfusionTimeInputs && (
+              <Stack direction="row" spacing={2} alignItems="center">
+                <LocalizationProvider dateAdapter={AdapterLuxon}>
+                  <TimePicker
+                    label="Start time"
+                    slotProps={{
+                      textField: {
+                        InputLabelProps: { shrink: true },
+                        InputProps: { size: 'small' },
+                        // The picker root does not forward data-* attributes; the testid rides on the input.
+                        inputProps: { 'data-testid': dataTestIds.documentProcedurePage.infusionStartTimeInput },
+                      },
+                    }}
+                    value={timeStringToDateTime(state.infusionStartTime)}
+                    onChange={(time: DateTime | null, _e: any) =>
+                      updateState((state) => (state.infusionStartTime = dateTimeToTimeString(time)))
+                    }
+                    disabled={isReadOnly}
+                  />
+                </LocalizationProvider>
+                <LocalizationProvider dateAdapter={AdapterLuxon}>
+                  <TimePicker
+                    label="Stop time"
+                    slotProps={{
+                      textField: {
+                        InputLabelProps: { shrink: true },
+                        InputProps: { size: 'small' },
+                        inputProps: { 'data-testid': dataTestIds.documentProcedurePage.infusionStopTimeInput },
+                      },
+                    }}
+                    value={timeStringToDateTime(state.infusionStopTime)}
+                    onChange={(time: DateTime | null, _e: any) =>
+                      updateState((state) => (state.infusionStopTime = dateTimeToTimeString(time)))
+                    }
+                    disabled={isReadOnly}
+                  />
+                </LocalizationProvider>
+                {infusionDuration != null && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    data-testid={dataTestIds.documentProcedurePage.infusionDurationCaption}
+                  >
+                    {infusionDuration.durationMinutes} min
+                  </Typography>
+                )}
+              </Stack>
             )}
             {multiSelect(
               'Technique',

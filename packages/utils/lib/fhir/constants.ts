@@ -213,6 +213,12 @@ export const FHIR_EXTENSION = {
     repairDepth: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/repair-depth`,
     },
+    infusionStartTime: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/infusion-start-time`,
+    },
+    infusionStopTime: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/infusion-stop-time`,
+    },
     specimenSent: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/specimen-sent`,
     },

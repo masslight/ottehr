@@ -612,6 +612,7 @@ const INJECTION_INFUSION_TYPE_PATTERN = /\binjection\b|intramuscular|iv[\s-]*flu
 export const injectionInfusionFamily: ProcedureFamilyModel = {
   id: 'injection-infusion',
   displayName: 'Therapeutic Injections & IV Hydration',
+  usesStructuredInfusionTimes: true,
   detect(input: ProcedureFactsInput): boolean {
     const typeMatches = INJECTION_INFUSION_TYPE_PATTERN.test(input.procedureType ?? '');
     const codeMatches = (input.cptCodes ?? []).some((c) => isInjectionInfusionCode(c.code));

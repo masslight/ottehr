@@ -29,6 +29,8 @@ export interface ProcedurePageState {
   procedureDetails?: string;
   lengthCm?: number;
   repairDepth?: string;
+  infusionStartTime?: string;
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;

@@ -28,6 +28,8 @@ export interface UseProcedureCodingResult {
   showLengthInput: boolean;
   /** True when the detected procedure family uses the structured Repair depth select. */
   showRepairDepthSelect: boolean;
+  /** True when the detected procedure family uses the structured infusion Start/Stop time inputs. */
+  showInfusionTimeInputs: boolean;
 }
 
 /**
@@ -57,6 +59,7 @@ export function useProcedureCoding(facts: ProcedureFactsInput): UseProcedureCodi
   const family = detectProcedureFamily(facts);
   const showLengthInput = family?.usesStructuredLength === true;
   const showRepairDepthSelect = family?.usesStructuredRepairDepth === true;
+  const showInfusionTimeInputs = family?.usesStructuredInfusionTimes === true;
 
   return {
     suggestion: evaluations?.suggestion,
@@ -64,5 +67,6 @@ export function useProcedureCoding(facts: ProcedureFactsInput): UseProcedureCodi
     rulesVintage: CPT_RULES_VINTAGE,
     showLengthInput,
     showRepairDepthSelect,
+    showInfusionTimeInputs,
   };
 }

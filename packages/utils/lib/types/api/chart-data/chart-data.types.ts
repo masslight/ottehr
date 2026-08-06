@@ -592,6 +592,10 @@ export interface ProcedureDTO extends SaveableDTO {
   lengthCm?: number;
   /** Structured repair depth selection (conditional select for repair-class-banded families, design §6). */
   repairDepth?: string;
+  /** Structured infusion start time, HH:MM 24-hour (conditional input for the injection/infusion family, design §6). */
+  infusionStartTime?: string;
+  /** Structured infusion stop time, HH:MM 24-hour (conditional input for the injection/infusion family, design §6). */
+  infusionStopTime?: string;
   specimenSent?: boolean;
   complications?: string;
   patientResponse?: string;
