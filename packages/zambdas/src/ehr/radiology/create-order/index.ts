@@ -249,8 +249,9 @@ export const buildRadiologyOrderContent = (input: RadiologyOrderContentInput): R
     : cpt;
 
   const contentExtensions: Extension[] = [makeOrderDetailExtension('modality', 'DX')];
-  if (clinicalHistory) {
-    contentExtensions.push(makeOrderDetailExtension('clinical-history', clinicalHistory));
+  const trimmedClinicalHistory = clinicalHistory?.trim();
+  if (trimmedClinicalHistory) {
+    contentExtensions.push(makeOrderDetailExtension('clinical-history', trimmedClinicalHistory));
   }
   contentExtensions.push(
     makeOrderDetailExtension('requested-procedure-description', studyName ?? srCodeCoding.display)
