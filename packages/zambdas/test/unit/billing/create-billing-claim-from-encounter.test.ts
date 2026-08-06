@@ -314,6 +314,7 @@ const billingResources: {
     ],
     meta: {
       tag: [BILLING_RESOURCE_TAG],
+      versionId: '7',
     },
   },
   account: {
@@ -2086,17 +2087,22 @@ describe('create-billing-claim-from-encounter', () => {
       expect(patientPosts).toHaveLength(1);
       expect(patientPosts[0].resource.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
 
-      expect(patchFn).toHaveBeenCalledWith({
-        resourceType: 'Patient',
-        id: 'billing-patient-123',
-        operations: [
-          {
-            op: 'add',
-            path: '/identifier',
-            value: [clinicalPatientIdentifier('patient-123')],
-          },
-        ],
-      });
+      expect(patchFn).toHaveBeenCalledWith(
+        {
+          resourceType: 'Patient',
+          id: 'billing-patient-123',
+          operations: [
+            {
+              op: 'add',
+              path: '/identifier',
+              value: [clinicalPatientIdentifier('patient-123')],
+            },
+          ],
+        },
+        {
+          optimisticLockingVersionId: '7',
+        }
+      );
 
       const personUpdate = requests.find((r) => r.url === `/Person/${billingResources.person.id}`);
       expect(personUpdate).toMatchObject({
@@ -3428,17 +3434,22 @@ describe('create-billing-claim-from-encounter', () => {
         clinicalPatientId: 'patient-123',
       });
 
-      expect(patch).toHaveBeenCalledWith({
-        resourceType: 'Patient',
-        id: 'billing-patient-123',
-        operations: [
-          {
-            op: 'add',
-            path: '/identifier',
-            value: [clinicalPatientIdentifier('patient-123')],
-          },
-        ],
-      });
+      expect(patch).toHaveBeenCalledWith(
+        {
+          resourceType: 'Patient',
+          id: 'billing-patient-123',
+          operations: [
+            {
+              op: 'add',
+              path: '/identifier',
+              value: [clinicalPatientIdentifier('patient-123')],
+            },
+          ],
+        },
+        {
+          optimisticLockingVersionId: '7',
+        }
+      );
     });
 
     it('appends rather than replacing when the patient carries other identifiers', async () => {
@@ -3470,7 +3481,10 @@ describe('create-billing-claim-from-encounter', () => {
               value: clinicalPatientIdentifier('patient-123'),
             },
           ],
-        })
+        }),
+        {
+          optimisticLockingVersionId: '7',
+        }
       );
     });
 
@@ -3490,6 +3504,30 @@ describe('create-billing-claim-from-encounter', () => {
       });
 
       expect(patch).not.toHaveBeenCalled();
+    });
+
+    it('does not re-add the identifier when a concurrent claim stamps it first', async () => {
+      const patch = vi.fn().mockRejectedValueOnce(Object.assign(new Error('conflict'), { code: 412 }));
+      const get = vi.fn().mockResolvedValue({
+        ...billingResources.patient,
+        identifier: [clinicalPatientIdentifier('patient-123')],
+      });
+      await addClinicalPatientIdentifier({
+        oystehr: {
+          fhir: {
+            patch,
+            get,
+          },
+        } as unknown as Oystehr,
+        patient: billingResources.patient,
+        clinicalPatientId: 'patient-123',
+      });
+
+      expect(patch).toHaveBeenCalledTimes(1);
+      expect(get).toHaveBeenCalledWith({
+        resourceType: 'Patient',
+        id: 'billing-patient-123',
+      });
     });
   });
 });

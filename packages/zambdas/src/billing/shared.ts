@@ -75,6 +75,7 @@ import {
   isPayerUrl,
   isValidClaimStatusValue,
   isValidUUID,
+  patchWithOptimisticLock,
   PATIENT_BILLING_ACCOUNT_TYPE,
   RulesEngineType,
   Secrets,
@@ -275,12 +276,10 @@ export async function addClinicalPatientIdentifier({
   patient: Patient;
   clinicalPatientId: string;
 }): Promise<void> {
-  if (hasClinicalPatientIdentifier(patient, clinicalPatientId)) return;
-  const identifier = clinicalPatientIdentifier(clinicalPatientId);
-  await oystehr.fhir.patch({
-    resourceType: 'Patient',
-    id: patient.id!,
-    operations: patient.identifier?.length
+  await patchWithOptimisticLock(oystehr, { ...patient, id: patient.id! }, (current) => {
+    if (hasClinicalPatientIdentifier(current, clinicalPatientId)) return [];
+    const identifier = clinicalPatientIdentifier(clinicalPatientId);
+    return current.identifier?.length
       ? [
           {
             op: 'add',
@@ -294,7 +293,7 @@ export async function addClinicalPatientIdentifier({
             path: '/identifier',
             value: [identifier],
           },
-        ],
+        ];
   });
 }
 
