@@ -68,7 +68,7 @@ export async function patchEncounterResource(
   }
 }
 
-export { removePrefix } from 'utils';
+export { removePrefix } from 'utils/lib/helpers/helpers';
 
 export interface AppointmentInsuranceRelatedResRefs {
   primaryCoverage?: string;

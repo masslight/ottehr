@@ -72,7 +72,8 @@
     "sync-lab-specimen-dates": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/sync-specimen-dates.ts",
     "reset-lab-order": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/labs/reset-lab-order.ts",
     "setup-default-locations": "NODE_OPTIONS='--preserve-symlinks' tsx src/scripts/setup-default-locations.ts",
-    "regenerate-questionnaire-json": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/regenerate-questionnaire-json.ts"
+    "regenerate-questionnaire-json": "NODE_OPTIONS='--preserve-symlinks' tsx ./scripts/regenerate-questionnaire-json.ts",
+    "lint:barrels": "tsx scripts/debarrel.ts src --check && tsx scripts/debarrel.ts test --check"
   },
   "engines": {
     "node": ">=22.0.0",

@@ -33,16 +33,11 @@ module.exports = {
         ],
       },
     ],
-    // Ban relative barrel imports that end in `/shared`, while allowing `/shared/<module>`.
-    // no-restricted-imports patterns use gitignore semantics, where `**/shared` also matches
-    // everything beneath it, so an AST selector with an anchored regex is used instead.
-    'no-restricted-syntax': [
-      'error',
-      {
-        selector: 'ImportDeclaration[source.value=/shared$/]',
-        message:
-          "Import from the declaring module instead, e.g. '../../shared/auth'. Barrel imports create dependency cycles and make every test file load the whole package. See scripts/debarrel.ts.",
-      },
-    ],
+    // Relative barrel imports are checked by `npm run lint:barrels` instead of a lint rule.
+    // A path-shape rule cannot tell a barrel from a legitimately-named module: `src/billing/shared.ts`
+    // and `src/ehr/schedules/shared/index.ts` both hold real implementations, and an
+    // `ImportDeclaration[source.value=/shared$/]` selector flags those too (108 false positives).
+    // scripts/debarrel.ts decides by inspecting the target module — a barrel is a file whose every
+    // statement is a re-export — so the check is precise and stays correct as modules change shape.
   },
 };
