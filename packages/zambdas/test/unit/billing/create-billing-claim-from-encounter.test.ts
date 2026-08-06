@@ -55,15 +55,18 @@ import {
   copyCoverageAndSubscriber,
   copyCoverageAndSubscriberForAccount,
   CreateClaimFromEncounterRequests,
+  findMainBillingPatient,
   getClaimCoveragesForEncounter,
   performEffect,
 } from '../../../src/billing/create-billing-claim-from-encounter/handler';
 import { validateRequestParameters } from '../../../src/billing/create-billing-claim-from-encounter/validateRequestParameters';
 import {
+  addClinicalPatientIdentifier,
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
+  clinicalPatientIdentifier,
   CURRENT_STATUS_TAG_SYSTEM,
   EXCLUDE_WORKING_COPIES_PARAMS,
   SOURCE_FRIENDLY_PATIENT_ID_EXTENSION,
@@ -2030,8 +2033,9 @@ describe('create-billing-claim-from-encounter', () => {
           { resource: { resourceType: 'Provenance', id: 'provenance' } },
         ],
       });
+      const patchFn = vi.fn().mockResolvedValue({});
       const billingOystehr = {
-        fhir: { transaction: txFn },
+        fhir: { transaction: txFn, patch: patchFn },
         rcm: { constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123') },
       } as unknown as Oystehr;
       const cvo: ComplexValidationOutput = {
@@ -2081,6 +2085,18 @@ describe('create-billing-claim-from-encounter', () => {
       );
       expect(patientPosts).toHaveLength(1);
       expect(patientPosts[0].resource.meta?.tag).toContainEqual(BILLING_WORKING_COPY_TAG);
+
+      expect(patchFn).toHaveBeenCalledWith({
+        resourceType: 'Patient',
+        id: 'billing-patient-123',
+        operations: [
+          {
+            op: 'add',
+            path: '/identifier',
+            value: [clinicalPatientIdentifier('patient-123')],
+          },
+        ],
+      });
 
       const personUpdate = requests.find((r) => r.url === `/Person/${billingResources.person.id}`);
       expect(personUpdate).toMatchObject({
@@ -3101,6 +3117,212 @@ describe('create-billing-claim-from-encounter', () => {
           },
         ]),
       });
+    });
+  });
+
+  describe('performEffect, identifier already present', () => {
+    it('neither rewrites nor re-adds the identifier when the patient already carries it', async () => {
+      const patientWithIdentifier = {
+        ...billingResources.patient,
+        identifier: [clinicalPatientIdentifier('patient-123')],
+      };
+      const txFn = vi.fn().mockResolvedValueOnce({
+        entry: [
+          { resource: { resourceType: 'Patient', id: 'claim-patient' } },
+          { resource: { resourceType: 'RelatedPerson', id: 'claim-subscriber' } },
+          { resource: { resourceType: 'Coverage', id: 'claim-coverage' } },
+          { resource: { resourceType: 'Person', id: 'billing-person-123' } },
+          { resource: { resourceType: 'Practitioner', id: 'claim-rendering-provider' } },
+          { resource: { resourceType: 'Organization', id: 'claim-billing-provider' } },
+          { resource: { resourceType: 'Location', id: 'claim-service-facility' } },
+          { resource: { resourceType: 'Claim', id: 'claim' } },
+          { resource: { resourceType: 'Provenance', id: 'provenance' } },
+        ],
+      });
+      const patchFn = vi.fn().mockResolvedValue({});
+      const billingOystehr = {
+        fhir: {
+          transaction: txFn,
+          patch: patchFn,
+        },
+        rcm: {
+          constructPayerUrl: vi.fn().mockReturnValue('https://rcm-api.zapehr.com/v1/payer/payer-123'),
+        },
+      } as unknown as Oystehr;
+
+      await performEffect(
+        billingOystehr,
+        {
+          clinicalResources: {
+            accounts: [clinicalResources.account],
+            appointment: clinicalResources.appointment,
+            billingProvider: clinicalResources.billingProvider,
+            coverages: [clinicalResources.coverage],
+            diagnoses: [...clinicalResources.conditions],
+            encounter: clinicalResources.encounter,
+            location: clinicalResources.location,
+            patient: clinicalResources.patient,
+            payors: [oystehrResources.payor],
+            practitioners: [clinicalResources.practitioner],
+            procedures: [clinicalResources.procedure],
+          },
+          billingResources: {
+            accounts: [billingResources.account],
+            billingProvider: billingResources.billingProvider,
+            coverages: [billingResources.coverage],
+            mainPatient: patientWithIdentifier,
+            person: billingResources.person,
+            practitioners: [billingResources.practitioner],
+            renderingProvider: billingResources.practitioner,
+            serviceFacility: billingResources.location,
+            subscribers: [billingResources.relatedPerson],
+            billingService: billingResources.billingService,
+          },
+        },
+        TEST_PROVENANCE_AGENT
+      );
+
+      const requests = txFn.mock.calls[0][0].requests as CreateClaimFromEncounterRequests;
+      expect(requests.filter((r) => r.method === 'PUT' && r.url.startsWith('/Patient/'))).toHaveLength(0);
+      expect(patchFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findMainBillingPatient', () => {
+    it('uses the indexed identifier search and does not scan when it hits', async () => {
+      const search = vi.fn().mockResolvedValueOnce({ unbundle: () => [billingResources.patient] });
+      const oystehr = {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr;
+
+      const result = await findMainBillingPatient(oystehr, 'patient-123');
+
+      expect(result.patient?.id).toEqual('billing-patient-123');
+      expect(result.total).toEqual(1);
+      expect(search).toHaveBeenCalledTimes(1);
+      expect(search).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resourceType: 'Patient',
+          params: expect.arrayContaining([
+            {
+              name: 'identifier',
+              value: `${SOURCE_IDENTIFIER_SYSTEM}|patient-123`,
+            },
+            ...EXCLUDE_WORKING_COPIES_PARAMS,
+          ]),
+        })
+      );
+    });
+
+    it('falls back to the extension scan when nothing carries the identifier', async () => {
+      const search = vi
+        .fn()
+        .mockResolvedValueOnce({ unbundle: () => [] })
+        .mockResolvedValueOnce({ unbundle: () => [billingResources.patient] });
+      const oystehr = {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr;
+
+      const result = await findMainBillingPatient(oystehr, 'patient-123');
+
+      expect(result.patient?.id).toEqual('billing-patient-123');
+      expect(search).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports the duplicate count the guard keys off when the scan finds several', async () => {
+      const search = vi
+        .fn()
+        .mockResolvedValueOnce({ unbundle: () => [] })
+        .mockResolvedValueOnce({ unbundle: () => [billingResources.patient, billingResources.patient] });
+      const oystehr = {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr;
+
+      expect((await findMainBillingPatient(oystehr, 'patient-123')).total).toEqual(2);
+    });
+  });
+
+  describe('addClinicalPatientIdentifier', () => {
+    it('adds the identifier to a patient that has none', async () => {
+      const patch = vi.fn().mockResolvedValue({});
+      await addClinicalPatientIdentifier({
+        oystehr: {
+          fhir: {
+            patch,
+          },
+        } as unknown as Oystehr,
+        patient: billingResources.patient,
+        clinicalPatientId: 'patient-123',
+      });
+
+      expect(patch).toHaveBeenCalledWith({
+        resourceType: 'Patient',
+        id: 'billing-patient-123',
+        operations: [
+          {
+            op: 'add',
+            path: '/identifier',
+            value: [clinicalPatientIdentifier('patient-123')],
+          },
+        ],
+      });
+    });
+
+    it('appends rather than replacing when the patient carries other identifiers', async () => {
+      const patch = vi.fn().mockResolvedValue({});
+      await addClinicalPatientIdentifier({
+        oystehr: {
+          fhir: {
+            patch,
+          },
+        } as unknown as Oystehr,
+        patient: {
+          ...billingResources.patient,
+          identifier: [
+            {
+              system: 'https://fhir.ottehr.com/other',
+              value: 'other',
+            },
+          ],
+        },
+        clinicalPatientId: 'patient-123',
+      });
+
+      expect(patch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operations: [
+            {
+              op: 'add',
+              path: '/identifier/-',
+              value: clinicalPatientIdentifier('patient-123'),
+            },
+          ],
+        })
+      );
+    });
+
+    it('writes nothing when the identifier is already there', async () => {
+      const patch = vi.fn();
+      await addClinicalPatientIdentifier({
+        oystehr: {
+          fhir: {
+            patch,
+          },
+        } as unknown as Oystehr,
+        patient: {
+          ...billingResources.patient,
+          identifier: [clinicalPatientIdentifier('patient-123')],
+        },
+        clinicalPatientId: 'patient-123',
+      });
+
+      expect(patch).not.toHaveBeenCalled();
     });
   });
 });

@@ -81,10 +81,12 @@ import {
 } from '../../shared';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
+  addClinicalPatientIdentifier,
   AUTO_ACCIDENT_TAG_DESCRIPTION,
   AUTO_ACCIDENT_TAG_NAME,
   billingCopyMatches,
   BillingFhirResource,
+  clinicalPatientIdentifier,
   createBillingClient,
   CURRENT_STATUS_TAG_SYSTEM,
   determineRulesEngineForClaim,
@@ -199,16 +201,20 @@ export async function performEffect(
 
   // Create or update main billing patient from clinical patient
   let mainPatient = billingResources.mainPatient;
+  let mainPatientRequestIndex: number | undefined;
   if (!mainPatient) {
     mainPatient = copyPatient(clinicalResources.patient);
     mainPatient.id = 'urn:uuid:main-patient';
+    mainPatientRequestIndex = requests.length;
     requests.push({ method: 'POST', url: '/Patient', resource: mainPatient, fullUrl: mainPatient.id });
     order.push('patient');
   } else {
     const updatedMainPatient = copyPatient(clinicalResources.patient);
     updatedMainPatient.id = mainPatient.id;
+    if (mainPatient.identifier) updatedMainPatient.identifier = mainPatient.identifier;
     if (!billingCopyMatches(mainPatient, updatedMainPatient)) {
       mainPatient = updatedMainPatient;
+      mainPatientRequestIndex = requests.length;
       requests.push({ method: 'PUT', url: `/Patient/${mainPatient.id}`, resource: updatedMainPatient });
       order.push('patient');
     }
@@ -530,6 +536,16 @@ export async function performEffect(
   if (!createdClaim || !createdClaim.id) {
     console.log('Claim not created');
     throw InternalError;
+  }
+
+  try {
+    await addClinicalPatientIdentifier({
+      oystehr: billingOystehr,
+      patient: mainPatientRequestIndex === undefined ? mainPatient : (entries[mainPatientRequestIndex] as Patient),
+      clinicalPatientId: clinicalResources.patient.id!,
+    });
+  } catch (err) {
+    console.error('Failed to add clinical patient identifier on main billing patient', err);
   }
 
   // Adopt any payments the stripe webhook recorded before this claim existed
@@ -934,26 +950,61 @@ async function getClinicalResources(
   };
 }
 
+export async function findMainBillingPatient(
+  billingOystehr: Oystehr,
+  clinicalPatientId: string
+): Promise<{ total: number; patient?: Patient }> {
+  const identifier = clinicalPatientIdentifier(clinicalPatientId);
+  const byIdentifier = (
+    await billingOystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        {
+          name: 'identifier',
+          value: `${identifier.system}|${identifier.value}`,
+        },
+        {
+          name: '_sort',
+          value: '-_lastUpdated',
+        },
+        ...EXCLUDE_WORKING_COPIES_PARAMS,
+      ],
+    })
+  ).unbundle();
+  if (byIdentifier.length > 0) {
+    return {
+      total: byIdentifier.length,
+      patient: byIdentifier[0],
+    };
+  }
+
+  const scan = await searchOnClinicalIDs(
+    billingOystehr,
+    [{ name: '_sort', value: '-_lastUpdated' }, ...EXCLUDE_WORKING_COPIES_PARAMS],
+    0,
+    1,
+    clinicalPatientId
+  );
+  return {
+    total: scan.total,
+    patient: scan.results[0],
+  };
+}
+
 async function findExistingBillingResources(
   billingOystehr: Oystehr,
   clinicalResources: ClinicalResources,
   secrets: Secrets
 ): Promise<BillingResources> {
   // Main patient is the patient of record on billing app side that we stamp out per-claim copies from
-  const mainPatientSearch = await searchOnClinicalIDs(
-    billingOystehr,
-    [{ name: '_sort', value: '-_lastUpdated' }, ...EXCLUDE_WORKING_COPIES_PARAMS],
-    0,
-    1,
-    clinicalResources.patient.id
-  );
+  const mainPatientSearch = await findMainBillingPatient(billingOystehr, clinicalResources.patient.id!);
   if (mainPatientSearch.total > 1) {
     await sendErrors(
       new Error(`More than one main billing patient for Patient/${clinicalResources.patient.id}`),
       getSecret(SecretsKeys.ENVIRONMENT, secrets)
     );
   }
-  const existingMainPatient = mainPatientSearch.results[0];
+  const existingMainPatient = mainPatientSearch.patient;
 
   let existingPerson: Person | undefined;
   let existingAccounts: Account[] = [];

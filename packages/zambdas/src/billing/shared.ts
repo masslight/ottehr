@@ -254,6 +254,50 @@ export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
   return patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
 }
 
+export function clinicalPatientIdentifier(clinicalPatientId: string): Identifier {
+  return {
+    system: SOURCE_IDENTIFIER_SYSTEM,
+    value: clinicalPatientId,
+  };
+}
+
+export function hasClinicalPatientIdentifier(patient: Patient, clinicalPatientId: string): boolean {
+  const identifier = clinicalPatientIdentifier(clinicalPatientId);
+  return !!patient.identifier?.some((i) => i.system === identifier.system && i.value === identifier.value);
+}
+
+export async function addClinicalPatientIdentifier({
+  oystehr,
+  patient,
+  clinicalPatientId,
+}: {
+  oystehr: Oystehr;
+  patient: Patient;
+  clinicalPatientId: string;
+}): Promise<void> {
+  if (hasClinicalPatientIdentifier(patient, clinicalPatientId)) return;
+  const identifier = clinicalPatientIdentifier(clinicalPatientId);
+  await oystehr.fhir.patch({
+    resourceType: 'Patient',
+    id: patient.id!,
+    operations: patient.identifier?.length
+      ? [
+          {
+            op: 'add',
+            path: '/identifier/-',
+            value: identifier,
+          },
+        ]
+      : [
+          {
+            op: 'add',
+            path: '/identifier',
+            value: [identifier],
+          },
+        ],
+  });
+}
+
 export async function searchOnClinicalIDs(
   oystehr: Oystehr,
   baseSearchParams: SearchParam[],
