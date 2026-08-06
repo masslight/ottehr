@@ -381,7 +381,6 @@ export async function executeBookingScenario(
     ...(testLocationName && { defaultWalkinLocationName: testLocationName }),
     ...(shouldClearPrebookRouting && { inPersonPrebookRoutingParams: [] }),
     ...questionnaireCanonicalOverride,
-    byPassPracticeManagedPaperworkFlow: true,
   };
 
   if (scenario.testQuestionnaireCanonical) {

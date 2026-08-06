@@ -389,8 +389,6 @@ export interface BookingConfig {
   // Used by e2e tests to inject isolated test questionnaires
   virtualQuestionnaireCanonical?: CanonicalUrl;
   inPersonQuestionnaireCanonical?: CanonicalUrl;
-  // pass true when practice managed paperwork flows should be ignored in canonical questionnaire assignment (helps with testing)
-  byPassPracticeManagedPaperworkFlow?: boolean;
 }
 
 // Cached defaults — built lazily on first access, then reused for all subsequent

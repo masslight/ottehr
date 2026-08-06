@@ -407,7 +407,6 @@ const PrebookVisit: FC = () => {
         serviceMode === ServiceMode.virtual
           ? BOOKING_CONFIG.virtualQuestionnaireCanonical
           : BOOKING_CONFIG.inPersonQuestionnaireCanonical;
-      const byPassPracticeManagedPaperworkFlow = BOOKING_CONFIG.byPassPracticeManagedPaperworkFlow;
       const createSlotInput: CreateSlotParams = {
         ...createSlotParamsFromSlotAndOptions(slot, {
           originalBookingUrl: getUrl(),
@@ -420,7 +419,6 @@ const PrebookVisit: FC = () => {
           serviceModality: serviceMode,
         }),
         ...(questionnaireCanonical && { questionnaireCanonical }),
-        byPassPracticeManagedPaperworkFlow,
       };
 
       try {

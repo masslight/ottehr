@@ -87,7 +87,6 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     originalBookingUrl,
     serviceCategoryCode: maybeServiceCategoryCode,
     questionnaireCanonical,
-    byPassPracticeManagedPaperworkFlow,
     atLocationId,
     bookedViaGroupId,
   } = JSON.parse(input.body);
@@ -169,11 +168,6 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
       throw INVALID_INPUT_ERROR('"questionnaireCanonical.version" must be a string');
     }
   }
-  if (byPassPracticeManagedPaperworkFlow) {
-    if (typeof byPassPracticeManagedPaperworkFlow !== 'boolean') {
-      throw INVALID_INPUT_ERROR('"byPassPracticeManagedPaperworkFlow" must be an a boolean');
-    }
-  }
   if (atLocationId != null && typeof atLocationId !== 'string') {
     throw INVALID_INPUT_ERROR('"atLocationId" must be a string if provided');
   }
@@ -211,7 +205,6 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     originalBookingUrl,
     serviceCategoryCode,
     questionnaireCanonical: questionnaireCanonical as CanonicalUrl | undefined,
-    byPassPracticeManagedPaperworkFlow,
     atLocationId,
     bookedViaGroupId,
   };
@@ -233,7 +226,6 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     originalBookingUrl,
     serviceCategoryCode,
     questionnaireCanonical,
-    byPassPracticeManagedPaperworkFlow,
     atLocationId,
     bookedViaGroupId,
     secrets,
@@ -475,10 +467,13 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   // handle assigning correct questionnaireCanonical
   // we will check if any flows have been created for this service category x visit modality
   // if yes, the flow questionnaire will take precedence over the questionnaireCanonical
-  // UNLESS byPassPracticeManagedPaperworkFlow is true; in this case the questionnaireCanonical param value always wins
+  // UNLESS this is running in for e2e tests; in that case the questionnaireCanonical param value always wins
   // this extension is the source of truth for what the booking questionnaire response should point to
-
   let flowCanonical: CanonicalUrl | undefined;
+
+  // this should be an interim solution while booking questionnaires are still ottehr-managed,
+  // allowing us to continue to definitively test ottehr managed services x ottehr managed questionnaires
+  const byPassPracticeManagedPaperworkFlow = Boolean(process.env.PLAYWRIGHT_SUITE_ID);
 
   if (byPassPracticeManagedPaperworkFlow) {
     console.log(
