@@ -2,15 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Money, Organization, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { BILLING_RESOURCE_TAG, getSecret, PAYMENT_METHOD_EXTENSION_URL, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  getStripeClient,
-  shouldUseOttehrBilling,
-  STRIPE_PAYMENT_ID_SYSTEM,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
+import { shouldUseOttehrBilling } from '../../shared/candid';
+import { wrapHandler } from '../../shared/sentry';
 import { claimRequestFor, findBillingClaimForEncounter } from '../payments';
 import { createBillingClient, reconcilePaymentNoticesForClaim, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../shared';
 import { BillingStripeWebhookParams, validateRequestParameters } from './validateRequestParameters';

@@ -14,8 +14,12 @@ import {
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
-  CLAIM_TAG_SYSTEM,
   ClaimStatusFieldKey,
+  getClaimStatusFieldValue,
+  isValidClaimStatusValue,
+} from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_TAG_SYSTEM, PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
+import {
   CMS_PLACE_OF_SERVICE_CODE_SET,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
@@ -23,27 +27,16 @@ import {
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  extractPayerIdFromUrl,
-  getClaimStatusFieldValue,
-  getCoveragePlanType,
-  getNPI,
-  getPayerUrl,
-  getServiceLinePropertyDef,
-  getTaxID,
-  INSURANCE_CANDID_PLAN_TYPE_CODES,
-  isCLIAValid,
-  isNPIValidWithChecksum,
-  isoDateRegex,
-  isValidClaimStatusValue,
-  PERSON_GENDER_OPTIONS,
-  ServiceLineSetOperation,
-  setCoveragePlanType,
-  setNpi,
-  STATE_CODES,
-  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
-  taxIdRegex,
-  zipRegex,
-} from 'utils';
+} from 'utils/lib/helpers/rcm/constants';
+import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
+import { STATE_CODES } from 'utils/lib/types/common';
+import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
+import { ServiceLineSetOperation } from 'utils/lib/types/data/billing/rules-engine.schemas';
+import { extractPayerIdFromUrl, getPayerUrl, isCLIAValid, isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';
+import { getCoveragePlanType, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,

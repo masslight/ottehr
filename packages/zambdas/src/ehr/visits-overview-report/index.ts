@@ -4,27 +4,22 @@ import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
   AppointmentTypeCount,
   DailyVisitCount,
-  getAdmitterPractitionerId,
-  getAttendingPractitionerId,
-  getCoding,
-  getInPersonVisitStatus,
-  isAnnotationFollowupEncounter,
-  isInPersonAppointment,
-  isTelemedAppointment,
   LocationVisitCount,
-  OTTEHR_MODULE,
   PractitionerVisitCount,
-  SERVICE_CATEGORY_SYSTEM,
   VisitsByTypeCount,
   VisitsOverviewReportZambdaOutput,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fetchAllPages,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/api/visits-overview-report.types';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { isInPersonAppointment, isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { fetchAllPages } from '../../shared/fhir';
+import { wrapHandler } from '../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

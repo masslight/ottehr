@@ -1,13 +1,9 @@
-import {
-  AdminAddLabSetInput,
-  INVALID_INPUT_ERROR,
-  LabSetDTO,
-  LabSetDTOSchema,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  Secrets,
-} from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { AdminAddLabSetInput } from 'utils/lib/types/data/labs/labs.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { LabSetDTO, LabSetDTOSchema } from 'utils/lib/types/data/labs/lab-set.schema';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 type BaseContext = {
   secrets: Secrets | null;

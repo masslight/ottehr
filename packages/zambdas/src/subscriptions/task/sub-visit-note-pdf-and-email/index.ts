@@ -2,33 +2,25 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DATETIME_FULL_NO_YEAR,
-  FEATURE_FLAGS_CONFIG,
-  getAddressStringForScheduleResource,
-  getFullestAvailableName,
-  getPatientContactEmail,
-  isFollowupEncounter,
-  OTTEHR_MODULE,
-  removePrefix,
-  Secrets,
-  TASK_INPUT_TYPE_CODES,
-  TASK_INPUT_TYPE_SYSTEM,
-} from 'utils';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { Secrets } from 'utils/lib/secrets';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils/lib/types/common';
+import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName, getPatientContactEmail } from 'utils/lib/fhir/patient';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { performEffect as generateVisitDetailsPdf } from '../../../ehr/visit-details/visit-details-to-pdf';
 import { getPresignedURLs } from '../../../patient/appointment/get-visit-details/helpers';
-import {
-  buildVisitNoteEmailTemplate,
-  createClinicalOystehrClient,
-  createOutboundDeliveryAttempt,
-  failOutboundDeliveryAttempt,
-  getAuth0Token,
-  getEmailClient,
-  sendVisitNoteEmailAttempt,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { buildVisitNoteEmailTemplate, sendVisitNoteEmailAttempt } from '../../../shared/visit-note-email';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { createOutboundDeliveryAttempt, failOutboundDeliveryAttempt } from '../../../shared/outbound-delivery';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { getEmailClient } from '../../../shared/communication';
+import { wrapHandler } from '../../../shared/sentry';
 import { assembleProgressNoteInput } from '../../../shared/pdf/assemble-progress-note-input';
 import { createProgressNotePdf } from '../../../shared/pdf/progress-note-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';

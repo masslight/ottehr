@@ -2,19 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { HealthcareService, Location, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  getScheduleExtension,
-  GetScheduleResponse,
-  getSlugForBookableResource,
-  getTimezone,
-  ScheduleOwnerFhirResource,
-  SERVICE_CATEGORY_SYSTEM,
-  SERVICE_CATEGORY_TAG,
-  serviceCategoryCharacteristics,
-  ServiceMode,
-  ServiceVisitType,
-  SLUG_SYSTEM,
-} from 'utils';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { SERVICE_CATEGORY_SYSTEM, SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
+import { getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';

@@ -20,13 +20,8 @@ import randomstring from 'randomstring';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
-  CPTCodeDTO,
-  CreateRadiologyZambdaOrderInput,
-  CreateRadiologyZambdaOrderOutput,
-  FHIR_EXTENSION,
   FILLER_ORDER_NUMBER_CODE_SYSTEM,
   getAdvaPACSLocationForAppointmentOrEncounter,
-  getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
@@ -35,27 +30,28 @@ import {
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
   RADIOLOGY_PERFORMING_ORGANIZATION_CONTAINED_ID,
   RADIOLOGY_PERFORMING_ORGANIZATION_IDENTIFIER_SYSTEM,
-  RadiologyPerformingOrganization,
-  RadiologySafetyFlag,
-  Secrets,
-  SecretsKeys,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-  userMe,
-} from 'utils';
+} from 'utils/lib/fhir/radiology';
+import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  assertPractitionerHasNPI,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fillMeta,
-  makeCPTCodeDTO,
-  makeCptModifierExtension,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  CreateRadiologyZambdaOrderInput,
+  CreateRadiologyZambdaOrderOutput,
+  RadiologyPerformingOrganization,
+  RadiologySafetyFlag,
+} from 'utils/lib/types/api/radiology';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { assertPractitionerHasNPI, checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
+import { makeCPTCodeDTO } from '../../../shared/chart-data';
+import { makeCptModifierExtension } from '../../../shared/candid';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateInput, validateSecrets } from './validation';
 
 // Types

@@ -1,15 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, MedicationRequest } from 'fhir/r4b';
-import {
-  FEATURE_FLAGS_CONFIG,
-  FileURLInfo,
-  FileURLs,
-  getPresignedURL,
-  LAB_DOC_REF_DETAIL_TAGS,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  MEDICATION_DISPENSABLE_DRUG_ID,
-  PrescribedMedication,
-} from 'utils';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { FileURLInfo, FileURLs } from 'utils/lib/types/common';
+import { LAB_DOC_REF_DETAIL_TAGS, LAB_RESULT_DOC_REF_CODING_CODE } from 'utils/lib/types/data/labs/labs.constants';
+import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
+import { PrescribedMedication } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getLabDocRefDescriptionFromMetaTags } from '../../../shared/pdf/lab-pdf-utils';
 
 async function makePresignedURLFromDocumentReference(

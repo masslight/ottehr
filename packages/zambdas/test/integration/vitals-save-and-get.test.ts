@@ -2,17 +2,18 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, DocumentReference, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import {
-  DOB_DATE_FORMAT,
   FHIRObservationInterpretationSystem,
-  GetVitalsResponseData,
+  VitalFieldNames,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
+import {
   LOINC_SYSTEM,
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
-  VitalFieldNames,
-  VitalsObservationDTO,
-  VitalsVisionObservationDTO,
-} from 'utils';
+} from 'utils/lib/fhir/vitals';
+import { VitalsObservationDTO, VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { assert, inject, suite } from 'vitest';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';

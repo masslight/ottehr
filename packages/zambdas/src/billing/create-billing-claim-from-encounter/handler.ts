@@ -34,10 +34,19 @@ import {
 import { DateTime } from 'luxon';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
-  AR_STAGE,
   BILLING_RESOURCE_TAG,
-  CLAIM_TAG_SYSTEM,
+  FHIR_IDENTIFIER_NPI,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
+  PARTICIPATION_CODE_SYSTEM,
+  SERVICE_CATEGORY_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import {
+  AR_STAGE,
   claimStatusValuesToTags,
+  withArStageInitialization,
+} from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT_MODIFIER,
   CODE_SYSTEM_HL7_HCPCS,
@@ -48,39 +57,25 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
-  FHIR_IDENTIFIER_NPI,
-  FHIR_RESOURCE_NOT_FOUND,
-  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
-  getCandidPlanTypeCodeFromCoverage,
-  getCoding,
-  getDefaultClaimSubmissionExtensions,
-  getNPIIdentifier,
-  getPayerId,
-  getPaymentVariantFromEncounter,
-  getSecret,
-  getTimezone,
-  InternalError,
-  INVALID_INPUT_ERROR,
-  isAppointmentOccupationalMedicine,
-  isValidUUID,
-  PARTICIPATION_CODE_SYSTEM,
-  PaymentVariant,
-  Secrets,
-  SecretsKeys,
-  SERVICE_CATEGORY_SYSTEM,
-  setCoveragePlanType,
-  TIMEZONES,
-  withArStageInitialization,
-} from 'utils';
+} from 'utils/lib/helpers/rcm/constants';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { InternalError } from 'utils/lib/helpers/oystehrApi';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { getCandidPlanTypeCodeFromCoverage, getPayerId } from 'utils/lib/helpers/helpers';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getDefaultClaimSubmissionExtensions, setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isAppointmentOccupationalMedicine } from 'utils/lib/fhir/appointments';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import {
-  assertDefined,
-  chartDataResourceHasMetaTagByCode,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sendErrors,
-  ZambdaInput,
-} from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
+import { chartDataResourceHasMetaTagByCode } from '../../shared/chart-data';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { sendErrors } from '../../shared/errors';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   AUTO_ACCIDENT_TAG_DESCRIPTION,

@@ -1,6 +1,8 @@
-import { MISSING_REQUEST_BODY, NOT_AUTHORIZED, SaveChartDataRequest } from 'utils';
+import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { SaveChartDataRequest } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const SaveChartDataBodySchema = z
   .object({

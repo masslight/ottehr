@@ -1,11 +1,11 @@
 import fs from 'fs';
 import _ from 'lodash';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
 import {
   cleanAppointmentGraph,
   cleanupE2ELocations,
   cleanupIntegrationTestLocations,
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-} from 'utils';
+} from 'utils/lib/utils/e2eCleanup';
 import { createOystehrClientFromConfig } from './helpers';
 
 const deleteAppointmentData = async (config: any): Promise<void> => {

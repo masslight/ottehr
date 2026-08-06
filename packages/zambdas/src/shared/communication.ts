@@ -1,34 +1,31 @@
 import Oystehr from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
 import { Communication, Location, Patient, RelatedPerson } from 'fhir/r4b';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import {
-  BRANDING_CONFIG,
-  buildLocationSupportPhonesMap,
   DynamicTemplateDataRecord,
   EmailTemplate,
   ErrorReportTemplateData,
-  FEATURE_FLAGS_CONFIG,
   GenericOutreachTemplateData,
-  getAllFhirSearchPages,
-  getPatientContactEmail,
-  getRelatedPersonsForPatient,
-  getSecret,
-  getSupportPhoneFor,
   InPersonCancelationTemplateData,
   InPersonCompletionTemplateData,
   InPersonConfirmationTemplateData,
   InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
   OrderResultAlertTemplateData,
-  Secrets,
-  SecretsKeys,
   SENDGRID_CONFIG,
   SendgridConfig,
   TelemedCancelationTemplateData,
   TelemedCompletionTemplateData,
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
-} from 'utils';
+} from 'utils/lib/ottehr-config/sendgrid';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { buildLocationSupportPhonesMap, getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getPatientContactEmail } from 'utils/lib/fhir/patient';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { sendErrors } from './errors';
 import { reportMissingUserRelatedPerson } from './invariants';
 

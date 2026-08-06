@@ -1,5 +1,11 @@
-import { MISSING_REQUEST_SECRETS, SearchBillingPatientsInput, SearchBillingPatientsInputSchema } from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
+import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import {
+  SearchBillingPatientsInput,
+  SearchBillingPatientsInputSchema,
+} from 'utils/lib/types/data/billing/billing.schemas';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
+import { validateJsonBody } from '../../shared/helpers';
 
 export interface SearchBillingPatientsParams extends SearchBillingPatientsInput {
   secrets: ZambdaInput['secrets'];

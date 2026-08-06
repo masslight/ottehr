@@ -1,5 +1,6 @@
-import { MISSING_REQUEST_BODY, Secrets } from 'utils';
-import { ZambdaInput } from '../../../../shared';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../../shared/types/common';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null; userToken: string } {
   if (!input.body) {

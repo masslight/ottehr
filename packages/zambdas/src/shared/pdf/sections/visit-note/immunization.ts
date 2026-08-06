@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
-import { ImmunizationOrder, searchRouteByCode } from 'utils';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
+import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { ImmunizationOrders, PdfSection, ProgressNoteVisitDataInput } from '../../types';

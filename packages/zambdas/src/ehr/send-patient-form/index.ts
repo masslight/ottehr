@@ -1,22 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Patient, Practitioner, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import {
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getFullestAvailableName,
-  getSecret,
-  QR_DISTRIBUTION_TAG,
-  QR_SENT_BY_SYSTEM,
-  qrSentManually,
-  SecretsKeys,
-  SendPatientFormOutput,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getMyPractitionerId,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { QR_DISTRIBUTION_TAG, QR_SENT_BY_SYSTEM } from 'utils/lib/fhir/constants';
+import { SendPatientFormOutput } from 'utils/lib/types/data/send-patient-form';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { wrapHandler } from '../../shared/sentry';
 import { sendSmsForPatient } from '../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 

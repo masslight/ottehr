@@ -1,5 +1,7 @@
-import { CreateInHouseLabOrderParameters, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { CreateInHouseLabOrderParameters } from 'utils/lib/types/data/in-house/in-house.types';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export function validateRequestParameters(
   input: ZambdaInput

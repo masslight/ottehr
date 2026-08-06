@@ -1,5 +1,5 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import { PatientArClaimItem } from 'utils';
+import { PatientArClaimItem } from 'utils/lib/types/data/billing/billing.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 

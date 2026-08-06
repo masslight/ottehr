@@ -4,14 +4,11 @@ import { Appointment, Attachment, Encounter, Patient, QuestionnaireResponse } fr
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { join } from 'path';
-import {
-  chooseJson,
-  DOB_DATE_FORMAT,
-  EHRImageUploadType,
-  GetPresignedFileURLInput,
-  UpdateVisitFilesInput,
-  VisitDocuments,
-} from 'utils';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
+import { EHRImageUploadType, UpdateVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
+import { GetPresignedFileURLInput } from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import { VisitDocuments } from 'utils/lib/types/data/documents';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { assert, inject } from 'vitest';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import QRInput from '../data/questionnaire-response-1.json';

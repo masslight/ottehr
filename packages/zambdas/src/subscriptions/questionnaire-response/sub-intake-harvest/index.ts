@@ -2,29 +2,24 @@ import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Coding, Encounter, Location, Observation, Patient, Task } from 'fhir/r4b';
-import {
-  ADDITIONAL_QUESTIONS_META_SYSTEM,
-  FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
-  getPatchOperationsForNewMetaTags,
-  getSecret,
-  SecretsKeys,
-  TaskIndicator,
-} from 'utils';
+import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG } from 'utils/lib/fhir/constants';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { getPatchOperationsForNewMetaTags } from 'utils/lib/fhir/resourcePatch';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
   updateStripeCustomer,
 } from '../../../ehr/shared/harvest';
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  makeObservationResource,
-  saveResourceRequest,
-  triggerSlackAlarm,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { makeObservationResource } from '../../../shared/chart-data';
+import { saveResourceRequest } from '../../../shared/resources.helpers';
+import { triggerSlackAlarm } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 

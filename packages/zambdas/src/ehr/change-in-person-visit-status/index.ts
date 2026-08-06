@@ -5,13 +5,14 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
-  Secrets,
-  User,
-  userMe,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+} from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
+import { Secrets } from 'utils/lib/secrets';
+import { User } from 'utils/lib/types/api/user.types';
+import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
+import { userMe } from 'utils/lib/auth/user-me.helper';
 import { produceDischargeOutreach } from '../../rcm/scheduled-outreach/producers/shared';
-import { checkOrCreateM2MClientToken, wrapHandler } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';

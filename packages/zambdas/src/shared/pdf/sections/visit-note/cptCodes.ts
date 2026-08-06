@@ -1,4 +1,4 @@
-import { makeCptCodeDisplay } from 'utils';
+import { makeCptCodeDisplay } from 'utils/lib/fhir/helpers';
 import { drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { CptCodes, EncounterInfo, PdfSection } from '../../types';

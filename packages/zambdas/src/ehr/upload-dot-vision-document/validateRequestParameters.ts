@@ -1,5 +1,6 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, UploadDotVisionDocumentInput } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { UploadDotVisionDocumentInput } from 'utils/lib/types/data/upload-dot-vision-document.types';
+import { ZambdaInput } from '../../shared/types/common';
 
 export function validateRequestParameters(
   input: ZambdaInput

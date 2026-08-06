@@ -3,15 +3,11 @@ import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import {
-  BRANDING_CONFIG,
-  createFilesDocumentReferences,
-  FileDocDataForDocReference,
-  fitWrappedTextToBanner,
-  PATIENT_EDUCATION_DOC_TYPE_CODE,
-  PatientEducationLanguage,
-  PatientEducationSection,
-} from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { PatientEducationLanguage, PatientEducationSection } from 'utils/lib/types/data/patient-education.types';
+import { createFilesDocumentReferences, FileDocDataForDocReference } from 'utils/lib/fhir/helpers';
+import { fitWrappedTextToBanner } from 'utils/lib/utils/pdf';
 import { rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
 export type { PatientEducationSection };

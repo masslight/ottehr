@@ -4,7 +4,7 @@ import {
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
   STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/rcm/payments/save-terminal-location/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';

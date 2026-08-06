@@ -1,22 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, DocumentReference, Task } from 'fhir/r4b';
-import {
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  MISSING_REQUIRED_PARAMETERS,
-  Secrets,
-  STATEMENT_CODE,
-} from 'utils';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  getPostGridLetter,
-  MAIL_VENDOR_EXTENSION_URL,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { STATEMENT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { getPostGridLetter, MAIL_VENDOR_EXTENSION_URL } from '../../../shared/postgrid';
+import { safeJsonParse } from '../../../shared/validation';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'get-statement-status';
 const SEND_STATEMENT_BY_EMAIL_TASK_CODE = 'send-statement-by-email';

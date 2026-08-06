@@ -1,13 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { ExternalLabsLabelConfig, ExternalLabsLabelContent } from 'utils/lib/types/data/labs/labs.types';
 import {
-  ExternalLabsLabelConfig,
-  ExternalLabsLabelContent,
-  isValidUUID,
   LabelPrintingConfig,
   MANUFACTURER_TO_LABEL_MAPPING,
   SupportedPrinterManufacturer,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/printing';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { VisitLabelConfig, VisitLabelContent } from '../../shared/pdf/visit-label-pdf';
 import { getPrintingConfigAndDevice } from '../label-printing-config/get-label-printing-config';
 import { getExternalLabLabelConfig, getVisitLabelConfig } from '../shared/label-printing';

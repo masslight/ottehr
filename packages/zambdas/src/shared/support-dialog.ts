@@ -3,10 +3,10 @@ import { Basic } from 'fhir/r4b';
 import sanitizeHtml from 'sanitize-html';
 import {
   ALLOWED_SUPPORT_DIALOG_TAGS,
-  GetSupportDialogOutput,
   SUPPORT_DIALOG_BASIC_TAG,
   SUPPORT_DIALOG_BODY_HTML_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/utils/support-dialog';
+import { GetSupportDialogOutput } from 'utils/lib/types/data/support-dialog';
 
 const SUPPORT_DIALOG_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: ALLOWED_SUPPORT_DIALOG_TAGS,

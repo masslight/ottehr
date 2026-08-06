@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Basic } from 'fhir/r4b';
-import { HOLD_TAG_NAME } from 'utils';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { complexValidation } from '../../../src/billing/tag-billing-claim';
 import { TagBillingClaimParams } from '../../../src/billing/tag-billing-claim/validateRequestParameters';

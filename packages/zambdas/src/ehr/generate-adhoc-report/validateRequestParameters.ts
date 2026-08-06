@@ -1,12 +1,10 @@
 import {
   GenerateAdHocReportInput,
   GenerateAdHocReportInputSchema,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  Secrets,
-} from 'utils';
-import { ZambdaInput } from '../../shared';
+} from 'utils/lib/types/adhoc/generation/generate.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
 
 export function validateRequestParameters(input: ZambdaInput): GenerateAdHocReportInput & { secrets: Secrets } {
   if (!input.body) {

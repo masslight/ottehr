@@ -20,29 +20,27 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  getFullestAvailableName,
+  LAB_ORDER_UPDATE_RESOURCES_EVENTS,
+  SaveOrderCollectionData,
+  UpdateLabOrderResourcesInput,
+} from 'utils/lib/types/data/labs/labs.types';
+import { PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/labs/labs.constants';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import {
   getOrderNumber,
-  getPatchBinary,
-  getSecret,
   getTestNameFromDr,
   isPSCOrder,
-  LAB_ORDER_UPDATE_RESOURCES_EVENTS,
   makeExternalLabLabelConfig,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  SaveOrderCollectionData,
-  Secrets,
-  SecretsKeys,
-  UpdateLabOrderResourcesInput,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getMyPractitionerId,
-  sendErrors,
-  sendOrderResultEmailToPatient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+} from 'utils/lib/helpers/labs/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { getMyPractitionerId } from '../../../../shared/practitioners';
+import { sendErrors } from '../../../../shared/errors';
+import { sendOrderResultEmailToPatient } from '../../../../shared/communication';
+import { wrapHandler } from '../../../../shared/sentry';
 import { createExternalLabsLabelPDF } from '../../../../shared/pdf/external-labs-label-pdf';
 import {
   createExternalLabResultPDF,

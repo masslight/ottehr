@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Bundle, CodeableConcept, Coding, Encounter, FhirResource, Resource, ServiceRequest } from 'fhir/r4b';
-import { ChartDataWithResources, DispositionMetaFieldsNames, GetChartDataResponse } from 'utils';
-import { parseCreatedResourcesBundle } from '../../shared';
+import { ChartDataWithResources } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { DispositionMetaFieldsNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
+import { parseCreatedResourcesBundle } from '../../shared/resources.helpers';
 import {
   chartDataResourceHasMetaTagByCode,
   handleCustomDTOExtractions,

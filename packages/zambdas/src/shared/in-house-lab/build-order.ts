@@ -12,18 +12,19 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CODE_SYSTEM_CPT, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { DataEntryTestItem } from 'utils/lib/types/data/in-house/in-house.types';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
-  CODE_SYSTEM_CPT,
-  DataEntryTestItem,
-  DiagnosisDTO,
-  EXTENSION_URL_CPT_MODIFIER,
   FHIR_IDC10_VALUESET_SYSTEM,
-  getFullestAvailableName,
-  IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+} from 'utils/lib/types/data/labs/labs.constants';
+import {
+  IN_HOUSE_LAB_TASK,
   REPEAT_TEST_CPT_CODE_MODIFIER,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
-} from 'utils';
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { fillMeta, makeCptModifierExtension } from '..';
 import { createTask } from '../tasks';
 

@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { getAuth0Token } from '../shared';
+import { getAuth0Token } from '../shared/getAuth0Token';
 
 const updatePermissionsFromZambdaList = async (zambdaList: string[], config: any): Promise<void> => {
   const auth0Token = await getAuth0Token(config);

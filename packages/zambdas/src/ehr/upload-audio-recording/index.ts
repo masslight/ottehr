@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CreateUploadAudioRecordingInput, CreateUploadAudioRecordingOutput, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  CreateUploadAudioRecordingInput,
+  CreateUploadAudioRecordingOutput,
+} from 'utils/lib/types/api/appointment.types';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { makeZ3FileUrl } from '../../shared/presigned-file-urls/helpers';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';

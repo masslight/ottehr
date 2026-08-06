@@ -5,11 +5,14 @@ import { DocumentReference } from 'fhir/r4b';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
-  PATIENT_EDUCATION_DOC_TYPE_CODE,
-  progressNoteChartDataRequestedFields,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
+import { PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { Secrets } from 'utils/lib/secrets';
+import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { fetchErxPharmacies } from '../../shared/erx';
 import { createDischargeSummaryPdf } from '../../shared/pdf/discharge-summary-pdf';
 import { getUpcomingFollowUps } from '../../shared/pdf/get-upcoming-follow-ups';

@@ -13,34 +13,36 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  appointmentTypeForAppointment,
-  checkEncounterIsVirtual,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { ServiceMode, Timezone } from 'utils/lib/types/common';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import {
   createSlotParamsFromSlotAndOptions,
   getOriginalBookingUrlFromSlot,
   getScheduleExtension,
-  GetScheduleResponse,
   getServiceModeFromSlot,
   getSlotAtLocationId,
   getSlotBookedViaGroupId,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
-  getSlugForBookableResource,
   getTimezone,
-  isPostTelemedAppointment,
+  SlotListItem,
+} from 'utils/lib/utils/scheduleUtils';
+import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import {
   makeSlotAtLocationExtensionEntry,
   makeSlotBookedViaGroupExtensionEntry,
-  PatientInfo,
   SCHEDULE_EXTENSION_URL,
-  ScheduleOwnerFhirResource,
   SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
-  SlotListItem,
   SLUG_SYSTEM,
-  Timezone,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
 import { assert, inject } from 'vitest';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';

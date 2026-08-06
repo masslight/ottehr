@@ -1,6 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MISSING_REQUEST_SECRETS } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { getOrCreateOutreachConfig, parseNotificationsTimeRestriction, parsePlanDefinitionToActions } from '../helpers';
 
 let m2mToken: string;

@@ -17,20 +17,24 @@ import {
   AdHocPatientRow,
   AdHocPatientsInput,
   AdHocPatientsOutputSchema,
+} from 'utils/lib/types/adhoc/datasets/patients';
+import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import {
   getAddressForIndividual,
-  getAttendingPractitionerId,
   getEmailForIndividual,
-  getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
-  isInPersonAppointment,
-  isTelemedAppointment,
   mapGenderToLabel,
-  PATIENT_POINT_OF_DISCOVERY_URL,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { fetchAppointmentReportResources, REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../../shared/adhoc-report';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';

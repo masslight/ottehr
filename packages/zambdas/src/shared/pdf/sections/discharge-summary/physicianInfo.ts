@@ -1,5 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
-import { formatDateToMDYWithTime } from 'utils';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { ParticipantInfo } from 'utils/lib/types/data/appointments/appointments.types';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, PhysicianData } from '../../types';

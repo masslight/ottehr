@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FHIR_EXTENSION, getPatientsForUser, PatientInfo, Secrets } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { Secrets } from 'utils/lib/secrets';
+import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
+import { ZambdaInput } from '../../shared/types/common';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -1,4 +1,6 @@
-import { createMedicationString, isDeletedMedicationOrder, NOTE_TYPE } from 'utils';
+import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { createMedicationString } from 'utils/lib/fhir/medication-administration';
+import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { InHouseMedicationsData, PdfSection } from '../../types';

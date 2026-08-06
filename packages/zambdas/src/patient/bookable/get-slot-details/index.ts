@@ -3,31 +3,33 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Schedule, Slot } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND,
-  getOriginalBookingUrlFromSlot,
-  getServiceModeFromScheduleOwner,
-  getServiceModeFromSlot,
-  GetSlotDetailsParams,
-  GetSlotDetailsResponse,
-  getSlotIsWalkin,
-  getTimezone,
   INVALID_INPUT_ERROR,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  ServiceMode,
-} from 'utils';
-import { getNameForOwner } from '../../../ehr/schedules/shared';
+} from 'utils/lib/types/errors';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  resolveBookingLocationId,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+  GetSlotDetailsParams,
+  GetSlotDetailsResponse,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { Secrets } from 'utils/lib/secrets';
+import { ServiceMode } from 'utils/lib/types/common';
+import {
+  getOriginalBookingUrlFromSlot,
+  getServiceModeFromScheduleOwner,
+  getServiceModeFromSlot,
+  getSlotIsWalkin,
+  getTimezone,
+} from 'utils/lib/utils/scheduleUtils';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { getNameForOwner } from '../../../ehr/schedules/shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { resolveBookingLocationId } from '../../../shared/resolveBookingLocationId';
+import { safeJsonParse } from '../../../shared/validation';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'get-slot-details';
 

@@ -1,10 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment } from 'fhir/r4b';
+import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  BUCKET_NAMES,
-  getAppointmentResourceById,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_FRONT_2_ID,
@@ -12,12 +11,16 @@ import {
   PATIENT_PHOTO_ID_PREFIX,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_FRONT_ID,
-  PresignUploadUrlResponse,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
-  Secrets,
-} from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { PresignUploadUrlResponse } from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
+import { Secrets } from 'utils/lib/secrets';
+import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
+import { ZambdaInput } from '../../shared/types/common';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -1,4 +1,4 @@
-import { Secrets } from 'utils';
+import { Secrets } from 'utils/lib/secrets';
 import { ZambdaInput } from '../../../src/shared';
 
 /**

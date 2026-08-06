@@ -6,9 +6,9 @@ import {
   FOLLOWUP_SYSTEMS,
   FollowupReason,
   formatFhirEncounterToPatientFollowupDetails,
-  PatientFollowupDetails,
-  PRACTITIONER_CODINGS,
-} from 'utils';
+} from 'utils/lib/fhir/encounter';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { PatientFollowupDetails } from 'utils/lib/types/api/encounter.types';
 
 export async function createEncounterResource(
   encounterDetails: PatientFollowupDetails,

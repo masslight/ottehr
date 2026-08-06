@@ -1,11 +1,13 @@
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  INVALID_INPUT_ERROR,
-  isPhoneNumberValid,
-  Secrets,
   SendRadiologyOrderFaxZambdaInput,
   SendRadiologyOrderFaxZambdaInputSchema,
-} from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/api/radiology';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
+import { validateJsonBody } from '../../../shared/helpers';
 
 export interface ValidatedInput {
   body: SendRadiologyOrderFaxZambdaInput;

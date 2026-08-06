@@ -1,5 +1,6 @@
 import { Encounter, PaymentNotice, Task } from 'fhir/r4b';
-import { PAYMENT_METHOD_EXTENSION_URL, Secrets } from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPerformCandidPreEncounterSync = vi.fn();

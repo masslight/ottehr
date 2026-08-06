@@ -1,15 +1,15 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
+import { HourOfDay } from 'utils/lib/utils/scheduleUtils';
 import {
-  GetScheduleResponse,
-  HourOfDay,
   SCHEDULE_EXTENSION_URL,
-  SCHEDULE_NOT_FOUND_ERROR,
   ScheduleStrategyCoding,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';

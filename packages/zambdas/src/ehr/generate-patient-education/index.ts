@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { GeneratePatientEducationInput, GeneratePatientEducationOutput, getSecret, SecretsKeys } from 'utils';
-import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  GeneratePatientEducationInput,
+  GeneratePatientEducationOutput,
+} from 'utils/lib/types/data/patient-education.types';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { fetchMedlineLinks } from '../../shared/medlineplus';
 import { buildEducationPrompt } from './helpers';

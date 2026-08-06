@@ -14,21 +14,22 @@ import { DateTime } from 'luxon';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import {
   GROUP_ASSIGNMENT_MODE_SYSTEM,
-  PatientInfo,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
-  serviceCategoryCharacteristics,
-  ServiceMode,
-  ServiceVisitType,
   SLOT_BOOKED_VIA_GROUP_EXTENSION_URL,
   SLOT_FALLBACK_REROUTED_TAG_SYSTEM,
-  SLOT_UNAVAILABLE_ERROR,
   SlotServiceCategory,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { SLOT_UNAVAILABLE_ERROR } from 'utils/lib/types/errors';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
+import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';

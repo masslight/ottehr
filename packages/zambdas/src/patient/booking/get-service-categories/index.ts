@@ -1,15 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, PractitionerRole } from 'fhir/r4b';
-import {
-  FEATURE_FLAGS_CONFIG,
-  getPractitionerRoleAllCategories,
-  INVALID_INPUT_ERROR,
-  Secrets,
-  SERVICE_CATEGORIES_AVAILABLE,
-  SERVICE_CATEGORY_TAG,
-  SLUG_SYSTEM,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
+import { SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { buildCatalog, buildFhirCatalog, filterByOfferedCodes, getGroupOfferedCodes } from './helpers';
 
 interface GetServiceCategoriesInput {

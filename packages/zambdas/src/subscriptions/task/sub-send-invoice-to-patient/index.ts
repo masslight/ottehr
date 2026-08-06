@@ -4,37 +4,26 @@ import { Operation } from 'fast-json-patch';
 import { Account, Appointment, Encounter, Location, Patient, Schedule, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import {
-  FHIR_RESOURCE_NOT_FOUND,
-  fillInvoiceTemplate,
-  formatDateToMDYWithTime,
-  getPatientReferenceFromAccount,
-  getSecret,
-  getStripeAccountForAppointmentOrEncounter,
-  getStripeCustomerIdFromAccount,
-  mapDisplayToInvoiceTaskStatus,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  RcmTaskCodings,
-  removePrefix,
-  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { FHIR_RESOURCE_NOT_FOUND, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
+import { PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { fillInvoiceTemplate } from 'utils/lib/helpers/rcm/invoice-config';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { getPatientReferenceFromAccount, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { mapDisplayToInvoiceTaskStatus } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { accountMatchesType } from '../../../ehr/shared/harvest';
 import { produceOutreachTasks } from '../../../rcm/scheduled-outreach/producers/shared';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  ensureStripeCustomerId,
-  getCandidEncounterIdFromEncounter,
-  getStripeClient,
-  resolveTemplatePlaceholders,
-  resolveTimezone,
-  sendSmsForPatient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, resolveTimezone } from '../../../shared/helpers';
+import { ensureStripeCustomerId, getStripeClient } from '../../../shared/stripeIntegration';
+import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
+import { resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
+import { sendSmsForPatient } from '../../../shared/communication';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

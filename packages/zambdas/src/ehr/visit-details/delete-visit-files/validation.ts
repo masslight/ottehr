@@ -1,22 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
+import { DeleteVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
 import {
-  DeleteVisitFilesInput,
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
 import z from 'zod';
-import {
-  checkIsEHRUser,
-  getUser,
-  isTestUser,
-  safeJsonParse,
-  userHasAccessToPatient,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkIsEHRUser, getUser, isTestUser, userHasAccessToPatient } from '../../../shared/auth';
+import { safeJsonParse } from '../../../shared/validation';
 
 export interface ValidatedInput {
   body: DeleteVisitFilesInput;

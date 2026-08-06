@@ -10,7 +10,7 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { ExternalLabCommunications } from 'utils';
+import { ExternalLabCommunications } from 'utils/lib/types/data/labs/labs.types';
 import { ADDED_VIA_LAB_ORDER_SYSTEM, OYSTEHR_ABN_DOC_CATEGORY_CODING } from 'utils/lib/types/data/labs/labs.constants';
 import { makeSoftDeleteStatusPatchRequest } from '../../shared/helpers';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';

@@ -19,7 +19,6 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  buildClaimStatusDateExtensions,
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_AGENT_TYPE,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
@@ -27,25 +26,26 @@ import {
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
-  CLAIM_STATUS_FIELDS,
   CLAIM_SYSTEM_DEVICE_IDENTIFIER,
   CLAIM_SYSTEM_DEVICE_NAME,
-  CLAIM_TAG_SYSTEM,
   ClaimFieldChange,
   ClaimProvenanceActivityKey,
+} from 'utils/lib/types/data/billing/claim-history';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { Secrets } from 'utils/lib/secrets';
+import {
+  buildClaimStatusDateExtensions,
+  CLAIM_STATUS_FIELDS,
   ClaimStatusFieldKey,
-  convertFhirNameToDisplayName,
   formatClaimStatusValue,
-  getCandidPlanTypeCodeFromCoverage,
   getClaimStatusValues,
-  getNPI,
-  getPatchBinary,
-  getTaxID,
-  HOLD_TAG_NAME,
-  makeOptimisticLockIfMatchHeader,
-  Secrets,
-  userMe,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
+import { convertFhirNameToDisplayName } from 'utils/lib/fhir/convertFhirNameToDisplayName';
+import { getCandidPlanTypeCodeFromCoverage } from 'utils/lib/helpers/helpers';
+import { getNPI, getTaxID, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { userMe } from 'utils/lib/auth/user-me.helper';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,

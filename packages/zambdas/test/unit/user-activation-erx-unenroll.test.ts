@@ -1,6 +1,6 @@
 import { captureException } from '@sentry/aws-serverless';
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import { UserActivationZambdaOutput } from 'utils';
+import { UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 

@@ -3,12 +3,10 @@ import {
   FAX_PACKET_REQUEST_TASK_INPUT,
   FAX_PACKET_RESULTS_TASK_OUTPUT,
   FaxPacketTaskPayload,
-  getSecret,
-  removePrefix,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken } from '../../../shared';
+} from 'utils/lib/types/api/fax.types';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { deliverFaxPacket, savePcpIfRequested } from '../../../shared/fax/run-fax-packet';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapTaskHandler } from '../helpers';

@@ -10,10 +10,12 @@ import {
   evalEnableWhen,
   evalFilterWhen,
   evalRequired,
+} from 'utils/lib/helpers/paperwork/validation';
+import {
   flattenIntakeQuestionnaireItems,
   IntakeQuestionnaireItem,
-  mapQuestionnaireAndValueSetsToItemsList,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.types';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
 
 /**
  * Generates a valid, instance-agnostic set of paperwork answers for a given

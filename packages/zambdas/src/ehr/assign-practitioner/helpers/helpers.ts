@@ -1,13 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter } from 'fhir/r4b';
-import {
-  getAppointmentMetaTagOpForStatusUpdate,
-  getInPersonVisitStatus,
-  getPatchBinary,
-  PRACTITIONER_CODINGS,
-  User,
-} from 'utils';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { User } from 'utils/lib/types/api/user.types';
+import { getAppointmentMetaTagOpForStatusUpdate } from 'utils/lib/fhir/helpers';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 
 export const assignPractitionerIfPossible = async (
   oystehr: Oystehr,

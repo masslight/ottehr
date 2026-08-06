@@ -1,15 +1,15 @@
 import { Encounter, List, Location, ServiceRequest } from 'fhir/r4b';
 import {
-  chartDataTagSystem,
   FHIR_IDC10_VALUESET_SYSTEM,
   LAB_ACCOUNT_NUMBER_SYSTEM,
-  locationIsEnabledForLabs,
-  OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PSC_HOLD_CONFIG,
   STATIC_COMPENDIUM_LAB_GUID,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
+import { locationIsEnabledForLabs } from 'utils/lib/helpers/labs/helpers';
 import { describe, expect, test } from 'vitest';
 import {
   findExternalLabPlans,

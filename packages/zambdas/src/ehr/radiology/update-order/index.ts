@@ -1,15 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Extension, Procedure, ServiceRequest } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  FHIR_EXTENSION,
-  getPatchOperationToUpdateExtension,
-  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
-  UpdateRadiologyOrderZambdaInput,
-  UpdateRadiologyOrderZambdaOutput,
-} from 'utils';
-import { checkOrCreateM2MClientToken, makeCptModifierExtension, wrapHandler, ZambdaInput } from '../../../shared';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } from 'utils/lib/fhir/radiology';
+import { UpdateRadiologyOrderZambdaInput, UpdateRadiologyOrderZambdaOutput } from 'utils/lib/types/api/radiology';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { makeCptModifierExtension } from '../../../shared/candid';
+import { wrapHandler } from '../../../shared/sentry';
 import { buildRadiologyOrderContent, ValidatedCPTCode } from '../create-order';
 import {
   validateCPTCode,

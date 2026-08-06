@@ -1,5 +1,7 @@
-import { MakeMedicationHistoryPdfZambdaInput, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../shared';
+import { MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { MakeMedicationHistoryPdfZambdaInput } from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): MakeMedicationHistoryPdfZambdaInput & { secrets: any } {
   if (!input.body) {

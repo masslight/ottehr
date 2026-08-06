@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { version } from '../../../package.json';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { wrapHandler } from '../../shared/sentry';
 
 export const index = wrapHandler('get-version', async (_input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   return {

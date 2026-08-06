@@ -1,11 +1,7 @@
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  SetClaimStatusInput,
-  SetClaimStatusInputSchema,
-} from 'utils';
-import { formatZodError, ZambdaInput } from '../../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { SetClaimStatusInput, SetClaimStatusInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { ZambdaInput } from '../../shared/types/common';
+import { formatZodError } from '../../shared/validation';
 
 export interface SetClaimStatusParams extends SetClaimStatusInput {
   secrets: ZambdaInput['secrets'];

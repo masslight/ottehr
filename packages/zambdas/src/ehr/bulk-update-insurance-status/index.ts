@@ -4,11 +4,14 @@ import { Operation } from 'fast-json-patch';
 import {
   BulkUpdateInsuranceStatusInput,
   BulkUpdateInsuranceStatusResponse,
-  chunkThings,
-  getPatchBinary,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/bulk-update-insurance-status.types';
+import { Secrets } from 'utils/lib/secrets';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'bulk-update-insurance-status';

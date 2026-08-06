@@ -1,10 +1,10 @@
 import {
   CreateCustomFolderInputSchema,
   CreateCustomFolderInputValidated,
-  MISSING_REQUEST_BODY,
-  NOT_AUTHORIZED,
-} from 'utils';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/custom-folder.types';
+import { MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): CreateCustomFolderInputValidated {
   console.group('validateRequestParameters');

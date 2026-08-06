@@ -1,4 +1,4 @@
-import { RulesEngineType } from 'utils';
+import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 
 // FHIR identifiers for the rules engines' storage and kickoff resources. These are backend-only:

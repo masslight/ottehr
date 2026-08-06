@@ -1,17 +1,11 @@
-import {
-  FHIR_EXTENSION,
-  formatDateForDisplay,
-  genderMap,
-  getCoding,
-  getFormattedPatientFullName,
-  getNameSuffix,
-  getPatientFriendlyId,
-  getReasonForVisitAndAdditionalDetailsFromAppointment,
-  getReasonForVisitOptionsForServiceCategory,
-  PATIENT_INDIVIDUAL_PRONOUNS_URL,
-  SERVICE_CATEGORY_SYSTEM,
-  standardizePhoneNumber,
-} from 'utils';
+import { FHIR_EXTENSION, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types/constants';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { genderMap, getCoding } from 'utils/lib/fhir/helpers';
+import { getFormattedPatientFullName, getNameSuffix, getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PatientDataInput, PatientInfo, PdfSection } from '../types';
 

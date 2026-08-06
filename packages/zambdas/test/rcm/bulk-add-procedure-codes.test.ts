@@ -1,6 +1,6 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils';
+import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/rcm/fee-schedules/bulk-add-procedure-codes/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';

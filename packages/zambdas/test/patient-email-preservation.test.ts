@@ -1,7 +1,7 @@
 import { BatchInputBinaryPatchRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Binary, Patient } from 'fhir/r4b';
-import { PatientInfo } from 'utils';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { describe, expect, it } from 'vitest';
 import { creatingPatientUpdateRequest, getPatientPatchOpsPatientEmail } from '../src/shared/appointment/helpers';
 

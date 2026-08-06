@@ -3,18 +3,15 @@ import { Task } from 'fhir/r4b';
 import {
   FAX_PACKET_REQUEST_TASK_INPUT,
   FaxPacketTaskPayload,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  removePrefix,
   SendFaxPacketOutput,
-  TaskIndicator,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getUser,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/api/fax.types';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { validateRequestParameters } from './validateRequestParameters';
 

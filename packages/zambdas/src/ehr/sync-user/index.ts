@@ -2,17 +2,18 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ContactPoint, Identifier, Practitioner } from 'fhir/r4b';
-import {
-  allLicensesForPractitioner,
-  FHIR_IDENTIFIER_NPI,
-  getNPIIdentifier,
-  makeQualificationForPractitioner,
-  PractitionerLicense,
-  Secrets,
-  SyncUserResponse,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, wrapHandler, ZambdaInput } from '../../shared';
+import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
+import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
+import { Secrets } from 'utils/lib/secrets';
+import { SyncUserResponse } from 'utils/lib/types/api/sync-user/sync-user.types';
+import { allLicensesForPractitioner } from 'utils/lib/fhir/helpers';
+import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { makeQualificationForPractitioner } from 'utils/lib/fhir/practitioners';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

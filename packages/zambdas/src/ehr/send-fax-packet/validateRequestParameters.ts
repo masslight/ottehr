@@ -1,13 +1,8 @@
-import {
-  INVALID_INPUT_ERROR,
-  isPhoneNumberValid,
-  MISSING_AUTH_TOKEN,
-  MISSING_REQUEST_BODY,
-  SendFaxPacketInput,
-  SendFaxPacketInputSchema,
-  standardizePhoneNumber,
-} from 'utils';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { INVALID_INPUT_ERROR, MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { SendFaxPacketInput, SendFaxPacketInputSchema } from 'utils/lib/types/api/fax.types';
+import { isPhoneNumberValid, standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 /** Dialable form: `+1` followed by the last ten digits. Matches what `send-fax` stores. */
 const toDialableFaxNumber = (faxNumber: string): string => `+1${faxNumber.replace(/\D/g, '').slice(-10)}`;

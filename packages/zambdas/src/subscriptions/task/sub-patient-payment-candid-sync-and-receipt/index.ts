@@ -4,27 +4,19 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import {
-  getContainedReconciliation,
-  getOrCreateCandidApiClient,
-  getStripeAccountForAppointmentOrEncounter,
-  PAYMENT_METHOD_EXTENSION_URL,
-  TIMEZONES,
-} from 'utils';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { getContainedReconciliation, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, recordBillingPatientPayment } from '../../../billing/payments';
 import { createBillingClient } from '../../../billing/shared';
-import {
-  createClinicalOystehrClient,
-  createPatientPaymentReceiptPdf,
-  getAuth0Token,
-  getStripeClient,
-  performCandidPreEncounterSync,
-  shouldUseCandid,
-  shouldUseOttehrBilling,
-  STRIPE_PAYMENT_ID_SYSTEM,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { createPatientPaymentReceiptPdf } from '../../../shared/pdf/patient-payment-receipt-pdf';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../shared/stripeIntegration';
+import { performCandidPreEncounterSync, shouldUseCandid, shouldUseOttehrBilling } from '../../../shared/candid';
+import { wrapHandler } from '../../../shared/sentry';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 

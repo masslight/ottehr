@@ -5,13 +5,13 @@ import {
   AppointmentType,
   FhirAppointmentStatus,
   FhirEncounterStatus,
-  getInPersonVisitStatus,
-  OTTEHR_MODULE,
-  PARTICIPATION_CODE_SYSTEM,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
   VisitStatusWithoutUnknown,
-} from 'utils';
+} from 'utils/lib/types/api/appointment.types';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { beforeAll, expect, test } from 'vitest';
 import { HOP_QUEUE_URI } from '../src/shared/constants';
 import { getTrackingBoardVisitStatus, sortAppointments } from '../src/shared/queueingUtils';

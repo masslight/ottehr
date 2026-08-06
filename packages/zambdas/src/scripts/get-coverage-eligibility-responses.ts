@@ -2,7 +2,8 @@
 import Oystehr from '@oystehr/sdk';
 import { CoverageEligibilityResponse } from 'fhir/r4b';
 import * as fs from 'fs';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient } from '../shared/helpers';
+import { getAuth0Token } from '../shared/getAuth0Token';
 
 async function getCoverageEligibilityResponsesByPatient(
   oystehr: Oystehr,

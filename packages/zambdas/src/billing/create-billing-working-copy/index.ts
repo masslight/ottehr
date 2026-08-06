@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { CopyableBillingResource, createBillingClient, fetchById, prepareWorkingCopy } from '../shared';
 import { CreateWorkingCopyParams, validateRequestParameters } from './validateRequestParameters';
 

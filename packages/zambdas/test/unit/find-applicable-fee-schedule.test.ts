@@ -14,7 +14,7 @@ vi.mock('../../src/shared', () => ({
   safeJsonParse: (body: string) => JSON.parse(body),
 }));
 
-import { getPayerUrl } from 'utils';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import { index as _handler } from '../../src/rcm/fee-schedules/find-applicable-fee-schedule/index';
 import { createClinicalOystehrClient } from '../../src/shared';
 import { ZambdaInput } from '../../src/shared/types';

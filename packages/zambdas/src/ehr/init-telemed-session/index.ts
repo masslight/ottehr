@@ -1,8 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { getSecret, InitTelemedSessionResponse, MeetingData, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { InitTelemedSessionResponse } from 'utils/lib/types/api/init-telemed-session/init-telemed-session.types';
+import { MeetingData } from 'utils/lib/types/data/telemed/join-call.types';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { createVideoRoom } from './video-room-creation';

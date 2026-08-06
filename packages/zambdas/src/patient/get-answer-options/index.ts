@@ -3,16 +3,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { BundleLink, FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
-  AnswerOptionSource,
   APIError,
-  createOystehrClient,
-  getSecret,
   isApiError,
   MALFORMED_GET_ANSWER_OPTIONS_INPUT,
   MISSING_REQUEST_BODY,
-  SecretsKeys,
-} from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/errors';
+import { AnswerOptionSource } from '../../../../config-types/config/fhir';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;

@@ -3,26 +3,23 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, FhirResource, Patient, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { OttehrTaskSystem } from 'utils/lib/types/common';
 import {
-  BRANDING_CONFIG,
-  getEncounterStatusHistoryUpdateOp,
-  getFullestAvailableName,
-  getPatchBinary,
-  getPatchOperationForNewMetaTag,
-  OttehrTaskSystem,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_TYPE,
-  VideoChatNotificationResponse,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { VideoChatNotificationResponse } from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  lambdaResponse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
 import { ValidatedInput, validateInput, validateSecrets } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

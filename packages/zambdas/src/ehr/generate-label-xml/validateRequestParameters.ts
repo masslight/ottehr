@@ -1,11 +1,8 @@
-import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  OnDemandLabelXmlRequestInput,
-  OnDemandLabelXmlRequestSchema,
-  Secrets,
-} from 'utils';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { OnDemandLabelXmlRequestInput, OnDemandLabelXmlRequestSchema } from 'utils/lib/types/data/printing';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 export function validateRequestParameters(
   input: ZambdaInput

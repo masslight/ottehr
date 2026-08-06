@@ -1,13 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
-import { ListAdHocReportsOutput, ListAdHocReportsOutputSchema, SavedAdHocReport } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fetchAllPages,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+  ListAdHocReportsOutput,
+  ListAdHocReportsOutputSchema,
+  SavedAdHocReport,
+} from 'utils/lib/types/adhoc/saved/saved.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { fetchAllPages } from '../../shared/fhir';
+import { wrapHandler } from '../../shared/sentry';
 import {
   parseSavedAdHocReportBasic,
   SAVED_ADHOC_REPORT_CODE,

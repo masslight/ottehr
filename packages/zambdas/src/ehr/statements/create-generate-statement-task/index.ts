@@ -2,15 +2,18 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  getFullestAvailableName,
-  getTaskResource,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
   MISSING_REQUIRED_PARAMETERS,
-  TaskIndicator,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/errors';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getTaskResource } from 'utils/lib/fhir/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'create-generate-statement-task';
 

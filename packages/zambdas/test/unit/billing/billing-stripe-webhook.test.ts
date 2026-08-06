@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Organization, PaymentNotice } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { BILLING_RESOURCE_TAG, Secrets } from 'utils';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 

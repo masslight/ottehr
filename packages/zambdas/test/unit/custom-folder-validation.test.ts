@@ -7,7 +7,7 @@ import {
   isCustomFolderList,
   parseCustomFoldersCatalog,
   parseCustomFoldersCatalogIncludingDeleted,
-} from 'utils';
+} from 'utils/lib/fhir/list';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateCreate } from '../../src/ehr/create-custom-folder/validateRequestParameters';
 import { validateRequestParameters as validateDelete } from '../../src/ehr/delete-custom-folder/validateRequestParameters';

@@ -1,23 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Organization, Practitioner } from 'fhir/r4b';
-import {
-  checkForStripeCustomerDeletedError,
-  getCoding,
-  getConsentAndRelatedDocRefsForAppointment,
-  getVisitOccupationalMedicineEmployerFromEncounter,
-  PatientPaymentDTO,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  VisitDetailsResponse,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getStripeClient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import { VisitDetailsResponse } from 'utils/lib/types/api/visit-details/visit-details.types';
+import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
+import { getVisitOccupationalMedicineEmployerFromEncounter } from 'utils/lib/fhir/encounter';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getStripeClient } from '../../../shared/stripeIntegration';
+import { wrapHandler } from '../../../shared/sentry';
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';

@@ -5,27 +5,22 @@ import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/re
 import { Operation } from 'fast-json-patch';
 import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { InvoiceTaskInput, ZERO_BALANCE_BUSINESS_STATUS } from 'utils/lib/types/api/invoicing.types';
+import { SearchBillingPatientARClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import {
-  chooseJson,
   createInvoiceTaskInput,
-  findClaimsBy,
   getLatestTaskOutput,
-  getOrCreateCandidApiClient,
-  getStartTimeFromEncounterStatusHistory,
-  InvoiceTaskInput,
   mapDisplayToInvoiceTaskStatus,
-  patchWithOptimisticLock,
-  SearchBillingPatientARClaimsResponse,
-  ZERO_BALANCE_BUSINESS_STATUS,
-} from 'utils';
+} from 'utils/lib/helpers/tasks/invoices-tasks';
+import { findClaimsBy, getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { getStartTimeFromEncounterStatusHistory, patchWithOptimisticLock } from 'utils/lib/fhir/helpers';
 import { getInvoiceTaskClaimId, getInvoiceTaskSource } from 'utils/lib/helpers/tasks/invoices-tasks';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getCandidEncounterIdFromEncounter,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

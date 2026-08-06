@@ -1,22 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  getOrCreateCandidApiClient,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
   MISSING_REQUIRED_PARAMETERS,
-  Secrets,
-} from 'utils';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  getStatementDetails,
-  safeJsonParse,
-  StatementType,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { getStatementDetails, StatementType } from '../../../shared/statements/get-statement-details';
+import { safeJsonParse } from '../../../shared/validation';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'get-statement-details';
 

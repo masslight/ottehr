@@ -1,15 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { Communication, Practitioner, Provenance, Task } from 'fhir/r4b';
 import {
-  getAllFhirSearchPages,
-  getFullestAvailableName,
-  makeOutboundDeliveryAttempt,
   OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM,
   OYSTEHR_FAX_COMMUNICATION_IDENTIFIER_SYSTEM,
   PROVENANCE_FAX_ACTIVITY_CODES,
   PROVENANCE_FAX_SYSTEM,
-  removePrefix,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
+import { removePrefix } from 'utils/lib/helpers/helpers';
 import { createOutboundDeliveryAttemptIdempotently } from '../shared/outbound-delivery';
 
 const BACKFILL_PAGE_SIZE = 100;

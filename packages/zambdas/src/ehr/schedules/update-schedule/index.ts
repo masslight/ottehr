@@ -1,31 +1,32 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Address, ContactPoint, Extension, Location, Schedule } from 'fhir/r4b';
+import { APIErrorCode, MISSING_SCHEDULE_EXTENSION_ERROR, SCHEDULE_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { Closure } from 'utils/lib/types/common';
 import {
-  APIErrorCode,
-  Closure,
   DailySchedule,
   getScheduleExtension,
-  LOCATION_IN_PERSON_CODE,
-  LOCATION_PHYSICAL_TYPE_SYSTEM,
-  LOCATION_REVIEW_LINK_EXTENSION_URL,
-  MISSING_SCHEDULE_EXTENSION_ERROR,
-  PUBLIC_EXTENSION_BASE_URL,
-  RoleType,
-  ROOM_EXTENSION_URL,
-  SCHEDULE_EXTENSION_URL,
-  SCHEDULE_NOT_FOUND_ERROR,
-  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
-  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   ScheduleExtension,
   ScheduleOverrides,
-  ScheduleOwnerFhirResource,
+} from 'utils/lib/utils/scheduleUtils';
+import { LOCATION_IN_PERSON_CODE, LOCATION_PHYSICAL_TYPE_SYSTEM } from 'utils/lib/fhir/location';
+import {
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
+  PUBLIC_EXTENSION_BASE_URL,
+  ROOM_EXTENSION_URL,
+  SCHEDULE_EXTENSION_URL,
+  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
+  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   SLUG_SYSTEM,
-  TelecomUpdate,
   TIMEZONE_EXTENSION_URL,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/constants';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { ScheduleOwnerFhirResource, TelecomUpdate } from 'utils/lib/types/api/schedules';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;

@@ -1,7 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getPresignedURL, GetRadiologyOrderPdfZambdaOutput, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { GetRadiologyOrderPdfZambdaOutput } from 'utils/lib/types/api/radiology';
+import { Secrets } from 'utils/lib/secrets';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { getOrCreateRadiologyOrderForm } from '../shared/order-form-resources';
 import { validateInput, validateSecrets } from './validation';
 

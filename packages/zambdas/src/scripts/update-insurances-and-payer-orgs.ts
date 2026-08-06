@@ -3,8 +3,11 @@ import csvToJson from 'csvtojson';
 import { Organization } from 'fhir/r4b';
 import * as fs from 'fs';
 import path from 'path';
-import { getPayerId, ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils/lib/types/constants';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getPayerId } from 'utils/lib/helpers/helpers';
+import { createClinicalOystehrClient } from '../shared/helpers';
+import { getAuth0Token } from '../shared/getAuth0Token';
 
 enum PayersFileColumns {
   payerId = 'Payer ID',

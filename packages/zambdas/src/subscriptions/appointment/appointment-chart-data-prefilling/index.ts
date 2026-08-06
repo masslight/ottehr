@@ -1,25 +1,19 @@
 import { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, FhirResource, Patient } from 'fhir/r4b';
-import {
-  ChartDataResources,
-  chunkThings,
-  DispositionDTO,
-  FHIR_APPOINTMENT_PREPROCESSED_TAG,
-  getPatchBinary,
-  getPatchOperationForNewMetaTag,
-  isInPersonAppointment,
-  Secrets,
-} from 'utils';
+import { ChartDataResources, DispositionDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { FHIR_APPOINTMENT_PREPROCESSED_TAG } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { organizeAccounts } from '../../../ehr/shared/harvest';
 import { makeEncounterAccountPatchOp } from '../../../ehr/shared/harvest';
-import {
-  checkOrCreateM2MClientToken,
-  getProgressNoteConfigPayload,
-  saveResourceRequest,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { getProgressNoteConfigPayload } from '../../../shared/progress-note-config';
+import { saveResourceRequest } from '../../../shared/resources.helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,

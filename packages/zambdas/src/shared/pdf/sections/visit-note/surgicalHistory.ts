@@ -1,4 +1,5 @@
-import { isInPersonAppointment, NOTE_TYPE } from 'utils';
+import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { mapResourceByNameField } from '../../helpers/mappers';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';

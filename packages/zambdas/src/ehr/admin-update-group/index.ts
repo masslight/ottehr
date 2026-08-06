@@ -1,30 +1,28 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CodeableConcept, HealthcareService } from 'fhir/r4b';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
 import {
   getGroupAllLocations,
   getGroupAssignmentMode,
   GROUP_OWNED_CHARACTERISTIC_SYSTEMS,
   groupCharacteristics,
-  INVALID_INPUT_ERROR,
   isServiceCategoryHealthcareService,
-  isValidSlug,
   mergeOwnedCharacteristics,
-  MISSING_REQUEST_BODY,
+} from 'utils/lib/fhir/healthcareService';
+import {
+  isValidSlug,
   SCHEDULE_STRATEGY_SYSTEM,
-  Secrets,
   SERVICE_CATEGORY_SYSTEM,
   SLUG_SYSTEM,
   SLUG_VALIDATION_MESSAGE,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
 import { z } from 'zod';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  safeJsonParse,
-  safeValidate,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
+import { wrapHandler } from '../../shared/sentry';
 
 /**
  * Fields that can be updated on a Group HealthcareService. Every field is

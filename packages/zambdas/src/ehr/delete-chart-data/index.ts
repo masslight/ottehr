@@ -21,16 +21,19 @@ import {
   AllergyDTO,
   CommunicationDTO,
   CPTCodeDTO,
-  createCancellationTagOperations,
   ExamObservationDTO,
-  FHIR_RESOURCE_IS_GONE,
-  getPatchBinary,
   MedicalConditionDTO,
   MedicationDTO,
-  ObservationDTO,
   ProcedureDTO,
-} from 'utils';
-import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { FHIR_RESOURCE_IS_GONE } from 'utils/lib/types/errors';
+import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
+import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { parseCreatedResourcesBundle } from '../../shared/resources.helpers';
+import { wrapHandler } from '../../shared/sentry';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,

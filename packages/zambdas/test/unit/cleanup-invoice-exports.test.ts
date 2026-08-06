@@ -1,7 +1,7 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task as FhirTask } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_INVOICES_CSV_TASK_SYSTEM } from 'utils';
+import { EXPORT_CSV_OUTPUT_URL_CODE, EXPORT_INVOICES_CSV_TASK_SYSTEM } from 'utils/lib/types/api/invoicing.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 

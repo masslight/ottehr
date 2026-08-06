@@ -1,5 +1,5 @@
 import { Organization } from 'fhir/r4b';
-import { PHONE_NOT_ON_FILE } from 'utils';
+import { PHONE_NOT_ON_FILE } from 'utils/lib/types/constants';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PdfSection, pharmacyInfo } from '../types';
 

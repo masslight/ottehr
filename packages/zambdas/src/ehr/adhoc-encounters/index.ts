@@ -25,32 +25,32 @@ import {
   AdHocEncounterRow,
   AdHocEncountersInput,
   AdHocEncountersOutputSchema,
-  appointmentTypeForAppointment,
-  CREATED_BY_SYSTEM,
-  dispositionCheckboxOptions,
-  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
-  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+} from 'utils/lib/types/adhoc/datasets/encounters';
+import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
+import { DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO, DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT } from 'utils/lib/fhir/constants';
+import {
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_DISPENSABLE_DRUG_ID,
+} from 'utils/lib/types/api/medication-administration.constants';
+import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { dispositionCheckboxOptions } from 'utils/lib/fhir/disposition';
+import {
   getEmailForIndividual,
-  getMedicationFromMA,
-  getMedicationName,
   getPatientFirstName,
   getPatientLastName,
   getPhoneNumberForIndividual,
-  getTimezone,
-  getVisitStatusHistory,
-  isInHouseLabServiceRequest,
   mapGenderToLabel,
-  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
-  MEDICATION_DISPENSABLE_DRUG_ID,
-  PATIENT_POINT_OF_DISCOVERY_URL,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  followUpTypeFromPerformerType,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/fhir/patient';
+import { getMedicationFromMA, getMedicationName } from 'utils/lib/fhir/medication-administration';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
+import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { followUpTypeFromPerformerType } from '../../shared/chart-data';
+import { wrapHandler } from '../../shared/sentry';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,

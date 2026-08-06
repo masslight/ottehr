@@ -1,6 +1,8 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { fixAndParseJsonObjectFromString, PROMPTS_CONFIG } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { PROMPTS_CONFIG } from 'utils/lib/ottehr-config/prompts';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
+import { ZambdaInput } from '../../shared/types/common';
+import { wrapHandler } from '../../shared/sentry';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
 

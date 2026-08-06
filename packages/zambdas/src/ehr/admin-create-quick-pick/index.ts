@@ -1,15 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
-import { INVALID_INPUT_ERROR, Secrets } from 'utils';
-import {
-  assertDefined,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { assertDefined, createClinicalOystehrClient, validateJsonBody } from '../../shared/helpers';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import {
   ALLERGY_QUICK_PICK_CATEGORY,
   IMMUNIZATION_QUICK_PICK_CATEGORY,

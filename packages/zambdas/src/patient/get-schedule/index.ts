@@ -1,37 +1,36 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coding, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { AvailableLocationInformation, Timezone } from 'utils/lib/types/common';
+import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { GetScheduleResponse, PickableLocation } from 'utils/lib/types/data/get-schedule.types';
+import { SERVICE_CATEGORY_SYSTEM, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  AvailableLocationInformation,
-  BOOKING_CONFIG,
-  FHIR_RESOURCE_NOT_FOUND,
   fhirTypeForScheduleType,
   getAvailableSlotsForSchedules,
-  getFullName,
-  getLocationInformation,
-  getOpeningTime,
-  getPractitionerRoleAllCategories,
   getScheduleExtension,
-  GetScheduleResponse,
-  getSecret,
-  getServiceCategoryCadenceMinutes,
-  getServiceCategoryDurationMinutes,
-  getSlugForBookableResource,
   getTimezone,
   getWaitingMinutesAtSchedule,
-  isBookingConfigServiceCategoryCode,
-  isLocationInPerson,
-  isLocationOpen,
-  locationSupportsServiceMode,
-  PickableLocation,
   scheduleOwnerSupportsServiceMode,
-  SecretsKeys,
-  SERVICE_CATEGORY_SYSTEM,
   SlotListItem,
-  SLUG_SYSTEM,
-  Timezone,
-} from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, getSchedules, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/utils/scheduleUtils';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { getLocationInformation, isLocationInPerson, locationSupportsServiceMode } from 'utils/lib/fhir/location';
+import { getOpeningTime, isLocationOpen } from 'utils/lib/helpers/check-office-open';
+import {
+  getPractitionerRoleAllCategories,
+  getServiceCategoryCadenceMinutes,
+  getServiceCategoryDurationMinutes,
+} from 'utils/lib/fhir/healthcareService';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
+import { ZambdaInput } from '../../shared/types/common';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { getSchedules } from '../../shared/fhir';
+import { wrapHandler } from '../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

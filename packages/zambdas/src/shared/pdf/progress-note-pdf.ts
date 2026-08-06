@@ -1,4 +1,5 @@
-import { BUCKET_NAMES, Secrets } from 'utils';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, PdfRenderConfig, renderPdf, StyleFactory, uploadPdfToStorage } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';

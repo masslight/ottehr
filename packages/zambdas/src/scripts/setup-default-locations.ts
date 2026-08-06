@@ -1,26 +1,27 @@
 import { BatchInputPostRequest, default as Oystehr } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
+import { AllStatesToVirtualLocationLabels, VirtualLocationBody } from 'utils/lib/types/common';
 import {
-  AllStatesToVirtualLocationLabels,
-  defaultLocation,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
   ELIGIBILITY_PRACTITIONER_TYPES,
   EligibilityPractitionerType,
+} from 'utils/lib/telemed/constants';
+import {
   FHIR_IDENTIFIER_NPI,
-  filterVirtualLocations,
   ROOM_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   SlotServiceCategory,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
-  unbundleBatchPostOutput,
-  VirtualLocationBody,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { defaultLocation, filterVirtualLocations } from 'utils/lib/fhir/location';
+import { unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - path is correct after copy-secrets.sh runs in CI
 import locationsConfig from '../../../../config/oystehr/locations-and-schedules.json' assert { type: 'json' };
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient } from '../shared/helpers';
+import { getAuth0Token } from '../shared/getAuth0Token';
 
 const VIRTUAL_LOCATION_EXTENSION_URL_CHECK = 'https://extensions.fhir.zapehr.com/location-form-pre-release';
 

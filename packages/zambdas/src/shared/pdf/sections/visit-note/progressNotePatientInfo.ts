@@ -1,6 +1,7 @@
 import { Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPatientFriendlyId, getQuestionnaireResponseByLinkId } from 'utils';
+import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { getPatientLastFirstName } from '../../../patients';
 import { drawFieldLine } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';

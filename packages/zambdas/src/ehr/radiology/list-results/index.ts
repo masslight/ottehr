@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getPresignedURL, ListRadiologyResultsZambdaOutput, RadiologyResultDTO } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { ListRadiologyResultsZambdaOutput, RadiologyResultDTO } from 'utils/lib/types/api/radiology';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { searchRadiologyResultDocRefs } from '../shared/result-doc-refs';
 import { validateInput, validateSecrets } from './validation';
 

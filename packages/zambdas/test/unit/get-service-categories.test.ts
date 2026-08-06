@@ -1,12 +1,8 @@
 import { HealthcareService } from 'fhir/r4b';
-import {
-  SERVICE_CATEGORIES_AVAILABLE,
-  SERVICE_CATEGORY_SYSTEM,
-  SERVICE_CATEGORY_TAG,
-  serviceCategoryCharacteristics,
-  ServiceMode,
-  ServiceVisitType,
-} from 'utils';
+import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
+import { SERVICE_CATEGORY_SYSTEM, SERVICE_CATEGORY_TAG } from 'utils/lib/fhir/constants';
+import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
+import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
 import { describe, expect, it } from 'vitest';
 import {
   buildCatalog,

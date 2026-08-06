@@ -1,25 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  FOLDERS_CONFIG,
-  getSecret,
-  INVALID_INPUT_ERROR,
-  NOT_AUTHORIZED,
-  parseCustomFoldersCatalogIncludingDeleted,
-  RenameCustomFolderInputValidated,
-  RenameCustomFolderOutput,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  loadCustomFoldersCatalog,
-  requireAdminUser,
-  topLevelCatch,
-  wrapHandler,
-  writeCustomFoldersCatalog,
-  ZambdaInput,
-} from '../../shared';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
+import { RenameCustomFolderInputValidated, RenameCustomFolderOutput } from 'utils/lib/types/data/custom-folder.types';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { parseCustomFoldersCatalogIncludingDeleted } from 'utils/lib/fhir/list';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken, requireAdminUser } from '../../shared/auth';
+import { loadCustomFoldersCatalog, writeCustomFoldersCatalog } from '../../shared/custom-folders';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

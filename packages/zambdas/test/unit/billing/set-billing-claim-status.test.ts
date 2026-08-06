@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
-import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS, CLAIM_TAG_SYSTEM, HOLD_TAG_NAME } from 'utils';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/set-billing-claim-status';
 

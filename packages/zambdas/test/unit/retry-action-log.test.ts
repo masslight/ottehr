@@ -1,12 +1,11 @@
 import { Communication, DocumentReference, Task } from 'fhir/r4b';
 import {
-  getOutboundDeliveryInput,
-  makeOutboundDeliveryAttempt,
   OUTBOUND_DELIVERY_INPUT_CODES,
   OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
-  VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { getOutboundDeliveryInput, makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockSendEmail = vi.fn();

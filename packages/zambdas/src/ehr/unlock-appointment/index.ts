@@ -3,16 +3,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter } from 'fhir/r4b';
 import {
+  UnlockAppointmentZambdaInputValidated,
+  UnlockAppointmentZambdaOutput,
+} from 'utils/lib/types/api/unlock-appointment/unlock-appointment.types';
+import {
   createCriticalUpdateTag,
   getAppointmentLockMetaTagOperations,
   getEncounterLockMetaTagOperations,
-  getPatchBinary,
-  isFollowupEncounter,
-  UnlockAppointmentZambdaInputValidated,
-  UnlockAppointmentZambdaOutput,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/fhir/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { getSignatureProvenanceDeleteRequests } from '../../shared/deleteSignatureProvenances';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';

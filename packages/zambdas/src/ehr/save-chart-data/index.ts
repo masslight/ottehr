@@ -12,26 +12,25 @@ import {
   Practitioner,
 } from 'fhir/r4b';
 import {
-  addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
-  createCodeableConcept,
   ExamObservationDTO,
-  getPatchBinary,
-  getProviderNameWithProfession,
   PATIENT_VITALS_META_SYSTEM,
-  SCHOOL_WORK_NOTE,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { Secrets } from 'utils/lib/secrets';
+import { addEmptyArrOperation } from 'utils/lib/helpers/operations';
+import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import {
-  checkOrCreateM2MClientToken,
   createAccidentCondition,
-  createClinicalOystehrClient,
   createDispositionServiceRequest,
   createProcedureServiceRequest,
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
-  getMyPractitionerId,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -48,16 +47,17 @@ import {
   makeSchoolWorkDR,
   makeServiceRequestResource,
   prepareAddendumNotes,
-  saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
   updateEncounterReasonForVisit,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from '../../shared/chart-data';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getMyPractitionerId } from '../../shared/practitioners';
+import { saveOrUpdateResourceRequest } from '../../shared/resources.helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { runChartDataPostChangeTasks } from '../../shared/chart-data/post-change-tasks';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';

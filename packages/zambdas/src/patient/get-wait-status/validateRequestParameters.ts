@@ -1,6 +1,9 @@
-import { MISSING_REQUEST_BODY, Secrets, WaitingRoomInput } from 'utils';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { WaitingRoomInput } from 'utils/lib/types/data/get-wait-status.types';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const bodySchema = z.object({
   appointmentID: z.string().uuid(),

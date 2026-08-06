@@ -2,13 +2,13 @@
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import React from 'react';
+import { AvailableLocationInformation } from 'utils/lib/types/common';
 import {
-  AvailableLocationInformation,
   getAvailableSlots,
-  getLocationInformation,
   getScheduleExtension,
   getSlotCapacityMapForDayAndSchedule,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
+import { getLocationInformation } from 'utils/lib/fhir/location';
 import { expect, vi } from 'vitest';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
 import { getNextOpeningDateTime } from '../src/patient/get-schedule';

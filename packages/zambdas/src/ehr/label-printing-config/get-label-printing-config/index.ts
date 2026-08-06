@@ -3,27 +3,25 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device } from 'fhir/r4b';
 import {
   GetLabelPrintingConfigInput,
-  getSecret,
+  LabelOrientationSchema,
+  LabelPrintingConfig,
+  MANUFACTURER_TO_LABEL_MAPPING,
+  PrintModeSchema,
+  SupportedPrinterManufacturerSchema,
+} from 'utils/lib/types/data/printing';
+import {
   LABEL_PRINTING_CONFIG_DEVICE_TAG,
   LABEL_PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
   LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM,
   LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
-  LabelOrientationSchema,
-  LabelPrintingConfig,
   LabelPrintingProperty,
-  MANUFACTURER_TO_LABEL_MAPPING,
-  PrintModeSchema,
-  Secrets,
-  SecretsKeys,
-  SupportedPrinterManufacturerSchema,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sendErrors,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/utils/printing';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { sendErrors } from '../../../shared/errors';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

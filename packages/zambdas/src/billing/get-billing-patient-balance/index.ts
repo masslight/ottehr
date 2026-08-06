@@ -1,7 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { GetBillingPatientBalanceResponse, PatientArClaimItem, PatientBalanceSummary } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  GetBillingPatientBalanceResponse,
+  PatientArClaimItem,
+  PatientBalanceSummary,
+} from 'utils/lib/types/data/billing/billing.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { fetchAllActivePatientArClaims } from '../search-billing-patient-ar-claims/handler';
 import { createBillingClient } from '../shared';
 import { GetBillingPatientBalanceParams, validateRequestParameters } from './validateRequestParameters';

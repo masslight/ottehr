@@ -1,7 +1,11 @@
 import Oystehr, { ErxSearchPharmaciesResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, PlacesResult, SearchPlacesInput, SearchPlacesOutput, SecretsKeys } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { PlacesResult, SearchPlacesInput, SearchPlacesOutput } from 'utils/lib/types/data/search-places';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
 import {
   addressComponentsFromPlacesDetailRes,
   findMatchingErxPharmacy,

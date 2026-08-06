@@ -2,22 +2,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  getFullestAvailableName,
-  getTaskResource,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUEST_SECRETS,
   MISSING_REQUIRED_PARAMETERS,
-  Secrets,
-  TaskIndicator,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  StatementType,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getTaskResource } from 'utils/lib/fhir/helpers';
+import { StatementType } from '../../../shared/statements/get-statement-details';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'create-mail-statement-task';
 const validStatementTypes = new Set<StatementType>(['standard', 'past-due', 'final-notice']);

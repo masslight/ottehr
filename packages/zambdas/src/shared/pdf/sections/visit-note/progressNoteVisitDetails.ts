@@ -1,19 +1,14 @@
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  formatDateTimeToZone,
-  formatFhirEncounterToPatientFollowupDetails,
-  getAdmitterPractitionerId,
-  getAttendingPractitionerId,
-  getCoding,
-  getProviderNameWithProfession,
-  getQuestionnaireResponseByLinkId,
-  isAnnotationFollowupEncounter,
-  isInPersonAppointment,
-  resolveServiceCategoryAbbreviation,
-  SERVICE_CATEGORY_SYSTEM,
-  Timezone,
-} from 'utils';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { Timezone } from 'utils/lib/types/common';
+import { formatDateTimeToZone } from 'utils/lib/utils/date';
+import { formatFhirEncounterToPatientFollowupDetails, isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getCoding, getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
+import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { getPatientLastFirstName } from '../../../patients';
 import { drawFieldLine, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';

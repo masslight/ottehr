@@ -5,20 +5,16 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import {
   Capacity,
-  Closure,
-  ClosureType,
   DailySchedule,
   DOW,
-  FHIR_BASE_URL,
   HourOfDay,
-  OVERRIDE_DATE_FORMAT,
-  SCHEDULE_EXTENSION_URL,
   ScheduleDay,
   ScheduleExtension,
   ScheduleOverrides,
-  ScheduleOwnerFhirResource,
-  SLUG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
+import { Closure, ClosureType, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
+import { FHIR_BASE_URL, SCHEDULE_EXTENSION_URL, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 type DayLong = (typeof DAYS_LONG)[number];

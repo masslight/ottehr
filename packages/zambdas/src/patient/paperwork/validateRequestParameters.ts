@@ -1,17 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { QUESTIONNAIRE_RESPONSE_INVALID_ERROR } from 'utils/lib/types/errors';
 import {
   filterDisabledPages,
-  getQuestionnaireItemsAndProgress,
   makeValidationSchema,
-  PatchPaperworkParameters,
-  qrSentManually,
-  QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   recursiveGroupTransform,
-} from 'utils';
+} from 'utils/lib/helpers/paperwork/validation';
+import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
+import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { ValidationError } from 'yup';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 interface BasicInput extends PatchPaperworkParameters {
   appointmentId?: string;

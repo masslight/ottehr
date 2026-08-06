@@ -1,4 +1,6 @@
-import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, makeValidationSchema } from 'utils';
+import { IntakeQuestionnaireItem } from 'utils/lib/types/data/paperwork/paperwork.types';
+import { getQuestionnaireItemsAndProgress } from 'utils/lib/helpers/paperwork/paperwork';
+import { makeValidationSchema } from 'utils/lib/helpers/paperwork/validation';
 import { expect, vi } from 'vitest';
 import { AnyObjectSchema, AnySchema } from 'yup';
 import { createClinicalOystehrClient, getAuth0Token } from '../src/shared';

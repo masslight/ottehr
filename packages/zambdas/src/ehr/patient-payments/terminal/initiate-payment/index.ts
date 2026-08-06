@@ -3,26 +3,28 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
-  getStripeAccountForAppointmentOrEncounter,
-  getStripeCustomerIdFromAccount,
-  getStripeTerminalLocationIdForAppointmentOrEncounter,
-  InitiatePatientPaymentTerminalInput,
-  InitiatePatientPaymentTerminalResponse,
   INVALID_INPUT_ERROR,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-} from 'utils';
+} from 'utils/lib/types/errors';
 import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  getStripeClient,
-  lambdaResponse,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+  InitiatePatientPaymentTerminalInput,
+  InitiatePatientPaymentTerminalResponse,
+} from 'utils/lib/types/api/patient-payment-types';
+import {
+  getStripeAccountForAppointmentOrEncounter,
+  getStripeTerminalLocationIdForAppointmentOrEncounter,
+} from 'utils/lib/fhir/payments';
+import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { getAuth0Token } from '../../../../shared/getAuth0Token';
+import { getStripeClient } from '../../../../shared/stripeIntegration';
+import { lambdaResponse } from '../../../../shared/lambda';
+import { safeJsonParse } from '../../../../shared/validation';
+import { wrapHandler } from '../../../../shared/sentry';
 import { getAccountAndCoverageResourcesForPatient } from '../../../shared/harvest';
 
 const ZAMBDA_NAME = 'patient-payments-terminal-initiate-payment';

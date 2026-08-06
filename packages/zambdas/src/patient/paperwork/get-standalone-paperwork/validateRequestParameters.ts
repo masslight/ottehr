@@ -1,11 +1,9 @@
-import {
-  GetStandAlonePaperworkInput,
-  GetStandAlonePaperworkInputSchema,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  Secrets,
-} from 'utils';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { GetStandAlonePaperworkInput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { GetStandAlonePaperworkInputSchema } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.schema';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 type BaseContext = {
   secrets: Secrets | null;

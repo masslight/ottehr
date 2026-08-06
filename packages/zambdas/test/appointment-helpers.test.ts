@@ -1,5 +1,5 @@
 import { Appointment } from 'fhir/r4b';
-import { OTTEHR_MODULE } from 'utils';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { describe, expect, test } from 'vitest';
 import { isOnDemandVirtualAppointment } from '../src/shared';
 

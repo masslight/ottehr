@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import Oystehr from '@oystehr/sdk';
 import type { APIGatewayProxyResult } from 'aws-lambda';
-import { APIErrorCode, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { APIErrorCode, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateRequestParameters } from '../../src/billing/export-billing-claim-x12/validateRequestParameters';
 import type { ZambdaInput } from '../../src/shared/types/common';

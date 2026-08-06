@@ -9,7 +9,7 @@ import {
   emptyClaimStatusValues,
   formatClaimStatusValue,
   isValidClaimStatusValue,
-} from 'utils';
+} from 'utils/lib/types/data/billing/claim-status';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, vi } from 'vitest';
 import { ClaimPaymentSummary } from '../../../src/billing/claim-amounts';

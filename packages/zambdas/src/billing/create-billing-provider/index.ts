@@ -1,15 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Organization, Practitioner } from 'fhir/r4b';
+import { CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAXONOMY,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/fhir/constants';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import {
   buildAddress,
   createBillingClient,

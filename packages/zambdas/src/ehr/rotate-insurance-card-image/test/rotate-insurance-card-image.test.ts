@@ -2,15 +2,14 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { Jimp } from 'jimp';
-import { APIErrorCode, getPresignedURL, INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction } from 'utils';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction } from 'utils/lib/types/data/documents';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  createPresignedUrl,
-  uploadObjectToZ3,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { createPresignedUrl, uploadObjectToZ3 } from '../../../shared/z3Utils';
 import { isRedAt, makeOrientedSceneJpeg } from '../../extract-insurance-card/test/image-fixtures';
 import { index } from '../index';
 import { validateRequestParameters } from '../validateRequestParameters';

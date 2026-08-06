@@ -11,13 +11,15 @@ import {
   ClaimFieldChange,
   ClaimHistoryEntry,
   ClaimHistoryLink,
-  getAllFhirSearchPages,
   GetClaimHistoryResponse,
-  getOptionalSecret,
-  isPayerUrl,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, sendErrors, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/claim-history';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
+import { isPayerUrl } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { sendErrors } from '../../shared/errors';
+import { wrapHandler } from '../../shared/sentry';
 import {
   createBillingClient,
   fhirName,

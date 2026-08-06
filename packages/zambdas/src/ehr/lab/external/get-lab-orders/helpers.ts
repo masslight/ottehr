@@ -27,29 +27,29 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
-  compareDates,
   DEFAULT_LABS_ITEMS_PER_PAGE,
-  DiagnosisDTO,
-  DiagnosticReportDrivenResultDTO,
-  docRefIsAbnAndCurrent,
-  docRefIsOrderPDFAndCurrent,
   EMPTY_PAGINATION,
-  EXTERNAL_LAB_ERROR,
-  ExternalLabCommunications,
-  ExternalLabDocuments,
-  externalLabOrderIsManual,
-  ExternalLabsStatus,
   GENERIC_LAB_ORDER_TAG,
-  getAccountNumberFromLocationAndOrganization,
-  getAdditionalPlacerId,
-  getFullestAvailableName,
-  getOrderNumber,
-  getOrderNumberFromDr,
-  isPositiveNumberOrZero,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_LEVEL_NOTE_CATEGORY,
   LAB_ORDER_TASK,
+  LABS_COMMUNICATION_CATEGORY_SYSTEM,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  PROVENANCE_ACTIVITY_CODES,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  PSC_HOLD_CONFIG,
+  RELATED_SPECIMEN_DEFINITION_SYSTEM,
+  SPECIMEN_CODING_CONFIG,
+} from 'utils/lib/types/data/labs/labs.constants';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  DiagnosticReportDrivenResultDTO,
+  ExternalLabCommunications,
+  ExternalLabDocuments,
+  ExternalLabsStatus,
   LabDocumentRelatedToDiagnosticReport,
   LabDrTypeTagCode,
   LabOrderDetailedPageDTO,
@@ -59,24 +59,28 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
-  LABS_COMMUNICATION_CATEGORY_SYSTEM,
   LabType,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-  Pagination,
-  parseLabInfoFromServiceRequest,
   PatientLabItem,
-  PROVENANCE_ACTIVITY_CODES,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  PROVENANCE_ACTIVITY_TYPE_SYSTEM,
-  PSC_HOLD_CONFIG,
   QuestionnaireData,
   ReflexLabDTO,
-  RELATED_SPECIMEN_DEFINITION_SYSTEM,
   sampleDTO,
-  SPECIMEN_CODING_CONFIG,
-} from 'utils';
-import { sendErrors } from '../../../../shared';
+} from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import { Pagination } from 'utils/lib/types/data/pagination.types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
+import {
+  docRefIsAbnAndCurrent,
+  docRefIsOrderPDFAndCurrent,
+  externalLabOrderIsManual,
+  getAccountNumberFromLocationAndOrganization,
+  getAdditionalPlacerId,
+  getOrderNumber,
+  getOrderNumberFromDr,
+  parseLabInfoFromServiceRequest,
+} from 'utils/lib/helpers/labs/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { isPositiveNumberOrZero } from 'utils/lib/validation/helper';
+import { sendErrors } from '../../../../shared/errors';
 import {
   configAllExternalLabDocuments,
   diagnosticReportIsReflex,

@@ -1,7 +1,7 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { PlanDefinition, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dedupeOutreachTasks } from '../../../src/cron/rcm/outreach-task-promoter/dedupe-outreach-tasks';
 import { index } from '../../../src/cron/rcm/outreach-task-promoter/index';

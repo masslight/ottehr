@@ -1,6 +1,7 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
-import { invoiceTaskSourceTag, PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils';
+import { PATIENT_BILLING_ACCOUNT_TYPE, RcmTaskCodings } from 'utils/lib/fhir/constants';
+import { invoiceTaskSourceTag } from 'utils/lib/types/api/invoicing.types';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';

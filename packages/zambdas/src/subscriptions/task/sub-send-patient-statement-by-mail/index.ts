@@ -3,28 +3,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  FEATURE_FLAGS_CONFIG,
-  generateStatement,
-  getOrCreateCandidApiClient,
-  getSecret,
-  RCM_TASK_SYSTEM,
-  sanitizeStringForFhirCode,
-  Secrets,
-  SecretsKeys,
-  TaskIndicator,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getHTMLStatementTemplate,
-  getStatementDetails,
-  MAIL_VENDOR_EXTENSION_URL,
-  sendPostGridLetter,
-  StatementType,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { RCM_TASK_SYSTEM } from 'utils/lib/fhir/constants';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { generateStatement } from 'utils/lib/statements/generate-statement';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
+import { MAIL_VENDOR_EXTENSION_URL, sendPostGridLetter } from '../../../shared/postgrid';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getHTMLStatementTemplate } from '../../../shared/statements/get-statement-template';
+import { getStatementDetails, StatementType } from '../../../shared/statements/get-statement-details';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 const ZAMBDA_NAME = 'sub-send-patient-statement-by-mail';

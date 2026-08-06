@@ -1,19 +1,20 @@
+import { GetPresignedFileURLInput } from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
 import {
-  GetPresignedFileURLInput,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  MISSING_REQUEST_BODY,
   PATIENT_PHOTO_ID_PREFIX,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_FRONT_ID,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const fileTypes = [
   INSURANCE_CARD_BACK_ID,

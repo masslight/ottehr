@@ -1,14 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Identifier, Patient, RelatedPerson } from 'fhir/r4b';
 import Stripe from 'stripe';
-import {
-  getEmailForIndividual,
-  getFullName,
-  getSecret,
-  getStripeCustomerIdFromAccount,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { getEmailForIndividual, getFullName } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { makeStripeCustomerId } from '../patient/payment-methods/helpers';
 
 export interface StripeEnvironmentConfig {

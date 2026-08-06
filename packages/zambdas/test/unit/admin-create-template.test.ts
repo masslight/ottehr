@@ -1,11 +1,11 @@
 import { Communication, Condition, Encounter, Observation, Procedure, ServiceRequest } from 'fhir/r4b';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import {
-  chartDataTagSystem,
-  CODE_SYSTEM_ICD_10,
   IN_HOUSE_TEST_CODE_SYSTEM,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
   REPEAT_TEST_ORDER_DETAIL_TAG_CONFIG,
-} from 'utils';
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
 import { describe, expect, test } from 'vitest';
 import {
   deduplicateTemplateResourcesByMetaTag,

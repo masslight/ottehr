@@ -1,9 +1,12 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { createOystehrClient, getPresignedURL, PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction } from 'utils';
+import { PHOTO_ID_EXTRACTION_EXTENSION_URL, PhotoIdExtraction } from 'utils/lib/types/data/documents';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAuth0Token, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { invokeChatbotVertexAI } from '../../../shared/ai';
 import { EXTRACTION_PROMPT, parseModelResponse, photoIdResponseSchema } from '../helpers';
 import { index } from '../index';

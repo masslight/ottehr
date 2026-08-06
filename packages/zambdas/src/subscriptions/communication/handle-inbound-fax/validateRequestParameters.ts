@@ -1,6 +1,8 @@
 import { Communication } from 'fhir/r4b';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 export interface HandleInboundFaxInput {
   communication: Communication;

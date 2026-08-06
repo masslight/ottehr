@@ -1,26 +1,22 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition, Encounter, List, Practitioner } from 'fhir/r4b';
 import {
-  convertActivityDefinitionToDataEntryTestItem,
   DataEntryTestItem,
-  getAttendingPractitionerId,
   GetCreateInHouseLabOrderResourcesInput,
   GetCreateInHouseLabOrderResourcesOutput,
-  getFullestAvailableName,
-  getSecret,
-  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
-  LAB_LIST_CODE_CODING,
-  LabSetDTO,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sendErrors,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+} from 'utils/lib/types/data/in-house/in-house.types';
+import { IN_HOUSE_LAB_LATEST_TAG_DEFINITION } from 'utils/lib/types/data/in-house/in-house.constants';
+import { LAB_LIST_CODE_CODING } from 'utils/lib/types/data/labs/labs.constants';
+import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
+import { convertActivityDefinitionToDataEntryTestItem } from 'utils/lib/helpers/in-house-labs';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { sendErrors } from '../../../../shared/errors';
+import { wrapHandler } from '../../../../shared/sentry';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { fetchActiveInHouseLabActivityDefinitions } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';

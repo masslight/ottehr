@@ -1,6 +1,8 @@
-import { INVALID_INPUT_ERROR, VALUE_SETS } from 'utils';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 import { CancelTelemedAppointmentInputValidated } from '.';
 
 const patientReasons = VALUE_SETS.cancelReasonOptionsVirtualPatient.map((o) => o.value) as [string, ...string[]];

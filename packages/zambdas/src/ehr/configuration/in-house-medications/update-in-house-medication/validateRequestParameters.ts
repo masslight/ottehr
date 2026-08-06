@@ -1,5 +1,7 @@
-import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, UpdateInHouseMedicationInput } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { UpdateInHouseMedicationInput } from 'utils/lib/types/api/config/in-house-medications';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export function validateRequestParameters(
   input: ZambdaInput

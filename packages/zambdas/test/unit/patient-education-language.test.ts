@@ -1,10 +1,10 @@
 import { DocumentReference } from 'fhir/r4b';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_ICD_10,
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
-  PatientEducationLanguage,
-} from 'utils';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { PatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildEducationPrompt } from '../../src/ehr/generate-patient-education/helpers';
 import { validateRequestParameters as validateGeneratePatientEducation } from '../../src/ehr/generate-patient-education/validateRequestParameters';

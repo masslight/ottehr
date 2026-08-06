@@ -1,14 +1,12 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import {
-  createOystehrClient,
-  getPresignedURL,
-  INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
-  InsuranceCardExtraction,
-} from 'utils';
+import { INSURANCE_CARD_EXTRACTION_EXTENSION_URL, InsuranceCardExtraction } from 'utils/lib/types/data/documents';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAuth0Token, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { invokeChatbotVertexAI } from '../../../shared/ai';
 import { EXTRACTION_PROMPT, parseModelResponse } from '../helpers';
 import { index } from '../index';

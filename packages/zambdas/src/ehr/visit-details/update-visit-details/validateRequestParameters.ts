@@ -1,14 +1,13 @@
 import { Coding } from 'fhir/r4b';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  NOT_AUTHORIZED,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
   UpdateVisitDetailsRequest,
   UpdateVisitDetailsRequestSchema,
-} from 'utils';
-import { safeValidate, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/api/update-visit-details.types';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeValidate } from '../../../shared/validation';
 
 export interface UpdateVisitDetailsValidatedInput extends Omit<UpdateVisitDetailsRequest, 'bookingDetails'> {
   secrets: Secrets | null;

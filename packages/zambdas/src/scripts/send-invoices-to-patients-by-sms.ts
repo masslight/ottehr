@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import * as fs from 'fs';
 import Stripe from 'stripe';
-import { getRelatedPersonsForPatient } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, sendSmsToRelatedPersons } from '../shared';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { createClinicalOystehrClient } from '../shared/helpers';
+import { getAuth0Token } from '../shared/getAuth0Token';
+import { sendSmsToRelatedPersons } from '../shared/communication';
 
 async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: string, env: string): Promise<void> {
   const relatedPersons = await getRelatedPersonsForPatient(patientId || '', oystehr);

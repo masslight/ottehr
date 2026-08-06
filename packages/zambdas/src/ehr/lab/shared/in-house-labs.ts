@@ -25,13 +25,23 @@ import {
   AdminInHouseLabItemDefinition,
   AdminLabComponentValueSetConfig,
   BaseComponent,
-  CODE_SYSTEM_CPT,
-  CODE_SYSTEM_CPT_MODIFIER,
   CodeableConceptComponent,
   CodeableConceptComponentDisplayTypes,
   CptCodeInHouseLabDefinition,
+  InHouseOrderDetailPageItemDTO,
+  QuantityComponent,
+  ReflexLogic,
+  StringComponent,
+  TEST_ITEM_METHOD_KEYS,
+  TestItemComponent,
+  TestItemMethods,
+  TestItemMethodsKey,
+  TestStatus,
+  Validation,
+} from 'utils/lib/types/data/in-house/in-house.types';
+import { CODE_SYSTEM_CPT, CODE_SYSTEM_CPT_MODIFIER, EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import {
   DEFAULT_OBSERVATION_DEFINITION_CODING,
-  EXTENSION_URL_CPT_MODIFIER,
   IN_HOUSE_DEVICE_PARTICIPANT_CODING,
   IN_HOUSE_LAB_ACTIVITY_DEFINITION_DEVICE_PARTICIPANT_TYPE,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
@@ -44,12 +54,8 @@ import {
   IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
-  InHouseOrderDetailPageItemDTO,
   OD_DISPLAY_CONFIG,
   OD_VALUE_VALIDATION_CONFIG,
-  PROVENANCE_ACTIVITY_CODES,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  QuantityComponent,
   REFLEX_ARTIFACT_DISPLAY,
   REFLEX_TEST_ALERT_URL,
   REFLEX_TEST_CONDITION_LANGUAGES,
@@ -57,19 +63,12 @@ import {
   REFLEX_TEST_LOGIC_URL,
   REFLEX_TEST_TO_RUN_NAME_URL,
   REFLEX_TEST_TO_RUN_URL,
-  ReflexLogic,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   SPECIMEN_COLLECTION_SOURCE_SYSTEM,
-  StringComponent,
-  TEST_ITEM_METHOD_KEYS,
-  TestItemComponent,
-  TestItemMethods,
-  TestItemMethodsKey,
-  TestStatus,
-  Validation,
-} from 'utils';
-import { makeCptModifierExtension } from '../../../shared';
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import { PROVENANCE_ACTIVITY_CODES, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils/lib/types/data/labs/labs.constants';
+import { makeCptModifierExtension } from '../../../shared/candid';
 
 export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task[]): TestStatus {
   if (!serviceRequest) return 'ORDERED';

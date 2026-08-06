@@ -2,16 +2,17 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   FileType,
   FileTypeMap,
-  getSecret,
   LegacyFile,
   LegacyPatientRecord,
-  MISSING_REQUIRED_PARAMETERS,
   SearchLegacyRecordsInput,
   SearchLegacyRecordsOutput,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/legacy-data/legacy-data.types';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 
 const ZAMBDA_NAME = 'ehr-search-legacy-records';
 const LEGACY_DATA_BUCKET_SUFFIX = 'legacy-data';

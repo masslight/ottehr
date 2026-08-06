@@ -1,28 +1,30 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Bundle, BundleEntry, DocumentReference, Encounter, Patient } from 'fhir/r4b';
+import { DocumentInfo, DocumentType, VisitDocuments } from 'utils/lib/types/data/documents';
 import {
-  DocumentInfo,
-  DocumentType,
   FHIR_RESOURCE_NOT_FOUND,
-  getPatchBinary,
-  getPaymentVariantFromEncounter,
-  getPresignedURL,
-  INSURANCE_CARD_CODE,
   INVALID_RESOURCE_ID_ERROR,
-  isValidUUID,
-  LOINC_SYSTEM,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+} from 'utils/lib/types/errors';
+import {
+  INSURANCE_CARD_CODE,
   PAPERWORK_CONSENT_CODE_UNIQUE,
   PAPERWORK_CONSENT_CODING_LOINC,
-  PaymentVariant,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
-  Secrets,
-  VisitDocuments,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
+import { Secrets } from 'utils/lib/secrets';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'get-visit-files';
 

@@ -16,12 +16,24 @@ import {
 } from 'fhir/r4b';
 import {
   ACCOUNT_TYPE_CODE_SYSTEM,
-  APIError,
-  AR_STAGE,
   BILLING_RESOURCE_TAG,
-  CANDID_PLAN_TYPE_SYSTEM,
-  CLAIM_STATUS_TAG_SYSTEMS,
-  CLAIM_TAG_SYSTEM,
+  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+  FHIR_IDENTIFIER_NPI,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
+  PARTICIPATION_CODE_SYSTEM,
+  SERVICE_CATEGORY_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import {
+  APIError,
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+} from 'utils/lib/types/errors';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
@@ -32,20 +44,11 @@ import {
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_SERVICE_CATEGORY_CODES,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
   EXTENSION_CLAIM_INSURANCE_TYPE,
   EXTENSION_URL_CPT_MODIFIER,
-  FHIR_IDENTIFIER_NPI,
-  FHIR_RESOURCE_NOT_FOUND,
-  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
-  getDefaultClaimSubmissionExtensions,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  PARTICIPATION_CODE_SYSTEM,
-  PaymentVariant,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils';
+} from 'utils/lib/helpers/rcm/constants';
+import { PaymentVariant } from 'utils/lib/fhir/encounter';
+import { getDefaultClaimSubmissionExtensions } from 'utils/lib/fhir/billing';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Mock, vi } from 'vitest';
 import {

@@ -3,21 +3,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, List } from 'fhir/r4b';
 import {
   ApprovedPatientEducationItem,
-  getPresignedURL,
-  getSecret,
   ListApprovedPatientEducationOutput,
-  normalizePatientEducationLanguage,
+} from 'utils/lib/types/api/approved-patient-education.types';
+import {
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { normalizePatientEducationLanguage } from 'utils/lib/types/data/patient-education.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
 import { extractApprovedEducationIcdCodes } from '../shared/approved-patient-education-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

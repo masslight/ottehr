@@ -6,38 +6,32 @@ import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   GENERIC_STRIPE_PAYMENT_ERROR,
-  getSecret,
-  getStripeAccountForAppointmentOrEncounter,
-  getStripeCustomerIdFromAccount,
-  getTaskResource,
   INVALID_INPUT_ERROR,
-  isValidUUID,
   MISCONFIGURED_ENVIRONMENT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
   parseStripeError,
-  PAYMENT_METHOD_EXTENSION_URL,
-  PostPatientPaymentInput,
-  Secrets,
-  SecretsKeys,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-  TaskIndicator,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { PostPatientPaymentInput } from 'utils/lib/types/api/patient-payment-types';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getStripeCustomerIdFromAccount, getTaskResource } from 'utils/lib/fhir/helpers';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  getStripeClient,
-  getUser,
-  lambdaResponse,
-  makeBusinessIdentifierForCandidPayment,
-  makeBusinessIdentifierForStripePayment,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { getStripeClient, makeBusinessIdentifierForStripePayment } from '../../../shared/stripeIntegration';
+import { getUser } from '../../../shared/auth';
+import { lambdaResponse } from '../../../shared/lambda';
+import { makeBusinessIdentifierForCandidPayment } from '../../../shared/candid';
+import { safeJsonParse } from '../../../shared/validation';
+import { wrapHandler } from '../../../shared/sentry';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'post-patient-payment';

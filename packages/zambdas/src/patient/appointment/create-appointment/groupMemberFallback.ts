@@ -1,13 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Schedule, Slot } from 'fhir/r4b';
-import {
-  checkSlotAvailable,
-  getGroupAssignmentMode,
-  getSlotAtLocationId,
-  getSlotBookedViaGroupId,
-  ScheduleOwnerFhirResource,
-} from 'utils';
-import { getGroupMemberPractitionerRoleSchedules, resolveBookingLocationId } from '../../../shared';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { checkSlotAvailable, getSlotAtLocationId, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
+import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
+import { getGroupMemberPractitionerRoleSchedules } from '../../../shared/fhir';
+import { resolveBookingLocationId } from '../../../shared/resolveBookingLocationId';
 
 export interface GroupMemberFallbackInput {
   slot: Slot;

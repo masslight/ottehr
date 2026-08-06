@@ -8,16 +8,16 @@ import {
   MedicationAdministration,
   MedicationRequest,
 } from 'fhir/r4b';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import {
-  chartDataTagSystem,
-  CODE_SYSTEM_ICD_10,
   INTERACTIONS_UNAVAILABLE,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
-  ResolvedSectionActions,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
+import { ResolvedSectionActions } from 'utils/lib/types/data/apply-template.types';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   collectMedicationsForTemplate,

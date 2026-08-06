@@ -1,6 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { APIError, APIErrorCode, CreateUserOutput, USER_ALREADY_EXISTS_ERROR } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { APIError, APIErrorCode, USER_ALREADY_EXISTS_ERROR } from 'utils/lib/types/errors';
+import { CreateUserOutput } from 'utils/lib/types/api/create-user.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

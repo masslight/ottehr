@@ -3,30 +3,26 @@ import { randomUUID } from 'crypto';
 import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  appointmentTypeForAppointment,
-  checkEncounterIsVirtual,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
-  GetPatientVisitListInput,
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { GetPatientVisitListInput, PatientVisitListResponse } from 'utils/lib/types/api/patient-visit-history.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { SLOT_WALKIN_APPOINTMENT_TYPE_CODING, SlotServiceCategory, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { ServiceMode, Timezone } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { checkEncounterIsVirtual } from 'utils/lib/fhir/encounter';
+import {
   getScheduleExtension,
   getSlotIsPostTelemed,
   getSlotIsWalkin,
-  getSlugForBookableResource,
   getTimezone,
-  isPostTelemedAppointment,
-  isTelemedAppointment,
-  PatientInfo,
-  PatientVisitListResponse,
-  ScheduleOwnerFhirResource,
-  ServiceMode,
-  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
-  SlotServiceCategory,
-  SLUG_SYSTEM,
-  Timezone,
-  TIMEZONES,
-  VisitStatusLabel,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+} from 'utils/lib/utils/scheduleUtils';
+import { getSlugForBookableResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { assert, inject } from 'vitest';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';

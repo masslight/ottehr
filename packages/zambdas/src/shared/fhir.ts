@@ -20,21 +20,17 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { uuid } from 'short-uuid';
+import { BookableScheduleData, ScheduleStrategy, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  BookableScheduleData,
-  checkResourceHasSlug,
-  getGroupAllLocations,
-  isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
-  ScheduleOwnerFhirResource,
-  ScheduleStrategy,
-  scheduleStrategyForHealthcareService,
-  SLUG_SYSTEM,
-  unbundleBatchPostOutput,
-  walkGroupMemberPractitionerRoleSchedules,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { checkResourceHasSlug } from 'utils/lib/helpers/helpers';
+import { getGroupAllLocations, walkGroupMemberPractitionerRoleSchedules } from 'utils/lib/fhir/healthcareService';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { scheduleStrategyForHealthcareService, unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 
 export async function getPatientResource(patientID: string, oystehr: Oystehr): Promise<Patient> {
   const response: Patient = await oystehr.fhir.get({

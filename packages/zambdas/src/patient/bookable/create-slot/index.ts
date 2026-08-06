@@ -2,33 +2,34 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Location, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BOOKING_CONFIG, getServiceCategoryCodeSchema, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
+import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
+import { CreateSlotParams } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
 import {
-  BOOKING_CONFIG,
-  CanonicalUrl,
-  CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
-  getGroupAllLocations,
-  getServiceCategoryCodeSchema,
-  getTimezone,
   INVALID_INPUT_ERROR,
-  isBookingConfigServiceCategoryCode,
-  isPractitionerRoleMemberOfGroup,
-  isValidUUID,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
+import { getGroupAllLocations, isPractitionerRoleMemberOfGroup } from 'utils/lib/fhir/healthcareService';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import {
   makeBookingOriginExtensionEntry,
   makeQuestionnaireCanonicalExtensionEntry,
   makeSlotAtLocationExtensionEntry,
   makeSlotBookedViaGroupExtensionEntry,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  Secrets,
   SERVICE_CATEGORY_SYSTEM,
-  ServiceCategoryCode,
-  ServiceMode,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/constants';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'create-slot';
 

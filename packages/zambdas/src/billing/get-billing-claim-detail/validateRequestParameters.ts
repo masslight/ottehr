@@ -1,5 +1,8 @@
-import { GetClaimDetailInput, GetClaimDetailInputSchema, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
+import { GetClaimDetailInput, GetClaimDetailInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
+import { validateJsonBody } from '../../shared/helpers';
 
 export interface GetClaimDetailParams extends GetClaimDetailInput {
   secrets: ZambdaInput['secrets'];

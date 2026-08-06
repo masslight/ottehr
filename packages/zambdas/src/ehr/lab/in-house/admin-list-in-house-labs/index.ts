@@ -1,22 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
+import { AdminListInHouseLabsOutput, InHouseLabsAdminListItem } from 'utils/lib/types/data/in-house/in-house.types';
 import {
-  AdminListInHouseLabsOutput,
-  getSecret,
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TAG_DEFINITION,
-  InHouseLabsAdminListItem,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { topLevelCatch } from '../../../../shared/lambda';
+import { wrapHandler } from '../../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

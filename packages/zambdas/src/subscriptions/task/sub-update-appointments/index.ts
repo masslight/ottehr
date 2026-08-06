@@ -2,14 +2,14 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addWaitingMinutesToAppointment,
-  DATETIME_FULL_NO_YEAR,
-  getPatientContactEmail,
-  getWaitingMinutesAtSchedule,
-  TaskStatus,
-} from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { TaskStatus } from 'utils/lib/types/common';
+import { addWaitingMinutesToAppointment, getWaitingMinutesAtSchedule } from 'utils/lib/utils/scheduleUtils';
+import { getPatientContactEmail } from 'utils/lib/fhir/patient';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { wrapHandler } from '../../../shared/sentry';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 

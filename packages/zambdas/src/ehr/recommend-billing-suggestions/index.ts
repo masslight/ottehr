@@ -1,8 +1,13 @@
 import Oystehr, { ErxGetMedicationHistoryResponse } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
-import { BillingSuggestionOutput, fixAndParseJsonObjectFromString, getEmCodes, PrescribedMedicationDTO } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { BillingSuggestionOutput, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
+import { getEmCodes } from 'utils/lib/helpers/em-codes';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
 

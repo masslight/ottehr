@@ -1,16 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration, Organization, Practitioner } from 'fhir/r4b';
+import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
 import {
-  getCoding,
-  getFullName,
-  InputImmunizationOrderDetails,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
-  searchMedicationLocation,
-  searchRouteByCode,
-} from 'utils';
+} from 'utils/lib/types/api/medication-administration.constants';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getFullName } from 'utils/lib/fhir/patient';
+import { searchMedicationLocation, searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { createMedicationCopy } from '../create-update-medication-order/helpers';
 

@@ -3,21 +3,19 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationAdministration } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createReference,
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
+} from 'utils/lib/types/data/immunization/types';
+import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fillMeta,
-  getMyPractitionerId,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/api/medication-administration.constants';
+import { createReference } from 'utils/lib/fhir/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
+import { getMyPractitionerId } from '../../../shared/practitioners';
+import { wrapHandler } from '../../../shared/sentry';
 import { IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL, updateOrderDetails, validateOrderDetails } from '../common';
 
 let m2mToken: string;

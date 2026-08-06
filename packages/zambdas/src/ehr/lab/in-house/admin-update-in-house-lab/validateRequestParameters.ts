@@ -1,12 +1,10 @@
-import {
-  AdminInHouseLabItemDefinitionSchema,
-  AdminUpdateInHouseLabInput,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  Secrets,
-} from 'utils';
+import { AdminInHouseLabItemDefinitionSchema } from 'utils/lib/types/data/in-house/in-house.schema';
+import { AdminUpdateInHouseLabInput } from 'utils/lib/types/data/in-house/in-house.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { Secrets } from 'utils/lib/secrets';
 import { z } from 'zod';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 const AdminUpdateInHouseLabStatusSchema = z.object({
   updateType: z.literal('toggle-status'),

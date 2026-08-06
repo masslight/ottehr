@@ -1,7 +1,8 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { PageSizes, PDFImage } from 'pdf-lib';
-import { BUCKET_NAMES, Secrets } from 'utils';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';

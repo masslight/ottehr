@@ -2,19 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Location, Patient, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import {
-  APIErrorCode,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
-  getSlugForBookableResource,
-  getTimezone,
-  IncompleteEncountersReportZambdaOutput,
-  PatientInfo,
-  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
-  SlotServiceCategory,
-  SLUG_SYSTEM,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+} from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import { IncompleteEncountersReportZambdaOutput } from 'utils/lib/types/api/incomplete-encounters-report.types';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { SLOT_WALKIN_APPOINTMENT_TYPE_CODING, SlotServiceCategory, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
+import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { assert, inject } from 'vitest';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';

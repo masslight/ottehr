@@ -8,22 +8,18 @@ import {
   AdminInHouseLabConfigOutput,
   AdminUpdateInHouseLabInput,
   AdminUpdateInHouseLabStatus,
-  getApiError,
-  getSecret,
-  IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
-  INVALID_INPUT_ERROR,
-  makeOptimisticLockIfMatchHeader,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  parseCreatedResourcesBundle,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+} from 'utils/lib/types/data/in-house/in-house.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { IN_HOUSE_LAB_LATEST_TAG_DEFINITION } from 'utils/lib/types/data/in-house/in-house.constants';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { parseCreatedResourcesBundle } from '../../../../shared/resources.helpers';
+import { topLevelCatch } from '../../../../shared/lambda';
+import { wrapHandler } from '../../../../shared/sentry';
 import {
   convertAdminInHouseLabItemDefinitionToActivityDefinition,
   incrementSemVer,

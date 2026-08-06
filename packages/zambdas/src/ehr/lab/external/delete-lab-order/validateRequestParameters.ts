@@ -1,5 +1,7 @@
-import { DeleteLabOrderZambdaInput, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../../shared';
+import { DeleteLabOrderZambdaInput } from 'utils/lib/types/data/labs/labs.types';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { safeJsonParse } from '../../../../shared/validation';
 
 export interface DeleteLabOrderZambdaInputValidated extends DeleteLabOrderZambdaInput {
   secrets: Secrets;

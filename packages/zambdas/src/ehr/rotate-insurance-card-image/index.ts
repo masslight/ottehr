@@ -2,21 +2,15 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference } from 'fhir/r4b';
-import {
-  FHIR_RESOURCE_NOT_FOUND,
-  getPresignedURL,
-  INSURANCE_CARD_IMAGE_ERROR,
-  MimeType,
-  RotateInsuranceCardImageResponse,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  createPresignedUrl,
-  uploadObjectToZ3,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { FHIR_RESOURCE_NOT_FOUND, INSURANCE_CARD_IMAGE_ERROR } from 'utils/lib/types/errors';
+import { MimeType } from 'utils/lib/utils/file';
+import { RotateInsuranceCardImageResponse } from 'utils/lib/types/data/documents';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
+import { wrapHandler } from '../../shared/sentry';
 import {
   buildAttachmentMetadataOperations,
   buildExtractionPatchOperation,

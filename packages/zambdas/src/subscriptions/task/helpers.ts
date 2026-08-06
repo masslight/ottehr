@@ -1,22 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult, Handler } from 'aws-lambda';
 import { RelatedPerson, Task } from 'fhir/r4b';
-import {
-  createOystehrClient as createOystehrClientUtils,
-  getSecret,
-  getSMSNumberForIndividual,
-  Secrets,
-  SecretsKeys,
-  TaskStatus,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  sendSmsToRelatedPersons,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { TaskStatus } from 'utils/lib/types/common';
+import { createOystehrClient as createOystehrClientUtils } from 'utils/lib/helpers/helpers';
+import { getSMSNumberForIndividual } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { sendSmsToRelatedPersons } from '../../shared/communication';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
 import { patchTaskStatus } from '../helpers';
 import { TaskSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 

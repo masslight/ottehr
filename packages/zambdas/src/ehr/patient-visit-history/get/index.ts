@@ -4,40 +4,41 @@ import { Appointment, Encounter, Location, Patient, Practitioner, Slot, Task } f
 import { DateTime } from 'luxon';
 import {
   AppointmentHistoryRow,
-  appointmentTypeForAppointment,
-  AppointmentTypeOptions,
-  AppointmentTypeSchema,
-  FHIR_RESOURCE_NOT_FOUND,
-  FOLLOWUP_SUBTYPE_SYSTEM,
-  FOLLOWUP_SYSTEMS,
-  FollowupSubtype,
   FollowUpVisitHistoryRow,
-  getAttendingPractitionerId,
-  getCoding,
-  getFirstName,
-  getInPersonVisitStatus,
-  getLastName,
   GetPatientVisitListInput,
-  getReasonForVisitFromAppointment,
-  getTelemedLength,
-  getVisitStatusHistory,
-  getVisitTotalTime,
+  PatientVisitListResponse,
+} from 'utils/lib/types/api/patient-visit-history.types';
+import { AppointmentTypeOptions, AppointmentTypeSchema } from 'utils/lib/types/api/appointment.types';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
-  isTelemedAppointment,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  PatientVisitListResponse,
-  RCM_TASK_SYSTEM,
-  RcmTaskCode,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/types/errors';
+import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS, FollowupSubtype } from 'utils/lib/fhir/encounter';
+import { RCM_TASK_SYSTEM, RcmTaskCode, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import { ServiceMode } from 'utils/lib/types/common';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
+import {
+  getInPersonVisitStatus,
+  getTelemedLength,
+  getVisitStatusHistory,
+  getVisitTotalTime,
+} from 'utils/lib/utils/visitUtils';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { z } from 'zod';
-import { createClinicalOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { lambdaResponse } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;

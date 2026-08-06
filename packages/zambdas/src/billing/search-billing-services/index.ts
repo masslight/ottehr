@@ -1,8 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
-import { BillingService, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, SearchBillingServicesResponse } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { BillingService, SearchBillingServicesResponse } from 'utils/lib/types/data/billing/billing.types';
+import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { createBillingClient } from '../shared';
 import { SearchBillingServicesParams, validateRequestParameters } from './validateRequestParameters';
 

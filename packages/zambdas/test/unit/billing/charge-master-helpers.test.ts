@@ -1,5 +1,7 @@
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { ChargeItemDefinitionDefault, CPT_CODE_SYSTEM, EXTENSION_URL_CPT_MODIFIER } from 'utils';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
+import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
 import { describe, expect, it } from 'vitest';
 import {
   activeDefaultChargeMasterSearchParams,

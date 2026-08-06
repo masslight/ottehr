@@ -1,16 +1,12 @@
-import {
-  AppointmentContext,
-  BUCKET_NAMES,
-  getCoding,
-  getReasonForVisitAndAdditionalDetailsFromAppointment,
-  getReasonForVisitOptionsForServiceCategory,
-  getVisitOccupationalMedicineEmployerFromEncounter,
-  isInPersonAppointment,
-  isTelemedAppointment,
-  Secrets,
-  SERVICE_CATEGORY_SYSTEM,
-  ServiceMode,
-} from 'utils';
+import { AppointmentContext } from 'utils/lib/config-helpers/patient-record';
+import { BUCKET_NAMES, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import { ServiceMode } from 'utils/lib/types/common';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { getVisitOccupationalMedicineEmployerFromEncounter } from 'utils/lib/fhir/encounter';
+import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { createClinicalOystehrClient } from '../helpers';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';

@@ -1,14 +1,9 @@
-import {
-  getSecret,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  NOT_AUTHORIZED,
-  SecretsKeys,
-  visitStatusArray,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { visitStatusArray, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { ChangeInPersonVisitStatusInputValidated } from '.';
 
 const validStatuses = visitStatusArray.filter((s) => s !== 'unknown') as [

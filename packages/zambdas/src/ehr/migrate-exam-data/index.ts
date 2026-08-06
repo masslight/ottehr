@@ -1,12 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, MigrateExamDataInput, MigrateExamDataOutput, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  getPatientEncounter,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { MigrateExamDataInput, MigrateExamDataOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { getPatientEncounter } from '../../shared/encounter';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
 import { runExamMigrations } from '../../shared/chart-data/migrations';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getChartData } from '../get-chart-data';

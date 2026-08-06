@@ -1,7 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic } from 'fhir/r4b';
-import { FHIR_RESOURCE_NOT_FOUND, SaveAdHocReportOutput, SaveAdHocReportOutputSchema } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { SaveAdHocReportOutput, SaveAdHocReportOutputSchema } from 'utils/lib/types/adhoc/saved/saved.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import {
   makeSavedAdHocReportBasic,
   parseSavedAdHocReportBasic,

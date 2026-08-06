@@ -1,5 +1,7 @@
-import { AiAssistedEncountersReportZambdaInput, Secrets } from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../shared';
+import { AiAssistedEncountersReportZambdaInput } from 'utils/lib/types/api/ai-assisted-encounters-report.types';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse } from '../../shared/validation';
 
 export function validateRequestParameters(
   input: ZambdaInput

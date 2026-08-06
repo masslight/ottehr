@@ -1,13 +1,10 @@
 import { Appointment } from 'fhir/r4b';
-import {
-  FhirAppointmentType,
-  formatDateToMDYWithTime,
-  getCoding,
-  isInPersonAppointment,
-  isTelemedAppointment,
-  resolveServiceCategoryAbbreviation,
-  SERVICE_CATEGORY_SYSTEM,
-} from 'utils';
+import { FhirAppointmentType } from 'utils/lib/types/common';
+import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { DataComposer } from '../pdf-common';
 import { PdfSection, VisitDataInput, VisitInfo } from '../types';
 

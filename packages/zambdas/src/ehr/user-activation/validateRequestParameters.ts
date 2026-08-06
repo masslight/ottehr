@@ -1,6 +1,7 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { UserActivationZambdaInputSchema } from 'utils/lib/types/api/user-activation.types';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { UserActivationZambdaInputValidated } from './index';
 
 export function validateRequestParameters(input: ZambdaInput): UserActivationZambdaInputValidated {

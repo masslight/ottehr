@@ -1,12 +1,9 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Claim, FhirResource, Organization, Patient, Person, Practitioner } from 'fhir/r4b';
-import {
-  AR_STAGE,
-  CLAIM_STATUS_TAG_SYSTEMS,
-  M2MClientMockType,
-  SearchBillingClaimsInput,
-  SearchBillingClaimsResponse,
-} from 'utils';
+import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { SearchBillingClaimsResponse } from 'utils/lib/types/data/billing/billing.types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CLAIM_PCN_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';

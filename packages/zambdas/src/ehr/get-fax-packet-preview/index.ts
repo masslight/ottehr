@@ -1,21 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Practitioner } from 'fhir/r4b';
-import {
-  FaxRecipient,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  GetFaxPacketPreviewOutput,
-  getFullestAvailableName,
-  PRACTICE_NAME_URL,
-  toTenDigitPhoneNumber,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getUser,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { FaxRecipient, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { resolveFaxDocumentAvailability } from '../../shared/fax/collect-visit-documents';
 import { validateRequestParameters } from './validateRequestParameters';
 

@@ -1,5 +1,6 @@
 import { Task } from 'fhir/r4b';
-import { pageHarvestStrategy, TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils';
+import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils/lib/types/common';
+import { pageHarvestStrategy } from '../../config-types/config/intake-paperwork';
 import { describe, expect, it, vi } from 'vitest';
 import { extractPatchIndex, extractQrId } from '../src/subscriptions/task/sub-harvest-paperwork/index';
 import {

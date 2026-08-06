@@ -1,15 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, RoleType, SecretsKeys, UpdateProgressNoteConfigInputValidated } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  requireUserWithRole,
-  saveProgressNoteConfig,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { UpdateProgressNoteConfigInputValidated } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { saveProgressNoteConfig } from '../../../shared/progress-note-config';
+import { topLevelCatch } from '../../../shared/lambda';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

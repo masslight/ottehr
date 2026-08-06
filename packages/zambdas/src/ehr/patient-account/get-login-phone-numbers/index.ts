@@ -1,21 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient, Person, RelatedPerson } from 'fhir/r4b';
-import {
-  getCoding,
-  GetPatientLoginPhoneNumbersInput,
-  INVALID_RESOURCE_ID_ERROR,
-  isValidUUID,
-  PRIVATE_EXTENSION_BASE_URL,
-  Secrets,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  validateJsonBody,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { GetPatientLoginPhoneNumbersInput } from 'utils/lib/types/api/patient-login-phone-numbers.types';
+import { INVALID_RESOURCE_ID_ERROR } from 'utils/lib/types/errors';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { Secrets } from 'utils/lib/secrets';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'get-login-phone-numbers';
 

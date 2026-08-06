@@ -2,40 +2,38 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, DocumentReference, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  DATETIME_FULL_NO_YEAR,
-  FEATURE_FLAGS_CONFIG,
-  getAddressStringForScheduleResource,
-  getFullestAvailableName,
+  PATIENT_ACTION_LOG_VIEWER_ROLES,
+  RetryActionLogInputValidated,
+  RetryActionLogOutput,
+} from 'utils/lib/types/api/action-logs.types';
+import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
   getOutboundDeliveryRecipientSnapshot,
-  getPresignedURL,
-  getSecret,
   makeOutboundDeliveryAttempt,
-  OTTEHR_MODULE,
-  OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
-  PATIENT_ACTION_LOG_VIEWER_ROLES,
-  removePrefix,
-  RetryActionLogInputValidated,
-  RetryActionLogOutput,
-  SecretsKeys,
-  VISIT_NOTE_SUMMARY_CODE,
-} from 'utils';
+} from 'utils/lib/fhir/outbound-delivery';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { buildVisitNoteEmailTemplate, deliverVisitNoteEmailAttempt } from '../../shared/visit-note-email';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
-  buildVisitNoteEmailTemplate,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
   createOutboundDeliveryAttemptIdempotently,
-  deliverFaxAttempt,
-  deliverVisitNoteEmailAttempt,
-  getEmailClient,
   requireOutboundDeliveryValue,
-  requireUserWithRole,
-  SendFaxAttemptInput,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from '../../shared/outbound-delivery';
+import { deliverFaxAttempt, SendFaxAttemptInput } from '../../shared/send-fax-attempt';
+import { getEmailClient } from '../../shared/communication';
+import { wrapHandler } from '../../shared/sentry';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { getNameForOwner } from '../schedules/shared';
 import { validateRequestParameters } from './validateRequestParameters';

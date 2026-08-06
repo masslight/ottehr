@@ -3,12 +3,11 @@ import { DateTime } from 'luxon';
 import {
   CATEGORY_NOTIFICATION_TAG_CODE,
   CATEGORY_NOTIFICATION_TAG_SYSTEM,
-  MANUAL_TASK,
-  normalizeNotificationPreferencesV2,
-  NotificationRowPref,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
-} from 'utils';
+} from 'utils/lib/types/api/practitioner.types';
+import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { normalizeNotificationPreferencesV2, NotificationRowPref } from 'utils/lib/types/api/provider-notifications';
 import { describe, expect, it } from 'vitest';
 import {
   buildSMSSendList,

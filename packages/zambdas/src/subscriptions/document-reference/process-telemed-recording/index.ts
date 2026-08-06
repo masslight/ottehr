@@ -1,7 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Encounter } from 'fhir/r4b';
-import { createOystehrClient, getAttendingPractitionerId, getSecret, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../../shared';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { wrapHandler } from '../../../shared/sentry';
 import { transcribeAndCreateResourcesFromZ3Audio } from '../../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
 

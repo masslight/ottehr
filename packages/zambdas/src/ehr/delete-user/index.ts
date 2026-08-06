@@ -1,16 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { APIError, APIErrorCode } from 'utils/lib/types/errors';
 import {
-  APIError,
-  APIErrorCode,
   DeleteUserZambdaInput,
   DeleteUserZambdaInputSchema,
   DeleteUserZambdaOutput,
-  RoleType,
-  Secrets,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/delete-user.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { Secrets } from 'utils/lib/secrets';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 
 const ALLOWED_CALLER_ROLES: string[] = [RoleType.Administrator, RoleType.CustomerSupport];

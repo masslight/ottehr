@@ -1,17 +1,12 @@
-import {
-  GetScheduleRequestParams,
-  getServiceCategoryCodeSchema,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  ScheduleType,
-  Secrets,
-  ServiceCategoryCode,
-  ServiceMode,
-  SLUG_REGEX,
-  SLUG_VALIDATION_MESSAGE,
-} from 'utils';
+import { GetScheduleRequestParams } from 'utils/lib/types/data/get-schedule.types';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { SLUG_REGEX, SLUG_VALIDATION_MESSAGE } from 'utils/lib/fhir/constants';
+import { ScheduleType, ServiceMode } from 'utils/lib/types/common';
+import { Secrets } from 'utils/lib/secrets';
+import { getServiceCategoryCodeSchema, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 export const SCHEDULE_TYPES = ['location', 'provider', 'group'] as const;
 

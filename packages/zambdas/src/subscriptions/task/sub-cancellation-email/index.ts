@@ -2,19 +2,19 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DATETIME_FULL_NO_YEAR,
-  getAddressStringForScheduleResource,
-  getNameFromScheduleResource,
-  getPatientContactEmail,
-  getSecret,
-  isTelemedAppointment,
-  Secrets,
-  SecretsKeys,
-  TaskStatus,
-  TelemedCancelationTemplateData,
-} from 'utils';
-import { createClinicalOystehrClient, getAuth0Token, getEmailClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { TaskStatus } from 'utils/lib/types/common';
+import { TelemedCancelationTemplateData } from 'utils/lib/ottehr-config/sendgrid';
+import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
+import { getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
+import { getPatientContactEmail } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { getEmailClient } from '../../../shared/communication';
+import { wrapHandler } from '../../../shared/sentry';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 

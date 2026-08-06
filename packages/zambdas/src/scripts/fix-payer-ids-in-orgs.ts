@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
 import * as fs from 'fs';
-import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils/lib/types/constants';
+import { createClinicalOystehrClient } from '../shared/helpers';
+import { getAuth0Token } from '../shared/getAuth0Token';
 
 const PAYER_ID_SYSTEM = 'payer-id';
 

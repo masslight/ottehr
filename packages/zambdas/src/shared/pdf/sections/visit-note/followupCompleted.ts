@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { formatDateTimeToZone } from 'utils';
+import { formatDateTimeToZone } from 'utils/lib/utils/date';
 import { drawFieldLine } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { EncounterInfo, FollowupCompleted, PdfSection } from '../../types';

@@ -4,8 +4,8 @@ import {
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   GetRadiologyOrderPdfZambdaOutput,
-  M2MClientMockType,
-} from 'utils';
+} from 'utils/lib/types/api/radiology';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE } from '../../src/shared/pdf/radiology-order-form-pdf';
 import {
   InsertFullAppointmentDataBaseResult,

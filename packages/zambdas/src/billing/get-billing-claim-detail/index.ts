@@ -2,21 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  asEraClaimStatusCode,
-  BillingPolicyHolderSummary,
-  CLAIM_TAG_SYSTEM,
-  ClaimDetailResponse,
-  getClaimStatusValues,
-  getCoveragePlanType,
-  getNPI,
-  getPayerId,
-  getResourcesFromBatchInlineRequests,
-  getTaxID,
-  SubscriberRelationship,
-} from 'utils';
+import { BillingPolicyHolderSummary, ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
+import { SubscriberRelationship } from 'utils/lib/fhir/constants';
+import { asEraClaimStatusCode, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { getCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getNPI, getResourcesFromBatchInlineRequests, getTaxID } from 'utils/lib/fhir/helpers';
+import { getPayerId } from 'utils/lib/helpers/helpers';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import {
   extractClaimResponseAmounts,
   extractRemitAdjustments,

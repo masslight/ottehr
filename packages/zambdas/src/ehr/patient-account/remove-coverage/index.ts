@@ -2,22 +2,23 @@ import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, AuditEvent, Bundle, Coverage } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { AUDIT_EVENT_OUTCOME_CODE, PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import {
-  AUDIT_EVENT_OUTCOME_CODE,
-  checkBundleOutcomeOk,
   FHIR_RESOURCE_NOT_FOUND,
-  getVersionedReferencesFromBundleResources,
   INVALID_RESOURCE_ID_ERROR,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  PARTICIPATION_CODE_SYSTEM,
-  RemoveCoverageResponse,
-  Secrets,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/errors';
+import { RemoveCoverageResponse } from 'utils/lib/types/api/patient-account';
+import { Secrets } from 'utils/lib/secrets';
+import { checkBundleOutcomeOk, getVersionedReferencesFromBundleResources } from 'utils/lib/fhir/helpers';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'remove-coverage';

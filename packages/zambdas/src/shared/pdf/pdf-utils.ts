@@ -15,7 +15,8 @@ import {
   rgb,
   StandardFonts,
 } from 'pdf-lib';
-import { getLogoFor, SupportedObsImgAttachmentTypes } from 'utils';
+import { SupportedObsImgAttachmentTypes } from 'utils/lib/types/data/labs/labs.constants';
+import { getLogoFor } from 'utils/lib/ottehr-config/branding';
 import { Y_POS_GAP } from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 

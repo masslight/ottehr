@@ -3,23 +3,18 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { APIResponse } from 'candidhealth/core';
 import { Appointment, Encounter } from 'fhir/r4b';
-import {
-  chooseJson,
-  chunkThings,
-  GetBillingPatientBalanceResponse,
-  getOrCreateCandidApiClient,
-  GetPatientBalancesZambdaOutput,
-} from 'utils';
-import {
-  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fetchAllPages,
-  lambdaResponse,
-  shouldUseOttehrBillingForPatientBalances,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { GetBillingPatientBalanceResponse } from 'utils/lib/types/data/billing/billing.types';
+import { GetPatientBalancesZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, shouldUseOttehrBillingForPatientBalances } from '../../shared/candid';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { fetchAllPages } from '../../shared/fhir';
+import { lambdaResponse } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
 import { ValidatedInput, validateInput, validateSecrets } from './validateRequestParameters';
 
 type EncounterIdMap = Map<

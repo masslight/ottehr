@@ -1,5 +1,5 @@
 import { Observation } from 'fhir/r4b';
-import { ExamObservationDTO } from 'utils';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import { makeExamObservationDTO } from '../../src/shared';
 import {

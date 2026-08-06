@@ -1,11 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
-import {
-  CURRENT_EXAM_MIGRATION_VERSION,
-  EXAM_MIGRATION_VERSION_URL,
-  ExamObservationDTO,
-  getExamMigrationVersion,
-} from 'utils';
+import { CURRENT_EXAM_MIGRATION_VERSION, EXAM_MIGRATION_VERSION_URL } from 'utils/lib/fhir/constants';
+import { ExamObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { getExamMigrationVersion } from 'utils/lib/fhir/encounter';
 import { makeExamObservationResource } from '..';
 
 /**

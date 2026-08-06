@@ -1,11 +1,8 @@
-import {
-  INVALID_INPUT_ERROR,
-  isValidUUID,
-  MISSING_REQUEST_BODY,
-  PracticeManagedQuestionnaireGetInput,
-  Secrets,
-} from 'utils';
-import { ZambdaInput } from '../../../shared';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { PracticeManagedQuestionnaireGetInput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
+import { Secrets } from 'utils/lib/secrets';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../shared/types/common';
 
 type BaseContext = {
   secrets: Secrets | null;

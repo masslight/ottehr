@@ -1,8 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { BillingChargeItemDefinition } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { BillingChargeItemDefinition } from 'utils/lib/types/data/billing/billing.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { transformChargeItemDefinition } from '../get-charge-item-definition';
 import {
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,

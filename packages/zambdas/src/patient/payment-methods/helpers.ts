@@ -4,16 +4,13 @@ import Stripe from 'stripe';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
-  FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
-  getStripeAccountForAppointmentOrEncounter,
-  getStripeCustomerIdFromAccount,
-  NOT_AUTHORIZED,
-  Secrets,
-  SecretsKeys,
-  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-} from 'utils';
-import { getUser, userHasAccessToPatient, ZambdaInput } from '../../shared';
+} from 'utils/lib/fhir/constants';
+import { FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED, STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { getUser, userHasAccessToPatient } from '../../shared/auth';
 
 export interface BasePaymentManagementInput {
   secrets: Secrets | null;

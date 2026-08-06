@@ -18,15 +18,16 @@ import {
   ADVAPACS_FHIR_BASE_URL,
   ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
   createOurDiagnosticReport,
-  getSecret,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
-  Secrets,
-  SecretsKeys,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/radiology';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import {
   advaPacsFetch,
   configReviewResultTask,

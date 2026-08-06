@@ -3,27 +3,32 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance, Task } from 'fhir/r4b';
 import {
+  SignAppointmentInput,
+  SignAppointmentResponse,
+} from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
+import { TaskIndicator } from 'utils/lib/types/common';
+import {
   extractExtensionValue,
   findExtensionIndex,
   getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterLockMetaTagOperations,
-  getEncounterStatusHistoryUpdateOp,
-  getFullestAvailableName,
-  getInPersonVisitStatus,
-  getPatchBinary,
   getSkipEmailTaskInput,
   getTaskResource,
-  isAnnotationFollowupEncounter,
-  removePrefix,
-  SignAppointmentInput,
-  SignAppointmentResponse,
-  TaskIndicator,
-  userMe,
+} from 'utils/lib/fhir/helpers';
+import { getEncounterStatusHistoryUpdateOp, isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
-} from 'utils';
-import { checkOrCreateM2MClientToken, requirePractitionerNPI, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/api/appointment.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken, requirePractitionerNPI } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createClinicalOystehrClient } from '../../shared/helpers';

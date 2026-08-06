@@ -1,12 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Device } from 'fhir/r4b';
 import {
-  findTerminalDeviceForLocation,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_CODE,
   STRIPE_TERMINAL_LOCATION_DEVICE_TYPE_SYSTEM,
   STRIPE_TERMINAL_LOCATION_IDENTIFIER_SYSTEM,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/fhir/constants';
+import { findTerminalDeviceForLocation } from 'utils/lib/fhir/payments';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

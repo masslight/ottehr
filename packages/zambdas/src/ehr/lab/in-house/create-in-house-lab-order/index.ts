@@ -1,26 +1,24 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition, ServiceRequest } from 'fhir/r4b';
+import { APIError, IN_HOUSE_LAB_ERROR, isApiError } from 'utils/lib/types/errors';
 import {
-  APIError,
   CreateInHouseLabEnconuterResource,
   CreateInHouseLabOrderParameters,
-  IN_HOUSE_LAB_ERROR,
+} from 'utils/lib/types/data/in-house/in-house.types';
+import {
   IN_HOUSE_LAB_LATEST_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
-  isApiError,
   REFLEX_ARTIFACT_DISPLAY,
-  repeatTestErrorMessage,
-  Secrets,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  parseCreatedResourcesBundle,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import { Secrets } from 'utils/lib/secrets';
+import { repeatTestErrorMessage } from 'utils/lib/helpers/in-house-labs';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { parseCreatedResourcesBundle } from '../../../../shared/resources.helpers';
+import { wrapHandler } from '../../../../shared/sentry';
 import {
   makeRequestsForCreateInHouseLabs,
   TestItemRequestData,

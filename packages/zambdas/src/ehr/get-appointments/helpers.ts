@@ -3,14 +3,14 @@ import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Loc
 import { DateTime } from 'luxon';
 import {
   AppointmentParticipants,
-  getProviderType,
-  OTTEHR_MODULE,
   ParticipantInfo,
   PRACTITIONER_CODINGS,
-  ProviderTypeCode,
-  ScheduleStrategy,
-  scheduleStrategyForHealthcareService,
-} from 'utils';
+} from 'utils/lib/types/data/appointments/appointments.types';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { ProviderTypeCode } from 'utils/lib/types/api/practitioner.types';
+import { ScheduleStrategy } from 'utils/lib/fhir/constants';
+import { getProviderType } from 'utils/lib/helpers/helpers';
+import { scheduleStrategyForHealthcareService } from 'utils/lib/fhir/helpers';
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
   firstName: practitioner.name?.[0]?.given?.[0] ?? '',

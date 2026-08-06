@@ -1,6 +1,8 @@
-import { ListTemplatesZambdaInput, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils';
+import { ListTemplatesZambdaInput } from 'utils/lib/types/data/list-template.types';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const ListTemplatesSchema = z.object({
   includeVersionData: z.boolean(),

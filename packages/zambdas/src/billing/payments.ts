@@ -1,18 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
-import {
-  BILLING_RECORDABLE_PAYMENT_METHODS,
-  BILLING_RESOURCE_TAG,
-  getContainedReconciliation,
-  getSecret,
-  MANUAL_PAYMENT_CONFLICT_ERROR,
-  PAYMENT_METHOD_EXTENSION_URL,
-  Secrets,
-  SecretsKeys,
-} from 'utils';
+import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
+import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
+import { getContainedReconciliation } from 'utils/lib/fhir/payments';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { z } from 'zod';
-import { safeValidate } from '../shared';
+import { safeValidate } from '../shared/validation';
 import { reconcilePaymentNoticesForClaim } from './shared';
 
 // dedup identifier for record-billing-manual-payment calls: value is the caller's idempotency key

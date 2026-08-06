@@ -1,5 +1,5 @@
 import { Communication } from 'fhir/r4b';
-import { safeJsonParse } from '../../../shared';
+import { safeJsonParse } from '../../../shared/validation';
 import { ZambdaInput } from '../../../shared/types';
 import { CommunicationSubscriptionInput } from '.';
 

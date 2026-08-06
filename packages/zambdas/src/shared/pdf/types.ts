@@ -15,22 +15,21 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
+import { AppointmentContext } from 'utils/lib/config-helpers/patient-record';
+import { ExternalLabOrderResult, InHouseLabResult as InHouseLabResultPdfData } from 'utils/lib/types/api/lab';
+import { FollowupReason } from 'utils/lib/fhir/encounter';
+import { Gender } from 'utils/lib/fhir/helpers';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import {
-  AppointmentContext,
-  ExternalLabOrderResult,
-  FollowupReason,
-  Gender,
-  InHouseLabResult as InHouseLabResultPdfData,
-  LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  OrderedCoveragesWithSubscribers,
-  PatientPaymentDTO,
-  ProviderDetails,
-  QuantityDataEntryComponent,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
-  SupportedObsImgAttachmentTypes,
-  VitalsVisitNoteData,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
+import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
+import { QuantityDataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
+import { SupportedObsImgAttachmentTypes } from 'utils/lib/types/data/labs/labs.constants';
+import { VitalsVisitNoteData } from 'utils/lib/helpers/vitals/vitals-visit-note-data.types';
 import { testDataForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { UpcomingFollowUp } from './get-upcoming-follow-ups';
 import { Column, PdfInfo } from './pdf-utils';

@@ -1,8 +1,12 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { AdminGetLabSetDetailOutput, AdminGetLabSetListOutput, LAB_LIST_CODING_SYSTEM } from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import { AdminGetLabSetDetailOutput, AdminGetLabSetListOutput } from 'utils/lib/types/data/labs/labs.types';
+import { LAB_LIST_CODING_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

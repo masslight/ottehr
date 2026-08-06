@@ -1,5 +1,6 @@
 import { Appointment, Encounter, Patient, Practitioner } from 'fhir/r4b';
-import { FaxDocumentAvailability, GetFaxPacketPreviewOutput, PRACTICE_NAME_URL } from 'utils';
+import { FaxDocumentAvailability, GetFaxPacketPreviewOutput } from 'utils/lib/types/api/fax.types';
+import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 

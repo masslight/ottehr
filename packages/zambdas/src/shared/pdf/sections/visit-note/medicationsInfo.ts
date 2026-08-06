@@ -1,4 +1,4 @@
-import { NOTE_TYPE } from 'utils';
+import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { MedicationsData, PdfSection } from '../../types';

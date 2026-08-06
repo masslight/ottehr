@@ -1,13 +1,12 @@
 import { DeviceProperty } from 'fhir/r4b';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import {
-  INVALID_INPUT_ERROR,
   LABEL_PRINTING_CONFIG_DEVICE_TAG,
   LABEL_PRINTING_CONFIG_SHOULD_OPEN_ON_PRINT_EXT_SYSTEM,
   LABEL_PRINTING_DEVICE_PROPERTIES_SYSTEM,
   LABEL_PRINTING_DEVICE_PROPERTIES_VALUE_SYSTEM_MAP,
-  LabelPrintingConfig,
-  MISSING_REQUEST_BODY,
-} from 'utils';
+} from 'utils/lib/utils/printing';
+import { LabelPrintingConfig } from 'utils/lib/types/data/printing';
 import { describe, expect, test } from 'vitest';
 import { convertPrintingConfigToDevice } from '../src/ehr/label-printing-config/admin-update-label-printing-config';
 import { validateRequestParameters } from '../src/ehr/label-printing-config/admin-update-label-printing-config/validateRequestParameters';

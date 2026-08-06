@@ -1,13 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItemDefinition } from 'fhir/r4b';
-import { orgIdMatchesReference } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  RCM_TAG_SYSTEM,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { orgIdMatchesReference } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient, RCM_TAG_SYSTEM } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 /**

@@ -1,20 +1,17 @@
 import { randomUUID } from 'crypto';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
+import { DefaultVitalsConfig, VitalsDef, VitalsSchema } from 'utils/lib/ottehr-config/vitals';
+import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
-  DefaultVitalsConfig,
-  DOB_DATE_FORMAT,
-  getVitalObservationAlertLevel,
-  VitalAlertCriticality,
-  VitalFieldNames,
   VitalsBloodPressureObservationDTO,
-  VitalsDef,
   VitalsHeartbeatObservationDTO,
   VitalsRespirationRateObservationDTO,
-  VitalsSchema,
   VitalsTemperatureObservationDTO,
   VitalsWeightObservationDTO,
-} from 'utils';
+} from 'utils/lib/types/api/chart-data/chart-data.types';
+import { getVitalObservationAlertLevel } from 'utils/lib/helpers/vitals/utils';
 import { assert, suite } from 'vitest';
 import InvalidAgeUnitsVitals from './data/config-files/vitals-invalid-age-units-spec';
 import InvalidAgeVitals from './data/config-files/vitals-invalid-ages-spec';

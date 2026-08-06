@@ -12,21 +12,22 @@ import {
   ProvenanceAgent,
   RelatedPerson,
 } from 'fhir/r4b';
+import { BillingPolicyHolderInput, BillingSubscriberRelationship } from 'utils/lib/types/data/billing/billing.schemas';
 import {
-  BillingPolicyHolderInput,
-  BillingSubscriberRelationship,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
-  FHIR_RESOURCE_NOT_FOUND,
-  getPayerUrl,
-  setCoveragePlanType,
-  setNpi,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/helpers/rcm/constants';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { getPayerUrl } from 'utils/lib/helpers/helpers';
+import { setCoveragePlanType } from 'utils/lib/fhir/billing';
+import { setNpi } from 'utils/lib/fhir/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import {
   claimResourceChangeRequests,
   commitClaimResourceChange,

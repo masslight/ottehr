@@ -1,22 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { FileDocDataForDocReference } from 'utils/lib/fhir/helpers';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
-  BUCKET_NAMES,
-  FileDocDataForDocReference,
-  getSecret,
   normalizePatientEducationLanguage,
   SavePatientEducationPdfInput,
   SavePatientEducationPdfOutput,
-  SecretsKeys,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/data/patient-education.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
 import {
   createPatientEducationPdf,
   makePatientEducationPdfDocumentReference,

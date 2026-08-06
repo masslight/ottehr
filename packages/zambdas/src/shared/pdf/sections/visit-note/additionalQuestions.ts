@@ -1,11 +1,7 @@
-import {
-  ASQ_FIELD,
-  ASQKeys,
-  asqLabels,
-  NOTE_TYPE,
-  patientScreeningQuestionsConfig,
-  renderScreeningQuestionsForPDF,
-} from 'utils';
+import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
+import { renderScreeningQuestionsForPDF } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
 import { drawBlockHeader, drawRegularText } from '../../helpers/render';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { AdditionalQuestions, EncounterInfo, PdfSection } from '../../types';

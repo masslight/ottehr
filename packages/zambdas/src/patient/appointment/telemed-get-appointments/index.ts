@@ -1,16 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient } from 'fhir/r4b';
 import {
-  createOystehrClient,
-  getInPersonVisitStatus,
-  getParticipantIdFromAppointment,
-  getPatientsForUser,
-  getSecret,
   GetTelemedAppointmentsResponse,
-  SecretsKeys,
   TelemedAppointmentInformationIntake,
-} from 'utils';
-import { checkOrCreateM2MClientToken, getUser, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { createOystehrClient, getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
+import { wrapHandler } from '../../../shared/sentry';
 import { filterTelemedVideoEncounters, getFhirResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

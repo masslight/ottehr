@@ -1,5 +1,7 @@
 import { Appointment, Bundle, DocumentReference, Patient, Task } from 'fhir/r4b';
-import { getOutboundDeliveryInput, OUTBOUND_DELIVERY_INPUT_CODES, VISIT_NOTE_SUMMARY_CODE } from 'utils';
+import { OUTBOUND_DELIVERY_INPUT_CODES } from 'utils/lib/fhir/constants';
+import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { getOutboundDeliveryInput } from 'utils/lib/fhir/outbound-delivery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 

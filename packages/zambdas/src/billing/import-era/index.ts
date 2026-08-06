@@ -1,14 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle } from 'fhir/r4b';
-import {
-  ERA_IMPORT_FAILED_ERROR,
-  ImportEraInput,
-  ImportEraInputSchema,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-} from 'utils';
-import { checkOrCreateM2MClientToken, safeValidate, validateJsonBody, wrapHandler, ZambdaInput } from '../../shared';
+import { ERA_IMPORT_FAILED_ERROR, MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ImportEraInput, ImportEraInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { safeValidate } from '../../shared/validation';
+import { validateJsonBody } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { createBillingClient } from '../shared';
 
 let m2mToken: string;

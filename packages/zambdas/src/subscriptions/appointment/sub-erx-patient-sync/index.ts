@@ -1,13 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Observation, Patient } from 'fhir/r4b';
-import {
-  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-  getErxPatientDemographicErrors,
-  is18YearsOrYounger,
-  isEncounterErxSynced,
-  tagEncounterAsErxSynced,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils/lib/types/constants';
+import { getErxPatientDemographicErrors } from 'utils/lib/fhir/patient';
+import { is18YearsOrYounger } from 'utils/lib/validation/helper';
+import { isEncounterErxSynced, tagEncounterAsErxSynced } from 'utils/lib/fhir/encounter';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { wrapHandler } from '../../../shared/sentry';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

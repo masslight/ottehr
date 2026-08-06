@@ -4,11 +4,10 @@ import {
   DEFAULT_INVOICE_DUE_DAYS,
   DEFAULT_INVOICE_MEMO_TEMPLATE,
   DEFAULT_INVOICE_SMS_TEMPLATE,
-  ParsedInvoiceConfig,
-  parseInvoiceConfigFromQR,
-  PRIVATE_EXTENSION_BASE_URL,
-} from 'utils';
-import { rcmMeta } from '../../shared';
+} from 'utils/lib/types/constants';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { ParsedInvoiceConfig, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
+import { rcmMeta } from '../../shared/helpers';
 
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 

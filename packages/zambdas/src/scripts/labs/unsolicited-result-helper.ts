@@ -7,8 +7,9 @@ import {
   DR_CONTAINED_PRACTITIONER_REF,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
-} from 'utils';
-import { createClinicalOystehrClient, getAuth0Token } from '../../shared';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getAuth0Token } from '../../shared/getAuth0Token';
 import { DR_UNSOLICITED_RESULT_TAG } from './lab-script-consts';
 import { createResultAttachmentDocRef } from './lab-script-helpers';
 

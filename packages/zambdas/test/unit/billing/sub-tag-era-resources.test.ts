@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimResponse, PaymentReconciliation, Provenance } from 'fhir/r4b';
-import { BILLING_RESOURCE_TAG } from 'utils';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { ERA_PROCESSING_ACTIVITY_CODE, PROVENANCE_ACTIVITY_TYPE_SYSTEM } from '../../../src/billing/shared';
 import { ZambdaInput } from '../../../src/shared';

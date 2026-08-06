@@ -1,12 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Patient, Task } from 'fhir/r4b';
-import {
-  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
-  isValidUUID,
-  MISSING_REQUEST_SECRETS,
-  PRIVATE_EXTENSION_BASE_URL,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { FRIENDLY_PATIENT_ID_SYSTEM_BASE, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 
 const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';

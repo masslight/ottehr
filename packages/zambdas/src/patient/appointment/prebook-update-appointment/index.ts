@@ -4,35 +4,28 @@ import { Appointment, HealthcareService, Location, Patient, Practitioner, Schedu
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
-  BookableScheduleData,
   CANT_UPDATE_CANCELED_APT_ERROR,
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
-  checkValidBookingTime,
-  getAvailableSlotsForSchedules,
-  getFullestAvailableName,
-  getTaskResource,
-  isPostTelemedAppointment,
-  isTelemedAppointment,
-  isValidUUID,
-  normalizeSlotToUTC,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
-  ScheduleType,
-  Secrets,
-  TaskIndicator,
-  UpdateAppointmentParameters,
-} from 'utils';
-import {
-  AuditableZambdaEndpoints,
-  createAuditEvent,
-  createClinicalOystehrClient,
-  getAuth0Token,
-  getParticipantFromAppointment,
-  updateAppointmentTime,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/errors';
+import { BookableScheduleData } from 'utils/lib/fhir/constants';
+import { ScheduleType, TaskIndicator } from 'utils/lib/types/common';
+import { Secrets } from 'utils/lib/secrets';
+import { UpdateAppointmentParameters } from 'utils/lib/types/api/appointment.types';
+import { checkValidBookingTime } from 'utils/lib/helpers/helpers';
+import { getAvailableSlotsForSchedules, normalizeSlotToUTC } from 'utils/lib/utils/scheduleUtils';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getTaskResource, isPostTelemedAppointment } from 'utils/lib/fhir/helpers';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient, getParticipantFromAppointment } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { updateAppointmentTime } from '../../../shared/fhir';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UpdateAppointmentInput extends UpdateAppointmentParameters {

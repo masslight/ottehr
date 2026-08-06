@@ -3,24 +3,22 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
+import { AppointmentInsuranceRelatedResourcesExtension, FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { PATIENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { PATIENT_NO_EMAIL_URL } from 'utils/lib/types/constants';
+import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { User } from 'utils/lib/types/api/user.types';
+import { appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
+import { createPatientDocumentLists } from 'utils/lib/fhir/list';
 import {
-  AppointmentInsuranceRelatedResourcesExtension,
-  appointmentTypeForAppointment,
-  createPatientDocumentLists,
   createUserResourcesForPatient,
-  FHIR_EXTENSION,
-  formatPhoneNumber,
-  getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
-  isTelemedAppointment,
   makeSSNIdentifier,
-  normalizePhoneNumber,
-  PATIENT_NO_EMAIL_URL,
-  PATIENT_NOT_FOUND_ERROR,
-  PatientInfo,
-  removeTimeFromDate,
-  User,
-} from 'utils';
+} from 'utils/lib/fhir/patient';
+import { formatPhoneNumber } from 'utils/lib/helpers/helpers';
+import { getPatchBinary, normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { removeTimeFromDate } from 'utils/lib/utils/date';
 import { checkIsEHRUser } from '../auth';
 import { assertDefined } from '../helpers';
 

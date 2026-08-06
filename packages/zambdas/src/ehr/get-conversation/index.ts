@@ -2,18 +2,14 @@ import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BRANDING_CONFIG,
-  chunkThings,
-  GetConversationInput,
-  getFirstName,
-  getFullestAvailableName,
-  getLastName,
-  getMessageFromComm,
-  getMessageHasBeenRead,
-  Secrets,
-} from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { GetConversationInput } from 'utils/lib/types/api/get-conversation.types';
+import { Secrets } from 'utils/lib/secrets';
+import { chunkThings, getMessageFromComm, getMessageHasBeenRead } from 'utils/lib/fhir/chat';
+import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
+import { ZambdaInput } from '../../shared/types/common';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 
 export interface GetConversationInputValidated extends GetConversationInput {

@@ -1,6 +1,8 @@
 import Oystehr, { ErxGetMedicationHistoryResponse } from '@oystehr/sdk';
 import { MedicationRequest } from 'fhir/r4b';
-import { FHIR_EXTENSION, MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM, PrescribedMedicationDTO } from 'utils';
+import { FHIR_EXTENSION } from 'utils/lib/fhir/constants';
+import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
+import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ERX_HISTORY_TIMEOUT_MS,

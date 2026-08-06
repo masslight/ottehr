@@ -2,15 +2,18 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Medication } from 'fhir/r4b';
+import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_NDC,
-  getMedicationName,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
-  UpdateInHouseMedicationInput,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+} from 'utils/lib/types/api/medication-administration.constants';
+import { UpdateInHouseMedicationInput } from 'utils/lib/types/api/config/in-house-medications';
+import { getMedicationName } from 'utils/lib/fhir/medication-administration';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { wrapHandler } from '../../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

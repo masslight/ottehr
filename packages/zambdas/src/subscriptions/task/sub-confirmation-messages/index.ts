@@ -2,34 +2,29 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
+import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
+import { InPersonConfirmationTemplateData, TelemedConfirmationTemplateData } from 'utils/lib/ottehr-config/sendgrid';
+import { TaskStatus } from 'utils/lib/types/common';
+import { VisitType } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
+import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
+import { getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
+import { getPatientContactEmail, getPatientFirstName } from 'utils/lib/fhir/patient';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
 import {
-  BRANDING_CONFIG,
-  DATETIME_FULL_NO_YEAR,
-  getAddressStringForScheduleResource,
-  getNameFromScheduleResource,
-  getPatientContactEmail,
-  getPatientFirstName,
-  getSecret,
-  InPersonConfirmationTemplateData,
-  isTelemedAppointment,
-  SecretsKeys,
-  TaskStatus,
-  TelemedConfirmationTemplateData,
-  VisitType,
-} from 'utils';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
   getEmailClient,
   makeCancelVisitUrl,
   makeJoinVisitUrl,
   makePaperworkUrl,
   makeVisitLandingUrl,
-  reportMissingUserRelatedPerson,
   sendSmsToRelatedPersons,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from '../../../shared/communication';
+import { reportMissingUserRelatedPerson } from '../../../shared/invariants';
+import { wrapHandler } from '../../../shared/sentry';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 

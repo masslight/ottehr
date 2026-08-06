@@ -17,24 +17,16 @@ import {
   Procedure,
   Resource,
 } from 'fhir/r4b';
-import {
-  AdHocBillingInput,
-  AdHocBillingOutputSchema,
-  AdHocBillingRow,
-  getPatientFirstName,
-  getPatientLastName,
-  mapGenderToLabel,
-  PAYMENT_METHOD_EXTENSION_URL,
-} from 'utils';
+import { AdHocBillingInput, AdHocBillingOutputSchema, AdHocBillingRow } from 'utils/lib/types/adhoc/datasets/billing';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CURRENT_STATUS_TAG_SYSTEM } from '../../billing/shared';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  fetchAllPages,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { fetchAllPages } from '../../shared/fhir';
+import { wrapHandler } from '../../shared/sentry';
 import {
   buildEncounterRowContext,
   fetchAppointmentReportResources,

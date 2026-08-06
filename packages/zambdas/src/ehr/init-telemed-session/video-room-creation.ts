@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
-import { getRelatedPersonsForPatient, getSecret, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token } from '../../shared';
+import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getAuth0Token } from '../../shared/getAuth0Token';
 import { getPatientFromAppointment } from '../../shared/appointment/helpers';
 import { CreateTelemedVideoRoomResponse } from '../../shared/types/telemed/video-room.types';
 

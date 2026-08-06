@@ -1,4 +1,4 @@
-import { CancelTelemedAppointmentZambdaInput } from 'utils';
+import { CancelTelemedAppointmentZambdaInput } from 'utils/lib/types/api/cancel-telemed-appointment.types';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validatePrebookCancelParams } from '../../src/patient/appointment/prebook-cancel-appointment/validateRequestParameters';
 import { validateRequestParameters as validateTelemedCancelParams } from '../../src/patient/appointment/telemed-cancel-appointment/validateRequestParameters';

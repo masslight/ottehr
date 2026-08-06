@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Provenance } from 'fhir/r4b';
-import { PARTICIPATION_CODE_SYSTEM } from 'utils';
+import { PARTICIPATION_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 
 // The signer (`author`) and supervisor-approver (`verifier`) Provenance roles that back the
 // visit-note signature block. Written by pending-supervisor-approval / sign-appointment and read

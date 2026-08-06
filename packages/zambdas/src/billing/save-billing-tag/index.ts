@@ -1,8 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Basic, Claim } from 'fhir/r4b';
-import { CLAIM_TAG_SYSTEM, getPatchBinary, INVALID_INPUT_ERROR } from 'utils';
-import { checkOrCreateM2MClientToken, fetchAllPages, wrapHandler, ZambdaInput } from '../../shared';
+import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { fetchAllPages } from '../../shared/fhir';
+import { wrapHandler } from '../../shared/sentry';
 import { createBillingClient, fetchById, isSystemTag, TAG_CODE_SYSTEM, TAG_DESCRIPTION_URL } from '../shared';
 import { SaveBillingTagParams, validateRequestParameters } from './validateRequestParameters';
 

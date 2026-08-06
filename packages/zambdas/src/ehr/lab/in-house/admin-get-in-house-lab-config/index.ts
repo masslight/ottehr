@@ -1,13 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
-import { AdminGetInHouseLabConfigInput, getSecret, Secrets, SecretsKeys } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+import { AdminGetInHouseLabConfigInput } from 'utils/lib/types/data/in-house/in-house.types';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { topLevelCatch } from '../../../../shared/lambda';
+import { wrapHandler } from '../../../../shared/sentry';
 import { makeAdminInHouseLabConfigOutput } from '../../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 

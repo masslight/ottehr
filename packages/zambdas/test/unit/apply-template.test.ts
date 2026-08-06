@@ -9,15 +9,15 @@ import {
   Procedure,
   ServiceRequest,
 } from 'fhir/r4b';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import {
-  chartDataTagSystem,
-  CODE_SYSTEM_ICD_10,
-  DiagnosisDTO,
-  IN_HOUSE_TEST_CODE_SYSTEM,
   TEMPLATE_SECTION_DEFAULT_ACTIONS,
   TemplateSectionAction,
   TemplateSectionKey,
-} from 'utils';
+} from 'utils/lib/types/data/apply-template.types';
+import { chartDataTagSystem } from 'utils/lib/fhir/constants';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { describe, expect, test } from 'vitest';
 import { isExternalLabPlanServiceRequest } from '../../src/ehr/apply-template/apply-external-labs';

@@ -1,10 +1,8 @@
-import {
-  DeleteBillingTagInput,
-  DeleteBillingTagInputSchema,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-} from 'utils';
-import { safeValidate, validateJsonBody, ZambdaInput } from '../../shared';
+import { DeleteBillingTagInput, DeleteBillingTagInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
+import { validateJsonBody } from '../../shared/helpers';
 
 export interface DeleteBillingTagParams extends DeleteBillingTagInput {
   secrets: ZambdaInput['secrets'];

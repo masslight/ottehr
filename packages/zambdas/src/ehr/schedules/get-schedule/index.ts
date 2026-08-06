@@ -3,36 +3,41 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, Location, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
-  getPractitionerRoleAllCategories,
   getScheduleExtension,
-  getSlugForBookableResource,
   getTimezone,
-  INVALID_INPUT_ERROR,
-  INVALID_RESOURCE_ID_ERROR,
-  isLocationInPerson,
-  isLocationManuallyCreated,
-  isLocationVirtual,
-  isValidUUID,
-  LOCATION_REVIEW_LINK_EXTENSION_URL,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  MISSING_SCHEDULE_EXTENSION_ERROR,
-  RoleType,
-  ROOM_EXTENSION_URL,
-  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
-  SCHEDULE_NOT_FOUND_ERROR,
-  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
-  SCHEDULE_OWNER_NOT_FOUND_ERROR,
-  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   ScheduleDTO,
   ScheduleDTOOwner,
   ScheduleExtension,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  TIMEZONES,
-  userMe,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/utils/scheduleUtils';
+import {
+  INVALID_INPUT_ERROR,
+  INVALID_RESOURCE_ID_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+  MISSING_SCHEDULE_EXTENSION_ERROR,
+  SCHEDULE_NOT_FOUND_ERROR,
+  SCHEDULE_OWNER_NOT_FOUND_ERROR,
+} from 'utils/lib/types/errors';
+import {
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
+  ROOM_EXTENSION_URL,
+  SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
+  SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
+  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
+import { Secrets } from 'utils/lib/secrets';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
+import { getSlugForBookableResource } from 'utils/lib/fhir/helpers';
+import { isLocationInPerson, isLocationManuallyCreated, isLocationVirtual } from 'utils/lib/fhir/location';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { userMe } from 'utils/lib/auth/user-me.helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { addressStringFromAddress, getNameForOwner, getNameForPractitionerRole } from '../shared';
 
 let m2mToken: string;

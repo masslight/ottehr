@@ -28,41 +28,18 @@ import {
 } from 'fhir/r4b';
 import {
   ABNORMAL_RESULT_DR_TAG,
-  DiagnosticReportLabDetailPageDTO,
-  docRefIsAbnAndCurrent,
-  docRefIsLabelPDFAndCurrent,
-  docRefIsLabGeneratedResult,
-  docRefIsOrderPDFAndCurrent,
-  docRefIsOttehrGeneratedResultAndCurrent,
-  DynamicAOEInput,
-  EncounterExternalLabResult,
-  EncounterInHouseLabResult,
-  EXTERNAL_LAB_ERROR,
-  ExternalLabDocuments,
-  externalLabOrderIsManual,
-  ExternalLabOrderResult,
-  ExternalLabOrderResultConfig,
-  getAdditionalPlacerId,
-  getCoding,
-  getOrderNumber,
-  getOrderNumberFromDr,
-  getPresignedURL,
-  getTestDetailsFromActivityDefinition,
-  getTestItemCodeFromDr,
-  getTestNameOrCodeFromDr,
-  getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
   INCONCLUSIVE_RESULT_DR_TAG,
-  InHouseLabResult,
-  isExternalLabServiceRequest,
-  isInHouseLabServiceRequest,
-  isPSCOrder,
-  LAB_DR_TYPE_TAG,
-  LAB_OBS_VALUE_WITH_PRECISION_EXT,
-  LAB_ORDER_TASK,
-  LAB_RESULT_DOC_REF_CODING_CODE,
+  NEUTRAL_RESULT_DR_TAG,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import {
+  DiagnosticReportLabDetailPageDTO,
+  DynamicAOEInput,
+  ExternalLabDocuments,
   LabDocument,
   LabDocumentBase,
   LabDocumentByRequisition,
@@ -70,23 +47,53 @@ import {
   LabDocumentRelatedToServiceRequest,
   LabDocumentType,
   LabDrTypeTagCode,
-  LabelPdf,
   LabOrderResultDetails,
   LabType,
-  nameLabTest,
-  NEUTRAL_RESULT_DR_TAG,
+} from 'utils/lib/types/data/labs/labs.types';
+import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import {
+  EncounterExternalLabResult,
+  EncounterInHouseLabResult,
+  ExternalLabOrderResult,
+  ExternalLabOrderResultConfig,
+  InHouseLabResult,
   NonNormalResult,
+} from 'utils/lib/types/api/lab';
+import {
+  LAB_DR_TYPE_TAG,
+  LAB_OBS_VALUE_WITH_PRECISION_EXT,
+  LAB_ORDER_TASK,
+  LAB_RESULT_DOC_REF_CODING_CODE,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-  parseLabInfoFromServiceRequest,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
-  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
   SR_REVOKED_REASON_EXT,
-  WORKERS_COMP_ACCOUNT_TYPE,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { LabelPdf } from 'utils/lib/types/data/printing';
+import { PATIENT_BILLING_ACCOUNT_TYPE, WORKERS_COMP_ACCOUNT_TYPE } from 'utils/lib/fhir/constants';
+import {
+  docRefIsAbnAndCurrent,
+  docRefIsLabelPDFAndCurrent,
+  docRefIsLabGeneratedResult,
+  docRefIsOrderPDFAndCurrent,
+  docRefIsOttehrGeneratedResultAndCurrent,
+  externalLabOrderIsManual,
+  getAdditionalPlacerId,
+  getOrderNumber,
+  getOrderNumberFromDr,
+  getTestDetailsFromActivityDefinition,
+  getTestItemCodeFromDr,
+  getTestNameOrCodeFromDr,
+  isExternalLabServiceRequest,
+  isPSCOrder,
+  nameLabTest,
+  parseLabInfoFromServiceRequest,
+} from 'utils/lib/helpers/labs/helpers';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
 import { parseLabOrderStatusWithSpecificTask } from '../external/get-lab-orders/helpers';
 import { getInHouseLabTestUrlAndVersionForADFromServiceRequest } from './in-house-labs';
 

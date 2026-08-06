@@ -1,5 +1,6 @@
-import { Secrets } from 'utils';
-import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { Secrets } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../../shared/types/common';
+import { validateJsonBody } from '../../../shared/helpers';
 import { ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {

@@ -1,4 +1,4 @@
-import { RoleType } from 'utils';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters } from '../../src/ehr/update-user/validateRequestParameters';
 import { ZambdaInput } from '../../src/shared';

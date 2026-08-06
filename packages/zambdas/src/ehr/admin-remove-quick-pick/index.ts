@@ -1,15 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
-import { QuickPickRemoveInput, Secrets, validateDefined } from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  validateJsonBody,
-  validateString,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+import { QuickPickRemoveInput } from 'utils/lib/types/api/quick-picks.types';
+import { Secrets } from 'utils/lib/secrets';
+import { validateDefined } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { QUICK_PICK_TAG_SYSTEM } from '../shared/quick-pick-helpers';
 
 interface QuickPickRemoveInputValidated extends QuickPickRemoveInput {

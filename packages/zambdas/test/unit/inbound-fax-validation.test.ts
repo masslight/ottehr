@@ -1,5 +1,5 @@
 import { Communication } from 'fhir/r4b';
-import { APIError, APIErrorCode } from 'utils';
+import { APIError, APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, test } from 'vitest';
 import { validateRequestParameters as validateDeleteParams } from '../../src/ehr/delete-inbound-fax/validateRequestParameters';
 import { validateRequestParameters as validateFileParams } from '../../src/ehr/file-inbound-fax/validateRequestParameters';

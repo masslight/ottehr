@@ -1,24 +1,23 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
+import { ALREADY_EXISTS_WITH_MESSAGE } from 'utils/lib/types/errors';
+import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import {
-  ALREADY_EXISTS_WITH_MESSAGE,
-  CODE_SYSTEM_ICD_10,
-  getAllFhirSearchPages,
-  getSecret,
   PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE,
   PATIENT_EDUCATION_APPROVED_ICD_EXTENSION_URL,
-  SecretsKeys,
+} from 'utils/lib/types/data/paperwork/paperwork.constants';
+import {
   UpdateApprovedPatientEducationCodesInput,
   UpdateApprovedPatientEducationCodesOutput,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  topLevelCatch,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+} from 'utils/lib/types/api/approved-patient-education.types';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { topLevelCatch } from '../../shared/lambda';
+import { wrapHandler } from '../../shared/sentry';
 import { findConflictingApprovedEducationIcdCodes } from '../shared/approved-patient-education-helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 

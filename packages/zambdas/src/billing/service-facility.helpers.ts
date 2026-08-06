@@ -1,14 +1,14 @@
 import { Coding, Location } from 'fhir/r4b';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   FHIR_IDENTIFIER_CLIA,
   FHIR_IDENTIFIER_CODE_NPI,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
-  getNPI,
-  SaveServiceFacilityInput,
-  ServiceFacilityItem,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { SaveServiceFacilityInput } from 'utils/lib/types/data/billing/billing.schemas';
+import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
+import { getNPI } from 'utils/lib/fhir/helpers';
 import { isWorkingCopy, SOURCE_IDENTIFIER_SYSTEM } from './shared';
 
 export function getCLIA(location: Location): string | undefined {

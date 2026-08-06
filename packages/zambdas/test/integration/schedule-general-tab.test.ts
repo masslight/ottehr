@@ -3,16 +3,16 @@ import { randomUUID } from 'crypto';
 import { Extension, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   LOCATION_REVIEW_LINK_EXTENSION_URL,
-  M2MClientMockType,
   PUBLIC_EXTENSION_BASE_URL,
-  RoleType,
   ROOM_EXTENSION_URL,
   SCHEDULE_OWNER_ADVAPACS_LOCATION_EXTENSION_URL,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
-  ScheduleDTO,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { ScheduleDTO } from 'utils/lib/utils/scheduleUtils';
 import { assert } from 'vitest';
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {

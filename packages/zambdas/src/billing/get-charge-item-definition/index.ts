@@ -4,11 +4,13 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import {
   BillingChargeItemDefinition,
   BillingChargeItemDefinitionProcedureCode,
-  CPT_CODE_SYSTEM,
-  EXTENSION_URL_CPT_MODIFIER,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-} from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+} from 'utils/lib/types/data/billing/billing.types';
+import { CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
+import { EXTENSION_URL_CPT_MODIFIER } from 'utils/lib/helpers/rcm/constants';
+import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { wrapHandler } from '../../shared/sentry';
 import {
   CHARGE_ITEM_DEFINITION_TYPE_SYSTEM,
   createBillingClient,

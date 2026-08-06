@@ -4,20 +4,20 @@ import { HealthcareService, Location } from 'fhir/r4b';
 import {
   BookableItem,
   BookableItemListResponse,
-  createOystehrClient,
-  getAllFhirSearchPages,
   GetBookableItemListParams,
-  getSecret,
-  getSlugForBookableResource,
-  isLocationInPerson,
-  isLocationVirtual,
-  SecretsKeys,
   ServiceMode,
-  ServiceModeCoding,
-  serviceModeForHealthcareService,
   stateCodeToFullName,
-} from 'utils';
-import { getAuth0Token, safeJsonParse, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/common';
+import { ServiceModeCoding } from 'utils/lib/fhir/constants';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { getSlugForBookableResource, serviceModeForHealthcareService } from 'utils/lib/fhir/helpers';
+import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { ZambdaInput } from '../../../shared/types/common';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { safeJsonParse } from '../../../shared/validation';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'list-bookables';
 

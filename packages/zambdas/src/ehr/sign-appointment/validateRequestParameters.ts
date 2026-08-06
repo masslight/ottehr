@@ -1,6 +1,8 @@
-import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED, SignAppointmentInput } from 'utils';
+import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { SignAppointmentInput } from 'utils/lib/types/api/sign-appointment/sign-appointment.types';
 import { z } from 'zod';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 const SignAppointmentSchema = z.object({
   appointmentId: z.string().uuid(),

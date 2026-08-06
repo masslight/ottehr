@@ -4,21 +4,23 @@ import { Appointment, Encounter, HealthcareService, Patient, QuestionnaireRespon
 import { DateTime } from 'luxon';
 import {
   CONSENT_ATTESTATION_SIG_TYPE,
-  DOB_DATE_FORMAT,
-  EHRVisitDetails,
   FHIR_EXTENSION,
-  getAttestedConsentFromEncounter,
-  getReasonForVisitAndAdditionalDetailsFromAppointment,
-  getReasonForVisitFromAppointment,
-  getReasonForVisitOptionsForServiceCategory,
-  INTEGRATION_TEST_TAG_SYSTEM,
-  isValidUUID,
-  REASON_ADDITIONAL_MAX_CHAR,
   SERVICE_CATEGORY_CONFIG_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
   SERVICE_CATEGORY_TAG,
-  UpdateVisitDetailsInput,
-} from 'utils';
+} from 'utils/lib/fhir/constants';
+import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
+import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
+import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
+import { REASON_ADDITIONAL_MAX_CHAR } from 'utils/lib/validation/constants';
+import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
+import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
+import {
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
+  getReasonForVisitFromAppointment,
+} from 'utils/lib/fhir/appointments';
+import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { assert, inject } from 'vitest';
 import { createClinicalOystehrClient, getAuth0Token } from '../../src/shared';

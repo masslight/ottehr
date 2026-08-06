@@ -15,15 +15,14 @@ import {
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { CODE_SYSTEM_CPT } from 'utils/lib/helpers/rcm/constants';
 import {
-  CODE_SYSTEM_CPT,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
   IN_HOUSE_RESULTS_VALUESET_SYSTEM,
   IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
-  LabComponentValueSetConfig,
   OD_DISPLAY_CONFIG,
   OD_VALUE_VALIDATION_CONFIG,
   REFLEX_ARTIFACT_DISPLAY,
@@ -34,10 +33,12 @@ import {
   REFLEX_TEST_TO_RUN_NAME_URL,
   REFLEX_TEST_TO_RUN_URL,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
-  Validation,
-} from 'utils';
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import { LabComponentValueSetConfig, Validation } from 'utils/lib/types/data/in-house/in-house.types';
 import { sanitizeForId } from '../../ehr/lab/shared/in-house-labs';
-import { createClinicalOystehrClient, getAuth0Token, makeCptModifierExtension } from '../../shared';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { makeCptModifierExtension } from '../../shared/candid';
 import { testItems as baseTestItems } from '../data/base-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';

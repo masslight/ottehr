@@ -2,13 +2,16 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   BillingInvoiceTaskClaim,
-  chooseJson,
   CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY,
   CreateInvoiceTasksForBillingClaimsResponse,
-} from 'utils';
+} from 'utils/lib/types/api/invoicing.types';
+import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { fetchAllActivePatientArClaims } from '../../billing/search-billing-patient-ar-claims/handler';
 import { createBillingClient } from '../../billing/shared';
-import { checkOrCreateM2MClientToken, isOttehrBillingInvoicingEnabled, wrapHandler, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { isOttehrBillingInvoicingEnabled } from '../../shared/invoice-tasks';
+import { wrapHandler } from '../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;

@@ -1,8 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ERX_TASK, Secrets, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils';
-import { getAuth0Token, wrapHandler } from '../../../shared';
+import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
+import { Secrets } from 'utils/lib/secrets';
+import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { wrapHandler } from '../../../shared/sentry';
 import { assertDefined, createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { createTask } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types';

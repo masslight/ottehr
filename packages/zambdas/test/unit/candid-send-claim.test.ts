@@ -1,4 +1,4 @@
-import { MISSING_REQUEST_SECRETS, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils';
+import { MISSING_REQUEST_SECRETS, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────

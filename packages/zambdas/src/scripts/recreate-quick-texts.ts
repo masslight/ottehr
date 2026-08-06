@@ -1,9 +1,10 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
-import { QuickTextQuickPickData } from 'utils';
+import { QuickTextQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { QUICK_TEXT_QUICK_PICK_CATEGORY } from '../ehr/shared/quick-pick-categories';
 import { quickPickToActivityDefinition, searchQuickPicks } from '../ehr/shared/quick-pick-helpers';
-import { createClinicalOystehrClient, getAuth0Token } from '../shared';
+import { createClinicalOystehrClient } from '../shared/helpers';
+import { getAuth0Token } from '../shared/getAuth0Token';
 import seed from './data/quick-texts-seed.json';
 import { performEffectWithEnvFile } from './helpers';
 

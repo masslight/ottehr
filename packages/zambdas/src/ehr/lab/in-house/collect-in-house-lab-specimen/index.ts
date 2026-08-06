@@ -5,22 +5,22 @@ import { Encounter, FhirResource, Practitioner, ServiceRequest, Specimen, Task }
 import {
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
-  getAttendingPractitionerId,
-  getCoding,
-  getFullestAvailableName,
-  IN_HOUSE_LAB_ERROR,
-  IN_HOUSE_LAB_TASK,
-  Secrets,
-  SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
-  TASK_INPUT_SYSTEM,
-} from 'utils';
+} from 'utils/lib/types/data/in-house/in-house.types';
+import { IN_HOUSE_LAB_ERROR } from 'utils/lib/types/errors';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getMyPractitionerId,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+  IN_HOUSE_LAB_TASK,
+  SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+} from 'utils/lib/types/data/in-house/in-house.constants';
+import { Secrets } from 'utils/lib/secrets';
+import { TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getCoding } from 'utils/lib/fhir/helpers';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { getMyPractitionerId } from '../../../../shared/practitioners';
+import { wrapHandler } from '../../../../shared/sentry';
 import { createOwnerReference, createTask, getTaskLocation } from '../../../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;

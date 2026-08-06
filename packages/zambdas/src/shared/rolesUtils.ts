@@ -1,5 +1,5 @@
 import Oystehr, { Role, RoleListItem } from '@oystehr/sdk';
-import { AccessPolicy, RoleType } from 'utils';
+import { AccessPolicy, RoleType } from 'utils/lib/types/api/user.types';
 import {
   ADMINISTRATOR_RULES,
   CLINICIAN_RULES,

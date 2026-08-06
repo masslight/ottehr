@@ -1,11 +1,12 @@
 import { Task } from 'fhir/r4b';
+import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
 import {
-  MISSING_REQUEST_BODY,
-  parseInvoiceTaskInput,
   SubSendInvoiceToPatientTaskInput,
   SubSendInvoiceToPatientTaskInputSchema,
-} from 'utils';
-import { safeJsonParse, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/api/invoicing.types';
+import { parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse } from '../../../shared/validation';
 
 export function validateRequestParameters(
   input: ZambdaInput

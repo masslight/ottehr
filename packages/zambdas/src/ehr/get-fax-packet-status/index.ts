@@ -1,13 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
-import { FAX_PACKET_RESULTS_TASK_OUTPUT, FaxJobStatus, FaxRecipientResult, GetFaxPacketStatusOutput } from 'utils';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getUser,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+  FAX_PACKET_RESULTS_TASK_OUTPUT,
+  FaxJobStatus,
+  FaxRecipientResult,
+  GetFaxPacketStatusOutput,
+} from 'utils/lib/types/api/fax.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-fax-packet-status';

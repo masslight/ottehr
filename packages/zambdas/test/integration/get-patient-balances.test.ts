@@ -4,7 +4,7 @@ import { APIResponse } from 'candidhealth/core';
 import { randomUUID } from 'crypto';
 import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { GetPatientBalancesZambdaOutput } from 'utils';
+import { GetPatientBalancesZambdaOutput } from 'utils/lib/types/data/payment/payment-method-types';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { performEffect } from '../../src/ehr/get-patient-balances';
 import { validateInput, validateSecrets } from '../../src/ehr/get-patient-balances/validateRequestParameters';

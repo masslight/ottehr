@@ -1,10 +1,7 @@
-import {
-  MISSING_AUTH_TOKEN,
-  MISSING_REQUEST_BODY,
-  RetryActionLogInputSchema,
-  RetryActionLogInputValidated,
-} from 'utils';
-import { safeJsonParse, safeValidate, ZambdaInput } from '../../shared';
+import { MISSING_AUTH_TOKEN, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { RetryActionLogInputSchema, RetryActionLogInputValidated } from 'utils/lib/types/api/action-logs.types';
+import { ZambdaInput } from '../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../shared/validation';
 
 export function validateRequestParameters(input: ZambdaInput): RetryActionLogInputValidated {
   if (!input.headers?.Authorization) throw MISSING_AUTH_TOKEN;

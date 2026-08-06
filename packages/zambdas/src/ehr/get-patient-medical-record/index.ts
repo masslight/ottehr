@@ -4,21 +4,19 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
-  getAllFhirSearchPages,
-  getFileNameFromUrl,
-  GetPatientMedicalRecordOutput,
-  MEDICAL_RECORD_EXPORT_CODE,
-  MEDICAL_RECORD_TOO_LARGE_ERROR,
-  MIME_TYPES,
-  OTTEHR_CODE_SYSTEM_BASE_URL,
-  PATIENT_FOLDERS_CODE,
-  sanitizeFileNameForZ3,
-  Secrets,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import { BUCKET_NAMES, OTTEHR_CODE_SYSTEM_BASE_URL } from 'utils/lib/fhir/constants';
+import { GetPatientMedicalRecordOutput } from 'utils/lib/types/data/get-patient-medical-record.types';
+import { MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { MEDICAL_RECORD_TOO_LARGE_ERROR } from 'utils/lib/types/errors';
+import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
+import { Secrets } from 'utils/lib/secrets';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getFileNameFromUrl, MIME_TYPES, sanitizeFileNameForZ3 } from 'utils/lib/utils/file';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';

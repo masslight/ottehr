@@ -2,25 +2,19 @@ import Oystehr, { BatchInput, BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Encounter, Patient, Resource } from 'fhir/r4b';
+import { RequiredProps } from 'utils/lib/types/typescript-helpers';
 import {
-  createOystehrClient,
-  getPatchBinary,
-  getSecret,
-  getTelemedLocation,
-  RequiredProps,
-  SecretsKeys,
   UpdateAppointmentRequestParams,
   UpdateAppointmentResponse,
-} from 'utils';
-import {
-  checkOrCreateM2MClientToken,
-  createUpdateUserRelatedResources,
-  creatingPatientUpdateRequest,
-  getUser,
-  userHasAccessToPatient,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { getTelemedLocation } from 'utils/lib/fhir/location';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken, getUser, userHasAccessToPatient } from '../../../shared/auth';
+import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '../../../shared/appointment/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'telemed-update-appointment';

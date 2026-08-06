@@ -1,13 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  APPOINTMENT_NOT_FOUND_ERROR,
-  BUCKET_NAMES,
-  getAppointmentResourceById,
-  GetInsuranceCardSuggestionsResponse,
-} from 'utils';
+import { APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { GetInsuranceCardSuggestionsResponse } from 'utils/lib/types/api/get-insurance-card-suggestions.types';
+import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
 import { downloadOcrSourceImage } from '../../ehr/card-extraction-shared/extraction-helpers';
 import { extractInsuranceCardFieldsFromImage } from '../../ehr/extract-insurance-card/helpers';
-import { createClinicalOystehrClient, getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../shared/types/common';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getAuth0Token } from '../../shared/getAuth0Token';
+import { wrapHandler } from '../../shared/sentry';
 import { assertOwnedZ3Url } from '../card-suggestions-shared';
 import { validateRequestParameters } from './validateRequestParameters';
 

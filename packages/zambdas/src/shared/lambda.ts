@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { APIError, getSecret, isApiError, Secrets, SecretsKeys } from 'utils';
+import { APIError, isApiError } from 'utils/lib/types/errors';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { sendErrors } from './errors';
 
 export const lambdaResponse = (statusCode: number, body: any): APIGatewayProxyResult => {

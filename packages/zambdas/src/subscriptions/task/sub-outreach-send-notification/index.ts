@@ -3,35 +3,21 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { phone } from 'phone';
-import {
-  convertOutreachTextToHtml,
-  FEATURE_FLAGS_CONFIG,
-  getFullestAvailableName,
-  getPatientContactEmail,
-  getPhoneNumberForIndividual,
-  getSecret,
-  getTaskResource,
-  isEmailValid,
-  maskEmail,
-  maskPhoneNumber,
-  Secrets,
-  SecretsKeys,
-  TaskIndicator,
-} from 'utils';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { convertOutreachTextToHtml, isEmailValid, maskEmail, maskPhoneNumber } from 'utils/lib/helpers/helpers';
+import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { getTaskResource } from 'utils/lib/fhir/helpers';
 import { NotificationMedium } from '../../../rcm/scheduled-outreach-config/helpers';
-import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  createOutreachEmailCommunication,
-  fillOutreachTemplate,
-  getEmailClient,
-  resolveTemplatePlaceholders,
-  safeJsonParse,
-  sendSmsForPatient,
-  StatementType,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+import { StatementType } from '../../../shared/statements/get-statement-details';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { createOutreachEmailCommunication, getEmailClient, sendSmsForPatient } from '../../../shared/communication';
+import { fillOutreachTemplate, resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
+import { safeJsonParse } from '../../../shared/validation';
+import { wrapHandler } from '../../../shared/sentry';
 
 let m2mToken: string;
 

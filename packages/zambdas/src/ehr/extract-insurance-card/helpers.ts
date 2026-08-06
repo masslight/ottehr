@@ -4,8 +4,8 @@ import {
   INSURANCE_CARD_EXTRACTION_EXTENSION_URL,
   InsuranceCardExtraction,
   InsuranceCardExtractionFields,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/data/documents';
+import { Secrets } from 'utils/lib/secrets';
 import { invokeChatbotVertexAI } from '../../shared/ai';
 import {
   assertBooleanClassifier,

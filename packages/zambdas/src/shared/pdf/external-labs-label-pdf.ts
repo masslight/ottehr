@@ -3,16 +3,16 @@ import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { StandardFonts } from 'pdf-lib';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import {
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
   EXTERNAL_LAB_LABEL_PDF_BASE_NAME,
   EXTERNAL_LAB_LABEL_PDF_DOC_REF_DOCTYPE,
-  ExternalLabsLabelConfig,
-  getPresignedURL,
-  LabelConfig,
-  Secrets,
-} from 'utils';
+} from 'utils/lib/types/data/labs/labs.constants';
+import { ExternalLabsLabelConfig } from 'utils/lib/types/data/labs/labs.types';
+import { LabelConfig } from 'utils/lib/types/common';
+import { Secrets } from 'utils/lib/secrets';
+import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { makeZ3Url } from './../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from './../z3Utils';
 import { getLabListResource } from './lab-pdf-utils';

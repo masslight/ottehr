@@ -2,24 +2,27 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Attachment, CodeableConcept, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CreateDocumentReferenceInput, createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import {
-  CreateDocumentReferenceInput,
-  createFilesDocumentReferences,
   EHRImageUploadType,
-  FHIR_RESOURCE_NOT_FOUND,
-  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  INSURANCE_CARD_CODE,
-  INVALID_INPUT_ERROR,
-  isValidUUID,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-  PHOTO_ID_CARD_CODE,
-  Secrets,
   UpdateVisitFilesInput,
   UpdateVisitFilesOutput,
   ValidEHRUploadTypes,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+} from 'utils/lib/types/api/update-visit-details.types';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils/lib/types/errors';
+import { INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { Secrets } from 'utils/lib/secrets';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
 
 const ZAMBDA_NAME = 'update-visit-files';
 

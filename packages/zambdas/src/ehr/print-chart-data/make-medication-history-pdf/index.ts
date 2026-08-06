@@ -3,19 +3,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Appointment, CodeableConcept, ContactPoint, Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import {
-  BUCKET_NAMES,
-  createFilesDocumentReferences,
-  formatDOB,
-  genderMap,
-  getPresignedURL,
   MEDICATION_HISTORY_DOC_REF_CODING,
   MedicationInfoForPrinting,
-  Secrets,
-  standardizePhoneNumber,
-  uploadPDF,
-} from 'utils';
-import { checkOrCreateM2MClientToken, getPatientLastFirstName, wrapHandler } from '../../../shared';
+} from 'utils/lib/types/api/print-chart-data/print-chart-data.types';
+import { Secrets } from 'utils/lib/secrets';
+import { createFilesDocumentReferences, genderMap } from 'utils/lib/fhir/helpers';
+import { formatDOB } from 'utils/lib/utils/dateUtils';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
+import { uploadPDF } from 'utils/lib/utils/pdf';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { getPatientLastFirstName } from '../../../shared/patients';
+import { wrapHandler } from '../../../shared/sentry';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { PdfRenderConfig, renderPdf, StyleFactory } from '../../../shared/pdf/pdf-common';
 import { PdfInfo, rgbNormalized } from '../../../shared/pdf/pdf-utils';

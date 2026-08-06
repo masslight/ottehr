@@ -5,23 +5,20 @@ import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   INVALID_INPUT_ERROR,
-  isValidUUID,
-  ListPatientPaymentInput,
-  ListPatientPaymentResponse,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  Secrets,
-} from 'utils';
-import {
-  createClinicalOystehrClient,
-  getAuth0Token,
-  getStripeClient,
-  lambdaResponse,
-  safeJsonParse,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../shared';
+} from 'utils/lib/types/errors';
+import { ListPatientPaymentInput, ListPatientPaymentResponse } from 'utils/lib/types/api/patient-payment-types';
+import { Secrets } from 'utils/lib/secrets';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token } from '../../../shared/getAuth0Token';
+import { getStripeClient } from '../../../shared/stripeIntegration';
+import { lambdaResponse } from '../../../shared/lambda';
+import { safeJsonParse } from '../../../shared/validation';
+import { wrapHandler } from '../../../shared/sentry';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 import { getPaymentsForPatient } from '../helpers';
 

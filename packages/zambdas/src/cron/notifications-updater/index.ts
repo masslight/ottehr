@@ -18,51 +18,51 @@ import {
   AppointmentProviderNotificationTypes,
   CATEGORY_NOTIFICATION_TAG_CODE,
   CATEGORY_NOTIFICATION_TAG_SYSTEM,
-  checkEncounterHasPractitioner,
-  ERX_TASK,
-  getAllFhirSearchPages,
-  getFullestAvailableName,
-  getInPersonVisitStatus,
-  getPatchBinary,
-  getPatchOperationForNewMetaTag,
-  getProviderNotificationPreferencesV2,
-  getProviderNotificationSettingsForPractitioner,
-  getUiTaskCategoryForCode,
-  getVideoRoomResourceExtension,
-  hasExplicitProviderNotificationPreferencesV2,
-  normalizePhoneNumber,
-  notificationRowMatchesLocation,
-  NotificationRowPref,
-  OTTEHR_MODULE,
-  OttehrTaskSystem,
   PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
-  ProviderNotificationPreferencesV2,
   ProviderNotificationSettings,
-  removePrefix,
-  RoleType,
-  Secrets,
-  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-  UI_TASK_CATEGORY_LABELS,
-  USER_TIMEZONE_EXTENSION_URL,
-  VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
   VIRTUAL_VISIT_SCHEDULED_TAG_CODE,
   VIRTUAL_VISIT_SCHEDULED_TAG_SYSTEM,
-  VisitStatusLabel,
   WAITING_ROOM_NOTIFIED_TAG_CODE,
   WAITING_ROOM_NOTIFIED_TAG_SYSTEM,
-} from 'utils';
+} from 'utils/lib/types/api/practitioner.types';
+import { ERX_TASK } from 'utils/lib/types/data/tasks/types';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { OttehrTaskSystem } from 'utils/lib/types/common';
+import { RoleType } from 'utils/lib/types/api/user.types';
+import { Secrets } from 'utils/lib/secrets';
 import {
-  checkOrCreateM2MClientToken,
-  createClinicalOystehrClient,
-  getEmployees,
-  getRoleMembers,
-  getRoles,
-  wrapHandler,
-  ZambdaInput,
-} from '../../shared';
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+  VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
+} from 'utils/lib/fhir/constants';
+import { USER_TIMEZONE_EXTENSION_URL } from 'utils/lib/types/constants';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import {
+  checkEncounterHasPractitioner,
+  getFullestAvailableName,
+  getProviderNotificationPreferencesV2,
+  getProviderNotificationSettingsForPractitioner,
+  hasExplicitProviderNotificationPreferencesV2,
+} from 'utils/lib/fhir/patient';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
+import { getPatchBinary, getPatchOperationForNewMetaTag, normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
+import {
+  getUiTaskCategoryForCode,
+  notificationRowMatchesLocation,
+  NotificationRowPref,
+  ProviderNotificationPreferencesV2,
+  UI_TASK_CATEGORY_LABELS,
+} from 'utils/lib/types/api/provider-notifications';
+import { getVideoRoomResourceExtension } from 'utils/lib/fhir/helpers';
+import { removePrefix } from 'utils/lib/helpers/helpers';
+import { ZambdaInput } from '../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getEmployees, getRoleMembers, getRoles } from '../../shared/users.helper';
+import { wrapHandler } from '../../shared/sentry';
 import { getTaskLocation } from '../../shared/tasks';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {

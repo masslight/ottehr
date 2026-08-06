@@ -1,7 +1,9 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { fixAndParseJsonObjectFromString, InferAdHocLayersOutput, InferAdHocLayersOutputSchema } from 'utils';
-import { wrapHandler, ZambdaInput } from '../../shared';
+import { InferAdHocLayersOutput, InferAdHocLayersOutputSchema } from 'utils/lib/types/adhoc/generation/infer.types';
+import { fixAndParseJsonObjectFromString } from 'utils/lib/validation/json-fix';
+import { ZambdaInput } from '../../shared/types/common';
+import { wrapHandler } from '../../shared/sentry';
 import { invokeChatbotVertexAI, VERTEX_AI_MODEL } from '../../shared/ai';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { validateRequestParameters } from './validateRequestParameters';

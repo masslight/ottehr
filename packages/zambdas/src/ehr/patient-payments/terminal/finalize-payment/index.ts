@@ -5,37 +5,37 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
-  FinalizePatientPaymentTerminalInput,
-  FinalizePatientPaymentTerminalResponse,
   GENERIC_STRIPE_PAYMENT_ERROR,
-  getSecret,
-  getStripeAccountForAppointmentOrEncounter,
-  getStripeCustomerIdFromAccount,
-  getTaskResource,
   INVALID_INPUT_ERROR,
-  isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
   parseStripeError,
-  PAYMENT_METHOD_EXTENSION_URL,
-  SecretsKeys,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-  TaskIndicator,
-  TIMEZONES,
-} from 'utils';
+} from 'utils/lib/types/errors';
 import {
-  createClinicalOystehrClient,
-  getAuth0Token,
+  FinalizePatientPaymentTerminalInput,
+  FinalizePatientPaymentTerminalResponse,
+} from 'utils/lib/types/api/patient-payment-types';
+import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { TaskIndicator } from 'utils/lib/types/common';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getStripeCustomerIdFromAccount, getTaskResource } from 'utils/lib/fhir/helpers';
+import { isValidUUID } from 'utils/lib/validation/helper';
+import { ZambdaInput } from '../../../../shared/types/common';
+import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { getAuth0Token } from '../../../../shared/getAuth0Token';
+import {
   getStripeClient,
-  getUser,
-  lambdaResponse,
   makeBusinessIdentifierForStripePayment,
-  safeJsonParse,
   STRIPE_PAYMENT_ID_SYSTEM,
-  wrapHandler,
-  ZambdaInput,
-} from '../../../../shared';
+} from '../../../../shared/stripeIntegration';
+import { getUser } from '../../../../shared/auth';
+import { lambdaResponse } from '../../../../shared/lambda';
+import { safeJsonParse } from '../../../../shared/validation';
+import { wrapHandler } from '../../../../shared/sentry';
 import { getAccountAndCoverageResourcesForPatient } from '../../../shared/harvest';
 
 const ZAMBDA_NAME = 'patient-payments-terminal-finalize-payment';

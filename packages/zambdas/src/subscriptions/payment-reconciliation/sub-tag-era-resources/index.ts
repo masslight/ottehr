@@ -1,14 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClaimResponse, PaymentReconciliation, Provenance } from 'fhir/r4b';
-import { sleep } from 'utils';
+import { sleep } from 'utils/lib/helpers/helpers';
 import {
   eraProvenanceTargetIds,
   fetchClaimResponsesFromEraProvenances,
   fetchEraProcessingProvenances,
 } from '../../../billing/claim-amounts';
 import { createEraReadClient, fetchById, tagEraResources } from '../../../billing/shared';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../../shared';
+import { ZambdaInput } from '../../../shared/types/common';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { wrapHandler } from '../../../shared/sentry';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'sub-tag-era-resources';
