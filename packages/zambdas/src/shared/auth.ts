@@ -1,6 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Patient, RelatedPerson } from 'fhir/r4b';
 import { Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
 import {
