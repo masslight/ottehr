@@ -2,16 +2,15 @@ import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputReque
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
-import {
-  FlowService,
-  makeOptimisticLockIfMatchHeader,
-  PAPERWORK_FLOW_ERROR,
-  PAPERWORK_FLOW_TAG,
-  PaperworkFlowBase,
-  PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
-  ServiceMode,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createClinicalOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { ServiceMode } from 'utils/lib/types/common';
+import { FlowService, PaperworkFlowBase } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
+import { PAPERWORK_FLOW_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken } from '../../../shared/auth';
+import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { wrapHandler } from '../../../shared/sentry';
+import { ZambdaInput } from '../../../shared/types/common';
 import { patchQuestionnaireVersion } from '../../practice-managed-questionnaire/helpers';
 import {
   buildFlowQuestionnaire,

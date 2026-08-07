@@ -3,24 +3,21 @@ import { Operation } from 'fast-json-patch';
 import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import {
-  FlowForm,
-  FlowService,
-  getAllFhirSearchPages,
-  getSecret,
-  IN_PERSON_INTAKE_PAPERWORK_CANONICAL,
-  makeOptimisticLockIfMatchHeader,
   PAPERWORK_FLOW_INPERSON_EXTENSION_URL,
   PAPERWORK_FLOW_MODE_EXTENSION_URL,
   PAPERWORK_FLOW_TAG,
   PAPERWORK_FLOW_VIRTUAL_EXTENSION_URL,
-  Secrets,
-  SecretsKeys,
   SERVICE_CATEGORY_TAG,
-  ServiceMode,
   SYSTEM_MANAGED_SERVICE_TAG_SYSTEM,
-  VIRTUAL_INTAKE_PAPERWORK_CANONICAL,
-} from 'utils';
-import { sendErrors } from '../../../shared';
+} from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork';
+import { VIRTUAL_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { ServiceMode } from 'utils/lib/types/common';
+import { FlowForm, FlowService } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
+import { sendErrors } from '../../../shared/errors';
 
 export const healthcareServiceExtensionUrlMap = {
   [ServiceMode['in-person']]: PAPERWORK_FLOW_INPERSON_EXTENSION_URL,

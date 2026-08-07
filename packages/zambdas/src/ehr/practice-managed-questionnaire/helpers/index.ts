@@ -2,7 +2,11 @@ import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputReque
 import { Questionnaire } from 'fhir/r4b';
 import { PAPERWORK_FLOW_TAG, PRACTICE_MANAGED_QUESTIONNAIRE_TAG } from 'utils/lib/fhir/constants';
 import { PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION } from 'utils/lib/helpers/practice-managed-questionnaires';
-import { searchActiveQuestionnairesByTag, searchServiceCategoryHealthcareServices } from '../../paperwork-flow/shared';
+import {
+  PAPERWORK_FLOW_BASE_VERSION,
+  searchActiveQuestionnairesByTag,
+  searchServiceCategoryHealthcareServices,
+} from '../../paperwork-flow/shared';
 
 export const questionnaireElements = ['id', 'title', 'status', 'url', 'version', 'meta'] as const;
 export type FhirQuestionnaireSubset = Pick<Questionnaire, (typeof questionnaireElements)[number]>;
