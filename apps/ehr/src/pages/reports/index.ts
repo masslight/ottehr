@@ -1,3 +1,4 @@
+export { default as AdHocReport } from '../../features/report-builder/page/ReportBuilderPage';
 export { default as AiAssistedEncounters } from './AiAssistedEncounters';
 export { default as CompleteEncounters } from './CompleteEncounters';
 export { default as DailyPayments } from './DailyPayments';

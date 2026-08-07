@@ -1,6 +1,6 @@
 {
   "name": "billing-ui",
-  "version": "1.40.7",
+  "version": "1.40.9",
   "private": true,
   "type": "module",
   "engines": {
@@ -20,7 +20,7 @@
     ]
   },
   "scripts": {
-    "start": "vite --mode $([ \"$ENV\" = \"local\" ] && echo default || echo ${ENV:-default})",
+    "start": "vite --force --mode $([ \"$ENV\" = \"local\" ] && echo default || echo ${ENV:-default})",
     "build": "tsc && vite build --mode default",
     "build:env": "ENV=$npm_config_env npm run build-skeleton",
     "build:local": "npm run build",
