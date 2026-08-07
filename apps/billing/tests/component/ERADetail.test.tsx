@@ -32,8 +32,8 @@ vi.mock('notistack', () => ({
 }));
 
 // DataGridPro doesn't render rows under jsdom (no layout/ResizeObserver). Replace it with a
-// stand-in that renders headers, every cell (via renderCell/valueFormatter), each row's detail
-// panel content, and buttons that drive onCellClick — enough to exercise the page's own wiring.
+// stand-in that renders headers, every cell (via renderCell/valueFormatter), and a per-row button
+// that drives onRowClick — enough to exercise the page's own wiring.
 vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
   const original = await importOriginal<typeof import('@mui/x-data-grid-pro')>();
   return {
@@ -42,8 +42,7 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
       rows = [],
       columns = [],
       getRowId,
-      getDetailPanelContent,
-      onCellClick,
+      onRowClick,
     }: {
       rows: Record<string, unknown>[];
       columns: {
@@ -53,8 +52,7 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
         valueFormatter?: (params: { value: unknown }) => ReactNode;
       }[];
       getRowId?: (row: Record<string, unknown>) => string;
-      getDetailPanelContent?: (params: { row: Record<string, unknown>; id: string }) => ReactNode;
-      onCellClick?: (params: { field: string; row: Record<string, unknown>; id: string }) => void;
+      onRowClick?: (params: { row: Record<string, unknown>; id: string }) => void;
     }) => (
       <div>
         <div data-testid="grid-headers">{columns.map((col) => col.headerName).join('|')}</div>
@@ -62,10 +60,7 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
           const id = getRowId ? getRowId(row) : String(row.id);
           return (
             <div key={id} data-testid={`row-${id}`}>
-              <button
-                onClick={() => onCellClick?.({ field: original.GRID_DETAIL_PANEL_TOGGLE_FIELD, row, id })}
-              >{`toggle-${id}`}</button>
-              <button onClick={() => onCellClick?.({ field: 'patientName', row, id })}>{`open-${id}`}</button>
+              <button onClick={() => onRowClick?.({ row, id })}>{`open-${id}`}</button>
               {columns.map((col) => {
                 const value = row[col.field];
                 return (
@@ -78,7 +73,6 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
                   </span>
                 );
               })}
-              <div data-testid={`panel-${id}`}>{getDetailPanelContent?.({ row, id })}</div>
             </div>
           );
         })}
@@ -91,34 +85,15 @@ const matchedRemit: EraClaimRemit = {
   claimResponseId: 'cr-1',
   created: '2026-07-15',
   outcome: 'complete',
-  disposition: 'Processed as primary',
+  disposition: '',
   eraStatusCode: '1',
   payerClaimControlNumber: 'ICN-123',
   allowed: 80,
   paid: 60,
   patientResp: 20,
   patientRespAdjustments: [{ groupCode: 'PR', reasonCode: '1', amount: 20 }],
-  serviceLines: [
-    {
-      itemSequence: 1,
-      isClaimLevel: false,
-      cptCode: '99213',
-      modifiers: ['25'],
-      units: 1,
-      serviceDate: '2026-07-09',
-      billed: 100,
-      allowed: 80,
-      paid: 60,
-      deductible: 20,
-      coinsurance: 0,
-      copay: 0,
-      adjustments: [
-        { groupCode: 'PR', reasonCode: '1', amount: 20 },
-        { groupCode: 'CO', reasonCode: '45', amount: 20 },
-      ],
-    },
-  ],
-  notes: ['Alert: claim processed under network agreement'],
+  serviceLines: [],
+  notes: [],
 };
 
 const unmatchedRemit: EraClaimRemit = {
@@ -132,23 +107,7 @@ const unmatchedRemit: EraClaimRemit = {
   paid: 0,
   patientResp: 25,
   patientRespAdjustments: [{ groupCode: 'PR', reasonCode: '3', amount: 25 }],
-  serviceLines: [
-    {
-      itemSequence: null,
-      isClaimLevel: true,
-      cptCode: '',
-      modifiers: [],
-      units: null,
-      serviceDate: '',
-      billed: null,
-      allowed: null,
-      paid: 0,
-      deductible: 0,
-      coinsurance: 0,
-      copay: 25,
-      adjustments: [{ groupCode: 'PR', reasonCode: '3', amount: 25 }],
-    },
-  ],
+  serviceLines: [],
   notes: [],
 };
 
@@ -170,6 +129,7 @@ const makeEra = (): EraDetailResponse => ({
     {
       claimId: 'c1',
       patientName: 'Doe, Jane',
+      patientDob: '2008-06-07',
       dos: '2026-07-09',
       billed: 100,
       allowed: 80,
@@ -177,6 +137,7 @@ const makeEra = (): EraDetailResponse => ({
       posted: 60,
       patientResp: 20,
       patientAccountNumber: 'abc123',
+      memberId: '999000111',
       status: 'complete',
       matched: true,
       claimResponseIds: ['cr-1'],
@@ -185,6 +146,7 @@ const makeEra = (): EraDetailResponse => ({
     {
       claimId: 'unmatched-cr-2',
       patientName: 'Smith, Riley',
+      patientDob: '',
       dos: '2026-06-30',
       billed: 80,
       allowed: 0,
@@ -192,6 +154,7 @@ const makeEra = (): EraDetailResponse => ({
       posted: 0,
       patientResp: 25,
       patientAccountNumber: 'ACC-7',
+      memberId: '',
       status: 'queued',
       matched: false,
       claimResponseIds: ['cr-2'],
@@ -206,7 +169,7 @@ function renderDetail(): void {
       <Routes>
         <Route path="/eras/:id" element={<ERADetail />} />
         <Route path="/eras" element={<div>ERA list</div>} />
-        <Route path="/claims/:id" element={<div>Claim page</div>} />
+        <Route path="/eras/:eraId/claims/:claimId" element={<div>Reimbursement page</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -254,54 +217,11 @@ describe('ERADetail', () => {
     expect(screen.queryByText('Payee')).not.toBeInTheDocument();
   });
 
-  it('shows the Patient Resp column and per-remit service line adjudication', async () => {
+  it('shows the Patient Resp column', async () => {
     renderDetail();
 
     expect(await screen.findByText('CHK-100')).toBeInTheDocument();
     expect(screen.getByTestId('grid-headers').textContent).toContain('Patient Resp');
-
-    const panel = within(screen.getByTestId('panel-c1'));
-    // claim info
-    expect(panel.getByText('abc123')).toBeInTheDocument();
-    expect(panel.getByText('ICN-123')).toBeInTheDocument();
-    expect(panel.getByText('Primary')).toBeInTheDocument();
-    // once as the patient-responsibility reason chip, once on the service line
-    expect(panel.getAllByText('PR-1 $20.00')).toHaveLength(2);
-    // service line
-    expect(panel.getByText('99213')).toBeInTheDocument();
-    expect(panel.getByText('25')).toBeInTheDocument();
-    expect(panel.getByText('$100.00')).toBeInTheDocument();
-    expect(panel.getByText('CO-45 $20.00')).toBeInTheDocument();
-    // payer remarks (RARC notes)
-    expect(panel.getByText('Alert: claim processed under network agreement')).toBeInTheDocument();
-
-    // claim-level CAS bucket on the unmatched claim renders a labeled row
-    const unmatchedPanel = within(screen.getByTestId('panel-unmatched-cr-2'));
-    expect(unmatchedPanel.getByText('Claim-level adjustments')).toBeInTheDocument();
-    expect(unmatchedPanel.getByText('Denied')).toBeInTheDocument();
-  });
-
-  it('explains adjustment codes on hover', async () => {
-    const user = userEvent.setup();
-    renderDetail();
-
-    const panel = within(await screen.findByTestId('panel-c1'));
-    await user.hover(panel.getByText('CO-45 $20.00'));
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      'Contractual Obligation — Charge exceeds fee schedule/maximum allowable or contracted/legislated fee arrangement.'
-    );
-  });
-
-  it('lists every CARC used on the ERA in the glossary with descriptions', async () => {
-    renderDetail();
-
-    expect(await screen.findByText('Adjustment reason codes (CARC)')).toBeInTheDocument();
-    expect(screen.getByText('Deductible amount.')).toBeInTheDocument();
-    expect(screen.getByText('Co-payment amount.')).toBeInTheDocument();
-    expect(
-      screen.getByText('Charge exceeds fee schedule/maximum allowable or contracted/legislated fee arrangement.')
-    ).toBeInTheDocument();
-    expect(screen.getByText('CO = Contractual Obligation · PR = Patient Responsibility')).toBeInTheDocument();
   });
 
   it('keeps the Match button on unmatched rows', async () => {
@@ -312,16 +232,12 @@ describe('ERADetail', () => {
     expect(row.getByRole('button', { name: 'Match' })).toBeInTheDocument();
   });
 
-  it('navigates to the claim on cell click but not on the detail panel toggle', async () => {
+  it('drills into the reimbursement page on row click, for unmatched rows too', async () => {
     const user = userEvent.setup();
     renderDetail();
 
     expect(await screen.findByText('CHK-100')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'toggle-c1' }));
-    expect(screen.queryByText('Claim page')).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'open-c1' }));
-    expect(await screen.findByText('Claim page')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'open-unmatched-cr-2' }));
+    expect(await screen.findByText('Reimbursement page')).toBeInTheDocument();
   });
 });

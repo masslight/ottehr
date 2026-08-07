@@ -1,10 +1,4 @@
-import {
-  ArrowBack as ArrowBackIcon,
-  MoreVert as MoreVertIcon,
-  Search as SearchIcon,
-  UnfoldLess as UnfoldLessIcon,
-  UnfoldMore as UnfoldMoreIcon,
-} from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, MoreVert as MoreVertIcon, Search as SearchIcon } from '@mui/icons-material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Alert,
@@ -28,29 +22,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import {
-  DataGridPro,
-  GRID_DETAIL_PANEL_TOGGLE_FIELD,
-  GridColDef,
-  GridRowId,
-  GridRowParams,
-} from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  carcDescription,
-  EraClaimListItem,
-  EraDetailResponse,
-  EraPayee,
-  formatCurrency,
-  getApiError,
-  X12_ADJUSTMENT_GROUP_LABELS,
-  X12AdjustmentGroupCode,
-} from 'utils';
+import { EraDetailResponse, EraPayee, formatCurrency, getApiError } from 'utils';
 import { getBillingEraDetail, unmatchClaimResponse } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { EraClaimDetailPanel } from '../components/EraClaimDetailPanel';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { ReadOnlySection } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
@@ -92,13 +70,6 @@ export default function ERADetail(): ReactElement {
     element: HTMLButtonElement;
     claimResponseIds: string[];
   } | null>(null);
-  const [expandedRowIds, setExpandedRowIds] = useState<GridRowId[]>([]);
-
-  const getDetailPanelContent = useCallback(
-    ({ row }: GridRowParams) => <EraClaimDetailPanel claim={row as EraClaimListItem} />,
-    []
-  );
-  const getDetailPanelHeight = useCallback(() => 'auto' as const, []);
 
   const claimColumns: GridColDef[] = [
     {
@@ -263,16 +234,6 @@ export default function ERADetail(): ReactElement {
               <Typography variant="h6" color="primary.dark" fontWeight={600}>
                 Claims ({era.totalClaims})
               </Typography>
-              <Button
-                variant="text"
-                size="small"
-                startIcon={expandedRowIds.length > 0 ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
-                onClick={() =>
-                  setExpandedRowIds(expandedRowIds.length > 0 ? [] : filteredClaims.map((claim) => claim.claimId))
-                }
-              >
-                {expandedRowIds.length > 0 ? 'Collapse all' : 'Expand all'}
-              </Button>
             </Box>
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -321,14 +282,7 @@ export default function ERADetail(): ReactElement {
               rows={filteredClaims}
               columns={claimColumns}
               getRowId={(row) => row.claimId}
-              onCellClick={(params) => {
-                if (params.field === GRID_DETAIL_PANEL_TOGGLE_FIELD) return;
-                if (params.row.matched) navigate(`/claims/${params.id}`);
-              }}
-              getDetailPanelContent={getDetailPanelContent}
-              getDetailPanelHeight={getDetailPanelHeight}
-              detailPanelExpandedRowIds={expandedRowIds}
-              onDetailPanelExpandedRowIdsChange={(ids) => setExpandedRowIds(ids)}
+              onRowClick={(params) => navigate(`/eras/${id}/claims/${params.id}`)}
               disableRowSelectionOnClick
               disableColumnMenu
               autoHeight
@@ -337,8 +291,6 @@ export default function ERADetail(): ReactElement {
               slots={dataGridSlots()}
               sx={{ ...dataGridSx }}
             />
-
-            <CarcGlossary claims={era.claims} />
           </TabPanel>
         </TabContext>
       </Box>
@@ -399,67 +351,6 @@ export default function ERADetail(): ReactElement {
           </List>
         </Popover>
       ) : null}
-    </Box>
-  );
-}
-
-// Every distinct adjustment code used on this ERA with its human-readable explanation — the
-// paper-EOB style glossary of why the payer adjudicated the way it did.
-function CarcGlossary({ claims }: { claims: EraClaimListItem[] }): ReactElement | null {
-  const { reasonCodes, groupCodes } = useMemo(() => {
-    const reasons = new Set<string>();
-    const groups = new Set<X12AdjustmentGroupCode>();
-    for (const claim of claims) {
-      for (const remit of claim.remits) {
-        const adjustments = [
-          ...remit.patientRespAdjustments,
-          ...remit.serviceLines.flatMap((line) => line.adjustments),
-        ];
-        for (const adjustment of adjustments) {
-          if (adjustment.reasonCode) reasons.add(adjustment.reasonCode);
-          groups.add(adjustment.groupCode);
-        }
-      }
-    }
-    const sorted = [...reasons].sort((a, b) => {
-      const numA = Number.parseInt(a, 10);
-      const numB = Number.parseInt(b, 10);
-      if (!Number.isNaN(numA) && !Number.isNaN(numB)) return numA - numB;
-      if (!Number.isNaN(numA)) return -1;
-      if (!Number.isNaN(numB)) return 1;
-      return a.localeCompare(b);
-    });
-    return { reasonCodes: sorted, groupCodes: [...groups].sort() };
-  }, [claims]);
-
-  if (reasonCodes.length === 0 && groupCodes.length === 0) return null;
-
-  return (
-    <Box sx={{ mt: 3 }}>
-      <ReadOnlySection title="Adjustment reason codes (CARC)">
-        {groupCodes.length > 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {groupCodes.map((code) => `${code} = ${X12_ADJUSTMENT_GROUP_LABELS[code]}`).join(' · ')}
-          </Typography>
-        )}
-        {reasonCodes.map((code) => (
-          <Box
-            key={code}
-            sx={{
-              display: 'flex',
-              gap: 2,
-              py: 0.75,
-              borderBottom: `1px solid ${otherColors.lightDivider}`,
-              '&:last-child': { borderBottom: 'none' },
-            }}
-          >
-            <Typography variant="body2" fontWeight={600} sx={{ minWidth: 48 }}>
-              {code}
-            </Typography>
-            <Typography variant="body2">{carcDescription(code) ?? 'No description available'}</Typography>
-          </Box>
-        ))}
-      </ReadOnlySection>
     </Box>
   );
 }

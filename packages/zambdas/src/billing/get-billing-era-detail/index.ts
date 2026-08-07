@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Patient, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Patient, PaymentReconciliation } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
@@ -24,6 +24,7 @@ import {
   findRef,
   getEraCheckNumber,
   resolvePayersByRef,
+  sortClaimInsurance,
 } from '../shared';
 import { GetEraDetailParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -123,6 +124,26 @@ export async function performEffect(
       patients.push(patient);
     });
 
+  // Focal coverage per claim -> member id, the same field the claim detail screen shows.
+  // Self-pay stubs use logical references (no Coverage/<id>), so they drop out here.
+  const coverageIdByClaimId = new Map<string, string>();
+  for (const claim of claims) {
+    const coverageRef = [...sortClaimInsurance(claim)]
+      .sort((a, b) => (b.focal ? 1 : 0) - (a.focal ? 1 : 0))
+      .map((entry) => entry.coverage?.reference)
+      .find((ref): ref is string => !!ref && ref.startsWith('Coverage/'));
+    if (claim.id && coverageRef) coverageIdByClaimId.set(claim.id, coverageRef.replace('Coverage/', ''));
+  }
+  const coverages: Coverage[] = [];
+  const coverageIds = [...new Set(coverageIdByClaimId.values())];
+  if (coverageIds.length > 0) {
+    const coverageResult = await oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: '_id', value: coverageIds.join(',') }],
+    });
+    coverages.push(...coverageResult.unbundle());
+  }
+
   const claimItems = claims.map((claim) => {
     const claimResponses = responsesByClaimId.get(claim.id ?? '') ?? [];
     const patient = findRef<Patient>(patients, claim.patient?.reference);
@@ -133,9 +154,16 @@ export async function performEffect(
     const orderedResponses = sortClaimResponsesByRecency(claimResponses);
     const latestStatus = orderedResponses.at(-1)?.outcome ?? '';
 
+    const coverageId = coverageIdByClaimId.get(claim.id ?? '');
+    const coverage = coverageId ? coverages.find((candidate) => candidate.id === coverageId) : undefined;
+    const containedCoverage = orderedResponses
+      .flatMap((claimResponse) => claimResponse.contained ?? [])
+      .find((resource): resource is Coverage => resource.resourceType === 'Coverage');
+
     return {
       claimId: claim.id ?? '',
       patientName: fhirName(patient),
+      patientDob: patient?.birthDate ?? '',
       dos: claim.item?.[0]?.servicedPeriod?.start ?? claim.created ?? '',
       billed,
       allowed: payments.allowed,
@@ -143,6 +171,7 @@ export async function performEffect(
       posted: payments.insurancePaid,
       patientResp: payments.patientResp,
       patientAccountNumber: eraPatientAccountNumber(claimResponses, claim, matched),
+      memberId: coverage?.subscriberId ?? containedCoverage?.subscriberId ?? '',
       status: latestStatus,
       matched,
       claimResponseIds: orderedResponses

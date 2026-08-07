@@ -216,6 +216,7 @@ export interface EraPayee {
 export interface EraClaimListItem {
   claimId: string;
   patientName: string;
+  patientDob: string;
   dos: string;
   billed: number;
   allowed: number;
@@ -224,6 +225,9 @@ export interface EraClaimListItem {
   patientResp: number;
   // CLP01 patient control number: the patient account number echoed back from the submitted claim
   patientAccountNumber: string;
+  // the focal coverage's subscriber id (the same field the claim detail screen shows); '' when the
+  // claim is unmatched or self-pay
+  memberId: string;
   status: string;
   matched: boolean;
   claimResponseIds: string[];

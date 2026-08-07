@@ -3,6 +3,7 @@ import {
   Claim,
   ClaimResponse,
   ClaimResponseItemAdjudication,
+  Coverage,
   Organization,
   Patient,
   PaymentReconciliation,
@@ -166,7 +167,7 @@ const submittedClaim: Claim = {
   priority: { coding: [] },
   patient: { reference: 'Patient/p1' },
   provider: { reference: 'Organization/prov-1' },
-  insurance: [],
+  insurance: [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/cov-1' } }],
   total: { value: 100, currency: 'USD' },
   item: [
     {
@@ -182,6 +183,16 @@ const patient: Patient = {
   resourceType: 'Patient',
   id: 'p1',
   name: [{ family: 'Doe', given: ['Jane'] }],
+  birthDate: '2008-06-07',
+};
+
+const coverage: Coverage = {
+  resourceType: 'Coverage',
+  id: 'cov-1',
+  status: 'active',
+  subscriberId: '999000111',
+  beneficiary: { reference: 'Patient/p1' },
+  payor: [{ display: 'Acme' }],
 };
 
 const makeEraReadClient = (): Oystehr =>
@@ -198,10 +209,12 @@ const makeEraReadClient = (): Oystehr =>
 const makeBillingClient = (): Oystehr =>
   ({
     fhir: {
-      search: vi.fn().mockResolvedValue({
-        unbundle: () => [submittedClaim, patient],
-        link: [],
-      }),
+      search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
+        Promise.resolve({
+          unbundle: () => (resourceType === 'Coverage' ? [coverage] : [submittedClaim, patient]),
+          link: [],
+        })
+      ),
     },
   }) as unknown as Oystehr;
 
@@ -257,10 +270,13 @@ describe('get-billing-era-detail performEffect', () => {
     expect(matched).toMatchObject({
       matched: true,
       patientName: 'Doe, Jane',
+      patientDob: '2008-06-07',
       dos: '2026-07-09',
       billed: 100,
       // the CLP01 the payer echoed, not our own claim's PCN
       patientAccountNumber: 'ECHOED-PCN',
+      // the focal coverage's subscriber id
+      memberId: '999000111',
     });
     expect(matched?.remits.map((remit) => remit.claimResponseId)).toEqual(['cr-1', 'cr-1r']);
     expect(matched?.claimResponseIds).toEqual(['cr-1', 'cr-1r']);
@@ -286,6 +302,9 @@ describe('get-billing-era-detail performEffect', () => {
       claimId: 'unmatched-cr-2',
       patientName: 'Smith, Riley',
       patientAccountNumber: 'ACC-7',
+      // the converter writes no contained Coverage or birth date
+      memberId: '',
+      patientDob: '',
     });
     expect(unmatched?.remits).toHaveLength(1);
     expect(unmatched?.remits[0]).toMatchObject({ eraStatusCode: '4', payerClaimControlNumber: 'ICN-cr-2' });

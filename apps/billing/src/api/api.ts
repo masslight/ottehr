@@ -313,6 +313,28 @@ export const searchBillingDiagnosisCodes = async (
   return { codes };
 };
 
+// Display text for exact procedure codes (the ERA drill-in shows "I&D of Abscess (10060)").
+// Submitted claims store bare codes, so the terminology service is the only description source;
+// codes it doesn't know are omitted and the caller falls back to the bare code.
+export const lookupProcedureDescriptions = async (
+  oystehr: Oystehr,
+  codes: string[]
+): Promise<Record<string, string>> => {
+  const descriptions: Record<string, string> = {};
+  await Promise.all(
+    [...new Set(codes.filter(Boolean))].map(async (code) => {
+      try {
+        const { codes: found } = await searchBillingProcedureCodes(oystehr, { query: code });
+        const display = found.find((option) => option.code === code)?.display;
+        if (display) descriptions[code] = display;
+      } catch {
+        // unknown code — bare code is shown instead
+      }
+    })
+  );
+  return descriptions;
+};
+
 // --- Tags ---
 
 export const searchBillingTags = (oystehr: Oystehr): Promise<SearchBillingTagsResponse> =>
