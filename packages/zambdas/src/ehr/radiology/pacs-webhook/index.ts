@@ -293,6 +293,7 @@ const handleCreateDiagnosticReport = async (
   await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
+/** returns requests to update our diagnostic report and potentially also a request to post review task */
 const handleUpdateDiagnosticReportRequests = (
   drToUpdate: DiagnosticReport,
   advaPacsDiagnosticReport: DiagnosticReport,
