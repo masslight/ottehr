@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { BILLING_RESOURCE_TAG, getSecret, PAYMENT_METHOD_EXTENSION_URL, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
+  encounterIdFromStripeMetadata,
   getStripeClient,
   shouldUseOttehrBilling,
   STRIPE_PAYMENT_ID_SYSTEM,
@@ -50,7 +51,7 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     case 'charge.succeeded':
     case 'charge.updated': {
       const charge = event.data.object as Stripe.Charge;
-      console.log(`Charge event for ${charge.id}, oystehr_encounter_id: ${charge.metadata?.oystehr_encounter_id}`);
+      console.log(`Charge event for ${charge.id}, encounter: ${encounterIdFromStripeMetadata(charge.metadata)}`);
       await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, event.account, secrets);
       break;
     }
@@ -99,7 +100,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets']
 ): Promise<void> => {
-  const encounterId = charge.metadata?.oystehr_encounter_id ?? charge.metadata?.encounterId;
+  const encounterId = encounterIdFromStripeMetadata(charge.metadata);
   if (!encounterId) {
     console.warn(`Charge ${charge.id} has no encounter metadata; skipping PaymentNotice upsert`);
     return;
@@ -195,7 +196,7 @@ const upsertPaymentNoticeForRefund = async (
   // refunds carry no metadata, the charge has the encounter id
   const charge = await getStripeClient(secrets).charges.retrieve(chargeId, undefined, { stripeAccount });
 
-  const encounterId = charge.metadata?.oystehr_encounter_id ?? charge.metadata?.encounterId;
+  const encounterId = encounterIdFromStripeMetadata(charge.metadata);
   if (!encounterId) {
     console.warn(`Charge ${charge.id} for refund ${refund.id} has no encounter metadata; skipping`);
     return;
