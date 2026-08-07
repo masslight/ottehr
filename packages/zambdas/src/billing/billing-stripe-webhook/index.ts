@@ -51,7 +51,7 @@ export const performEffect = async (oystehr: Oystehr, params: BillingStripeWebho
     case 'charge.succeeded':
     case 'charge.updated': {
       const charge = event.data.object as Stripe.Charge;
-      console.log(`Charge event for ${charge.id}, encounter: ${encounterIdFromStripeMetadata(charge.metadata)}`);
+      console.log(`Charge event for ${charge.id}, invoice: ${chargeInvoiceId(charge) ?? 'none'}`);
       await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, event.account, secrets);
       break;
     }
@@ -94,15 +94,44 @@ const billingProviderRefForStripeAccount = async (
   return { reference: `Organization/${getSecret(SecretsKeys.ORGANIZATION_ID, secrets)}` };
 };
 
+const chargeInvoiceId = (charge: Stripe.Charge): string | undefined =>
+  (typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id) || undefined;
+
+const resolveEncounterIdForCharge = async (
+  charge: Stripe.Charge,
+  stripeAccount: string | undefined,
+  secrets: ZambdaInput['secrets']
+): Promise<string | undefined> => {
+  const fromCharge = encounterIdFromStripeMetadata(charge.metadata);
+  if (fromCharge) return fromCharge;
+
+  if (!charge.invoice) return undefined;
+  if (typeof charge.invoice !== 'string') return encounterIdFromStripeMetadata(charge.invoice.metadata);
+
+  try {
+    const invoice = await getStripeClient(secrets).invoices.retrieve(charge.invoice, undefined, { stripeAccount });
+    return encounterIdFromStripeMetadata(invoice.metadata);
+  } catch (error) {
+    // a deleted invoice is terminal, anything else is worth the redelivery a throw earns us
+    if ((error as Stripe.errors.StripeError)?.code === 'resource_missing') {
+      console.warn(`Stripe invoice ${charge.invoice} for charge ${charge.id} no longer exists; skipping`);
+      return undefined;
+    }
+    throw error;
+  }
+};
+
 const upsertPaymentNoticeOnBillingClaimForCharge = async (
   oystehr: Oystehr,
   charge: Stripe.Charge,
   stripeAccount: string | undefined,
   secrets: ZambdaInput['secrets']
 ): Promise<void> => {
-  const encounterId = encounterIdFromStripeMetadata(charge.metadata);
+  const encounterId = await resolveEncounterIdForCharge(charge, stripeAccount, secrets);
+  const invoiceId = chargeInvoiceId(charge);
   if (!encounterId) {
-    console.warn(`Charge ${charge.id} has no encounter metadata; skipping PaymentNotice upsert`);
+    const source = invoiceId ? `charge ${charge.id} nor its invoice ${invoiceId}` : `charge ${charge.id}`;
+    console.warn(`Neither ${source} has encounter metadata; skipping PaymentNotice upsert`);
     return;
   }
 
@@ -122,7 +151,9 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     id: 'contained-reconciliation',
     status: 'active',
     created,
-    disposition: `Stripe charge ${charge.id} ${charge.status ?? ''}`.trim(),
+    disposition: `Stripe charge ${charge.id} ${charge.status ?? ''}${invoiceId ? ` for invoice ${invoiceId}` : ''}`
+      .replace(/\s+/g, ' ')
+      .trim(),
     outcome: charge.paid ? 'complete' : 'partial',
     paymentDate: created.slice(0, 10),
     paymentAmount,
@@ -193,10 +224,10 @@ const upsertPaymentNoticeForRefund = async (
     console.warn(`Refund ${refund.id} has no charge; skipping PaymentNotice upsert`);
     return;
   }
-  // refunds carry no metadata, the charge has the encounter id
-  const charge = await getStripeClient(secrets).charges.retrieve(chargeId, undefined, { stripeAccount });
+  // refunds carry no metadata, the charge (or the invoice behind it) has the encounter id
+  const charge = await getStripeClient(secrets).charges.retrieve(chargeId, { expand: ['invoice'] }, { stripeAccount });
 
-  const encounterId = encounterIdFromStripeMetadata(charge.metadata);
+  const encounterId = await resolveEncounterIdForCharge(charge, stripeAccount, secrets);
   if (!encounterId) {
     console.warn(`Charge ${charge.id} for refund ${refund.id} has no encounter metadata; skipping`);
     return;
